@@ -19,3 +19,18 @@
 
 # Go workspace file
 go.work
+
+# IDE
+.project
+.settings
+.idea/
+.vscode
+venv/
+out/
+
+# macOS Finder files
+*.DS_Store
+._*
+
+# Dev environment
+bin/
