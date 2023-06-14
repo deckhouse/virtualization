@@ -1,0 +1,49 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmi-controller
+  labels:
+    heritage: {{ .Release.Name }}
+    app: vmi-controller-{{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vmi-controller-{{ .Release.Name }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        heritage: {{ .Release.Name }}
+        app: vmi-controller-{{ .Release.Name }}
+      annotations:
+        hack/pod-restart: {{ now | date "20060102150405" | quote }}
+    spec:
+      containers:
+      - name: deckhouse
+        image: {{ .Values.image | quote }}
+        imagePullPolicy: Always
+        command:
+          - /vmi-controller
+        env:
+        - name: LOG_LEVEL
+          value: debug
+        - name: LOG_TYPE
+          value: text
+        #livenessProbe:
+        #  httpGet:
+        #    path: /healthz
+        #    port: 9650
+        #readinessProbe:
+        #  httpGet:
+        #    path: /ready
+        #    port: 9650
+        #  initialDelaySeconds: 5
+        #  # fail after 10 minutes
+        #  periodSeconds: 5
+        #  failureThreshold: 120
+      #hostNetwork: true
+      dnsPolicy: Default
+      serviceAccountName: vmi-controller

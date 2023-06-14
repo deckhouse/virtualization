@@ -1,0 +1,116 @@
+version: "3"
+
+silent: true
+
+env:
+  K8S_CODEGEN:
+    sh: echo $GOPATH/pkg/mod/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
+  VMI_IMAGE:
+    sh: grep 'image:' ./local/vmi/values.yaml | cut -d' ' -f 2-
+
+tasks:
+  vmi:build:
+    desc: "Build vmi-controller image"
+    env:
+
+    cmds:
+      - |
+        docker build \
+            -f ./local/vmi/Dockerfile \
+            -t ${VMI_IMAGE} \
+            .
+      - docker push ${VMI_IMAGE}
+
+
+  vmi:run:
+    desc: "Install vmi-controller into local kind cluster using helm"
+    deps:
+      - _ensure:helm
+      - _ensure:kind
+      - _ensure:kubectl
+      - _ensure:kind-cluster
+    cmds:
+      - (docker images | grep 'vmi-controller.*latest') || (echo "Image should be built"; exit 1)
+      - |
+        mkdir -p local/vmi/crds
+        cp apis/*.yaml local/vmi/crds
+      - |
+        helm upgrade --install \
+          --namespace vmi-controller \
+          --create-namespace \
+          vmi-controller ./local/vmi
+
+  vmi:delete:
+    desc: "Delete vmi-controller from local kind cluster using helm"
+    deps:
+      - _ensure:helm
+      - _ensure:kind
+      - _ensure:kubectl
+      - _ensure:kind-cluster
+    cmds:
+      - |
+        helm delete \
+          --namespace vmi-controller \
+          vmi-controller
+      - |
+        kubectl delete ns/vmi-controller
+
+  gen:apis:
+    desc: "Regenerate deepcopy code for CRDs."
+    deps:
+      - _ensure:k8s-codegen-mod
+    cmds:
+      - |
+        # Use only deepcopy generator. Use . for output-base to update files in apis/v1alpha1 directory.
+        $K8S_CODEGEN/generate-groups.sh \
+          deepcopy \
+          github.com/deckhouse/virtualization-controller \
+          . \
+          "apis:v1alpha1" \
+          --go-header-file "./scripts/boilerplate.go.txt" \
+          --output-base .
+
+  ci:verify-gen:
+    desc: "Check generated files are up-to-date."
+    deps:
+      - apis-gen
+    cmds:
+      - |
+        git diff --exit-code || (echo "Please run task gen:apis and commit changes" && exit 1)
+
+  _ensure:k8s-codegen-mod:
+    desc: "Ensure k8s.io/codegen module is present"
+    cmds:
+      - echo -e "Path K8S_CODEGEN=${K8S_CODEGEN} should exists.\nAdd k8s.io/code-generator to go.mod and run go mod download" > /dev/stderr
+      - exit 1
+    status:
+      - |
+        ls $K8S_CODEGEN && find $K8S_CODEGEN -name \*.sh -exec chmod +x {} \;
+
+  _ensure:helm:
+    desc: "Ensure helm is installed"
+    cmds:
+      - echo "Install helm" && exit 1
+    status:
+      - which helm >/dev/null
+
+  _ensure:kind:
+    desc: "Ensure kind is installed"
+    cmds:
+      - echo "Install kind" && exit 1
+    status:
+      - which kind >/dev/null
+
+  _ensure:kubectl:
+    desc: "Ensure kubectl is installed"
+    cmds:
+      - echo "Install kubectl" && exit 1
+    status:
+      - which kubectl >/dev/null && kubectl version >/dev/null
+
+  _ensure:kind-cluster:
+    desc: "Ensure kubectl is installed"
+    cmds:
+      - echo "Start kind cluster" && exit 1
+    status:
+      - kubectl version >/dev/null

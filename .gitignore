@@ -34,3 +34,6 @@ out/
 
 # Dev environment
 bin/
+
+# Local overrides with tasks
+Taskfile.yaml
