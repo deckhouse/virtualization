@@ -1,0 +1,11 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterVirtualMachineImage
+metadata:
+  name: example
+spec:
+  dataSource:
+    type: HTTP
+    http:
+      url: 'https://example.example/latest.iso'
+      checksum:
+        sha256: AAAAAAAAAAAAAAAAAAAAAAAAAAA
