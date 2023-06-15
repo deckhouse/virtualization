@@ -1,4 +1,5 @@
-FROM golang:1.20-alpine3.16 as builder
+ARG BUILDER_CACHE_IMAGE=golang:1.20-alpine3.16
+FROM $BUILDER_CACHE_IMAGE as builder
 
 # Cache-friendly download modules.
 ADD go.mod go.sum /app/
@@ -13,5 +14,4 @@ RUN GOOS=linux \
 
 
 FROM alpine:3.18
-
 COPY --from=builder /app/vmi-controller /

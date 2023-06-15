@@ -4,31 +4,79 @@ silent: true
 
 env:
   K8S_CODEGEN:
-    sh: echo $GOPATH/pkg/mod/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
+    sh: echo ${GOPATH:-$HOME/go}/pkg/mod/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
   VMI_IMAGE:
-    sh: grep 'image:' ./local/vmi/values.yaml | cut -d' ' -f 2-
+    sh: echo ${VMI_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller:latest}
+  VMI_BUILDER_IMAGE:
+    sh: echo ${VMI_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller-builder:latest}
 
 tasks:
-  vmi:build:
-    desc: "Build vmi-controller image"
-    env:
-
+  dev:converge:
+    desc: "Rebuild and deploy all components into cluster"
     cmds:
+      - task: dev:vmi:build
+      - task: dev:vmi:run
+
+  dev:cluster:reset:
+    desc: "Setup or reset local kubernetes cluster using k3d"
+    deps:
+      - _ensure:k3d
+      - _ensure:kubectl
+      - _ensure:k3d-registry-domain
+      # TODO: enable following check only for Linux
+      # - _ensure:k3d-registry-insecure-allowed
+    cmds:
+      - k3d registry delete --all || true
+      - k3d cluster delete || true
+      - k3d registry create registry.virtualization-controller.test --port 5000 --image ghcr.io/werf/test-registry:latest
+      - k3d cluster create --api-port 6550 -p "80:80@loadbalancer" --registry-use k3d-registry.virtualization-controller.test:5000
+
+      # TODO: install kubevirt here
       - |
-        docker build \
+        # Install CDI
+        export TAG=$(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest)
+        export VERSION=$(echo ${TAG##*/})
+        kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
+        kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
+
+      - |
+        # Bootstrap builder image (only needed for build with BUILDER_CACHE_IMAGE)
+        docker tag golang:1.20-alpine3.16 $VMI_BUILDER_IMAGE
+        docker push $VMI_BUILDER_IMAGE
+
+  dev:vmi:build:
+    desc: "Build vmi-controller image for local dev"
+    cmds:
+      # Simple build without BUILDER_CACHE_IMAGE build-arg (slower, but simple)
+      #- |
+      #  docker build . \
+      #      -f ./local/vmi/Dockerfile \
+      #      -t ${VMI_IMAGE}
+      #  docker push ${VMI_IMAGE}
+
+      # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
+      - |
+        docker build . \
             -f ./local/vmi/Dockerfile \
-            -t ${VMI_IMAGE} \
-            .
-      - docker push ${VMI_IMAGE}
+            --build-arg BUILDER_CACHE_IMAGE=${VMI_BUILDER_IMAGE} \
+            -t ${VMI_IMAGE}
+        docker push ${VMI_IMAGE}
 
+      - |
+        docker build . \
+            -f ./local/vmi/Dockerfile \
+            --build-arg BUILDER_CACHE_IMAGE=${VMI_BUILDER_IMAGE} \
+            --target builder \
+            -t ${VMI_BUILDER_IMAGE}
+        docker push ${VMI_BUILDER_IMAGE}
 
-  vmi:run:
-    desc: "Install vmi-controller into local kind cluster using helm"
+  dev:vmi:run:
+    desc: "Install vmi-controller into the cluster using helm"
     deps:
       - _ensure:helm
       - _ensure:kind
       - _ensure:kubectl
-      - _ensure:kind-cluster
+      - _ensure:cluster-available
     cmds:
       - (docker images | grep 'vmi-controller.*latest') || (echo "Image should be built"; exit 1)
       - |
@@ -38,15 +86,21 @@ tasks:
         helm upgrade --install \
           --namespace vmi-controller \
           --create-namespace \
+          --set image=$VMI_IMAGE \
           vmi-controller ./local/vmi
 
-  vmi:delete:
+  dev:vmi:logs:
+    desc: "Watch current vmi-controller logs"
+    cmds:
+      - "kubectl -n vmi-controller logs -f $(kubectl -n vmi-controller get pod | grep vmi-controller | cut -d' ' -f1)"
+
+  dev:vmi:delete:
     desc: "Delete vmi-controller from local kind cluster using helm"
     deps:
       - _ensure:helm
       - _ensure:kind
       - _ensure:kubectl
-      - _ensure:kind-cluster
+      - _ensure:cluster-available
     cmds:
       - |
         helm delete \
@@ -108,9 +162,26 @@ tasks:
     status:
       - which kubectl >/dev/null && kubectl version >/dev/null
 
-  _ensure:kind-cluster:
-    desc: "Ensure kubectl is installed"
+  _ensure:cluster-available:
+    desc: "Ensure kubernetes cluster available"
     cmds:
-      - echo "Start kind cluster" && exit 1
+      - echo "No cluster availble, you can use 'task dev:cluster:reset' to setup local k3d cluster" && exit 1
     status:
       - kubectl version >/dev/null
+
+  _ensure:k3d:
+    desc: "Ensure k3d is installed"
+    cmds:
+      - echo "Install k3d" && exit 1
+    status:
+      - which k3d >/dev/null
+
+  _ensure:k3d-registry-domain:
+    desc: "Ensure k3d registry domain available locally"
+    cmds:
+      - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please set '127.0.0.1   k3d-registry.virtualization-controller.test' line into your /etc/hosts" && exit 1)
+
+  _ensure:k3d-registry-insecure-allowed:
+    desc: "Ensure docker daemon allows insecure k3d registry"
+    cmds:
+      - grep 'k3d-registry.virtualization-controller.test' /etc/docker/daemon.json || (echo >&2 "Please set 'http://k3d-registry.virtualization-controller.test:5000' as insecure registry in your /etc/docker/daemon.json, then restart docker daemon by running 'sudo systemctl daemon-reload && sudo systemctl restart docker'" && exit 1)

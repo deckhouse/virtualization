@@ -121,6 +121,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if _, err := controller.NewVMDController(ctx, mgr, log); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 	//if _, err := controller.NewVMIController(ctx, mgr, log); err != nil {
 	//	log.Error(err, "")
 	//	os.Exit(1)

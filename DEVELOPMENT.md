@@ -2,7 +2,7 @@
 - IDE
 - Go 1.20
 - [task](https://taskfile.dev/) utility to run tasks
-- docker and [kind](https://kind.sigs.k8s.io/) to start local cluster
+- docker and [k3d](https://k3d.io/) or [kind](https://kind.sigs.k8s.io/) to start local cluster
 - helm and kubectl
 
 ## Taskfile
@@ -11,20 +11,37 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.yam
 
 ## Test in local cluster
 
-Build and run:
+0. Bootstrap local cluster (or reset existing one):
 
-```
-task vmi:build vmi:run
-```
+    ```
+    task dev:cluster:reset
+    ```
 
-`vmi:run` will copy YAML manifests from apis directory into crds directory before
-installing Helm chart.
+1. Build and run cycle:
 
-Delete release:
+    ```
+    task dev:vmi:build dev:vmi:run
+    ```
 
-```
-task vmi:delete
-```
+    or simply:
+
+    ```
+    task dev:converge
+    ```
+
+    `dev:vmi:run` will copy YAML manifests from apis directory into crds directory before installing Helm chart.
+
+2. Run infinite logs watcher (restart this task after each build and run cycle):
+
+    ```
+    task dev:vmi:logs
+    ```
+
+2. Delete release:
+
+    ```
+    task dev:vmi:delete
+    ```
 
 ## CRDs
 
