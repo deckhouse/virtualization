@@ -74,7 +74,6 @@ tasks:
     desc: "Install vmi-controller into the cluster using helm"
     deps:
       - _ensure:helm
-      - _ensure:kind
       - _ensure:kubectl
       - _ensure:cluster-available
     cmds:
@@ -95,10 +94,9 @@ tasks:
       - "kubectl -n vmi-controller logs -f $(kubectl -n vmi-controller get pod | grep vmi-controller | cut -d' ' -f1)"
 
   dev:vmi:delete:
-    desc: "Delete vmi-controller from local kind cluster using helm"
+    desc: "Delete vmi-controller from the cluster using helm"
     deps:
       - _ensure:helm
-      - _ensure:kind
       - _ensure:kubectl
       - _ensure:cluster-available
     cmds:
