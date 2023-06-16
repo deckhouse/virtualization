@@ -39,7 +39,12 @@ spec:
                       type: string
                 dataSource:
                   type: object
-                  properties: {}
+                  properties:
+                    http:
+                      type: object
+                      properties:
+                        url:
+                          type: string
             status:
               type: object
               properties:

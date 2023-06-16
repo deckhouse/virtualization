@@ -1,0 +1,11 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: vmd-sample
+spec:
+  persistentVolumeClaim:
+    size: 10Gi
+    storageClassName: csi-sanlock-lvm-storageclass
+  dataSource:
+    http:
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
