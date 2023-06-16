@@ -1,6 +1,8 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 const (
 	VMDKind     = "VirtualMachineDisk"
@@ -21,15 +23,16 @@ type VirtualMachineDisk struct {
 }
 
 type VirtualMachineDiskSpec struct {
-	DataSource            DataSource                              `json:"dataSource,omitempty"`
-	PersistentVolumeClaim VirtualMachineDiskPersistentVolumeClaim `json:"persistentVolumeClaim"`
+	DataSource            DataSource                          `json:"dataSource,omitempty"`
+	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
 type VirtualMachineDiskStatus struct{}
 
-type VirtualMachineDiskPersistentVolumeClaim struct {
+type VirtualMachinePersistentVolumeClaim struct {
+	// TODO: required or optional
+	StorageClassName string `json:"storageClassName"`
 	Size             string `json:"size"`
-	StorageClassName string `json:"storageClassName,omitempty"`
 }
 
 // VirtualMachineDiskList contains a list of VirtualMachineDisk
@@ -39,3 +42,11 @@ type VirtualMachineDiskList struct {
 	metav1.ListMeta `json:"metadata"`
 	Items           []VirtualMachineDisk `json:"items"`
 }
+
+type VirtualMachineDiskPhase string
+
+var (
+	// TODO: unify with VMI phases (?)
+	VMDPending      VirtualMachineDiskPhase = "Pending"
+	VMDProvisioning VirtualMachineDiskPhase = "Provisioning"
+)
