@@ -48,17 +48,11 @@ spec:
             status:
               type: object
               properties:
-                persistentVolumeClaimName:
-                  type: string
                 phase:
                   type: string
-                  enum:
-                    - Pending
-                    - WaitForUserUpload
-                    - Provisioning
-                    - Ready
-                    - Failed
-                    - NotReady
+                  enum: [ 'Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'PVCLost' ]
+                persistentVolumeClaimName:
+                  type: string
                 uploadCommand:
                   type: string
                 progress:

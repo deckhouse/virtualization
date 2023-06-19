@@ -157,7 +157,7 @@ tasks:
     cmds:
       - echo "Install kubectl" && exit 1
     status:
-      - which kubectl >/dev/null && kubectl version >/dev/null
+      - which kubectl >/dev/null
 
   _ensure:cluster-available:
     desc: "Ensure kubernetes cluster available"

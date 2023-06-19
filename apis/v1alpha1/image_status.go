@@ -1,14 +1,14 @@
 package v1alpha1
 
-type ImageStatusPhase string
+type ImagePhase string
 
 const (
-	PhasePending           ImageStatusPhase = "Pending"
-	PhaseWaitForUserUpload ImageStatusPhase = "WaitForUserUpload"
-	PhaseProvisioning      ImageStatusPhase = "Provisioning"
-	PhaseReady             ImageStatusPhase = "Ready"
-	PhaseFailed            ImageStatusPhase = "Failed"
-	PhaseNotReady          ImageStatusPhase = "NotReady"
+	ImagePending           ImagePhase = "Pending"
+	ImageWaitForUserUpload ImagePhase = "WaitForUserUpload"
+	ImageProvisioning      ImagePhase = "Provisioning"
+	ImageReady             ImagePhase = "Ready"
+	ImageFailed            ImagePhase = "Failed"
+	ImageNotReady          ImagePhase = "NotReady"
 )
 
 type ImageStatus struct {
