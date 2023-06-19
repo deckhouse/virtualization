@@ -23,8 +23,7 @@ tasks:
       - _ensure:k3d
       - _ensure:kubectl
       - _ensure:k3d-registry-domain
-      # TODO: enable following check only for Linux
-      # - _ensure:k3d-registry-insecure-allowed
+      - _ensure:k3d-registry-insecure-allowed
     cmds:
       - k3d registry delete --all || true
       - k3d cluster delete || true
@@ -163,7 +162,7 @@ tasks:
   _ensure:cluster-available:
     desc: "Ensure kubernetes cluster available"
     cmds:
-      - echo "No cluster availble, you can use 'task dev:cluster:reset' to setup local k3d cluster" && exit 1
+      - echo "No cluster available, you can use 'task dev:cluster:reset' to setup local k3d cluster" && exit 1
     status:
       - kubectl version >/dev/null
 
@@ -177,9 +176,16 @@ tasks:
   _ensure:k3d-registry-domain:
     desc: "Ensure k3d registry domain available locally"
     cmds:
-      - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please set '127.0.0.1   k3d-registry.virtualization-controller.test' line into your /etc/hosts" && exit 1)
+      - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please add '127.0.0.1   k3d-registry.virtualization-controller.test' into /etc/hosts" && exit 1)
 
   _ensure:k3d-registry-insecure-allowed:
     desc: "Ensure docker daemon allows insecure k3d registry"
     cmds:
-      - grep 'k3d-registry.virtualization-controller.test' /etc/docker/daemon.json || (echo >&2 "Please set 'http://k3d-registry.virtualization-controller.test:5000' as insecure registry in your /etc/docker/daemon.json, then restart docker daemon by running 'sudo systemctl daemon-reload && sudo systemctl restart docker'" && exit 1)
+      - |
+        echo -e >&2 "Please add k3d registry as insecure:\n" \
+          '{"insecure-registries": ["k3d-registry.virtualization-controller.test:5000"]'"}\n" \
+          "On Linux: edit /etc/docker/daemon.json and restart docker daemon with 'sudo systemctl restart docker'\n" \
+          "On Macos: configure Docker Engine in Docker Desktop settings." \
+      - exit 1
+    status:
+      - (cat /etc/docker/daemon.json $HOME/.docker/daemon.json 2>/dev/null || true) | grep 'k3d-registry.virtualization-controller.test'
