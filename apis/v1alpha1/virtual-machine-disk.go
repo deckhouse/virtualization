@@ -13,12 +13,10 @@ const (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineDisk struct {
-	metav1.TypeMeta `json:",inline"`
-
+	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec VirtualMachineDiskSpec `json:"spec"`
-
+	Spec   VirtualMachineDiskSpec   `json:"spec"`
 	Status VirtualMachineDiskStatus `json:"status,omitempty"`
 }
 
@@ -27,7 +25,9 @@ type VirtualMachineDiskSpec struct {
 	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
-type VirtualMachineDiskStatus struct{}
+type VirtualMachineDiskStatus struct {
+	Phase DiskPhase `json:"phase"`
+}
 
 type VirtualMachinePersistentVolumeClaim struct {
 	// TODO: required or optional
@@ -43,10 +43,14 @@ type VirtualMachineDiskList struct {
 	Items           []VirtualMachineDisk `json:"items"`
 }
 
-type VirtualMachineDiskPhase string
+type DiskPhase string
 
-var (
-	// TODO: unify with VMI phases (?)
-	VMDPending      VirtualMachineDiskPhase = "Pending"
-	VMDProvisioning VirtualMachineDiskPhase = "Provisioning"
+const (
+	DiskPending           DiskPhase = "Pending"
+	DiskWaitForUserUpload DiskPhase = "WaitForUserUpload"
+	DiskProvisioning      DiskPhase = "Provisioning"
+	DiskReady             DiskPhase = "Ready"
+	DiskFailed            DiskPhase = "Failed"
+	DiskNotReady          DiskPhase = "NotReady"
+	DiskPVCLost           DiskPhase = "PVCLost"
 )

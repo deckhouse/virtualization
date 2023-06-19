@@ -1,0 +1,15 @@
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: "example-import-dv"
+spec:
+  source:
+    http:
+      url: "http://server/archive.tar"
+  contentType: "archive"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: "64Mi"
