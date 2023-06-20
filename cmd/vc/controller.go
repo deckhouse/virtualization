@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	virtv1alpha1 "github.com/deckhouse/virtualization-controller/apis/v1alpha1"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 )
 
@@ -31,7 +31,7 @@ var (
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
-		virtv1alpha1.AddToScheme,
+		virtv2alpha1.AddToScheme,
 	}
 )
 

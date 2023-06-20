@@ -1,0 +1,114 @@
+# TODO: требует доработки
+
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachinedisksnapshots.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Namespaced
+  names:
+    plural: virtualmachinedisksnapshots
+    singular: virtualmachinedisksnapshot
+    kind: VirtualMachineDiskSnapshot
+  preserveUnknownFields: false
+  versions:
+    - name: v2alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            Describes a virtual machine disk snapshot.
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - type
+                - dataSource
+              properties:
+                type:
+                  type: string
+                  description: #TODO:
+                dataSource:
+                  # dont forget about blank
+                  type: object
+                  description: #TODO
+                  required:
+                  - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - 'VirtualMachineDisk'
+                      description: |
+                        The type of an origin of the image. Options are:
+
+                        * `VirtualMachineDisk` — use an existing in current namespace `VirtualMachineDisk`.
+                    virtualMachineDisk:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `VirtualMachineDisk`.
+                  oneOf:
+                  - properties:
+                      type:
+                        enum: ['VirtualMachineDisk']
+                      virtualMachineDisk: {}
+            status:
+              type: object
+              properties:
+                size:
+                  type: string
+                  description: |
+                    Discovered size of the image.
+                volumeSnapshotName:
+                  type: string
+                  description: |
+                    The name of `VolumeSnapshot` resource where snapshot is located.
+                phase:
+                  type: string
+                  enum: ['Pending', 'Provisioning', 'Ready', 'Failed', 'PVCLost']
+                failureReason:
+                  type: string
+                  description: |
+                    A brief description of the cause of the error.
+                failureMessage:
+                  type: string
+                  description: |
+                    Detailed description of the error.
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - status
+                    - type
+                    properties:
+                      lastProbeTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      lastTransitionTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+      subresources:
+        status: {}

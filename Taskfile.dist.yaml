@@ -38,6 +38,11 @@ tasks:
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
 
+      - task: dev:cache:reset
+
+  dev:cache:reset:
+    desc: "Reset go build cache"
+    cmds:
       - |
         # Bootstrap builder image (only needed for build with BUILDER_CACHE_IMAGE)
         docker tag golang:1.20-alpine3.16 $VMI_BUILDER_IMAGE
@@ -79,7 +84,7 @@ tasks:
       - (docker images | grep 'vmi-controller.*latest') || (echo "Image should be built"; exit 1)
       - |
         mkdir -p local/vmi/crds
-        cp apis/*.yaml local/vmi/crds
+        cp api/*.yaml local/vmi/crds
       - |
         helm upgrade --install \
           --namespace vmi-controller \
@@ -106,28 +111,28 @@ tasks:
       - |
         kubectl delete ns/vmi-controller
 
-  gen:apis:
+  gen:api:
     desc: "Regenerate deepcopy code for CRDs."
     deps:
       - _ensure:k8s-codegen-mod
     cmds:
       - |
-        # Use only deepcopy generator. Use . for output-base to update files in apis/v1alpha1 directory.
+        # Use only deepcopy generator. Use . for output-base to update files in api/v2alpha1 directory.
         $K8S_CODEGEN/generate-groups.sh \
           deepcopy \
           github.com/deckhouse/virtualization-controller \
           . \
-          "apis:v1alpha1" \
+          "api:v2alpha1" \
           --go-header-file "./scripts/boilerplate.go.txt" \
           --output-base .
 
   ci:verify-gen:
     desc: "Check generated files are up-to-date."
     deps:
-      - apis-gen
+      - api-gen
     cmds:
       - |
-        git diff --exit-code || (echo "Please run task gen:apis and commit changes" && exit 1)
+        git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
 
   _ensure:k8s-codegen-mod:
     desc: "Ensure k8s.io/codegen module is present"

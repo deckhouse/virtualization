@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv1 "github.com/deckhouse/virtualization-controller/apis/v1alpha1"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 )
 
 const (
@@ -39,7 +39,7 @@ func NewVMDController(
 }
 
 func addVMDControllerWatches(mgr manager.Manager, c controller.Controller, log logr.Logger) error {
-	if err := c.Watch(&source.Kind{Type: &virtv1.VirtualMachineDisk{}}, &handler.EnqueueRequestForObject{},
+	if err := c.Watch(&source.Kind{Type: &virtv2.VirtualMachineDisk{}}, &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
