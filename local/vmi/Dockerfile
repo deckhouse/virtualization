@@ -9,9 +9,8 @@ RUN go mod download
 # Build operator
 ADD . /app
 RUN GOOS=linux \
-    go build -o vmi-controller \
-             ./cmd/vmi-controller
+    go build -o vc ./cmd/vc
 
 
 FROM alpine:3.18
-COPY --from=builder /app/vmi-controller /
+COPY --from=builder /app/vc /

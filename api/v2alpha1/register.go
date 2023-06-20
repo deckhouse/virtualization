@@ -1,4 +1,4 @@
-package v1alpha1
+package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	APIGroup   = "deckhouse.io"
-	APIVersion = "v1alpha1"
+	APIGroup   = "virtualization.deckhouse.io"
+	APIVersion = "v2alpha1"
 )
 
 // SchemeGroupVersion is group version used to register these objects

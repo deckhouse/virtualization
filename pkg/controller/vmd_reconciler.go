@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	virtv1 "github.com/deckhouse/virtualization-controller/apis/v1alpha1"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -60,7 +60,7 @@ func (r *VMDReconciler) sync(ctx context.Context, log logr.Logger, req reconcile
 func (r *VMDReconciler) newState(ctx context.Context, log logr.Logger, req reconcile.Request) (*VMDReconcilerState, error) {
 	state := &VMDReconcilerState{}
 
-	vmd, err := FetchObject(ctx, req.NamespacedName, r.client, &virtv1.VirtualMachineDisk{})
+	vmd, err := FetchObject(ctx, req.NamespacedName, r.client, &virtv2.VirtualMachineDisk{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
@@ -130,7 +130,7 @@ func (r *VMDReconciler) doSyncApplyMutated(ctx context.Context, log logr.Logger,
 	return nil
 }
 
-func (r *VMDReconciler) updateObj(ctx context.Context, vmd *virtv1.VirtualMachineDisk) error {
+func (r *VMDReconciler) updateObj(ctx context.Context, vmd *virtv2.VirtualMachineDisk) error {
 	return r.client.Update(ctx, vmd)
 }
 
@@ -157,7 +157,7 @@ func (r *VMDReconciler) updateStatus(ctx context.Context, log logr.Logger, req r
 	// TODO: DiskWaitForUserUpload, DiskNotReady, DiskPVCLost
 	switch updateStatusState.DV.Status.Phase {
 	case cdiv1.PhaseUnset, cdiv1.Unknown, cdiv1.Pending:
-		updateStatusState.VMDMutated.Status.Phase = virtv1.DiskPending
+		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskPending
 	case cdiv1.WaitForFirstConsumer, cdiv1.PVCBound,
 		cdiv1.ImportScheduled, cdiv1.CloneScheduled, cdiv1.UploadScheduled,
 		cdiv1.ImportInProgress, cdiv1.CloneInProgress,
@@ -165,11 +165,11 @@ func (r *VMDReconciler) updateStatus(ctx context.Context, log logr.Logger, req r
 		cdiv1.CSICloneInProgress,
 		cdiv1.CloneFromSnapshotSourceInProgress,
 		cdiv1.Paused:
-		updateStatusState.VMDMutated.Status.Phase = virtv1.DiskProvisioning
+		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskProvisioning
 	case cdiv1.Succeeded:
-		updateStatusState.VMDMutated.Status.Phase = virtv1.DiskReady
+		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskReady
 	case cdiv1.Failed:
-		updateStatusState.VMDMutated.Status.Phase = virtv1.DiskFailed
+		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskFailed
 	}
 
 	if err := r.applyUpdateStatus(ctx, log, updateStatusState); err != nil {
@@ -187,7 +187,7 @@ func (r *VMDReconciler) applyUpdateStatus(ctx context.Context, log logr.Logger, 
 	return nil
 }
 
-func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv1.VirtualMachineDisk) *cdiv1.DataVolume {
+func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
 	labels := map[string]string{}
 	annotations := map[string]string{
 		"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",

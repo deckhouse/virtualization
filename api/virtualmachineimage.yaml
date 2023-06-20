@@ -1,0 +1,283 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachineimages.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Namespaced
+  names:
+    plural: virtualmachineimages
+    singular: virtualmachineimage
+    kind: VirtualMachineImage
+  preserveUnknownFields: false
+  versions:
+    - name: v2alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            Describes a virtual machine disk image which could be used as data source for new VirtualMachineDisks or could be mounted to VirtualMachines as is.
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - storage
+                - dataSource
+              properties:
+                storage:
+                  type: string
+                  enum: ['Kubernetes', 'ContainerRegistry']
+                  description: |
+                    Storage type to store the image for current virtualization setup.
+
+                    * `Kubernetes` — use a PersistentVolumeClaim in current k8s cluster. In this case, image will be downloaded and copied to a PV as is.
+                    * `ContainerRegistry` — use a dedicated container registry. In this case, images will be downloaded and injected to a container, then pushed to a dedicated container registry (shipped with the virtualization module).
+                persistentVolumeClaim:
+                  type: object
+                  description: Settings for creating PVCs to store the image.
+                  properties:
+                    storageClassName:
+                      type: string
+                      description: |
+                        The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                dataSource:
+                  type: object
+                  description: An origin of the image.
+                  required:
+                  - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - 'HTTP'
+                      - 'ContainerImage'
+                      - 'VirtualMachineImage'
+                      - 'ClusterVirtualMachineImage'
+                      - 'VirtualMachineDisk'
+                      - 'VirtualMachineDiskSnapshot'
+                      - 'PersistentVolumeClaim'
+                      - 'Upload'
+                      description: |
+                        The type of an origin of the image. Options are:
+
+                        * `HTTP` — use some external http url.
+                        * `ContainerImage` — use an image, stored in container registry image.
+                        * `VirtualMachineImage` — use another existing in the current namespace `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
+                        * `VirtualMachineDisk` — use an existing in current namespace `VirtualMachineDisk`.
+                        * `VirtualMachineDiskSnapshot` — use an existing in current namespace `VirtualMachineDisk`.
+                        * `PersistentVolumeClaim` — use an existing in current namespace `PersistentVolumeClaim`.
+                        * `Upload` — upload image file via HTTP endpoint.
+                    http:
+                      type: object
+                      required:
+                      - url
+                      properties:
+                        url:
+                          type: string
+                          example: 'https://mirror.example.com/images/slackware-15.qcow.gz'
+                          description: |
+                            The http url with an image. Supported formats are:
+                            * qcow2
+                            * qcow2.gz
+                            * img
+                            * img.gz
+                        caBundle:
+                          type: string
+                          description: The CA chain to verify the url.
+                          example: |
+                            -----BEGIN CERTIFICATE-----
+                            MIIFaDC...
+                            -----END CERTIFICATE-----
+                        insecureSkipVerify:
+                          type: boolean
+                          default: false
+                          description: |
+                            If a CA chain isn't provided, this option can be used to turn off TLS certificate checks.
+                            As noted, it is insecure and shouldn't be used in production environments.
+                        checksum:
+                          type: object
+                          description: A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed.
+                          properties:
+                            md5:
+                              type: string
+                              minLength: 32
+                              maxLength: 32
+                              example: f3b59bed9f91e32fac1210184fcff6f5
+                            sha256:
+                              type: string
+                              minLength: 64
+                              maxLength: 64
+                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+                    containerImage:
+                      type: object
+                      required:
+                      - image
+                      description:
+                      properties:
+                        image:
+                          type: string
+                          description: |
+                            The container registry address of an image.
+                          example: 'registry.example.com/images/slackware:15'
+                        imagePullSecret:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              description: A name of the secret containing registry credentials which must be located in the same namespace.
+                    virtualMachineImage:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `VirtualMachineImage`.
+                    clusterVirtualMachineImage:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `ClusterVirtualMachineImage`.
+                    virtualMachineDisk:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `VirtualMachineDisk`.
+                    virtualMachineDiskSnapshot:
+                      type: object
+                      required:
+                        - name
+                        - namespace
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `virtualMachineDiskSnapshot`.
+                        namespace:
+                          type: string
+                          description: A namespace where `virtualMachineDiskSnapshot` is located.
+                    persistentVolumeClaim:
+                      type: object
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: A name of existing `PersistentVolumeClaim`.
+                  oneOf:
+                  - properties:
+                      type:
+                        enum: ['HTTP']
+                      http: {}
+                  - properties:
+                      type:
+                        enum: ['ContainerImage']
+                      containerImage: {}
+                  - properties:
+                      type:
+                        enum: ['VirtualMachineImage']
+                      virtualMachineImage: {}
+                  - properties:
+                      type:
+                        enum: ['ClusterVirtualMachineImage']
+                      clusterVirtualMachineImage: {}
+                  - properties:
+                      type:
+                        enum: ['VirtualMachineDisk']
+                      virtualMachineDisk: {}
+                  - properties:
+                      type:
+                        enum: ['VirtualMachineDiskSnapshot']
+                      VirtualMachineDiskSnapshot: {}
+                  - properties:
+                      type:
+                        enum: ['PersistentVolumeClaim']
+                      persistentVolumeClaim: {}
+                  - properties:
+                      type:
+                        enum: ['Upload']
+              oneOf:
+              - properties:
+                  storage:
+                    enum: ['Kubernetes']
+                  persistentVolumeClaim: {}
+              - properties:
+                  storage:
+                    enum: ['ContainerRegistry']
+            status:
+              type: object
+              properties:
+                size:
+                  type: string
+                  description: |
+                    Discovered size of the image.
+                cdrom:
+                  type: boolean
+                  description: |
+                    Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
+                registryURL:
+                  type: string
+                  description: |
+                    Created image in DVCR.
+                    https://dvcr.svc.<dvcr-namespace>/vmi/<namespace>/<image-name>:latest
+                persistentVolumeClaimName:
+                  type: string
+                  description: Created PersistentVolumeClaim name for Kubernetes storage.
+                phase:
+                  type: string
+                  enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'ImageLost','PVCLost']
+                progress:
+                  type: string
+                  description: |
+                    Progress of copying an image from source to PVC.
+                uploadCommand:
+                  type: string
+                  description: |
+                    Command for uploading a image for the 'Upload' type.
+                failureReason:
+                  type: string
+                  description: |
+                    A brief description of the cause of the error.
+                failureMessage:
+                  type: string
+                  description: |
+                    Detailed description of the error.
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                    - status
+                    - type
+                    properties:
+                      lastProbeTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      lastTransitionTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+      subresources:
+        status: {}
