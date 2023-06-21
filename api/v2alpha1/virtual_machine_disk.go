@@ -26,7 +26,8 @@ type VirtualMachineDiskSpec struct {
 }
 
 type VirtualMachineDiskStatus struct {
-	Phase DiskPhase `json:"phase"`
+	Phase    DiskPhase    `json:"phase"`
+	Progress DiskProgress `json:"progress"`
 }
 
 type VirtualMachinePersistentVolumeClaim struct {
@@ -42,6 +43,8 @@ type VirtualMachineDiskList struct {
 	metav1.ListMeta `json:"metadata"`
 	Items           []VirtualMachineDisk `json:"items"`
 }
+
+type DiskProgress string
 
 type DiskPhase string
 

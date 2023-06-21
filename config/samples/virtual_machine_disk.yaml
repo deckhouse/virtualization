@@ -5,8 +5,12 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: csi-sanlock-lvm-storageclass
+    storageClassName: local-path
   dataSource:
     type: "HTTP"
     http:
-      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+      # Official image link
+      #url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+
+      # Or locally deployed caddy fileserver with an image
+      url: "http://caddy.caddy.svc.cluster.local/images/ubuntu-22.04-minimal-cloudimg-amd64.img"

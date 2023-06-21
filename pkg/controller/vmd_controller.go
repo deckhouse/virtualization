@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"github.com/go-logr/logr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -46,6 +47,12 @@ func addVMDControllerWatches(mgr manager.Manager, c controller.Controller, log l
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
+		return err
+	}
+	if err := c.Watch(&source.Kind{Type: &cdiv1.DataVolume{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &virtv2.VirtualMachineDisk{},
+		IsController: true,
+	}); err != nil {
 		return err
 	}
 

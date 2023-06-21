@@ -2,3 +2,5 @@ templates
 Chart.yaml
 *.log
 *.swp
+local/caddy/images
+.git

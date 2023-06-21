@@ -37,3 +37,4 @@ bin/
 
 # Local overrides with tasks
 Taskfile.yaml
+local/caddy/images/
