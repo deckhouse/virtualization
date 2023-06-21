@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/record"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"reflect"
@@ -26,13 +27,13 @@ type VMDReconciler struct {
 func (r *VMDReconciler) Reconcile(ctx context.Context, req reconcile.Request) (res reconcile.Result, err error) {
 	log := r.log.WithValues("VirtualMachineDisk", req.NamespacedName)
 
-	log.Info(fmt.Sprintf("%q sync phase begin", req.String()))
+	log.Info(fmt.Sprintf("sync phase begin"))
 	syncState, syncErr := r.sync(ctx, log, req)
-	log.Info(fmt.Sprintf("%q sync phase end", req.String()))
+	log.Info(fmt.Sprintf("sync phase end"))
 
-	log.Info(fmt.Sprintf("%q update status phase begin", req.String()))
+	log.Info(fmt.Sprintf("update status phase begin"))
 	updateStatusState, updateStatusErr := r.updateStatus(ctx, log, req, syncState.PhaseResult)
-	log.Info(fmt.Sprintf("%q update status phase end", req.String()))
+	log.Info(fmt.Sprintf("update status phase end"))
 
 	if syncErr != nil {
 		err = syncErr
@@ -93,10 +94,9 @@ func (r *VMDReconciler) doSync(ctx context.Context, log logr.Logger, req reconci
 	if syncState.DV == nil {
 		var err error
 
+		// TODO: How to set custom PVC name using DataVolume spec?
 		// DataVolume named after VirtualMachineDisk (?)
 		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, syncState.VMD)
-
-		log.Info(fmt.Sprintf("Creating new DV %q from VMD source: %#v", dv.Name, *dv.Spec.Source.HTTP))
 
 		if err := r.client.Create(ctx, dv); err != nil {
 			return syncState, fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
@@ -109,6 +109,7 @@ func (r *VMDReconciler) doSync(ctx context.Context, log logr.Logger, req reconci
 		if dv == nil {
 			return syncState, fmt.Errorf("failed to get just created dv %q", dv.Name)
 		}
+		log.Info(fmt.Sprintf("Creating new DV %q => %v", dv.Name, dv))
 	}
 
 	return syncState, nil
@@ -153,11 +154,24 @@ func (r *VMDReconciler) updateStatus(ctx context.Context, log logr.Logger, req r
 		return updateStatusState, nil
 	}
 
-	// TODO: state machine status transitions
-	// TODO: DiskWaitForUserUpload, DiskNotReady, DiskPVCLost
-	switch updateStatusState.DV.Status.Phase {
+	if updateStatusState.DV == nil {
+		log.Info(fmt.Sprintf("Lost DataVolume, will skip update status"))
+		return VMDReconcilerUpdateStatusState{}, nil
+	}
+
+	if err := r.doUpdateStatus(ctx, log, req, &updateStatusState); err != nil {
+		return VMDReconcilerUpdateStatusState{}, err
+	}
+	if err := r.applyUpdateStatus(ctx, log, updateStatusState); err != nil {
+		return VMDReconcilerUpdateStatusState{}, fmt.Errorf("unable to apply status update of %q: %w", req.NamespacedName, err)
+	}
+	return updateStatusState, nil
+}
+
+func MapDataVolumePhaseToVMDPhase(phase cdiv1.DataVolumePhase) virtv2.DiskPhase {
+	switch phase {
 	case cdiv1.PhaseUnset, cdiv1.Unknown, cdiv1.Pending:
-		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskPending
+		return virtv2.DiskPending
 	case cdiv1.WaitForFirstConsumer, cdiv1.PVCBound,
 		cdiv1.ImportScheduled, cdiv1.CloneScheduled, cdiv1.UploadScheduled,
 		cdiv1.ImportInProgress, cdiv1.CloneInProgress,
@@ -165,17 +179,36 @@ func (r *VMDReconciler) updateStatus(ctx context.Context, log logr.Logger, req r
 		cdiv1.CSICloneInProgress,
 		cdiv1.CloneFromSnapshotSourceInProgress,
 		cdiv1.Paused:
-		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskProvisioning
+		return virtv2.DiskProvisioning
 	case cdiv1.Succeeded:
-		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskReady
+		return virtv2.DiskReady
 	case cdiv1.Failed:
-		updateStatusState.VMDMutated.Status.Phase = virtv2.DiskFailed
+		return virtv2.DiskFailed
+	default:
+		panic(fmt.Sprintf("unexpected DataVolume phase %q, please report a bug", phase))
 	}
+}
 
-	if err := r.applyUpdateStatus(ctx, log, updateStatusState); err != nil {
-		return VMDReconcilerUpdateStatusState{}, err
+func (r *VMDReconciler) doUpdateStatus(ctx context.Context, log logr.Logger, req reconcile.Request, updateStatusState *VMDReconcilerUpdateStatusState) error {
+	switch updateStatusState.VMD.Status.Phase {
+	case "", virtv2.DiskPending:
+		updateStatusState.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(updateStatusState.DV.Status.Phase)
+		updateStatusState.VMDMutated.Status.Progress = "N/A"
+	case virtv2.DiskWaitForUserUpload:
+	// TODO
+	case virtv2.DiskProvisioning:
+		updateStatusState.VMDMutated.Status.Progress = virtv2.DiskProgress(updateStatusState.DV.Status.Progress)
+		updateStatusState.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(updateStatusState.DV.Status.Phase)
+	case virtv2.DiskReady:
+		// TODO
+	case virtv2.DiskFailed:
+		// TODO
+	case virtv2.DiskNotReady:
+		// TODO
+	case virtv2.DiskPVCLost:
+		// TODO
 	}
-	return updateStatusState, nil
+	return nil
 }
 
 func (r *VMDReconciler) applyUpdateStatus(ctx context.Context, log logr.Logger, updateStatusState VMDReconcilerUpdateStatusState) error {
@@ -190,7 +223,8 @@ func (r *VMDReconciler) applyUpdateStatus(ctx context.Context, log logr.Logger, 
 func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
 	labels := map[string]string{}
 	annotations := map[string]string{
-		"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
+		"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
+		"cdi.kubevirt.io/storage.bind.immediate.requested": "true",
 	}
 
 	// FIXME: resource.Quantity should be defined directly in the spec struct (see PVC impl. for details)
@@ -224,6 +258,14 @@ func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMach
 		res.Spec.Source.HTTP = &cdiv1.DataVolumeSourceHTTP{
 			URL: vmd.Spec.DataSource.HTTP.URL,
 		}
+	}
+
+	res.OwnerReferences = []metav1.OwnerReference{
+		*metav1.NewControllerRef(vmd, schema.GroupVersionKind{
+			Group:   virtv2.SchemeGroupVersion.Group,
+			Version: virtv2.SchemeGroupVersion.Version,
+			Kind:    "VirtualMachineDisk",
+		}),
 	}
 
 	return res

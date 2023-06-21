@@ -9,6 +9,8 @@ env:
     sh: echo ${VMI_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller:latest}
   VMI_BUILDER_IMAGE:
     sh: echo ${VMI_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller-builder:latest}
+  VMI_PREBUILT_IMAGES_SERVER_IMAGE:
+    sh: echo ${VMI_PREBUILT_IMAGES_SERVER_IMAGE:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
 
 tasks:
   dev:converge:
@@ -38,7 +40,34 @@ tasks:
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
 
+      - |
+        # Install rancher local-path auto provisioner
+        kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml
+
+      - |
+        # Preload cdi-importer image for faster start of importer
+        docker pull quay.io/kubevirt/cdi-importer:v1.56.0
+        k3d image import quay.io/kubevirt/cdi-importer:v1.56.0
+
+      - |
+        helm upgrade --install \
+          --namespace caddy \
+          --create-namespace \
+          caddy ./local/caddy
+
       - task: dev:cache:reset
+
+  dev:cluster:push_prebuild_images:
+    desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
+    cmds:
+      - |
+        [ -f local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img ] || wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -O local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img
+      - |
+        docker build ./local/caddy/ \
+          -f ./local/caddy/Dockerfile \
+          -t ${VMI_PREBUILT_IMAGES_SERVER_IMAGE}
+        docker push ${VMI_PREBUILT_IMAGES_SERVER_IMAGE}
+
 
   dev:cache:reset:
     desc: "Reset go build cache"

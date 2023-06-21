@@ -31,3 +31,10 @@ type VMDReconcilerUpdateStatusState struct {
 	VMDReconcilerState
 	Result *reconcile.Result
 }
+
+func (state *VMDReconcilerUpdateStatusState) GetResult() *reconcile.Result {
+	if state.Result == nil {
+		state.Result = &reconcile.Result{}
+	}
+	return state.Result
+}
