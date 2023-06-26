@@ -19,19 +19,21 @@ type ReconcilerOptions struct {
 }
 
 type ReconcilerCore[T ReconcilerState] struct {
-	Reconciler TwoPhaseReconciler[T]
+	Reconciler   TwoPhaseReconciler[T]
+	StateFactory ReconcilerStateFactory[T]
 	ReconcilerOptions
 }
 
-func NewReconcilerCore[T ReconcilerState](reconciler TwoPhaseReconciler[T], opts ReconcilerOptions) *ReconcilerCore[T] {
+func NewReconcilerCore[T ReconcilerState](reconciler TwoPhaseReconciler[T], stateFactory ReconcilerStateFactory[T], opts ReconcilerOptions) *ReconcilerCore[T] {
 	return &ReconcilerCore[T]{
 		Reconciler:        reconciler,
+		StateFactory:      stateFactory,
 		ReconcilerOptions: opts,
 	}
 }
 
 func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	state := r.Reconciler.NewReconcilerState(r.ReconcilerOptions)
+	state := r.StateFactory(req.NamespacedName, r.Log, r.Client)
 
 	if err := state.Reload(ctx, req, r.Log, r.Client); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to reload reconciler state: %w", err)

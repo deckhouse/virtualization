@@ -57,3 +57,11 @@ const (
 	DiskNotReady          DiskPhase = "NotReady"
 	DiskPVCLost           DiskPhase = "PVCLost"
 )
+
+func (obj *VirtualMachineDisk) GetObjectMeta() metav1.ObjectMeta {
+	return obj.ObjectMeta
+}
+
+func (obj *VirtualMachineDisk) GetStatus() VirtualMachineDiskStatus {
+	return obj.Status
+}
