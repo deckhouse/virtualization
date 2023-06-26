@@ -48,7 +48,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 
 		// TODO: How to set custom PVC name using DataVolume spec?
 		// DataVolume named after VirtualMachineDisk (?)
-		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, state.VMD)
+		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, state.VMD.Read())
 
 		if err := opts.Client.Create(ctx, dv); err != nil {
 			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
@@ -73,15 +73,15 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 		return nil
 	}
 
-	switch state.VMD.Status.Phase {
+	switch state.VMD.Read().Status.Phase {
 	case "", virtv2.DiskPending:
-		state.VMDMutated.Status.Progress = "N/A"
-		state.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+		state.VMD.Write().Status.Progress = "N/A"
+		state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskWaitForUserUpload:
 	// TODO
 	case virtv2.DiskProvisioning:
-		state.VMDMutated.Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
-		state.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+		state.VMD.Write().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
+		state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskReady:
 		// TODO
 	case virtv2.DiskFailed:
@@ -95,8 +95,8 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 	return nil
 }
 
-func (r *VMDReconciler) NewReconcilerState(opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
-	return NewVMDReconcilerState(opts.Client)
+func (r *VMDReconciler) NewReconcilerState(req reconcile.Request, opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
+	return NewVMDReconcilerState(req.NamespacedName, opts.Log, opts.Client)
 }
 
 func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {

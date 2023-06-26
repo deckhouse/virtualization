@@ -11,5 +11,4 @@ type TwoPhaseReconciler[T ReconcilerState] interface {
 	SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error
 	Sync(ctx context.Context, req reconcile.Request, state T, opts ReconcilerOptions) error
 	UpdateStatus(ctx context.Context, req reconcile.Request, state T, opts ReconcilerOptions) error
-	NewReconcilerState(opts ReconcilerOptions) T
 }
