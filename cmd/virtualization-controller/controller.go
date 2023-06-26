@@ -33,11 +33,26 @@ var (
 		extv1.AddToScheme,
 		virtv2alpha1.AddToScheme,
 	}
+	importerImage       string
+	controllerNamespace string
 )
+
+func init() {
+	importerImage = getRequiredEnvVar("IMPORTER_IMAGE")
+	controllerNamespace = getRequiredEnvVar("CONTROLLER_NAMESPACE")
+}
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+}
+
+func getRequiredEnvVar(name string) string {
+	val := os.Getenv(name)
+	if val == "" {
+		log.Error(fmt.Errorf("environment variable %q undefined\n", name), "")
+	}
+	return val
 }
 
 func main() {
@@ -135,6 +150,11 @@ func main() {
 	//	log.Error(err, "")
 	//	os.Exit(1)
 	//}
+
+	if _, err := controller.NewImportController(ctx, mgr, log, importerImage, controllerNamespace); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
 
 	log.Info("Starting the Manager.")
 
