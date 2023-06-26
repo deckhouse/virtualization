@@ -14,13 +14,12 @@ const (
 
 func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger) (controller.Controller, error) {
 	reconcilerCore := &VMDReconcilerCore{}
-	reconciler := two_phase_reconciler.NewReconciler(
-		reconcilerCore,
-		mgr.GetClient(),
-		mgr.GetEventRecorderFor(vmdControllerName),
-		mgr.GetScheme(),
-		log.WithName(vmdControllerName),
-	)
+	reconciler := two_phase_reconciler.NewReconciler[*VMDReconcilerState](reconcilerCore, two_phase_reconciler.ReconcilerOptions{
+		Client:   mgr.GetClient(),
+		Recorder: mgr.GetEventRecorderFor(vmdControllerName),
+		Scheme:   mgr.GetScheme(),
+		Log:      log.WithName(vmdControllerName),
+	})
 
 	c, err := controller.New(vmdControllerName, mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {

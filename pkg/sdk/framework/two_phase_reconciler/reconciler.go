@@ -11,27 +11,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type Reconciler struct {
-	ReconcilerCore ReconcilerCore
-
+type ReconcilerOptions struct {
 	Client   client.Client
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
 	Log      logr.Logger
 }
 
-func NewReconciler(reconcilerCore ReconcilerCore, client client.Client, recorder record.EventRecorder, scheme *runtime.Scheme, log logr.Logger) *Reconciler {
-	return &Reconciler{
-		ReconcilerCore: reconcilerCore,
-		Client:         client,
-		Recorder:       recorder,
-		Scheme:         scheme,
-		Log:            log,
+type Reconciler[T ReconcilerState] struct {
+	ReconcilerCore ReconcilerCore[T]
+	ReconcilerOptions
+}
+
+func NewReconciler[T ReconcilerState](reconcilerCore ReconcilerCore[T], opts ReconcilerOptions) *Reconciler[T] {
+	return &Reconciler[T]{
+		ReconcilerCore:    reconcilerCore,
+		ReconcilerOptions: opts,
 	}
 }
 
-func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	state := r.ReconcilerCore.NewReconcilerState(r)
+func (r *Reconciler[T]) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	state := r.ReconcilerCore.NewReconcilerState(r.ReconcilerOptions)
 
 	if err := state.Reload(ctx, req, r.Log, r.Client); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to reload reconciler state: %w", err)
@@ -75,8 +75,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return *res, resErr
 }
 
-func (r *Reconciler) sync(ctx context.Context, req reconcile.Request, state ReconcilerState) error {
-	if err := r.ReconcilerCore.Sync(ctx, req, state, r); err != nil {
+func (r *Reconciler[T]) sync(ctx context.Context, req reconcile.Request, state T) error {
+	if err := r.ReconcilerCore.Sync(ctx, req, state, r.ReconcilerOptions); err != nil {
 		return err
 	}
 	if err := state.ApplySync(ctx, r.Log); err != nil {
@@ -85,8 +85,8 @@ func (r *Reconciler) sync(ctx context.Context, req reconcile.Request, state Reco
 	return nil
 }
 
-func (r *Reconciler) updateStatus(ctx context.Context, req reconcile.Request, state ReconcilerState) error {
-	if err := r.ReconcilerCore.UpdateStatus(ctx, req, state, r); err != nil {
+func (r *Reconciler[T]) updateStatus(ctx context.Context, req reconcile.Request, state T) error {
+	if err := r.ReconcilerCore.UpdateStatus(ctx, req, state, r.ReconcilerOptions); err != nil {
 		return fmt.Errorf("update status phase failed: %w", err)
 	}
 	if err := state.ApplyUpdateStatus(ctx, r.Log); err != nil {
