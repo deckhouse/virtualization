@@ -20,9 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type VMDReconcilerCore struct{}
+type VMDReconciler struct{}
 
-func (r *VMDReconcilerCore) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(&source.Kind{Type: &virtv2.VirtualMachineDisk{}}, &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -42,7 +42,7 @@ func (r *VMDReconcilerCore) SetupController(ctx context.Context, mgr manager.Man
 	return nil
 }
 
-func (r *VMDReconcilerCore) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.DV == nil {
 		var err error
 
@@ -67,7 +67,7 @@ func (r *VMDReconcilerCore) Sync(ctx context.Context, req reconcile.Request, sta
 	return nil
 }
 
-func (r *VMDReconcilerCore) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.DV == nil {
 		opts.Log.Info(fmt.Sprintf("Lost DataVolume, will skip update status"))
 		return nil
@@ -95,7 +95,7 @@ func (r *VMDReconcilerCore) UpdateStatus(ctx context.Context, req reconcile.Requ
 	return nil
 }
 
-func (r *VMDReconcilerCore) NewReconcilerState(opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
+func (r *VMDReconciler) NewReconcilerState(opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
 	return NewVMDReconcilerState(opts.Client)
 }
 

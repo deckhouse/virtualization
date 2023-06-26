@@ -13,19 +13,19 @@ const (
 )
 
 func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger) (controller.Controller, error) {
-	reconcilerCore := &VMDReconcilerCore{}
-	reconciler := two_phase_reconciler.NewReconciler[*VMDReconcilerState](reconcilerCore, two_phase_reconciler.ReconcilerOptions{
+	reconciler := &VMDReconciler{}
+	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](reconciler, two_phase_reconciler.ReconcilerOptions{
 		Client:   mgr.GetClient(),
 		Recorder: mgr.GetEventRecorderFor(vmdControllerName),
 		Scheme:   mgr.GetScheme(),
 		Log:      log.WithName(vmdControllerName),
 	})
 
-	c, err := controller.New(vmdControllerName, mgr, controller.Options{Reconciler: reconciler})
+	c, err := controller.New(vmdControllerName, mgr, controller.Options{Reconciler: reconcilerCore})
 	if err != nil {
 		return nil, err
 	}
-	if err := reconcilerCore.SetupController(ctx, mgr, c); err != nil {
+	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
 	log.Info("Initialized VirtualMachineDisk controller")
