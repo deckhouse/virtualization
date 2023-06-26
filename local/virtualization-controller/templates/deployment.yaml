@@ -26,7 +26,7 @@ spec:
         image: {{ .Values.images.controller | quote }}
         imagePullPolicy: Always
         command:
-          - /vc
+          - /virtualization-controller
         env:
         - name: LOG_LEVEL
           value: debug

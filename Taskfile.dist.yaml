@@ -38,6 +38,21 @@ tasks:
       - k3d registry create registry.virtualization-controller.test --port 5000 --image ghcr.io/werf/test-registry:latest
       - k3d cluster create --api-port 6550 -p "80:80@loadbalancer" --registry-use k3d-registry.virtualization-controller.test:5000
 
+      - |
+        # Preload images for faster start of importer
+        docker pull       ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest
+        k3d image import  ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest
+        docker pull       rancher/local-path-provisioner:v0.0.24
+        k3d image import  rancher/local-path-provisioner:v0.0.24
+        docker pull       quay.io/kubevirt/cdi-importer:v1.56.0
+        k3d image import  quay.io/kubevirt/cdi-importer:v1.56.0
+        docker pull       quay.io/kubevirt/cdi-operator:v1.56.0
+        k3d image import  quay.io/kubevirt/cdi-operator:v1.56.0
+        docker pull       quay.io/kubevirt/cdi-apiserver:v1.56.0
+        k3d image import  quay.io/kubevirt/cdi-apiserver:v1.56.0
+        docker pull       quay.io/kubevirt/cdi-uploadproxy:v1.56.0
+        k3d image import  quay.io/kubevirt/cdi-uploadproxy:v1.56.0
+
       # TODO: install kubevirt here
       - |
         # Install CDI
@@ -49,11 +64,6 @@ tasks:
       - |
         # Install rancher local-path auto provisioner
         kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml
-
-      - |
-        # Preload cdi-importer image for faster start of importer
-        docker pull quay.io/kubevirt/cdi-importer:v1.56.0
-        k3d image import quay.io/kubevirt/cdi-importer:v1.56.0
 
       - |
         helm upgrade --install \
