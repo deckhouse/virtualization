@@ -42,50 +42,46 @@ func (r *VMDReconcilerCore) SetupController(ctx context.Context, mgr manager.Man
 	return nil
 }
 
-func (r *VMDReconcilerCore) Sync(ctx context.Context, req reconcile.Request, state two_phase_reconciler.ReconcilerState, reconciler *two_phase_reconciler.Reconciler) error {
-	vmdState := state.(*VMDReconcilerState)
-
-	if vmdState.DV == nil {
+func (r *VMDReconcilerCore) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.DV == nil {
 		var err error
 
 		// TODO: How to set custom PVC name using DataVolume spec?
 		// DataVolume named after VirtualMachineDisk (?)
-		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, vmdState.VMD)
+		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, state.VMD)
 
-		if err := reconciler.Client.Create(ctx, dv); err != nil {
+		if err := opts.Client.Create(ctx, dv); err != nil {
 			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
 		}
 
-		vmdState.DV, err = FetchObject(ctx, req.NamespacedName, reconciler.Client, &cdiv1.DataVolume{})
+		state.DV, err = FetchObject(ctx, req.NamespacedName, opts.Client, &cdiv1.DataVolume{})
 		if err != nil {
 			return err
 		}
 		if dv == nil {
 			return fmt.Errorf("failed to get just created dv %q", dv.Name)
 		}
-		reconciler.Log.Info(fmt.Sprintf("Creating new DV %q => %v", dv.Name, dv))
+		opts.Log.Info(fmt.Sprintf("Creating new DV %q => %v", dv.Name, dv))
 	}
 
 	return nil
 }
 
-func (r *VMDReconcilerCore) UpdateStatus(ctx context.Context, req reconcile.Request, state two_phase_reconciler.ReconcilerState, reconciler *two_phase_reconciler.Reconciler) error {
-	vmdState := state.(*VMDReconcilerState)
-
-	if vmdState.DV == nil {
-		reconciler.Log.Info(fmt.Sprintf("Lost DataVolume, will skip update status"))
+func (r *VMDReconcilerCore) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.DV == nil {
+		opts.Log.Info(fmt.Sprintf("Lost DataVolume, will skip update status"))
 		return nil
 	}
 
-	switch vmdState.VMD.Status.Phase {
+	switch state.VMD.Status.Phase {
 	case "", virtv2.DiskPending:
-		vmdState.VMDMutated.Status.Progress = "N/A"
-		vmdState.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(vmdState.DV.Status.Phase)
+		state.VMDMutated.Status.Progress = "N/A"
+		state.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskWaitForUserUpload:
 	// TODO
 	case virtv2.DiskProvisioning:
-		vmdState.VMDMutated.Status.Progress = virtv2.DiskProgress(vmdState.DV.Status.Progress)
-		vmdState.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(vmdState.DV.Status.Phase)
+		state.VMDMutated.Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
+		state.VMDMutated.Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskReady:
 		// TODO
 	case virtv2.DiskFailed:
@@ -99,8 +95,8 @@ func (r *VMDReconcilerCore) UpdateStatus(ctx context.Context, req reconcile.Requ
 	return nil
 }
 
-func (r *VMDReconcilerCore) NewReconcilerState(reconciler *two_phase_reconciler.Reconciler) two_phase_reconciler.ReconcilerState {
-	return NewVMDReconcilerState(reconciler.Client)
+func (r *VMDReconcilerCore) NewReconcilerState(opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
+	return NewVMDReconcilerState(opts.Client)
 }
 
 func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {

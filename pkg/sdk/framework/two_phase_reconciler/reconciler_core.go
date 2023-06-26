@@ -7,9 +7,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type ReconcilerCore interface {
+type ReconcilerCore[T ReconcilerState] interface {
 	SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error
-	Sync(ctx context.Context, req reconcile.Request, state ReconcilerState, reconciler *Reconciler) error
-	UpdateStatus(ctx context.Context, req reconcile.Request, state ReconcilerState, reconciler *Reconciler) error
-	NewReconcilerState(reconciler *Reconciler) ReconcilerState
+	Sync(ctx context.Context, req reconcile.Request, state T, opts ReconcilerOptions) error
+	UpdateStatus(ctx context.Context, req reconcile.Request, state T, opts ReconcilerOptions) error
+	NewReconcilerState(opts ReconcilerOptions) T
 }
