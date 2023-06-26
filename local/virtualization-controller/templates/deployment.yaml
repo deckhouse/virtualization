@@ -2,28 +2,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vmi-controller
+  name: virtualization-controller
   labels:
-    heritage: {{ .Release.Name }}
-    app: vmi-controller-{{ .Release.Name }}
+    heritage: storage
+    app: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vmi-controller-{{ .Release.Name }}
+      app: {{ .Release.Name }}
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        heritage: {{ .Release.Name }}
-        app: vmi-controller-{{ .Release.Name }}
+        heritage: storage
+        app: {{ .Release.Name }}
       annotations:
         hack/pod-restart: {{ now | date "20060102150405" | quote }}
     spec:
       containers:
-      - name: deckhouse
-        image: {{ .Values.image | quote }}
+      - name: virtualization-controller
+        image: {{ .Values.images.controller | quote }}
         imagePullPolicy: Always
         command:
           - /vc
@@ -32,6 +32,13 @@ spec:
           value: debug
         - name: LOG_TYPE
           value: text
+        - name: IMPORTER_IMAGE
+          value: {{ .Values.images.importer | quote }}
+        - name: CONTROLLER_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+
         #livenessProbe:
         #  httpGet:
         #    path: /healthz
@@ -46,4 +53,4 @@ spec:
         #  failureThreshold: 120
       #hostNetwork: true
       dnsPolicy: Default
-      serviceAccountName: vmi-controller
+      serviceAccountName: {{ .Release.Name }}

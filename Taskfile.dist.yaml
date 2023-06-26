@@ -5,30 +5,36 @@ silent: true
 env:
   K8S_CODEGEN:
     sh: echo ${GOPATH:-$HOME/go}/pkg/mod/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
-  VMI_IMAGE:
-    sh: echo ${VMI_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller:latest}
-  VMI_BUILDER_IMAGE:
-    sh: echo ${VMI_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/vmi-controller-builder:latest}
-  VMI_PREBUILT_IMAGES_SERVER_IMAGE:
-    sh: echo ${VMI_PREBUILT_IMAGES_SERVER_IMAGE:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
+  CONTROLLER_IMAGE:
+    sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest}
+  CONTROLLER_BUILDER_IMAGE:
+    sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
+  CONTROLLER_PREBUILT_IMAGES:
+    sh: echo ${CONTROLLER_PREBUILT_IMAGES:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
+  DVCR_IMPORTER_IMAGE:
+    sh: echo ${DVCR_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/dvcr-importer:latest}
 
 tasks:
   dev:converge:
-    desc: "Rebuild and deploy all components into cluster"
+    desc: "Rebuild and deploy all components into local cluster"
     cmds:
-      - task: dev:vmi:build
-      - task: dev:vmi:run
+      - task: build
+      - task: dev:run
 
-  dev:cluster:reset:
-    desc: "Setup or reset local kubernetes cluster using k3d"
+  dev:reset:
+    desc: "Reset local kubernetes cluster"
+    cmds:
+      - task: dev:down
+      - task: dev:up
+
+  dev:up:
+    desc: "Setup local kubernetes cluster using k3d"
     deps:
       - _ensure:k3d
       - _ensure:kubectl
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
     cmds:
-      - k3d registry delete --all || true
-      - k3d cluster delete || true
       - k3d registry create registry.virtualization-controller.test --port 5000 --image ghcr.io/werf/test-registry:latest
       - k3d cluster create --api-port 6550 -p "80:80@loadbalancer" --registry-use k3d-registry.virtualization-controller.test:5000
 
@@ -55,7 +61,19 @@ tasks:
           --create-namespace \
           caddy ./local/caddy
 
-      - task: dev:cache:reset
+  dev:down:
+    desc: "Delete local kubernetes cluster using k3d"
+    deps:
+      - _ensure:k3d
+      - _ensure:kubectl
+      - _ensure:k3d-registry-domain
+      - _ensure:k3d-registry-insecure-allowed
+    cmds:
+      - k3d registry delete --all || true
+      - k3d cluster delete || true
+      - |
+        # TODO Remove CDI
+      - task: build:cache:reset
 
   dev:cluster:push_prebuild_images:
     desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
@@ -65,69 +83,106 @@ tasks:
       - |
         docker build ./local/caddy/ \
           -f ./local/caddy/Dockerfile \
-          -t ${VMI_PREBUILT_IMAGES_SERVER_IMAGE}
-        docker push ${VMI_PREBUILT_IMAGES_SERVER_IMAGE}
+          -t ${CONTROLLER_PREBUILT_IMAGES}
+        docker push ${CONTROLLER_PREBUILT_IMAGES}
 
+  dev:rmns:
+    desc: "Remove namespace with finalizer"
+    cmds:
+      - |
+        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
 
-  dev:cache:reset:
+  build:cache:reset:
     desc: "Reset go build cache"
     cmds:
       - |
         # Bootstrap builder image (only needed for build with BUILDER_CACHE_IMAGE)
-        docker tag golang:1.20-alpine3.16 $VMI_BUILDER_IMAGE
-        docker push $VMI_BUILDER_IMAGE
+        docker rmi -f $CONTROLLER_BUILDER_IMAGE || true
 
-  dev:vmi:build:
-    desc: "Build vmi-controller image for local dev"
+  build:
+    # Use cmds to run deps in order.
     cmds:
-      # Simple build without BUILDER_CACHE_IMAGE build-arg (slower, but simple)
-      #- |
-      #  docker build . \
-      #      -f ./local/vmi/Dockerfile \
-      #      -t ${VMI_IMAGE}
-      #  docker push ${VMI_IMAGE}
+      - task: build:controller
+      - task: build:dvcr-importer
+      - task: build:cleanup
 
+  build:controller:cache:
+    desc: "Download Go modules and prebuild them to speedup next builds of the controller."
+    cmds:
+    - |
+      echo "Build go modules cache"
+      docker build . \
+          -f ./local/virtualization-controller/Dockerfile \
+          --target builder \
+          -t ${CONTROLLER_BUILDER_IMAGE}
+    status:
+      - |
+        docker image inspect $CONTROLLER_BUILDER_IMAGE -f '{{ .Created }}'
+
+  build:controller:nocache:
+    desc: "Build virtualization-controller image"
+    cmds:
+      # Simple build without BUILDER_CACHE_IMAGE build-arg (slower, but simple).
+      - |
+        docker build . \
+            -f ./local/virtualization-controller/Dockerfile \
+            -t ${CONTROLLER_IMAGE}
+        docker push ${CONTROLLER_IMAGE}
+
+  build:controller:
+    desc: "Build virtualization-controller image for local development"
+    deps:
+      - build:controller:cache
+    cmds:
       # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
       - |
+        echo "Build image with virtualization-controller binary"
         docker build . \
-            -f ./local/vmi/Dockerfile \
-            --build-arg BUILDER_CACHE_IMAGE=${VMI_BUILDER_IMAGE} \
-            -t ${VMI_IMAGE}
-        docker push ${VMI_IMAGE}
+            -f ./local/virtualization-controller/Dockerfile \
+            --build-arg BUILDER_CACHE_IMAGE=${CONTROLLER_BUILDER_IMAGE} \
+            -t ${CONTROLLER_IMAGE}
+        docker push ${CONTROLLER_IMAGE}
 
+  build:dvcr-importer:
+    desc: "Build dvcr-importer image for local development"
+    cmds:
       - |
-        docker build . \
-            -f ./local/vmi/Dockerfile \
-            --build-arg BUILDER_CACHE_IMAGE=${VMI_BUILDER_IMAGE} \
-            --target builder \
-            -t ${VMI_BUILDER_IMAGE}
-        docker push ${VMI_BUILDER_IMAGE}
+        docker build ./local/dvcr-importer \
+            -f ./local/dvcr-importer/Dockerfile \
+            -t ${DVCR_IMPORTER_IMAGE}
+        docker push ${DVCR_IMPORTER_IMAGE}
 
-  dev:vmi:run:
-    desc: "Install vmi-controller into the cluster using helm"
+  build:cleanup:
+    cmds:
+      - |
+        echo "Remove dangling images"
+        docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
+
+  dev:run:
+    desc: "Install virtualization-controller into the cluster using helm"
     deps:
       - _ensure:helm
       - _ensure:kubectl
       - _ensure:cluster-available
     cmds:
-      - (docker images | grep 'vmi-controller.*latest') || (echo "Image should be built"; exit 1)
+      - (docker images | grep 'virtualization-controller.*latest') || (echo "Image should be built"; exit 1)
       - |
-        mkdir -p local/vmi/crds
-        cp api/*.yaml local/vmi/crds
+        mkdir -p local/virtualization-controller/crds
+        cp api/*.yaml local/virtualization-controller/crds
       - |
         helm upgrade --install \
-          --namespace vmi-controller \
+          --namespace virtualization-controller \
           --create-namespace \
-          --set image=$VMI_IMAGE \
-          vmi-controller ./local/vmi
+          --set image=$CONTROLLER_IMAGE \
+          virtualization-controller ./local/virtualization-controller
 
-  dev:vmi:logs:
-    desc: "Watch current vmi-controller logs"
+  dev:logs:
+    desc: "Watch current virtualization-controller logs"
     cmds:
-      - "kubectl -n vmi-controller logs -f $(kubectl -n vmi-controller get pod | grep vmi-controller | cut -d' ' -f1)"
+      - kubectl -n virtualization-controller logs deploy/virtualization-controller -f
 
-  dev:vmi:delete:
-    desc: "Delete vmi-controller from the cluster using helm"
+  dev:delete:
+    desc: "Delete virtualization-controller from the cluster using helm"
     deps:
       - _ensure:helm
       - _ensure:kubectl
@@ -135,10 +190,14 @@ tasks:
     cmds:
       - |
         helm delete \
-          --namespace vmi-controller \
-          vmi-controller
+          --namespace virtualization-controller \
+          virtualization-controller
       - |
-        kubectl delete ns/vmi-controller
+        kubectl delete ns/virtualization-controller
+
+  kctl:
+    cmds:
+      - kubectl -n virtualization-controller {{.CLI_ARGS}}
 
   gen:api:
     desc: "Regenerate deepcopy code for CRDs."

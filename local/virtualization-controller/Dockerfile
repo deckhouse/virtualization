@@ -7,10 +7,11 @@ WORKDIR /app
 RUN go mod download
 
 # Build operator
+RUN rm -rf /app
 ADD . /app
 RUN GOOS=linux \
-    go build -o vc ./cmd/vc
+    go build -o virtualization-controller ./cmd/virtualization-controller
 
 
 FROM alpine:3.18
-COPY --from=builder /app/vc /
+COPY --from=builder /app/virtualization-controller /
