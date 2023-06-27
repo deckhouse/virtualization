@@ -3,7 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -54,7 +56,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
 		}
 
-		state.DV, err = FetchObject(ctx, req.NamespacedName, opts.Client, &cdiv1.DataVolume{})
+		state.DV, err = helper.FetchObject(ctx, req.NamespacedName, opts.Client, &cdiv1.DataVolume{})
 		if err != nil {
 			return err
 		}

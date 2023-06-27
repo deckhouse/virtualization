@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/go-logr/logr"
@@ -59,7 +60,7 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	}
 
 	var err error
-	state.DV, err = FetchObject(ctx, req.NamespacedName, client, &cdiv1.DataVolume{})
+	state.DV, err = helper.FetchObject(ctx, req.NamespacedName, client, &cdiv1.DataVolume{})
 	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
