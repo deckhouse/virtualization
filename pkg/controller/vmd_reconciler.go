@@ -77,7 +77,11 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 
 	switch state.VMD.Read().Status.Phase {
 	case "", virtv2.DiskPending:
-		state.VMD.Write().Status.Progress = "N/A"
+		progress := virtv2.DiskProgress(state.DV.Status.Progress)
+		if progress == "" {
+			progress = "N/A"
+		}
+		state.VMD.Write().Status.Progress = progress
 		state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskWaitForUserUpload:
 	// TODO
@@ -95,10 +99,6 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 	}
 
 	return nil
-}
-
-func (r *VMDReconciler) NewReconcilerState(req reconcile.Request, opts two_phase_reconciler.ReconcilerOptions) *VMDReconcilerState {
-	return NewVMDReconcilerState(req.NamespacedName, opts.Log, opts.Client)
 }
 
 func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
