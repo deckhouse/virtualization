@@ -1,6 +1,9 @@
 package common
 
 const (
+	// PodNamespaceVar is a name of variable with the namespace of the Pod (e.g. Pod with virtualization-controller).
+	PodNamespaceVar = "POD_NAMESPACE"
+
 	// FilesystemOverheadVar provides a constant to capture our env variable "FILESYSTEM_OVERHEAD"
 	FilesystemOverheadVar = "FILESYSTEM_OVERHEAD"
 	// OwnerUID provides the UID of the owner entity (either PVC or DV)
@@ -11,8 +14,10 @@ const (
 	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
 	KeySecret = "secretKey"
 
-	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
-	ImporterPodName = "importer"
+	// ImporterPodNamePrefix provides a constant to use as a prefix for Pods created by CDI (controller only)
+	ImporterPodNamePrefix = "importer"
+	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pods.
+	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted

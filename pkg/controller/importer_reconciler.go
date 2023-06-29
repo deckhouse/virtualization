@@ -118,7 +118,7 @@ func (r *ImporterReconciler) reconcileCVMI(cvmi *virtv2alpha1.ClusterVirtualMach
 
 // findImporterPod returns the Pod using annotation with its name on the CVMI resource.
 func (r *ImporterReconciler) findImporterPod(cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) (*corev1.Pod, error) {
-	podName := fmt.Sprintf("%s-%s", common.ImporterPodName, cvmi.GetName())
+	podName := fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
 	podNS := r.namespace
 	pod := &corev1.Pod{}
 	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: podName, Namespace: podNS}, pod); err != nil {
@@ -330,7 +330,7 @@ func (r *ImporterReconciler) initCVMIPodName(cvmi *virtv2alpha1.ClusterVirtualMa
 
 	log.V(1).Info("Init pod name on CVMI")
 	anno := cvmi.GetAnnotations()
-	anno[cc.AnnImportPod] = fmt.Sprintf("%s-%s", common.ImporterPodName, cvmi.GetName())
+	anno[cc.AnnImportPod] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
 
 	//requiresScratch := r.requiresScratchSpace(pvc)
 	//if requiresScratch {

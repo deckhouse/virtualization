@@ -96,11 +96,11 @@ func podNameWithCheckpoint(pvc *corev1.PersistentVolumeClaim) string {
 //	}
 //	// fallback to legacy naming, in fact the following function is fully compatible with legacy
 //	// name concatenation "importer-{pvc.Name}" if the name length is under the size limits,
-//	return naming.GetResourceName(common.ImporterPodName, podNameWithCheckpoint(pvc))
+//	return naming.GetResourceName(common.ImporterPodNamePrefix, podNameWithCheckpoint(pvc))
 //}
 //
 //func createImportPodNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
-//	return naming.GetResourceName(common.ImporterPodName, podNameWithCheckpoint(pvc))
+//	return naming.GetResourceName(common.ImporterPodNamePrefix, podNameWithCheckpoint(pvc))
 //}
 
 // createImporterPod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
@@ -189,7 +189,7 @@ func makeImporterPodSpec(args *importerPodArgs) *corev1.Pod {
 			},
 			//Labels: map[string]string{
 			//	common.CDILabelKey:        common.CDILabelValue,
-			//	common.CDIComponentLabel:  common.ImporterPodName,
+			//	common.CDIComponentLabel:  common.ImporterPodNamePrefix,
 			//	common.PrometheusLabelKey: common.PrometheusLabelValue,
 			//},
 			OwnerReferences: []metav1.OwnerReference{
@@ -305,7 +305,7 @@ func setImporterPodCommons(pod *corev1.Pod, podEnvVar *cc.ImportPodEnvVar, cvmi 
 
 func makeImporterContainerSpec(image, verbose, pullPolicy string) *corev1.Container {
 	return &corev1.Container{
-		Name:            common.ImporterPodName,
+		Name:            common.ImporterPodNamePrefix,
 		Image:           image,
 		ImagePullPolicy: corev1.PullPolicy(pullPolicy),
 		Command:         []string{"sh"},
