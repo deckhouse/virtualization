@@ -3,9 +3,11 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -45,49 +47,58 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 }
 
 func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.DV == nil {
-		var err error
-
-		// TODO: How to set custom PVC name using DataVolume spec?
-		// DataVolume named after VirtualMachineDisk (?)
-		dv := NewDVFromVirtualMachineDisk(req.Namespace, req.Name, state.VMD.Read())
-
+	if util.IsEmpty(state.PersistentVolumeClaimName) {
+		state.PersistentVolumeClaimName = types.NamespacedName{
+			Name:      fmt.Sprintf("virtual-machine-disk-%s", uuid.NewUUID()),
+			Namespace: req.Namespace,
+		}
+		opts.Log.Info("Generated PVC name", "pvcname", state.PersistentVolumeClaimName.Name)
+		dv := NewDVFromVirtualMachineDisk(state.PersistentVolumeClaimName, state.VMD.Read())
 		if err := opts.Client.Create(ctx, dv); err != nil {
 			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
 		}
 
-		state.DV, err = helper.FetchObject(ctx, req.NamespacedName, opts.Client, &cdiv1.DataVolume{})
-		if err != nil {
-			return err
-		}
-		if dv == nil {
-			return fmt.Errorf("failed to get just created dv %q", dv.Name)
-		}
-		opts.Log.Info(fmt.Sprintf("Creating new DV %q => %v", dv.Name, dv))
+		state.DV = dv
+		opts.Log.Info("Created new DV", "name", dv.Name, "dv", dv)
 	}
 
 	return nil
 }
 
 func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.DV == nil {
-		opts.Log.Info(fmt.Sprintf("Lost DataVolume, will skip update status"))
-		return nil
+	opts.Log.Info("Update Status", "pvcname", state.PersistentVolumeClaimName.Name)
+
+	if state.VMD.Read().Status.PersistentVolumeClaimName == "" {
+		state.VMD.Write().Status.PersistentVolumeClaimName = state.PersistentVolumeClaimName.Name
+	}
+
+	if state.VMD.Read().Status.Size == "" {
+		if state.PVC != nil {
+			state.VMD.Write().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceRequestsStorage]).String()
+		}
 	}
 
 	switch state.VMD.Read().Status.Phase {
 	case "", virtv2.DiskPending:
-		progress := virtv2.DiskProgress(state.DV.Status.Progress)
-		if progress == "" {
-			progress = "N/A"
+		if state.DV != nil {
+			progress := virtv2.DiskProgress(state.DV.Status.Progress)
+			if progress == "" {
+				progress = "N/A"
+			}
+			state.VMD.Write().Status.Progress = progress
+			state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+		} else {
+			state.VMD.Write().Status.Phase = virtv2.DiskPending
 		}
-		state.VMD.Write().Status.Progress = progress
-		state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 	case virtv2.DiskWaitForUserUpload:
 	// TODO
 	case virtv2.DiskProvisioning:
-		state.VMD.Write().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
-		state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+		if state.DV != nil {
+			state.VMD.Write().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
+			state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+		} else {
+			opts.Log.Info("Lost DataVolume, will skip update status")
+		}
 	case virtv2.DiskReady:
 		// TODO
 	case virtv2.DiskFailed:
@@ -97,11 +108,10 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 	case virtv2.DiskPVCLost:
 		// TODO
 	}
-
 	return nil
 }
 
-func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
+func NewDVFromVirtualMachineDisk(name types.NamespacedName, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
 	labels := map[string]string{}
 	annotations := map[string]string{
 		"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
@@ -116,8 +126,8 @@ func NewDVFromVirtualMachineDisk(namespace, name string, vmd *virtv2.VirtualMach
 
 	res := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   namespace,
-			Name:        name,
+			Namespace:   name.Namespace,
+			Name:        name.Name,
 			Labels:      labels,
 			Annotations: annotations,
 		},

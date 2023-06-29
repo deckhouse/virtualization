@@ -26,8 +26,10 @@ type VirtualMachineDiskSpec struct {
 }
 
 type VirtualMachineDiskStatus struct {
-	Phase    DiskPhase    `json:"phase"`
-	Progress DiskProgress `json:"progress"`
+	Size                      string       `json:"size"`
+	PersistentVolumeClaimName string       `json:"persistentVolumeClaimName"`
+	Phase                     DiskPhase    `json:"phase"`
+	Progress                  DiskProgress `json:"progress"`
 }
 
 type VirtualMachinePersistentVolumeClaim struct {
