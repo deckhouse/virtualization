@@ -53,7 +53,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 			Namespace: req.Namespace,
 		}
 		opts.Log.Info("Generated PVC name", "pvcname", state.PersistentVolumeClaimName.Name)
-		dv := NewDVFromVirtualMachineDisk(state.PersistentVolumeClaimName, state.VMD.Read())
+		dv := NewDVFromVirtualMachineDisk(state.PersistentVolumeClaimName, state.VMD.Current())
 		if err := opts.Client.Create(ctx, dv); err != nil {
 			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
 		}
@@ -66,36 +66,36 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 }
 
 func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.Info("Update Status", "pvcname", state.PersistentVolumeClaimName.Name)
+	opts.Log.V(2).Info("Update Status", "pvcname", state.PersistentVolumeClaimName.Name)
 
-	if state.VMD.Read().Status.PersistentVolumeClaimName == "" {
-		state.VMD.Write().Status.PersistentVolumeClaimName = state.PersistentVolumeClaimName.Name
+	if state.VMD.Current().Status.PersistentVolumeClaimName == "" {
+		state.VMD.Changed().Status.PersistentVolumeClaimName = state.PersistentVolumeClaimName.Name
 	}
 
-	if state.VMD.Read().Status.Size == "" {
+	if state.VMD.Current().Status.Size == "" {
 		if state.PVC != nil {
-			state.VMD.Write().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceRequestsStorage]).String()
+			state.VMD.Changed().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceRequestsStorage]).String()
 		}
 	}
 
-	switch state.VMD.Read().Status.Phase {
+	switch state.VMD.Current().Status.Phase {
 	case "", virtv2.DiskPending:
 		if state.DV != nil {
 			progress := virtv2.DiskProgress(state.DV.Status.Progress)
 			if progress == "" {
 				progress = "N/A"
 			}
-			state.VMD.Write().Status.Progress = progress
-			state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+			state.VMD.Changed().Status.Progress = progress
+			state.VMD.Changed().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 		} else {
-			state.VMD.Write().Status.Phase = virtv2.DiskPending
+			state.VMD.Changed().Status.Phase = virtv2.DiskPending
 		}
 	case virtv2.DiskWaitForUserUpload:
 	// TODO
 	case virtv2.DiskProvisioning:
 		if state.DV != nil {
-			state.VMD.Write().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
-			state.VMD.Write().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+			state.VMD.Changed().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
+			state.VMD.Changed().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 		} else {
 			opts.Log.Info("Lost DataVolume, will skip update status")
 		}

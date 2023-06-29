@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -13,6 +14,7 @@ import (
 
 type ReconcilerOptions struct {
 	Client   client.Client
+	Cache    cache.Cache
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
 	Log      logr.Logger
@@ -33,7 +35,7 @@ func NewReconcilerCore[T ReconcilerState](reconciler TwoPhaseReconciler[T], stat
 }
 
 func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	state := r.StateFactory(req.NamespacedName, r.Log, r.Client)
+	state := r.StateFactory(req.NamespacedName, r.Log, r.Client, r.Cache)
 
 	if err := state.Reload(ctx, req, r.Log, r.Client); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to reload reconciler state: %w", err)
@@ -48,15 +50,14 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 		resErr = syncErr
 		res = state.GetReconcilerResult()
 		if state.ShouldApplyUpdateStatus() {
+			r.Log.Info("sync phase: after-sync status update")
 			if err := state.ApplyUpdateStatus(ctx, r.Log); err != nil {
 				return reconcile.Result{}, fmt.Errorf("apply update status failed: %w", err)
 			}
+		} else {
+			r.Log.Info("sync phase: skip after-sync status update")
 		}
 		r.Log.Info("sync phase end")
-	}
-
-	if err := state.Reload(ctx, req, r.Log, r.Client); err != nil {
-		return reconcile.Result{}, fmt.Errorf("unable to reload reconciler state: %w", err)
 	}
 
 	if state.ShouldReconcile() {

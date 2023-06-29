@@ -19,6 +19,7 @@ func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger)
 		NewVMDReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
+			Cache:    mgr.GetCache(),
 			Recorder: mgr.GetEventRecorderFor(vmdControllerName),
 			Scheme:   mgr.GetScheme(),
 			Log:      log.WithName(vmdControllerName),
