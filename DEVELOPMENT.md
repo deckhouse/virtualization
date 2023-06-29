@@ -11,6 +11,17 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.yam
 
 ## Test in local cluster
 
+### Prepare
+
+- Change dvcr settings in local/virtualization-controller/values.yaml
+- Create secret with ghcr.io token:
+
+```
+kubectl create secret docker-registry ghcr-io-auth --docker-username=GITHUB_USERNAME --docker-password=GITHUB_TOKEN --docker-server=ghcr.io --dry-run=client -o yaml > local/virtualization-controller/templates/auth-secret.yaml
+```
+
+### Run
+
 0. Bootstrap local cluster (or reset existing one):
 
     ```

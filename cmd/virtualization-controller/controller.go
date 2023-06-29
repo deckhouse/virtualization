@@ -23,7 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
 var (
@@ -35,11 +37,16 @@ var (
 	}
 	importerImage       string
 	controllerNamespace string
+	dvcrSettings        *cc.DVCRSettings
 )
 
 func init() {
 	importerImage = getRequiredEnvVar("IMPORTER_IMAGE")
 	controllerNamespace = getRequiredEnvVar("CONTROLLER_NAMESPACE")
+	dvcrSettings = cc.NewDVCRSettings(
+		getRequiredEnvVar(common.ImporterDestinationAuthSecretVar),
+		getRequiredEnvVar(common.ImporterDestinationRegistryVar),
+		getRequiredEnvVar(common.ImporterDestinationInsecureTLSVar))
 }
 
 func printVersion() {
@@ -145,6 +152,11 @@ func main() {
 	//	log.Error(err, "")
 	//	os.Exit(1)
 	//}
+
+	if _, err := controller.NewImportController(ctx, mgr, log, importerImage, controllerNamespace, dvcrSettings); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
 
 	log.Info("Starting the Manager.")
 

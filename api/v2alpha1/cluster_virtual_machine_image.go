@@ -43,6 +43,10 @@ type ClusterVirtualMachineImageStatus struct {
 	ImageStatus `json:",inline"`
 }
 
+func (c *ClusterVirtualMachineImage) GetDataSource() DataSource {
+	return c.Spec.DataSource
+}
+
 //type clusterVirtualMachineImageKind struct{}
 //
 //func (in *ClusterVirtualMachineImageStatus) GetObjectKind() schema.ObjectKind {

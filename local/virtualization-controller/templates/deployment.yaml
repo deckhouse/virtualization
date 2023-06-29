@@ -38,6 +38,12 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: IMPORTER_DESTINATION_AUTH_SECRET
+          value: {{ .Values.dvcr.authSecret | quote }}
+        - name: IMPORTER_DESTINATION_REGISTRY
+          value: {{ .Values.dvcr.registry | quote }}
+        - name: IMPORTER_DESTINATION_INSECURE_TLS
+          value: {{ .Values.dvcr.insecureTLS | quote }}
 
         #livenessProbe:
         #  httpGet:
