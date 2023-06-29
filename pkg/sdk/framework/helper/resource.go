@@ -71,10 +71,10 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 	if !r.IsFound() {
 		return nil
 	}
+	if !reflect.DeepEqual(r.ref.GetStatus(), r.mutatedRef.GetStatus()) {
+		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.ref.GetStatus(), r.mutatedRef.GetStatus())
+	}
 	if !reflect.DeepEqual(r.ref.GetObjectMeta(), r.mutatedRef.GetObjectMeta()) {
-		if !reflect.DeepEqual(r.ref.GetStatus(), r.mutatedRef.GetStatus()) {
-			return fmt.Errorf("status update is not allowed in the meta updater")
-		}
 		return r.client.Update(ctx, r.mutatedRef)
 	}
 	return nil
@@ -85,7 +85,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		return nil
 	}
 	if !reflect.DeepEqual(r.ref.GetObjectMeta(), r.mutatedRef.GetObjectMeta()) {
-		return fmt.Errorf("meta update is not allowed in the status updater")
+		return fmt.Errorf("meta update is not allowed in the status updater: %#v changed to %#v", r.ref.GetObjectMeta(), r.mutatedRef.GetObjectMeta())
 	}
 	if !reflect.DeepEqual(r.ref.GetStatus(), r.mutatedRef.GetStatus()) {
 		return r.client.Status().Update(ctx, r.mutatedRef)
