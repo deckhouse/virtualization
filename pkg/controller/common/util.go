@@ -275,7 +275,6 @@ func GetDefaultStorageClass(ctx context.Context, client client.Client) (*storage
 	return nil, nil
 }
 
-
 //// GetDefaultPodResourceRequirements gets default pod resource requirements from cdi config status
 //func GetDefaultPodResourceRequirements(client client.Client) (*corev1.ResourceRequirements, error) {
 //	cdiconfig := &cdiv1.CDIConfig{}
@@ -453,7 +452,7 @@ type getSource interface {
 
 // GetSource returns the source string which determines the type of source. If no source or invalid source found, default to http
 func GetSource(obj getSource) string {
-	srcType := obj.GetDataSource().Type
+	srcType := string(obj.GetDataSource().Type)
 	switch srcType {
 	case
 		SourceHTTP,
