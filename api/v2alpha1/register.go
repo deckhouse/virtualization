@@ -4,7 +4,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 const (
@@ -45,7 +44,5 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
-	cdiv1.AddToScheme(scheme)
-
 	return nil
 }
