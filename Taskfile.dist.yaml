@@ -13,6 +13,8 @@ env:
     sh: echo ${CONTROLLER_PREBUILT_IMAGES:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
   DVCR_IMPORTER_IMAGE:
     sh: echo ${DVCR_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/dvcr-importer:latest}
+  REGISTRY_IMPORTER_IMAGE:
+    sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
 
 tasks:
   dev:converge:
@@ -113,7 +115,8 @@ tasks:
     # Use cmds to run deps in order.
     cmds:
       - task: build:controller
-      - task: build:dvcr-importer
+      #- task: build:dvcr-importer
+      - task: build:registry-importer
       - task: build:cleanup
 
   build:controller:cache:
@@ -161,6 +164,15 @@ tasks:
             -f ./local/dvcr-importer/Dockerfile \
             -t ${DVCR_IMPORTER_IMAGE}
         docker push ${DVCR_IMPORTER_IMAGE}
+
+  build:registry-importer:
+    desc: "Build dvcr-importer image for local development"
+    cmds:
+      - |
+        docker build ./local/registry-importer \
+            -f ./local/registry-importer/Dockerfile \
+            -t ${REGISTRY_IMPORTER_IMAGE}
+        docker push ${REGISTRY_IMPORTER_IMAGE}
 
   build:cleanup:
     cmds:
