@@ -47,15 +47,11 @@ func (r *Resource[T, ST]) Name() types.NamespacedName {
 }
 
 func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
-	//if !r.cache.WaitForCacheSync(ctx) {
-	//	return fmt.Errorf("unable to wait for cache sync")
-	//}
-
 	currentObj, err := FetchObject(ctx, r.name, r.client, r.allocatedObj.DeepCopy())
 	if err != nil {
 		return err
 	}
-	r.log.Info("Resource.Fetch", "name", r.name, "obj", currentObj, "status", currentObj.GetStatus())
+	r.log.V(2).Info("Resource.Fetch", "name", r.name, "obj", currentObj, "status", currentObj.GetStatus())
 
 	r.currentObj = currentObj
 	if r.IsEmpty() {
@@ -93,9 +89,7 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
-		if err := r.Fetch(ctx); err != nil {
-			return fmt.Errorf("error fetching object after update: %w", err)
-		}
+		r.currentObj = r.changedObj
 	}
 	return nil
 }
@@ -116,10 +110,9 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
-		if err := r.Fetch(ctx); err != nil {
-			return fmt.Errorf("error refreshing object after update: %w", err)
-		}
-		r.log.Info("UpdateStatus obj after status update", "currentObj.Status", r.currentObj.GetStatus(), "changedObj.Status", r.changedObj.GetStatus())
+		r.currentObj = r.changedObj
+
+		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.currentObj.GetStatus(), "changedObj.Status", r.changedObj.GetStatus())
 	}
 	return nil
 }

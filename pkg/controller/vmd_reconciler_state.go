@@ -5,7 +5,6 @@ import (
 	"fmt"
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,8 +20,6 @@ type VMDReconcilerState struct {
 	DV     *cdiv1.DataVolume
 	PVC    *corev1.PersistentVolumeClaim
 	Result *reconcile.Result
-
-	PersistentVolumeClaimName types.NamespacedName
 }
 
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
@@ -40,26 +37,7 @@ func (state *VMDReconcilerState) ApplySync(ctx context.Context, log logr.Logger)
 }
 
 func (state *VMDReconcilerState) ApplyUpdateStatus(ctx context.Context, log logr.Logger) error {
-	log.V(2).Info("VMDReconcilerState.ApplyUpdateStatus before", "VMD.Status", state.VMD.Changed().Status, "state.PersistentVolumeClaimName", state.PersistentVolumeClaimName)
-	if err := state.VMD.UpdateStatus(ctx); err != nil {
-		return err
-	}
-	log.V(2).Info("VMDReconcilerState.ApplyUpdateStatus after", "VMD.Status", state.VMD.Changed().Status, "state.PersistentVolumeClaimName", state.PersistentVolumeClaimName)
-
-	// FIXME: remove after some testing
-	//{
-	//	obj := &virtv2.VirtualMachineDisk{}
-	//	err := state.Client.Get(ctx, state.VMD.Name(), obj)
-	//	log.V(2).Info("EXTRA GET", "err", err, "obj", obj, "status", obj.Status)
-	//
-	//	time.Sleep(10 * time.Second)
-	//	obj2 := &virtv2.VirtualMachineDisk{}
-	//	err = state.Client.Get(ctx, state.VMD.Name(), obj2)
-	//	log.V(2).Info("EXTRA GET 2", "err", err, "obj", obj2, "status", obj2.Status)
-	//}
-	//
-	//time.Sleep(60 * time.Second)
-	return nil
+	return state.VMD.UpdateStatus(ctx)
 }
 
 func (state *VMDReconcilerState) SetReconcilerResult(result *reconcile.Result) {
@@ -83,28 +61,25 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		return nil
 	}
 
-	log.V(2).Info("VMD State Reload", "status pvc", state.VMD.Current().Status.PersistentVolumeClaimName, "state pvc", state.PersistentVolumeClaimName, "isEmpty", util.IsEmpty(state.PersistentVolumeClaimName))
-
-	if state.VMD.Current().Status.PersistentVolumeClaimName != "" {
-		log.V(2).Info("VMD State Reload", "restore pvc name", state.VMD.Current().Status.PersistentVolumeClaimName)
-
-		state.PersistentVolumeClaimName = types.NamespacedName{
-			Name:      state.VMD.Current().Status.PersistentVolumeClaimName,
-			Namespace: req.Namespace,
-		}
-
+	if dvName, hasKey := state.VMD.Current().Annotations[AnnVMDDataVolume]; hasKey {
 		var err error
-		state.DV, err = helper.FetchObject(ctx, state.PersistentVolumeClaimName, client, &cdiv1.DataVolume{})
+		name := types.NamespacedName{Name: dvName, Namespace: state.VMD.Current().Namespace}
+
+		state.DV, err = helper.FetchObject(ctx, name, client, &cdiv1.DataVolume{})
 		if err != nil {
-			return fmt.Errorf("unable to get DV %q: %w", state.PersistentVolumeClaimName, err)
+			return fmt.Errorf("unable to get DV %q: %w", name, err)
 		}
-
-		// FIXME: This is happening: dv is nil here, why?? Answer: probably because of client cache.
-		log.V(2).Info("VMD State Reload", "DV", state.DV)
-
-		state.PVC, err = helper.FetchObject(ctx, state.PersistentVolumeClaimName, client, &corev1.PersistentVolumeClaim{})
-		if err != nil {
-			return fmt.Errorf("unable to get PVC %q: %w", state.PersistentVolumeClaimName, err)
+		if state.DV != nil {
+			switch MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase) {
+			case virtv2.DiskProvisioning, virtv2.DiskReady:
+				state.PVC, err = helper.FetchObject(ctx, name, client, &corev1.PersistentVolumeClaim{})
+				if err != nil {
+					return fmt.Errorf("unable to get PVC %q: %w", name, err)
+				}
+				if state.PVC == nil {
+					return fmt.Errorf("no PVC %q found: expected existing PVC", name)
+				}
+			}
 		}
 	}
 
