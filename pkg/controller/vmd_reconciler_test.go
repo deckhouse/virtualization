@@ -73,9 +73,6 @@ var _ = Describe("VMD", func() {
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmd).NotTo(BeNil())
-			Expect(strings.HasPrefix(vmd.Status.PersistentVolumeClaimName, "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected PVC name %q", vmd.Status.PersistentVolumeClaimName))
-			// UUID suffix
-			Expect(len(vmd.Status.PersistentVolumeClaimName)).To(Equal(21 + 36))
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
 			Expect(vmd.Status.Size).To(Equal(""))
@@ -161,6 +158,9 @@ var _ = Describe("VMD", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskReady))
+			Expect(strings.HasPrefix(vmd.Status.PersistentVolumeClaimName, "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected PVC name %q", vmd.Status.PersistentVolumeClaimName))
+			// UUID suffix
+			Expect(len(vmd.Status.PersistentVolumeClaimName)).To(Equal(21 + 36))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("100%")))
 			Expect(vmd.Status.Size).To(Equal("15Gi"))
 		}

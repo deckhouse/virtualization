@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -47,54 +48,57 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 }
 
 func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if util.IsEmpty(state.PersistentVolumeClaimName) {
-		state.PersistentVolumeClaimName = types.NamespacedName{
-			Name:      fmt.Sprintf("virtual-machine-disk-%s", uuid.NewUUID()),
-			Namespace: req.Namespace,
+	if dvName, hasKey := state.VMD.Current().Annotations[AnnVMDDataVolume]; !hasKey {
+		if state.VMD.Changed().Annotations == nil {
+			state.VMD.Changed().Annotations = make(map[string]string)
 		}
-		opts.Log.Info("Generated PVC name", "pvcname", state.PersistentVolumeClaimName.Name)
-		dv := NewDVFromVirtualMachineDisk(state.PersistentVolumeClaimName, state.VMD.Current())
-		if err := opts.Client.Create(ctx, dv); err != nil {
-			return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
+		state.VMD.Changed().Annotations[AnnVMDDataVolume] = fmt.Sprintf("virtual-machine-disk-%s", uuid.NewUUID())
+		opts.Log.Info("Generated DV name", "name", state.VMD.Changed().Annotations[AnnVMDDataVolume])
+	} else {
+		name := types.NamespacedName{Name: dvName, Namespace: req.Namespace}
+
+		dv, err := helper.FetchObject(ctx, name, opts.Client, &cdiv1.DataVolume{})
+		if err != nil {
+			return fmt.Errorf("unable to get DV %q: %w", name, err)
+		}
+
+		if dv == nil {
+			dv = NewDVFromVirtualMachineDisk(name, state.VMD.Current())
+			if err := opts.Client.Create(ctx, dv); err != nil {
+				return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
+			}
+			opts.Log.Info("Created new DV", "name", dv.Name, "dv", dv)
 		}
 
 		state.DV = dv
-		opts.Log.Info("Created new DV", "name", dv.Name, "dv", dv)
 	}
 
 	return nil
 }
 
 func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(2).Info("Update Status", "pvcname", state.PersistentVolumeClaimName.Name)
+	opts.Log.V(2).Info("Update Status", "pvcname", state.VMD.Current().Annotations[AnnVMDDataVolume])
 
-	if state.VMD.Current().Status.PersistentVolumeClaimName == "" {
-		state.VMD.Changed().Status.PersistentVolumeClaimName = state.PersistentVolumeClaimName.Name
-	}
-
-	if state.VMD.Current().Status.Size == "" {
-		if state.PVC != nil {
-			state.VMD.Changed().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceRequestsStorage]).String()
-		}
-	}
-
+	// Change previous state to new
 	switch state.VMD.Current().Status.Phase {
-	case "", virtv2.DiskPending:
+	case "":
+		state.VMD.Changed().Status.Phase = virtv2.DiskPending
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+	case virtv2.DiskPending:
 		if state.DV != nil {
-			progress := virtv2.DiskProgress(state.DV.Status.Progress)
-			if progress == "" {
-				progress = "N/A"
+			nextPhase := MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
+			if nextPhase == virtv2.DiskReady {
+				// Make sure not to jump over DiskProvisioning state handler
+				state.VMD.Changed().Status.Phase = virtv2.DiskProvisioning
+				state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+			} else {
+				state.VMD.Changed().Status.Phase = nextPhase
 			}
-			state.VMD.Changed().Status.Progress = progress
-			state.VMD.Changed().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
-		} else {
-			state.VMD.Changed().Status.Phase = virtv2.DiskPending
 		}
 	case virtv2.DiskWaitForUserUpload:
-	// TODO
+		// TODO
 	case virtv2.DiskProvisioning:
 		if state.DV != nil {
-			state.VMD.Changed().Status.Progress = virtv2.DiskProgress(state.DV.Status.Progress)
 			state.VMD.Changed().Status.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 		} else {
 			opts.Log.Info("Lost DataVolume, will skip update status")
@@ -108,6 +112,47 @@ func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request,
 	case virtv2.DiskPVCLost:
 		// TODO
 	}
+
+	// TODO: ensure phases switching in the predefined order, no "phase jumps over middle phase" allowed
+
+	// Set fields after phase changed
+	switch state.VMD.Changed().Status.Phase {
+	case virtv2.DiskPending:
+		if state.VMD.Current().Status.Progress == "" {
+			state.VMD.Changed().Status.Progress = "N/A"
+		}
+	case virtv2.DiskWaitForUserUpload:
+	case virtv2.DiskProvisioning:
+		if state.DV != nil {
+			progress := virtv2.DiskProgress(state.DV.Status.Progress)
+			if progress == "" {
+				progress = "N/A"
+			}
+			state.VMD.Changed().Status.Progress = progress
+		}
+
+		if state.VMD.Current().Status.Size == "" || state.VMD.Current().Status.Size == "0" {
+			if state.PVC != nil {
+				if state.PVC.Status.Phase == corev1.ClaimBound {
+					state.VMD.Changed().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
+				}
+			}
+		}
+
+	case virtv2.DiskReady:
+		if state.VMD.Current().Status.Progress != "100%" {
+			state.VMD.Changed().Status.Progress = "100%"
+		}
+		if state.VMD.Current().Status.PersistentVolumeClaimName == "" {
+			state.VMD.Changed().Status.PersistentVolumeClaimName = state.VMD.Current().Annotations[AnnVMDDataVolume]
+		}
+	case virtv2.DiskFailed:
+	case virtv2.DiskNotReady:
+	case virtv2.DiskPVCLost:
+	default:
+		panic(fmt.Sprintf("unexpected phase %q", state.VMD.Changed().Status.Phase))
+	}
+
 	return nil
 }
 
