@@ -17,6 +17,7 @@ import (
 type VMDReconcilerState struct {
 	Client client.Client
 	VMD    *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	//PVC    *helper.Resource[*corev1.PersistentVolumeClaim, corev1.PersistentVolumeClaimStatus]
 	DV     *cdiv1.DataVolume
 	PVC    *corev1.PersistentVolumeClaim
 	Result *reconcile.Result
@@ -25,7 +26,11 @@ type VMDReconcilerState struct {
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
 	return &VMDReconcilerState{
 		Client: client,
-		VMD:    helper.NewResource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus](name, log, client, cache, &virtv2.VirtualMachineDisk{}),
+		VMD: helper.NewResource(
+			name, log, client, cache,
+			func() *virtv2.VirtualMachineDisk { return &virtv2.VirtualMachineDisk{} },
+			func(obj *virtv2.VirtualMachineDisk) virtv2.VirtualMachineDiskStatus { return obj.Status },
+		),
 	}
 }
 
