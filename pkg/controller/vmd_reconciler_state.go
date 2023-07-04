@@ -17,9 +17,9 @@ import (
 type VMDReconcilerState struct {
 	Client client.Client
 	VMD    *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
-	//PVC    *helper.Resource[*corev1.PersistentVolumeClaim, corev1.PersistentVolumeClaimStatus]
 	DV     *cdiv1.DataVolume
 	PVC    *corev1.PersistentVolumeClaim
+	PV     *corev1.PersistentVolume
 	Result *reconcile.Result
 }
 
@@ -82,8 +82,23 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 					return fmt.Errorf("unable to get PVC %q: %w", name, err)
 				}
 				if state.PVC == nil {
-					return fmt.Errorf("no PVC %q found: expected existing PVC", name)
+					return fmt.Errorf("no PVC %q found: expected existing PVC for DataVolume %q in phase %q", name, state.DV.Name, state.DV.Status.Phase)
 				}
+			}
+		}
+	}
+
+	if state.PVC != nil {
+		switch state.PVC.Status.Phase {
+		case corev1.ClaimBound:
+			pvName := state.PVC.Spec.VolumeName
+			var err error
+			state.PV, err = helper.FetchObject(ctx, types.NamespacedName{Name: pvName, Namespace: state.PVC.Namespace}, client, &corev1.PersistentVolume{})
+			if err != nil {
+				return fmt.Errorf("unable to get PV %q: %w", pvName, err)
+			}
+			if state.PV == nil {
+				return fmt.Errorf("no PV %q found: expected existing PV for PVC %q in phase %q", pvName, state.PVC.Name, state.PVC.Status.Phase)
 			}
 		}
 	}

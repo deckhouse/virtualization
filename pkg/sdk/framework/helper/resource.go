@@ -45,6 +45,13 @@ func NewResource[T Object[T, ST], ST any](name types.NamespacedName, log logr.Lo
 	}
 }
 
+func (r *Resource[T, ST]) getObjStatus(obj T) (ret ST) {
+	if obj != r.emptyObj {
+		ret = r.objStatusGetter(obj)
+	}
+	return
+}
+
 func (r *Resource[T, ST]) Name() types.NamespacedName {
 	return r.name
 }
@@ -54,7 +61,7 @@ func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.log.V(2).Info("Resource.Fetch", "name", r.name, "obj", currentObj, "status", r.objStatusGetter(currentObj))
+	r.log.V(2).Info("Resource.Fetch", "name", r.name, "obj", currentObj, "status", r.getObjStatus(currentObj))
 
 	r.currentObj = currentObj
 	if r.IsEmpty() {
@@ -70,7 +77,7 @@ func (r *Resource[T, ST]) IsEmpty() bool {
 }
 
 func (r *Resource[T, ST]) IsStatusChanged() bool {
-	return !reflect.DeepEqual(r.objStatusGetter(r.currentObj), r.objStatusGetter(r.changedObj))
+	return !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 }
 
 func (r *Resource[T, ST]) Current() T {
@@ -85,8 +92,8 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 	if r.IsEmpty() {
 		return nil
 	}
-	if !reflect.DeepEqual(r.objStatusGetter(r.currentObj), r.objStatusGetter(r.changedObj)) {
-		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.objStatusGetter(r.currentObj), r.objStatusGetter(r.changedObj))
+	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
+		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
@@ -103,11 +110,11 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		return nil
 	}
 
-	r.log.Info("UpdateStatus obj before status update", "currentObj.Status", r.objStatusGetter(r.currentObj), "changedObj.Status", r.objStatusGetter(r.changedObj))
+	r.log.Info("UpdateStatus obj before status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
 		return fmt.Errorf("meta update is not allowed in the status updater: %#v changed to %#v", r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta())
 	}
-	if !reflect.DeepEqual(r.objStatusGetter(r.currentObj), r.objStatusGetter(r.changedObj)) {
+	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
@@ -116,7 +123,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		}
 		r.currentObj = r.changedObj
 
-		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.objStatusGetter(r.currentObj), "changedObj.Status", r.objStatusGetter(r.changedObj))
+		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
 	}
 	return nil
 }

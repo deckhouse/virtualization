@@ -7,6 +7,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
@@ -48,6 +49,33 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 }
 
 func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if !state.VMD.Current().ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(state.VMD.Current(), virtv2.FinalizerVMDCleanup) {
+			// Our finalizer is present, so lets cleanup PVC & PV dependencies
+			if state.PVC != nil {
+				if controllerutil.RemoveFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
+					if err := opts.Client.Update(ctx, state.PVC); err != nil {
+						return fmt.Errorf("unable to remove PVC %q finalizer %q: %w", state.PVC.Name, virtv2.FinalizerPVCProtection, err)
+					}
+				}
+			}
+			if state.PV != nil {
+				if controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
+					if err := opts.Client.Update(ctx, state.PV); err != nil {
+						return fmt.Errorf("unable to remove PV %q finalizer %q: %w", state.PV.Name, virtv2.FinalizerPVProtection, err)
+					}
+				}
+			}
+			controllerutil.RemoveFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup)
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return nil
+	}
+
+	controllerutil.AddFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup)
+
 	if dvName, hasKey := state.VMD.Current().Annotations[AnnVMDDataVolume]; !hasKey {
 		if state.VMD.Changed().Annotations == nil {
 			state.VMD.Changed().Annotations = make(map[string]string)
@@ -72,6 +100,50 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 
 		state.DV = dv
 	}
+
+	// Add PVC & PV finalizers
+	if state.PVC != nil {
+		if controllerutil.AddFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
+			if err := opts.Client.Update(ctx, state.PVC); err != nil {
+				return fmt.Errorf("error setting finalizer on a PVC %q: %w", state.PVC.Name)
+			}
+		}
+	}
+	if state.PV != nil {
+		if controllerutil.AddFinalizer(state.PV, virtv2.FinalizerPVProtection) {
+			if err := opts.Client.Update(ctx, state.PV); err != nil {
+				return fmt.Errorf("error setting finalizer on a PV %q: %w", state.PV.Name)
+			}
+		}
+	}
+
+	/*
+		// examine DeletionTimestamp to determine if object is under deletion
+		if state.PVC.ObjectMeta.DeletionTimestamp.IsZero() {
+			// The object is not being deleted, so if it does not have our finalizer,
+			// then lets add the finalizer and update the object.
+
+		} else {
+			// The object is being deleted
+			if controllerutil.ContainsFinalizer(state.PVC, myFinalizerName) {
+				// our finalizer is present, so lets handle any external dependency
+				if err := r.deleteExternalResources(cronJob); err != nil {
+					// if fail to delete the external dependency here, return with error
+					// so that it can be retried
+					return ctrl.Result{}, err
+				}
+
+				// remove our finalizer from the list and update it.
+				controllerutil.RemoveFinalizer(cronJob, myFinalizerName)
+				if err := r.Update(ctx, cronJob); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+
+			// Stop reconciliation as the item is being deleted
+			return nil
+		}
+	*/
 
 	return nil
 }
