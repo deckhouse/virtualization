@@ -52,7 +52,14 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 	if !state.VMD.Current().ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(state.VMD.Current(), virtv2.FinalizerVMDCleanup) {
-			// Our finalizer is present, so lets cleanup PVC & PV dependencies
+			// Our finalizer is present, so lets cleanup DV, PVC & PV dependencies
+			if state.DV != nil {
+				if controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
+					if err := opts.Client.Update(ctx, state.DV); err != nil {
+						return fmt.Errorf("unable to remove DV %q finalizer %q: %w", state.DV.Name, virtv2.FinalizerDVProtection, err)
+					}
+				}
+			}
 			if state.PVC != nil {
 				if controllerutil.RemoveFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
 					if err := opts.Client.Update(ctx, state.PVC); err != nil {
@@ -101,7 +108,14 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 		state.DV = dv
 	}
 
-	// Add PVC & PV finalizers
+	// Add DV, PVC & PV finalizers
+	if state.DV != nil {
+		if controllerutil.AddFinalizer(state.DV, virtv2.FinalizerDVProtection) {
+			if err := opts.Client.Update(ctx, state.DV); err != nil {
+				return fmt.Errorf("error setting finalizer on a DV %q: %w", state.DV.Name)
+			}
+		}
+	}
 	if state.PVC != nil {
 		if controllerutil.AddFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
 			if err := opts.Client.Update(ctx, state.PVC); err != nil {
@@ -116,34 +130,6 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 			}
 		}
 	}
-
-	/*
-		// examine DeletionTimestamp to determine if object is under deletion
-		if state.PVC.ObjectMeta.DeletionTimestamp.IsZero() {
-			// The object is not being deleted, so if it does not have our finalizer,
-			// then lets add the finalizer and update the object.
-
-		} else {
-			// The object is being deleted
-			if controllerutil.ContainsFinalizer(state.PVC, myFinalizerName) {
-				// our finalizer is present, so lets handle any external dependency
-				if err := r.deleteExternalResources(cronJob); err != nil {
-					// if fail to delete the external dependency here, return with error
-					// so that it can be retried
-					return ctrl.Result{}, err
-				}
-
-				// remove our finalizer from the list and update it.
-				controllerutil.RemoveFinalizer(cronJob, myFinalizerName)
-				if err := r.Update(ctx, cronJob); err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-
-			// Stop reconciliation as the item is being deleted
-			return nil
-		}
-	*/
 
 	return nil
 }
