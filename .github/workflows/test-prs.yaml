@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   generate:
+    runs-on: ubuntu-latest
     name: Check generated files
     steps:
       - name: Set up Go 1.20
@@ -35,6 +36,7 @@ jobs:
 
   golangci_lint:
     name: GolangCI Lint
+    runs-on: ubuntu-latest
     steps:
       - name: Set up Go 1.20
         uses: actions/setup-go@v4
