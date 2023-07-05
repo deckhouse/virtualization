@@ -1,0 +1,46 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: win-iso
+spec:
+  storage: ConainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      # TODO: use iso win image
+      url: "http://caddy.caddy.svc.cluster.local/images/ubuntu-22.04-minimal-cloudimg-amd64.img"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: win-disk
+spec:
+  persistentVolumeClaim:
+    size: 100Gi
+    storageClassName: local-path
+  dataSource: {}
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  labels:
+    vm: win
+spec:
+  runPolicy: AlwaysOn # AlwaysOff
+  #enableParavirtualization: true
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 4
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  blockDevices:
+    # deattach it after install
+    - type: VirtualMachineImage
+      virtualMachineImage:
+        name: win-iso
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: win-disk
