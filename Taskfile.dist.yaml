@@ -242,13 +242,30 @@ tasks:
           --go-header-file "./scripts/boilerplate.go.txt" \
           --output-base .
 
-  ci:verify-gen:
+  ci:generate:
+    desc: "Run generations and check git diff to ensure all files are committed"
+    cmds:
+      - task: gen:api
+      - task: _ci:verify-gen
+
+  _ci:verify-gen:
     desc: "Check generated files are up-to-date."
-    deps:
-      - api-gen
     cmds:
       - |
         git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
+
+  lint:
+    desc: "Run linters"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - |
+        golangci-lint run --sort-results
 
   _ensure:k8s-codegen-mod:
     desc: "Ensure k8s.io/codegen module is present"
@@ -310,3 +327,12 @@ tasks:
       - exit 1
     status:
       - (cat /etc/docker/daemon.json $HOME/.docker/daemon.json 2>/dev/null || true) | grep 'k3d-registry.virtualization-controller.test'
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint is available"
+    cmds:
+      - |
+        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
+        exit 1
+    status:
+      - which golangci-lint
