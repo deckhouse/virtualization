@@ -255,7 +255,7 @@ tasks:
         git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
 
   lint:
-    desc: "Run linters"
+    desc: "Run linters locally"
     cmds:
       - task: lint:go
 
@@ -263,9 +263,18 @@ tasks:
     desc: "Run golangci-lint"
     deps:
       - _ensure:golangci-lint
+    vars:
+      GOLANGCILINT_PATH: '{{ default "golangci-lint" .GOLANGCILINT_PATH }}'
     cmds:
       - |
-        golangci-lint run --sort-results
+        echo {{ .GOLANGCILINT_PATH }} run --sort-results
+
+  ci:lint:
+    desc: "Run linters in CI"
+    cmds:
+      - task: lint:go
+        vars:
+          GOLANGCILINT_PATH: "./golangci-lint"
 
   _ensure:k8s-codegen-mod:
     desc: "Ensure k8s.io/codegen module is present"

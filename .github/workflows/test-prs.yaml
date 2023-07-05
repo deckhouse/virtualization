@@ -30,6 +30,10 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v1
 
+      - name: Download Go modules
+        run: |
+          go mod download
+
       - name: Check generated
         run: |
           task ci:generate
@@ -49,11 +53,15 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v1
 
+#      - name: Install golangci-lint
+#        uses: golangci/golangci-lint-action@v3
+#        with:
+#          version: v1.52.2
+
       - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.52.2
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b . v1.52.2
 
       - name: Run golangci-lint
         run: |
-          task lint
+          task ci:lint
