@@ -14,4 +14,6 @@ RUN GOOS=linux \
 
 
 FROM alpine:3.18
+# curl for testing progress metrics
+RUN apk add --no-cache curl
 COPY --from=builder /app/virtualization-controller /

@@ -12,21 +12,28 @@ const (
 )
 
 type ImageStatus struct {
-	Size                      string                 `json:"size"`
-	CDROM                     bool                   `json:"cdrom"`
-	PersistentVolumeClaimName string                 `json:"persistentVolumeClaimName"`
-	RegistryURL               string                 `json:"registryURL"`
-	Conditions                []ImageStatusCondition `json:"conditions"`
-	Phase                     string                 `json:"phase"`
-	UploadCommand             string                 `json:"uploadCommand"`
-	Progress                  string                 `json:"progress"`
+	ImportDuration string            `json:"importDuration"`
+	DownloadSpeed  ImageStatusSpeed  `json:"downloadSpeed"`
+	Size           ImageStatusSize   `json:"size"`
+	CDROM          bool              `json:"cdrom"`
+	Target         ImageStatusTarget `json:"target"`
+	Phase          string            `json:"phase"`
+	Progress       string            `json:"progress"`
+	UploadCommand  string            `json:"uploadCommand"`
+	FailureReason  string            `json:"failureReason"`
+	FailureMessage string            `json:"failureMessage"`
 }
 
-type ImageStatusCondition struct {
-	LastHeartbeatTime  string `json:"lastHeartbeatTime"`
-	LastTransitionTime string `json:"lastTransitionTime"`
-	Message            string `json:"message"`
-	Reason             string `json:"reason"`
-	Status             string `json:"status"`
-	Type               string `json:"type"`
+type ImageStatusSpeed struct {
+	Avg     string `json:"avg"`
+	Current string `json:"current"`
+}
+
+type ImageStatusSize struct {
+	Stored   string `json:"stored"`
+	Unpacked string `json:"unpacked"`
+}
+
+type ImageStatusTarget struct {
+	RegistryURL string `json:"registryURL"`
 }

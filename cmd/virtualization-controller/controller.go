@@ -135,11 +135,6 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	if _, err := controller.NewCVMIController(ctx, mgr, log); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
 	if _, err := controller.NewVMDController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
@@ -150,7 +145,7 @@ func main() {
 	//	os.Exit(1)
 	//}
 
-	if _, err := controller.NewImportController(ctx, mgr, log, importerImage, controllerNamespace, dvcrSettings); err != nil {
+	if _, err := controller.NewCVMIController(ctx, mgr, log, importerImage, controllerNamespace, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
