@@ -3,13 +3,16 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"regexp"
 	"strconv"
 
+	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/apimachinery/pkg/util/json"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -69,7 +72,7 @@ type importerPodArgs struct {
 //	}
 //	url, err := url.Parse(ep)
 //	if err != nil {
-//		return "", errors.Errorf("illegal registry endpoint %s", ep)
+//		return "", fmt.Errorf("illegal registry endpoint %s", ep)
 //	}
 //	return url.Host + url.Path, nil
 //}
@@ -135,13 +138,13 @@ func createImporterPod(ctx context.Context, log logr.Logger, client client.Clien
 	//}
 	pod = makeImporterPodSpec(args)
 
-	SetRecommendedLabels(pod, installerLabels, importControllerName)
+	SetRecommendedLabels(pod, installerLabels, cvmiControllerName)
 
 	if err = client.Create(context.TODO(), pod); err != nil {
 		return nil, err
 	}
 
-	log.V(3).Info("importer pod created\n", "pod.Name", pod.Name, "pod.Namespace", pod.Namespace, "image name", args.image)
+	log.V(2).Info("importer pod created\n", "pod.Name", pod.Name, "pod.Namespace", pod.Namespace, "image name", args.image)
 	return pod, nil
 }
 
@@ -472,29 +475,154 @@ func makeImportEnv(podEnvVar *cc.ImportPodEnvVar, uid types.UID) []corev1.EnvVar
 	return env
 }
 
-// setPodPvcAnnotations applies PVC annotations on the pod
-func setPodPvcAnnotations(pod *corev1.Pod, pvc *corev1.PersistentVolumeClaim) {
-	allowedAnnotations := map[string]string{
-		cc.AnnPodNetwork:              "",
-		cc.AnnPodSidecarInjection:     cc.AnnPodSidecarInjectionDefault,
-		cc.AnnPodMultusDefaultNetwork: ""}
-	for ann, def := range allowedAnnotations {
-		val, ok := pvc.Annotations[ann]
-		if !ok && def != "" {
-			val = def
-		}
-		if val != "" {
-			klog.V(1).Info("Applying PVC annotation on the pod", ann, val)
-			if pod.Annotations == nil {
-				pod.Annotations = map[string]string{}
-			}
-			pod.Annotations[ann] = val
-		}
-	}
-}
-
 // GetImportProxyConfigMapName return prefixed name.
 // TODO add validation against name limitations
 func GetImportProxyConfigMapName(suffix string) string {
 	return fmt.Sprintf("import-proxy-cm-%s", suffix)
+}
+
+func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
+	if pod == nil || len(pod.Spec.Containers) == 0 {
+		return ""
+	}
+
+	for _, envVar := range pod.Spec.Containers[0].Env {
+		if envVar.Name == common.ImporterDestinationEndpoint {
+			return envVar.Value
+		}
+	}
+
+	return ""
+}
+
+var (
+	httpClient *http.Client
+)
+
+type ImportProgress struct {
+	progress     float64
+	avgSpeed     uint64
+	currentSpeed uint64
+}
+
+func ImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress, error) {
+	httpClient = cc.BuildHTTPClient(httpClient)
+	url, err := cc.GetMetricsURL(pod)
+	if err != nil {
+		return nil, err
+	}
+	if url == "" {
+		return nil, nil
+	}
+
+	progressReport, err := cc.GetProgressReportFromURL(url, httpClient)
+	if err != nil {
+		return nil, err
+	}
+	return extractProgress(progressReport, ownerUID)
+}
+
+// Example metrics:
+// registry_progress{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 47.68095477934807
+// registry_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.3832862149406234e+06
+func extractProgress(report string, ownerUID string) (*ImportProgress, error) {
+	if report == "" {
+		return nil, nil
+	}
+
+	// Note: invalid float format will be checked later using ParseFloat.
+	progressRe := regexp.MustCompile(`registry_progress\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
+	avgSpeedRe := regexp.MustCompile(`registry_speed\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
+	currentSpeedRe := regexp.MustCompile(`registry_current_speed\{ownerUID\="` + ownerUID + `"\} ([0-9e\+\-\.]+)`)
+
+	res := &ImportProgress{}
+
+	match := progressRe.FindStringSubmatch(report)
+	if match != nil {
+		raw := match[1]
+		val, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse registry_progress metric: %v", err)
+		}
+		res.progress = val
+	}
+
+	match = avgSpeedRe.FindStringSubmatch(report)
+	if match != nil {
+		raw := match[1]
+		val, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse registry_speed metric: %v", err)
+		}
+		res.avgSpeed = uint64(val)
+	}
+
+	match = currentSpeedRe.FindStringSubmatch(report)
+	if match != nil {
+		raw := match[1]
+		val, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse registry_current_speed metric: %v", err)
+		}
+		res.currentSpeed = uint64(val)
+	}
+
+	return res, nil
+}
+
+func (p *ImportProgress) Progress() string {
+	return fmt.Sprintf("%.1f%%", p.progress)
+}
+
+func (p *ImportProgress) ProgressRaw() float64 {
+	return p.progress
+}
+
+// AvgSpeed is an average speed in human readable format with SI size.
+func (p *ImportProgress) AvgSpeed() string {
+	return humanize.Bytes(p.avgSpeed) + "/s"
+}
+
+// AvgSpeedRaw is a speed in bytes per second.
+func (p *ImportProgress) AvgSpeedRaw() uint64 {
+	return p.avgSpeed
+}
+
+// CurrentSpeed is an average speed in human readable format with SI size.
+func (p *ImportProgress) CurrentSpeed() string {
+	return humanize.Bytes(p.currentSpeed) + "/s"
+}
+
+// CurrentSpeedRaw is a speed in bytes per second.
+func (p *ImportProgress) CurrentSpeedRaw() uint64 {
+	return p.currentSpeed
+}
+
+// FinalReport example: { "source-image-size": "1111", "source-image-virtual-size": "8888", "source-image-format": "qcow2"}
+type FinalReport struct {
+	StoredSizeBytes   uint64 `json:"source-image-size"`
+	UnpackedSizeBytes uint64 `json:"source-image-virtual-size"`
+	Format            string `json:"source-image-format"`
+}
+
+func (r *FinalReport) StoredSize() string {
+	return humanize.Bytes(r.StoredSizeBytes)
+}
+
+func (r *FinalReport) UnpackedSize() string {
+	return humanize.Bytes(r.UnpackedSizeBytes)
+}
+
+func ImporterFinalReport(pod *corev1.Pod) (*FinalReport, error) {
+	if pod != nil && pod.Status.ContainerStatuses != nil &&
+		pod.Status.ContainerStatuses[0].State.Terminated != nil {
+		message := pod.Status.ContainerStatuses[0].State.Terminated.Message
+		report := new(FinalReport)
+		err := json.Unmarshal([]byte(message), report)
+		if err != nil {
+			return nil, fmt.Errorf("problem parsing final report %s: %w", message, err)
+		}
+		return report, nil
+	}
+	return nil, nil
 }

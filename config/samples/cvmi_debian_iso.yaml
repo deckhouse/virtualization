@@ -2,6 +2,8 @@ apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: ClusterVirtualMachineImage
 metadata:
   name: debian-iso
+  annotations:
+    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
 spec:
   dataSource:
     type: "HTTP"

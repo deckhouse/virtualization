@@ -5,23 +5,20 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,6 +108,11 @@ const (
 	AnnExtraHeaders = AnnAPIGroup + "/storage.import.extraHeaders"
 	// AnnSecretExtraHeaders provides a const for our PVC secretExtraHeaders annotation
 	AnnSecretExtraHeaders = AnnAPIGroup + "/storage.import.secretExtraHeaders"
+
+	AnnImportAvgSpeedBytes     = AnnAPIGroup + "/storage.import.speed.avg"
+	AnnImportCurrentSpeedBytes = AnnAPIGroup + "/storage.import.speed.current"
+	AnnImportStoredSizeBytes   = AnnAPIGroup + "/storage.import.size.stored"
+	AnnImportUnpackedSizeBytes = AnnAPIGroup + "/storage.import.size.unpacked"
 
 	// AnnCloneToken is the annotation containing the clone token
 	AnnCloneToken = AnnAPIGroup + "/storage.clone.token"
@@ -226,54 +228,10 @@ const (
 	ProgressDone = "100.0%"
 )
 
-// Size-detection pod error codes
-const (
-	NoErr int = iota
-	ErrBadArguments
-	ErrInvalidFile
-	ErrInvalidPath
-	ErrBadTermFile
-	ErrUnknown
-)
-
 var (
 	apiServerKeyOnce sync.Once
 	apiServerKey     *rsa.PrivateKey
 )
-
-// GetStorageClassByName looks up the storage class based on the name. If no storage class is found returns nil
-func GetStorageClassByName(ctx context.Context, client client.Client, name *string) (*storagev1.StorageClass, error) {
-	// look up storage class by name
-	if name != nil {
-		storageClass := &storagev1.StorageClass{}
-		if err := client.Get(ctx, types.NamespacedName{Name: *name}, storageClass); err != nil {
-			if k8serrors.IsNotFound(err) {
-				return nil, nil
-			}
-			klog.V(3).Info("Unable to retrieve storage class", "storage class name", *name)
-			return nil, errors.Errorf("unable to retrieve storage class %s", *name)
-		}
-		return storageClass, nil
-	}
-	// No storage class found, just return nil for storage class and let caller deal with it.
-	return GetDefaultStorageClass(ctx, client)
-}
-
-// GetDefaultStorageClass returns the default storage class or nil if none found
-func GetDefaultStorageClass(ctx context.Context, client client.Client) (*storagev1.StorageClass, error) {
-	storageClasses := &storagev1.StorageClassList{}
-	if err := client.List(ctx, storageClasses); err != nil {
-		klog.V(3).Info("Unable to retrieve available storage classes")
-		return nil, errors.New("unable to retrieve storage classes")
-	}
-	for _, storageClass := range storageClasses.Items {
-		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			return &storageClass, nil
-		}
-	}
-
-	return nil, nil
-}
 
 //// GetDefaultPodResourceRequirements gets default pod resource requirements from cdi config status
 //func GetDefaultPodResourceRequirements(client client.Client) (*corev1.ResourceRequirements, error) {
@@ -689,7 +647,7 @@ func GetPodMetricsPort(pod *corev1.Pod) (int, error) {
 			}
 		}
 	}
-	return 0, errors.New("Metrics port not found in pod")
+	return 0, errors.New("metrics port not found in pod")
 }
 
 // GetMetricsURL builds the metrics URL according to the specified pod
@@ -706,7 +664,7 @@ func GetMetricsURL(pod *corev1.Pod) (string, error) {
 }
 
 // GetProgressReportFromURL fetches the progress report from the passed URL according to a specific regular expression
-func GetProgressReportFromURL(url string, regExp *regexp.Regexp, httpClient *http.Client) (string, error) {
+func GetProgressReportFromURL(url string, httpClient *http.Client) (string, error) {
 	resp, err := httpClient.Get(url)
 	if err != nil {
 		if ErrConnectionRefused(err) {
@@ -719,11 +677,5 @@ func GetProgressReportFromURL(url string, regExp *regexp.Regexp, httpClient *htt
 	if err != nil {
 		return "", err
 	}
-	// Parse the progress from the body
-	progressReport := ""
-	match := regExp.FindStringSubmatch(string(body))
-	if match != nil {
-		progressReport = match[1]
-	}
-	return progressReport, nil
+	return string(body), nil
 }

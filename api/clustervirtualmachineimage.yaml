@@ -207,26 +207,56 @@ spec:
             status:
               type: object
               properties:
-                size:
+                importDuration:
                   type: string
+                  example: 1m44s
                   description: |
-                    Discovered size of the image.
+                    The duration of the image import (from the moment of creation resource, to the moment of going to the Ready phase).
+                downloadSpeed:
+                  type: object
+                  description: |
+                    Image download speed from an external source. Appears only during the `Provisioning' phase.
+                  properties:
+                    avg:
+                      type: string
+                      example: 1 Mbps
+                      description: Average download speed.
+                    current:
+                      type: string
+                      example: 5 Mbps
+                      description: Current download speed.
+                size:
+                  type: object
+                  description: |
+                    Discovered sizes of the image.
+                  properties:
+                    stored:
+                      type: string
+                      example: 199M
+                      description: Image size in DVCR or in PVC in human-readable format.
+                    unpacked:
+                      type: string
+                      example: 1G
+                      description: Unpacked image size in human-readable format.
                 cdrom:
                   type: boolean
                   description: |
                     Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
-                registryURL:
-                  type: string
-                  description: |
-                    Created image in DVCR.
-                    https://dvcr.svc.<dvcr-namespace>/cvmi/<image-name>:latest
+                target:
+                  type: object
+                  properties:
+                    registryURL:
+                      type: string
+                      example: dvcr.svc.<dvcr-namespace>/cvmi/<image-name>:latest
+                      description: |
+                        Created image in DVCR.
                 phase:
                   type: string
                   enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'ImageLost']
                 progress:
                   type: string
                   description: |
-                    Progress of copying an image from source to PVC.
+                    Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.
                 uploadCommand:
                   type: string
                   description: |
@@ -238,30 +268,26 @@ spec:
                 failureMessage:
                   type: string
                   description: |
-                    Detailed description of the error.
-                conditions:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                    - status
-                    - type
-                    properties:
-                      lastProbeTime:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      lastTransitionTime:
-                        format: date-time
-                        nullable: true
-                        type: string
-                      message:
-                        type: string
-                      reason:
-                        type: string
-                      status:
-                        type: string
-                      type:
-                        type: string
+                    Detailed description of the error. human-readable
+
+      additionalPrinterColumns:
+        - jsonPath: .status.progress
+          name: Progress
+          type: string
+        - jsonPath: .status.downloadSpeed.avg
+          name: Avg speed
+          type: string
+        - jsonPath: .status.size.stored
+          name: Size
+          type: string
+        - jsonPath: .status.size.unpacked
+          name: Size unpacked
+          type: string
+        - jsonPath: .status.phase
+          name: Phase
+          type: string
+        - jsonPath: .status.target.registryURL
+          name: Registry URL
+          type: string
       subresources:
         status: {}
