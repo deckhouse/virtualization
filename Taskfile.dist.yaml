@@ -55,6 +55,12 @@ tasks:
         docker pull       quay.io/kubevirt/cdi-uploadproxy:v1.56.0
         k3d image import  quay.io/kubevirt/cdi-uploadproxy:v1.56.0
 
+      - |
+        # Bootstrap registry importer base image
+        docker pull ubuntu:22.04
+        docker tag ubuntu:22.04 k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
+        docker push k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
+
       # TODO: install kubevirt here
       - |
         # Install CDI

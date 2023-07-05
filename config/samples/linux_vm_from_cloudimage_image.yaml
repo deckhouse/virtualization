@@ -1,0 +1,47 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: ClusterVirtualMachineImage
+metadata:
+  name: linux-image
+spec:
+  dataSource:
+    type: HTTP
+    http:
+      # Official image link
+      #url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+
+      # Or locally deployed caddy fileserver with an image
+      url: "http://caddy.caddy.svc.cluster.local/images/ubuntu-22.04-minimal-cloudimg-amd64.img"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: linux-disk
+  namespace: vms
+spec:
+  persistentVolumeClaim:
+    size: 10Gi
+    storageClassName: local-path
+  dataSource:
+    type: ClusterVirtualMachineImage
+    clusterVirtualMachineImage:
+      name: linux-image
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+  labels:
+    vm: linux
+spec:
+  runPolicy: AlwaysOn
+  #enableParavirtualization: true
+  #osType: Generic
+  #bootloader: BIOS
+  cpu:
+    cores: 2
+  memory:
+    size: 2Gi
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: linux-disk

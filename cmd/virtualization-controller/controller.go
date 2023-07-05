@@ -150,6 +150,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if _, err := controller.NewVMController(ctx, mgr, log); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 	log.Info("Starting the Manager.")
 
 	// Start the Manager
