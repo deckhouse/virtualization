@@ -344,4 +344,5 @@ tasks:
         echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
         exit 1
     status:
-      - [ -f ./golangci-lint ] || which golangci-lint
+      - |
+        [ -f ./golangci-lint ] || which golangci-lint
