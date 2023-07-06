@@ -4,7 +4,7 @@ silent: true
 
 env:
   K8S_CODEGEN:
-    sh: echo ${GOPATH:-$HOME/go}/pkg/mod/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
+    sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
   CONTROLLER_IMAGE:
     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest}
   CONTROLLER_BUILDER_IMAGE:
@@ -344,4 +344,4 @@ tasks:
         echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
         exit 1
     status:
-      - which golangci-lint
+      - [ -f ./golangci-lint ] || which golangci-lint
