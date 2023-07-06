@@ -8,6 +8,7 @@ on:
       - opened
       - synchronize
       - reopened
+  workflow_dispatch:
 
 # Cancel in-progress jobs for the same PR (pull_request event) or for the same branch (push event).
 concurrency:
@@ -32,7 +33,9 @@ jobs:
 
       - name: Download Go modules
         run: |
+          go env
           go mod download
+          ls -la $(go env GOMODCACHE)
 
       - name: Check generated
         run: |
