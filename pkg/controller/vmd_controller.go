@@ -2,10 +2,12 @@ package controller
 
 import (
 	"context"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 const (

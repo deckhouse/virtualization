@@ -46,26 +46,3 @@ type ClusterVirtualMachineImageStatus struct {
 func (c *ClusterVirtualMachineImage) GetDataSource() DataSource {
 	return c.Spec.DataSource
 }
-
-//type clusterVirtualMachineImageKind struct{}
-//
-//func (in *ClusterVirtualMachineImageStatus) GetObjectKind() schema.ObjectKind {
-//	return &clusterVirtualMachineImageKind{}
-//}
-//
-//func (f *clusterVirtualMachineImageKind) SetGroupVersionKind(_ schema.GroupVersionKind) {}
-//func (f *clusterVirtualMachineImageKind) GroupVersionKind() schema.GroupVersionKind {
-//	return schema.GroupVersionKind{
-//		Group:   CVMIGroup,
-//		Version: CVMIVersion,
-//		Kind:    CVMIKind,
-//	}
-//}
-//
-//func ClusterVirtualMachineImageGVR() schema.GroupVersionResource {
-//	return schema.GroupVersionResource{
-//		Group:    CVMIGroup,
-//		Version:  CVMIVersion,
-//		Resource: CVMIResource,
-//	}
-//}

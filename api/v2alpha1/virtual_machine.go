@@ -20,7 +20,7 @@ type VirtualMachine struct {
 
 type VirtualMachineSpec struct {
 	RunPolicy RunPolicy  `json:"runPolicy"`
-	Cpu       CpuSpec    `json:"cpu"`
+	CPU       CPUSpec    `json:"cpu"`
 	Memory    MemorySpec `json:"memory"`
 }
 
@@ -30,7 +30,7 @@ const (
 	AlwaysOnPolicy RunPolicy = "AlwaysOn"
 )
 
-type CpuSpec struct {
+type CPUSpec struct {
 	Cores int `json:"cores"`
 }
 

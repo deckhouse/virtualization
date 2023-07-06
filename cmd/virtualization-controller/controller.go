@@ -81,7 +81,7 @@ func printVersion() {
 func getRequiredEnvVar(name string) string {
 	val := os.Getenv(name)
 	if val == "" {
-		log.Error(fmt.Errorf("environment variable %q undefined\n", name), "")
+		log.Error(fmt.Errorf("environment variable %q undefined", name), "")
 	}
 	return val
 }
@@ -115,7 +115,8 @@ func main() {
 	}
 
 	managerOpts := manager.Options{
-		//Namespace:                  namespace,
+		// This controller watches resources in all namespaces.
+		Namespace:                  "",
 		LeaderElection:             true,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
@@ -139,11 +140,6 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
-
-	//if _, err := controller.NewVMIController(ctx, mgr, log); err != nil {
-	//	log.Error(err, "")
-	//	os.Exit(1)
-	//}
 
 	if _, err := controller.NewCVMIController(ctx, mgr, log, importerImage, controllerNamespace, dvcrSettings); err != nil {
 		log.Error(err, "")

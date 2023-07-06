@@ -17,8 +17,8 @@ type ImportPodEnvVar struct {
 	Thumbprint             string
 	FilesystemOverhead     string
 	InsecureTLS            bool
-	HttpProxy              string
-	HttpsProxy             string
+	HTTPProxy              string
+	HTTPSProxy             string
 	NoProxy                string
 	CertConfigMapProxy     string
 	ExtraHeaders           []string
@@ -28,23 +28,19 @@ type ImportPodEnvVar struct {
 	DestinationAuthSecret  string
 }
 
-func UpdateEnvs(cvmi *virtv2alpha1.ClusterVirtualMachineImage, podEnvs *ImportPodEnvVar) {
-
-}
-
 func UpdateHTTPEnvs(podEnvVars *ImportPodEnvVar, http *virtv2alpha1.DataSourceHTTP) {
 	podEnvVars.Endpoint = http.URL
 
-	//if http.SecretRef != "" {
+	// if http.SecretRef != "" {
 	//	annotations[AnnSecret] = http.SecretRef
-	//}
-	//if http.CertConfigMap != "" {
+	// }
+	// if http.CertConfigMap != "" {
 	//	annotations[AnnCertConfigMap] = http.CertConfigMap
-	//}
-	//for index, header := range http.ExtraHeaders {
+	// }
+	// for index, header := range http.ExtraHeaders {
 	//	annotations[fmt.Sprintf("%s.%d", AnnExtraHeaders, index)] = header
-	//}
-	//for index, header := range http.SecretExtraHeaders {
+	// }
+	// for index, header := range http.SecretExtraHeaders {
 	//	annotations[fmt.Sprintf("%s.%d", AnnSecretExtraHeaders, index)] = header
-	//}
+	// }
 }

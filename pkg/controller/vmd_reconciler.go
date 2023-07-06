@@ -3,32 +3,32 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/uuid"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMDReconciler struct{}
 
-func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *VMDReconciler) SetupController(_ context.Context, _ manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(&source.Kind{Type: &virtv2.VirtualMachineDisk{}}, &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -36,13 +36,14 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
-		return err
+		return fmt.Errorf("error setting watch on VMD: %w", err)
 	}
+
 	if err := ctr.Watch(&source.Kind{Type: &cdiv1.DataVolume{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &virtv2.VirtualMachineDisk{},
 		IsController: true,
 	}); err != nil {
-		return err
+		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 
 	return nil
@@ -112,21 +113,21 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 	if state.DV != nil {
 		if controllerutil.AddFinalizer(state.DV, virtv2.FinalizerDVProtection) {
 			if err := opts.Client.Update(ctx, state.DV); err != nil {
-				return fmt.Errorf("error setting finalizer on a DV %q: %w", state.DV.Name)
+				return fmt.Errorf("error setting finalizer on a DV %q: %w", state.DV.Name, err)
 			}
 		}
 	}
 	if state.PVC != nil {
 		if controllerutil.AddFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
 			if err := opts.Client.Update(ctx, state.PVC); err != nil {
-				return fmt.Errorf("error setting finalizer on a PVC %q: %w", state.PVC.Name)
+				return fmt.Errorf("error setting finalizer on a PVC %q: %w", state.PVC.Name, err)
 			}
 		}
 	}
 	if state.PV != nil {
 		if controllerutil.AddFinalizer(state.PV, virtv2.FinalizerPVProtection) {
 			if err := opts.Client.Update(ctx, state.PV); err != nil {
-				return fmt.Errorf("error setting finalizer on a PV %q: %w", state.PV.Name)
+				return fmt.Errorf("error setting finalizer on a PV %q: %w", state.PV.Name, err)
 			}
 		}
 	}
@@ -134,7 +135,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 	return nil
 }
 
-func (r *VMDReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	opts.Log.V(2).Info("Update Status", "pvcname", state.VMD.Current().Annotations[AnnVMDDataVolume])
 
 	// Change previous state to new

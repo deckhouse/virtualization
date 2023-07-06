@@ -18,7 +18,7 @@ const (
 	VMIPath  = "%s/vmi/%s/%s"
 )
 
-func NewDVCRSettings(authSecret string, registry string, insecureTLS string) *DVCRSettings {
+func NewDVCRSettings(authSecret, registry, insecureTLS string) *DVCRSettings {
 	return &DVCRSettings{
 		AuthSecret:  authSecret,
 		Registry:    registry,

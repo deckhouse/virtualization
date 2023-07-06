@@ -3,10 +3,11 @@ package helper
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -19,6 +20,7 @@ type Object[T, ST any] interface {
 }
 
 type ObjectStatusGetter[T, ST any] func(obj T) ST
+
 type ObjectFactory[T any] func() T
 
 type Resource[T Object[T, ST], ST any] struct {
