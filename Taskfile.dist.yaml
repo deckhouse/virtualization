@@ -34,11 +34,17 @@ tasks:
     deps:
       - _ensure:k3d
       - _ensure:kubectl
+      - _ensure:virtctl
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
     cmds:
       - k3d registry create registry.virtualization-controller.test --port 5000 --image ghcr.io/werf/test-registry:latest
-      - k3d cluster create --api-port 6550 -p "80:80@loadbalancer" --registry-use k3d-registry.virtualization-controller.test:5000
+      - |
+        k3d cluster create \
+            --api-port 6550 -p "80:80@loadbalancer" \
+            --registry-use k3d-registry.virtualization-controller.test:5000 \
+            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt:/var/run/kubevirt:rshared" \
+            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt-private:/var/run/kubevirt-private:rshared"
 
       - |
         # Preload images for faster start of importer
@@ -55,13 +61,31 @@ tasks:
         docker pull       quay.io/kubevirt/cdi-uploadproxy:v1.56.0
         k3d image import  quay.io/kubevirt/cdi-uploadproxy:v1.56.0
 
+        # Preload kubevirt images
+        docker pull quay.io/kubevirt/virt-api:v0.59.2
+        k3d image import quay.io/kubevirt/virt-api:v0.59.2
+        docker pull quay.io/kubevirt/virt-controller:v0.59.2
+        k3d image import quay.io/kubevirt/virt-controller:v0.59.2
+        docker pull quay.io/kubevirt/virt-handler:v0.59.2
+        k3d image import quay.io/kubevirt/virt-handler:v0.59.2
+        docker pull quay.io/kubevirt/virt-launcher:v0.59.2
+        k3d image import quay.io/kubevirt/virt-launcher:v0.59.2
+        docker pull quay.io/kubevirt/virt-operator:v0.59.2
+        k3d image import quay.io/kubevirt/virt-operator:v0.59.2
+
       - |
         # Bootstrap registry importer base image
         docker pull ubuntu:22.04
         docker tag ubuntu:22.04 k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
         docker push k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
 
-      # TODO: install kubevirt here
+      - |
+        # Install KubeVirt
+        export RELEASE=v0.59.2 # $(curl https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
+        kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+        kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
+        kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
+
       - |
         # Install CDI
         export TAG=$(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest)
@@ -377,3 +401,10 @@ tasks:
     status:
       - |
         [ -f ./golangci-lint ] || which golangci-lint
+
+  _ensure:virtctl:
+    desc: "Ensure virtctl tool is installed"
+    cmds:
+      - echo "Install virtctl" && exit 1
+    status:
+      - which virtctl >/dev/null
