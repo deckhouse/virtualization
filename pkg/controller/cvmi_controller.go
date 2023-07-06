@@ -27,12 +27,13 @@ const (
 )
 
 func NewCVMIController(
-	ctx context.Context,
+	ctx context.Context, //nolint:revive
 	mgr manager.Manager,
 	log logr.Logger,
 	importerImage string,
 	controllerNamespace string,
-	dvcrSettings *cc.DVCRSettings) (controller.Controller, error) {
+	dvcrSettings *cc.DVCRSettings,
+) (controller.Controller, error) {
 	reconciler := &CVMIReconciler{
 		client:       mgr.GetClient(),
 		recorder:     mgr.GetEventRecorderFor(cvmiControllerName),
@@ -48,14 +49,14 @@ func NewCVMIController(
 	if err != nil {
 		return nil, err
 	}
-	if err := addCVMIControllerWatches(mgr, cvmiController, log); err != nil {
+	if err := addCVMIControllerWatches(cvmiController); err != nil {
 		return nil, err
 	}
 	log.Info("Initialized ClusterVirtualMachineImage controller", "image", importerImage, "namespace", controllerNamespace)
 	return cvmiController, nil
 }
 
-func addCVMIControllerWatches(mgr manager.Manager, c controller.Controller, log logr.Logger) error {
+func addCVMIControllerWatches(c controller.Controller) error {
 	if err := c.Watch(&source.Kind{Type: &virtv2alpha1.ClusterVirtualMachineImage{}}, &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },

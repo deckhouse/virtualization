@@ -223,6 +223,40 @@ tasks:
       - |
         kubectl delete ns/virtualization-controller
 
+  dev:update:crds:
+    desc: "Apply CRD manifests from api directory"
+    cmds:
+      - task: dev:update:cvmi
+      - task: dev:update:vmi
+      - task: dev:update:vmd
+      - task: dev:update:vmds
+      - task: dev:update:vm
+
+  dev:update:cvmi:
+    desc: "Update ClusterVirtualMachineImage CRD"
+    cmds:
+      - kubectl apply -f api/clustervirtualmachineimage.yaml
+
+  dev:update:vmi:
+    desc: "Update VirtualMachineImage CRD"
+    cmds:
+      - kubectl apply -f api/virtualmachineimage.yaml
+
+  dev:update:vmd:
+    desc: "Update VirtualMachineDisk CRD"
+    cmds:
+      - kubectl apply -f api/virtualmachinedisk.yaml
+
+  dev:update:vmds:
+    desc: "Update VirtualMachineDiskSnapshot CRD"
+    cmds:
+      - kubectl apply -f api/virtualmachinedisksnapshot.yaml
+
+  dev:update:vm:
+    desc: "Update VirtualMachine CRD"
+    cmds:
+      - kubectl apply -f api/virtualmachine.yaml
+
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
@@ -263,18 +297,15 @@ tasks:
     desc: "Run golangci-lint"
     deps:
       - _ensure:golangci-lint
-    vars:
-      GOLANGCILINT_PATH: '{{ default "golangci-lint" .GOLANGCILINT_PATH }}'
     cmds:
       - |
-        echo {{ .GOLANGCILINT_PATH }} run --sort-results
+        golangci-lint run --sort-results
 
   ci:lint:
     desc: "Run linters in CI"
     cmds:
-      - task: lint:go
-        vars:
-          GOLANGCILINT_PATH: "./golangci-lint"
+      - |
+        ./golangci-lint run --sort-results
 
   _ensure:k8s-codegen-mod:
     desc: "Ensure k8s.io/codegen module is present"

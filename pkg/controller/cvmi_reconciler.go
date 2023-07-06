@@ -79,7 +79,7 @@ func (r *CVMIReconciler) reconcileCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineI
 				if err := r.createImporterPod(cvmi); err != nil {
 					// Requeue to update status.
 					return reconcile.Result{Requeue: true}, nil
-					//return reconcile.Result{}, err
+					// return reconcile.Result{}, err
 				}
 			} else {
 				// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
@@ -98,9 +98,9 @@ func (r *CVMIReconciler) reconcileCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineI
 			}
 		} else {
 			// Copy import proxy ConfigMap (if exists) from cdi namespace to the import namespace
-			//if err := r.copyImportProxyConfigMap(pvc, pod); err != nil {
+			// if err := r.copyImportProxyConfigMap(pvc, pod); err != nil {
 			//	return reconcile.Result{}, err
-			//}
+			// }
 
 			// Pod exists, we need to update the CVMI status.
 			log.V(1).Info("CVMI import not finished, update progress", "cvmi.name", cvmi.Name)
@@ -136,18 +136,17 @@ func (r *CVMIReconciler) findImporterPod(cvmi *virtv2alpha1.ClusterVirtualMachin
 	return pod, nil
 }
 
-func (r *CVMIReconciler) cleanup(cvmi *virtv2alpha1.ClusterVirtualMachineImage, pod *corev1.Pod, log logr.Logger) error {
+func (r *CVMIReconciler) cleanup(_ *virtv2alpha1.ClusterVirtualMachineImage, pod *corev1.Pod, _ logr.Logger) error {
 	if err := r.client.Delete(context.TODO(), pod); cc.IgnoreNotFound(err) != nil {
 		return err
 	}
-	//if cc.HasFinalizer(pvc, importPodImageStreamFinalizer) {
+	// if cc.HasFinalizer(pvc, importPodImageStreamFinalizer) {
 	//	cc.RemoveFinalizer(pvc, importPodImageStreamFinalizer)
 	//	if err := r.updatePVC(pvc, log); err != nil {
 	//		return err
 	//	}
-	//}
+	// }
 	return nil
-
 }
 
 // updateCVMIFromPod updates CVMI status from Pod state.
@@ -158,7 +157,6 @@ func (r *CVMIReconciler) updateCVMIFromPod(cvmi *virtv2alpha1.ClusterVirtualMach
 
 	log.V(1).Info("Updating CVMI from pod")
 	anno := cvmiCopy.GetAnnotations()
-	//setAnnotationsFromPodWithPrefix(anno, pod, cc.AnnRunningCondition)
 
 	if pod.Status.ContainerStatuses != nil &&
 		pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
@@ -167,6 +165,7 @@ func (r *CVMIReconciler) updateCVMIFromPod(cvmi *virtv2alpha1.ClusterVirtualMach
 	}
 
 	isComplete := false
+	//nolint:gocritic
 	if cvmiStatus.Phase == "" {
 		cvmiStatus.Phase = string(virtv2alpha1.ImagePending)
 		cvmiStatus.Target.RegistryURL = GetDestinationImageNameFromPod(pod)
@@ -256,10 +255,7 @@ func (r *CVMIReconciler) createImporterPod(cvmi *virtv2alpha1.ClusterVirtualMach
 	r.log.V(1).Info("Creating importer POD for PVC", "pvc.Name", cvmi.Name)
 	var err error
 
-	podEnvVar, err := r.createImportEnvVar(cvmi)
-	if err != nil {
-		return err
-	}
+	podEnvVar := r.createImportEnvVar(cvmi)
 	// all checks passed, let's create the importer pod!
 	podArgs := &importerPodArgs{
 		image:      r.image,
@@ -279,19 +275,19 @@ func (r *CVMIReconciler) createImporterPod(cvmi *virtv2alpha1.ClusterVirtualMach
 	r.log.V(1).Info("Created POD", "pod.Name", pod.Name)
 
 	// TODO add finalizer.
-	//// If importing from image stream, add finalizer. Note we don't watch the importer pod in this case,
-	//// so to prevent a deadlock we add finalizer only if the pod is not retained after completion.
-	//if cc.IsImageStream(pvc) && pvc.GetAnnotations()[cc.AnnPodRetainAfterCompletion] != "true" {
+	// // If importing from image stream, add finalizer. Note we don't watch the importer pod in this case,
+	// // so to prevent a deadlock we add finalizer only if the pod is not retained after completion.
+	// if cc.IsImageStream(pvc) && pvc.GetAnnotations()[cc.AnnPodRetainAfterCompletion] != "true" {
 	//	cc.AddFinalizer(pvc, importPodImageStreamFinalizer)
 	//	if err := r.updatePVC(pvc, r.log); err != nil {
 	//		return err
 	//	}
-	//}
+	// }
 
 	return nil
 }
 
-func (r *CVMIReconciler) createImportEnvVar(cvmi *virtv2alpha1.ClusterVirtualMachineImage) (*cc.ImportPodEnvVar, error) {
+func (r *CVMIReconciler) createImportEnvVar(cvmi *virtv2alpha1.ClusterVirtualMachineImage) *cc.ImportPodEnvVar {
 	podEnvVar := &cc.ImportPodEnvVar{}
 	podEnvVar.Source = cc.GetSource(cvmi)
 
@@ -300,7 +296,7 @@ func (r *CVMIReconciler) createImportEnvVar(cvmi *virtv2alpha1.ClusterVirtualMac
 		if http := cvmi.Spec.DataSource.HTTP; http != nil {
 			cc.UpdateHTTPEnvs(podEnvVar, http)
 		}
-
+	case cc.SourceNone:
 	}
 
 	// Set DVCR settings.
@@ -308,80 +304,7 @@ func (r *CVMIReconciler) createImportEnvVar(cvmi *virtv2alpha1.ClusterVirtualMac
 
 	// TODO Update proxy envs.
 
-	return podEnvVar, nil
-	//
-	//var err error
-	//if podEnvVar.source != cc.SourceNone {
-	//	podEnvVar.ep, err = cc.GetEndpoint(cvmi)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	//podEnvVar.secretName = r.getSecretName(pvc)
-	//	//if podEnvVar.secretName == "" {
-	//	//	r.log.V(2).Info("no secret will be supplied to endpoint", "endPoint", podEnvVar.ep)
-	//	//}
-	//	//get the CDIConfig to extract the proxy configuration to be used to import an image
-	//	//cdiConfig := &cdiv1.CDIConfig{}
-	//	//err = r.client.Get(context.TODO(), types.NamespacedName{Name: common.ConfigName}, cdiConfig)
-	//	//if err != nil {
-	//	//	return nil, err
-	//	//}
-	//	//podEnvVar.certConfigMap, err = r.getCertConfigMap(pvc)
-	//	//if err != nil {
-	//	//	return nil, err
-	//	//}
-	//	//podEnvVar.insecureTLS, err = r.isInsecureTLS(pvc, cdiConfig)
-	//	//if err != nil {
-	//	//	return nil, err
-	//	//}
-	//	//podEnvVar.diskID = getValueFromAnnotation(pvc, cc.AnnDiskID)
-	//	//podEnvVar.backingFile = getValueFromAnnotation(pvc, cc.AnnBackingFile)
-	//	podEnvVar.uuid = getValueFromAnnotation(cvmi, cc.AnnUUID)
-	//	podEnvVar.thumbprint = getValueFromAnnotation(cvmi, cc.AnnThumbprint)
-	//	podEnvVar.previousCheckpoint = getValueFromAnnotation(cvmi, cc.AnnPreviousCheckpoint)
-	//	podEnvVar.currentCheckpoint = getValueFromAnnotation(cvmi, cc.AnnCurrentCheckpoint)
-	//	podEnvVar.finalCheckpoint = getValueFromAnnotation(cvmi, cc.AnnFinalCheckpoint)
-	//
-	//	for annotation, value := range cvmi.Annotations {
-	//		if strings.HasPrefix(annotation, cc.AnnExtraHeaders) {
-	//			podEnvVar.extraHeaders = append(podEnvVar.extraHeaders, value)
-	//		}
-	//		if strings.HasPrefix(annotation, cc.AnnSecretExtraHeaders) {
-	//			podEnvVar.secretExtraHeaders = append(podEnvVar.secretExtraHeaders, value)
-	//		}
-	//	}
-	//
-	//	// TODO support proxy
-	//	//var field string
-	//	//if field, err = GetImportProxyConfig(cdiConfig, common.ImportProxyHTTP); err != nil {
-	//	//	r.log.V(3).Info("no proxy http url will be supplied:", err.Error())
-	//	//}
-	//	//podEnvVar.httpProxy = field
-	//	//if field, err = GetImportProxyConfig(cdiConfig, common.ImportProxyHTTPS); err != nil {
-	//	//	r.log.V(3).Info("no proxy https url will be supplied:", err.Error())
-	//	//}
-	//	//podEnvVar.httpsProxy = field
-	//	//if field, err = GetImportProxyConfig(cdiConfig, common.ImportProxyNoProxy); err != nil {
-	//	//	r.log.V(3).Info("the noProxy field will not be supplied:", err.Error())
-	//	//}
-	//	//podEnvVar.noProxy = field
-	//	//if field, err = GetImportProxyConfig(cdiConfig, common.ImportProxyConfigMapName); err != nil {
-	//	//	r.log.V(3).Info("no proxy CA certiticate will be supplied:", err.Error())
-	//	//}
-	//	//podEnvVar.certConfigMapProxy = field
-	//}
-	//
-	////fsOverhead, err := GetFilesystemOverhead(context.TODO(), r.client, pvc)
-	////if err != nil {
-	////	return nil, err
-	////}
-	////podEnvVar.filesystemOverhead = string(fsOverhead)
-	//
-	////if preallocation, err := strconv.ParseBool(getValueFromAnnotation(cvmi, cc.AnnPreallocationRequested)); err == nil {
-	////	podEnvVar.preallocation = preallocation
-	////} // else use the default "false"
-	//
-	//return podEnvVar, nil
+	return podEnvVar
 }
 
 // initCVMIPodName creates new name and update it in the annotation.
@@ -392,11 +315,6 @@ func (r *CVMIReconciler) initCVMIPodName(cvmi *virtv2alpha1.ClusterVirtualMachin
 	log.V(1).Info("Init pod name on CVMI")
 	anno := cvmi.GetAnnotations()
 	anno[cc.AnnImportPod] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
-
-	//requiresScratch := r.requiresScratchSpace(pvc)
-	//if requiresScratch {
-	//	anno[cc.AnnRequiresScratch] = "true"
-	//}
 
 	if !reflect.DeepEqual(cvmiCopy, cvmi) {
 		if err := r.updateCVMI(cvmi, log); err != nil {
@@ -410,8 +328,5 @@ func (r *CVMIReconciler) initCVMIPodName(cvmi *virtv2alpha1.ClusterVirtualMachin
 // TODO make it work with VMI also
 func (r *CVMIReconciler) updateCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) error {
 	log.V(1).Info("Annotations are now", "cvmi.anno", cvmi.GetAnnotations())
-	if err := r.client.Update(context.TODO(), cvmi); err != nil {
-		return err
-	}
-	return nil
+	return r.client.Update(context.TODO(), cvmi)
 }

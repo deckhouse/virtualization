@@ -1,13 +1,9 @@
 package controller
 
 import (
-	"strconv"
-	"strings"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -45,44 +41,4 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, 
 	mergedLabels = MergeLabels(installerLabels, mergedLabels)
 
 	obj.SetLabels(mergedLabels)
-}
-
-func setAnnotationsFromPodWithPrefix(anno map[string]string, pod *corev1.Pod, prefix string) {
-	if pod == nil || pod.Status.ContainerStatuses == nil {
-		return
-	}
-	annPodRestarts, _ := strconv.Atoi(anno[cc.AnnPodRestarts])
-	podRestarts := int(pod.Status.ContainerStatuses[0].RestartCount)
-	if podRestarts >= annPodRestarts {
-		anno[cc.AnnPodRestarts] = strconv.Itoa(podRestarts)
-	}
-	//setVddkAnnotations(anno, pod)
-	containerState := pod.Status.ContainerStatuses[0].State
-	if containerState.Running != nil {
-		anno[prefix] = "true"
-		anno[prefix+".message"] = ""
-		anno[prefix+".reason"] = PodRunningReason
-	} else {
-		anno[cc.AnnRunningCondition] = "false"
-		if containerState.Waiting != nil && containerState.Waiting.Reason != "CrashLoopBackOff" {
-			anno[prefix+".message"] = simplifyKnownMessage(containerState.Waiting.Message)
-			anno[prefix+".reason"] = containerState.Waiting.Reason
-		} else if containerState.Terminated != nil {
-			anno[prefix+".message"] = simplifyKnownMessage(containerState.Terminated.Message)
-			anno[prefix+".reason"] = containerState.Terminated.Reason
-			//if strings.Contains(containerState.Terminated.Message, common.PreallocationApplied) {
-			//	anno[cc.AnnPreallocationApplied] = "true"
-			//}
-		}
-	}
-}
-
-func simplifyKnownMessage(msg string) string {
-	if strings.Contains(msg, "is larger than the reported available") ||
-		strings.Contains(msg, "no space left on device") ||
-		strings.Contains(msg, "file largest block is bigger than maxblock") {
-		return "DataVolume too small to contain image"
-	}
-
-	return msg
 }

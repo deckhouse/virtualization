@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -20,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -141,7 +139,7 @@ const (
 	// checked by the common populator watches.
 	AnnPopulatorKind = AnnAPIGroup + "/storage.populator.kind"
 
-	//AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
+	// AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
 	AnnDefaultStorageClass = "storageclass.kubernetes.io/is-default-class"
 
 	// AnnOpenShiftImageLookup is the annotation for OpenShift image stream lookup
@@ -167,20 +165,6 @@ const (
 	// AnnSelectedNode annotation is added to a PVC that has been triggered by scheduler to
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
-
-	// CloneUniqueID is used as a special label to be used when we search for the pod
-	CloneUniqueID = "cdi.kubevirt.io/storage.clone.cloneUniqeId"
-
-	// CloneSourceInUse is reason for event created when clone source pvc is in use
-	CloneSourceInUse = "CloneSourceInUse"
-
-	// CloneComplete message
-	CloneComplete = "Clone Complete"
-
-	cloneTokenLeeway = 10 * time.Second
-
-	// Default value for preallocation option if not defined in DV or CDIConfig
-	defaultPreallocation = false
 
 	// ErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (reason)
 	ErrStartingPod = "ErrStartingPod"
@@ -232,78 +216,6 @@ var (
 	apiServerKeyOnce sync.Once
 	apiServerKey     *rsa.PrivateKey
 )
-
-//// GetDefaultPodResourceRequirements gets default pod resource requirements from cdi config status
-//func GetDefaultPodResourceRequirements(client client.Client) (*corev1.ResourceRequirements, error) {
-//	cdiconfig := &cdiv1.CDIConfig{}
-//	if err := client.Get(context.TODO(), types.NamespacedName{Name: common.ConfigName}, cdiconfig); err != nil {
-//		klog.Errorf("Unable to find CDI configuration, %v\n", err)
-//		return nil, err
-//	}
-//
-//	return cdiconfig.Status.DefaultPodResourceRequirements, nil
-//}
-
-//// GetImagePullSecrets gets the imagePullSecrets needed to pull images from the cdi config
-//func GetImagePullSecrets(client client.Client) ([]corev1.LocalObjectReference, error) {
-//	cdiconfig := &cdiv1.CDIConfig{}
-//	if err := client.Get(context.TODO(), types.NamespacedName{Name: common.ConfigName}, cdiconfig); err != nil {
-//		klog.Errorf("Unable to find CDI configuration, %v\n", err)
-//		return nil, err
-//	}
-//
-//	return cdiconfig.Status.ImagePullSecrets, nil
-//}
-
-//// AddVolumeDevices returns VolumeDevice slice with one block device for pods using PV with block volume mode
-//func AddVolumeDevices() []corev1.VolumeDevice {
-//	volumeDevices := []corev1.VolumeDevice{
-//		{
-//			Name:       DataVolName,
-//			DevicePath: common.WriteBlockPath,
-//		},
-//	}
-//	return volumeDevices
-//}
-
-//// GetWorkloadNodePlacement extracts the workload-specific nodeplacement values from the CDI CR
-//func GetWorkloadNodePlacement(ctx context.Context, c client.Client) (*sdkapi.NodePlacement, error) {
-//	cr, err := GetActiveCDI(ctx, c)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	if cr == nil {
-//		return nil, fmt.Errorf("no active CDI")
-//	}
-//
-//	return &cr.Spec.Workloads, nil
-//}
-//
-//// GetActiveCDI returns the active CDI CR
-//func GetActiveCDI(ctx context.Context, c client.Client) (*cdiv1.CDI, error) {
-//	crList := &cdiv1.CDIList{}
-//	if err := c.List(ctx, crList, &client.ListOptions{}); err != nil {
-//		return nil, err
-//	}
-//
-//	var activeResources []cdiv1.CDI
-//	for _, cr := range crList.Items {
-//		if cr.Status.Phase != sdkapi.PhaseError {
-//			activeResources = append(activeResources, cr)
-//		}
-//	}
-//
-//	if len(activeResources) == 0 {
-//		return nil, nil
-//	}
-//
-//	if len(activeResources) > 1 {
-//		return nil, fmt.Errorf("number of active CDI CRs > 1")
-//	}
-//
-//	return &activeResources[0], nil
-//}
 
 // GetPriorityClass gets PVC priority class
 func GetPriorityClass(pvc *corev1.PersistentVolumeClaim) string {
@@ -433,7 +345,6 @@ type UIDable interface {
 
 // CreateCloneSourcePodName creates clone source pod name
 func CreateCloneSourcePodName(obj UIDable) string {
-	//return ""
 	return string(obj.GetUID()) + common.ClonerSourcePodNameSuffix
 }
 
@@ -450,8 +361,6 @@ func IsPVCComplete(pvc *corev1.PersistentVolumeClaim) bool {
 func IsPodComplete(pod *corev1.Pod) bool {
 	if pod != nil {
 		return pod.Status.Phase == corev1.PodSucceeded
-		//phase, exists := pvc.ObjectMeta.Annotations[AnnPodPhase]
-		//return exists && (phase == string(corev1.PodSucceeded))
 	}
 	return false
 }
@@ -518,7 +427,7 @@ func CreatePvcInStorageClass(name, ns string, storageClassName *string, annotati
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany, corev1.ReadWriteOnce},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceName(corev1.ResourceStorage): resource.MustParse("1G"),
+					corev1.ResourceStorage: resource.MustParse("1G"),
 				},
 			},
 			StorageClassName: storageClassName,
@@ -572,15 +481,6 @@ func GetNamespace(namespace, defaultNamespace string) string {
 		return defaultNamespace
 	}
 	return namespace
-}
-
-// IsErrCacheNotStarted checked is the error is of cache not started
-func IsErrCacheNotStarted(err error) bool {
-	if err == nil {
-		return false
-	}
-	_, ok := err.(*cache.ErrCacheNotStarted)
-	return ok
 }
 
 // IsBound returns if the pvc is bound

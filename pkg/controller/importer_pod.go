@@ -31,112 +31,55 @@ const (
 	AnnOwnerRef = cc.AnnAPIGroup + "/storage.ownerRef"
 
 	// PodRunningReason is const that defines the pod was started as a reason
-	PodRunningReason = "Pod is running"
+	// PodRunningReason = "Pod is running"
 
 	// ProxyCertVolName is the name of the volumecontaining certs
-	ProxyCertVolName = "cdi-proxy-cert-vol"
+	// ProxyCertVolName = "cdi-proxy-cert-vol"
 
 	// secretExtraHeadersVolumeName is the format string that specifies where extra HTTP header secrets will be mounted
-	secretExtraHeadersVolumeName = "import-extra-headers-vol-%d"
+	// secretExtraHeadersVolumeName = "import-extra-headers-vol-%d"
 
 	// DestinationAuthVol is the name of the volume containing DVCR docker auth config.
 	DestinationAuthVol = "dvcr-secret-vol"
 )
 
 type importerPodArgs struct {
-	image       string
-	importImage string
-	verbose     string
-	pullPolicy  string
-	podEnvVar   *cc.ImportPodEnvVar
-	namespace   string
-	//pvc                     *corev1.PersistentVolumeClaim
-	cvmi                    *virtv2alpha1.ClusterVirtualMachineImage
-	vmi                     *virtv2alpha1.VirtualMachineImage
-	scratchPvcName          *string
+	image string
+	// importImage string
+	verbose    string
+	pullPolicy string
+	podEnvVar  *cc.ImportPodEnvVar
+	namespace  string
+	// pvc                     *corev1.PersistentVolumeClaim
+	cvmi *virtv2alpha1.ClusterVirtualMachineImage
+	// vmi                     *virtv2alpha1.VirtualMachineImage
 	podResourceRequirements *corev1.ResourceRequirements
 	imagePullSecrets        []corev1.LocalObjectReference
-	//workloadNodePlacement   *sdkapi.NodePlacement
-	vddkImageName     *string
+	// workloadNodePlacement   *sdkapi.NodePlacement
 	priorityClassName string
 }
-
-//// returns the import image part of the endpoint string
-//func getRegistryImportImage(cvmi *virtv2alpha1.ClusterVirtualMachineImage) (string, error) {
-//	ep, err := cc.GetEndpoint(cvmi)
-//	if err != nil {
-//		return "", nil
-//	}
-//	if cc.IsImageStream(cvmi) {
-//		return ep, nil
-//	}
-//	url, err := url.Parse(ep)
-//	if err != nil {
-//		return "", fmt.Errorf("illegal registry endpoint %s", ep)
-//	}
-//	return url.Host + url.Path, nil
-//}
-
-// getValueFromAnnotation returns the value of an annotation
-// cvmi *v1alpha1.ClusterVirtualMachineImage
-func getValueFromAnnotation(obj metav1.Object, annotation string) string {
-	return obj.GetAnnotations()[annotation]
-}
-
-// If this pod is going to transfer one checkpoint in a multi-stage import, attach the checkpoint name to the pod name so
-// that each checkpoint gets a unique pod. That way each pod can be inspected using the retainAfterCompletion annotation.
-func podNameWithCheckpoint(pvc *corev1.PersistentVolumeClaim) string {
-	if checkpoint := pvc.Annotations[cc.AnnCurrentCheckpoint]; checkpoint != "" {
-		return pvc.Name + "-checkpoint-" + checkpoint
-	}
-	return pvc.Name
-}
-
-//func getImportPodNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
-//	podName, ok := pvc.Annotations[cc.AnnImportPod]
-//	if ok {
-//		return podName
-//	}
-//	// fallback to legacy naming, in fact the following function is fully compatible with legacy
-//	// name concatenation "importer-{pvc.Name}" if the name length is under the size limits,
-//	return naming.GetResourceName(common.ImporterPodNamePrefix, podNameWithCheckpoint(pvc))
-//}
-//
-//func createImportPodNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
-//	return naming.GetResourceName(common.ImporterPodNamePrefix, podNameWithCheckpoint(pvc))
-//}
 
 // createImporterPod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, and pvc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
-func createImporterPod(ctx context.Context, log logr.Logger, client client.Client, args *importerPodArgs, installerLabels map[string]string) (*corev1.Pod, error) {
+func createImporterPod(_ context.Context, log logr.Logger, client client.Client, args *importerPodArgs, installerLabels map[string]string) (*corev1.Pod, error) {
 	var err error
-	//args.podResourceRequirements, err = cc.GetDefaultPodResourceRequirements(client)
-	//if err != nil {
+	// args.podResourceRequirements, err = cc.GetDefaultPodResourceRequirements(client)
+	// if err != nil {
 	//	return nil, err
-	//}
+	// }
 
-	//args.imagePullSecrets, err = cc.GetImagePullSecrets(client)
-	//if err != nil {
+	// args.imagePullSecrets, err = cc.GetImagePullSecrets(client)
+	// if err != nil {
 	//	return nil, err
-	//}
+	// }
 
-	//args.workloadNodePlacement, err = cc.GetWorkloadNodePlacement(ctx, client)
-	//if err != nil {
+	// args.workloadNodePlacement, err = cc.GetWorkloadNodePlacement(ctx, client)
+	// if err != nil {
 	//	return nil, err
-	//}
+	// }
 
-	var pod *corev1.Pod
-	//if cc.GetSource(args.pvc) == cc.SourceRegistry && args.pvc.Annotations[cc.AnnRegistryImportMethod] == string(cdiv1.RegistryPullNode) {
-	//	args.importImage, err = getRegistryImportImage(args.pvc)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	pod = makeNodeImporterPodSpec(args)
-	//} else {
-	//	pod = makeImporterPodSpec(args)
-	//}
-	pod = makeImporterPodSpec(args)
+	pod := makeImporterPodSpec(args)
 
 	SetRecommendedLabels(pod, installerLabels, cvmiControllerName)
 
@@ -190,11 +133,11 @@ func makeImporterPodSpec(args *importerPodArgs) *corev1.Pod {
 			Annotations: map[string]string{
 				cc.AnnCreatedBy: "yes",
 			},
-			//Labels: map[string]string{
+			// Labels: map[string]string{
 			//	common.CDILabelKey:        common.CDILabelValue,
 			//	common.CDIComponentLabel:  common.ImporterPodNamePrefix,
 			//	common.PrometheusLabelKey: common.PrometheusLabelValue,
-			//},
+			// },
 			OwnerReferences: []metav1.OwnerReference{
 				// Set CVMI as a controller for this Pod.
 				{
@@ -213,9 +156,9 @@ func makeImporterPodSpec(args *importerPodArgs) *corev1.Pod {
 			},
 			RestartPolicy: corev1.RestartPolicyOnFailure,
 			Volumes:       volumes,
-			//NodeSelector:      args.workloadNodePlacement.NodeSelector,
-			//Tolerations:       args.workloadNodePlacement.Tolerations,
-			//Affinity:          args.workloadNodePlacement.Affinity,
+			// NodeSelector:      args.workloadNodePlacement.NodeSelector,
+			// Tolerations:       args.workloadNodePlacement.Tolerations,
+			// Affinity:          args.workloadNodePlacement.Affinity,
 			PriorityClassName: args.priorityClassName,
 			ImagePullSecrets:  args.imagePullSecrets,
 		},
@@ -243,25 +186,25 @@ func makeImporterPodSpec(args *importerPodArgs) *corev1.Pod {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, createSecretVolume(DestinationAuthVol, args.podEnvVar.DestinationAuthSecret))
 	}
 
-	//if args.podEnvVar.certConfigMapProxy != "" {
+	// if args.podEnvVar.certConfigMapProxy != "" {
 	//	vm := corev1.VolumeMount{
 	//		Name:      ProxyCertVolName,
 	//		MountPath: common.ImporterProxyCertDir,
 	//	}
 	//	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, vm)
 	//	pod.Spec.Volumes = append(pod.Spec.Volumes, createConfigMapVolume(ProxyCertVolName, GetImportProxyConfigMapName(args.cvmi.Name)))
-	//}
+	// }
 
-	//if args.podEnvVar.source == cc.SourceGCS && args.podEnvVar.secretName != "" {
+	// if args.podEnvVar.source == cc.SourceGCS && args.podEnvVar.secretName != "" {
 	//	vm := corev1.VolumeMount{
 	//		Name:      SecretVolName,
 	//		MountPath: common.ImporterGoogleCredentialDir,
 	//	}
 	//	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, vm)
 	//	pod.Spec.Volumes = append(pod.Spec.Volumes, createSecretVolume(SecretVolName, args.podEnvVar.secretName))
-	//}
+	// }
 
-	//for index, header := range args.podEnvVar.secretExtraHeaders {
+	// for index, header := range args.podEnvVar.secretExtraHeaders {
 	//	vm := corev1.VolumeMount{
 	//		Name:      fmt.Sprintf(secretExtraHeadersVolumeName, index),
 	//		MountPath: path.Join(common.ImporterSecretExtraHeadersDir, fmt.Sprint(index)),
@@ -278,13 +221,9 @@ func makeImporterPodSpec(args *importerPodArgs) *corev1.Pod {
 	//
 	//	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, vm)
 	//	pod.Spec.Volumes = append(pod.Spec.Volumes, vol)
-	//}
+	// }
 
 	cc.SetRestrictedSecurityContext(&pod.Spec)
-	//// We explicitly define a NodeName for dynamically provisioned PVCs
-	//// when the PVC is being handled by a populator (PVC')
-	//cc.SetNodeNameIfPopulator(args.pvc, &pod.Spec)
-
 	return pod
 }
 
@@ -302,8 +241,6 @@ func setImporterPodCommons(pod *corev1.Pod, podEnvVar *cc.ImportPodEnvVar, cvmi 
 	}
 
 	pod.Spec.Containers[0].Env = makeImportEnv(podEnvVar, ownerUID)
-
-	//setPodPvcAnnotations(pod, pvc)
 }
 
 func makeImporterContainerSpec(image, verbose, pullPolicy string) *corev1.Container {
@@ -404,11 +341,11 @@ func makeImportEnv(podEnvVar *cc.ImportPodEnvVar, uid types.UID) []corev1.EnvVar
 		},
 		{
 			Name:  common.ImportProxyHTTP,
-			Value: podEnvVar.HttpProxy,
+			Value: podEnvVar.HTTPProxy,
 		},
 		{
 			Name:  common.ImportProxyHTTPS,
-			Value: podEnvVar.HttpsProxy,
+			Value: podEnvVar.HTTPSProxy,
 		},
 		{
 			Name:  common.ImportProxyNoProxy,
@@ -429,7 +366,6 @@ func makeImportEnv(podEnvVar *cc.ImportPodEnvVar, uid types.UID) []corev1.EnvVar
 		},
 	}
 
-	//if podEnvVar.secretName != "" && podEnvVar.source != cc.SourceGCS {
 	if podEnvVar.SecretName != "" {
 		env = append(env, corev1.EnvVar{
 			Name: common.ImporterAccessKeyID,
@@ -452,7 +388,6 @@ func makeImportEnv(podEnvVar *cc.ImportPodEnvVar, uid types.UID) []corev1.EnvVar
 				},
 			},
 		})
-
 	}
 	if podEnvVar.CertConfigMap != "" {
 		env = append(env, corev1.EnvVar{
@@ -495,9 +430,7 @@ func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
 	return ""
 }
 
-var (
-	httpClient *http.Client
-)
+var httpClient *http.Client
 
 type ImportProgress struct {
 	progress     float64
@@ -522,10 +455,11 @@ func ImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress, e
 	return extractProgress(progressReport, ownerUID)
 }
 
-// Example metrics:
+// extractProgress parses final report and extracts metrics:
 // registry_progress{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 47.68095477934807
 // registry_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.3832862149406234e+06
-func extractProgress(report string, ownerUID string) (*ImportProgress, error) {
+// registry_current_speed{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 2.12e+06
+func extractProgress(report, ownerUID string) (*ImportProgress, error) {
 	if report == "" {
 		return nil, nil
 	}
@@ -542,7 +476,7 @@ func extractProgress(report string, ownerUID string) (*ImportProgress, error) {
 		raw := match[1]
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse registry_progress metric: %v", err)
+			return nil, fmt.Errorf("parse registry_progress metric: %w", err)
 		}
 		res.progress = val
 	}
@@ -552,7 +486,7 @@ func extractProgress(report string, ownerUID string) (*ImportProgress, error) {
 		raw := match[1]
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse registry_speed metric: %v", err)
+			return nil, fmt.Errorf("parse registry_speed metric: %w", err)
 		}
 		res.avgSpeed = uint64(val)
 	}
@@ -562,7 +496,7 @@ func extractProgress(report string, ownerUID string) (*ImportProgress, error) {
 		raw := match[1]
 		val, err := strconv.ParseFloat(raw, 64)
 		if err != nil {
-			return nil, fmt.Errorf("parse registry_current_speed metric: %v", err)
+			return nil, fmt.Errorf("parse registry_current_speed metric: %w", err)
 		}
 		res.currentSpeed = uint64(val)
 	}
