@@ -19,9 +19,10 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	RunPolicy RunPolicy  `json:"runPolicy"`
-	CPU       CPUSpec    `json:"cpu"`
-	Memory    MemorySpec `json:"memory"`
+	RunPolicy    RunPolicy         `json:"runPolicy"`
+	CPU          CPUSpec           `json:"cpu"`
+	Memory       MemorySpec        `json:"memory"`
+	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
 }
 
 type RunPolicy string

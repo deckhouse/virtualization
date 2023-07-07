@@ -152,12 +152,12 @@ tasks:
   build:controller:cache:
     desc: "Download Go modules and prebuild them to speedup next builds of the controller."
     cmds:
-    - |
-      echo "Build go modules cache"
-      docker build . \
-          -f ./local/virtualization-controller/Dockerfile \
-          --target builder \
-          -t ${CONTROLLER_BUILDER_IMAGE}
+      - |
+        echo "Build go modules cache"
+        docker build . \
+            -f ./local/virtualization-controller/Dockerfile \
+            --target builder \
+            -t ${CONTROLLER_BUILDER_IMAGE}
     status:
       - |
         docker image inspect $CONTROLLER_BUILDER_IMAGE -f '{{ .Created }}'
@@ -311,6 +311,24 @@ tasks:
     cmds:
       - |
         git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
+
+  fmt:
+    desc: "Run formatters locally"
+    cmds:
+      - task: fmt:gci
+      - task: fmt:gofumpt
+
+  fmt:gci:
+    desc: "Format code with gci, important vars: paths."
+    cmds:
+      - |
+        gci write -s Standard -s Default {{.CLI_ARGS}} {{.paths | default "pkg/ cmd/"}}
+
+  fmt:gofumpt:
+    desc: "Format code with gofumpt, important vars: paths"
+    cmds:
+      - |
+        gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "cmd/ pkg/"}}
 
   lint:
     desc: "Run linters locally"

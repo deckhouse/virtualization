@@ -1,0 +1,33 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: testvm
+  labels:
+    kubevirt.io/size: small
+    kubevirt.io/domain: testvm
+spec:
+  domain:
+    devices:
+      disks:
+        - name: containerdisk
+          disk:
+            bus: virtio
+        - name: cloudinitdisk
+          disk:
+            bus: virtio
+      interfaces:
+      - name: default
+        masquerade: {}
+    resources:
+      requests:
+        memory: 64M
+  networks:
+  - name: default
+    pod: {}
+  volumes:
+    - name: containerdisk
+      persistentVolumeClaim:
+        claimName: "virtual-machine-disk-4454820b-77a9-471f-9914-495e30b9a4cb"
+    - name: cloudinitdisk
+      cloudInitNoCloud:
+        userDataBase64: SGkuXG4=
