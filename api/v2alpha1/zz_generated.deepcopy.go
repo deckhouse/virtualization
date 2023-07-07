@@ -345,7 +345,7 @@ func (in *VirtualMachine) DeepCopyInto(out *VirtualMachine) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	out.Spec = in.Spec
+	in.Spec.DeepCopyInto(&out.Spec)
 	in.Status.DeepCopyInto(&out.Status)
 	return
 }
@@ -612,6 +612,13 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 	*out = *in
 	out.CPU = in.CPU
 	out.Memory = in.Memory
+	if in.BlockDevices != nil {
+		in, out := &in.BlockDevices, &out.BlockDevices
+		*out = make([]BlockDeviceSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

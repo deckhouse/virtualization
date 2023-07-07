@@ -98,6 +98,7 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
+		r.log.V(2).Info("BEFORE UPD", "changedObj", r.changedObj)
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
