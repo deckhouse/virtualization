@@ -172,7 +172,8 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// TODO
 	}
 
-	// TODO: ensure phases switching in the predefined order, no "phase jumps over middle phase" allowed
+	// NOTE: Ensure phases switching in the predefined order, no "phase jumps over middle phase" allowed,
+	// NOTE:  because each phase has own invariant which defines how other status fields are initialized and changed.
 
 	// Set fields after phase changed
 	switch state.VMD.Changed().Status.Phase {

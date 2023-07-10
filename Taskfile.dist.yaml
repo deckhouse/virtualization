@@ -322,7 +322,7 @@ tasks:
     desc: "Format code with gci, important vars: paths."
     cmds:
       - |
-        gci write -s Standard -s Default {{.CLI_ARGS}} {{.paths | default "pkg/ cmd/"}}
+        gci write --skip-generated -s standard,default,prefix\(github.com/deckhouse/\) {{.CLI_ARGS}} {{.paths | default "pkg/ cmd/"}}
 
   fmt:gofumpt:
     desc: "Format code with gofumpt, important vars: paths"

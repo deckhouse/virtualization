@@ -3,15 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"time"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -22,6 +19,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 type VMReconciler struct{}
@@ -75,18 +76,18 @@ func (r *VMReconciler) Sync(ctx context.Context, req reconcile.Request, state *V
 					panic("NOT IMPLEMENTED")
 
 				case virtv2.DiskDevice:
-					if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; !hasKey {
-						// TODO(VM): Maybe set waiting for BlockDevices annotation
-						opts.Log.Info("Waiting for VMD to become available", "VMD", bd.VirtualMachineDisk.Name)
-						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-						return nil
-					} else {
-						opts.Log.Info("CHECK VMD READY", "VMD", vmd, "Status", vmd.Status)
+					if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
+						opts.Log.Info("Check VM ready", "VMD", vmd, "Status", vmd.Status)
 						if vmd.Status.Phase != virtv2.DiskReady {
 							opts.Log.Info("Waiting for VMD to become ready", "VMD", bd.VirtualMachineDisk.Name)
 							state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 							return nil
 						}
+					} else {
+						// TODO(VM): Maybe set waiting for BlockDevices annotation
+						opts.Log.Info("Waiting for VMD to become available", "VMD", bd.VirtualMachineDisk.Name)
+						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+						return nil
 					}
 
 				default:

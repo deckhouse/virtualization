@@ -103,7 +103,7 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 			return fmt.Errorf("error updating: %w", err)
 		}
 		r.log.V(2).Info("UpdateMeta object updated", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta(), "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
-		r.currentObj = r.changedObj
+		r.currentObj = r.changedObj.DeepCopy()
 	}
 	return nil
 }
@@ -124,9 +124,11 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
-		r.currentObj = r.changedObj
+		r.currentObj = r.changedObj.DeepCopy()
 
 		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
+	} else {
+		r.log.V(2).Info("UpdateStatus status update skipped: status not changed", "current obj", r.currentObj, "changed obj", r.changedObj)
 	}
 	return nil
 }

@@ -7,7 +7,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +40,7 @@ var _ = Describe("VMD", func() {
 	It("Successfully imports image by HTTP source", func() {
 		ctx := context.Background()
 
-		var pvcName string
+		var dvName string
 
 		{
 			vmd := &virtv2.VirtualMachineDisk{
@@ -77,15 +76,30 @@ var _ = Describe("VMD", func() {
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
 			Expect(vmd.Status.Size).To(Equal(""))
 
-			pvcName = vmd.Status.PersistentVolumeClaimName
+			// UUID suffix
+			Expect(strings.HasPrefix(vmd.Annotations[controller.AnnVMDDataVolume], "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected DataVolume name %q", vmd.Annotations[controller.AnnVMDDataVolume]))
+			Expect(len(vmd.Annotations[controller.AnnVMDDataVolume])).To(Equal(21 + 36))
+		}
 
-			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
+		{
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmd).NotTo(BeNil())
+			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
+			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
+			Expect(vmd.Status.Size).To(Equal(""))
+
+			dvName = vmd.Annotations[controller.AnnVMDDataVolume]
+			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dv).NotTo(BeNil())
 		}
 
 		{
-			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
+			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dv).NotTo(BeNil())
 			dv.Status.Phase = cdiv1.Pending
@@ -104,26 +118,43 @@ var _ = Describe("VMD", func() {
 		}
 
 		{
+			pv := &corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:   "test-ns",
+					Name:        "test-pv",
+					Labels:      nil,
+					Annotations: nil,
+				},
+				Spec: corev1.PersistentVolumeSpec{},
+				Status: corev1.PersistentVolumeStatus{
+					Phase: corev1.VolumeBound,
+				},
+			}
+			err := reconciler.Client.Create(ctx, pv)
+			Expect(err).NotTo(HaveOccurred())
+
 			pvc := &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "test-ns",
-					Name:        pvcName,
+					Name:        dvName,
 					Labels:      nil,
 					Annotations: nil,
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					StorageClassName: util.GetPointer("local-path"),
+					VolumeName:       pv.Name,
 				},
 				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
 					Capacity: corev1.ResourceList{
-						corev1.ResourceRequestsStorage: resource.MustParse("15Gi"),
+						corev1.ResourceStorage: resource.MustParse("15Gi"),
 					},
 				},
 			}
-			err := reconciler.Client.Create(ctx, pvc)
+			err = reconciler.Client.Create(ctx, pvc)
 			Expect(err).NotTo(HaveOccurred())
 
-			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
+			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dv).NotTo(BeNil())
 			dv.Status.Phase = cdiv1.CloneInProgress
@@ -143,7 +174,7 @@ var _ = Describe("VMD", func() {
 		}
 
 		{
-			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
+			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(dv).NotTo(BeNil())
 			dv.Status.Phase = cdiv1.Succeeded
@@ -158,9 +189,7 @@ var _ = Describe("VMD", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskReady))
-			Expect(strings.HasPrefix(vmd.Status.PersistentVolumeClaimName, "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected PVC name %q", vmd.Status.PersistentVolumeClaimName))
-			// UUID suffix
-			Expect(len(vmd.Status.PersistentVolumeClaimName)).To(Equal(21 + 36))
+			Expect(vmd.Status.PersistentVolumeClaimName).To(Equal(dvName))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("100%")))
 			Expect(vmd.Status.Size).To(Equal("15Gi"))
 		}
