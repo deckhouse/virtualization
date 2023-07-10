@@ -18,7 +18,7 @@ import (
 type VMReconcilerState struct {
 	Client    client.Client
 	VM        *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	VMI       *virtv1.VirtualMachineInstance
+	KVVM      *virtv1.VirtualMachine
 	VMDByName map[string]*virtv2.VirtualMachineDisk
 	// VMIByName map[string]*virtv2.VirtualMachineImage
 	Result *reconcile.Result

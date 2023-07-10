@@ -10,7 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -23,6 +22,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMReconciler struct{}
@@ -48,62 +48,52 @@ func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr
 	return nil
 }
 
-func (r *VMReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero() {
 		// FIXME(VM): implement deletion case
 		return nil
 	}
 
-	if vmiName, hasKey := state.VM.Current().Annotations[AnnVMVirtualMachineInstance]; !hasKey {
-		if state.VM.Changed().Annotations == nil {
-			state.VM.Changed().Annotations = make(map[string]string)
-		}
-		state.VM.Changed().Annotations[AnnVMVirtualMachineInstance] = fmt.Sprintf("virtual-machine-instance-%s", uuid.NewUUID())
-		opts.Log.Info("Generated DV name", "name", state.VM.Changed().Annotations[AnnVMVirtualMachineInstance])
-	} else {
-		name := types.NamespacedName{Name: vmiName, Namespace: req.Namespace}
+	kvvmName := state.VM.Name()
 
-		vmi, err := helper.FetchObject(ctx, name, opts.Client, &virtv1.VirtualMachineInstance{})
-		if err != nil {
-			return fmt.Errorf("unable to get VMI %q: %w", name, err)
-		}
+	kvvm, err := helper.FetchObject(ctx, kvvmName, opts.Client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("unable to get KubeVirt VM %q: %w", kvvmName, err)
+	}
 
-		if vmi == nil {
-			// Check all VMD are loaded
-			for _, bd := range state.VM.Current().Spec.BlockDevices {
-				switch bd.Type {
-				case virtv2.ImageDevice:
-					panic("NOT IMPLEMENTED")
+	if kvvm == nil {
+		// Check all images and disks are ready to use
+		for _, bd := range state.VM.Current().Spec.BlockDevices {
+			switch bd.Type {
+			case virtv2.ImageDevice:
+				panic("NOT IMPLEMENTED")
 
-				case virtv2.DiskDevice:
-					if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
-						opts.Log.Info("Check VM ready", "VMD", vmd, "Status", vmd.Status)
-						if vmd.Status.Phase != virtv2.DiskReady {
-							opts.Log.Info("Waiting for VMD to become ready", "VMD", bd.VirtualMachineDisk.Name)
-							state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-							return nil
-						}
-					} else {
-						// TODO(VM): Maybe set waiting for BlockDevices annotation
-						opts.Log.Info("Waiting for VMD to become available", "VMD", bd.VirtualMachineDisk.Name)
+			case virtv2.DiskDevice:
+				if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
+					opts.Log.Info("Check VMD ready", "VMD", vmd, "Status", vmd.Status)
+					if vmd.Status.Phase != virtv2.DiskReady {
+						opts.Log.Info("Waiting for VMD to become ready", "VMD Name", bd.VirtualMachineDisk.Name)
 						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 						return nil
 					}
-
-				default:
-					panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+				} else {
+					opts.Log.Info("Waiting for VMD to become available", "VMD", bd.VirtualMachineDisk.Name)
+					state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+					return nil
 				}
-			}
 
-			vmi = NewVMIFromVirtualMachine(name, state.VM.Current(), state.VMDByName)
-			if err := opts.Client.Create(ctx, vmi); err != nil {
-				return fmt.Errorf("unable to create VMI %q: %w", vmi.Name, err)
+			default:
+				panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 			}
-			opts.Log.Info("Created new VMI", "name", vmi.Name, "vmi", vmi)
 		}
 
-		state.VMI = vmi
+		kvvm = NewKVVMFromVirtualMachine(kvvmName, state.VM.Current(), state.VMDByName)
+		if err := opts.Client.Create(ctx, kvvm); err != nil {
+			return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
+		}
+		opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", kvvm)
 	}
+	state.KVVM = kvvm
 
 	return nil
 }
@@ -118,32 +108,40 @@ func (r *VMReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, 
 	return nil
 }
 
-func NewVMIFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) *virtv1.VirtualMachineInstance {
+func NewKVVMFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) *virtv1.VirtualMachine {
 	labels := map[string]string{}
 	annotations := map[string]string{}
 
-	res := &virtv1.VirtualMachineInstance{
+	res := &virtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:   name.Namespace,
 			Name:        name.Name,
 			Labels:      labels,
 			Annotations: annotations,
 		},
-		Spec: virtv1.VirtualMachineInstanceSpec{
-			Domain: virtv1.DomainSpec{
-				Resources: virtv1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						// FIXME: support coreFraction: req = vm.Spec.CPU.Cores * coreFraction
-						corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
-						corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
+		Spec: virtv1.VirtualMachineSpec{
+			// TODO(VM): Implement RunPolicy instead
+			Running: util.GetPointer(true),
+			// RunStrategy: util.GetPointer(virtv1.RunStrategyAlways),
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: virtv1.VirtualMachineInstanceSpec{
+					Domain: virtv1.DomainSpec{
+						Resources: virtv1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								// FIXME: support coreFraction: req = vm.Spec.CPU.Cores * coreFraction
+								corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
+								corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
+								corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
+							},
+						},
+						CPU: &virtv1.CPU{
+							Model: "Nehalem",
+						},
 					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
-						corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
-					},
-				},
-				CPU: &virtv1.CPU{
-					Model: "Nehalem",
 				},
 			},
 		},
@@ -171,7 +169,7 @@ func NewVMIFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachi
 					},
 				},
 			}
-			res.Spec.Domain.Devices.Disks = append(res.Spec.Domain.Devices.Disks, disk)
+			res.Spec.Template.Spec.Domain.Devices.Disks = append(res.Spec.Template.Spec.Domain.Devices.Disks, disk)
 
 			volume := virtv1.Volume{
 				Name: bd.VirtualMachineDisk.Name,
@@ -183,7 +181,7 @@ func NewVMIFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachi
 					},
 				},
 			}
-			res.Spec.Volumes = append(res.Spec.Volumes, volume)
+			res.Spec.Template.Spec.Volumes = append(res.Spec.Template.Spec.Volumes, volume)
 
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
