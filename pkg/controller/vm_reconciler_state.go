@@ -19,6 +19,7 @@ type VMReconcilerState struct {
 	Client    client.Client
 	VM        *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	KVVM      *virtv1.VirtualMachine
+	KVVMI     *virtv1.VirtualMachineInstance
 	VMDByName map[string]*virtv2.VirtualMachineDisk
 	// VMIByName map[string]*virtv2.VirtualMachineImage
 	Result *reconcile.Result
@@ -65,6 +66,27 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	if state.VM.IsEmpty() {
 		log.Info("Reconcile observe an absent VM: it may be deleted", "VM", req.NamespacedName)
 		return nil
+	}
+
+	kvvmName := state.VM.Name()
+	kvvm, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("unable to get KubeVirt VM %q: %w", kvvmName, err)
+	}
+	state.KVVM = kvvm
+
+	if state.KVVM != nil {
+		if state.KVVM.Status.Created {
+			// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
+			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
+			// if state.KVVM.Status.ObservedGeneration == state.KVVM.Status.DesiredGeneration {
+			kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
+			if err != nil {
+				return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
+			}
+			state.KVVMI = kvvmi
+			//}
+		}
 	}
 
 	var vmdByName map[string]*virtv2.VirtualMachineDisk
