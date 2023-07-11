@@ -82,7 +82,11 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 		return nil
 	}
 
-	controllerutil.AddFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup)
+	// Set finalizer atomically
+	if controllerutil.AddFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup) {
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		return nil
+	}
 
 	if dvName, hasKey := state.VMD.Current().Annotations[AnnVMDDataVolume]; !hasKey {
 		if state.VMD.Changed().Annotations == nil {
@@ -111,6 +115,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 
 	// Add DV, PVC & PV finalizers
 	if state.DV != nil {
+		// Ensure DV finalizer is set in case DV was created manually (take ownership of already existing object)
 		if controllerutil.AddFinalizer(state.DV, virtv2.FinalizerDVProtection) {
 			if err := opts.Client.Update(ctx, state.DV); err != nil {
 				return fmt.Errorf("error setting finalizer on a DV %q: %w", state.DV.Name, err)
@@ -263,6 +268,8 @@ func NewDVFromVirtualMachineDisk(name types.NamespacedName, vmd *virtv2.VirtualM
 			Kind:    "VirtualMachineDisk",
 		}),
 	}
+
+	controllerutil.AddFinalizer(res, virtv2.FinalizerDVProtection)
 
 	return res
 }

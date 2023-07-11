@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -20,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -38,7 +38,7 @@ func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VM: %w", err)
 	}
 
-	if err := ctr.Watch(&source.Kind{Type: &virtv1.VirtualMachineInstance{}}, &handler.EnqueueRequestForOwner{
+	if err := ctr.Watch(&source.Kind{Type: &virtv1.VirtualMachine{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &virtv2.VirtualMachine{},
 		IsController: true,
 	}); err != nil {
@@ -50,18 +50,39 @@ func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr
 
 func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero() {
-		// FIXME(VM): implement deletion case
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(state.VM.Current(), virtv2.FinalizerVMCleanup) {
+			// Our finalizer is present, so lets cleanup DV, PVC & PV dependencies
+			if state.KVVM != nil {
+				if controllerutil.RemoveFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
+					if err := opts.Client.Update(ctx, state.KVVM); err != nil {
+						return fmt.Errorf("unable to remove KubeVirt VM %q finalizer %q: %w", state.KVVM.Name, virtv2.FinalizerKVVMProtection, err)
+					}
+				}
+			}
+			if state.KVVMI != nil {
+				if controllerutil.RemoveFinalizer(state.KVVMI, virtv2.FinalizerKVVMIProtection) {
+					if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
+						return fmt.Errorf("unable to remove KubeVirt VMI %q finalizer %q: %w", state.KVVMI.Name, virtv2.FinalizerKVVMIProtection, err)
+					}
+				}
+			}
+			controllerutil.RemoveFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup)
+		}
+
+		// Stop reconciliation as the item is being deleted
 		return nil
 	}
 
-	kvvmName := state.VM.Name()
-
-	kvvm, err := helper.FetchObject(ctx, kvvmName, opts.Client, &virtv1.VirtualMachine{})
-	if err != nil {
-		return fmt.Errorf("unable to get KubeVirt VM %q: %w", kvvmName, err)
+	// Set finalizer atomically
+	if controllerutil.AddFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup) {
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		return nil
 	}
 
-	if kvvm == nil {
+	if state.KVVM == nil {
+		kvvmName := state.VM.Name()
+
 		// Check all images and disks are ready to use
 		for _, bd := range state.VM.Current().Spec.BlockDevices {
 			switch bd.Type {
@@ -87,13 +108,31 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			}
 		}
 
-		kvvm = NewKVVMFromVirtualMachine(kvvmName, state.VM.Current(), state.VMDByName)
+		kvvm := NewKVVMFromVirtualMachine(kvvmName, state.VM.Current(), state.VMDByName)
 		if err := opts.Client.Create(ctx, kvvm); err != nil {
 			return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
 		}
-		opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", kvvm)
+		state.KVVM = kvvm
+
+		opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
 	}
-	state.KVVM = kvvm
+
+	// Add KubeVirt VM and VMI finalizers
+	if state.KVVM != nil {
+		// Ensure KubeVirt VM finalizer is set in case VM was created manually (take ownership of already existing object)
+		if controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
+			if err := opts.Client.Update(ctx, state.KVVM); err != nil {
+				return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
+			}
+		}
+	}
+	if state.KVVMI != nil {
+		if controllerutil.AddFinalizer(state.KVVMI, virtv2.FinalizerKVVMIProtection) {
+			if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
+				return fmt.Errorf("error setting finalizer on a KubeVirt VMI %q: %w", state.KVVMI.Name, err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -195,6 +234,8 @@ func NewKVVMFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMach
 			Kind:    "VirtualMachine",
 		}),
 	}
+
+	controllerutil.AddFinalizer(res, virtv2.FinalizerKVVMProtection)
 
 	return res
 }
