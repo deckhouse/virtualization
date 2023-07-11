@@ -11,16 +11,17 @@ import (
 	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/testutil"
 )
 
 var _ = Describe("VM", func() {
 	var reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState]
+	var reconcileExecutor *testutil.ReconcileExecutor
 
 	AfterEach(func() {
 		if reconciler != nil {
@@ -61,11 +62,13 @@ var _ = Describe("VM", func() {
 					},
 				},
 			}
+
 			reconciler = controller.NewVMReconciler(vm)
+			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: "test-vm", Namespace: "test-ns"})
 		}
 
 		{
-			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err := reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
@@ -105,7 +108,7 @@ var _ = Describe("VM", func() {
 			err := reconciler.Client.Create(ctx, vmd)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
@@ -126,7 +129,7 @@ var _ = Describe("VM", func() {
 			err = reconciler.Client.Status().Update(ctx, vmd)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
@@ -158,7 +161,7 @@ var _ = Describe("VM", func() {
 			err = reconciler.Client.Status().Update(ctx, kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachineInstance{})
@@ -176,7 +179,7 @@ var _ = Describe("VM", func() {
 			err = reconciler.Client.Status().Update(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
@@ -194,7 +197,7 @@ var _ = Describe("VM", func() {
 			err = reconciler.Client.Status().Update(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
@@ -219,7 +222,7 @@ var _ = Describe("VM", func() {
 			err = reconciler.Client.Status().Update(ctx, kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})

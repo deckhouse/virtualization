@@ -13,26 +13,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 var _ = Describe("VMD", func() {
 	var reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMDReconcilerState]
+	var reconcileExecutor *testutil.ReconcileExecutor
 
 	AfterEach(func() {
-		if reconciler != nil {
-			reconciler = nil
+		if reconcileExecutor != nil {
+			reconcileExecutor = nil
 		}
 	})
 
 	AfterEach(func() {
-		if reconciler != nil && reconciler.Recorder != nil {
+		if reconcileExecutor != nil && reconciler.Recorder != nil {
 			close(reconciler.Recorder.(*record.FakeRecorder).Events)
 		}
 	})
@@ -45,8 +46,8 @@ var _ = Describe("VMD", func() {
 		{
 			vmd := &virtv2.VirtualMachineDisk{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace:   "test-ns",
 					Name:        "test-vmd",
+					Namespace:   "test-ns",
 					Labels:      nil,
 					Annotations: nil,
 				},
@@ -62,11 +63,13 @@ var _ = Describe("VMD", func() {
 					},
 				},
 			}
+
 			reconciler = controller.NewVMDReconciler(vmd)
+			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"})
 		}
 
 		{
-			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			err := reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
@@ -82,7 +85,7 @@ var _ = Describe("VMD", func() {
 		}
 
 		{
-			_, err := reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			err := reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
@@ -106,7 +109,7 @@ var _ = Describe("VMD", func() {
 			err = reconciler.Client.Status().Update(ctx, dv)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
@@ -162,7 +165,7 @@ var _ = Describe("VMD", func() {
 			err = reconciler.Client.Status().Update(ctx, dv)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
@@ -182,7 +185,7 @@ var _ = Describe("VMD", func() {
 			err = reconciler.Client.Status().Update(ctx, dv)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}})
+			err = reconcileExecutor.Execute(ctx, reconciler)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
