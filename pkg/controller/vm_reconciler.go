@@ -137,12 +137,47 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 	return nil
 }
 
-func (r *VMReconciler) UpdateStatus(ctx context.Context, req reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	opts.Log.Info("VMReconciler.UpdateStatus")
 
-	_ = ctx
-	_ = req
-	_ = state
+	// Change previous state to new
+	switch state.VM.Current().Status.Phase {
+	case "":
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+	case virtv2.MachinePending:
+		if state.KVVMI != nil {
+			switch state.KVVMI.Status.Phase {
+			case virtv1.Running:
+				state.VM.Changed().Status.Phase = virtv2.MachineScheduling
+				state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+			case virtv1.Scheduled, virtv1.Scheduling:
+				state.VM.Changed().Status.Phase = virtv2.MachineScheduling
+			}
+		}
+
+	case virtv2.MachineScheduling:
+		if state.KVVMI.Status.Phase == virtv1.Running {
+			state.VM.Changed().Status.Phase = virtv2.MachineRunning
+		}
+
+	case virtv2.MachineRunning:
+	case virtv2.MachineTerminating:
+	case virtv2.MachineStopped:
+	case virtv2.MachineFailed:
+	}
+
+	// Set fields after phase changed
+	switch state.VM.Changed().Status.Phase {
+	case virtv2.MachinePending:
+	case virtv2.MachineScheduling:
+	case virtv2.MachineRunning:
+	case virtv2.MachineTerminating:
+	case virtv2.MachineStopped:
+	case virtv2.MachineFailed:
+	default:
+		panic(fmt.Sprintf("unexpected phase %q", state.VM.Changed().Status.Phase))
+	}
 
 	return nil
 }
