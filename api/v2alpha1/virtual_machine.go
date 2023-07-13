@@ -1,6 +1,9 @@
 package v2alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+)
 
 const (
 	VMKind     = "VirtualMachine"
@@ -40,10 +43,11 @@ type MemorySpec struct {
 }
 
 type VirtualMachineStatus struct {
-	Phase                MachinePhase        `json:"phase"`
-	NodeName             string              `json:"nodeName"`
-	IPAddress            string              `json:"ipAddress"`
-	BlockDevicesAttached []BlockDeviceStatus `json:"blockDevicesAttached"`
+	Phase                MachinePhase                             `json:"phase"`
+	NodeName             string                                   `json:"nodeName"`
+	IPAddress            string                                   `json:"ipAddress"`
+	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
+	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 }
 
 type MachinePhase string

@@ -157,8 +157,10 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		}
 
 	case virtv2.MachineScheduling:
-		if state.KVVMI.Status.Phase == virtv1.Running {
-			state.VM.Changed().Status.Phase = virtv2.MachineRunning
+		if state.KVVMI != nil {
+			if state.KVVMI.Status.Phase == virtv1.Running {
+				state.VM.Changed().Status.Phase = virtv2.MachineRunning
+			}
 		}
 
 	case virtv2.MachineRunning:
@@ -172,6 +174,28 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case virtv2.MachinePending:
 	case virtv2.MachineScheduling:
 	case virtv2.MachineRunning:
+		if state.KVVMI != nil {
+			state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
+			state.VM.Changed().Status.NodeName = state.KVVMI.Status.NodeName
+
+			for _, i := range state.KVVMI.Status.Interfaces {
+				if i.Name == "default" {
+					state.VM.Changed().Status.IPAddress = i.IP
+					break
+				}
+			}
+
+			for _, bd := range state.VM.Current().Spec.BlockDevices {
+				if state.FindAttachedBlockDevice(bd) == nil {
+					if abd := state.CreateAttachedBlockDevice(bd); abd != nil {
+						state.VM.Changed().Status.BlockDevicesAttached = append(
+							state.VM.Changed().Status.BlockDevicesAttached,
+							*abd,
+						)
+					}
+				}
+			}
+		}
 	case virtv2.MachineTerminating:
 	case virtv2.MachineStopped:
 	case virtv2.MachineFailed:
