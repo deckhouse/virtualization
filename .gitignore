@@ -38,3 +38,6 @@ bin/
 # Local overrides with tasks
 Taskfile.yaml
 local/caddy/images/
+
+# Secrets
+local/virtualization-controller/templates/auth-secret.yaml

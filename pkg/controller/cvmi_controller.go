@@ -27,7 +27,7 @@ const (
 )
 
 func NewCVMIController(
-	ctx context.Context, //nolint:revive
+	_ context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
 	importerImage string,
@@ -37,7 +37,6 @@ func NewCVMIController(
 	reconciler := &CVMIReconciler{
 		client:       mgr.GetClient(),
 		recorder:     mgr.GetEventRecorderFor(cvmiControllerName),
-		scheme:       mgr.GetScheme(),
 		log:          log.WithName(cvmiControllerName),
 		image:        importerImage,
 		pullPolicy:   ImporterPodPullPolicy,
@@ -49,7 +48,7 @@ func NewCVMIController(
 	if err != nil {
 		return nil, err
 	}
-	if err := addCVMIControllerWatches(cvmiController); err != nil {
+	if err = addCVMIControllerWatches(cvmiController); err != nil {
 		return nil, err
 	}
 	log.Info("Initialized ClusterVirtualMachineImage controller", "image", importerImage, "namespace", controllerNamespace)
