@@ -2,6 +2,9 @@ version: "3"
 
 silent: true
 
+includes:
+  cvmi: Taskfile.cvmi.yaml
+
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
@@ -11,8 +14,6 @@ env:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
   CONTROLLER_PREBUILT_IMAGES:
     sh: echo ${CONTROLLER_PREBUILT_IMAGES:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
-  DVCR_IMPORTER_IMAGE:
-    sh: echo ${DVCR_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/dvcr-importer:latest}
   REGISTRY_IMPORTER_IMAGE:
     sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
 
@@ -145,7 +146,6 @@ tasks:
     # Use cmds to run deps in order.
     cmds:
       - task: build:controller
-      #- task: build:dvcr-importer
       - task: build:registry-importer
       - task: build:cleanup
 
@@ -186,17 +186,8 @@ tasks:
             -t ${CONTROLLER_IMAGE}
         docker push ${CONTROLLER_IMAGE}
 
-  build:dvcr-importer:
-    desc: "Build dvcr-importer image for local development"
-    cmds:
-      - |
-        docker build ./local/dvcr-importer \
-            -f ./local/dvcr-importer/Dockerfile \
-            -t ${DVCR_IMPORTER_IMAGE}
-        docker push ${DVCR_IMPORTER_IMAGE}
-
   build:registry-importer:
-    desc: "Build dvcr-importer image for local development"
+    desc: "Build registry-importer image for local development"
     cmds:
       - |
         docker build ./local/registry-importer \

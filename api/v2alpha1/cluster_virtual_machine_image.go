@@ -42,7 +42,3 @@ type ClusterVirtualMachineImageSpec struct {
 type ClusterVirtualMachineImageStatus struct {
 	ImageStatus `json:",inline"`
 }
-
-func (c *ClusterVirtualMachineImage) GetDataSource() DataSource {
-	return c.Spec.DataSource
-}

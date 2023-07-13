@@ -4,11 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -86,6 +82,10 @@ const (
 	AnnSecret = AnnAPIGroup + "/storage.import.secretName"
 	// AnnCertConfigMap is the name of a configmap containing tls certs
 	AnnCertConfigMap = AnnAPIGroup + "/storage.import.certConfigMap"
+	// AnnCABundleSecret is the name of a secret containing tls certs from caBundle field.
+	AnnCABundleSecret = AnnAPIGroup + "/storage.import.certConfigMap"
+	// AnnCABundleConfigMap is the name of a configmap containing tls certs from caBundle field.
+	AnnCABundleConfigMap = AnnAPIGroup + "/storage.import.caBundleConfigMap"
 	// AnnRegistryImportMethod provides a const for registry import method annotation
 	AnnRegistryImportMethod = AnnAPIGroup + "/storage.import.registryImportMethod"
 	// AnnRegistryImageStream provides a const for registry image stream annotation
@@ -106,6 +106,7 @@ const (
 	AnnExtraHeaders = AnnAPIGroup + "/storage.import.extraHeaders"
 	// AnnSecretExtraHeaders provides a const for our PVC secretExtraHeaders annotation
 	AnnSecretExtraHeaders = AnnAPIGroup + "/storage.import.secretExtraHeaders"
+	AnnCreatedByImporter  = AnnAPIGroup + "/storage.createdByImporter"
 
 	AnnImportAvgSpeedBytes     = AnnAPIGroup + "/storage.import.speed.avg"
 	AnnImportCurrentSpeedBytes = AnnAPIGroup + "/storage.import.speed.current"
@@ -316,13 +317,9 @@ func HandleFailedPod(err error, podName string, cvmi *virtv2alpha1.ClusterVirtua
 	return err
 }
 
-type getSource interface {
-	GetDataSource() virtv2alpha1.DataSource
-}
-
 // GetSource returns the source string which determines the type of source. If no source or invalid source found, default to http
-func GetSource(obj getSource) string {
-	srcType := string(obj.GetDataSource().Type)
+func GetSource(ds virtv2alpha1.DataSource) string {
+	srcType := string(ds.Type)
 	switch srcType {
 	case
 		SourceHTTP,
@@ -510,72 +507,17 @@ func ShouldIgnorePod(pod *corev1.Pod, pvc *corev1.PersistentVolumeClaim) bool {
 	return false
 }
 
-// BuildHTTPClient generates an http client that accepts any certificate, since we are using
-// it to get prometheus data it doesn't matter if someone can intercept the data. Once we have
-// a mechanism to properly sign the server, we can update this method to get a proper client.
-func BuildHTTPClient(httpClient *http.Client) *http.Client {
-	if httpClient == nil {
-		defaultTransport := http.DefaultTransport.(*http.Transport)
-		// Create new Transport that ignores self-signed SSL
-		tr := &http.Transport{
-			Proxy:                 defaultTransport.Proxy,
-			DialContext:           defaultTransport.DialContext,
-			MaxIdleConns:          defaultTransport.MaxIdleConns,
-			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
-			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
-			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		}
-		httpClient = &http.Client{
-			Transport: tr,
-		}
+// SetRecommendedLabels sets the recommended labels on CDI resources (does not get rid of existing ones)
+func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, controllerName string) {
+	staticLabels := map[string]string{
+		common.AppKubernetesManagedByLabel: controllerName,
+		common.AppKubernetesComponentLabel: "storage",
 	}
-	return httpClient
-}
 
-// ErrConnectionRefused checks for connection refused errors
-func ErrConnectionRefused(err error) bool {
-	return strings.Contains(err.Error(), "connection refused")
-}
+	// Merge static & existing labels
+	mergedLabels := common.MergeLabels(staticLabels, obj.GetLabels())
+	// Add installer dynamic labels as well (/version, /part-of)
+	mergedLabels = common.MergeLabels(installerLabels, mergedLabels)
 
-// GetPodMetricsPort returns, if exists, the metrics port from the passed pod
-func GetPodMetricsPort(pod *corev1.Pod) (int, error) {
-	for _, container := range pod.Spec.Containers {
-		for _, port := range container.Ports {
-			if port.Name == "metrics" {
-				return int(port.ContainerPort), nil
-			}
-		}
-	}
-	return 0, errors.New("metrics port not found in pod")
-}
-
-// GetMetricsURL builds the metrics URL according to the specified pod
-func GetMetricsURL(pod *corev1.Pod) (string, error) {
-	if pod == nil {
-		return "", nil
-	}
-	port, err := GetPodMetricsPort(pod)
-	if err != nil || pod.Status.PodIP == "" {
-		return "", err
-	}
-	url := fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, port)
-	return url, nil
-}
-
-// GetProgressReportFromURL fetches the progress report from the passed URL according to a specific regular expression
-func GetProgressReportFromURL(url string, httpClient *http.Client) (string, error) {
-	resp, err := httpClient.Get(url)
-	if err != nil {
-		if ErrConnectionRefused(err) {
-			return "", nil
-		}
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(body), nil
+	obj.SetLabels(mergedLabels)
 }
