@@ -75,12 +75,6 @@ tasks:
         k3d image import quay.io/kubevirt/virt-operator:v0.59.2
 
       - |
-        # Bootstrap registry importer base image
-        docker pull ubuntu:22.04
-        docker tag ubuntu:22.04 k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
-        docker push k3d-registry.virtualization-controller.test:5000/registry-importer-base:latest
-
-      - |
         # Install KubeVirt
         export RELEASE=v0.59.2 # $(curl https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
         kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
