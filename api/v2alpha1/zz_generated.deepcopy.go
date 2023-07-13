@@ -647,6 +647,7 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	out.GuestOSInfo = in.GuestOSInfo
 	return
 }
 

@@ -3,6 +3,7 @@ package controller_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -103,6 +104,7 @@ var _ = Describe("VM", func() {
 				},
 				Status: virtv2.VirtualMachineDiskStatus{
 					Phase: virtv2.DiskPending,
+					Size:  "10Gi",
 				},
 			}
 			err := reconciler.Client.Create(ctx, vmd)
@@ -193,6 +195,19 @@ var _ = Describe("VM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kvvmi).NotTo(BeNil())
 
+			kvvmi.Status.GuestOSInfo = virtv1.VirtualMachineInstanceGuestOSInfo{
+				Name: "linux",
+				ID:   "12345",
+			}
+			kvvmi.Status.Interfaces = append(kvvmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
+				IP:   "1.2.4.8",
+				Name: "default",
+			})
+			kvvmi.Status.NodeName = "k3d-k3s-default-server-0"
+			kvvmi.Status.VolumeStatus = append(kvvmi.Status.VolumeStatus, virtv1.VolumeStatus{
+				Name:   "test-vmd",
+				Target: "vda",
+			})
 			kvvmi.Status.Phase = virtv1.Scheduling
 			err = reconciler.Client.Status().Update(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -229,6 +244,17 @@ var _ = Describe("VM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm).NotTo(BeNil())
 			Expect(vm.Status.Phase).To(Equal(virtv2.MachineRunning))
+			Expect(reflect.DeepEqual(vm.Status.GuestOSInfo, kvvmi.Status.GuestOSInfo)).To(BeTrue(), fmt.Sprintf("unequal GuestOSInfo %#v != %#v", vm.Status.GuestOSInfo, kvvmi.Status.GuestOSInfo))
+			Expect(vm.Status.NodeName).To(Equal(kvvmi.Status.NodeName))
+			Expect(vm.Status.IPAddress).To(Equal(kvvmi.Status.Interfaces[0].IP))
+			Expect(vm.Status.BlockDevicesAttached[0].Type).To(Equal(virtv2.DiskDevice))
+			Expect(vm.Status.BlockDevicesAttached[0].VirtualMachineImage).To(BeNil())
+			Expect(reflect.DeepEqual(
+				*vm.Status.BlockDevicesAttached[0].VirtualMachineDisk,
+				virtv2.DiskDeviceSpec{Name: "test-vmd"},
+			)).To(BeTrue())
+			Expect(vm.Status.BlockDevicesAttached[0].Target).To(Equal(kvvmi.Status.VolumeStatus[0].Target))
+			Expect(vm.Status.BlockDevicesAttached[0].Size).To(Equal("10Gi"))
 		}
 	})
 })

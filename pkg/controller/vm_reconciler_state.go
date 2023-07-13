@@ -13,6 +13,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMReconcilerState struct {
@@ -124,4 +125,60 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 
 func (state *VMReconcilerState) ShouldReconcile() bool {
 	return !state.VM.IsEmpty()
+}
+
+func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
+	for i := range state.VM.Current().Status.BlockDevicesAttached {
+		bda := &state.VM.Current().Status.BlockDevicesAttached[i]
+		switch spec.Type {
+		case virtv2.DiskDevice:
+			if bda.Type == spec.Type && bda.VirtualMachineDisk.Name == spec.VirtualMachineDisk.Name {
+				return bda
+			}
+		case virtv2.ImageDevice:
+			panic("not implemented")
+		default:
+			panic(fmt.Sprintf("unexpected block device type %q", spec.Type))
+		}
+	}
+
+	return nil
+}
+
+func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
+	switch spec.Type {
+	case virtv2.DiskDevice:
+		vs := state.FindVolumeStatus(spec.VirtualMachineDisk.Name)
+		if vs == nil {
+			return nil
+		}
+
+		vmd, hasVmd := state.VMDByName[spec.VirtualMachineDisk.Name]
+		if !hasVmd {
+			return nil
+		}
+
+		return &virtv2.BlockDeviceStatus{
+			Type:               virtv2.DiskDevice,
+			VirtualMachineDisk: util.CopyByPointer(spec.VirtualMachineDisk),
+			Target:             vs.Target,
+			Size:               vmd.Status.Size,
+		}
+
+	case virtv2.ImageDevice:
+		panic("not implemented")
+
+	default:
+		panic(fmt.Sprintf("unexpected block device type %q", spec.Type))
+	}
+}
+
+func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.VolumeStatus {
+	for i := range state.KVVMI.Status.VolumeStatus {
+		vs := state.KVVMI.Status.VolumeStatus[i]
+		if vs.Name == volumeName {
+			return &vs
+		}
+	}
+	return nil
 }

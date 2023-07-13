@@ -1,5 +1,10 @@
 package util
 
+func CopyByPointer[T any](objP *T) *T {
+	copyObj := *objP
+	return &copyObj
+}
+
 func GetPointer[T any](obj T) *T {
 	return &obj
 }
