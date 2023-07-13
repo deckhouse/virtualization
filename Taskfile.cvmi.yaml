@@ -1,0 +1,60 @@
+version: "3"
+
+silent: true
+
+tasks:
+  watch:
+    desc: "Watch for debian-iso cvmi resource"
+    cmds:
+      - |
+        kubectl get clustervirtualmachineimage | head -n1
+        for i in `seq 1 400` ; do
+          kubectl get clustervirtualmachineimage/debian-iso --no-headers  || true
+          sleep 2
+        done
+
+  status:
+    desc: "Get importer Pod and cvmi/debian-iso"
+    cmds:
+      - |
+        kubectl -n virtualization-controller get po
+        kubectl get clustervirtualmachineimage/debian-iso
+
+  recreate:
+    desc: "Recreate example CVMI resource"
+    cmds:
+      - |
+        kubectl -n virtualization-controller delete po/importer-debian-iso || true
+        kubectl delete clustervirtualmachineimage/debian-iso || true
+        sleep 1
+        kubectl apply -f config/samples/cvmi_debian_iso.yaml
+
+  recreate2:
+    desc: "Recreate example CVMI resource with caBundle field"
+    cmds:
+      - |
+        kubectl -n virtualization-controller delete po/importer-debian-iso || true
+        kubectl delete clustervirtualmachineimage/debian-iso || true
+        sleep 1
+        kubectl apply -f config/samples/cvmi_debian_iso_ca_bundle.yaml
+
+  progress:
+    desc: "Get progress metrics directly from pod importer"
+    cmds:
+      - |
+        PodIP=$(kubectl -n virtualization-controller get po/importer-debian-iso -o json | jq '.status.podIP' -r)
+        kubectl -n virtualization-controller exec -ti deploy/virtualization-controller -- curl -k https://${PodIP}:8443/metrics | grep registry
+
+  logs:
+    desc: "Importer Pod logs"
+    cmds:
+      - |
+        kubectl -n virtualization-controller logs po/importer-debian-iso -f
+
+  get-ca-bundle-for-test:
+    desc: "Get CA chain for debian-iso resource"
+    cmds:
+      - |
+        openssl s_client -showcerts -verify 5 -connect mirror.yandex.ru:443 < /dev/null 2>/dev/null | \
+           awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/{ print }' | base64
+        echo "Use this line as caBundle in config/samples/cvmi_debian_iso_ca_bundle.yaml for tests"

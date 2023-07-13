@@ -20,6 +20,8 @@ const (
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
+	// ImporterCABundleDir is where the configmap containing certs from dataSource.http.caBundle field will be mounted
+	ImporterCABundleDir = "/ca-bundle"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted
 	ImporterProxyCertDir = "/proxycerts/"
 

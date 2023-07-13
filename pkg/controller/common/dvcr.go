@@ -37,15 +37,3 @@ func PrepareDVCREndpointFromVMI(vmi *virtv2alpha1.VirtualMachineImage, dvcr *DVC
 	ep := fmt.Sprintf(VMIPath, dvcr.Registry, vmi.Namespace, vmi.Name)
 	return path.Clean(ep)
 }
-
-func UpdateDVCREnvsFromCVMI(podEnvVars *ImportPodEnvVar, cvmi *virtv2alpha1.ClusterVirtualMachineImage, dvcr *DVCRSettings) {
-	podEnvVars.DestinationAuthSecret = dvcr.AuthSecret
-	podEnvVars.DestinationEndpoint = PrepareDVCREndpointFromCVMI(cvmi, dvcr)
-	podEnvVars.DestinationInsecureTLS = dvcr.InsecureTLS
-}
-
-func UpdateDVCREnvsFromVMI(podEnvVars *ImportPodEnvVar, vmi *virtv2alpha1.VirtualMachineImage, dvcr *DVCRSettings) {
-	podEnvVars.DestinationAuthSecret = dvcr.AuthSecret
-	podEnvVars.DestinationEndpoint = PrepareDVCREndpointFromVMI(vmi, dvcr)
-	podEnvVars.DestinationInsecureTLS = dvcr.InsecureTLS
-}

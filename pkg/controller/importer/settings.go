@@ -1,8 +1,14 @@
-package common
+package importer
 
-import virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+import (
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+)
 
-type ImportPodEnvVar struct {
+// Settings stores all possible settings for registry-importer binary.
+// Fields from this struct are passed via environment variables.
+type Settings struct {
+	Verbose                string
 	Endpoint               string
 	SecretName             string
 	Source                 string
@@ -28,7 +34,13 @@ type ImportPodEnvVar struct {
 	DestinationAuthSecret  string
 }
 
-func UpdateHTTPEnvs(podEnvVars *ImportPodEnvVar, http *virtv2alpha1.DataSourceHTTP) {
+func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *common.DVCRSettings, endpoint string) {
+	podEnvVars.DestinationAuthSecret = dvcrSettings.AuthSecret
+	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
+	podEnvVars.DestinationEndpoint = endpoint
+}
+
+func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP) {
 	podEnvVars.Endpoint = http.URL
 
 	// if http.SecretRef != "" {
