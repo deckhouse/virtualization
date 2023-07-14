@@ -23,8 +23,8 @@ metadata:
     vm: linux
 spec:
   runPolicy: AlwaysOn
-  #enableParavirtualization: true
-  #osType: Generic
+  enableParavirtualization: true
+  osType: Generic
   #bootloader: BIOS
   cpu:
     cores: 2

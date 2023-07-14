@@ -32,6 +32,17 @@ spec:
                 - memory
                 - blockDevices
               properties:
+                enableParavirtualization:
+                  type: boolean
+                  description: TODO
+                osType:
+                  type: string
+                  enum:
+                    - 'Windows'
+                    - 'LegacyWindows'
+                    - 'Generic'
+                  description: TODO
+                  default: 'Generic'
                 runPolicy:
                   type: string
                   enum:

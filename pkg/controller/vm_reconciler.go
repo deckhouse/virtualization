@@ -3,11 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -21,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMReconciler struct{}
@@ -155,14 +153,12 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 				state.VM.Changed().Status.Phase = virtv2.MachineScheduling
 			}
 		}
-
 	case virtv2.MachineScheduling:
 		if state.KVVMI != nil {
 			if state.KVVMI.Status.Phase == virtv1.Running {
 				state.VM.Changed().Status.Phase = virtv2.MachineRunning
 			}
 		}
-
 	case virtv2.MachineRunning:
 	case virtv2.MachineTerminating:
 	case virtv2.MachineStopped:
@@ -207,48 +203,19 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 }
 
 func NewKVVMFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) *virtv1.VirtualMachine {
-	labels := map[string]string{}
-	annotations := map[string]string{}
+	b := kvbuilder.NewEmptyVirtualMachine(name, kvbuilder.VirtualMachineOptions{
+		EnableParavirtualization:  vm.Spec.EnableParavirtualization,
+		OsType:                    vm.Spec.OsType,
+		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+	})
 
-	res := &virtv1.VirtualMachine{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   name.Namespace,
-			Name:        name.Name,
-			Labels:      labels,
-			Annotations: annotations,
-		},
-		Spec: virtv1.VirtualMachineSpec{
-			// TODO(VM): Implement RunPolicy instead
-			Running: util.GetPointer(true),
-			// RunStrategy: util.GetPointer(virtv1.RunStrategyAlways),
-			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec: virtv1.VirtualMachineInstanceSpec{
-					Domain: virtv1.DomainSpec{
-						Resources: virtv1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								// FIXME: support coreFraction: req = vm.Spec.CPU.Cores * coreFraction
-								corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
-								corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
-							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", vm.Spec.CPU.Cores)),
-								corev1.ResourceMemory: resource.MustParse(vm.Spec.Memory.Size),
-							},
-						},
-						CPU: &virtv1.CPU{
-							Model: "Nehalem",
-						},
-					},
-				},
-			},
-		},
-	}
+	// FIXME: real coreFraction
+	b.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
 
 	for _, bd := range vm.Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("NOT IMPLEMENTED")
+			panic("not implemented")
 
 		case virtv2.DiskDevice:
 			vmd, hasVmd := vmdByName[bd.VirtualMachineDisk.Name]
@@ -259,42 +226,19 @@ func NewKVVMFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMach
 				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase", vmd.Name, vmd.Status.Phase))
 			}
 
-			disk := virtv1.Disk{
-				Name: bd.VirtualMachineDisk.Name,
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio, // FIXME(VM): take into account OSType & enableParavirtualization
-					},
-				},
-			}
-			res.Spec.Template.Spec.Domain.Devices.Disks = append(res.Spec.Template.Spec.Domain.Devices.Disks, disk)
-
-			volume := virtv1.Volume{
-				Name: bd.VirtualMachineDisk.Name,
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: vmd.Status.PersistentVolumeClaimName,
-						},
-					},
-				},
-			}
-			res.Spec.Template.Spec.Volumes = append(res.Spec.Template.Spec.Volumes, volume)
+			b.AddDisk(bd.VirtualMachineDisk.Name, vmd.Status.PersistentVolumeClaimName)
 
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 		}
 	}
 
-	res.OwnerReferences = []metav1.OwnerReference{
-		*metav1.NewControllerRef(vm, schema.GroupVersionKind{
-			Group:   virtv2.SchemeGroupVersion.Group,
-			Version: virtv2.SchemeGroupVersion.Version,
-			Kind:    "VirtualMachine",
-		}),
-	}
+	b.AddOwnerRef(vm, schema.GroupVersionKind{
+		Group:   virtv2.SchemeGroupVersion.Group,
+		Version: virtv2.SchemeGroupVersion.Version,
+		Kind:    "VirtualMachine",
+	})
+	b.AddFinalizer(virtv2.FinalizerKVVMProtection)
 
-	controllerutil.AddFinalizer(res, virtv2.FinalizerKVVMProtection)
-
-	return res
+	return b.Resource()
 }
