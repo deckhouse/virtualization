@@ -22,16 +22,26 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	RunPolicy    RunPolicy         `json:"runPolicy"`
-	CPU          CPUSpec           `json:"cpu"`
-	Memory       MemorySpec        `json:"memory"`
-	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
+	RunPolicy                RunPolicy         `json:"runPolicy"`
+	CPU                      CPUSpec           `json:"cpu"`
+	Memory                   MemorySpec        `json:"memory"`
+	BlockDevices             []BlockDeviceSpec `json:"blockDevices"`
+	EnableParavirtualization bool              `json:"enableParavirtualization,omitempty"`
+	OsType                   OsType            `json:"osType,omitempty"`
 }
 
 type RunPolicy string
 
 const (
 	AlwaysOnPolicy RunPolicy = "AlwaysOn"
+)
+
+type OsType string
+
+const (
+	Windows       OsType = "Windows"
+	LegacyWindows OsType = "LegacyWindows"
+	GenericOs     OsType = "Generic"
 )
 
 type CPUSpec struct {

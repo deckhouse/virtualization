@@ -48,7 +48,9 @@ var _ = Describe("VM", func() {
 					Annotations: nil,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					RunPolicy: virtv2.AlwaysOnPolicy,
+					RunPolicy:                virtv2.AlwaysOnPolicy,
+					EnableParavirtualization: true,
+					OsType:                   virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
 						Cores: 2,
 					},
