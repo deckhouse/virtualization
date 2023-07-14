@@ -281,6 +281,20 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 		},
 	}...)
 
+	// HTTP source checksum settings: md5 and sha256.
+	if imp.Settings.SHA256 != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  common.ImporterSHA256Sum,
+			Value: imp.Settings.SHA256,
+		})
+	}
+	if imp.Settings.MD5 != "" {
+		env = append(env, corev1.EnvVar{
+			Name:  common.ImporterMD5Sum,
+			Value: imp.Settings.MD5,
+		})
+	}
+
 	// Pass basic auth configuration from Secret with downward API.
 	if imp.Settings.SecretName != "" {
 		env = append(env, corev1.EnvVar{

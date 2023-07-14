@@ -25,7 +25,3 @@ if [ "x$exitCode" != "x0" ] ; then
   echo "Complete with error" > /dev/termination-log
   exit $exitCode
 fi
-
-# Use hardcoded final report until implemented in registry-importer.
-echo "Complete, write termination message"
-echo '{ "source-image-size": 65011712, "source-image-virtual-size": 268435456, "source-image-format": "qcow2"}' > /dev/termination-log

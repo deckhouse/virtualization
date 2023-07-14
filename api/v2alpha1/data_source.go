@@ -7,8 +7,14 @@ type DataSource struct {
 }
 
 type DataSourceHTTP struct {
-	URL      string `json:"url"`
-	CABundle []byte `json:"caBundle"`
+	URL      string    `json:"url"`
+	CABundle []byte    `json:"caBundle"`
+	Checksum *Checksum `json:"checksum,omitempty"`
+}
+
+type Checksum struct {
+	MD5    string `json:"md5,omitempty"`
+	SHA256 string `json:"sha256,omitempty"`
 }
 
 type DataSourceType string

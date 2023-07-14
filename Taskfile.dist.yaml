@@ -39,7 +39,7 @@ tasks:
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
     cmds:
-      - k3d registry create registry.virtualization-controller.test --port 5000 --image ghcr.io/werf/test-registry:latest
+      - k3d registry create registry.virtualization-controller.test --port 5000
       - |
         k3d cluster create \
             --api-port 6550 -p "80:80@loadbalancer" \

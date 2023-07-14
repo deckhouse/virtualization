@@ -10,6 +10,8 @@ import (
 type Settings struct {
 	Verbose                string
 	Endpoint               string
+	MD5                    string
+	SHA256                 string
 	SecretName             string
 	Source                 string
 	ContentType            string
@@ -43,16 +45,13 @@ func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *common.DVCRSettings,
 func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP) {
 	podEnvVars.Endpoint = http.URL
 
-	// if http.SecretRef != "" {
-	//	annotations[AnnSecret] = http.SecretRef
-	// }
-	// if http.CertConfigMap != "" {
-	//	annotations[AnnCertConfigMap] = http.CertConfigMap
-	// }
-	// for index, header := range http.ExtraHeaders {
-	//	annotations[fmt.Sprintf("%s.%d", AnnExtraHeaders, index)] = header
-	// }
-	// for index, header := range http.SecretExtraHeaders {
-	//	annotations[fmt.Sprintf("%s.%d", AnnSecretExtraHeaders, index)] = header
-	// }
+	if http.Checksum != nil {
+		if http.Checksum.MD5 != "" {
+			podEnvVars.MD5 = http.Checksum.MD5
+		}
+
+		if http.Checksum.SHA256 != "" {
+			podEnvVars.SHA256 = http.Checksum.SHA256
+		}
+	}
 }
