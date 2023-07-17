@@ -110,7 +110,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 		})
 		kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName)
-		kvvm := kvvmBuilder.Resource()
+		kvvm := kvvmBuilder.GetResource()
 
 		if err := opts.Client.Create(ctx, kvvm); err != nil {
 			return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)

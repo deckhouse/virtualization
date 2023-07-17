@@ -5,9 +5,6 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -21,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -103,7 +101,10 @@ func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *
 		}
 
 		if dv == nil {
-			dv = NewDVFromVirtualMachineDisk(name, state.VMD.Current())
+			dvBuilder := kvbuilder.NewDV(name)
+			kvbuilder.ApplyVirtualMachineDiskSpec(dvBuilder, state.VMD.Current())
+			dv := dvBuilder.GetResource()
+
 			if err := opts.Client.Create(ctx, dv); err != nil {
 				return fmt.Errorf("unable to create DV %q: %w", dv.Name, err)
 			}
@@ -219,59 +220,6 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	}
 
 	return nil
-}
-
-func NewDVFromVirtualMachineDisk(name types.NamespacedName, vmd *virtv2.VirtualMachineDisk) *cdiv1.DataVolume {
-	labels := map[string]string{}
-	annotations := map[string]string{
-		"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
-		"cdi.kubevirt.io/storage.bind.immediate.requested": "true",
-	}
-
-	// FIXME: resource.Quantity should be defined directly in the spec struct (see PVC impl. for details)
-	pvcSize, err := resource.ParseQuantity(vmd.Spec.PersistentVolumeClaim.Size)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	res := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   name.Namespace,
-			Name:        name.Name,
-			Labels:      labels,
-			Annotations: annotations,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{},
-			PVC: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: &vmd.Spec.PersistentVolumeClaim.StorageClassName,
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, // TODO: ensure this mode is appropriate
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: pvcSize,
-					},
-				},
-			},
-		},
-	}
-
-	if vmd.Spec.DataSource.HTTP != nil {
-		res.Spec.Source.HTTP = &cdiv1.DataVolumeSourceHTTP{
-			URL: vmd.Spec.DataSource.HTTP.URL,
-		}
-	}
-
-	res.OwnerReferences = []metav1.OwnerReference{
-		*metav1.NewControllerRef(vmd, schema.GroupVersionKind{
-			Group:   virtv2.SchemeGroupVersion.Group,
-			Version: virtv2.SchemeGroupVersion.Version,
-			Kind:    "VirtualMachineDisk",
-		}),
-	}
-
-	controllerutil.AddFinalizer(res, virtv2.FinalizerDVProtection)
-
-	return res
 }
 
 func MapDataVolumePhaseToVMDPhase(phase cdiv1.DataVolumePhase) virtv2.DiskPhase {
