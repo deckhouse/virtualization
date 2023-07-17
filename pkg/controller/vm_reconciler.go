@@ -6,8 +6,6 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -106,7 +104,14 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			}
 		}
 
-		kvvm := NewKVVMFromVirtualMachine(kvvmName, state.VM.Current(), state.VMDByName)
+		kvvmBuilder := kvbuilder.NewEmptyKVVM(kvvmName, kvbuilder.KVVMOptions{
+			EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
+			OsType:                    state.VM.Current().Spec.OsType,
+			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+		})
+		kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName)
+		kvvm := kvvmBuilder.Resource()
+
 		if err := opts.Client.Create(ctx, kvvm); err != nil {
 			return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
 		}
@@ -200,45 +205,4 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	return nil
-}
-
-func NewKVVMFromVirtualMachine(name types.NamespacedName, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) *virtv1.VirtualMachine {
-	b := kvbuilder.NewEmptyVirtualMachine(name, kvbuilder.VirtualMachineOptions{
-		EnableParavirtualization:  vm.Spec.EnableParavirtualization,
-		OsType:                    vm.Spec.OsType,
-		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
-	})
-
-	// FIXME: real coreFraction
-	b.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
-
-	for _, bd := range vm.Spec.BlockDevices {
-		switch bd.Type {
-		case virtv2.ImageDevice:
-			panic("not implemented")
-
-		case virtv2.DiskDevice:
-			vmd, hasVmd := vmdByName[bd.VirtualMachineDisk.Name]
-			if !hasVmd {
-				panic(fmt.Sprintf("not found loaded VMD %q which is used in the VM configuration", bd.VirtualMachineDisk.Name))
-			}
-			if vmd.Status.Phase != virtv2.DiskReady {
-				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase", vmd.Name, vmd.Status.Phase))
-			}
-
-			b.AddDisk(bd.VirtualMachineDisk.Name, vmd.Status.PersistentVolumeClaimName)
-
-		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
-		}
-	}
-
-	b.AddOwnerRef(vm, schema.GroupVersionKind{
-		Group:   virtv2.SchemeGroupVersion.Group,
-		Version: virtv2.SchemeGroupVersion.Version,
-		Kind:    "VirtualMachine",
-	})
-	b.AddFinalizer(virtv2.FinalizerKVVMProtection)
-
-	return b.Resource()
 }

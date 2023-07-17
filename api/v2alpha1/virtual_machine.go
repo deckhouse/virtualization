@@ -33,7 +33,10 @@ type VirtualMachineSpec struct {
 type RunPolicy string
 
 const (
-	AlwaysOnPolicy RunPolicy = "AlwaysOn"
+	AlwaysOnPolicy               RunPolicy = "AlwaysOn"
+	AlwaysOffPolicy              RunPolicy = "AlwaysOff"
+	ManualPolicy                 RunPolicy = "ManualPolicy"
+	AlwaysOnUnlessStoppedManualy RunPolicy = "AlwaysOnUnlessStoppedManualy"
 )
 
 type OsType string
