@@ -21,6 +21,14 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.yam
 kubectl create secret docker-registry ghcr-io-auth --docker-username=GITHUB_USERNAME --docker-password=GITHUB_TOKEN --docker-server=ghcr.io --dry-run=client -o yaml > local/virtualization-controller/templates/auth-secret.yaml
 ```
 
+### Configure dev deckhouse registry
+
+Login to `dev-registry.deckhouse.io` registry to pull virtualization-importer image:
+
+```
+docker login dev-registry.deckhouse.io
+```
+
 ### Run
 
 0. Bootstrap local cluster:
