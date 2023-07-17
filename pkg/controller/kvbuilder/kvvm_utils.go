@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 )
 
-func ApplyVirtualMachineSpec(kvvm *KVVM, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) *virtv1.VirtualMachine {
+func ApplyVirtualMachineSpec(kvvm *KVVM, vm *virtv2.VirtualMachine, vmdByName map[string]*virtv2.VirtualMachineDisk) {
+	kvvm.SetCPUModel("Nehalem")
+	kvvm.AddNetworkInterface("default")
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
 
 	// FIXME(VM): real coreFraction
@@ -42,6 +43,4 @@ func ApplyVirtualMachineSpec(kvvm *KVVM, vm *virtv2.VirtualMachine, vmdByName ma
 		Kind:    "VirtualMachine",
 	})
 	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
-
-	return kvvm.Resource()
 }
