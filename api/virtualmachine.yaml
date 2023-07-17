@@ -47,6 +47,10 @@ spec:
                   type: string
                   enum:
                     - 'AlwaysOn'
+                    - 'AlwaysOff'
+                    - 'ManualPolicy'
+                    - 'AlwaysOnUnlessStoppedManualy'
+                  default: 'AlwaysOnUnlessStoppedManualy'
                   description: TODO
                 cpu:
                   type: object

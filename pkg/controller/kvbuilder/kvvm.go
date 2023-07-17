@@ -19,12 +19,32 @@ import (
 // TODO(VM): KVVM builder should know which fields are allowed to be changed on-fly, and what params need a new KVVM instance.
 // TODO(VM): Somehow report from this layer that "restart is needed" and controller will do other "effectiveSpec"-related stuff.
 
-type VirtualMachine struct {
-	opts VirtualMachineOptions
-	vm   *virtv1.VirtualMachine
+func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
+	return &KVVM{
+		kvvm: currentKVVM,
+		opts: opts,
+	}
 }
 
-type VirtualMachineOptions struct {
+func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
+	res := &KVVM{
+		opts: opts,
+		kvvm: &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name.Name,
+				Namespace: name.Namespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
+			},
+		},
+	}
+	res.SetCPUModel("Nehalem")
+	res.AddNetworkInterface("default")
+	return res
+}
+
+type KVVMOptions struct {
 	EnableParavirtualization bool
 	OsType                   virtv2.OsType
 
@@ -32,54 +52,37 @@ type VirtualMachineOptions struct {
 	ForceBridgeNetworkBinding bool
 }
 
-func NewEmptyVirtualMachine(name types.NamespacedName, opts VirtualMachineOptions) *VirtualMachine {
-	labels := map[string]string{}
-	annotations := map[string]string{}
-
-	res := &VirtualMachine{
-		opts: opts,
-		vm: &virtv1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.Name,
-				Namespace:   name.Namespace,
-				Labels:      labels,
-				Annotations: annotations,
-			},
-			Spec: virtv1.VirtualMachineSpec{
-				// TODO(VM): Implement RunPolicy instead
-				Running: util.GetPointer(true),
-				// RunStrategy: util.GetPointer(virtv1.RunStrategyAlways),
-				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{},
-					Spec: virtv1.VirtualMachineInstanceSpec{
-						Domain: virtv1.DomainSpec{
-							CPU: &virtv1.CPU{
-								Model: "Nehalem",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	res.AddNetworkInterface("default")
-
-	return res
+type KVVM struct {
+	opts KVVMOptions
+	kvvm *virtv1.VirtualMachine
 }
 
-// TODO(VM): implement methods to make changes to existing virtual machine disks
-func NewVirtualMachine(currentVM *virtv1.VirtualMachine, opts VirtualMachineOptions) *VirtualMachine {
-	return &VirtualMachine{
-		vm:   currentVM,
-		opts: opts,
+func (b *KVVM) SetCPUModel(model string) {
+	b.kvvm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
+		Model: model,
 	}
 }
 
-func (b *VirtualMachine) SetResourceRequirements(cores int, coreFraction, memorySize string) {
+func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) {
+	switch runPolicy {
+	case virtv2.AlwaysOnPolicy:
+		b.kvvm.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+	case virtv2.AlwaysOffPolicy:
+		b.kvvm.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyHalted)
+	case virtv2.ManualPolicy:
+		b.kvvm.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyManual)
+	case virtv2.AlwaysOnUnlessStoppedManualy:
+		b.kvvm.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+	default:
+		panic(fmt.Sprintf("unexpected runPolicy %q", runPolicy))
+	}
+}
+
+func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) {
 	_ = coreFraction
-	b.vm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
+	b.kvvm.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			// FIXME: support coreFraction: req = vm.Spec.CPU.Cores * coreFraction
+			// FIXME: support coreFraction: req = kvvm.Spec.CPU.Cores * coreFraction
 			// FIXME: coreFraction is percents between 0 and 100, for example: "50%"
 			corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", cores)),
 			corev1.ResourceMemory: resource.MustParse(memorySize),
@@ -91,7 +94,7 @@ func (b *VirtualMachine) SetResourceRequirements(cores int, coreFraction, memory
 	}
 }
 
-func (b *VirtualMachine) AddDisk(name, claimName string) {
+func (b *KVVM) AddDisk(name, claimName string) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization, b.opts.OsType)
 	disk := virtv1.Disk{
 		Name: name,
@@ -101,7 +104,7 @@ func (b *VirtualMachine) AddDisk(name, claimName string) {
 			},
 		},
 	}
-	b.vm.Spec.Template.Spec.Domain.Devices.Disks = append(b.vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+	b.kvvm.Spec.Template.Spec.Domain.Devices.Disks = append(b.kvvm.Spec.Template.Spec.Domain.Devices.Disks, disk)
 
 	volume := virtv1.Volume{
 		Name: name,
@@ -113,30 +116,30 @@ func (b *VirtualMachine) AddDisk(name, claimName string) {
 			},
 		},
 	}
-	b.vm.Spec.Template.Spec.Volumes = append(b.vm.Spec.Template.Spec.Volumes, volume)
+	b.kvvm.Spec.Template.Spec.Volumes = append(b.kvvm.Spec.Template.Spec.Volumes, volume)
 }
 
-func (b *VirtualMachine) AddCdrom(name string) {
+func (b *KVVM) AddCdrom(name string) {
 	_ = name
 	// TODO(VM): implement this helper to attach VMI or CVMI to KV virtual machine
 }
 
-func (b *VirtualMachine) AddCloudInit() {
+func (b *KVVM) AddCloudInit() {
 	// TODO(VM): implement this helper to attach cloud-init volume with an initialization data
 }
 
-func (b *VirtualMachine) AddNetworkInterface(name string) {
+func (b *KVVM) AddNetworkInterface(name string) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization, b.opts.OsType)
 
 	foundNetwork := false
-	for _, n := range b.vm.Spec.Template.Spec.Networks {
+	for _, n := range b.kvvm.Spec.Template.Spec.Networks {
 		if n.Name == name {
 			foundNetwork = true
 			break
 		}
 	}
 	if !foundNetwork {
-		b.vm.Spec.Template.Spec.Networks = append(b.vm.Spec.Template.Spec.Networks, virtv1.Network{
+		b.kvvm.Spec.Template.Spec.Networks = append(b.kvvm.Spec.Template.Spec.Networks, virtv1.Network{
 			Name: name,
 			NetworkSource: virtv1.NetworkSource{
 				Pod: &virtv1.PodNetwork{},
@@ -155,23 +158,23 @@ func (b *VirtualMachine) AddNetworkInterface(name string) {
 		i.InterfaceBindingMethod.Macvtap = &virtv1.InterfaceMacvtap{}
 	}
 
-	b.vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.vm.Spec.Template.Spec.Domain.Devices.Interfaces, i)
+	b.kvvm.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.kvvm.Spec.Template.Spec.Domain.Devices.Interfaces, i)
 }
 
-func (b *VirtualMachine) AddOwnerRef(obj metav1.Object, gvk schema.GroupVersionKind) {
-	b.vm.OwnerReferences = []metav1.OwnerReference{
+func (b *KVVM) AddOwnerRef(obj metav1.Object, gvk schema.GroupVersionKind) {
+	b.kvvm.OwnerReferences = []metav1.OwnerReference{
 		*metav1.NewControllerRef(obj, gvk),
 	}
 }
 
-func (b *VirtualMachine) AddFinalizer(finalizer string) {
-	controllerutil.AddFinalizer(b.vm, finalizer)
+func (b *KVVM) AddFinalizer(finalizer string) {
+	controllerutil.AddFinalizer(b.kvvm, finalizer)
 }
 
-func (b *VirtualMachine) SetBootloader() {
+func (b *KVVM) SetBootloader() {
 	// TODO(VM): implement bootloader param switch (BIOS used by default in KubeVirt)
 }
 
-func (b *VirtualMachine) Resource() *virtv1.VirtualMachine {
-	return b.vm
+func (b *KVVM) Resource() *virtv1.VirtualMachine {
+	return b.kvvm
 }
