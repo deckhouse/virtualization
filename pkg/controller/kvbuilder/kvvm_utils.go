@@ -12,6 +12,7 @@ func ApplyVirtualMachineSpec(kvvm *KVVM, vm *virtv2.VirtualMachine, vmdByName ma
 	kvvm.SetCPUModel("Nehalem")
 	kvvm.AddNetworkInterface("default")
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
+	kvvm.AddTablet("default-0")
 
 	// FIXME(VM): real coreFraction
 	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)

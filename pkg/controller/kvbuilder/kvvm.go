@@ -99,7 +99,7 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 }
 
 func (b *KVVM) AddDisk(name, claimName string) {
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization, b.opts.OsType)
+	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 	disk := virtv1.Disk{
 		Name: name,
 		DiskDevice: virtv1.DiskDevice{
@@ -124,16 +124,83 @@ func (b *KVVM) AddDisk(name, claimName string) {
 }
 
 func (b *KVVM) AddCdrom(name string) {
-	_ = name
-	// TODO(VM): implement this helper to attach VMI or CVMI to KV virtual machine
+	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+	disk := virtv1.Disk{
+		Name: name,
+		DiskDevice: virtv1.DiskDevice{
+			CDRom: &virtv1.CDRomTarget{
+				Bus: devPreset.CdromBus,
+			},
+		},
+	}
+	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk)
+}
+
+func (b *KVVM) AddTablet(name string) {
+	i := virtv1.Input{
+		Name: name,
+		Bus:  virtv1.InputBusUSB,
+		Type: virtv1.InputTypeTablet,
+	}
+	b.Resource.Spec.Template.Spec.Domain.Devices.Inputs = append(b.Resource.Spec.Template.Spec.Domain.Devices.Inputs, i)
 }
 
 func (b *KVVM) AddCloudInit() {
 	// TODO(VM): implement this helper to attach cloud-init volume with an initialization data
 }
 
+func (b *KVVM) SetOsType(osType virtv2.OsType) {
+	switch osType {
+	case virtv2.Windows:
+		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
+			Type: "q35",
+		}
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = util.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{}
+		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
+			ACPI: virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			APIC: &virtv1.FeatureAPIC{Enabled: util.GetPointer(true)},
+			SMM:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			Hyperv: &virtv1.FeatureHyperv{
+				Frequencies:     &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				IPI:             &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Reenlightenment: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Relaxed:         &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Reset:           &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Runtime:         &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Spinlocks: &virtv1.FeatureSpinlocks{
+					Enabled: util.GetPointer(true),
+					Retries: util.GetPointer[uint32](8191),
+				},
+				SyNIC: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				SyNICTimer: &virtv1.SyNICTimer{
+					Enabled: util.GetPointer(true),
+					Direct:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				},
+				TLBFlush: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				VAPIC:    &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				VPIndex:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			},
+		}
+
+	case virtv2.GenericOs:
+		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
+			Type: "q35",
+		}
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = util.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
+		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
+			ACPI: virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			SMM:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+		}
+
+	case virtv2.LegacyWindows:
+		panic("not implemented")
+	}
+}
+
 func (b *KVVM) AddNetworkInterface(name string) {
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization, b.opts.OsType)
+	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
 	foundNetwork := false
 	for _, n := range b.Resource.Spec.Template.Spec.Networks {
