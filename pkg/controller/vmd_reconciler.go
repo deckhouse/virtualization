@@ -197,10 +197,10 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			state.VMD.Changed().Status.Progress = progress
 		}
 
-		if state.VMD.Current().Status.Size == "" || state.VMD.Current().Status.Size == "0" {
+		if state.VMD.Current().Status.Capacity == "" || state.VMD.Current().Status.Capacity == "0" {
 			if state.PVC != nil {
 				if state.PVC.Status.Phase == corev1.ClaimBound {
-					state.VMD.Changed().Status.Size = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
+					state.VMD.Changed().Status.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 				}
 			}
 		}
@@ -209,8 +209,8 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		if state.VMD.Current().Status.Progress != "100%" {
 			state.VMD.Changed().Status.Progress = "100%"
 		}
-		if state.VMD.Current().Status.PersistentVolumeClaimName == "" {
-			state.VMD.Changed().Status.PersistentVolumeClaimName = state.VMD.Current().Annotations[AnnVMDDataVolume]
+		if state.VMD.Current().Status.Target.PersistentVolumeClaimName == "" {
+			state.VMD.Changed().Status.Target.PersistentVolumeClaimName = state.VMD.Current().Annotations[AnnVMDDataVolume]
 		}
 	case virtv2.DiskFailed:
 	case virtv2.DiskNotReady:

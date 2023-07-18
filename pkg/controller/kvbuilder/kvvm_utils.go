@@ -31,7 +31,7 @@ func ApplyVirtualMachineSpec(kvvm *KVVM, vm *virtv2.VirtualMachine, vmdByName ma
 				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase", vmd.Name, vmd.Status.Phase))
 			}
 
-			kvvm.AddDisk(bd.VirtualMachineDisk.Name, vmd.Status.PersistentVolumeClaimName)
+			kvvm.AddDisk(bd.VirtualMachineDisk.Name, vmd.Status.Target.PersistentVolumeClaimName)
 
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))

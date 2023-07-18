@@ -105,8 +105,8 @@ var _ = Describe("VM", func() {
 					},
 				},
 				Status: virtv2.VirtualMachineDiskStatus{
-					Phase: virtv2.DiskPending,
-					Size:  "10Gi",
+					Phase:    virtv2.DiskPending,
+					Capacity: "10Gi",
 				},
 			}
 			err := reconciler.Client.Create(ctx, vmd)
