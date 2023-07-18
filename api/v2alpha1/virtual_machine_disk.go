@@ -26,10 +26,16 @@ type VirtualMachineDiskSpec struct {
 }
 
 type VirtualMachineDiskStatus struct {
-	Size                      string       `json:"size"`
-	PersistentVolumeClaimName string       `json:"persistentVolumeClaimName"`
-	Phase                     DiskPhase    `json:"phase"`
-	Progress                  DiskProgress `json:"progress"`
+	// TODO(VMD): importDuration, downloadSpeed
+
+	Phase    DiskPhase    `json:"phase"`
+	Progress DiskProgress `json:"progress,omitempty"`
+	Capacity string       `json:"capacity,omitempty"`
+	Target   DiskTarget   `json:"target,omitempty"`
+}
+
+type DiskTarget struct {
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName"`
 }
 
 type VirtualMachinePersistentVolumeClaim struct {

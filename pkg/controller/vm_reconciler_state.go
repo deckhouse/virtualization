@@ -162,7 +162,7 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 			Type:               virtv2.DiskDevice,
 			VirtualMachineDisk: util.CopyByPointer(spec.VirtualMachineDisk),
 			Target:             vs.Target,
-			Size:               vmd.Status.Size,
+			Size:               vmd.Status.Capacity,
 		}
 
 	case virtv2.ImageDevice:

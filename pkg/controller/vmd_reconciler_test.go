@@ -77,7 +77,8 @@ var _ = Describe("VMD", func() {
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
-			Expect(vmd.Status.Size).To(Equal(""))
+			Expect(vmd.Status.Capacity).To(Equal(""))
+			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
 
 			// UUID suffix
 			Expect(strings.HasPrefix(vmd.Annotations[controller.AnnVMDDataVolume], "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected DataVolume name %q", vmd.Annotations[controller.AnnVMDDataVolume]))
@@ -93,7 +94,8 @@ var _ = Describe("VMD", func() {
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
-			Expect(vmd.Status.Size).To(Equal(""))
+			Expect(vmd.Status.Capacity).To(Equal(""))
+			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
 
 			dvName = vmd.Annotations[controller.AnnVMDDataVolume]
 			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
@@ -117,7 +119,8 @@ var _ = Describe("VMD", func() {
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("N/A")))
-			Expect(vmd.Status.Size).To(Equal(""))
+			Expect(vmd.Status.Capacity).To(Equal(""))
+			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
 		}
 
 		{
@@ -173,7 +176,8 @@ var _ = Describe("VMD", func() {
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("50%")))
-			Expect(vmd.Status.Size).To(Equal("15Gi"))
+			Expect(vmd.Status.Capacity).To(Equal("15Gi"))
+			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
 		}
 
 		{
@@ -192,9 +196,9 @@ var _ = Describe("VMD", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmd).NotTo(BeNil())
 			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskReady))
-			Expect(vmd.Status.PersistentVolumeClaimName).To(Equal(dvName))
 			Expect(vmd.Status.Progress).To(Equal(virtv2.DiskProgress("100%")))
-			Expect(vmd.Status.Size).To(Equal("15Gi"))
+			Expect(vmd.Status.Capacity).To(Equal("15Gi"))
+			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(dvName))
 		}
 	})
 })

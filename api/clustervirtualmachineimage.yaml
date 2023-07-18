@@ -9,6 +9,7 @@ spec:
   group: virtualization.deckhouse.io
   scope: Cluster
   names:
+    # TODO: Почему Order
     plural: clustervirtualmachineimages
     singular: clustervirtualmachineimage
     kind: ClusterVirtualMachineImage
@@ -21,7 +22,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk image which could be used as data source for new VirtualMachineDisks or could be mounted to VirtualMachines as is.
+            Describes a virtual machine disk image that can be used as a data source for new `VirtualMachineDisks` or can be mounted in `VirtualMachines` as is. This resource type is available to all namespaces in the cluster. This resource is immutable, once created, cannot be modified.
+
+            A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR).
           required:
             - spec
           properties:
@@ -49,7 +52,7 @@ spec:
                       description: |
                         The type of an origin of the image. Options are:
 
-                        * `HTTP` — use some external http url.
+                        * `HTTP` — fill the image with data from some external http/https url.
                         * `ContainerImage` — use an image, stored in container registry image.
                         * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
                         * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
@@ -58,25 +61,37 @@ spec:
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
+                      description: |
+                        Fill the image with data from some external url. Supported schemas are:
+
+                        * http
+                        * https
+
+                        For https schema there is an option to skip TLS verification.
                       required:
                       - url
                       properties:
                         url:
                           type: string
                           example: 'https://mirror.example.com/images/slackware-15.qcow.gz'
+                          # https://regex101.com/r/2zx8as/1
+                          pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
                           description: |
-                            The http url with an image. Supported formats are:
+                            The http url with an image. The following formats are supported:
                             * qcow2
-                            * qcow2.gz
-                            * img
-                            * img.gz
+                            * vmdk
+                            * vdi
+                            * vhd
+                            * vhdx
+                            * raw
+                            these formats can also be compressed with the following formats:
+                            * gz
+                            * xz
                         caBundle:
                           type: string
-                          description: The CA chain to verify the url.
+                          description: The CA chain in base64 format to verify the url.
                           example: |
-                            -----BEGIN CERTIFICATE-----
-                            MIIFaDC...
-                            -----END CERTIFICATE-----
+                            YWFhCg==
                         insecureSkipVerify:
                           type: boolean
                           default: false
@@ -85,15 +100,18 @@ spec:
                             As noted, it is insecure and shouldn't be used in production environments.
                         checksum:
                           type: object
-                          description: A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed.
+                          description: |
+                            A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
                           properties:
                             md5:
                               type: string
+                              pattern: ^[0-9a-fA-F]{32}$
                               minLength: 32
                               maxLength: 32
                               example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
                               type: string
+                              pattern: ^[0-9a-fA-F]{64}$
                               minLength: 64
                               maxLength: 64
                               example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
@@ -101,12 +119,23 @@ spec:
                       type: object
                       required:
                       - image
-                      description:
+                      description: |
+                        Use an image stored in external container regitry. Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
-                          description: The container registry address of an image.
                           example: 'registry.example.com/images/slackware:15'
+                          # https://regex101.com/r/nmSDPA/1
+                          pattern: |
+                            ^
+                            (?P<name>
+                              (?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?
+                              (?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*)
+                            )
+                            (?::(?P<tag>[\w][\w.-]{0,127}))?
+                            (?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?
+                            $
+                          description: The container registry address of an image.
                         imagePullSecret:
                           type: object
                           properties:
@@ -116,8 +145,14 @@ spec:
                             namespace:
                               type: string
                               description: A namespace where imagePullSecret is located.
+                        caBundle:
+                          type: string
+                          description: The CA chain in base64 format to verify the container registry.
+                          example: |
+                            YWFhCg==
                     virtualMachineImage:
                       type: object
+                      description: Use another existing `VirtualMachineImage`.
                       required:
                         - name
                         - namespace
@@ -130,6 +165,7 @@ spec:
                           description: A namespace where `VirtualMachineImage` is located.
                     clusterVirtualMachineImage:
                       type: object
+                      description: Use another existing `ClusterVirtualMachineImage`.
                       required:
                         - name
                       properties:
@@ -138,6 +174,7 @@ spec:
                           description: A name of existing `ClusterVirtualMachineImage`.
                     virtualMachineDisk:
                       type: object
+                      description: Use another existing `VirtualMachineDisk`.
                       required:
                         - name
                         - namespace
@@ -150,6 +187,7 @@ spec:
                           description: A namespace where `VirtualMachineDisk` is located.
                     virtualMachineDiskSnapshot:
                       type: object
+                      description: Use another existing `VirtualMachineDiskSnapshot`.
                       required:
                         - name
                         - namespace
@@ -162,6 +200,7 @@ spec:
                           description: A namespace where `VirtualMachineDiskSnapshot` is located.
                     persistentVolumeClaim:
                       type: object
+                      description: Use another existing `PersistentVolumeClaim`.
                       required:
                         - name
                         - namespace
@@ -177,30 +216,37 @@ spec:
                       type:
                         enum: ['HTTP']
                       http: {}
+                    required: ['http']
                   - properties:
                       type:
                         enum: ['ContainerImage']
                       containerImage: {}
+                    required: ['containerImage']
                   - properties:
                       type:
                         enum: ['VirtualMachineImage']
                       virtualMachineImage: {}
+                    required: ['virtualMachineImage']
                   - properties:
                       type:
                         enum: ['ClusterVirtualMachineImage']
                       clusterVirtualMachineImage: {}
+                    required: ['clusterVirtualMachineImage']
                   - properties:
                       type:
                         enum: ['VirtualMachineDisk']
                       virtualMachineDisk: {}
+                    required: ['virtualMachineDisk']
                   - properties:
                       type:
                         enum: ['VirtualMachineDiskSnapshot']
                       virtualMachineDiskSnapshot: {}
+                    required: ['virtualMachineDiskSnapshot']
                   - properties:
                       type:
                         enum: ['PersistentVolumeClaim']
                       persistentVolumeClaim: {}
+                    required: ['persistentVolumeClaim']
                   - properties:
                       type:
                         enum: ['Upload']
@@ -215,7 +261,7 @@ spec:
                 downloadSpeed:
                   type: object
                   description: |
-                    Image download speed from an external source. Appears only during the `Provisioning' phase.
+                    Image download speed from an external source. Appears only during the `Provisioning` phase.
                   properties:
                     avg:
                       type: string
@@ -252,6 +298,15 @@ spec:
                         Created image in DVCR.
                 phase:
                   type: string
+                  description: |
+                    Current status of `ClusterVirtualMachineImage` resource:
+                    * Pending - The resource has been created and is on a waiting queue.
+                    * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
+                    * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+                    * Ready - The resource is created and ready to use.
+                    * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
+                    * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
+                    * ImageLost - The child image of the resource is missing. The resource cannot be used.
                   enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'ImageLost']
                 progress:
                   type: string
@@ -269,25 +324,5 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error. human-readable
-
-      additionalPrinterColumns:
-        - jsonPath: .status.progress
-          name: Progress
-          type: string
-        - jsonPath: .status.downloadSpeed.avg
-          name: Avg speed
-          type: string
-        - jsonPath: .status.size.stored
-          name: Size
-          type: string
-        - jsonPath: .status.size.unpacked
-          name: Size unpacked
-          type: string
-        - jsonPath: .status.phase
-          name: Phase
-          type: string
-        - jsonPath: .status.target.registryURL
-          name: Registry URL
-          type: string
       subresources:
         status: {}
