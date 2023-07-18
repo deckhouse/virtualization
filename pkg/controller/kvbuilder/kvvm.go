@@ -33,7 +33,7 @@ type KVVM struct {
 
 func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 	return &KVVM{
-		ResourceBuilder: helper.NewResourceBuilder(currentKVVM),
+		ResourceBuilder: helper.NewResourceBuilder(currentKVVM, helper.ResourceBuilderOptions{ResourceExists: true}),
 		opts:            opts,
 	}
 }
@@ -41,15 +41,17 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		opts: opts,
-		ResourceBuilder: helper.NewResourceBuilder(&virtv1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-			Spec: virtv1.VirtualMachineSpec{
-				Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
-			},
-		}),
+		ResourceBuilder: helper.NewResourceBuilder(
+			&virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name.Name,
+					Namespace: name.Namespace,
+				},
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}, helper.ResourceBuilderOptions{},
+		),
 	}
 }
 
@@ -66,9 +68,15 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) {
 	case virtv2.AlwaysOffPolicy:
 		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyHalted)
 	case virtv2.ManualPolicy:
-		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyManual)
+		if !b.ResourceExists {
+			// initialize only
+			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyManual)
+		}
 	case virtv2.AlwaysOnUnlessStoppedManualy:
-		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+		if !b.ResourceExists {
+			// initialize only
+			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+		}
 	default:
 		panic(fmt.Sprintf("unexpected runPolicy %q", runPolicy))
 	}
