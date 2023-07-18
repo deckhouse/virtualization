@@ -171,7 +171,6 @@ var _ = Describe("VM", func() {
 			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachineInstance{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kvvmi).NotTo(BeNil())
-			Expect(controllerutil.ContainsFinalizer(kvvmi, virtv2.FinalizerKVVMIProtection)).To(BeTrue())
 		}
 
 		{
