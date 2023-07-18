@@ -56,13 +56,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 					}
 				}
 			}
-			if state.KVVMI != nil {
-				if controllerutil.RemoveFinalizer(state.KVVMI, virtv2.FinalizerKVVMIProtection) {
-					if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
-						return fmt.Errorf("unable to remove KubeVirt VMI %q finalizer %q: %w", state.KVVMI.Name, virtv2.FinalizerKVVMIProtection, err)
-					}
-				}
-			}
 			controllerutil.RemoveFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup)
 		}
 
@@ -76,9 +69,9 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	if state.KVVM == nil {
-		kvvmName := state.VM.Name()
+	kvvmName := state.VM.Name()
 
+	if state.KVVM == nil {
 		// Check all images and disks are ready to use
 		for _, bd := range state.VM.Current().Spec.BlockDevices {
 			switch bd.Type {
@@ -118,9 +111,26 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		state.KVVM = kvvm
 
 		opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
+	} else {
+		// FIXME(VM): This will be extended for effective-spec logic implementation
+
+		kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
+			EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
+			OsType:                    state.VM.Current().Spec.OsType,
+			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+		})
+		kvvmBuilder.SetRunPolicy(state.VM.Current().Spec.RunPolicy)
+		kvvm := kvvmBuilder.GetResource()
+
+		if err := opts.Client.Update(ctx, kvvm); err != nil {
+			return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
+		}
+		state.KVVM = kvvm
+
+		opts.Log.Info("Updated KubeVirt VM RunPolicy", "name", kvvmName, "kvvm", state.KVVM)
 	}
 
-	// Add KubeVirt VM and VMI finalizers
+	// Add KubeVirt VM finalizer
 	if state.KVVM != nil {
 		// Ensure KubeVirt VM finalizer is set in case VM was created manually (take ownership of already existing object)
 		if controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
@@ -129,14 +139,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			}
 		}
 	}
-	if state.KVVMI != nil {
-		if controllerutil.AddFinalizer(state.KVVMI, virtv2.FinalizerKVVMIProtection) {
-			if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
-				return fmt.Errorf("error setting finalizer on a KubeVirt VMI %q: %w", state.KVVMI.Name, err)
-			}
-		}
-	}
-
 	return nil
 }
 

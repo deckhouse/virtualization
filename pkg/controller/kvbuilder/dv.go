@@ -16,8 +16,8 @@ type DV struct {
 
 func NewDV(name types.NamespacedName) *DV {
 	return &DV{
-		ResourceBuilder: helper.ResourceBuilder[*cdiv1.DataVolume]{
-			Resource: &cdiv1.DataVolume{
+		ResourceBuilder: helper.NewResourceBuilder(
+			&cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: name.Namespace,
 					Name:      name.Name,
@@ -29,8 +29,8 @@ func NewDV(name types.NamespacedName) *DV {
 				Spec: cdiv1.DataVolumeSpec{
 					Source: &cdiv1.DataVolumeSource{},
 				},
-			},
-		},
+			}, helper.ResourceBuilderOptions{},
+		),
 	}
 }
 
