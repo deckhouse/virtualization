@@ -46,7 +46,7 @@ spec:
                         The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
                 dataSource:
                   type: object
-                  description: An origin of the disk.
+                  description: An origin of the disk. If empty or absent, empty disk will be created.
                   required:
                   - type
                   properties:

@@ -11,7 +11,11 @@ spec:
   names:
     plural: virtualmachines
     singular: virtualmachine
+    listKind: VirtualMachineList
     kind: VirtualMachine
+    shortNames:
+      - vm
+      - vms
   preserveUnknownFields: false
   versions:
     - name: v2alpha1
@@ -20,150 +24,811 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
-          description: TODO
+          description: Handles the VM according to its configuration and run policy.
           required:
             - spec
           properties:
             spec:
               type: object
               required:
-                - runPolicy
                 - cpu
                 - memory
                 - blockDevices
               properties:
-                enableParavirtualization:
-                  type: boolean
-                  description: TODO
-                osType:
-                  type: string
-                  enum:
-                    - 'Windows'
-                    - 'LegacyWindows'
-                    - 'Generic'
-                  description: TODO
-                  default: 'Generic'
                 runPolicy:
                   type: string
                   enum:
-                    - 'AlwaysOn'
-                    - 'AlwaysOff'
-                    - 'ManualPolicy'
-                    - 'AlwaysOnUnlessStoppedManualy'
-                  default: 'AlwaysOnUnlessStoppedManualy'
-                  description: TODO
+                    - "AlwaysOn"
+                    - "AlwaysOff"
+                    - "Manual"
+                    - "AlwaysOnUnlessStoppedManualy"
+                  default: "AlwaysOnUnlessStoppedManualy"
+                  description: |
+                    This parameter defines the VM startup policy
+
+                    * `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means.
+                    * `AlwaysOff` - after creation the VM is always in the off state.
+                    * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
+                    * `AlwaysOnUnlessStoppedManualy` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
+
+                virtualMachineIPAddressClaimName:
+                  type: string
+                  description: |
+                    The name for associated `VirtualMahcineIPAddressClaim` resource.
+
+                    If not specified, defaults to `{vm name}`.
+
+                topologySpreadConstraints:
+                  description: |
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pods `spec.topologySpreadConstraints` parameter in Kubernetes;
+
+                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
+
+                    **Format**: the standard [topologySpreadConstraint](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) list. Instance pods inherit this field as is.
+                  items:
+                    properties:
+                      labelSelector:
+                        properties:
+                          matchExpressions:
+                            items:
+                              properties:
+                                key:
+                                  type: string
+                                operator:
+                                  type: string
+                                values:
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            type: object
+                        type: object
+                      maxSkew:
+                        format: int32
+                        type: integer
+                      topologyKey:
+                        type: string
+                      whenUnsatisfiable:
+                        type: string
+                    required:
+                    - maxSkew
+                    - topologyKey
+                    - whenUnsatisfiable
+                    type: object
+                  type: array
+
+                affinity:
+                  description: |
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) as in the pods `spec.affinity` parameter in Kubernetes;
+
+                    The affinity setting is completely similar to the above documentation, the only difference is in the names of some parameters. In fact, the following analogs are used:
+                    * podAffinity -> virtualMachineAndPodAffinity
+                    * podAffinityTerm -> virtualMachineAndPodAffinityTerm
+
+                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
+
+                    **Format**: the standard [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) rules. Instance pods inherit this field as is.
+                  properties:
+                    nodeAffinity:
+                      description: Describes node affinity scheduling rules for the VM.
+                      properties:
+                        preferredDuringSchedulingIgnoredDuringExecution:
+                          items:
+                            properties:
+                              preference:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchFields:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                type: object
+                              weight:
+                                format: int32
+                                type: integer
+                            required:
+                            - preference
+                            - weight
+                            type: object
+                          type: array
+                        requiredDuringSchedulingIgnoredDuringExecution:
+                          properties:
+                            nodeSelectorTerms:
+                              items:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchFields:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                type: object
+                              type: array
+                          required:
+                          - nodeSelectorTerms
+                          type: object
+                      type: object
+                    virtualMachineAndPodAffinity:
+                      description: Describes pod and VM affinity scheduling rules.
+                      properties:
+                        preferredDuringSchedulingIgnoredDuringExecution:
+                          items:
+                            properties:
+                              virtualMachineAndPodAffinityTerm:
+                                properties:
+                                  labelSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                    type: object
+                                  namespaceSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                    type: object
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                  topologyKey:
+                                    type: string
+                                required:
+                                - topologyKey
+                                type: object
+                              weight:
+                                format: int32
+                                type: integer
+                            required:
+                            - virtualMachineAndPodAffinityTerm
+                            - weight
+                            type: object
+                          type: array
+                        requiredDuringSchedulingIgnoredDuringExecution:
+                          items:
+                            properties:
+                              labelSelector:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
+                                type: object
+                              namespaceSelector:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
+                                type: object
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                              topologyKey:
+                                type: string
+                            required:
+                            - topologyKey
+                            type: object
+                          type: array
+                      type: object
+                    virtualMachineAndPodAntiAffinity:
+                      description: Describes pod and VM anti-affinity scheduling rules.
+                      properties:
+                        preferredDuringSchedulingIgnoredDuringExecution:
+                          items:
+                            properties:
+                              virtualMachineAndPodAffinityTerm:
+                                properties:
+                                  labelSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                    type: object
+                                  namespaceSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                          type: object
+                                        type: array
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                    type: object
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                  topologyKey:
+                                    type: string
+                                required:
+                                - topologyKey
+                                type: object
+                              weight:
+                                format: int32
+                                type: integer
+                            required:
+                            - virtualMachineAndPodAffinityTerm
+                            - weight
+                            type: object
+                          type: array
+                        requiredDuringSchedulingIgnoredDuringExecution:
+                          items:
+                            properties:
+                              labelSelector:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
+                                type: object
+                              namespaceSelector:
+                                properties:
+                                  matchExpressions:
+                                    items:
+                                      properties:
+                                        key:
+                                          type: string
+                                        operator:
+                                          type: string
+                                        values:
+                                          items:
+                                            type: string
+                                          type: array
+                                      required:
+                                      - key
+                                      - operator
+                                      type: object
+                                    type: array
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    type: object
+                                type: object
+                              namespaces:
+                                items:
+                                  type: string
+                                type: array
+                              topologyKey:
+                                type: string
+                            required:
+                            - topologyKey
+                            type: object
+                          type: array
+                      type: object
+                  type: object
+
+                nodeSelector:
+                  additionalProperties:
+                    type: string
+                  description: 'NodeSelector is a selector which must be true for the VM to fit on a node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  type: object
+
+                priorityClassName:
+                  description: If specified, indicates the VM priority. If not specified, the VM priority will be default or zero if there is no default.
+                  type: string
+
+                tolerations:
+                  type: array
+                  description: |
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pods `spec.tolerations` parameter in Kubernetes;
+
+                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
+
+                    **Format**: the standard [toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) list. Instance pods inherit this field as is.
+                  items:
+                    type: object
+                    properties:
+                      effect:
+                        type: string
+                      key:
+                        type: string
+                      operator:
+                        type: string
+                      tolerationSeconds:
+                        type: integer
+                        format: int64
+                      value:
+                        type: string
+
+                disruptions:
+                  type: object
+                  description: |
+                    Disruptions settings for VM.
+                  properties:
+                    approvalMode:
+                      type: string
+                      description: |
+                        The approval mode for disruptive updates:
+                        - `Manual` — disable automatic disruption approval.
+                        - `Automatic` —  automatically approve disruption-involving updates.
+                      enum:
+                        - Manual
+                        - Automatic
+                    automatic:
+                      type: object
+                      description: |
+                        Additional parameters for the `Automatic` mode.
+                      properties:
+                        windows:
+                          type: array
+                          description: |
+                            Time windows for VM disruptive updates.
+                          items:
+                            type: object
+                            required:
+                              - from
+                              - to
+                            properties:
+                              from:
+                                type: string
+                                pattern: '^(?:\d|[01]\d|2[0-3]):[0-5]\d$'
+                                example: "13:00"
+                                description: |
+                                  Start time of disruptive update window (UTC timezone).
+                              to:
+                                type: string
+                                pattern: '^(?:\d|[01]\d|2[0-3]):[0-5]\d$'
+                                example: "18:30"
+                                description: |
+                                  End time of disruptive update window (UTC timezone).
+                              days:
+                                type: array
+                                description: |
+                                  Days of the week when node could be updated.
+                                example: [Mon, Wed]
+                                items:
+                                  type: string
+                                  description: Day of the week.
+                                  enum:
+                                    - Mon
+                                    - Tue
+                                    - Wed
+                                    - Thu
+                                    - Fri
+                                    - Sat
+                                    - Sun
+
+                terminationGracePeriodSeconds:
+                  format: int64
+                  type: integer
+                  default: 60 # Обсудить
+                  description: Grace period observed after signalling a VM to stop after which the VM is force terminated.
+
+                enableParavirtualization:
+                  type: boolean
+                  default: true
+                  description: Enables the ability to use the `virtio` bus where possible.
+
+                osType:
+                  type: string
+                  enum:
+                    - "Windows"
+                    - "Generic"
+                  default: "Generic"
+                  description: |
+                    For the selected type of operating system, determines the set of devices and other parameters required for correct operation will be applied to VM.
+
+                    * Windows - for the Microsoft Windows family of OS.
+                    * Generic - for other types of OS.
+
+                bootloader:
+                  type: string
+                  enum:
+                    - "BIOS"
+                    - "EFI"
+                    - "EFIWithSecureBoot"
+                  default: "BIOS"
+                  description: |
+                    Defines bootloader for VM.
+                    * BIOS - use legacy BIOS.
+                    * EFI - use Unified Extensible Firmware (EFI/UEFI).
+                    * EFIWithSecureBoot - use UEFI/EFI with SecureBoot support.
+
                 cpu:
                   type: object
-                  description: TODO
+                  description: Specifies the processor settings for the VM.
                   required:
                     - cores
                   properties:
                     cores:
+                      format: int32
                       type: integer
-                      description: TODO
+                      minimum: 1
+                      description: Specifies the number of cores inside the VM. The value must be greater or equal 1.
+                    coreFraction:
+                      type: string
+                      default: "100%"
+                      enum: ["5%", "10%", "25%", "50%", "100%"]
+                      description: Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+                    dedicatedIO:
+                      type: boolean
+                      default: false
+                      description: Requests one more dedicated CPU to be allocated for the VM to place the emulator thread on it. Can be enabled only when coreFraction = 100%.
+                    model:
+                      type: string
+                      default: Nehalem
+                      description: Specifies the CPU model inside the VM.
+
                 memory:
                   type: object
-                  description: TODO
+                  description: Specifies the memory settings for the VM.
                   required:
                     - size
                   properties:
                     size:
                       type: string
-                      description: TODO
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      description: Describes the maximum amount of memory resources allowed.
+
                 blockDevices:
                   type: array
+                  description: |
+                    List of block devices that can be mounted by disks belonging to the VM.
+                    The order of booting is determined by the order in the list.
                   items:
-                    type: object
-                    properties:
-                      type:
-                        type: string
-                        enum:
-                          - 'VirtualMachineDisk'
-                          - 'VirtualMachineImage'
-                        description: TODO
-                      virtualMachineDisk:
-                        type: object
-                        description: TODO
-                        properties:
-                          name:
-                            type: string
-                            description: TODO
-                      virtualMachineImage:
-                        type: object
-                        description: TODO
-                        properties:
-                          name:
-                            type: string
-                            description: TODO
-                    oneOf:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - "ClusterVirtualMachineImage"
+                            - "VirtualMachineImage"
+                            - "VirtualMachineDisk"
+                          description: |
+                            The type of the block device. Options are:
+
+                            * `ClusterVirtualMachineImage` — Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                            * `VirtualMachineImage` — Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                            * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                        clusterVirtualMachineImage:
+                          type: object
+                          description: Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: The name of `ClusterVirtualMachineImage`
+                        virtualMachineImage:
+                          type: object
+                          description: Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: The name of `VirtualMachineImage`
+                        virtualMachineDisk:
+                          type: object
+                          description: Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                          required:
+                            - name
+                          properties:
+                            name:
+                              type: string
+                              description: The name of `VirtualMachineDisk`
+                      oneOf:
                       - properties:
                           type:
-                            enum: ['VirtualMachineDisk']
-                          virtualMachineDisk: {}
+                            enum: ['ClusterVirtualMachineImage']
+                          clusterVirtualMachineImage: {}
+                        required: ['clusterVirtualMachineImage']
+                        not:
+                          anyOf:
+                            - required: ["virtualMachineImage"]
+                            - required: ["virtualMachineDisk"]
                       - properties:
                           type:
                             enum: ['VirtualMachineImage']
                           virtualMachineImage: {}
+                        required: ['virtualMachineImage']
+                        not:
+                          anyOf:
+                            - required: ["clusterVirtualMachineImage"]
+                            - required: ["virtualMachineDisk"]
+                      - properties:
+                          type:
+                            enum: ['VirtualMachineDisk']
+                          virtualMachineDisk: {}
+                        required: ['virtualMachineDisk']
+                        not:
+                          anyOf:
+                            - required: ["virtualMachineImage"]
+                            - required: ["clusterVirtualMachineImage"]
             status:
               type: object
               properties:
+                guestOSInfo:
+                  type: object
+                  description: Guest OS Information.
+                effectiveSpec:
+                  type: object
+                  description: The current running configuration of the VM.
                 phase:
                   type: string
-                  description: TODO
+                  description: |
+                    Represents the current phase of VM
+
+                    # TODO: Add description for each phase.
                   enum:
-                    - 'Scheduling'
-                    - 'Pending'
-                    - 'Running'
-                    - 'Failed'
-                    - 'Terminating'
-                    - 'Stopped'
+                    - "Scheduling"
+                    - "Pending"
+                    - "Running"
+                    - "Failed"
+                    - "Terminating"
+                    - "Stopped"
                 nodeName:
                   type: string
-                  description: TODO
+                  description: NodeName is the name of the nodewhere the VM is currently running.
                 ipAddress:
                   type: string
-                  description: TODO
+                  description: IP address of VM.
                 blockDevicesAttached:
                   type: array
-                  description: TODO
+                  description: The list of attached block devices.
                   items:
                     type: object
-                    description: TODO
+                    required: ["type", "size"]
+                    oneOf:
+                    - properties:
+                        type:
+                          enum: ['ClusterVirtualMachineImage']
+                        clusterVirtualMachineImage: {}
+                      required: ['clusterVirtualMachineImage']
+                      not:
+                        anyOf:
+                          - required: ["virtualMachineImage"]
+                          - required: ["virtualMachineDisk"]
+                    - properties:
+                        type:
+                          enum: ['VirtualMachineImage']
+                        virtualMachineImage: {}
+                      required: ['virtualMachineImage']
+                      not:
+                        anyOf:
+                          - required: ["clusterVirtualMachineImage"]
+                          - required: ["virtualMachineDisk"]
+                    - properties:
+                        type:
+                          enum: ['VirtualMachineDisk']
+                        virtualMachineDisk: {}
+                      required: ['virtualMachineDisk']
+                      not:
+                        anyOf:
+                          - required: ["virtualMachineImage"]
+                          - required: ["clusterVirtualMachineImage"]
                     properties:
                       type:
                         type: string
-                        description: TODO
+                        description: The type of block device.
                         enum:
-                          - 'VirtualMachineImage'
-                          - 'VirtualMachineDisk'
+                          - "ClusterVirtualMachineImage"
+                          - "VirtualMachineImage"
+                          - "VirtualMachineDisk"
+                      clusterVirtualMachineImage:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            description: The name of `ClusterVirtualMachineImage` resource.
                       virtualMachineImage:
                         type: object
-                        description: TODO
                         properties:
                           name:
                             type: string
-                            description: TODO
+                            description: The name of `VirtualMachineImage` resource.
                       virtualMachineDisk:
                         type: object
-                        description: TODO
                         properties:
                           name:
                             type: string
-                            description: TODO
+                            description: The name of `VirtualMachineDisk` resource.
                       target:
                         type: string
-                        description: TODO
+                        description: The name of attached block device.
+                        example: sda
                       size:
                         type: string
-                        description: TODO
-                    oneOf:
-                      - properties:
-                          type:
-                            enum: ['VirtualMachineImage']
-                          virtualMachineImage: {}
-                      - properties:
-                          type:
-                            enum: ['VirtualMachineDisk']
-                          virtualMachineDisk: {}
+                        description: The size of attached block device.
+                conditions:
+                  description: Specific points in VM's runtime.
+                  items:
+                    properties:
+                      lastProbeTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      lastTransitionTime:
+                        format: date-time
+                        nullable: true
+                        type: string
+                      message:
+                        type: string
+                      reason:
+                        type: string
+                      status:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                      - status
+                      - type
+                    type: object
+                  type: array
       subresources:
         status: {}
