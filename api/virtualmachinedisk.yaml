@@ -95,6 +95,7 @@ spec:
                             * vdi
                             * vhd
                             * vhdx
+                            * iso
                             * raw
                             these formats can also be compressed with the following formats:
                             * gz
