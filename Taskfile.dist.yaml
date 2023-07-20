@@ -13,7 +13,7 @@ env:
   CONTROLLER_BUILDER_IMAGE:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
   CONTROLLER_PREBUILT_IMAGES:
-    sh: echo ${CONTROLLER_PREBUILT_IMAGES:-ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest}
+    sh: echo ${CONTROLLER_PREBUILT_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
   REGISTRY_IMPORTER_IMAGE:
     sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
 
@@ -49,8 +49,6 @@ tasks:
 
       - |
         # Preload images for faster start of importer
-        docker pull       ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest
-        k3d image import  ghcr.io/distorhead/virtualization-controller-prebuilt-images:latest
         docker pull       rancher/local-path-provisioner:v0.0.24
         k3d image import  rancher/local-path-provisioner:v0.0.24
         docker pull       quay.io/kubevirt/cdi-importer:v1.56.0
@@ -91,6 +89,11 @@ tasks:
       - |
         # Install rancher local-path auto provisioner
         kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml
+
+      - |
+        # Preload test-os-images
+        docker pull dev-registry.deckhouse.io/virt/test-os-images:latest
+        k3d image import dev-registry.deckhouse.io/virt/test-os-images:latest
 
       - |
         helm upgrade --install \
