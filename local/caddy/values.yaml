@@ -7,7 +7,7 @@ replicaCount: 1
 
 image:
   # -- Name of the image repository to pull the container image from.
-  repository: ghcr.io/distorhead/virtualization-controller-prebuilt-images
+  repository: dev-registry.deckhouse.io/virt/test-os-images
 
   # -- [Image pull policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for updating already existing images on a node.
   pullPolicy: IfNotPresent
