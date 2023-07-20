@@ -2,7 +2,7 @@ package v2alpha1
 
 // TODO: more fields from the CRD
 type DataSource struct {
-	Type DataSourceType  `json:"type"`
+	Type DataSourceType  `json:"type,omitempty"`
 	HTTP *DataSourceHTTP `json:"http,omitempty"`
 }
 

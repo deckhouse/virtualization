@@ -51,3 +51,7 @@ func (b *DV) SetHTTPDataSource(url string) {
 		URL: url,
 	}
 }
+
+func (b *DV) SetBlankDataSource() {
+	b.Resource.Spec.Source.Blank = &cdiv1.DataVolumeBlankImage{}
+}

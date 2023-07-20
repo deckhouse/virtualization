@@ -94,7 +94,7 @@ var _ = Describe("VM", func() {
 					Annotations: nil,
 				},
 				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: virtv2.DataSource{
+					DataSource: &virtv2.DataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},

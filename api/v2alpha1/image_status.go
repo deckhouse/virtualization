@@ -17,7 +17,7 @@ type ImageStatus struct {
 	Size           ImageStatusSize   `json:"size"`
 	CDROM          bool              `json:"cdrom"`
 	Target         ImageStatusTarget `json:"target"`
-	Phase          string            `json:"phase"`
+	Phase          ImagePhase        `json:"phase"`
 	Progress       string            `json:"progress"`
 	UploadCommand  string            `json:"uploadCommand"`
 	FailureReason  string            `json:"failureReason"`

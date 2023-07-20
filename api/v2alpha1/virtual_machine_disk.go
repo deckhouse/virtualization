@@ -21,7 +21,7 @@ type VirtualMachineDisk struct {
 }
 
 type VirtualMachineDiskSpec struct {
-	DataSource            DataSource                          `json:"dataSource,omitempty"`
+	DataSource            *DataSource                         `json:"dataSource,omitempty"`
 	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 

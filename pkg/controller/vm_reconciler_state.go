@@ -17,13 +17,13 @@ import (
 )
 
 type VMReconcilerState struct {
-	Client    client.Client
-	VM        *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	KVVM      *virtv1.VirtualMachine
-	KVVMI     *virtv1.VirtualMachineInstance
-	VMDByName map[string]*virtv2.VirtualMachineDisk
-	// VMIByName map[string]*virtv2.VirtualMachineImage
-	Result *reconcile.Result
+	Client     client.Client
+	VM         *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	KVVM       *virtv1.VirtualMachine
+	KVVMI      *virtv1.VirtualMachineInstance
+	VMDByName  map[string]*virtv2.VirtualMachineDisk
+	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
+	Result     *reconcile.Result
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -91,11 +91,27 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 
 	var vmdByName map[string]*virtv2.VirtualMachineDisk
+	var cvmiByName map[string]*virtv2.ClusterVirtualMachineImage
 
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("NOT IMPLEMENTED")
+			panic("not implemented")
+
+		case virtv2.ClusterImageDevice:
+			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{
+				Name: bd.ClusterVirtualMachineImage.Name,
+			}, state.Client, &virtv2.ClusterVirtualMachineImage{})
+			if err != nil {
+				return fmt.Errorf("unable to get CVMI %q: %w", bd.ClusterVirtualMachineImage.Name, err)
+			}
+			if cvmi == nil {
+				continue
+			}
+			if cvmiByName == nil {
+				cvmiByName = make(map[string]*virtv2.ClusterVirtualMachineImage)
+			}
+			cvmiByName[bd.ClusterVirtualMachineImage.Name] = cvmi
 
 		case virtv2.DiskDevice:
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{
@@ -119,6 +135,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 
 	state.VMDByName = vmdByName
+	state.CVMIByName = cvmiByName
 
 	return nil
 }
@@ -135,8 +152,15 @@ func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceS
 			if bda.Type == spec.Type && bda.VirtualMachineDisk.Name == spec.VirtualMachineDisk.Name {
 				return bda
 			}
+
 		case virtv2.ImageDevice:
 			panic("not implemented")
+
+		case virtv2.ClusterImageDevice:
+			if bda.Type == spec.Type && bda.ClusterVirtualMachineImage.Name == spec.ClusterVirtualMachineImage.Name {
+				return bda
+			}
+
 		default:
 			panic(fmt.Sprintf("unexpected block device type %q", spec.Type))
 		}
@@ -157,7 +181,6 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 		if !hasVmd {
 			return nil
 		}
-
 		return &virtv2.BlockDeviceStatus{
 			Type:               virtv2.DiskDevice,
 			VirtualMachineDisk: util.CopyByPointer(spec.VirtualMachineDisk),
@@ -167,6 +190,23 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 
 	case virtv2.ImageDevice:
 		panic("not implemented")
+
+	case virtv2.ClusterImageDevice:
+		vs := state.FindVolumeStatus(spec.ClusterVirtualMachineImage.Name)
+		if vs == nil {
+			return nil
+		}
+
+		cvmi, hasCvmi := state.CVMIByName[spec.ClusterVirtualMachineImage.Name]
+		if !hasCvmi {
+			return nil
+		}
+		return &virtv2.BlockDeviceStatus{
+			Type:                       virtv2.ClusterImageDevice,
+			ClusterVirtualMachineImage: util.CopyByPointer(spec.ClusterVirtualMachineImage),
+			Target:                     vs.Target,
+			Size:                       cvmi.Status.Size.Unpacked,
+		}
 
 	default:
 		panic(fmt.Sprintf("unexpected block device type %q", spec.Type))

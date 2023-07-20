@@ -76,13 +76,26 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		for _, bd := range state.VM.Current().Spec.BlockDevices {
 			switch bd.Type {
 			case virtv2.ImageDevice:
-				panic("NOT IMPLEMENTED")
+				panic("not implemented")
+
+			case virtv2.ClusterImageDevice:
+				if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
+					if cvmi.Status.Phase != virtv2.ImageReady {
+						opts.Log.Info("Waiting for CVMI to become ready", "CVMI", bd.ClusterVirtualMachineImage.Name)
+						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+						return nil
+					}
+				} else {
+					opts.Log.Info("Waiting for CVMI to become available", "CVMI", bd.ClusterVirtualMachineImage.Name)
+					state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+					return nil
+				}
 
 			case virtv2.DiskDevice:
 				if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
 					opts.Log.Info("Check VMD ready", "VMD", vmd, "Status", vmd.Status)
 					if vmd.Status.Phase != virtv2.DiskReady {
-						opts.Log.Info("Waiting for VMD to become ready", "VMD Name", bd.VirtualMachineDisk.Name)
+						opts.Log.Info("Waiting for VMD to become ready", "VMD", bd.VirtualMachineDisk.Name)
 						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 						return nil
 					}
@@ -102,7 +115,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			OsType:                    state.VM.Current().Spec.OsType,
 			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 		})
-		kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName)
+		kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
 		kvvm := kvvmBuilder.GetResource()
 
 		if err := opts.Client.Create(ctx, kvvm); err != nil {

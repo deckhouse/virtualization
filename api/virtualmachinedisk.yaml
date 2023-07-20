@@ -48,7 +48,7 @@ spec:
                   type: object
                   description: An origin of the disk. If empty or absent, empty disk will be created.
                   required:
-                  - type
+                    - type
                   properties:
                     type:
                       type: string

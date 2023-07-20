@@ -98,42 +98,65 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 	}
 }
 
-func (b *KVVM) AddDisk(name, claimName string) {
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
-	disk := virtv1.Disk{
-		Name: name,
-		DiskDevice: virtv1.DiskDevice{
-			Disk: &virtv1.DiskTarget{
-				Bus: devPreset.DiskBus,
-			},
-		},
-	}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk)
+type AddDiskOptions struct {
+	ContainerDisk         *string
+	PersistentVolumeClaim *string
 
-	volume := virtv1.Volume{
-		Name: name,
-		VolumeSource: virtv1.VolumeSource{
-			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
-			},
-		},
-	}
-	b.Resource.Spec.Template.Spec.Volumes = append(b.Resource.Spec.Template.Spec.Volumes, volume)
+	IsEphemeralPVC bool
+	IsCdrom        bool
 }
 
-func (b *KVVM) AddCdrom(name string) {
+func (b *KVVM) AddDisk(name string, opts AddDiskOptions) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+
+	var dd virtv1.DiskDevice
+	if opts.IsCdrom {
+		dd.CDRom = &virtv1.CDRomTarget{
+			Bus: devPreset.CdromBus,
+		}
+	} else {
+		dd.Disk = &virtv1.DiskTarget{
+			Bus: devPreset.DiskBus,
+		}
+	}
 	disk := virtv1.Disk{
-		Name: name,
-		DiskDevice: virtv1.DiskDevice{
-			CDRom: &virtv1.CDRomTarget{
-				Bus: devPreset.CdromBus,
-			},
-		},
+		Name:       name,
+		DiskDevice: dd,
 	}
 	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk)
+
+	var vs virtv1.VolumeSource
+
+	switch {
+	case opts.PersistentVolumeClaim != nil:
+		if opts.IsEphemeralPVC {
+			vs.Ephemeral = &virtv1.EphemeralVolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: *opts.PersistentVolumeClaim,
+				},
+			}
+		} else {
+			vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: *opts.PersistentVolumeClaim,
+				},
+			}
+		}
+
+	case opts.ContainerDisk != nil:
+		vs.ContainerDisk = &virtv1.ContainerDiskSource{
+			Image: *opts.ContainerDisk,
+		}
+
+	default:
+		panic("expected either opts.PersistentVolumeClaim or opts.ContainerDisk to be set, please report a bug")
+	}
+
+	volume := virtv1.Volume{
+		Name:         name,
+		VolumeSource: vs,
+	}
+	b.Resource.Spec.Template.Spec.Volumes = append(b.Resource.Spec.Template.Spec.Volumes, volume)
 }
 
 func (b *KVVM) AddTablet(name string) {
