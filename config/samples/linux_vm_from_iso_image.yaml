@@ -1,44 +1,43 @@
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: ClusterVirtualMachineImage
 metadata:
-  name: win-iso
+  name: linux-iso
   annotations:
     virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
 spec:
   dataSource:
     type: HTTP
     http:
-      url: "http://caddy.caddy.svc.cluster.local/images/win10.iso"
+      url: "http://caddy.caddy.svc.cluster.local/images/alpine-standard-3.18.2-x86_64.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachineDisk
 metadata:
-  name: win-disk
+  name: linux-disk
 spec:
   persistentVolumeClaim:
-    size: 100Gi
+    size: 10Gi
     storageClassName: local-path
 ---
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachine
 metadata:
-  name: win-vm
+  name: linux-vm
   labels:
-    vm: win
+    vm: linux
 spec:
   runPolicy: AlwaysOn
-  osType: Windows
-  # bootloader: EFI
+  osType: Generic
   cpu:
     cores: 4
     coreFraction: 50%
   memory:
-    size: 8Gi
+    size: 6Gi
   blockDevices:
     # deattach it after install
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
-        name: win-iso
+        name: linux-iso
     - type: VirtualMachineDisk
       virtualMachineDisk:
-        name: win-disk
+        name: linux-disk

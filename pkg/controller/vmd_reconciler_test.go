@@ -52,7 +52,8 @@ var _ = Describe("VMD", func() {
 					Annotations: nil,
 				},
 				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: virtv2.DataSource{
+					DataSource: &virtv2.DataSource{
+						Type: virtv2.DataSourceTypeHTTP,
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},
