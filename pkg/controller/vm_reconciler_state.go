@@ -222,3 +222,36 @@ func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.Volu
 	}
 	return nil
 }
+
+// Check all images and disks are ready to use
+func (state *VMReconcilerState) BlockDevicesReady() bool {
+	for _, bd := range state.VM.Current().Spec.BlockDevices {
+		switch bd.Type {
+		case virtv2.ImageDevice:
+			panic("not implemented")
+
+		case virtv2.ClusterImageDevice:
+			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
+				if cvmi.Status.Phase != virtv2.ImageReady {
+					return false
+				}
+			} else {
+				return false
+			}
+
+		case virtv2.DiskDevice:
+			if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
+				if vmd.Status.Phase != virtv2.DiskReady {
+					return false
+				}
+			} else {
+				return false
+			}
+
+		default:
+			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+		}
+	}
+
+	return true
+}

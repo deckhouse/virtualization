@@ -69,78 +69,46 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	kvvmName := state.VM.Name()
+	if state.BlockDevicesReady() {
+		kvvmName := state.VM.Name()
 
-	if state.KVVM == nil {
-		// Check all images and disks are ready to use
-		for _, bd := range state.VM.Current().Spec.BlockDevices {
-			switch bd.Type {
-			case virtv2.ImageDevice:
-				panic("not implemented")
+		if state.KVVM == nil {
+			kvvmBuilder := kvbuilder.NewEmptyKVVM(kvvmName, kvbuilder.KVVMOptions{
+				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
+				OsType:                    state.VM.Current().Spec.OsType,
+				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+			})
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
+			kvvm := kvvmBuilder.GetResource()
 
-			case virtv2.ClusterImageDevice:
-				if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
-					if cvmi.Status.Phase != virtv2.ImageReady {
-						opts.Log.Info("Waiting for CVMI to become ready", "CVMI", bd.ClusterVirtualMachineImage.Name)
-						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-						return nil
-					}
-				} else {
-					opts.Log.Info("Waiting for CVMI to become available", "CVMI", bd.ClusterVirtualMachineImage.Name)
-					state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-					return nil
-				}
-
-			case virtv2.DiskDevice:
-				if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
-					opts.Log.Info("Check VMD ready", "VMD", vmd, "Status", vmd.Status)
-					if vmd.Status.Phase != virtv2.DiskReady {
-						opts.Log.Info("Waiting for VMD to become ready", "VMD", bd.VirtualMachineDisk.Name)
-						state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-						return nil
-					}
-				} else {
-					opts.Log.Info("Waiting for VMD to become available", "VMD", bd.VirtualMachineDisk.Name)
-					state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-					return nil
-				}
-
-			default:
-				panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+			if err := opts.Client.Create(ctx, kvvm); err != nil {
+				return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
 			}
+			state.KVVM = kvvm
+
+			opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
+		} else {
+			// FIXME(VM): This will be changed for effective-spec logic implementation
+
+			kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
+				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
+				OsType:                    state.VM.Current().Spec.OsType,
+				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+			})
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
+			kvvm := kvvmBuilder.GetResource()
+
+			if err := opts.Client.Update(ctx, kvvm); err != nil {
+				return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
+			}
+			state.KVVM = kvvm
+			state.KVVMI = nil
+
+			opts.Log.Info("Updated KubeVirt VM spec", "name", kvvmName, "kvvm", state.KVVM)
 		}
-
-		kvvmBuilder := kvbuilder.NewEmptyKVVM(kvvmName, kvbuilder.KVVMOptions{
-			EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
-			OsType:                    state.VM.Current().Spec.OsType,
-			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
-		})
-		kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
-		kvvm := kvvmBuilder.GetResource()
-
-		if err := opts.Client.Create(ctx, kvvm); err != nil {
-			return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
-		}
-		state.KVVM = kvvm
-
-		opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
 	} else {
-		// FIXME(VM): This will be extended for effective-spec logic implementation
-
-		kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
-			EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
-			OsType:                    state.VM.Current().Spec.OsType,
-			ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
-		})
-		kvvmBuilder.SetRunPolicy(state.VM.Current().Spec.RunPolicy)
-		kvvm := kvvmBuilder.GetResource()
-
-		if err := opts.Client.Update(ctx, kvvm); err != nil {
-			return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
-		}
-		state.KVVM = kvvm
-
-		opts.Log.Info("Updated KubeVirt VM RunPolicy", "name", kvvmName, "kvvm", state.KVVM)
+		opts.Log.Info("Waiting for block devices to become available")
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 	}
 
 	// Add KubeVirt VM finalizer

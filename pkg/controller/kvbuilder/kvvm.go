@@ -98,7 +98,7 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 	}
 }
 
-type AddDiskOptions struct {
+type SetDiskOptions struct {
 	ContainerDisk         *string
 	PersistentVolumeClaim *string
 
@@ -106,7 +106,12 @@ type AddDiskOptions struct {
 	IsCdrom        bool
 }
 
-func (b *KVVM) AddDisk(name string, opts AddDiskOptions) {
+func (b *KVVM) ClearDisks() {
+	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = nil
+	b.Resource.Spec.Template.Spec.Volumes = nil
+}
+
+func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
 	var dd virtv1.DiskDevice
@@ -119,14 +124,19 @@ func (b *KVVM) AddDisk(name string, opts AddDiskOptions) {
 			Bus: devPreset.DiskBus,
 		}
 	}
+
 	disk := virtv1.Disk{
 		Name:       name,
 		DiskDevice: dd,
 	}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = append(b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk)
+	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = util.SetArrayElem(
+		b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk,
+		func(v1, v2 virtv1.Disk) bool {
+			return v1.Name == v2.Name
+		}, true,
+	)
 
 	var vs virtv1.VolumeSource
-
 	switch {
 	case opts.PersistentVolumeClaim != nil:
 		if opts.IsEphemeralPVC {
@@ -142,12 +152,10 @@ func (b *KVVM) AddDisk(name string, opts AddDiskOptions) {
 				},
 			}
 		}
-
 	case opts.ContainerDisk != nil:
 		vs.ContainerDisk = &virtv1.ContainerDiskSource{
 			Image: *opts.ContainerDisk,
 		}
-
 	default:
 		panic("expected either opts.PersistentVolumeClaim or opts.ContainerDisk to be set, please report a bug")
 	}
@@ -156,19 +164,30 @@ func (b *KVVM) AddDisk(name string, opts AddDiskOptions) {
 		Name:         name,
 		VolumeSource: vs,
 	}
-	b.Resource.Spec.Template.Spec.Volumes = append(b.Resource.Spec.Template.Spec.Volumes, volume)
+	b.Resource.Spec.Template.Spec.Volumes = util.SetArrayElem(
+		b.Resource.Spec.Template.Spec.Volumes, volume,
+		func(v1, v2 virtv1.Volume) bool {
+			return v1.Name == v2.Name
+		}, true,
+	)
 }
 
-func (b *KVVM) AddTablet(name string) {
+func (b *KVVM) SetTablet(name string) {
 	i := virtv1.Input{
 		Name: name,
 		Bus:  virtv1.InputBusUSB,
 		Type: virtv1.InputTypeTablet,
 	}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Inputs = append(b.Resource.Spec.Template.Spec.Domain.Devices.Inputs, i)
+
+	b.Resource.Spec.Template.Spec.Domain.Devices.Inputs = util.SetArrayElem(
+		b.Resource.Spec.Template.Spec.Domain.Devices.Inputs, i,
+		func(v1, v2 virtv1.Input) bool {
+			return v1.Name == v2.Name
+		}, true,
+	)
 }
 
-func (b *KVVM) AddCloudInit() {
+func (b *KVVM) SetCloudInit() {
 	// TODO(VM): implement this helper to attach cloud-init volume with an initialization data
 }
 
@@ -222,37 +241,37 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) {
 	}
 }
 
-func (b *KVVM) AddNetworkInterface(name string) {
+func (b *KVVM) SetNetworkInterface(name string) {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
-	foundNetwork := false
-	for _, n := range b.Resource.Spec.Template.Spec.Networks {
-		if n.Name == name {
-			foundNetwork = true
-			break
-		}
+	net := virtv1.Network{
+		Name: name,
+		NetworkSource: virtv1.NetworkSource{
+			Pod: &virtv1.PodNetwork{},
+		},
 	}
-	if !foundNetwork {
-		b.Resource.Spec.Template.Spec.Networks = append(b.Resource.Spec.Template.Spec.Networks, virtv1.Network{
-			Name: name,
-			NetworkSource: virtv1.NetworkSource{
-				Pod: &virtv1.PodNetwork{},
-			},
-		})
-	}
+	b.Resource.Spec.Template.Spec.Networks = util.SetArrayElem(
+		b.Resource.Spec.Template.Spec.Networks, net,
+		func(v1, v2 virtv1.Network) bool {
+			return v1.Name == v2.Name
+		}, true,
+	)
 
 	i := virtv1.Interface{
 		Name:  name,
 		Model: devPreset.InterfaceModel,
 	}
-
 	if b.opts.ForceBridgeNetworkBinding {
 		i.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
 	} else {
 		i.InterfaceBindingMethod.Macvtap = &virtv1.InterfaceMacvtap{}
 	}
-
-	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, i)
+	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = util.SetArrayElem(
+		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, i,
+		func(v1, v2 virtv1.Interface) bool {
+			return v1.Name == v2.Name
+		}, true,
+	)
 }
 
 func (b *KVVM) SetBootloader() {
