@@ -28,7 +28,7 @@ func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk) {
 	}
 	dv.SetPVC(vmd.Spec.PersistentVolumeClaim.StorageClassName, pvcSize)
 
-	dv.AddOwnerRef(vmd, schema.GroupVersionKind{
+	dv.SetOwnerRef(vmd, schema.GroupVersionKind{
 		Group:   virtv2.SchemeGroupVersion.Group,
 		Version: virtv2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachineDisk",

@@ -15,13 +15,14 @@ func ApplyVirtualMachineSpec(
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 ) {
 	kvvm.SetCPUModel("Nehalem")
-	kvvm.AddNetworkInterface("default")
+	kvvm.SetNetworkInterface("default")
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
-	kvvm.AddTablet("default-0")
+	kvvm.SetTablet("default-0")
 
 	// FIXME(VM): real coreFraction
 	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
 
+	kvvm.ClearDisks()
 	for _, bd := range vm.Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
@@ -40,7 +41,7 @@ func ApplyVirtualMachineSpec(
 				panic(fmt.Sprintf("unexpected CVMI %q status phase %q: expected ready phase, please report a bug", cvmi.Name, cvmi.Status.Phase))
 			}
 
-			kvvm.AddDisk(bd.ClusterVirtualMachineImage.Name, AddDiskOptions{
+			kvvm.SetDisk(bd.ClusterVirtualMachineImage.Name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(cvmi.Status.Target.RegistryURL),
 				IsCdrom:       cvmi.Status.CDROM,
 			})
@@ -54,7 +55,7 @@ func ApplyVirtualMachineSpec(
 				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase, please report a bug", vmd.Name, vmd.Status.Phase))
 			}
 
-			kvvm.AddDisk(bd.VirtualMachineDisk.Name, AddDiskOptions{
+			kvvm.SetDisk(bd.VirtualMachineDisk.Name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),
 			})
 
@@ -63,7 +64,7 @@ func ApplyVirtualMachineSpec(
 		}
 	}
 
-	kvvm.AddOwnerRef(vm, schema.GroupVersionKind{
+	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
 		Group:   virtv2.SchemeGroupVersion.Group,
 		Version: virtv2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachine",
