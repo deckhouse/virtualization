@@ -72,3 +72,33 @@ jobs:
       - name: Run golangci-lint
         run: |
           task ci:lint
+
+  go_unit_tests:
+    name: Go unit tests
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout HEAD fo pull request or ref for workflow_dispatch.
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+
+      - name: Set up Go 1.20
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+
+      - name: Download Go modules
+        run: |
+          go mod download
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - name: Install ginkgo
+        run: |
+          go install github.com/onsi/ginkgo/v2/ginkgo@v2.9.1
+
+      - name: Run go unit tests
+        run: |
+          task test:unit
