@@ -318,6 +318,12 @@ tasks:
       - |
         gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "cmd/ pkg/"}}
 
+  test:unit:
+    desc: "Run go unit tests"
+    cmds:
+      - |
+        ginkgo -v -r pkg/
+
   lint:
     desc: "Run linters locally"
     cmds:

@@ -102,7 +102,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
 			}
 			state.KVVM = kvvm
-			state.KVVMI = nil
 
 			opts.Log.Info("Updated KubeVirt VM spec", "name", kvvmName, "kvvm", state.KVVM)
 		}
