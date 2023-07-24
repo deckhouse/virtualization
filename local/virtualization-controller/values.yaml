@@ -2,5 +2,10 @@ images:
   controller: k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest
   importer: k3d-registry.virtualization-controller.test:5000/registry-importer:latest
 dvcr:
-  registry: "k3d-registry.virtualization-controller.test:5000/cvmi"
+  ## Change to your registry:
+  # registry: "ghcr.io/USERNAME"
+  # authSecret: "ghcr-io-auth"
+
+  # Use local registry by default
+  registry: "k3d-registry.virtualization-controller.test:5000/dvcr"
   insecureTLS: "true"
