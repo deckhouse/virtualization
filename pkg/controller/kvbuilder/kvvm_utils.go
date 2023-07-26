@@ -14,9 +14,12 @@ func ApplyVirtualMachineSpec(
 	vmdByName map[string]*virtv2.VirtualMachineDisk,
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 ) {
+	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
+
+	kvvm.SetOsType(vm.Spec.OsType)
+	kvvm.SetBootloader(vm.Spec.Bootloader)
 	kvvm.SetCPUModel("Nehalem")
 	kvvm.SetNetworkInterface("default")
-	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
 	kvvm.SetTablet("default-0")
 
 	// FIXME(VM): real coreFraction

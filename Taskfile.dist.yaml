@@ -15,8 +15,8 @@ env:
     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest}
   CONTROLLER_BUILDER_IMAGE:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
-  CONTROLLER_PREBUILT_IMAGES:
-    sh: echo ${CONTROLLER_PREBUILT_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
+  CONTROLLER_TEST_OS_IMAGES:
+    sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
   REGISTRY_IMPORTER_IMAGE:
     sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
 
@@ -118,7 +118,7 @@ tasks:
         # TODO Remove CDI
       - task: build:cache:reset
 
-  dev:cluster:push_prebuild_images:
+  dev:cluster:push_test_os_images:
     desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
     cmds:
       - |
@@ -126,8 +126,8 @@ tasks:
       - |
         docker build ./local/caddy/ \
           -f ./local/caddy/Dockerfile \
-          -t ${CONTROLLER_PREBUILT_IMAGES}
-        docker push ${CONTROLLER_PREBUILT_IMAGES}
+          -t ${CONTROLLER_TEST_OS_IMAGES}
+         docker push ${CONTROLLER_TEST_OS_IMAGES}
 
   dev:rmns:
     desc: "Remove namespace with finalizer"

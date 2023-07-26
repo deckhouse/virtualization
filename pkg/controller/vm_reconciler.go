@@ -77,6 +77,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 				OsType:                    state.VM.Current().Spec.OsType,
 				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
 			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
 			kvvm := kvvmBuilder.GetResource()
@@ -94,6 +95,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 				OsType:                    state.VM.Current().Spec.OsType,
 				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
+				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
 			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
 			kvvm := kvvmBuilder.GetResource()

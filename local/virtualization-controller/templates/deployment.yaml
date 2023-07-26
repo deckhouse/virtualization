@@ -32,6 +32,8 @@ spec:
           value: "3"
         - name: FORCE_BRIDGE_NETWORK_BINDING
           value: "1"
+        - name: DISABLE_HYPERV_SYNIC
+          value: "1"
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:

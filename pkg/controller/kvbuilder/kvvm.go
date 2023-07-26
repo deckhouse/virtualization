@@ -22,8 +22,9 @@ type KVVMOptions struct {
 	EnableParavirtualization bool
 	OsType                   virtv2.OsType
 
-	// This option is for local development mode
+	// These options are for local development mode
 	ForceBridgeNetworkBinding bool
+	DisableHypervSyNIC        bool
 }
 
 type KVVM struct {
@@ -214,15 +215,18 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) {
 					Enabled: util.GetPointer(true),
 					Retries: util.GetPointer[uint32](8191),
 				},
-				SyNIC: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				SyNICTimer: &virtv1.SyNICTimer{
-					Enabled: util.GetPointer(true),
-					Direct:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				},
 				TLBFlush: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
 				VAPIC:    &virtv1.FeatureState{Enabled: util.GetPointer(true)},
 				VPIndex:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
 			},
+		}
+
+		if !b.opts.DisableHypervSyNIC {
+			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC = &virtv1.FeatureState{Enabled: util.GetPointer(true)}
+			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer = &virtv1.SyNICTimer{
+				Enabled: util.GetPointer(true),
+				Direct:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			}
 		}
 
 	case virtv2.GenericOs:
@@ -274,6 +278,31 @@ func (b *KVVM) SetNetworkInterface(name string) {
 	)
 }
 
-func (b *KVVM) SetBootloader() {
-	// TODO(VM): implement bootloader param switch (BIOS used by default in KubeVirt)
+func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) {
+	if b.Resource.Spec.Template.Spec.Domain.Firmware == nil {
+		b.Resource.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
+	}
+
+	switch bootloader {
+	case "", virtv2.BIOS:
+		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = nil
+	case virtv2.EFI:
+		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
+			EFI: &virtv1.EFI{
+				SecureBoot: util.GetPointer(false),
+			},
+		}
+	case virtv2.EFIWithSecureBoot:
+		if b.Resource.Spec.Template.Spec.Domain.Features == nil {
+			b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{}
+		}
+		b.Resource.Spec.Template.Spec.Domain.Features.SMM = &virtv1.FeatureState{
+			Enabled: util.GetPointer(true),
+		}
+		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
+			EFI: &virtv1.EFI{SecureBoot: util.GetPointer(true)},
+		}
+	default:
+		panic(fmt.Sprintf("unknown bootloader type %q, please report a bug", bootloader))
+	}
 }
