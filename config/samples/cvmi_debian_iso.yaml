@@ -10,4 +10,4 @@ spec:
     http:
       url: 'https://mirror.yandex.ru/debian/dists/bookworm/main/installer-amd64/current/images/netboot/mini.iso'
       checksum:
-        sha256: 61bd4ac9215a418924b48442ff84870082602b390b98037e5699e1fb0c6cb700
+        sha256: c55ab1a1f0ad2ab2ad20e3f2cfe4ef9c3095fc405b02f0b74a320c128fd73515

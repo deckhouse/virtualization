@@ -25,13 +25,17 @@ type ImageStatus struct {
 }
 
 type ImageStatusSpeed struct {
-	Avg     string `json:"avg"`
-	Current string `json:"current"`
+	Avg          string `json:"avg"`
+	AvgBytes     string `json:"avgBytes"`
+	Current      string `json:"current"`
+	CurrentBytes string `json:"currentBytes"`
 }
 
 type ImageStatusSize struct {
-	Stored   string `json:"stored"`
-	Unpacked string `json:"unpacked"`
+	Stored        string `json:"stored"`
+	StoredBytes   string `json:"storedBytes"`
+	Unpacked      string `json:"unpacked"`
+	UnpackedBytes string `json:"unpackedBytes"`
 }
 
 type ImageStatusTarget struct {

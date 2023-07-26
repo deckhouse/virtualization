@@ -3,30 +3,27 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"time"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 type CVMIReconciler struct {
-	client          client.Client
-	recorder        record.EventRecorder
-	log             logr.Logger
 	image           string
 	verbose         string
 	pullPolicy      string
@@ -35,226 +32,142 @@ type CVMIReconciler struct {
 	dvcrSettings    *cc.DVCRSettings
 }
 
-// Reconcile loop for CVMIReconciler.
-func (r *CVMIReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := r.log.WithValues("CVMI", req.NamespacedName)
-	log.Info(fmt.Sprintf("Start Reconcile for CVMI: %s", req.String()))
-
-	// Get enqueued ClusterVirtualMachineImage resource.
-	cvmi := &virtv2alpha1.ClusterVirtualMachineImage{}
-	if err := r.client.Get(ctx, req.NamespacedName, cvmi); err != nil {
-		if k8serrors.IsNotFound(err) {
-			log.Info(fmt.Sprintf("Reconcile observe absent CVMI: %s, it may be deleted", req.String()))
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
-	}
-
-	// Check if reconcile is required.
-	if cc.IsCVMIComplete(cvmi) {
-		log.V(2).Info("Should not reconcile this CVMI", "cvmi.name", cvmi.Name)
-		return reconcile.Result{}, nil
-	}
-
-	log.Info("Reconcile required for CVMI", "cvmi.name", cvmi.Name)
-	return r.reconcileCVMI(ctx, cvmi, log)
-}
-
-func (r *CVMIReconciler) reconcileCVMI(ctx context.Context, cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) (reconcile.Result, error) {
-	// See if we have a pod associated with the CVMI, we know the CVMI has the needed annotations.
-	pod, err := r.findImporterPod(ctx, cvmi, log)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if pod == nil {
-		if cc.IsCVMIComplete(cvmi) {
-			// Don't create the Pod if the CVMI is completed already
-			log.V(1).Info("CVMI is already complete")
-		} else if cvmi.DeletionTimestamp == nil {
-			log.V(1).Info("Pod for CVMI not found, create new one")
-			if _, ok := cvmi.Annotations[cc.AnnImportPod]; ok {
-				// Create importer pod, make sure the CVMI owns it.
-				if err := r.startImporterPod(ctx, cvmi); err != nil {
-					return reconcile.Result{}, err
-				}
-				// Requeue to update CVMI Status.
-				return reconcile.Result{Requeue: true}, nil
-			}
-			// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
-			if err := r.initCVMIPodName(cvmi, log); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-		// TODO set CVMI status if Pod is exists and CVMI not complete.
-	} else {
-		if cvmi.DeletionTimestamp != nil {
-			log.V(1).Info("CVMI being deleted, delete pod", "pod.Name", pod.Name)
-			if err := importer.CleanupPod(ctx, r.client, pod); err != nil {
-				return reconcile.Result{}, err
-			}
-			// TODO research deletion process with finalizers.
-		} else {
-			// Copy import proxy ConfigMap (if exists) from cdi namespace to the import namespace
-			// if err := r.copyImportProxyConfigMap(pvc, pod); err != nil {
-			//	return reconcile.Result{}, err
-			// }
-
-			// Pod exists, we need to update the CVMI status.
-			log.V(1).Info("CVMI import not finished, update progress", "cvmi.name", cvmi.Name)
-			if err := r.updateCVMIFromPod(cvmi, pod, log); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	if !cc.IsCVMIComplete(cvmi) {
-		// We are not done yet, force a re-reconcile in 2 seconds to get an update.
-		log.V(1).Info("Force Reconcile: CVMI import not finished", "cvmi.name", cvmi.Name)
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-	return reconcile.Result{}, nil
-}
-
-// findImporterPod returns the Pod using annotation with its name on the CVMI resource.
-func (r *CVMIReconciler) findImporterPod(ctx context.Context, cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) (*corev1.Pod, error) {
-	podName := fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
-	podNS := r.namespace
-	pod := &corev1.Pod{}
-	if err := r.client.Get(ctx, types.NamespacedName{Name: podName, Namespace: podNS}, pod); err != nil {
-		if !k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("get importer pod %s/%s: %w", podNS, podName, err)
-		}
-		return nil, nil
-	}
-	if !metav1.IsControlledBy(pod, cvmi) {
-		return nil, fmt.Errorf("get importer pod %s/%s: pod is not owned by CVMI/%s", podNS, podName, cvmi.Name)
-	}
-	log.V(1).Info("Pod is owned by CVMI", "cvmi.name", cvmi.Name, "pod.name", pod.Name)
-	return pod, nil
-}
-
-func (r *CVMIReconciler) cleanup(_ *virtv2alpha1.ClusterVirtualMachineImage, pod *corev1.Pod, _ logr.Logger) error {
-	if err := r.client.Delete(context.TODO(), pod); cc.IgnoreNotFound(err) != nil {
+func (r *CVMIReconciler) SetupController(_ context.Context, _ manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(&source.Kind{Type: &virtv2alpha1.ClusterVirtualMachineImage{}}, &handler.EnqueueRequestForObject{},
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			// ClusterVirtualMachineImage is immutable, no need to create work task for modified object.
+			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+		},
+	); err != nil {
 		return err
 	}
-	// if cc.HasFinalizer(pvc, importPodImageStreamFinalizer) {
-	//	cc.RemoveFinalizer(pvc, importPodImageStreamFinalizer)
-	//	if err := r.updatePVC(pvc, log); err != nil {
-	//		return err
-	//	}
-	// }
+
 	return nil
 }
 
-// updateCVMIFromPod updates CVMI status from Pod state.
-func (r *CVMIReconciler) updateCVMIFromPod(cvmi *virtv2alpha1.ClusterVirtualMachineImage, pod *corev1.Pod, log logr.Logger) error {
-	// Make copies for comparison with the original later.
-	cvmiCopy := cvmi.DeepCopy()
-	cvmiStatus := cvmi.Status.DeepCopy()
+// Sync creates and deletes importer Pod depending on CVMI status.
+func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.Info("Reconcile required for CVMI", "cvmi.name", state.CVMI.Current().Name, "cvmi.phase", state.CVMI.Current().Status.Phase)
 
-	log.V(1).Info("Updating CVMI from pod")
-	anno := cvmiCopy.GetAnnotations()
-
-	podRestarts := ""
-	if len(pod.Status.ContainerStatuses) > 0 {
-		if pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
-			pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
-			r.recorder.Event(cvmi, corev1.EventTypeWarning, "ErrImportFailed", pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message)
+	// Change the world depending on states of CVMI and Pod.
+	switch {
+	case state.IsDeletion():
+		// Delete existing Pod if CVMI is deleted.
+		opts.Log.V(1).Info("CVMI is being deleted, delete importer Pod", "pod.Name", state.Pod.Name)
+		if err := importer.CleanupPod(ctx, opts.Client, state.Pod); err != nil {
+			return err
 		}
-		podRestarts = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+		return nil
+	case !state.HasImporterPodAnno():
+		opts.Log.V(1).Info("New CVMI observed, update annotations with Pod name and namespace")
+		// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
+		r.initCVMIPodName(state.CVMI.Changed())
+		// Update annotations and status and restart reconcile to create an importer Pod.
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		return nil
+	case state.IsReady():
+		// Note: state.ShouldReconcile was positive, so state.Pod is not nil and should be deleted.
+		// Delete importer Pod when CVMI is marked as ready and stop the reconcile process.
+		if cc.ShouldDeletePod(state.CVMI.Current()) {
+			opts.Log.V(1).Info("Import done, cleanup importer Pod", "pod.Name", state.Pod.Name)
+			return importer.CleanupPod(ctx, opts.Client, state.Pod)
+		}
+	case state.CanStartImporterPod():
+		// Create Pod using name and namespace from annotation.
+		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
+		// Create importer pod, make sure the CVMI owns it.
+		if err := r.startImporterPod(ctx, state.CVMI.Current(), opts); err != nil {
+			return err
+		}
+		// Requeue to wait until Pod become Running.
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		return nil
+	case state.HasImporterPod():
+		// Import is in progress, force a re-reconcile in 2 seconds to update status.
+		opts.Log.V(2).Info("Requeue: CVMI import is in progress", "cvmi.name", state.CVMI.Current().Name)
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		return nil
 	}
 
-	isComplete := false
+	// Report unexpected state.
+	details := fmt.Sprintf("cvmi.Status.Phase='%s'", state.CVMI.Current().Status.Phase)
+	if state.Pod != nil {
+		details += fmt.Sprintf(" pod.Name='%s' pod.Status.Phase='%s'", state.Pod.Name, state.Pod.Status.Phase)
+	}
+	opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrUnknownState", fmt.Sprintf("CVMI has unexpected state, recreate it to start import again. %s", details))
+
+	return nil
+}
+
+func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.V(2).Info("Update CVMI status")
+
+	// Record event if importer Pod has error.
+	// TODO set Failed status if Pod restarts are greater than some threshold?
+	if state.Pod != nil && len(state.Pod.Status.ContainerStatuses) > 0 {
+		if state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
+			state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
+			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("importer pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
+		}
+	}
+
+	cvmiStatus := state.CVMI.Current().Status.DeepCopy()
+
+	// Set target image name the same way as for the importer Pod.
+	cvmiStatus.Target.RegistryURL = cc.PrepareDVCREndpointFromCVMI(state.CVMI.Current(), r.dvcrSettings)
 
 	switch {
-	case cvmiStatus.Phase == "":
+	case !state.HasImporterPodAnno() || state.CVMI.Current().Status.Phase == "":
 		cvmiStatus.Phase = virtv2alpha1.ImagePending
-		cvmiStatus.Target.RegistryURL = importer.GetDestinationImageNameFromPod(pod)
-	case cc.IsPodComplete(pod):
-		r.recorder.Event(cvmi, corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
-		log.V(1).Info("Import completed successfully")
-		anno[cc.AnnImportDone] = "true"
-		isComplete = true
-		cvmiStatus.Phase = virtv2alpha1.ImageReady
-		// Cleanup progress
-		cvmiStatus.Progress = ""
-		cvmiStatus.DownloadSpeed.Avg = ""
-		cvmiStatus.DownloadSpeed.Current = ""
-		finalReport, err := importer.GetFinalImporterReport(pod)
-		if err != nil {
-			log.Error(err, "parsing final report", "cvmi.name", cvmi.Name)
-		}
-		if finalReport != nil {
-			cvmiStatus.Size.Stored = finalReport.StoredSize()
-			cvmiStatus.Size.Unpacked = finalReport.UnpackedSize()
-			delete(anno, cc.AnnImportAvgSpeedBytes)
-			delete(anno, cc.AnnImportCurrentSpeedBytes)
-			anno[cc.AnnImportStoredSizeBytes] = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
-			anno[cc.AnnImportUnpackedSizeBytes] = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
-		}
-	case pod.Status.Phase == corev1.PodRunning:
-		// Copy progress from Pod metrics to cvmi.Status.
-		// TODO Is UID important? Why not just get metric values without checking UID label?
-		log.V(2).Info("Fetch progress", "cvmi.name", cvmi.Name)
+	case state.IsReady():
+		break
+	case state.IsImportInProgress():
+		// Set CVMI status to Provisioning and copy progress metrics from importer Pod.
+		opts.Log.V(2).Info("Fetch progress", "cvmi.name", state.CVMI.Current().Name)
 		cvmiStatus.Phase = virtv2alpha1.ImageProvisioning
 
-		progress, err := importer.ProgressFromPod(string(cvmi.GetUID()), pod)
+		progress, err := importer.ProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
 		if err != nil {
-			r.recorder.Event(cvmi, corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from importer Pod "+err.Error())
+			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from importer Pod "+err.Error())
 			return err
 		}
 		if progress != nil {
-			log.V(2).Info("Got progress", "cvmi.name", cvmi.Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+			opts.Log.V(2).Info("Got progress", "cvmi.name", state.CVMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
 			cvmiStatus.Progress = progress.Progress()
 			cvmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
+			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
 			cvmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
-			anno[cc.AnnImportAvgSpeedBytes] = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
-			anno[cc.AnnImportCurrentSpeedBytes] = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+			cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
 		}
-
-		log.V(2).Info("Status.Progress", "cvmi", cvmi.Status.Progress, "copy", cvmiStatus.Progress)
-	}
-
-	anno[cc.AnnImportPod] = pod.Name
-	anno[cc.AnnCurrentPodID] = string(pod.ObjectMeta.UID)
-	anno[cc.AnnPodPhase] = string(pod.Status.Phase)
-	anno[cc.AnnPodRestarts] = podRestarts
-
-	// Update annotations.
-	if !reflect.DeepEqual(cvmiCopy, cvmi) {
-		if err := r.updateCVMI(cvmiCopy, log); err != nil {
-			return fmt.Errorf("update cvmi: %w", err)
+	case state.IsImportComplete():
+		// Set CVMI status to Ready and update image size from final report of the importer Pod.
+		opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
+		opts.Log.V(1).Info("Import completed successfully")
+		cvmiStatus.Phase = virtv2alpha1.ImageReady
+		// Cleanup.
+		cvmiStatus.Progress = ""
+		cvmiStatus.DownloadSpeed = virtv2alpha1.ImageStatusSpeed{}
+		finalReport, err := importer.GetFinalImporterReport(state.Pod)
+		if err != nil {
+			opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
 		}
-		log.V(1).Info("Updated CVMI", "cvmi.anno.Phase", anno[cc.AnnPodPhase], "cvmi.anno.Restarts", anno[cc.AnnPodRestarts])
-	}
-
-	if reflect.DeepEqual(cvmiCopy, cvmi) {
-		log.V(1).Info("Updated CVMI: copy is equal to original!")
-	}
-
-	// Update status.
-	if !reflect.DeepEqual(cvmiStatus, cvmi.Status) {
-		cvmiCopy.Status = *cvmiStatus
-		if err := r.client.Status().Update(context.TODO(), cvmiCopy); err != nil {
-			return fmt.Errorf("update status: %w", err)
-		}
-		log.V(1).Info("Updated CVMI Status", "cvmi.status.Phase", cvmiCopy.Status.Phase)
-	}
-
-	// Cleanup if succeeded.
-	if isComplete && cc.IsPodComplete(pod) && cc.ShouldDeletePod(cvmi) {
-		log.V(1).Info("Deleting pod", "pod.Name", pod.Name)
-		if err := r.cleanup(cvmi, pod, log); err != nil {
-			return err
+		if finalReport != nil {
+			cvmiStatus.Size.Stored = finalReport.StoredSize()
+			cvmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
+			cvmiStatus.Size.Unpacked = finalReport.UnpackedSize()
+			cvmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
 		}
 	}
+
+	state.CVMI.Changed().Status = *cvmiStatus
 
 	return nil
 }
 
-func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha1.ClusterVirtualMachineImage) error {
-	r.log.V(1).Info("Creating importer POD for PVC", "pvc.Name", cvmi.Name)
+func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha1.ClusterVirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.V(1).Info("Creating importer POD for PVC", "pvc.Name", cvmi.Name)
 
 	importerSettings, err := r.createImporterSettings(cvmi)
 	if err != nil {
@@ -267,19 +180,19 @@ func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha
 	caBundleSettings := importer.NewCABundleSettings(cvmiutil.GetCABundle(cvmi), cvmi.Annotations[cc.AnnCABundleConfigMap])
 
 	imp := importer.NewImporter(podSettings, importerSettings, caBundleSettings)
-	pod, err := imp.CreatePod(ctx, r.client)
+	pod, err := imp.CreatePod(ctx, opts.Client)
 	// Check if pod has failed and, in that case, record an event with the error
-	if podErr := cc.HandleFailedPod(err, cvmi.Annotations[cc.AnnImportPod], cvmi, r.recorder, r.client); podErr != nil {
+	if podErr := cc.HandleFailedPod(err, cvmi.Annotations[cc.AnnImportPodName], cvmi, opts.Recorder, opts.Client); podErr != nil {
 		return podErr
 	}
 
-	r.log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
+	opts.Log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
 
 	if caBundleSettings != nil {
-		if err := imp.EnsureCABundleConfigMap(ctx, r.client, pod); err != nil {
+		if err := imp.EnsureCABundleConfigMap(ctx, opts.Client, pod); err != nil {
 			return fmt.Errorf("create ConfigMap with certs from caBundle: %w", err)
 		}
-		r.log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
+		opts.Log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
 	}
 	// TODO add finalizer.
 	// // If importing from image stream, add finalizer. Note we don't watch the importer pod in this case,
@@ -296,7 +209,7 @@ func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha
 
 func (r *CVMIReconciler) createImporterPodSettings(cvmi *virtv2alpha1.ClusterVirtualMachineImage) *importer.PodSettings {
 	return &importer.PodSettings{
-		Name:            cvmi.Annotations[cc.AnnImportPod],
+		Name:            cvmi.Annotations[cc.AnnImportPodName],
 		Image:           r.image,
 		PullPolicy:      r.pullPolicy,
 		Namespace:       r.namespace, // TODO vmi.Namespace for VirtualMachineImage
@@ -333,30 +246,18 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 
 // initCVMIPodName creates new name and update it in the annotation.
 // TODO make it work with VMI also
-func (r *CVMIReconciler) initCVMIPodName(cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) error {
-	cvmiCopy := cvmi.DeepCopyObject()
-
-	log.V(1).Info("Init pod name on CVMI")
+func (r *CVMIReconciler) initCVMIPodName(cvmi *virtv2alpha1.ClusterVirtualMachineImage) {
 	anno := cvmi.GetAnnotations()
-	anno[cc.AnnImportPod] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+
+	anno[cc.AnnImportPodName] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
+	anno[cc.AnnImportPodNamespace] = r.namespace
 	// Generate name for secret with certs from caBundle.
 	if cvmiutil.HasCABundle(cvmi) {
 		anno[cc.AnnCABundleConfigMap] = fmt.Sprintf("%s-ca", cvmi.Name)
 	}
 
-	// TODO return state
-
-	if !reflect.DeepEqual(cvmiCopy, cvmi) {
-		if err := r.updateCVMI(cvmi, log); err != nil {
-			return err
-		}
-		log.V(1).Info("Updated CVMI", "cvmi.anno.AnnImportPod", anno[cc.AnnImportPod])
-	}
-	return nil
-}
-
-// TODO migrate to framework
-func (r *CVMIReconciler) updateCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage, log logr.Logger) error {
-	log.V(1).Info("Annotations are now", "cvmi.anno", cvmi.GetAnnotations())
-	return r.client.Update(context.TODO(), cvmi)
+	cvmi.Annotations = anno
 }

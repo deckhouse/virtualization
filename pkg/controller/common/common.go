@@ -8,8 +8,7 @@ import (
 
 // TODO make it work properly.
 func IsCVMIComplete(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
-	_, ok := cvmi.Annotations[AnnImportDone]
-	return ok
+	return cvmi != nil && cvmi.Status.Phase == virtv2alpha1.ImageReady
 }
 
 // IgnoreNotFound returns nil if the error is a NotFound error.
