@@ -90,10 +90,10 @@ const (
 	AnnRegistryImportMethod = AnnAPIGroup + "/storage.import.registryImportMethod"
 	// AnnRegistryImageStream provides a const for registry image stream annotation
 	AnnRegistryImageStream = AnnAPIGroup + "/storage.import.registryImageStream"
-	// AnnImportPod provides a const for our PVC importPodName annotation
-	AnnImportPod = AnnAPIGroup + "/storage.import.importPodName"
-	// ImportDone this means importer Pod is completed successfully.
-	AnnImportDone = AnnAPIGroup + "/storage.import.done"
+	// AnnImportPodName provides a const for CVMI/VMI/VMD importPodName annotation
+	AnnImportPodName = AnnAPIGroup + "/storage.import.importPodName"
+	// AnnImportPodNamespace provides a const for our CVMI/VMI/VMD importPodNamespace annotation
+	AnnImportPodNamespace = AnnAPIGroup + "/storage.import.importPodNamespace"
 	// AnnDiskID provides a const for our PVC diskId annotation
 	AnnDiskID = AnnAPIGroup + "/storage.import.diskId"
 	// AnnUUID provides a const for our PVC uuid annotation

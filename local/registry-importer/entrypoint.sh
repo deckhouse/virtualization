@@ -9,7 +9,7 @@ export
 echo "Arguments:"
 echo "$@"
 
-if [ -n $IMPORTER_CERT_DIR ] ; then
+if [ "x$IMPORTER_CERT_DIR" != "x" ] ; then
   echo "IMPORTER_CERT_DIR is set. Remove well known certificates to properly test caBundle ..."
   rm -rf /etc/ca-certificates.conf /etc/ssl/certs/*
 fi
