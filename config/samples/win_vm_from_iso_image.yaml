@@ -11,6 +11,18 @@ spec:
       url: "http://caddy.caddy.svc.cluster.local/images/win10.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: ClusterVirtualMachineImage
+metadata:
+  name: win-virtio-iso
+  annotations:
+    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
+spec:
+  dataSource:
+    type: HTTP
+    http:
+      url: "http://caddy.caddy.svc.cluster.local/images/virtio-win-0.1.229.iso"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachineDisk
 metadata:
   name: win-disk
@@ -28,17 +40,22 @@ metadata:
 spec:
   runPolicy: AlwaysOn
   osType: Windows
-  # bootloader: EFI
+  bootloader: EFI
   cpu:
-    cores: 4
+    cores: 6
     coreFraction: 50%
   memory:
     size: 8Gi
+  enableParavirtualization: false
   blockDevices:
-    # deattach it after install
+    # deattach it after install {
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
         name: win-iso
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-virtio-iso
+    # } deattach it after install
     - type: VirtualMachineDisk
       virtualMachineDisk:
         name: win-disk

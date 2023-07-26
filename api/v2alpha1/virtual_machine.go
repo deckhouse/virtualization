@@ -28,6 +28,7 @@ type VirtualMachineSpec struct {
 	BlockDevices             []BlockDeviceSpec `json:"blockDevices"`
 	EnableParavirtualization bool              `json:"enableParavirtualization,omitempty"`
 	OsType                   OsType            `json:"osType,omitempty"`
+	Bootloader               BootloaderType    `json:"bootloader,omitempty"`
 }
 
 type RunPolicy string
@@ -45,6 +46,14 @@ const (
 	Windows       OsType = "Windows"
 	LegacyWindows OsType = "LegacyWindows"
 	GenericOs     OsType = "Generic"
+)
+
+type BootloaderType string
+
+const (
+	BIOS              BootloaderType = "BIOS"
+	EFI               BootloaderType = "EFI"
+	EFIWithSecureBoot BootloaderType = "EFIWithSecureBoot"
 )
 
 type CPUSpec struct {
