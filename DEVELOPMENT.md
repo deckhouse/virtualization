@@ -8,7 +8,7 @@
 
 ## Taskfile
 
-Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.yaml](https://taskfile.dev/usage/#supported-file-names).
+Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.my.yaml](https://taskfile.dev/usage/#supported-file-names) and use them with `my:` prefix, e.g. `task my:build`. Use Taskfile.my.yaml.example as inspiration.
 
 ## Test in local cluster
 
