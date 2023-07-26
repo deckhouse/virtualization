@@ -1,0 +1,14 @@
+version: "3"
+
+silent: true
+
+tasks:
+  # Use 'task my:build' to run this task.
+  build:
+    desc: "Some local task"
+    cmds:
+      - |
+        echo "My task begin"
+      # Run a 'build' task from parent file.
+      - task: :build
+      - echo "My task end"

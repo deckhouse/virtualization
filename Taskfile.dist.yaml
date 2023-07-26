@@ -4,6 +4,9 @@ silent: true
 
 includes:
   cvmi: Taskfile.cvmi.yaml
+  my:
+    taskfile: Taskfile.my.yaml
+    optional: true
 
 env:
   K8S_CODEGEN:

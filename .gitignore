@@ -37,6 +37,8 @@ bin/
 
 # Local overrides with tasks
 Taskfile.yaml
+Taskfile.my.yaml
+Taskfile.my.*.yaml
 local/caddy/images/
 
 # Secrets
