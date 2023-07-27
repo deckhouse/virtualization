@@ -1,0 +1,97 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachineblockdeviceattachments.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Namespaced
+  names:
+    plural: virtualmachineblockdeviceattachments
+    singular: virtualmachineblockdeviceattachment
+    listKind: VirtualMachineBlockDeviceAttachmentList
+    kind: VirtualMachineBlockDeviceAttachment
+    shortNames:
+      - vmbda
+      - vmbdas
+  preserveUnknownFields: false
+  versions:
+    - name: v2alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            The resource provides a hot plug for connecting an image or disk to a VM.
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - vmName
+                - blockDevice
+              properties:
+                vmName:
+                  type: string
+                  description: |
+                    The name of the VM to which the disk or image is connected.
+                blockDevice:
+                  type: object
+                  description: |
+                    The block device that will be connected as a hotPlug disk to the VM.
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - "VirtualMachineDisk"
+                      description: |
+                        The type of the block device. Options are:
+
+                        * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                    virtualMachineDisk:
+                      type: object
+                      description: Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                      required:
+                        - name
+                      properties:
+                        name:
+                          type: string
+                          description: The name of `VirtualMachineDisk`
+                  oneOf:
+                  - properties:
+                      type:
+                        enum: ['VirtualMachineDisk']
+                      virtualMachineDisk: {}
+            status:
+              type: object
+              properties:
+                vmName:
+                  type: string
+                  description: |
+                    The name of the VM to which this disk is attached.
+                phase:
+                  type: string
+                  description: |
+                    Represents the current phase of resource:
+
+                    * InProgress - the disk is in the process of being attached.
+                    * Attached - the disk is attached to VM.
+                    * Failed - there was a problem with attaching the disk. See `.status.failureReason`.
+                  enum:
+                    - "InProgress"
+                    - "Attached"
+                    - "Failed"
+                failureReason:
+                  type: string
+                  description: |
+                    A brief description of the cause of the error.
+                failureMessage:
+                  type: string
+                  description: |
+                    Detailed description of the error.
+      subresources:
+        status: {}
