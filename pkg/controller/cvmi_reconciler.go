@@ -34,8 +34,10 @@ type CVMIReconciler struct {
 	dvcrSettings    *cc.DVCRSettings
 }
 
-func (r *CVMIReconciler) SetupController(_ context.Context, _ manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(&source.Kind{Type: &virtv2alpha1.ClusterVirtualMachineImage{}}, &handler.EnqueueRequestForObject{},
+func (r *CVMIReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2alpha1.ClusterVirtualMachineImage{}),
+		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
@@ -51,7 +53,7 @@ func (r *CVMIReconciler) SetupController(_ context.Context, _ manager.Manager, c
 	}
 
 	if err := ctr.Watch(
-		&source.Kind{Type: &virtv2alpha1.VirtualMachine{}},
+		source.Kind(mgr.GetCache(), &virtv2alpha1.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(r.mapFromCVMI),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
@@ -71,7 +73,7 @@ func (r *CVMIReconciler) SetupController(_ context.Context, _ manager.Manager, c
 	return nil
 }
 
-func (r *CVMIReconciler) mapFromCVMI(obj client.Object) (res []reconcile.Request) {
+func (r *CVMIReconciler) mapFromCVMI(_ context.Context, obj client.Object) (res []reconcile.Request) {
 	for k := range obj.GetLabels() {
 		name, isCvmi := ExtractAttachedCVMIName(k)
 		if isCvmi {
