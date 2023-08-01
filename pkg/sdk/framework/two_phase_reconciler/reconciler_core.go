@@ -44,7 +44,7 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 	var res *reconcile.Result
 	var resErr error
 
-	if state.ShouldReconcile() {
+	if state.ShouldReconcile(r.Log) {
 		r.Log.Info("sync phase begin")
 		syncErr := r.sync(ctx, req, state)
 		resErr = syncErr
@@ -60,7 +60,7 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 		r.Log.Info("sync phase end")
 	}
 
-	if state.ShouldReconcile() {
+	if state.ShouldReconcile(r.Log) {
 		r.Log.Info("update status phase begin")
 		updateStatusErr := r.updateStatus(ctx, req, state)
 		if res == nil {

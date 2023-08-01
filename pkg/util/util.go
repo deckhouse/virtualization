@@ -5,6 +5,13 @@ func CopyByPointer[T any](objP *T) *T {
 	return &copyObj
 }
 
+func ToPointersArray[T any](items []T) (res []*T) {
+	for _, item := range items {
+		res = append(res, GetPointer(item))
+	}
+	return
+}
+
 func GetPointer[T any](obj T) *T {
 	return &obj
 }

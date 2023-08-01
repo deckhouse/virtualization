@@ -6,21 +6,26 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type CVMIReconcilerState struct {
-	Client client.Client
-	CVMI   *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Pod    *corev1.Pod
-	Result *reconcile.Result
+	Client      client.Client
+	CVMI        *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Pod         *corev1.Pod
+	AttachedVMs []*virtv2.VirtualMachine
+	Result      *reconcile.Result
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
@@ -74,17 +79,50 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 	}
 	state.Pod = pod
 
+	attachedVMs, err := state.findAttachedVMs(ctx)
+	if err != nil {
+		return err
+	}
+	state.AttachedVMs = attachedVMs
+
+	log.Info("CVMI Reload", "AttachedVMs", attachedVMs)
+
 	return nil
 }
 
 // ShouldReconcile tells if Sync and UpdateStatus should run.
 // CVMI should not be reconciled if phase is Ready and no importer Pod found.
-func (state *CVMIReconcilerState) ShouldReconcile() bool {
+func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	// CVMI was not found. E.g. CVMI was deleted, but requeue task was triggered.
 	if state.CVMI.IsEmpty() {
 		return false
 	}
+	log.V(2).Info("CVMI ShouldReconcile", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
+	if state.ShouldRemoveProtectionFinalizer() {
+		return true
+	}
 	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil)
+}
+
+func (state *CVMIReconcilerState) findAttachedVMs(ctx context.Context) ([]*virtv2.VirtualMachine, error) {
+	vml := &virtv2.VirtualMachineList{}
+
+	req, err := labels.NewRequirement(
+		MakeAttachedCVMILabelKey(state.CVMI.Name().Name),
+		selection.Equals,
+		[]string{"true"},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create label requirement: %w", err)
+	}
+
+	sel := labels.NewSelector()
+	sel.Add(*req)
+
+	if err := state.Client.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
+		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
+	}
+	return util.ToPointersArray(vml.Items), nil
 }
 
 func (state *CVMIReconcilerState) findImporterPod(ctx context.Context, client client.Client) (*corev1.Pod, error) {
@@ -121,6 +159,15 @@ func (state *CVMIReconcilerState) HasImporterPodAnno() bool {
 // CanStartImporterPod returns whether CVMI is just created and has no annotations with importer Pod coordinates.
 func (state *CVMIReconcilerState) CanStartImporterPod() bool {
 	return !state.IsReady() && state.HasImporterPodAnno() && state.Pod == nil
+}
+
+// ShouldRemoveProtectionFinalizer returns whether CVMI protection finalizer should be removed
+func (state *CVMIReconcilerState) ShouldRemoveProtectionFinalizer() bool {
+	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMIProtection) && (len(state.AttachedVMs) == 0)
+}
+
+func (state *CVMIReconcilerState) RemoveProtectionFinalizer() {
+	controllerutil.RemoveFinalizer(state.CVMI.Changed(), virtv2.FinalizerCVMIProtection)
 }
 
 func (state *CVMIReconcilerState) HasImporterPod() bool {

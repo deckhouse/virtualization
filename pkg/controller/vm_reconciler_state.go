@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -141,7 +142,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	return nil
 }
 
-func (state *VMReconcilerState) ShouldReconcile() bool {
+func (state *VMReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 	return !state.VM.IsEmpty()
 }
 
@@ -224,40 +225,64 @@ func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.Volu
 	return nil
 }
 
-func (state *VMReconcilerState) AlterBlockDevicesFinalizers(ctx context.Context, remove bool) error {
+func (state *VMReconcilerState) SetAttachedBlockDevicesLabels() bool {
+	var newLabels map[string]string
+	getNewLabels := func() map[string]string {
+		if newLabels == nil {
+			newLabels = make(map[string]string)
+		}
+		return newLabels
+	}
+
+	// exclude attach related labels
+	for k, v := range state.VM.Current().Labels {
+		_, isCvmi := ExtractAttachedCVMIName(k)
+		_, isVmi := ExtractAttachedVMIName(k)
+		_, isVmd := ExtractAttachedVMDName(k)
+		if !(isCvmi || isVmi || isVmd) {
+			getNewLabels()[k] = v
+		}
+	}
+
+	// reset attach related labels
+	for _, bd := range state.VM.Current().Spec.BlockDevices {
+		switch bd.Type {
+		case virtv2.ImageDevice:
+			panic("not implemented")
+		case virtv2.ClusterImageDevice:
+			getNewLabels()[MakeAttachedCVMILabelKey(bd.ClusterVirtualMachineImage.Name)] = "true"
+		case virtv2.DiskDevice:
+			getNewLabels()[MakeAttachedVMDLabelKey(bd.VirtualMachineDisk.Name)] = "true"
+		default:
+			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+		}
+	}
+
+	if !reflect.DeepEqual(state.VM.Current().Labels, newLabels) {
+		state.VM.Changed().SetLabels(newLabels)
+		return true
+	}
+	return false
+}
+
+func (state *VMReconcilerState) SetBlockDevicesFinalizers(ctx context.Context) error {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
 			panic("not implemented")
 		case virtv2.ClusterImageDevice:
 			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
-				if !remove {
-					if controllerutil.AddFinalizer(cvmi, virtv2.FinalizerCVMIProtection) {
-						if err := state.Client.Update(ctx, cvmi); err != nil {
-							return fmt.Errorf("error setting finalizer on a CVMI %q: %w", cvmi.Name, err)
-						}
-					}
-				} else {
-					if controllerutil.RemoveFinalizer(cvmi, virtv2.FinalizerCVMIProtection) {
-						if err := state.Client.Update(ctx, cvmi); err != nil {
-							return fmt.Errorf("error setting finalizer on a CVMI %q: %w", cvmi.Name, err)
-						}
+				if controllerutil.AddFinalizer(cvmi, virtv2.FinalizerCVMIProtection) {
+					if err := state.Client.Update(ctx, cvmi); err != nil {
+						return fmt.Errorf("error setting finalizer on a CVMI %q: %w", cvmi.Name, err)
 					}
 				}
 			}
 		case virtv2.DiskDevice:
 			if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
-				if !remove {
-					if controllerutil.AddFinalizer(vmd, virtv2.FinalizerVMDProtection) {
-						if err := state.Client.Update(ctx, vmd); err != nil {
-							return fmt.Errorf("error setting finalizer on a VMD %q: %w", vmd.Name, err)
-						}
-					}
-				} else {
-					if controllerutil.RemoveFinalizer(vmd, virtv2.FinalizerVMDProtection) {
-						if err := state.Client.Update(ctx, vmd); err != nil {
-							return fmt.Errorf("error setting finalizer on a VMD %q: %w", vmd.Name, err)
-						}
+				if controllerutil.AddFinalizer(vmd, virtv2.FinalizerVMDProtection) {
+					if err := state.Client.Update(ctx, vmd); err != nil {
+						return fmt.Errorf("error setting finalizer on a VMD %q: %w", vmd.Name, err)
 					}
 				}
 			}
