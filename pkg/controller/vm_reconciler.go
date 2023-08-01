@@ -46,10 +46,6 @@ func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr
 
 func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero() {
-		if err := state.AlterBlockDevicesFinalizers(ctx, true); err != nil {
-			return fmt.Errorf("unable to remove block devices finalizers: %w", err)
-		}
-
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(state.VM.Current(), virtv2.FinalizerVMCleanup) {
 			// Our finalizer is present, so lets cleanup DV, PVC & PV dependencies
@@ -73,7 +69,13 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	if err := state.AlterBlockDevicesFinalizers(ctx, false); err != nil {
+	// First set attached devices labels
+	if state.SetAttachedBlockDevicesLabels() {
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		return nil
+	}
+	// Only then set finalizers to devices
+	if err := state.SetBlockDevicesFinalizers(ctx); err != nil {
 		return fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 

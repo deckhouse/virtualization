@@ -109,6 +109,6 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	return nil
 }
 
-func (state *VMDReconcilerState) ShouldReconcile() bool {
+func (state *VMDReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 	return !state.VMD.IsEmpty()
 }

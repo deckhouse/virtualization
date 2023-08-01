@@ -7,6 +7,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -37,19 +39,54 @@ func (r *CVMIReconciler) SetupController(_ context.Context, _ manager.Manager, c
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			// ClusterVirtualMachineImage is immutable, no need to create work task for modified object.
-			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
 		return err
 	}
 
+	matchCvmiFunc := func(k, _ string) bool {
+		_, isCvmi := ExtractAttachedCVMIName(k)
+		return isCvmi
+	}
+
+	if err := ctr.Watch(
+		&source.Kind{Type: &virtv2alpha1.VirtualMachine{}},
+		handler.EnqueueRequestsFromMapFunc(r.mapFromCVMI),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return HasLabel(e.Object.GetLabels(), matchCvmiFunc)
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return HasLabel(e.Object.GetLabels(), matchCvmiFunc)
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return HasLabel(e.ObjectOld.GetLabels(), matchCvmiFunc) ||
+					HasLabel(e.ObjectNew.GetLabels(), matchCvmiFunc)
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
+	}
 	return nil
+}
+
+func (r *CVMIReconciler) mapFromCVMI(obj client.Object) (res []reconcile.Request) {
+	for k := range obj.GetLabels() {
+		name, isCvmi := ExtractAttachedCVMIName(k)
+		if isCvmi {
+			res = append(res, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: name},
+			})
+		}
+	}
+	return
 }
 
 // Sync creates and deletes importer Pod depending on CVMI status.
 func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	opts.Log.Info("Reconcile required for CVMI", "cvmi.name", state.CVMI.Current().Name, "cvmi.phase", state.CVMI.Current().Status.Phase)
+	opts.Log.V(2).Info("CVMI Sync", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
 
 	// Change the world depending on states of CVMI and Pod.
 	switch {
@@ -88,6 +125,10 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		// Import is in progress, force a re-reconcile in 2 seconds to update status.
 		opts.Log.V(2).Info("Requeue: CVMI import is in progress", "cvmi.name", state.CVMI.Current().Name)
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		return nil
+	case state.ShouldRemoveProtectionFinalizer():
+		state.RemoveProtectionFinalizer()
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
 	}
 
