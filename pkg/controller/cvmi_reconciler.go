@@ -88,7 +88,13 @@ func (r *CVMIReconciler) mapFromCVMI(_ context.Context, obj client.Object) (res 
 // Sync creates and deletes importer Pod depending on CVMI status.
 func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	opts.Log.Info("Reconcile required for CVMI", "cvmi.name", state.CVMI.Current().Name, "cvmi.phase", state.CVMI.Current().Status.Phase)
+
 	opts.Log.V(2).Info("CVMI Sync", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
+	if state.ShouldRemoveProtectionFinalizer() {
+		state.RemoveProtectionFinalizer()
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		return nil
+	}
 
 	// Change the world depending on states of CVMI and Pod.
 	switch {
@@ -127,10 +133,6 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		// Import is in progress, force a re-reconcile in 2 seconds to update status.
 		opts.Log.V(2).Info("Requeue: CVMI import is in progress", "cvmi.name", state.CVMI.Current().Name)
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-		return nil
-	case state.ShouldRemoveProtectionFinalizer():
-		state.RemoveProtectionFinalizer()
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
 	}
 
