@@ -99,10 +99,12 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 	// Change the world depending on states of CVMI and Pod.
 	switch {
 	case state.IsDeletion():
-		// Delete existing Pod if CVMI is deleted.
-		opts.Log.V(1).Info("CVMI is being deleted, delete importer Pod", "pod.Name", state.Pod.Name)
-		if err := importer.CleanupPod(ctx, opts.Client, state.Pod); err != nil {
-			return err
+		if state.Pod != nil {
+			// Delete existing Pod if CVMI is deleted.
+			opts.Log.V(1).Info("CVMI is being deleted, delete importer Pod", "pod.Name", state.Pod.Name)
+			if err := importer.CleanupPod(ctx, opts.Client, state.Pod); err != nil {
+				return err
+			}
 		}
 		return nil
 	case !state.HasImporterPodAnno():
