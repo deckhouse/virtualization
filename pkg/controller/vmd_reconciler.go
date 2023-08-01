@@ -26,8 +26,10 @@ import (
 
 type VMDReconciler struct{}
 
-func (r *VMDReconciler) SetupController(_ context.Context, _ manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(&source.Kind{Type: &virtv2.VirtualMachineDisk{}}, &handler.EnqueueRequestForObject{},
+func (r *VMDReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineDisk{}),
+		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
@@ -37,10 +39,15 @@ func (r *VMDReconciler) SetupController(_ context.Context, _ manager.Manager, ct
 		return fmt.Errorf("error setting watch on VMD: %w", err)
 	}
 
-	if err := ctr.Watch(&source.Kind{Type: &cdiv1.DataVolume{}}, &handler.EnqueueRequestForOwner{
-		OwnerType:    &virtv2.VirtualMachineDisk{},
-		IsController: true,
-	}); err != nil {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &cdiv1.DataVolume{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualMachineDisk{},
+			handler.OnlyControllerOwner(),
+		),
+	); err != nil {
 		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 

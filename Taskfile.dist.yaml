@@ -8,6 +8,10 @@ includes:
     taskfile: Taskfile.my.yaml
     optional: true
 
+vars:
+  CDIVersion: "1.57.0-alpha1"
+  KubeVirtVersion: "1.0.0"
+
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
@@ -52,32 +56,30 @@ tasks:
 
       - |
         # Preload images for faster start of importer
-        docker pull       rancher/local-path-provisioner:v0.0.24
-        k3d image import  rancher/local-path-provisioner:v0.0.24
-        docker pull       quay.io/kubevirt/cdi-importer:v1.56.0
-        k3d image import  quay.io/kubevirt/cdi-importer:v1.56.0
-        docker pull       quay.io/kubevirt/cdi-operator:v1.56.0
-        k3d image import  quay.io/kubevirt/cdi-operator:v1.56.0
-        docker pull       quay.io/kubevirt/cdi-apiserver:v1.56.0
-        k3d image import  quay.io/kubevirt/cdi-apiserver:v1.56.0
-        docker pull       quay.io/kubevirt/cdi-uploadproxy:v1.56.0
-        k3d image import  quay.io/kubevirt/cdi-uploadproxy:v1.56.0
+        docker pull       quay.io/kubevirt/cdi-importer:v{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-importer:v{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-operator:v{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-operator:v{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-apiserver:v{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-apiserver:v{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-uploadproxy:v{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-uploadproxy:v{{.CDIVersion}}
 
         # Preload kubevirt images
-        docker pull quay.io/kubevirt/virt-api:v0.59.2
-        k3d image import quay.io/kubevirt/virt-api:v0.59.2
-        docker pull quay.io/kubevirt/virt-controller:v0.59.2
-        k3d image import quay.io/kubevirt/virt-controller:v0.59.2
-        docker pull quay.io/kubevirt/virt-handler:v0.59.2
-        k3d image import quay.io/kubevirt/virt-handler:v0.59.2
-        docker pull quay.io/kubevirt/virt-launcher:v0.59.2
-        k3d image import quay.io/kubevirt/virt-launcher:v0.59.2
-        docker pull quay.io/kubevirt/virt-operator:v0.59.2
-        k3d image import quay.io/kubevirt/virt-operator:v0.59.2
+        docker pull quay.io/kubevirt/virt-api:v{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-api:v{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-controller:v{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-controller:v{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-handler:v{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-handler:v{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-launcher:v{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-launcher:v{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-operator:v{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-operator:v{{.KubeVirtVersion}}
 
       - |
         # Install KubeVirt
-        export RELEASE=v0.59.2 # $(curl https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirt/stable.txt)
+        export RELEASE=v{{.KubeVirtVersion}}
         kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
         kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
         kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
@@ -88,10 +90,6 @@ tasks:
         export VERSION=$(echo ${TAG##*/})
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
-
-      - |
-        # Install rancher local-path auto provisioner
-        kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml
 
       - |
         # Preload test-os-images

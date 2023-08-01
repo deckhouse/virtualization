@@ -23,8 +23,8 @@ import (
 
 type VMReconciler struct{}
 
-func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(&source.Kind{Type: &virtv2.VirtualMachine{}}, &handler.EnqueueRequestForObject{},
+func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
@@ -34,10 +34,15 @@ func (r *VMReconciler) SetupController(_ context.Context, _ manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VM: %w", err)
 	}
 
-	if err := ctr.Watch(&source.Kind{Type: &virtv1.VirtualMachine{}}, &handler.EnqueueRequestForOwner{
-		OwnerType:    &virtv2.VirtualMachine{},
-		IsController: true,
-	}); err != nil {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualMachine{},
+			handler.OnlyControllerOwner(),
+		),
+	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
 	}
 
