@@ -93,5 +93,13 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
+      additionalPrinterColumns:
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: VMName
+        type: string
+        jsonPath: .status.vmName
+        priority: 1
       subresources:
         status: {}

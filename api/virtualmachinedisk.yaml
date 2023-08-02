@@ -303,5 +303,19 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
+      additionalPrinterColumns:
+      - name: ImportDuration
+        type: string
+        jsonPath: .status.importDuration
+        priority: 1
+      - name: Capacity
+        type: string
+        jsonPath: .status.capacity
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: Progress
+        type: string
+        jsonPath: .status.progress
       subresources:
         status: {}
