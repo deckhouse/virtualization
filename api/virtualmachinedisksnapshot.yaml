@@ -56,5 +56,12 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
+      additionalPrinterColumns:
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: Size
+        type: string
+        jsonPath: .status.size
       subresources:
         status: {}

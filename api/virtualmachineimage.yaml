@@ -342,5 +342,27 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
+      additionalPrinterColumns:
+      - name: ImportDuration
+        type: string
+        jsonPath: .status.importDuration
+        priority: 1
+      - name: UnpackedSize
+        type: string
+        jsonPath: .status.size.unpacked
+        priority: 1
+      - name: StoredSize
+        type: string
+        jsonPath: .status.size.stored
+        priority: 1
+      - name: CDROM
+        type: boolean
+        jsonPath: .status.cdrom
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: Progress
+        type: string
+        jsonPath: .status.progress
       subresources:
         status: {}
