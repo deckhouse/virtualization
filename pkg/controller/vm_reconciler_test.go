@@ -8,9 +8,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -64,9 +66,19 @@ var _ = Describe("VM", func() {
 						},
 					},
 				},
+				Status: virtv2.VirtualMachineStatus{},
 			}
 
-			reconciler = controller.NewVMReconciler(vm)
+			reconciler = controller.NewVMReconciler(controller.TestReconcilerOptions{
+				KnownObjects: []client.Object{
+					&virtv2.VirtualMachine{},
+					&virtv2.VirtualMachineDisk{},
+					&virtv2.ClusterVirtualMachineImage{},
+					&virtv1.VirtualMachine{},
+					&virtv1.VirtualMachineInstance{},
+				},
+				RuntimeObjects: []runtime.Object{vm},
+			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: "test-vm", Namespace: "test-ns"})
 		}
 

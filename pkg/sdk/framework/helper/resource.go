@@ -119,7 +119,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 	}
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
-			return fmt.Errorf("error updating: %w", err)
+			return fmt.Errorf("error updating status subresource: %w", err)
 		}
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)

@@ -118,7 +118,6 @@ func main() {
 
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		Namespace:                  "",
 		LeaderElection:             true,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
