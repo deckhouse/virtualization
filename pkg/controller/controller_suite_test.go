@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -34,10 +35,12 @@ var (
 	vmControllerLog  = logf.Log.WithName("vm-controller-test")
 )
 
-func NewVMDReconciler(objects ...runtime.Object) *two_phase_reconciler.ReconcilerCore[*VMDReconcilerState] {
-	objs := []runtime.Object{}
-	objs = append(objs, objects...)
+type TestReconcilerOptions struct {
+	KnownObjects   []client.Object
+	RuntimeObjects []runtime.Object
+}
 
+func NewVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMDReconcilerState] {
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
@@ -46,7 +49,8 @@ func NewVMDReconciler(objects ...runtime.Object) *two_phase_reconciler.Reconcile
 
 	builder := fake.NewClientBuilder().
 		WithScheme(s).
-		WithRuntimeObjects(objs...)
+		WithStatusSubresource(opts.KnownObjects...).
+		WithRuntimeObjects(opts.RuntimeObjects...)
 
 	cl := builder.Build()
 	rec := record.NewFakeRecorder(10)
@@ -62,10 +66,7 @@ func NewVMDReconciler(objects ...runtime.Object) *two_phase_reconciler.Reconcile
 		})
 }
 
-func NewVMReconciler(objects ...runtime.Object) *two_phase_reconciler.ReconcilerCore[*VMReconcilerState] {
-	objs := []runtime.Object{}
-	objs = append(objs, objects...)
-
+func NewVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMReconcilerState] {
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
@@ -74,7 +75,8 @@ func NewVMReconciler(objects ...runtime.Object) *two_phase_reconciler.Reconciler
 
 	builder := fake.NewClientBuilder().
 		WithScheme(s).
-		WithRuntimeObjects(objs...)
+		WithStatusSubresource(opts.KnownObjects...).
+		WithRuntimeObjects(opts.RuntimeObjects...)
 
 	cl := builder.Build()
 	rec := record.NewFakeRecorder(10)
