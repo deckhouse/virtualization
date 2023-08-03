@@ -27,13 +27,13 @@ func NewCVMIController(
 	controllerNamespace string,
 	dvcrSettings *cc.DVCRSettings,
 ) (controller.Controller, error) {
-	reconciler := &CVMIReconciler{
-		image:        importerImage,
-		verbose:      ImporterPodVerbose,
-		pullPolicy:   ImporterPodPullPolicy,
-		namespace:    controllerNamespace,
-		dvcrSettings: dvcrSettings,
-	}
+	reconciler := NewCVMIReconciler(
+		importerImage,
+		ImporterPodVerbose,
+		ImporterPodPullPolicy,
+		controllerNamespace,
+		dvcrSettings,
+	)
 
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*CVMIReconcilerState](
 		reconciler,

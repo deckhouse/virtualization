@@ -7,8 +7,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -22,10 +20,13 @@ import (
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 type CVMIReconciler struct {
+	*vmattachee.AttacheeReconciler[*virtv2alpha1.ClusterVirtualMachineImage, virtv2alpha1.ClusterVirtualMachineImageStatus]
+
 	image           string
 	verbose         string
 	pullPolicy      string
@@ -34,7 +35,18 @@ type CVMIReconciler struct {
 	dvcrSettings    *cc.DVCRSettings
 }
 
-func (r *CVMIReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func NewCVMIReconciler(image, verbose, pullPolicy, namespace string, dvcrSettings *cc.DVCRSettings) *CVMIReconciler {
+	return &CVMIReconciler{
+		image:              image,
+		verbose:            verbose,
+		pullPolicy:         pullPolicy,
+		namespace:          namespace,
+		dvcrSettings:       dvcrSettings,
+		AttacheeReconciler: vmattachee.NewAttacheeReconciler[*virtv2alpha1.ClusterVirtualMachineImage, virtv2alpha1.ClusterVirtualMachineImageStatus](virtv2alpha1.ClusterVirtualMachineImageGVK),
+	}
+}
+
+func (r *CVMIReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2alpha1.ClusterVirtualMachineImage{}),
 		&handler.EnqueueRequestForObject{},
@@ -47,52 +59,14 @@ func (r *CVMIReconciler) SetupController(_ context.Context, mgr manager.Manager,
 		return err
 	}
 
-	matchCvmiFunc := func(k, _ string) bool {
-		_, isCvmi := ExtractAttachedCVMIName(k)
-		return isCvmi
-	}
-
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2alpha1.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(r.mapFromCVMI),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return HasLabel(e.Object.GetLabels(), matchCvmiFunc)
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return HasLabel(e.Object.GetLabels(), matchCvmiFunc)
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return HasLabel(e.ObjectOld.GetLabels(), matchCvmiFunc) ||
-					HasLabel(e.ObjectNew.GetLabels(), matchCvmiFunc)
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
-	}
-	return nil
-}
-
-func (r *CVMIReconciler) mapFromCVMI(_ context.Context, obj client.Object) (res []reconcile.Request) {
-	for k := range obj.GetLabels() {
-		name, isCvmi := ExtractAttachedCVMIName(k)
-		if isCvmi {
-			res = append(res, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: name},
-			})
-		}
-	}
-	return
+	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
 }
 
 // Sync creates and deletes importer Pod depending on CVMI status.
 func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	opts.Log.Info("Reconcile required for CVMI", "cvmi.name", state.CVMI.Current().Name, "cvmi.phase", state.CVMI.Current().Status.Phase)
 
-	opts.Log.V(2).Info("CVMI Sync", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
-	if state.ShouldRemoveProtectionFinalizer() {
-		state.RemoveProtectionFinalizer()
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
 		return nil
 	}
 
