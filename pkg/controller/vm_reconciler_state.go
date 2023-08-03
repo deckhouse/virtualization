@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -236,9 +237,9 @@ func (state *VMReconcilerState) SetAttachedBlockDevicesLabels() bool {
 
 	// exclude attach related labels
 	for k, v := range state.VM.Current().Labels {
-		_, isCvmi := ExtractAttachedCVMIName(k)
-		_, isVmi := ExtractAttachedVMIName(k)
-		_, isVmd := ExtractAttachedVMDName(k)
+		_, isCvmi := vmattachee.ExtractAttachedResourceName("cvmi", k)
+		_, isVmi := vmattachee.ExtractAttachedResourceName("vmi", k)
+		_, isVmd := vmattachee.ExtractAttachedResourceName("vmd", k)
 		if !(isCvmi || isVmi || isVmd) {
 			getNewLabels()[k] = v
 		}
@@ -250,9 +251,9 @@ func (state *VMReconcilerState) SetAttachedBlockDevicesLabels() bool {
 		case virtv2.ImageDevice:
 			panic("not implemented")
 		case virtv2.ClusterImageDevice:
-			getNewLabels()[MakeAttachedCVMILabelKey(bd.ClusterVirtualMachineImage.Name)] = "true"
+			getNewLabels()[vmattachee.MakeAttachedResourceLabelKeyFormat("cvmi", bd.ClusterVirtualMachineImage.Name)] = vmattachee.AttachedLabelValue
 		case virtv2.DiskDevice:
-			getNewLabels()[MakeAttachedVMDLabelKey(bd.VirtualMachineDisk.Name)] = "true"
+			getNewLabels()[vmattachee.MakeAttachedResourceLabelKeyFormat("vmd", bd.VirtualMachineDisk.Name)] = vmattachee.AttachedLabelValue
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 		}

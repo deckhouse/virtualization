@@ -6,8 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,11 +14,13 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type CVMIReconcilerState struct {
+	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+
 	Client      client.Client
 	CVMI        *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 	Pod         *corev1.Pod
@@ -29,7 +29,7 @@ type CVMIReconcilerState struct {
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
-	return &CVMIReconcilerState{
+	state := &CVMIReconcilerState{
 		Client: client,
 		CVMI: helper.NewResource(
 			name, log, client, cache,
@@ -39,6 +39,13 @@ func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client c
 			},
 		),
 	}
+	state.AttacheeState = vmattachee.NewAttacheeState(
+		state,
+		virtv2.ClusterVirtualMachineImageGVK,
+		virtv2.FinalizerCVMIProtection,
+		state.CVMI,
+	)
+	return state
 }
 
 func (state *CVMIReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
@@ -79,15 +86,7 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 	}
 	state.Pod = pod
 
-	attachedVMs, err := state.findAttachedVMs(ctx)
-	if err != nil {
-		return err
-	}
-	state.AttachedVMs = attachedVMs
-
-	log.Info("CVMI Reload", "AttachedVMs", attachedVMs)
-
-	return nil
+	return state.AttacheeState.Reload(ctx, req, log, client)
 }
 
 // ShouldReconcile tells if Sync and UpdateStatus should run.
@@ -97,32 +96,10 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	if state.CVMI.IsEmpty() {
 		return false
 	}
-	log.V(2).Info("CVMI ShouldReconcile", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
-	if state.ShouldRemoveProtectionFinalizer() {
+	if state.AttacheeState.ShouldReconcile(log) {
 		return true
 	}
 	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil)
-}
-
-func (state *CVMIReconcilerState) findAttachedVMs(ctx context.Context) ([]*virtv2.VirtualMachine, error) {
-	vml := &virtv2.VirtualMachineList{}
-
-	req, err := labels.NewRequirement(
-		MakeAttachedCVMILabelKey(state.CVMI.Name().Name),
-		selection.Equals,
-		[]string{"true"},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create label requirement: %w", err)
-	}
-
-	sel := labels.NewSelector()
-	sel.Add(*req)
-
-	if err := state.Client.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
-		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
-	}
-	return util.ToPointersArray(vml.Items), nil
 }
 
 func (state *CVMIReconcilerState) findImporterPod(ctx context.Context, client client.Client) (*corev1.Pod, error) {
