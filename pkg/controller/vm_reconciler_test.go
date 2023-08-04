@@ -69,7 +69,7 @@ var _ = Describe("VM", func() {
 				Status: virtv2.VirtualMachineStatus{},
 			}
 
-			reconciler = controller.NewVMReconciler(controller.TestReconcilerOptions{
+			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
 				KnownObjects: []client.Object{
 					&virtv2.VirtualMachine{},
 					&virtv2.VirtualMachineDisk{},

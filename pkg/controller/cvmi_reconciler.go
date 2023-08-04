@@ -37,12 +37,15 @@ type CVMIReconciler struct {
 
 func NewCVMIReconciler(image, verbose, pullPolicy, namespace string, dvcrSettings *cc.DVCRSettings) *CVMIReconciler {
 	return &CVMIReconciler{
-		image:              image,
-		verbose:            verbose,
-		pullPolicy:         pullPolicy,
-		namespace:          namespace,
-		dvcrSettings:       dvcrSettings,
-		AttacheeReconciler: vmattachee.NewAttacheeReconciler[*virtv2alpha1.ClusterVirtualMachineImage, virtv2alpha1.ClusterVirtualMachineImageStatus](virtv2alpha1.ClusterVirtualMachineImageGVK),
+		image:        image,
+		verbose:      verbose,
+		pullPolicy:   pullPolicy,
+		namespace:    namespace,
+		dvcrSettings: dvcrSettings,
+		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
+			*virtv2alpha1.ClusterVirtualMachineImage,
+			virtv2alpha1.ClusterVirtualMachineImageStatus,
+		]("cvmi", false),
 	}
 }
 

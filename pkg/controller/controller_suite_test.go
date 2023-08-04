@@ -40,7 +40,7 @@ type TestReconcilerOptions struct {
 	RuntimeObjects []runtime.Object
 }
 
-func NewVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMDReconcilerState] {
+func NewTestVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMDReconcilerState] {
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
@@ -66,7 +66,7 @@ func NewVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Reconcil
 		})
 }
 
-func NewVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMReconcilerState] {
+func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMReconcilerState] {
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)

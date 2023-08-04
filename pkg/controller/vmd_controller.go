@@ -15,7 +15,7 @@ const (
 )
 
 func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger) (controller.Controller, error) {
-	reconciler := &VMDReconciler{}
+	reconciler := NewVMDReconciler()
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](
 		reconciler,
 		NewVMDReconcilerState,

@@ -67,7 +67,7 @@ var _ = Describe("VMD", func() {
 				},
 			}
 
-			reconciler = controller.NewVMDReconciler(controller.TestReconcilerOptions{
+			reconciler = controller.NewTestVMDReconciler(controller.TestReconcilerOptions{
 				KnownObjects: []client.Object{
 					&virtv2.VirtualMachine{},
 					&virtv2.VirtualMachineDisk{},

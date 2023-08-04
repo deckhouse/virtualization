@@ -13,10 +13,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type VMDReconcilerState struct {
+	*vmattachee.AttacheeState[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+
 	Client client.Client
 	VMD    *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 	DV     *cdiv1.DataVolume
@@ -26,7 +29,7 @@ type VMDReconcilerState struct {
 }
 
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
-	return &VMDReconcilerState{
+	state := &VMDReconcilerState{
 		Client: client,
 		VMD: helper.NewResource(
 			name, log, client, cache,
@@ -34,6 +37,13 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 			func(obj *virtv2.VirtualMachineDisk) virtv2.VirtualMachineDiskStatus { return obj.Status },
 		),
 	}
+	state.AttacheeState = vmattachee.NewAttacheeState(
+		state,
+		"vmd",
+		virtv2.FinalizerVMDProtection,
+		state.VMD,
+	)
+	return state
 }
 
 func (state *VMDReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
@@ -106,7 +116,7 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		}
 	}
 
-	return nil
+	return state.AttacheeState.Reload(ctx, req, log, client)
 }
 
 func (state *VMDReconcilerState) ShouldReconcile(_ logr.Logger) bool {

@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -21,11 +20,10 @@ import (
 type CVMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 
-	Client      client.Client
-	CVMI        *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Pod         *corev1.Pod
-	AttachedVMs []*virtv2.VirtualMachine
-	Result      *reconcile.Result
+	Client client.Client
+	CVMI   *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Pod    *corev1.Pod
+	Result *reconcile.Result
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
@@ -41,7 +39,7 @@ func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client c
 	}
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
-		virtv2.ClusterVirtualMachineImageGVK,
+		"cvmi",
 		virtv2.FinalizerCVMIProtection,
 		state.CVMI,
 	)
@@ -136,15 +134,6 @@ func (state *CVMIReconcilerState) HasImporterPodAnno() bool {
 // CanStartImporterPod returns whether CVMI is just created and has no annotations with importer Pod coordinates.
 func (state *CVMIReconcilerState) CanStartImporterPod() bool {
 	return !state.IsReady() && state.HasImporterPodAnno() && state.Pod == nil
-}
-
-// ShouldRemoveProtectionFinalizer returns whether CVMI protection finalizer should be removed
-func (state *CVMIReconcilerState) ShouldRemoveProtectionFinalizer() bool {
-	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMIProtection) && (len(state.AttachedVMs) == 0)
-}
-
-func (state *CVMIReconcilerState) RemoveProtectionFinalizer() {
-	controllerutil.RemoveFinalizer(state.CVMI.Changed(), virtv2.FinalizerCVMIProtection)
 }
 
 func (state *CVMIReconcilerState) HasImporterPod() bool {
