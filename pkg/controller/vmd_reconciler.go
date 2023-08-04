@@ -19,14 +19,26 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
-type VMDReconciler struct{}
+type VMDReconciler struct {
+	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+}
 
-func (r *VMDReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func NewVMDReconciler() *VMDReconciler {
+	return &VMDReconciler{
+		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
+			*virtv2.VirtualMachineDisk,
+			virtv2.VirtualMachineDiskStatus,
+		]("vmd", true),
+	}
+}
+
+func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineDisk{}),
 		&handler.EnqueueRequestForObject{},
@@ -51,10 +63,14 @@ func (r *VMDReconciler) SetupController(_ context.Context, mgr manager.Manager, 
 		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 
-	return nil
+	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
 }
 
 func (r *VMDReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
+		return nil
+	}
+
 	if !state.VMD.Current().ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(state.VMD.Current(), virtv2.FinalizerVMDCleanup) {

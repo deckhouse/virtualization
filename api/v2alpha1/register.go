@@ -14,8 +14,11 @@ const (
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: APIGroup, Version: APIVersion}
 
-// ClusterVirtualMachineImageGVK is group version kind for ClusterVirtualMachineImage.
+// ClusterVirtualMachineImageGVK is group version kind for ClusterVirtualMachineImage
 var ClusterVirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: CVMIKind}
+
+// VirtualMachineDiskGVK is group version kind for VirtualMachineDisk
+var VirtualMachineDiskGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VMDKind}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {

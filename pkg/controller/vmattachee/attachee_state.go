@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -21,23 +20,23 @@ import (
 type AttacheeState[T helper.Object[T, ST], ST any] struct {
 	two_phase_reconciler.ReconcilerState
 
-	GroupVersionKind    schema.GroupVersionKind
+	Kind                string
 	ProtectionFinalizer string
 	AttachedVMs         []*virtv2.VirtualMachine
 	Resource            *helper.Resource[T, ST]
 }
 
-func NewAttacheeState[T helper.Object[T, ST], ST any](reconcilerState two_phase_reconciler.ReconcilerState, gvk schema.GroupVersionKind, protectionFinalizer string, resource *helper.Resource[T, ST]) *AttacheeState[T, ST] {
+func NewAttacheeState[T helper.Object[T, ST], ST any](reconcilerState two_phase_reconciler.ReconcilerState, kind, protectionFinalizer string, resource *helper.Resource[T, ST]) *AttacheeState[T, ST] {
 	return &AttacheeState[T, ST]{
 		ReconcilerState:     reconcilerState,
-		GroupVersionKind:    gvk,
+		Kind:                kind,
 		ProtectionFinalizer: protectionFinalizer,
 		Resource:            resource,
 	}
 }
 
 func (state *AttacheeState[T, ST]) ShouldReconcile(log logr.Logger) bool {
-	log.V(2).Info("AttacheeState ShouldReconcile", "GVK", state.GroupVersionKind, "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
+	log.V(2).Info("AttacheeState ShouldReconcile", "Kind", state.Kind, "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
 	return state.ShouldRemoveProtectionFinalizer()
 }
 
@@ -48,7 +47,7 @@ func (state *AttacheeState[T, ST]) Reload(ctx context.Context, _ reconcile.Reque
 	}
 	state.AttachedVMs = attachedVMs
 
-	log.V(2).Info("Attachee Reload", "GVK", state.GroupVersionKind, "AttachedVMs", attachedVMs)
+	log.V(2).Info("Attachee Reload", "Kind", state.Kind, "AttachedVMs", attachedVMs)
 
 	return nil
 }
@@ -57,7 +56,7 @@ func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client
 	vml := &virtv2.VirtualMachineList{}
 
 	req, err := labels.NewRequirement(
-		MakeAttachedResourceLabelKeyFormat(state.GroupVersionKind.Kind, state.Resource.Name().Name),
+		MakeAttachedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name),
 		selection.Equals,
 		[]string{AttachedLabelValue},
 	)
@@ -74,7 +73,6 @@ func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client
 	return util.ToPointersArray(vml.Items), nil
 }
 
-// ShouldRemoveProtectionFinalizer returns whether CVMI protection finalizer should be removed
 func (state *AttacheeState[T, ST]) ShouldRemoveProtectionFinalizer() bool {
 	return controllerutil.ContainsFinalizer(state.Resource.Current(), state.ProtectionFinalizer) && (len(state.AttachedVMs) == 0)
 }
