@@ -1,20 +1,56 @@
 project: virtualization
 configVersion: 1
 
+# base_images
+{{- $_ := set . "Images" (.Files.Get "image_versions.yml" | fromYaml) }}
+  {{- range $k, $v := .Images }}
+    {{ $baseImagePath := (printf "%s%s" $.Images.REGISTRY_PATH (trimSuffix "/" $v)) }}
+    {{- if ne $k "REGISTRY_PATH" }}
+      {{- $_ := set $.Images $k $baseImagePath }}
+    {{- end }}
+  {{- end }}
+
 # modules_images
 {{- define "module_image_template" }}
-  {{- if eq .ImageInstructionType "Dockerfile" }}
 ---
-image: images/{{ .ImageName }}
-context: images/{{ .ImageName }}
+  {{- if eq .ImageInstructionType "Dockerfile" }}
+image: images/{{ .ComponentName }}/{{ .ImageName }}
+context: images/{{ .ComponentName }}/{{ .ImageName }}
 dockerfile: Dockerfile
+args:
+  BASE_ALPINE: {{ .Images.BASE_ALPINE }}
+  BASE_RUST: {{ .Images.BASE_RUST }}
+  BASE_GOLANG_ALPINE: {{ .Images.BASE_GOLANG_ALPINE }}
+  BASE_GOLANG_16_ALPINE: {{ .Images.BASE_GOLANG_16_ALPINE }}
+  BASE_GOLANG_17_ALPINE: {{ .Images.BASE_GOLANG_17_ALPINE }}
+  BASE_GOLANG_BUSTER: {{ .Images.BASE_GOLANG_BUSTER }}
+  BASE_GOLANG_16_BUSTER: {{ .Images.BASE_GOLANG_16_BUSTER }}
+  BASE_GOLANG_17_BUSTER: {{ .Images.BASE_GOLANG_17_BUSTER }}
+  BASE_GOLANG_18_BULLSEYE: {{ .Images.BASE_GOLANG_18_BULLSEYE }}
+  BASE_GOLANG_18_ALPINE: {{ .Images.BASE_GOLANG_18_ALPINE }}
+  BASE_GOLANG_19_ALPINE: {{ .Images.BASE_GOLANG_19_ALPINE }}
+  BASE_GOLANG_19_BULLSEYE: {{ .Images.BASE_GOLANG_19_BULLSEYE }}
+  BASE_GOLANG_19_BUSTER: {{ .Images.BASE_GOLANG_19_BUSTER }}
+  BASE_GOLANG_20_ALPINE: {{ .Images.BASE_GOLANG_20_ALPINE }}
+  BASE_GOLANG_20_BULLSEYE: {{ .Images.BASE_GOLANG_20_BULLSEYE }}
+  BASE_GOLANG_20_BUSTER: {{ .Images.BASE_GOLANG_20_BUSTER }}
+  BASE_NGINX_ALPINE:  {{ .Images.BASE_NGINX_ALPINE }}
+  BASE_NODE_16_ALPINE: {{ .Images.BASE_NODE_16_ALPINE }}
+  BASE_PYTHON_ALPINE:  {{ .Images.BASE_PYTHON_ALPINE }}
+  BASE_SHELL_OPERATOR: {{ .Images.BASE_SHELL_OPERATOR }}
+  BASE_UBUNTU_BIONIC: {{ .Images.BASE_UBUNTU_BIONIC }}
+  BASE_UBUNTU: {{ .Images.BASE_UBUNTU }}
+  BASE_JEKYLL: {{ .Images.BASE_JEKYLL }}
+  BASE_SCRATCH: {{ .Images.BASE_SCRATCH }}
   {{- else }}
 {{ tpl .ImageBuildData . }}
   {{- end }}
 {{- end }}
 
+{{- $Root := . }}
+
 {{- $ImagesIDList := list }}
-{{ $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
+{{ $ImagesBuildFiles := .Files.Glob "images/*/*/{Dockerfile,werf.inc.yaml}" }}
 {{- range $path, $content := $ImagesBuildFiles  }}
   {{- $ctx := dict }}
   {{- if regexMatch "/werf.inc.yaml$" $path }}
@@ -23,8 +59,10 @@ dockerfile: Dockerfile
     {{- $_ := set $ctx "ImageInstructionType" "Dockerfile" }}
   {{- end }}
   {{- $ImageData := $path | split "/" }}
-  {{- $_ := set $ctx "ImageName" $ImageData._1 }}
+  {{- $_ := set $ctx "ComponentName" $ImageData._1 }}
+  {{- $_ := set $ctx "ImageName" $ImageData._2 }}
   {{- $_ := set $ctx "ImageBuildData" $content }}
+  {{- $_ := set $ctx "Images" $Root.Images }}
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}

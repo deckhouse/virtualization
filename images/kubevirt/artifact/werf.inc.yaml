@@ -2,10 +2,10 @@
 {{- $builderImage := "quay.io/kubevirt/builder:2306070730-a3b45da40" }}
 {{- $version := "1.0.0" }}
 
-artifact: {{ $.ModuleName }}/{{ $.ImageName }}
+artifact: {{ $.ComponentName }}/{{ $.ImageName }}
 from: {{ $builderImage }}
 git:
-  - add: /modules/490-{{ $.ModuleName }}/images/{{ $.ImageName }}
+  - add: /images/{{ $.ComponentName }}/{{ $.ImageName }}
     to: /
     stageDependencies:
       setup:

@@ -1,8 +1,8 @@
 ---
-image: {{ $.ModuleName }}/{{ $.ImageName }}
+image: {{ $.ComponentName }}/{{ $.ImageName }}
 from: {{ $.Images.BASE_SCRATCH }}
 import:
-- artifact: {{ $.ModuleName }}/artifact
+- artifact: {{ $.ComponentName }}/artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest
   excludePaths:
   - 'sys'
