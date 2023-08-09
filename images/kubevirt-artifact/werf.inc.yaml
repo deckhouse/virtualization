@@ -1,11 +1,12 @@
+---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/hack/dockerized#L15
 {{- $builderImage := "quay.io/kubevirt/builder:2306070730-a3b45da40" }}
 {{- $version := "1.0.0" }}
 
-artifact: {{ $.ComponentName }}/{{ $.ImageName }}
+artifact: {{ $.ImageName }}
 from: {{ $builderImage }}
 git:
-  - add: /images/{{ $.ComponentName }}/{{ $.ImageName }}
+  - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
       setup:
