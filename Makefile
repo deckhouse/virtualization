@@ -41,10 +41,6 @@ check-yq:
 check-jq:
 	@which jq >/dev/null || (echo "jq not found. Install it to change package.json"; exit 1)
 
-.PHONY: update-base-images
-update-base-images:
-	curl https://raw.githubusercontent.com/deckhouse/deckhouse/main/candi/image_versions.yml -o image_versions.yml
-
 ##@ Helm lib
 
 .PHONY: helm-update-subcharts
