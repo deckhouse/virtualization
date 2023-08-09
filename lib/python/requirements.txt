@@ -1,0 +1,2 @@
+deckhouse==0.4.5
+dotmap==1.3.30

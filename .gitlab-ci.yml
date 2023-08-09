@@ -1,0 +1,127 @@
+.build:
+  stage: build
+  script:
+    - |
+      export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
+
+      werf build  --report-path images_tags_werf.json
+
+      # Bundle image
+      IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+      REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${REPO}:${CI_COMMIT_REF_NAME}
+      docker image push ${REPO}:${CI_COMMIT_REF_NAME}
+      docker image rmi ${REPO}:${CI_COMMIT_REF_NAME} || true;
+
+      # Release-channel image
+      IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+      REPO="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${REPO}/release:${CI_COMMIT_REF_NAME}
+      docker image push ${REPO}/release:${CI_COMMIT_REF_NAME}
+      docker image rmi ${REPO}/release:${CI_COMMIT_REF_NAME} || true;
+
+      # Register module
+      docker pull spotify/scratch
+      docker image tag spotify/scratch:latest ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
+      docker image push ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
+      docker image rmi ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME} || true
+  tags:
+    - tfprod-distributed-werf
+  only:
+    - tags
+  except:
+    - main
+
+before_script:
+  - |
+    type trdl && . $(trdl use werf 1.2 stable)
+    type werf && source $(werf ci-env gitlab --as-file)
+    # Login to the registry
+    export DOCKER_CONFIG=$(mktemp -d)
+    docker login ${EXTERNAL_MODULES_DEV_REGISTRY} -u ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN} -p ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
+
+stages:
+  - build_dev
+  - build_push
+  - build_ee
+  - build_fe
+  - deploy
+
+Build_EE:
+  stage: build_ee
+  extends: .build
+  variables:
+    EDITION: EE
+
+Build_FE:
+  stage: build_fe
+  extends: .build
+  variables:
+    EDITION: FE
+
+Deploy:
+  stage: deploy
+  script:
+    - |
+      export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:$CHANNEL"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+  tags:
+    - tfprod-distributed-werf
+  parallel:
+    matrix:
+      - EDITION: [FE, EE]
+        CHANNEL: [alpha, beta, early-access, stable]
+  when: manual
+  rules:
+    - if: $EDITION == "FE" && $CHANNEL == "alpha" && $CI_COMMIT_TAG
+      when: always
+    - if: $CI_COMMIT_TAG
+      when: manual
+
+# Dev build:
+#   stage: build_dev
+#   script:
+#     - |
+#       cd images/${APP}
+#       docker build .
+#   parallel:
+#     matrix:
+#       - APP: [agent]
+#   tags:
+#     - tfprod-distributed-werf
+#   only:
+#     - branches
+#   except:
+#     - master
+
+# Dev push:
+#   stage: build_push
+#   script:
+#     - |
+#       export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
+
+#       werf build  --report-path images_tags_werf.json
+
+#       # Bundle image
+#       IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+#       REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
+#       docker pull ${IMAGE_SRC}
+#       docker image tag ${IMAGE_SRC} ${REPO}:${CI_COMMIT_REF_NAME}
+#       docker image push ${REPO}:${CI_COMMIT_REF_NAME}
+#       docker image rmi ${REPO}:${CI_COMMIT_REF_NAME} || true;
+#   when: manual
+#   variables:
+#     EDITION: FE
+#   tags:
+#     - tfprod-distributed-werf
+#   only:
+#     - branches
+#   except:
+#     - main

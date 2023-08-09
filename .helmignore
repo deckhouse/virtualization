@@ -1,0 +1,16 @@
+*.md
+crds
+# charts
+docs
+enabled
+hooks
+images
+images_digests.json
+lib
+Makefile
+monitoring_test
+openapi
+release.yaml
+scripts
+template_tests
+werf*.yaml
