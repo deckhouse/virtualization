@@ -1,13 +1,3 @@
-before_script:
-  - |
-    type trdl && . $(trdl use werf 1.2 stable)
-    type werf && source $(werf ci-env gitlab --as-file)
-    # Login to the registry
-    export DOCKER_CONFIG=$(mktemp -d)
-    if [[ ${EXTERNAL_MODULES_MODULE_NAME} == "" ]]; then export EXTERNAL_MODULES_MODULE_NAME=${CI_PROJECT_NAME}; fi
-    docker login ${EXTERNAL_MODULES_REGISTRY} -u ${EXTERNAL_MODULES_REGISTRY_LOGIN} -p ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
-    export WERF_REPO="${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
-
 stages:
   - build
   - deploy_mr
@@ -16,8 +6,19 @@ stages:
   - deploy_early_access
   - deploy_stable
 
-Build:
-  stage: build
+.before_script:
+  before_script:
+    - |
+      env
+      type trdl && . $(trdl use werf 1.2 stable)
+      type werf && source $(werf ci-env gitlab --as-file)
+      # Login to the registry
+      export DOCKER_CONFIG=$(mktemp -d)
+      if [[ ${MODULE_NAME} == "" ]]; then export MODULE_NAME=${CI_PROJECT_NAME}; fi
+      docker login ${REGISTRY} -u ${REGISTRY_LOGIN} -p ${REGISTRY_PASSWORD}
+      export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
+
+.build_sctipt:
   script:
     - |
       # Build
@@ -48,17 +49,48 @@ Build:
 
       # Register module
       docker pull spotify/scratch
-      docker image tag spotify/scratch:latest ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
-      docker image push ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
-      docker image rmi ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME} || true
+      docker image tag spotify/scratch:latest ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
+      docker image push ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
+      docker image rmi ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME} || true
+
+.prod_vars:
+  variables:
+    REGISTRY: ${EXTERNAL_MODULES_REGISTRY}
+    REGISTRY_PATH: ${EXTERNAL_MODULES_REGISTRY_PATH}
+    REGISTRY_LOGIN: ${EXTERNAL_MODULES_REGISTRY_LOGIN}
+    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
+    MODULE_NAME: ${EXTERNAL_MODULE_NAME}
+
+.dev_vars:
+  variables:
+    REGISTRY: ${EXTERNAL_MODULES_DEV_REGISTRY}
+    REGISTRY_PATH: ${EXTERNAL_MODULES_DEV_REGISTRY_PATH}
+    REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
+    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
+    MODULE_NAME: ${EXTERNAL_MODULE_NAME}
+
+build_prod:
+  stage: build
+  extends:
+  - .prod_vars
+  - .before_script
+  - .build_sctipt
   tags:
     - tfprod-distributed-werf
   only:
     - tags
-    - branches
+
+build_dev:
+  stage: build
+  extends:
+  - .dev_vars
+  - .before_script
+  - .build_sctipt
+  tags:
+    - tfprod-distributed-werf
+  only:
     - merge_requests
-  except:
-    - main
+  when: manual
 
 Deploy to the MR IID channel:
   stage: deploy_mr
