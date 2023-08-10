@@ -1,9 +1,33 @@
-.build:
+before_script:
+  - |
+    type trdl && . $(trdl use werf 1.2 stable)
+    type werf && source $(werf ci-env gitlab --as-file)
+    # Login to the registry
+    export DOCKER_CONFIG=$(mktemp -d)
+    if [[ ${EXTERNAL_MODULES_MODULE_NAME} == "" ]]; then export EXTERNAL_MODULES_MODULE_NAME=${CI_PROJECT_NAME}; fi
+    docker login ${EXTERNAL_MODULES_REGISTRY} -u ${EXTERNAL_MODULES_REGISTRY_LOGIN} -p ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
+    export WERF_REPO="${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
+
+stages:
+  - build
+  - deploy_mr
+  - deploy_alpha
+  - deploy_beta
+  - deploy_early_access
+  - deploy_stable
+
+Build:
   stage: build
   script:
     - |
-      export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
-
+      # Build
+      helm repo add deckhouse https://deckhouse.github.io/lib-helm
+      helm repo update
+      helm dep update
+      git config --global user.email "you@example.com"
+      git config --global user.name "github_username"
+      git add charts/
+      git commit -am "helm_lib"
       werf build  --report-path images_tags_werf.json
 
       # Bundle image
@@ -24,104 +48,102 @@
 
       # Register module
       docker pull spotify/scratch
-      docker image tag spotify/scratch:latest ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
-      docker image push ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
-      docker image rmi ${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME} || true
+      docker image tag spotify/scratch:latest ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
+      docker image push ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME}
+      docker image rmi ${EXTERNAL_MODULES_REGISTRY}/${EXTERNAL_MODULES_REGISTRY_PATH}:${EXTERNAL_MODULES_MODULE_NAME} || true
   tags:
     - tfprod-distributed-werf
   only:
     - tags
+    - branches
+    - merge_requests
   except:
     - main
 
-before_script:
-  - |
-    type trdl && . $(trdl use werf 1.2 stable)
-    type werf && source $(werf ci-env gitlab --as-file)
-    # Login to the registry
-    export DOCKER_CONFIG=$(mktemp -d)
-    docker login ${EXTERNAL_MODULES_DEV_REGISTRY} -u ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN} -p ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
-
-stages:
-  - build_dev
-  - build_push
-  - build_ee
-  - build_fe
-  - deploy
-
-Build_EE:
-  stage: build_ee
-  extends: .build
-  variables:
-    EDITION: EE
-
-Build_FE:
-  stage: build_fe
-  extends: .build
-  variables:
-    EDITION: FE
-
-Deploy:
-  stage: deploy
+Deploy to the MR IID channel:
+  stage: deploy_mr
   script:
     - |
-      export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
       IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:$CHANNEL"
+      IMAGE_DST="${WERF_REPO}/release:mr${CI_MERGE_REQUEST_IID}"
       docker pull ${IMAGE_SRC}
       docker image tag ${IMAGE_SRC} ${IMAGE_DST}
       docker image push ${IMAGE_DST}
       docker image rmi ${IMAGE_DST} || true;
   tags:
     - tfprod-distributed-werf
-  parallel:
-    matrix:
-      - EDITION: [FE, EE]
-        CHANNEL: [alpha, beta, early-access, stable]
+  only:
+    - merge_requests
   when: manual
-  rules:
-    - if: $EDITION == "FE" && $CHANNEL == "alpha" && $CI_COMMIT_TAG
-      when: always
-    - if: $CI_COMMIT_TAG
-      when: manual
 
-# Dev build:
-#   stage: build_dev
-#   script:
-#     - |
-#       cd images/${APP}
-#       docker build .
-#   parallel:
-#     matrix:
-#       - APP: [agent]
-#   tags:
-#     - tfprod-distributed-werf
-#   only:
-#     - branches
-#   except:
-#     - master
+Deploy to the alpha channel:
+  stage: deploy_alpha
+  script:
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:alpha"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+  tags:
+    - tfprod-distributed-werf
+  only:
+    - tags
+  except:
+    - main
+  when: manual
 
-# Dev push:
-#   stage: build_push
-#   script:
-#     - |
-#       export WERF_REPO="${EXTERNAL_MODULES_DEV_REGISTRY}/deckhouse/${EDITION,,}/${EXTERNAL_MODULES_DEV_REGISTRY_PATH}/${EXTERNAL_MODULES_MODULE_NAME}"
+Deploy to the beta channel:
+  stage: deploy_beta
+  script:
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:beta"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+  tags:
+    - tfprod-distributed-werf
+  only:
+    - tags
+  except:
+    - main
+  when: manual
 
-#       werf build  --report-path images_tags_werf.json
+Deploy to the early-access channel:
+  stage: deploy_early_access
+  script:
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:early-access"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+  tags:
+    - tfprod-distributed-werf
+  only:
+    - tags
+  except:
+    - main
+  when: manual
 
-#       # Bundle image
-#       IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-#       REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
-#       docker pull ${IMAGE_SRC}
-#       docker image tag ${IMAGE_SRC} ${REPO}:${CI_COMMIT_REF_NAME}
-#       docker image push ${REPO}:${CI_COMMIT_REF_NAME}
-#       docker image rmi ${REPO}:${CI_COMMIT_REF_NAME} || true;
-#   when: manual
-#   variables:
-#     EDITION: FE
-#   tags:
-#     - tfprod-distributed-werf
-#   only:
-#     - branches
-#   except:
-#     - main
+Deploy to the stable channel:
+  stage: deploy_stable
+  script:
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:stable"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+  tags:
+    - tfprod-distributed-werf
+  only:
+    - tags
+  except:
+    - main
+  when: manual
