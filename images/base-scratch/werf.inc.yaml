@@ -1,3 +1,3 @@
 ---
 image: {{ $.ImageName }}
-from: spotify/scratch
+from: spotify/scratch@sha256:db4cabf15c8b9eb70dabe1da385b6d9b2cac6d658b813fbb57dc5231ddd52420
