@@ -2,3 +2,7 @@ giterminismConfigVersion: 1
 config:
   goTemplateRendering:	# The rules for the Go-template functions
     allowEnvVariables: [ /CI_.+/ ]
+helm:
+  allowUncommittedFiles:
+  - "Chart.lock"
+  - "charts/*.tgz"

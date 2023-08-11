@@ -39,3 +39,6 @@ __pycache__/
 *$py.class
 .pytest_cache/
 /lib/python/dist/
+
+charts/*.tgz
+Chart.lock

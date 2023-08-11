@@ -23,13 +23,7 @@ default:
   script:
     - |
       # Build
-      helm repo add deckhouse https://deckhouse.github.io/lib-helm
-      helm repo update
-      helm dep update
-      # git config --global user.email "you@example.com"
-      # git config --global user.name "github_username"
-      # git add charts/
-      # git commit -am "helm_lib"
+      werf helm dep update
       werf build  --report-path images_tags_werf.json
 
       # Bundle image
