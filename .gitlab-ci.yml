@@ -1,17 +1,18 @@
 stages:
   - build
-  - deploy_mr
-  - deploy_alpha
-  - deploy_beta
-  - deploy_early_access
-  - deploy_stable
+  - deploy_dev
+  - deploy_prod
+
+default:
+  tags:
+    - tfprod-distributed-werf
 
 .before_script:
   before_script:
     - |
-      env
       type trdl && . $(trdl use werf 1.2 stable)
       type werf && source $(werf ci-env gitlab --as-file)
+
       # Login to the registry
       export DOCKER_CONFIG=$(mktemp -d)
       if [[ ${MODULE_NAME} == "" ]]; then export MODULE_NAME=${CI_PROJECT_NAME}; fi
@@ -53,129 +54,81 @@ stages:
       docker image push ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
       docker image rmi ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME} || true
 
-.prod_vars:
+.deploy_script:
+  script:
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
+      IMAGE_DST="${WERF_REPO}/release:${RELEASE_CHANNEL}"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+
+# PROD registry
+.prod_registry_vars:
   variables:
     REGISTRY: ${EXTERNAL_MODULES_REGISTRY}
     REGISTRY_PATH: ${EXTERNAL_MODULES_REGISTRY_PATH}
     REGISTRY_LOGIN: ${EXTERNAL_MODULES_REGISTRY_LOGIN}
     REGISTRY_PASSWORD: ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
-    MODULE_NAME: ${EXTERNAL_MODULE_NAME}
 
-.dev_vars:
+# DEV registry
+.dev_registry_vars:
   variables:
     REGISTRY: ${EXTERNAL_MODULES_DEV_REGISTRY}
     REGISTRY_PATH: ${EXTERNAL_MODULES_DEV_REGISTRY_PATH}
     REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
     REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
-    MODULE_NAME: ${EXTERNAL_MODULE_NAME}
+
+.prod_rules:
+  only:
+    - tags
+  except:
+    - main
+  when: manual
+
+.dev_rules:
+  only:
+    - merge_requests
+  when: manual
 
 build_prod:
   stage: build
   extends:
-  - .prod_vars
-  - .before_script
-  - .build_sctipt
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - tags
+    - .prod_registry_vars
+    - .before_script
+    - .build_sctipt
+    - .prod_rules
 
 build_dev:
   stage: build
   extends:
-  - .dev_vars
-  - .before_script
-  - .build_sctipt
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - merge_requests
-  when: manual
+    - .dev_registry_vars
+    - .before_script
+    - .build_sctipt
+    - .dev_rules
 
-Deploy to the MR IID channel:
-  stage: deploy_mr
-  script:
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:mr${CI_MERGE_REQUEST_IID}"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - merge_requests
-  when: manual
+deploy_to_dev_channel:
+  stage: deploy_dev
+  variables:
+    RELEASE_CHANNEL: mr${CI_MERGE_REQUEST_IID}
+  extends:
+    - .dev_registry_vars
+    - .before_script
+    - .deploy_script
+    - .dev_rules
 
-Deploy to the alpha channel:
-  stage: deploy_alpha
-  script:
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:alpha"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - tags
-  except:
-    - main
-  when: manual
-
-Deploy to the beta channel:
-  stage: deploy_beta
-  script:
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:beta"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - tags
-  except:
-    - main
-  when: manual
-
-Deploy to the early-access channel:
-  stage: deploy_early_access
-  script:
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:early-access"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - tags
-  except:
-    - main
-  when: manual
-
-Deploy to the stable channel:
-  stage: deploy_stable
-  script:
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${CI_COMMIT_REF_NAME}"
-      IMAGE_DST="${WERF_REPO}/release:stable"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-  tags:
-    - tfprod-distributed-werf
-  only:
-    - tags
-  except:
-    - main
-  when: manual
+deploy_to_prod_channels:
+  stage: deploy_prod
+  extends:
+    - .prod_registry_vars
+    - .before_script
+    - .prod_rules
+    - .deploy_script
+  parallel:
+    matrix:
+      - RELEASE_CHANNEL:
+          - alpha
+          - beta
+          - early-access
+          - stable
