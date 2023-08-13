@@ -24,7 +24,7 @@ default:
     - |
       # Build
       werf helm dep update
-      werf build  --report-path images_tags_werf.json
+      werf build --save-build-report --build-report-path images_tags_werf.json
 
       # Bundle image
       IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
