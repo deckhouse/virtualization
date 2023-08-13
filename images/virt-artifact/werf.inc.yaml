@@ -23,3 +23,8 @@ shell:
   - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
   - tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
   - mkdir -p /images && cd /images && /unpack-bundle.sh /virt-components-bundle/
+  # reduce image size (~17Gb)
+  - rm -rf /root/.cache
+  - rm -rf /virt-components-bundle
+  - rm -rf /kubevirt
+  - rm -rf /tmp/*
