@@ -12,7 +12,6 @@ default:
     - |
       type trdl && . $(trdl use werf 1.2 stable)
       type werf && source $(werf ci-env gitlab --as-file)
-
       # Login to the registry
       export DOCKER_CONFIG=$(mktemp -d)
       if [[ ${MODULE_NAME} == "" ]]; then export MODULE_NAME=${CI_PROJECT_NAME}; fi
