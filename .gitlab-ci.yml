@@ -16,6 +16,9 @@ default:
       export DOCKER_CONFIG=$(mktemp -d)
       if [[ ${MODULE_NAME} == "" ]]; then export MODULE_NAME=${CI_PROJECT_NAME}; fi
       docker login ${REGISTRY} -u ${REGISTRY_LOGIN} -p ${REGISTRY_PASSWORD}
+
+      # {     REGISTGRY     }{ PATH }{ MODULE_NAME }
+      # registry.example.com/modules/virtualization
       export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
 
 .build_sctipt:
@@ -25,23 +28,36 @@ default:
       werf helm dep update
       werf build --save-build-report --build-report-path images_tags_werf.json
 
-      # Bundle image
+      # Bundle image ===================================================================================================
+
+      # IMAGE_SRC registry.example.com/modules/virtualization:52cd3d08aded45c0ad260e8118b9e77a026c12a7def3ef7f9bd7bdb5-1691940564755
       IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+
+      # REPO registry.example.com/modules/virtualization
       REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
+
+      # registry.example.com/modules/virtualization:${CI_COMMIT_REF_NAME}
       docker pull ${IMAGE_SRC}
       docker image tag ${IMAGE_SRC} ${REPO}:${CI_COMMIT_REF_NAME}
       docker image push ${REPO}:${CI_COMMIT_REF_NAME}
       docker image rmi ${REPO}:${CI_COMMIT_REF_NAME} || true;
 
-      # Release-channel image
+      # Release-channel image ==========================================================================================
+
+      # IMAGE_SRC registry.example.com/modules/virtualization:0f6fe98c4087bddfb8c7afe262f0bc529c23c86a345db1de193f711f-1691937185066
       IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+
+      # REPO registry.example.com/modules/virtualization
       REPO="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)"
+
+      # registry.example.com/modules/virtualization/release:${CI_COMMIT_REF_NAME}
       docker pull ${IMAGE_SRC}
       docker image tag ${IMAGE_SRC} ${REPO}/release:${CI_COMMIT_REF_NAME}
       docker image push ${REPO}/release:${CI_COMMIT_REF_NAME}
       docker image rmi ${REPO}/release:${CI_COMMIT_REF_NAME} || true;
 
-      # Register module
+      # Register module ================================================================================================
+      # registry.example.com/modules/virtualization
       docker pull spotify/scratch
       docker image tag spotify/scratch:latest ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
       docker image push ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
