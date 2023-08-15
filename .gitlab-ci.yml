@@ -35,11 +35,12 @@ default:
       echo "${PROJECT_TAGS_URL}"
       curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .
 
+      # Hack to generate a tag for the dev version. Check if CI_COMMIT_REF_NAME matches semver. If not, we get the last tag via gitlab API, add the hash of the last commit to it and override CI_COMMIT_REF_NAME.
 
       if ! [[ $CI_COMMIT_REF_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "CI_COMMIT_REF_NAME is not semver, getting the latest tag and generate dev version"
           latest_tag=$(curl -sq -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .[0].name -r)
-          dev_version="${latest_tag}-${CI_COMMIT_SHA}"
+          dev_version="${latest_tag}-${CI_COMMIT_SHORT_SHA}"
           echo "${dev_version}"
           export CI_COMMIT_REF_NAME=${dev_version}
       fi
