@@ -178,3 +178,4 @@ show_channel_info:
         version: 1
     EOF
   - env | grep CI
+  - git describe --tags $(git rev-list --tags --max-count=1)
