@@ -17,18 +17,21 @@ default:
   - export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
 
 before_script:
-  - type trdl && . $(trdl use werf 1.2 stable)
-  - type werf && source $(werf ci-env gitlab --as-file)
   - |
+    type trdl && . $(trdl use werf 1.2 stable)
+    type werf && source $(werf ci-env gitlab --as-file)
+
     if [[ ${MODULE_NAME} == "" ]]; then
       export MODULE_NAME=${CI_PROJECT_NAME};
     fi
-  - |
+    echo "Module name: ${MODULE_NAME}"
+
     # Hack to generate a tag for the dev version. Check if CI_COMMIT_REF_NAME matches semver. If not, we get the last tag via gitlab API, add the hash of the last commit to it and override CI_COMMIT_REF_NAME.
 
+    PROJECT_TAGS_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags"
     if ! [[ $CI_COMMIT_REF_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "CI_COMMIT_REF_NAME is not semver, getting the latest tag and generate dev version"
-        latest_tag=$(curl -sq -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .[0].name -r)
+        latest_tag=$(curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .[0].name -r)
         dev_version="${latest_tag}-${CI_COMMIT_SHORT_SHA}"
         echo "${dev_version}"
         export CI_COMMIT_REF_NAME=${dev_version}
