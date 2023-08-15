@@ -176,6 +176,10 @@ show_module_manifest:
     - .dev_rules
   script:
   - |
+      if [[ ${MODULE_NAME} == "" ]]; then
+        export MODULE_NAME=${CI_PROJECT_NAME};
+      fi
+  - |
     cat << EOF
       ---
       apiVersion: deckhouse.io/v1alpha1
