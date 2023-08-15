@@ -100,7 +100,7 @@ default:
 .dev_rules:
   only:
     - merge_requests
-  when: manual
+  when: always
 
 build_prod:
   stage: build
