@@ -167,7 +167,7 @@ deploy_to_prod_channels:
           - early-access
           - stable
 
-show_channel_info:
+show_module_manifest:
   stage: info_dev
   variables:
     RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
@@ -197,5 +197,3 @@ show_channel_info:
         settings: {}
         version: 1
     EOF
-  - env | grep CI
-  - git describe --tags $(git rev-list --tags --max-count=1)
