@@ -2,6 +2,7 @@ stages:
   - build
   - deploy_dev
   - deploy_prod
+  - info_dev
 
 default:
   tags:
@@ -143,7 +144,7 @@ deploy_to_prod_channels:
           - stable
 
 show_channel_info:
-  stage: deploy_dev
+  stage: info_dev
   variables:
     RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
   extends:
@@ -151,6 +152,7 @@ show_channel_info:
     - .dev_rules
   script: |
     cat << EOF
+      ---
       apiVersion: deckhouse.io/v1alpha1
       kind: ExternalModuleSource
       metadata:
@@ -160,4 +162,13 @@ show_channel_info:
         registry:
           repo: ${REGISTRY}/${REGISTRY_PATH}
           dockerCfg: <base64 encoded credentials>
+      ---
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ModuleConfig
+      metadata:
+        name: ${MODULE_NAME}
+      spec:
+        enabled: true
+        settings: {}
+        version: 1
     EOF
