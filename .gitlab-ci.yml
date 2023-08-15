@@ -4,6 +4,9 @@ stages:
   - deploy_prod
   - info_dev
 
+variables:
+  GIT_STRATEGY: clone
+
 default:
   tags:
     - tfprod-distributed-werf
@@ -25,6 +28,22 @@ default:
       # {     REGISTGRY     }{ PATH }{ MODULE_NAME }
       # registry.example.com/modules/virtualization
       export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
+
+
+      PROJECT_TAGS_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/repository/tags"
+
+      echo "${PROJECT_TAGS_URL}"
+      curl -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .
+
+
+      if ! [[ $CI_COMMIT_REF_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "CI_COMMIT_REF_NAME is not semver, getting the latest tag and generate dev version"
+          latest_tag=$(curl -sq -H "PRIVATE-TOKEN: $GITLAB_API_TOKEN" "${PROJECT_TAGS_URL}" | jq .[0].name -r)
+          dev_version="${latest_tag}-${CI_COMMIT_SHA}"
+          echo "${dev_version}"
+          export CI_COMMIT_REF_NAME=${dev_version}
+      fi
+
 
 .build_sctipt:
   script:
