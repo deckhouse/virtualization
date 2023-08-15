@@ -161,7 +161,7 @@ show_channel_info:
         releaseChannel: ${RELEASE_CHANNEL}
         registry:
           repo: ${REGISTRY}/${REGISTRY_PATH}
-          dockerCfg: <base64 encoded credentials>
+          dockerCfg: <base64 encoded credentials for ${REGISTRY}>
       ---
       apiVersion: deckhouse.io/v1alpha1
       kind: ModuleConfig
