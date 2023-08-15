@@ -120,7 +120,7 @@ build_dev:
 deploy_to_dev_channel:
   stage: deploy_dev
   variables:
-    RELEASE_CHANNEL: mr${CI_MERGE_REQUEST_IID}
+    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
   extends:
     - .dev_registry_vars
     - .before_script
@@ -141,3 +141,23 @@ deploy_to_prod_channels:
           - beta
           - early-access
           - stable
+
+show_channel_info:
+  stage: deploy_dev
+  variables:
+    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
+  extends:
+    - .dev_registry_vars
+    - .dev_rules
+  script: |
+    cat << EOF
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ExternalModuleSource
+      metadata:
+        name: ${MODULE_NAME}
+      spec:
+        releaseChannel: ${RELEASE_CHANNEL}
+        registry:
+          repo: ${REGISTRY}/${REGISTRY_PATH}
+          dockerCfg: <base64 encoded credentials>
+    EOF
