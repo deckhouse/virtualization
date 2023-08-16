@@ -59,10 +59,6 @@ func (state *VMReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
 }
 
-func (state *VMReconcilerState) ShouldApplyUpdateStatus() bool {
-	return state.VM.IsStatusChanged()
-}
-
 func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, _ client.Client) error {
 	if err := state.VM.Fetch(ctx); err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
@@ -326,4 +322,11 @@ func (state *VMReconcilerState) BlockDevicesReady() bool {
 	}
 
 	return true
+}
+
+func (state *VMReconcilerState) GetKVVMErrors() (res []error) {
+	if state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable {
+		res = append(res, fmt.Errorf("%s", virtv1.VirtualMachineStatusUnschedulable))
+	}
+	return
 }

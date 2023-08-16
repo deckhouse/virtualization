@@ -67,10 +67,6 @@ func (state *CVMIReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
 }
 
-func (state *CVMIReconcilerState) ShouldApplyUpdateStatus() bool {
-	return state.CVMI.IsStatusChanged()
-}
-
 func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
 	if err := state.CVMI.Fetch(ctx); err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)

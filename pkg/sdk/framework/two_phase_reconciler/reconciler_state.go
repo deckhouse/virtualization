@@ -20,7 +20,6 @@ type ReconcilerState interface {
 
 	Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error
 	ShouldReconcile(log logr.Logger) bool
-	ShouldApplyUpdateStatus() bool
 }
 
 type ReconcilerStateApplier interface {

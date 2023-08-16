@@ -49,14 +49,6 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 		syncErr := r.sync(ctx, req, state)
 		resErr = syncErr
 		res = state.GetReconcilerResult()
-		if state.ShouldApplyUpdateStatus() {
-			r.Log.Info("sync phase: after-sync status update")
-			if err := state.ApplyUpdateStatus(ctx, r.Log); err != nil {
-				return reconcile.Result{}, fmt.Errorf("apply update status failed: %w", err)
-			}
-		} else {
-			r.Log.Info("sync phase: skip after-sync status update")
-		}
 		r.Log.Info("sync phase end")
 	}
 

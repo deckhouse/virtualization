@@ -35,8 +35,7 @@ func NewAttacheeReconciler[T helper.Object[T, ST], ST any](kind string, isNamesp
 
 func (r *AttacheeReconciler[T, ST]) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	matchAttacheeKindFunc := func(k, _ string) bool {
-		n, isAttachee := ExtractAttachedResourceName(r.Kind, k)
-		ctr.GetLogger().Info(fmt.Sprintf("HELLO! ExtractAttachedResourceName for %q %q -> %q %v", r.Kind, k, n, isAttachee))
+		_, isAttachee := ExtractAttachedResourceName(r.Kind, k)
 		return isAttachee
 	}
 
@@ -45,20 +44,14 @@ func (r *AttacheeReconciler[T, ST]) SetupController(_ context.Context, mgr manag
 		handler.EnqueueRequestsFromMapFunc(r.enqueueAttacheeRequestsFromVM),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				r := common.HasLabel(e.Object.GetLabels(), matchAttacheeKindFunc)
-				ctr.GetLogger().Info(fmt.Sprintf("HELLO! CreateFunc -> %v", r))
-				return r
+				return common.HasLabel(e.Object.GetLabels(), matchAttacheeKindFunc)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				r := common.HasLabel(e.Object.GetLabels(), matchAttacheeKindFunc)
-				ctr.GetLogger().Info(fmt.Sprintf("HELLO! DeleteFunc -> %v", r))
-				return r
+				return common.HasLabel(e.Object.GetLabels(), matchAttacheeKindFunc)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				r := common.HasLabel(e.ObjectOld.GetLabels(), matchAttacheeKindFunc) ||
+				return common.HasLabel(e.ObjectOld.GetLabels(), matchAttacheeKindFunc) ||
 					common.HasLabel(e.ObjectNew.GetLabels(), matchAttacheeKindFunc)
-				ctr.GetLogger().Info(fmt.Sprintf("HELLO! UpdateFunc -> %v", r))
-				return r
 			},
 		},
 	); err != nil {
