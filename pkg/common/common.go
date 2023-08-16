@@ -16,10 +16,22 @@ const (
 
 	// ImporterPodNamePrefix provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodNamePrefix = "importer"
-	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pods.
+	// ImporterContainerName provides a constant to use as a name for importer Container
+	ImporterContainerName = "importer"
+	// UploaderPodNamePrefix provides a constant to use as a prefix for uploader Pods created by CDI (controller only)
+	UploaderPodNamePrefix = "uploader"
+	// UploaderContainerName provides a constant to use as a name for uploader Container
+	UploaderContainerName = "uploader"
+	// UploaderServiceNamePrefix provides a constant to use as a prefix for uploader Service
+	UploaderServiceNamePrefix = "uploader-svc"
+	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
+	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
+	UploaderPodImageNameVar = "UPLOADER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
+	// UploaderCertDir is where the configmap containing certs will be mounted
+	UploaderCertDir = "/certs"
 	// ImporterCABundleDir is where the configmap containing certs from dataSource.http.caBundle field will be mounted
 	ImporterCABundleDir = "/ca-bundle"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted
@@ -116,6 +128,13 @@ const (
 	ImporterDestinationEndpoint    = "IMPORTER_DESTINATION_ENDPOINT"
 	ImporterDestinationAccessKeyID = "IMPORTER_DESTINATION_ACCESS_KEY_ID"
 	ImporterDestinationSecretKey   = "IMPORTER_DESTINATION_SECRET_KEY"
+
+	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
+	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
+	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
+	UploaderDestinationAuthConfigDir  = "/ghcr-io-auth"
+	UploaderDestinationAuthConfigFile = "/ghcr-io-auth/.dockerconfigjson"
+	UploaderSecretExtraHeadersDir     = "/extraheaders"
 
 	// ImporterGoogleCredentialFileVar provides a constant to capture our env variable "GOOGLE_APPLICATION_CREDENTIALS"
 	ImporterGoogleCredentialFileVar = "GOOGLE_APPLICATION_CREDENTIALS"

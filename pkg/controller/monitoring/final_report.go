@@ -1,4 +1,4 @@
-package importer
+package monitoring
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ func (r *FinalReport) UnpackedSize() string {
 	return humanize.Bytes(r.UnpackedSizeBytes)
 }
 
-func GetFinalImporterReport(pod *corev1.Pod) (*FinalReport, error) {
+func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 	if pod != nil && len(pod.Status.ContainerStatuses) > 0 &&
 		pod.Status.ContainerStatuses[0].State.Terminated != nil {
 		message := pod.Status.ContainerStatuses[0].State.Terminated.Message

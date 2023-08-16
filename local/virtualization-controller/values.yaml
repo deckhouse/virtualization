@@ -1,6 +1,7 @@
 images:
   controller: k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest
   importer: k3d-registry.virtualization-controller.test:5000/registry-importer:latest
+  uploader: k3d-registry.virtualization-controller.test:5000/registry-uploader:latest
 dvcr:
   ## Change to your registry:
   # registry: "ghcr.io/USERNAME"
