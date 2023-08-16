@@ -65,10 +65,6 @@ func (state *VMDReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
 }
 
-func (state *VMDReconcilerState) ShouldApplyUpdateStatus() bool {
-	return state.VMD.IsStatusChanged()
-}
-
 func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
 	if err := state.VMD.Fetch(ctx); err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)

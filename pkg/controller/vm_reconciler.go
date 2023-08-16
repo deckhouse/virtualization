@@ -105,7 +105,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
 		} else {
 			// FIXME(VM): This will be changed for effective-spec logic implementation
-
 			kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
 				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 				OsType:                    state.VM.Current().Spec.OsType,
@@ -136,6 +135,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -173,6 +173,13 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	switch state.VM.Changed().Status.Phase {
 	case virtv2.MachinePending:
 	case virtv2.MachineScheduling:
+		if errs := state.GetKVVMErrors(); len(errs) > 0 {
+			state.VM.Changed().Status.Phase = virtv2.MachineFailed
+			for _, err := range errs {
+				opts.Log.Error(err, "KVVM failure", "kvvm", state.KVVM.Name)
+			}
+		}
+
 	case virtv2.MachineRunning:
 		if state.KVVMI != nil {
 			state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
