@@ -1,4 +1,4 @@
-package monitoring
+package importer
 
 import (
 	"crypto/tls"
@@ -21,7 +21,7 @@ type ImportProgress struct {
 	currentSpeed uint64
 }
 
-func GetImportProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress, error) {
+func ProgressFromPod(ownerUID string, pod *corev1.Pod) (*ImportProgress, error) {
 	httpClient = BuildHTTPClient(httpClient)
 	url, err := GetMetricsURL(pod)
 	if err != nil {

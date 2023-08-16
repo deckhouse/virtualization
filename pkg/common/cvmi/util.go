@@ -11,8 +11,8 @@ func MakeOwnerReference(cvmi *virtv2alpha1.ClusterVirtualMachineImage) metav1.Ow
 	blockOwnerDeletion := true
 	isController := true
 	return metav1.OwnerReference{
-		APIVersion:         virtv2alpha1.ClusterVirtualMachineImageGVK.GroupVersion().String(),
-		Kind:               virtv2alpha1.ClusterVirtualMachineImageGVK.Kind,
+		APIVersion:         virtv2alpha1.APIVersion,
+		Kind:               virtv2alpha1.CVMIKind,
 		Name:               cvmi.Name,
 		UID:                cvmi.GetUID(),
 		BlockOwnerDeletion: &blockOwnerDeletion,
