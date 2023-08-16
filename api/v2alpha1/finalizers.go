@@ -5,6 +5,7 @@ const (
 	FinalizerPVCProtection = "virtualization.deckhouse.io/pvc-protection"
 	FinalizerPVProtection  = "virtualization.deckhouse.io/pv-protection"
 	FinalizerVMDCleanup    = "virtualization.deckhouse.io/vmd-cleanup"
+	FinalizerVMICleanup    = "virtualization.deckhouse.io/vmi-cleanup"
 
 	FinalizerVMIProtection  = "virtualization.deckhouse.io/vmi-protection"
 	FinalizerCVMIProtection = "virtualization.deckhouse.io/cvmi-protection"

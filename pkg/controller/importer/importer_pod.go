@@ -9,11 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	common "github.com/deckhouse/virtualization-controller/pkg/common"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 const (
@@ -403,4 +405,23 @@ func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
 	}
 
 	return ""
+}
+
+func FindImporterPod(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Pod, error) {
+	// Extract namespace and name of the importer Pod from annotations.
+	podName := obj.GetAnnotations()[cc.AnnImportPodName]
+	if podName == "" {
+		return nil, nil
+	}
+
+	// Get namespace from annotations (for cluster-wide resources, e.g. ClusterVirtualMachineImage).
+	// Default is namespace of the input object.
+	podNS := obj.GetAnnotations()[cc.AnnImportPodNamespace]
+	if podNS == "" {
+		podNS = obj.GetNamespace()
+	}
+
+	objName := types.NamespacedName{Name: podName, Namespace: podNS}
+
+	return helper.FetchObject(ctx, objName, client, &corev1.Pod{})
 }

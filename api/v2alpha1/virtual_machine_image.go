@@ -30,13 +30,22 @@ type VirtualMachineImageList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	// Items provides a list of CDIs
-	Items []ClusterVirtualMachineImage `json:"items"`
+	Items []VirtualMachineImage `json:"items"`
 }
 
 type VirtualMachineImageSpec struct {
-	DataSource DataSource `json:"dataSource"`
+	Storage               StorageType                         `json:"storage"`
+	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
+	DataSource            DataSource                          `json:"dataSource"`
 }
 
 type VirtualMachineImageStatus struct {
 	ImageStatus `json:",inline"`
 }
+
+type StorageType string
+
+const (
+	StorageContainerRegistry StorageType = "ContainerRegistry"
+	StorageKubernetes        StorageType = "Kubernetes"
+)

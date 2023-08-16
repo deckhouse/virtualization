@@ -147,6 +147,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if _, err := controller.NewVMIController(ctx, mgr, log, importerImage, dvcrSettings); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 	if _, err := controller.NewVMController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)

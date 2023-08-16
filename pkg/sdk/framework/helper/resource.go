@@ -128,7 +128,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 
 		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
 	} else {
-		r.log.V(2).Info("UpdateStatus status update skipped: status not changed", "current obj", r.currentObj, "changed obj", r.changedObj)
+		r.log.V(2).Info("UpdateStatus skipped: no changes", "currentObj.Status", r.getObjStatus(r.currentObj))
 	}
 	return nil
 }

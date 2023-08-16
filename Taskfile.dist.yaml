@@ -4,6 +4,7 @@ silent: true
 
 includes:
   cvmi: Taskfile.cvmi.yaml
+  vmi: Taskfile.vmi.yaml
   my:
     taskfile: Taskfile.my.yaml
     optional: true

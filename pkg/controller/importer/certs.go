@@ -23,7 +23,7 @@ func NewCABundleSettings(caBundle, caBundleConfigMapName string) *CABundleSettin
 	}
 }
 
-// PrepareCABundleConfigMap returns a ConfigMap resource with certificates from caBundle string.
+// makeCABundleConfigMap returns a ConfigMap resource with certificates from caBundle string.
 // ConfigMap is used for VirtualMachineDisk to be compatible with CDI DataVolume.
 func makeCABundleConfigMap(pod *corev1.Pod, settings *CABundleSettings) *corev1.ConfigMap {
 	return &corev1.ConfigMap{

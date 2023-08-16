@@ -167,6 +167,8 @@ const (
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
 
+	AnnVMIDataVolume = AnnAPIGroup + "/vmi.data-volume"
+
 	// ErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (reason)
 	ErrStartingPod = "ErrStartingPod"
 	// MessageErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (message)
@@ -231,6 +233,13 @@ func ShouldDeletePod(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
 	return cvmi.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || cvmi.DeletionTimestamp != nil
 }
 
+func ShouldDeleteImporterPod(obj metav1.Object) bool {
+	if len(obj.GetAnnotations()) == 0 {
+		return false
+	}
+	return obj.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || obj.GetDeletionTimestamp() != nil
+}
+
 // AddFinalizer adds a finalizer to a resource
 func AddFinalizer(obj metav1.Object, name string) {
 	if HasFinalizer(obj, name) {
@@ -284,7 +293,7 @@ func AddLabel(obj metav1.Object, key, value string) {
 
 // HandleFailedPod handles pod-creation errors and updates the CVMI without providing sensitive information.
 // TODO make work with VirtualMachineImage object.
-func HandleFailedPod(err error, podName string, cvmi *virtv2alpha1.ClusterVirtualMachineImage, recorder record.EventRecorder, c client.Client) error {
+func HandleFailedPod(err error, podName string, obj client.Object, recorder record.EventRecorder, c client.Client) error {
 	if err == nil {
 		return nil
 	}
@@ -297,20 +306,20 @@ func HandleFailedPod(err error, podName string, cvmi *virtv2alpha1.ClusterVirtua
 		reason = ErrExceededQuota
 	}
 
-	recorder.Event(cvmi, corev1.EventTypeWarning, reason, msg)
+	recorder.Event(obj, corev1.EventTypeWarning, reason, msg)
 
-	if isCloneSourcePod := CreateCloneSourcePodName(cvmi) == podName; isCloneSourcePod {
-		AddAnnotation(cvmi, AnnSourceRunningCondition, "false")
-		AddAnnotation(cvmi, AnnSourceRunningConditionReason, reason)
-		AddAnnotation(cvmi, AnnSourceRunningConditionMessage, msg)
+	if isCloneSourcePod := CreateCloneSourcePodName(obj) == podName; isCloneSourcePod {
+		AddAnnotation(obj, AnnSourceRunningCondition, "false")
+		AddAnnotation(obj, AnnSourceRunningConditionReason, reason)
+		AddAnnotation(obj, AnnSourceRunningConditionMessage, msg)
 	} else {
-		AddAnnotation(cvmi, AnnRunningCondition, "false")
-		AddAnnotation(cvmi, AnnRunningConditionReason, reason)
-		AddAnnotation(cvmi, AnnRunningConditionMessage, msg)
+		AddAnnotation(obj, AnnRunningCondition, "false")
+		AddAnnotation(obj, AnnRunningConditionReason, reason)
+		AddAnnotation(obj, AnnRunningConditionMessage, msg)
 	}
 
-	AddAnnotation(cvmi, AnnPodPhase, string(corev1.PodFailed))
-	if err := c.Update(context.TODO(), cvmi); err != nil {
+	AddAnnotation(obj, AnnPodPhase, string(corev1.PodFailed))
+	if err := c.Update(context.TODO(), obj); err != nil {
 		return err
 	}
 
