@@ -42,6 +42,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&ClusterVirtualMachineImage{},
 		&ClusterVirtualMachineImageList{},
+		&VirtualMachineImage{},
+		&VirtualMachineImageList{},
 		&VirtualMachineDisk{},
 		&VirtualMachineDiskList{},
 		&VirtualMachine{},

@@ -13,6 +13,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
@@ -74,7 +75,7 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		return nil
 	}
 
-	pod, err := state.findImporterPod(ctx, client)
+	pod, err := importer.FindImporterPod(ctx, client, state.CVMI.Current())
 	if err != nil {
 		return err
 	}
@@ -94,22 +95,6 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 		return true
 	}
 	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil)
-}
-
-func (state *CVMIReconcilerState) findImporterPod(ctx context.Context, client client.Client) (*corev1.Pod, error) {
-	// Extract namespace and name of the importer Pod from annotations.
-	podName := state.CVMI.Current().Annotations[cc.AnnImportPodName]
-	if podName == "" {
-		return nil, nil
-	}
-	podNS := state.CVMI.Current().Annotations[cc.AnnImportPodNamespace]
-	if podNS == "" {
-		return nil, nil
-	}
-
-	objName := types.NamespacedName{Name: podName, Namespace: podNS}
-
-	return helper.FetchObject(ctx, objName, client, &corev1.Pod{})
 }
 
 // HasImporterPodAnno returns whether CVMI is just created and has no annotations with importer Pod coordinates.
@@ -151,10 +136,6 @@ func (state *CVMIReconcilerState) IsDeletion() bool {
 		return false
 	}
 	return state.CVMI.Current().DeletionTimestamp != nil
-}
-
-func (state *CVMIReconcilerState) Is() bool {
-	return false
 }
 
 func (state *CVMIReconcilerState) IsImportComplete() bool {

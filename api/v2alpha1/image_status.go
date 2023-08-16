@@ -12,9 +12,11 @@ const (
 )
 
 type ImageStatus struct {
-	ImportDuration string            `json:"importDuration"`
-	DownloadSpeed  ImageStatusSpeed  `json:"downloadSpeed"`
-	Size           ImageStatusSize   `json:"size"`
+	ImportDuration string           `json:"importDuration"`
+	DownloadSpeed  ImageStatusSpeed `json:"downloadSpeed"`
+	Size           ImageStatusSize  `json:"size"`
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName
+	Capacity       string            `json:"capacity,omitempty"`
 	CDROM          bool              `json:"cdrom"`
 	Target         ImageStatusTarget `json:"target"`
 	Phase          ImagePhase        `json:"phase"`
@@ -40,4 +42,6 @@ type ImageStatusSize struct {
 
 type ImageStatusTarget struct {
 	RegistryURL string `json:"registryURL"`
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName"`
 }

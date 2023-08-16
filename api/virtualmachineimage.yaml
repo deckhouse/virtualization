@@ -283,6 +283,14 @@ spec:
                       type: string
                       example: 5 Mbps
                       description: Current download speed.
+                    avgBytes:
+                      type: string
+                      example: 1012345
+                      description: Average download speed in bytes per second.
+                    currentBytes:
+                      type: string
+                      example: 5123456
+                      description: Current download speed in bytes per second.
                 size:
                   type: object
                   description: |
@@ -292,10 +300,23 @@ spec:
                       type: string
                       example: 199M
                       description: Image size in DVCR or in PVC in human-readable format.
+                    storedBytes:
+                      type: string
+                      example: 199001234
+                      description: Image size in DVCR or in PVC in bytes.
                     unpacked:
                       type: string
                       example: 1G
                       description: Unpacked image size in human-readable format.
+                    unpackedBytes:
+                      type: string
+                      example: 1000000234
+                      description: Unpacked image size in bytes.
+                capacity:
+                  type: string
+                  example: 50G
+                  description: |
+                    Requested capacity of the PVC in human-readable format.
                 cdrom:
                   type: boolean
                   description: |
@@ -310,7 +331,7 @@ spec:
                         Created image in DVCR.
                     persistentVolumeClaimName:
                       type: string
-                      example: some-pvc-name
+                      example: vmi-some-name-6a6b6899-022c-4412-9b24-7989b2100569
                       description: |
                         Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
@@ -347,22 +368,38 @@ spec:
         type: string
         jsonPath: .status.importDuration
         priority: 1
-      - name: UnpackedSize
-        type: string
-        jsonPath: .status.size.unpacked
-        priority: 1
       - name: StoredSize
         type: string
         jsonPath: .status.size.stored
         priority: 1
+      - name: UnpackedSize
+        type: string
+        jsonPath: .status.size.unpacked
+        priority: 1
+      - jsonPath: .status.capacity
+        name: Capacity
+        type: string
+        priority: 1
+      - jsonPath: .status.downloadSpeed.avg
+        name: Avg speed
+        type: string
+        priority: 1
+      - name: Progress
+        type: string
+        jsonPath: .status.progress
       - name: CDROM
         type: boolean
         jsonPath: .status.cdrom
       - name: Phase
         type: string
         jsonPath: .status.phase
-      - name: Progress
+      - name: Registry URL
+        jsonPath: .status.target.registryURL
         type: string
-        jsonPath: .status.progress
+        priority: 1
+      - name: Target PVC
+        jsonPath: .status.target.persistentVolumeClaimName
+        type: string
+        priority: 1
       subresources:
         status: {}

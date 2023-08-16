@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: ubuntu-iso-dv
+spec:
+  storage: Kubernetes
+  persistentVolumeClaim:
+    storageClassName: "local-path"
+  dataSource:
+    type: "ContainerImage"
+    containerImage:
+      image: 'k3d-registry.virtualization-controller.test:5000/dvcr/cvmi/ubuntu-iso'

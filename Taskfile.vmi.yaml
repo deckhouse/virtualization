@@ -1,0 +1,69 @@
+version: "3"
+
+silent: true
+
+tasks:
+  recreate:
+    desc: "Recreate example VMI resource in default namespace"
+    vars:
+      VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
+      VMI_FILE: '{{ .VMI_FILE | default "config/samples/vmi_ubuntu_registry.yaml" }}'
+    cmds:
+      - |
+        kubectl delete virtualmachineimage/{{ .VMI_NAME }} || true
+        kubectl delete po/importer-{{ .VMI_NAME }} || true
+        sleep 1
+        kubectl apply -f local/virtualization-controller/templates/dvcr-auth-secret.yaml || true
+        kubectl apply -f {{ .VMI_FILE }}
+
+  watch:
+    desc: "Watch VMI resource status"
+    vars:
+      VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
+    cmds:
+      - |
+        kubectl get virtualmachineimage -o wide | head -n1
+        for i in `seq 1 400` ; do
+          kubectl get virtualmachineimage/{{ .VMI_NAME }} --no-headers -o wide || true
+          kubectl get virtualmachineimage/{{ .VMI_NAME }} --no-headers || true
+          sleep 2
+        done
+
+  status:
+    desc: "Get VMI resource and related resources: DataVolume, importer Pod, etc."
+    vars:
+      VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
+    cmds:
+      - |
+        kubectl get virtualmachineimage/{{ .VMI_NAME }} || true
+        echo ">>> Annotations:"
+        (kubectl get virtualmachineimage/{{ .VMI_NAME }} -o json | jq '.metadata.annotations') || true
+        echo ">>> DataVolumes"
+        kubectl get datavolume
+        echo ">>> PVCs"
+        kubectl get pvc
+        echo ">>> Importer Pod"
+        kubectl get po/importer-{{.VMI_NAME}} || true
+
+  pvc:recreate:
+    desc: "Recreate example VMI resource"
+    cmds:
+      - task: vmi:recreate
+        vars:
+          VMI_NAME: ubuntu-iso-pvc
+          VMI_FILE: config/samples/vmi_ubuntu_2_phase.yaml
+
+  pvc:watch:
+    desc: ""
+    cmds:
+      - task: vmi:watch
+        vars:
+          VMI_NAME: ubuntu-iso-pvc
+
+  pvc:status:
+    desc: ""
+    cmds:
+      - task: vmi:status
+        vars:
+          VMI_NAME: ubuntu-iso-pvc
+
