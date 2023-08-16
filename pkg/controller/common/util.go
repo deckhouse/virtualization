@@ -92,8 +92,14 @@ const (
 	AnnRegistryImageStream = AnnAPIGroup + "/storage.import.registryImageStream"
 	// AnnImportPodName provides a const for CVMI/VMI/VMD importPodName annotation
 	AnnImportPodName = AnnAPIGroup + "/storage.import.importPodName"
-	// AnnImportPodNamespace provides a const for our CVMI/VMI/VMD importPodNamespace annotation
-	AnnImportPodNamespace = AnnAPIGroup + "/storage.import.importPodNamespace"
+	// AnnImporterNamespace provides a const for our CVMI/VMI/VMD importNamespace annotation
+	AnnImporterNamespace = AnnAPIGroup + "/storage.import.importPodNamespace"
+	// AnnUploaderNamespace provides a const for our CVMI/VMI/VMD uploadNamespace annotation
+	AnnUploaderNamespace = AnnAPIGroup + "/storage.import.uploadNamespace"
+	// AnnUploadPodName provides a const for CVMI/VMI/VMD uploadPodName annotation
+	AnnUploadPodName = AnnAPIGroup + "/storage.import.uploadPodName"
+	// AnnUploadServiceName provides a const for CVMI/VMI/VMD uploadServiceName annotation
+	AnnUploadServiceName = AnnAPIGroup + "/storage.import.uploadServiceName"
 	// AnnDiskID provides a const for our PVC diskId annotation
 	AnnDiskID = AnnAPIGroup + "/storage.import.diskId"
 	// AnnUUID provides a const for our PVC uuid annotation
@@ -209,6 +215,8 @@ const (
 	// LabelDefaultPreferenceKind provides a default kind of either VirtualMachineClusterPreference or VirtualMachinePreference
 	LabelDefaultPreferenceKind = "instancetype.kubevirt.io/default-preference-kind"
 
+	UploaderServiceLabel = "service"
+
 	// ProgressDone this means we are DONE
 	ProgressDone = "100.0%"
 )
@@ -224,10 +232,10 @@ func GetPriorityClass(pvc *corev1.PersistentVolumeClaim) string {
 	return anno[AnnPriorityClassName]
 }
 
-// ShouldDeletePod returns whether the importer pod should be deleted:
+// ShouldCleanupSubResources returns whether sub resources should be deleted:
 // - CVMI has no annotation to retain pod after import
 // - CVMI is deleted
-func ShouldDeletePod(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
+func ShouldCleanupSubResources(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
 	return cvmi.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || cvmi.DeletionTimestamp != nil
 }
 
@@ -282,12 +290,9 @@ func AddLabel(obj metav1.Object, key, value string) {
 	obj.GetLabels()[key] = value
 }
 
-// HandleFailedPod handles pod-creation errors and updates the CVMI without providing sensitive information.
+// PublishPodErr handles pod-creation errors and updates the CVMI without providing sensitive information.
 // TODO make work with VirtualMachineImage object.
-func HandleFailedPod(err error, podName string, cvmi *virtv2alpha1.ClusterVirtualMachineImage, recorder record.EventRecorder, c client.Client) error {
-	if err == nil {
-		return nil
-	}
+func PublishPodErr(err error, podName string, cvmi *virtv2alpha1.ClusterVirtualMachineImage, recorder record.EventRecorder, c client.Client) error {
 	// Generic reason and msg to avoid providing sensitive information
 	reason := ErrStartingPod
 	msg := fmt.Sprintf(MessageErrStartingPod, podName)

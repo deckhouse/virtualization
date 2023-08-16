@@ -17,6 +17,9 @@ var SchemeGroupVersion = schema.GroupVersion{Group: APIGroup, Version: APIVersio
 // ClusterVirtualMachineImageGVK is group version kind for ClusterVirtualMachineImage
 var ClusterVirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: CVMIKind}
 
+// VirtualMachineImageGVK is group version kind for VirtualMachineImage
+var VirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VMIKind}
+
 // VirtualMachineDiskGVK is group version kind for VirtualMachineDisk
 var VirtualMachineDiskGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VMDKind}
 
