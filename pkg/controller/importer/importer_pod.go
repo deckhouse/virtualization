@@ -178,7 +178,7 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 
 func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 	container := &corev1.Container{
-		Name:            common.ImporterContainerName,
+		Name:            common.ImporterPodNamePrefix,
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
 		Command:         []string{"sh"},

@@ -23,8 +23,6 @@ env:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
   REGISTRY_IMPORTER_IMAGE:
     sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
-  REGISTRY_UPLOADER_IMAGE:
-    sh: echo ${REGISTRY_UPLOADER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-uploader:latest}
 
 tasks:
   dev:converge:
@@ -147,7 +145,6 @@ tasks:
     cmds:
       - task: build:controller
       - task: build:registry-importer
-      - task: build:registry-uploader
       - task: build:cleanup
 
   build:controller:cache:
@@ -195,15 +192,6 @@ tasks:
             -f ./local/registry-importer/Dockerfile \
             -t ${REGISTRY_IMPORTER_IMAGE}
         docker push ${REGISTRY_IMPORTER_IMAGE}
-
-  build:registry-uploader:
-    desc: "Build registry-uploader image for local development"
-    cmds:
-      - |
-        docker build ./local/registry-uploader \
-            -f ./local/registry-uploader/Dockerfile \
-            -t ${REGISTRY_UPLOADER_IMAGE}
-        docker push ${REGISTRY_UPLOADER_IMAGE}
 
   build:cleanup:
     cmds:

@@ -46,8 +46,6 @@ spec:
           value: {{ .Values.dvcr.registry | quote }}
         - name: IMPORTER_DESTINATION_INSECURE_TLS
           value: {{ .Values.dvcr.insecureTLS | quote }}
-        - name: UPLOADER_IMAGE
-          value: {{ .Values.images.uploader | quote }}
 
       dnsPolicy: Default
       serviceAccountName: {{ .Release.Name }}
