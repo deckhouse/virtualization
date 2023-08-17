@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,6 +13,7 @@ import (
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/strings"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -27,15 +29,18 @@ import (
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMIReconciler struct {
-	image        string
-	verbose      string
-	pullPolicy   string
-	dvcrSettings *cc.DVCRSettings
+	importerImage string
+	uploaderImage string
+	verbose       string
+	pullPolicy    string
+	dvcrSettings  *cc.DVCRSettings
 }
 
 func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -46,7 +51,7 @@ func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, 
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VMD: %w", err)
+		return fmt.Errorf("error setting watch on VMI: %w", err)
 	}
 
 	if err := ctr.Watch(
@@ -64,16 +69,16 @@ func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, 
 	return nil
 }
 
-// Sync starts an importer Pod or creates a DataVolume to import image into DVCR or into PVC.
+// Sync starts an importer/uploader Pod or creates a DataVolume to import image into DVCR or into PVC.
 // There are 3 modes of import:
-// - Start and track importer Pod only (e.g. dataSource is HTTP and storage is ContainerRegistry).
-// - Start importer Pod first and then create DataVolume (e.g. target size is unknown: dataSource is HTTP and storage is Kubernetes without specified size for PVC).
+// - Start and track importer/uploader Pod only (e.g. dataSource is HTTP and storage is ContainerRegistry).
+// - Start importer/uploader Pod first and then create DataVolume (e.g. target size is unknown: dataSource is HTTP and storage is Kubernetes without specified size for PVC).
 // - Create and track DataVolume only (e.g. dataSource is ClusterVirtualMachineImage and storage is Kubernetes).
 func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	switch {
 	case state.IsDeletion():
 		opts.Log.V(1).Info("Delete VMI, remove protective finalizers")
-		return r.removeDVFinalizers(ctx, state, opts)
+		return r.removeFinalizers(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
 		if controllerutil.AddFinalizer(state.VMI.Changed(), virtv2.FinalizerVMICleanup) {
@@ -81,34 +86,25 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
-		// Delete underlying importer Pod and DataVolume and stop the reconcile process.
-		if state.DV != nil {
-			if err := opts.Client.Delete(ctx, state.DV); err != nil {
-				return fmt.Errorf("cleanup DataVolume: %w", err)
-			}
-		}
-		if state.Pod != nil && cc.ShouldDeleteImporterPod(state.VMI.Current()) {
-			opts.Log.V(1).Info("Import done, cleanup importer Pod", "pod.Name", state.Pod.Name)
-			if err := importer.CleanupPod(ctx, opts.Client, state.Pod); err != nil {
-				return fmt.Errorf("cleanup importer Pod: %w", err)
-			}
+		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
+		if err := r.cleanup(ctx, state.VMI.Changed(), state.Client, state); err != nil {
+			return err
 		}
 		return nil
-	case state.ShouldTrackImporterPod() && !state.IsImporterPodComplete():
-		// Start and track importer Pod.
+	case state.ShouldTrackPod() && !state.IsPodComplete():
+		// Start and track importer/uploader Pod.
 		switch {
-		case !state.HasImporterPodAnno():
-			opts.Log.V(1).Info("Update annotations with importer Pod name and namespace")
-			// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
-			r.initImporterPodName(state.VMI.Changed())
+		case !state.IsPodInited():
+			opts.Log.V(1).Info("Update annotations with Pod name and namespace")
+			r.initPodName(state.VMI.Changed())
 			// Update annotations and status and restart reconcile to create an importer Pod.
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
-		case state.CanStartImporterPod():
+		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
-			opts.Log.V(1).Info("Start new importer Pod for VMI")
-			// Create importer pod, make sure the VMI owns it.
-			if err := r.startImporterPod(ctx, state.VMI.Current(), opts); err != nil {
+			opts.Log.V(1).Info("Start new Pod for VMI")
+			// Create importer/uploader pod, make sure the VMI owns it.
+			if err := r.startPod(ctx, state.VMI.Current(), opts); err != nil {
 				return err
 			}
 			// Requeue to wait until Pod become Running.
@@ -116,32 +112,30 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.Pod != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
-			opts.Log.V(2).Info("Requeue: wait until importer Pod is completed", "vmi.name", state.VMI.Current().Name)
+			opts.Log.V(2).Info("Requeue: wait until Pod is completed", "vmi.name", state.VMI.Current().Name)
+			if err := r.ensurePodFinalizers(ctx, state, opts); err != nil {
+				return err
+			}
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
 		}
-	case state.ShouldTrackImporterPod() && state.IsImporterPodComplete() && (!state.ShouldTrackDataVolume() || !state.HasTargetPVCSize()):
+	case !state.ShouldTrackDataVolume() && state.ShouldTrackPod() && state.IsPodComplete():
 		// Proceed to UpdateStatus and requeue to handle Ready state.
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: time.Second})
 		return nil
-	case state.ShouldTrackDataVolume() && (!state.ShouldTrackImporterPod() || state.IsImporterPodComplete()):
+	case state.ShouldTrackDataVolume() && (!state.ShouldTrackPod() || state.IsPodComplete()):
 		// Start and track DataVolume.
 		switch {
 		case !state.HasDataVolumeAnno():
 			opts.Log.V(1).Info("Update annotations with new DataVolume name")
 			r.initDataVolumeName(state.VMI.Changed())
-			// Update annotations and status and restart reconcile to create an importer Pod.
+			// Update annotations and status and restart reconcile to create an importer/uploader Pod.
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
 		case state.CanCreateDataVolume():
 			opts.Log.V(1).Info("Create DataVolume for VMI")
 
-			pvcSize := state.GetTargetPVCSize()
-			if pvcSize == "" {
-				return fmt.Errorf("invalid VMI/%s: neither spec.persistentVolumeClaim.size nor status.size specify the target PVC size", state.VMI.Current().GetName())
-			}
-
-			if err := r.createDataVolume(ctx, state.VMI.Current(), pvcSize, opts); err != nil {
+			if err := r.createDataVolume(ctx, state.VMI.Current(), state, opts); err != nil {
 				return err
 			}
 			// Requeue to wait until Pod become Running.
@@ -182,12 +176,12 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		return nil
 	}
 
-	// Record event if importer Pod has error.
+	// Record event if importer/uploader Pod has error.
 	// TODO set Failed status if Pod restarts are greater than some threshold?
 	if state.Pod != nil && len(state.Pod.Status.ContainerStatuses) > 0 {
 		if state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
 			state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
-			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("importer pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
+			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
 		}
 	}
 
@@ -200,18 +194,29 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	case state.IsReady():
 		// No need to update status.
 		break
-	case state.ShouldTrackImporterPod() && state.IsImporterPodInProgress():
-		// Set CVMI status to Provisioning and copy progress metrics from importer Pod.
-		opts.Log.V(2).Info("Fetch progress from importer Pod", "vmi.name", state.VMI.Current().GetName())
+	case state.ShouldTrackPod() && state.IsPodInProgress():
+		opts.Log.V(2).Info("Fetch progress from Pod", "vmi.name", state.VMI.Current().GetName())
+
 		vmiStatus.Phase = virtv2.ImageProvisioning
 
-		progress, err := importer.ProgressFromPod(string(state.VMI.Current().GetUID()), state.Pod)
+		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
+			vmiStatus.UploadCommand == "" &&
+			state.Service != nil &&
+			len(state.Service.Spec.Ports) > 0 {
+			vmiStatus.UploadCommand = fmt.Sprintf(
+				"curl -X POST --data-binary @example.iso http://%s:%d/v1beta1/upload",
+				state.Service.Spec.ClusterIP,
+				state.Service.Spec.Ports[0].Port,
+			)
+		}
+
+		progress, err := monitoring.GetImportProgressFromPod(string(state.VMI.Current().GetUID()), state.Pod)
 		if err != nil {
-			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from importer Pod "+err.Error())
+			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from Pod "+err.Error())
 			return err
 		}
 		if progress != nil {
-			opts.Log.V(2).Info("Got progress", "cvmi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+			opts.Log.V(2).Info("Got progress", "vmi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
 			// map 0-100% to 0-50%.
 			progressPct := progress.Progress()
 			if state.ShouldTrackDataVolume() {
@@ -223,18 +228,18 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
 			vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
 		}
+	case !state.ShouldTrackDataVolume() && state.ShouldTrackPod() && state.IsPodComplete():
+		vmiStatus.Phase = virtv2.ImageReady
 
-	case state.ShouldTrackImporterPod() && state.IsImporterPodComplete() && !state.HasTargetPVCSize():
-		// Set VMI status to Ready and update image size from final report of the importer Pod.
-		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
-		// Cleanup.
-		if !state.ShouldTrackDataVolume() {
-			vmiStatus.Phase = virtv2.ImageReady
-			vmiStatus.Progress = ""
-		}
+
+		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
+
+		vmiStatus.Progress = ""
+
 		vmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
-		finalReport, err := importer.GetFinalImporterReport(state.Pod)
+
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 		if err != nil {
 			opts.Log.Error(err, "parsing final report", "vmi.name", state.VMI.Current().Name)
 		}
@@ -244,9 +249,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			vmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
 		}
-		// Set target image name the same way as for the importer Pod.
+		// Set target image name the same way as for the importer/uploader Pod.
 		vmiStatus.Target.RegistryURL = cc.PrepareDVCREndpointFromVMI(state.VMI.Current(), r.dvcrSettings)
-
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)
@@ -255,22 +259,19 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
 
 		// Copy progress from DataVolume.
-		// map 0-100% to 0-50%.
-		progressPct := string(state.DV.Status.Progress)
-		if progressPct != "N/A" {
-			if state.ShouldTrackImporterPod() {
-				progressPct = common.ScalePercentage(progressPct, 50.0, 100.0)
-			}
-			vmiStatus.Progress = progressPct
+		// map 0-100% to 50%-100%.
+		dvProgress := string(state.DV.Status.Progress)
+
+		opts.Log.V(2).Info("Got DataVolume progress", "progress", dvProgress)
+
+		if dvProgress != "N/A" && dvProgress != "" {
+			vmiStatus.Progress = common.ScalePercentage(dvProgress, 50.0, 100.0)
 		}
 
 		// Copy capacity from PVC.
-		if state.PVC != nil {
-			if state.PVC.Status.Phase == corev1.ClaimBound {
-				vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
-			}
+		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
+			vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
-
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
 		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, "ImportSucceededToPVC", "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
@@ -309,6 +310,26 @@ func MapDataVolumePhaseToVMIPhase(phase cdiv1.DataVolumePhase) virtv2.ImagePhase
 	}
 }
 
+// ensurePodFinalizers adds protective finalizers on importer/uploader Pod and Service dependencies.
+func (r *VMIReconciler) ensurePodFinalizers(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.Pod != nil {
+		if controllerutil.AddFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
+			if err := opts.Client.Update(ctx, state.Pod); err != nil {
+				return fmt.Errorf("error setting finalizer on a Pod %q: %w", state.Pod.Name, err)
+			}
+		}
+	}
+	if state.Service != nil {
+		if controllerutil.AddFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
+			if err := opts.Client.Update(ctx, state.Service); err != nil {
+				return fmt.Errorf("error setting finalizer on a Service %q: %w", state.Service.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // ensureDVFinalizers adds protective finalizers on DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
 func (r *VMIReconciler) ensureDVFinalizers(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.DV != nil {
@@ -337,8 +358,22 @@ func (r *VMIReconciler) ensureDVFinalizers(ctx context.Context, state *VMIReconc
 	return nil
 }
 
-// removeDVFinalizers removes protective finalizers on DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
-func (r *VMIReconciler) removeDVFinalizers(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+// removeFinalizers removes protective finalizers on Pod, Service, DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
+func (r *VMIReconciler) removeFinalizers(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.Pod != nil {
+		if controllerutil.RemoveFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
+			if err := opts.Client.Update(ctx, state.Pod); err != nil {
+				return fmt.Errorf("unable to remove Pod %q finalizer %q: %w", state.Pod.Name, virtv2.FinalizerPodProtection, err)
+			}
+		}
+	}
+	if state.Service != nil {
+		if controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
+			if err := opts.Client.Update(ctx, state.Service); err != nil {
+				return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
+			}
+		}
+	}
 	if state.DV != nil {
 		if controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
 			if err := opts.Client.Update(ctx, state.DV); err != nil {
@@ -365,101 +400,48 @@ func (r *VMIReconciler) removeDVFinalizers(ctx context.Context, state *VMIReconc
 	return nil
 }
 
-// initImporterPodName creates new name and update it in the annotation.
-func (r *VMIReconciler) initImporterPodName(vmi *virtv2.VirtualMachineImage) {
+// initPodName creates new name and update it in the annotation.
+func (r *VMIReconciler) initPodName(vmi *virtv2.VirtualMachineImage) {
 	anno := vmi.GetAnnotations()
 	if anno == nil {
 		anno = make(map[string]string)
 	}
 
-	anno[cc.AnnImportPodName] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, vmi.GetName())
-	// Generate name for secret with certs from caBundle.
-	if vmiutil.HasCABundle(vmi) {
-		anno[cc.AnnCABundleConfigMap] = fmt.Sprintf("%s-ca", vmi.Name)
+	switch vmi.Spec.DataSource.Type {
+	case virtv2.DataSourceTypeUpload:
+		anno[cc.AnnUploadPodName] = fmt.Sprintf("%s-%s", common.UploaderPodNamePrefix, vmi.GetName())
+		anno[cc.AnnUploadServiceName] = fmt.Sprintf("%s-%s", common.UploaderServiceNamePrefix, vmi.GetName())
+	default:
+		anno[cc.AnnImportPodName] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, vmi.GetName())
+		// Generate name for secret with certs from caBundle.
+		if vmiutil.HasCABundle(vmi) {
+			anno[cc.AnnCABundleConfigMap] = fmt.Sprintf("%s-ca", vmi.GetName())
+		}
 	}
 
-	vmi.Annotations = anno
+	vmi.SetAnnotations(anno)
 }
 
-func (r *VMIReconciler) startImporterPod(ctx context.Context, vmi *virtv2.VirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating importer POD for VMI", "vmi.Name", vmi.Name)
-
-	importerSettings, err := r.createImporterSettings(vmi)
-	if err != nil {
-		return err
-	}
-
-	podSettings := r.createImporterPodSettings(vmi)
-
-	caBundleSettings := importer.NewCABundleSettings(vmiutil.GetCABundle(vmi), vmi.Annotations[cc.AnnCABundleConfigMap])
-
-	imp := importer.NewImporter(podSettings, importerSettings, caBundleSettings)
-	pod, err := imp.CreatePod(ctx, opts.Client)
-	// Check if pod has failed and, in that case, record an event with the error
-	if podErr := cc.HandleFailedPod(err, vmi.Annotations[cc.AnnImportPodName], vmi, opts.Recorder, opts.Client); podErr != nil {
-		return podErr
-	}
-
-	opts.Log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
-
-	if caBundleSettings != nil {
-		if err := imp.EnsureCABundleConfigMap(ctx, opts.Client, pod); err != nil {
-			return fmt.Errorf("create ConfigMap with certs from caBundle: %w", err)
+func (r *VMIReconciler) startPod(ctx context.Context, vmi *virtv2.VirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
+	switch vmi.Spec.DataSource.Type {
+	case virtv2.DataSourceTypeUpload:
+		if err := r.startUploaderPod(ctx, vmi, opts); err != nil {
+			return err
 		}
-		opts.Log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
-	}
 
-	// TODO add finalizer.
-	// // If importing from image stream, add finalizer. Note we don't watch the importer pod in this case,
-	// // so to prevent a deadlock we add finalizer only if the pod is not retained after completion.
-	// if cc.IsImageStream(pvc) && pvc.GetAnnotations()[cc.AnnPodRetainAfterCompletion] != "true" {
-	//	cc.AddFinalizer(pvc, importPodImageStreamFinalizer)
-	//	if err := r.updatePVC(pvc, r.log); err != nil {
-	//		return err
-	//	}
-	// }
+		if err := r.startUploaderService(ctx, vmi, opts); err != nil {
+			return err
+		}
+	default:
+		if err := r.startImporterPod(ctx, vmi, opts); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (r *VMIReconciler) createImporterPodSettings(vmi *virtv2.VirtualMachineImage) *importer.PodSettings {
-	return &importer.PodSettings{
-		Name:            vmi.Annotations[cc.AnnImportPodName],
-		Image:           r.image,
-		PullPolicy:      r.pullPolicy,
-		Namespace:       vmi.GetNamespace(),
-		OwnerReference:  vmiutil.MakeOwnerReference(vmi),
-		ControllerName:  cvmiControllerName,
-		InstallerLabels: map[string]string{},
-	}
-}
-
-// createImporterSettings fills settings for the registry-importer binary.
-func (r *VMIReconciler) createImporterSettings(vmi *virtv2.VirtualMachineImage) (*importer.Settings, error) {
-	settings := &importer.Settings{
-		Verbose: r.verbose,
-		Source:  cc.GetSource(vmi.Spec.DataSource),
-	}
-
-	switch settings.Source {
-	case cc.SourceHTTP:
-		if http := vmi.Spec.DataSource.HTTP; http != nil {
-			importer.UpdateHTTPSettings(settings, http)
-		}
-	case cc.SourceNone:
-	default:
-		return nil, fmt.Errorf("unknown settings source: %s", settings.Source)
-	}
-
-	// Set DVCR settings.
-	importer.UpdateDVCRSettings(settings, r.dvcrSettings, cc.PrepareDVCREndpointFromVMI(vmi, r.dvcrSettings))
-
-	// TODO Update proxy settings.
-
-	return settings, nil
-}
-
-// initImporterPodName creates new name and update it in the annotation.
+// initDataVolumeName creates new DataVolume name and update it in the annotation.
 func (r *VMIReconciler) initDataVolumeName(vmi *virtv2.VirtualMachineImage) {
 	// Prevent DataVolume name regeneration.
 	if _, hasKey := vmi.Annotations[cc.AnnVMIDataVolume]; hasKey {
@@ -474,28 +456,63 @@ func (r *VMIReconciler) initDataVolumeName(vmi *virtv2.VirtualMachineImage) {
 	// Generate DataVolume name.
 	// FIXME: move shortening to separate method. (See https://github.com/deckhouse/3p-containerized-data-importer/blob/ab8b9c025e40b43272a433c600c107cb993ebf90/pkg/util/naming/namer.go).
 	anno[cc.AnnVMIDataVolume] = strings.ShortenString(fmt.Sprintf("vmi-%s-%s", vmi.GetName(), uuid.NewUUID()), kvalidation.DNS1123SubdomainMaxLength)
-	// Generate name for secret with certs from caBundle.
-	if vmiutil.HasCABundle(vmi) {
-		anno[cc.AnnCABundleConfigMap] = strings.ShortenString(fmt.Sprintf("vmi-ca-%s", vmi.GetName()), kvalidation.DNS1123SubdomainMaxLength)
-	}
 
 	vmi.Annotations = anno
 }
 
-func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, pvcSize string, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	dvName := types.NamespacedName{Name: vmi.GetAnnotations()[cc.AnnVMIDataVolume], Namespace: vmi.GetNamespace()}
 	dvBuilder := kvbuilder.NewDV(dvName)
-	err := kvbuilder.ApplyVirtualMachineImageSpec(dvBuilder, vmi, pvcSize)
+
+	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+	if err != nil {
+		return err
+	}
+
+	if finalReport.UnpackedSizeBytes == 0 {
+		return errors.New("no unpacked size in final report")
+	}
+
+	pvcSize := strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+
+	err = kvbuilder.ApplyVirtualMachineImageSpec(dvBuilder, vmi, pvcSize, r.dvcrSettings)
 	if err != nil {
 		return fmt.Errorf("apply VMI spec to DataVolume: %w", err)
 	}
 	dv := dvBuilder.GetResource()
 
-	if err := opts.Client.Create(ctx, dv); err != nil {
+	if err = opts.Client.Create(ctx, dv); err != nil {
 		opts.Log.V(2).Info("Error create new DV spec", "dv.spec", dv.Spec)
 		return fmt.Errorf("create DataVolume/%s for VMI/%s: %w", dv.GetName(), vmi.GetName(), err)
 	}
 	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
 	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec)
+	return nil
+}
+
+func (r *VMIReconciler) cleanup(ctx context.Context, vmi *virtv2.VirtualMachineImage, client client.Client, state *VMIReconcilerState) error {
+	if state.DV != nil {
+		if err := client.Delete(ctx, state.DV); err != nil {
+			return fmt.Errorf("cleanup DataVolume: %w", err)
+		}
+	}
+
+	if state.Pod != nil && cc.ShouldDeletePod(state.VMI.Current()) {
+		switch vmi.Spec.DataSource.Type {
+		case virtv2.DataSourceTypeUpload:
+			if err := uploader.CleanupService(ctx, client, state.Service); err != nil {
+				return err
+			}
+
+			if err := uploader.CleanupPod(ctx, client, state.Pod); err != nil {
+				return err
+			}
+		default:
+			if err := importer.CleanupPod(ctx, client, state.Pod); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

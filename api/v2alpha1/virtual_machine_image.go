@@ -34,9 +34,9 @@ type VirtualMachineImageList struct {
 }
 
 type VirtualMachineImageSpec struct {
-	Storage               StorageType                         `json:"storage"`
-	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
-	DataSource            DataSource                          `json:"dataSource"`
+	Storage               StorageType              `json:"storage"`
+	PersistentVolumeClaim VMIPersistentVolumeClaim `json:"persistentVolumeClaim"`
+	DataSource            DataSource               `json:"dataSource"`
 }
 
 type VirtualMachineImageStatus struct {
@@ -49,3 +49,7 @@ const (
 	StorageContainerRegistry StorageType = "ContainerRegistry"
 	StorageKubernetes        StorageType = "Kubernetes"
 )
+
+type VMIPersistentVolumeClaim struct {
+	StorageClassName string `json:"storageClassName"`
+}

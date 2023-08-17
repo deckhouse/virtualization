@@ -111,7 +111,7 @@ var _ = Describe("VM", func() {
 							URL: "http://mydomain.org/image.img",
 						},
 					},
-					PersistentVolumeClaim: virtv2.VirtualMachinePersistentVolumeClaim{
+					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
 						Size:             "10Gi",
 						StorageClassName: "local-path",
 					},

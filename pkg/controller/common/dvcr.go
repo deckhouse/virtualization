@@ -16,6 +16,7 @@ type DVCRSettings struct {
 const (
 	CVMIPath = "%s/cvmi/%s"
 	VMIPath  = "%s/vmi/%s/%s"
+	VMDPath  = "%s/vmd/%s/%s"
 )
 
 func NewDVCRSettings(authSecret, registry, insecureTLS string) *DVCRSettings {
@@ -35,5 +36,11 @@ func PrepareDVCREndpointFromCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage, 
 // PrepareDVCREndpointFromVMI returns vmi endpoint in registry.
 func PrepareDVCREndpointFromVMI(vmi *virtv2alpha1.VirtualMachineImage, dvcr *DVCRSettings) string {
 	ep := fmt.Sprintf(VMIPath, dvcr.Registry, vmi.Namespace, vmi.Name)
+	return path.Clean(ep)
+}
+
+// PrepareDVCREndpointFromVMD returns vmd endpoint in registry.
+func PrepareDVCREndpointFromVMD(vmd *virtv2alpha1.VirtualMachineDisk, dvcr *DVCRSettings) string {
+	ep := fmt.Sprintf(VMDPath, dvcr.Registry, vmd.Namespace, vmd.Name)
 	return path.Clean(ep)
 }

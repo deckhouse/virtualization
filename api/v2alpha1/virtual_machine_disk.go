@@ -21,25 +21,30 @@ type VirtualMachineDisk struct {
 }
 
 type VirtualMachineDiskSpec struct {
-	DataSource            *DataSource                         `json:"dataSource,omitempty"`
-	PersistentVolumeClaim VirtualMachinePersistentVolumeClaim `json:"persistentVolumeClaim"`
+	DataSource            *DataSource              `json:"dataSource,omitempty"`
+	PersistentVolumeClaim VMDPersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
 type VirtualMachineDiskStatus struct {
-	// TODO(VMD): importDuration, downloadSpeed
+	ImportDuration string           `json:"importDuration,omitempty"`
+	DownloadSpeed  VMDDownloadSpeed `json:"downloadSpeed,omitempty"`
+	Capacity       string           `json:"capacity,omitempty"`
+	Target         DiskTarget       `json:"target,omitempty"`
+	Progress       string           `json:"progress,omitempty"`
+	UploadCommand  string           `json:"uploadCommand,omitempty"`
+	Phase          DiskPhase        `json:"phase"`
+}
 
-	Phase    DiskPhase    `json:"phase"`
-	Progress DiskProgress `json:"progress,omitempty"`
-	Capacity string       `json:"capacity,omitempty"`
-	Target   DiskTarget   `json:"target,omitempty"`
+type VMDDownloadSpeed struct {
+	Avg     string `json:"avg"`
+	Current string `json:"current"`
 }
 
 type DiskTarget struct {
 	PersistentVolumeClaimName string `json:"persistentVolumeClaimName"`
 }
 
-type VirtualMachinePersistentVolumeClaim struct {
-	// TODO: required or optional
+type VMDPersistentVolumeClaim struct {
 	StorageClassName string `json:"storageClassName"`
 	Size             string `json:"size"`
 }
@@ -51,8 +56,6 @@ type VirtualMachineDiskList struct {
 	metav1.ListMeta `json:"metadata"`
 	Items           []VirtualMachineDisk `json:"items"`
 }
-
-type DiskProgress string
 
 type DiskPhase string
 

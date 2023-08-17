@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,9 +11,13 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
@@ -20,12 +25,14 @@ import (
 type VMDReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 
-	Client client.Client
-	VMD    *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
-	DV     *cdiv1.DataVolume
-	PVC    *corev1.PersistentVolumeClaim
-	PV     *corev1.PersistentVolume
-	Result *reconcile.Result
+	Client  client.Client
+	VMD     *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	DV      *cdiv1.DataVolume
+	PVC     *corev1.PersistentVolumeClaim
+	PV      *corev1.PersistentVolume
+	Pod     *corev1.Pod
+	Service *corev1.Service
+	Result  *reconcile.Result
 }
 
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
@@ -37,12 +44,14 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 			func(obj *virtv2.VirtualMachineDisk) virtv2.VirtualMachineDiskStatus { return obj.Status },
 		),
 	}
+
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
 		"vmd",
 		virtv2.FinalizerVMDProtection,
 		state.VMD,
 	)
+
 	return state
 }
 
@@ -69,12 +78,36 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	if err := state.VMD.Fetch(ctx); err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
+
 	if state.VMD.IsEmpty() {
-		log.Info("Reconcile observe an absent VMD: it may be deleted", "VMD", req.NamespacedName)
+		log.Info("Reconcile observe an absent VMD: it may be deleted", "vmd.name", req.Name, "vmd.namespace", req.Namespace)
 		return nil
 	}
 
-	if dvName, hasKey := state.VMD.Current().Annotations[AnnVMDDataVolume]; hasKey {
+	if state.VMD.Current().Spec.DataSource != nil {
+		switch state.VMD.Current().Spec.DataSource.Type {
+		case virtv2.DataSourceTypeUpload:
+			pod, err := uploader.FindPod(ctx, client, state.VMD.Current())
+			if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
+				return err
+			}
+			state.Pod = pod
+
+			service, err := uploader.FindService(ctx, client, state.VMD.Current())
+			if err != nil && !errors.Is(err, uploader.ErrServiceNameNotFound) {
+				return err
+			}
+			state.Service = service
+		default:
+			pod, err := importer.FindPod(ctx, client, state.VMD.Current())
+			if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
+				return err
+			}
+			state.Pod = pod
+		}
+	}
+
+	if dvName, hasKey := state.VMD.Current().Annotations[cc.AnnVMDDataVolume]; hasKey {
 		var err error
 		name := types.NamespacedName{Name: dvName, Namespace: state.VMD.Current().Namespace}
 
@@ -115,6 +148,137 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	return state.AttacheeState.Reload(ctx, req, log, client)
 }
 
-func (state *VMDReconcilerState) ShouldReconcile(_ logr.Logger) bool {
+func (state *VMDReconcilerState) ShouldReconcile(log logr.Logger) bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+
+	if state.AttacheeState.ShouldReconcile(log) {
+		return true
+	}
+
+	return true
+}
+
+func (state *VMDReconcilerState) IsProtected() bool {
+	return controllerutil.ContainsFinalizer(state.VMD.Current(), virtv2.FinalizerVMDCleanup)
+}
+
+func (state *VMDReconcilerState) IsReady() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	return state.VMD.Current().Status.Phase == virtv2.DiskReady
+}
+
+func (state *VMDReconcilerState) IsDeletion() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	return state.VMD.Current().DeletionTimestamp != nil
+}
+
+func (state *VMDReconcilerState) ShouldTrackPod() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+
+	if state.VMD.Current().Spec.DataSource == nil {
+		return false
+	}
+
+	// Use 2 phase import process for HTTP, Upload and ContainerImage sources.
+	switch state.VMD.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeHTTP,
+		virtv2.DataSourceTypeUpload,
+		virtv2.DataSourceTypeContainerImage:
+		return true
+	}
+
+	return false
+}
+
+// IsPodInited returns whether VMD has annotations with importer or uploader coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMDReconcilerState) IsPodInited() bool {
+	if state.VMD.Current().Spec.DataSource == nil {
+		return false
+	}
+
+	switch state.VMD.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return state.hasImporterPodAnno()
+	case virtv2.DataSourceTypeUpload:
+		return state.hasUploaderPodAnno()
+	default:
+		return false
+	}
+}
+
+// hasImporterPodAnno returns whether VMD has annotations with importer Pod coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMDReconcilerState) hasImporterPodAnno() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	anno := state.VMD.Current().GetAnnotations()
+	if _, ok := anno[cc.AnnImportPodName]; !ok {
+		return false
+	}
+	return true
+}
+
+// hasImporterPodAnno returns whether VMD has annotations with uploader Pod coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMDReconcilerState) hasUploaderPodAnno() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	anno := state.VMD.Current().GetAnnotations()
+	if _, ok := anno[cc.AnnUploadPodName]; !ok {
+		return false
+	}
+	return true
+}
+
+// CanStartPod returns whether importer Pod can be started.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMDReconcilerState) CanStartPod() bool {
+	return !state.IsReady() && state.IsPodInited() && state.Pod == nil
+}
+
+// IsPodComplete returns whether importer/uploader Pod was completed.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMDReconcilerState) IsPodComplete() bool {
+	return state.Pod != nil && cc.IsPodComplete(state.Pod)
+}
+
+// IsPodInProgress returns whether importer/uploader Pod is in progress.
+func (state *VMDReconcilerState) IsPodInProgress() bool {
+	return state.Pod != nil && state.Pod.Status.Phase == corev1.PodRunning
+}
+
+func (state *VMDReconcilerState) ShouldTrackDataVolume() bool {
 	return !state.VMD.IsEmpty()
+}
+
+func (state *VMDReconcilerState) HasDataVolumeAnno() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	anno := state.VMD.Current().GetAnnotations()
+	_, ok := anno[cc.AnnVMDDataVolume]
+	return ok
+}
+
+func (state *VMDReconcilerState) CanCreateDataVolume() bool {
+	return state.HasDataVolumeAnno() && state.DV == nil
+}
+
+func (state *VMDReconcilerState) IsDataVolumeInProgress() bool {
+	return state.DV != nil && state.DV.Status.Phase != cdiv1.Succeeded
+}
+
+func (state *VMDReconcilerState) IsDataVolumeComplete() bool {
+	return state.DV != nil && state.DV.Status.Phase == cdiv1.Succeeded
 }

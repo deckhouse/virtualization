@@ -1,16 +1,19 @@
 package v2alpha1
 
 const (
-	FinalizerDVProtection  = "virtualization.deckhouse.io/dv-protection"
-	FinalizerPVCProtection = "virtualization.deckhouse.io/pvc-protection"
-	FinalizerPVProtection  = "virtualization.deckhouse.io/pv-protection"
-	FinalizerVMDCleanup    = "virtualization.deckhouse.io/vmd-cleanup"
-	FinalizerVMICleanup    = "virtualization.deckhouse.io/vmi-cleanup"
+	FinalizerPodProtection     = "virtualization.deckhouse.io/pod-protection"
+	FinalizerServiceProtection = "virtualization.deckhouse.io/svc-protection"
+	FinalizerDVProtection      = "virtualization.deckhouse.io/dv-protection"
+	FinalizerPVCProtection     = "virtualization.deckhouse.io/pvc-protection"
+	FinalizerPVProtection      = "virtualization.deckhouse.io/pv-protection"
 
-	FinalizerVMIProtection  = "virtualization.deckhouse.io/vmi-protection"
 	FinalizerCVMIProtection = "virtualization.deckhouse.io/cvmi-protection"
+	FinalizerVMIProtection  = "virtualization.deckhouse.io/vmi-protection"
 	FinalizerVMDProtection  = "virtualization.deckhouse.io/vmd-protection"
-	// FinalizerKVVMIProtection = "virtualization.deckhouse.io/kvvmi-protection"
 	FinalizerKVVMProtection = "virtualization.deckhouse.io/kvvm-protection"
-	FinalizerVMCleanup      = "virtualization.deckhouse.io/vm-cleanup"
+
+	FinalizerCVMICleanup = "virtualization.deckhouse.io/cvmi-cleanup"
+	FinalizerVMICleanup  = "virtualization.deckhouse.io/vmi-cleanup"
+	FinalizerVMDCleanup  = "virtualization.deckhouse.io/vmd-cleanup"
+	FinalizerVMCleanup   = "virtualization.deckhouse.io/vm-cleanup"
 )

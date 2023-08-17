@@ -24,11 +24,13 @@ func NewCVMIController(
 	mgr manager.Manager,
 	log logr.Logger,
 	importerImage string,
+	uploaderImage string,
 	controllerNamespace string,
 	dvcrSettings *cc.DVCRSettings,
 ) (controller.Controller, error) {
 	reconciler := NewCVMIReconciler(
 		importerImage,
+		uploaderImage,
 		ImporterPodVerbose,
 		ImporterPodPullPolicy,
 		controllerNamespace,

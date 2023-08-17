@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -16,17 +17,19 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type VMIReconcilerState struct {
-	Client client.Client
-	VMI    *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
-	DV     *cdiv1.DataVolume
-	PVC    *corev1.PersistentVolumeClaim
-	PV     *corev1.PersistentVolume
-	Pod    *corev1.Pod
-	Result *reconcile.Result
+	Client  client.Client
+	VMI     *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	DV      *cdiv1.DataVolume
+	PVC     *corev1.PersistentVolumeClaim
+	PV      *corev1.PersistentVolume
+	Pod     *corev1.Pod
+	Service *corev1.Service
+	Result  *reconcile.Result
 }
 
 func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMIReconcilerState {
@@ -72,11 +75,26 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		return nil
 	}
 
-	pod, err := importer.FindImporterPod(ctx, client, state.VMI.Current())
-	if err != nil {
-		return err
+	switch state.VMI.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeUpload:
+		pod, err := uploader.FindPod(ctx, client, state.VMI.Current())
+		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
+			return err
+		}
+		state.Pod = pod
+
+		service, err := uploader.FindService(ctx, client, state.VMI.Current())
+		if err != nil && !errors.Is(err, uploader.ErrServiceNameNotFound) {
+			return err
+		}
+		state.Service = service
+	default:
+		pod, err := importer.FindPod(ctx, client, state.VMI.Current())
+		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
+			return err
+		}
+		state.Pod = pod
 	}
-	state.Pod = pod
 
 	if dvName, hasKey := state.VMI.Current().Annotations[cc.AnnVMIDataVolume]; hasKey {
 		var err error
@@ -141,7 +159,7 @@ func (state *VMIReconcilerState) IsDeletion() bool {
 	return state.VMI.Current().DeletionTimestamp != nil
 }
 
-func (state *VMIReconcilerState) ShouldTrackImporterPod() bool {
+func (state *VMIReconcilerState) ShouldTrackPod() bool {
 	if state.VMI.IsEmpty() {
 		return false
 	}
@@ -162,9 +180,22 @@ func (state *VMIReconcilerState) ShouldTrackImporterPod() bool {
 	return false
 }
 
-// HasImporterPodAnno returns whether VMI has annotations with importer Pod coordinates.
-// NOTE: valid only if ShouldTrackImporterPod is true.
-func (state *VMIReconcilerState) HasImporterPodAnno() bool {
+// IsPodInited returns whether VMI has annotations with importer or uploader coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) IsPodInited() bool {
+	switch state.VMI.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return state.hasImporterPodAnno()
+	case virtv2.DataSourceTypeUpload:
+		return state.hasUploaderPodAnno()
+	default:
+		return true
+	}
+}
+
+// hasImporterPodAnno returns whether VMI has annotations with importer Pod coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) hasImporterPodAnno() bool {
 	if state.VMI.IsEmpty() {
 		return false
 	}
@@ -175,21 +206,37 @@ func (state *VMIReconcilerState) HasImporterPodAnno() bool {
 	return true
 }
 
-// CanStartImporterPod returns whether importer Pod can be started.
-// NOTE: valid only if ShouldTrackImporterPod is true.
-func (state *VMIReconcilerState) CanStartImporterPod() bool {
-	return !state.IsReady() && state.HasImporterPodAnno() && state.Pod == nil
+// hasUploaderPodAnno returns whether VMI has annotations with uploader Pod coordinates.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) hasUploaderPodAnno() bool {
+	if state.VMI.IsEmpty() {
+		return false
+	}
+	anno := state.VMI.Current().GetAnnotations()
+	if _, ok := anno[cc.AnnUploadPodName]; !ok {
+		return false
+	}
+	if _, ok := anno[cc.AnnUploadServiceName]; !ok {
+		return false
+	}
+	return true
 }
 
-// IsImporterPodComplete returns whether importer Pod was completed.
-// NOTE: valid only if ShouldTrackImporterPod is true.
-func (state *VMIReconcilerState) IsImporterPodComplete() bool {
+// CanStartPod returns whether importer/uploader Pod can be started.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) CanStartPod() bool {
+	return !state.IsReady() && state.IsPodInited() && state.Pod == nil
+}
+
+// IsPodComplete returns whether importer/uploader Pod was completed.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) IsPodComplete() bool {
 	return state.Pod != nil && cc.IsPodComplete(state.Pod)
 }
 
-// IsImporterPodInProgress returns whether importer Pod can be started.
-// NOTE: valid only if ShouldTrackImporterPod is true.
-func (state *VMIReconcilerState) IsImporterPodInProgress() bool {
+// IsPodInProgress returns whether Pod is in progress.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *VMIReconcilerState) IsPodInProgress() bool {
 	return state.Pod != nil && state.Pod.Status.Phase == corev1.PodRunning
 }
 
@@ -201,11 +248,8 @@ func (state *VMIReconcilerState) GetTargetPVCSize() string {
 	if state.VMI.IsEmpty() {
 		return ""
 	}
-	size := state.VMI.Current().Spec.PersistentVolumeClaim.Size
-	if size == "" {
-		size = state.VMI.Current().Status.Size.UnpackedBytes
-	}
-	return size
+
+	return state.VMI.Current().Status.Size.UnpackedBytes
 }
 
 func (state *VMIReconcilerState) ShouldTrackDataVolume() bool {

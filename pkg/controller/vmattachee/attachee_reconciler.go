@@ -20,7 +20,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-// Attachee struct aimed to be included into the image or disk, which is attached to the VM
+// AttacheeReconciler struct aimed to be included into the image or disk, which is attached to the VM
 type AttacheeReconciler[T helper.Object[T, ST], ST any] struct {
 	Kind         string
 	IsNamespaced bool

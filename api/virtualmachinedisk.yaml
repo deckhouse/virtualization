@@ -269,7 +269,7 @@ spec:
                   type: string
                   example: 50G
                   description: |
-                    Requested capacity off the `VirtualMachineDisk` in human-readable format.
+                    Requested capacity of the PVC in human-readable format.
                 target:
                   type: object
                   properties:

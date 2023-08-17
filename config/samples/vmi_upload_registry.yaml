@@ -1,0 +1,10 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: vmi-upload-cr
+spec:
+  storage: ContainerRegistry
+  persistentVolumeClaim:
+    storageClassName: "local-path"
+  dataSource:
+    type: "Upload"
