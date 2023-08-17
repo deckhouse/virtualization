@@ -8,26 +8,27 @@ import (
 )
 
 // MakeOwnerReference makes owner reference from a ClusterVirtualMachineImage.
-func MakeOwnerReference(vmi *virtv2alpha1.VirtualMachineDisk) metav1.OwnerReference {
-	return *metav1.NewControllerRef(vmi, schema.GroupVersionKind{
+func MakeOwnerReference(vmd *virtv2alpha1.VirtualMachineDisk) metav1.OwnerReference {
+	return *metav1.NewControllerRef(vmd, schema.GroupVersionKind{
 		Group:   virtv2alpha1.APIGroup,
 		Version: virtv2alpha1.APIVersion,
 		Kind:    virtv2alpha1.VMDKind,
 	})
 }
 
-func HasCABundle(vmi *virtv2alpha1.VirtualMachineImage) bool {
-	if vmi != nil &&
-		vmi.Spec.DataSource.Type == virtv2alpha1.DataSourceTypeHTTP &&
-		vmi.Spec.DataSource.HTTP != nil {
-		return len(vmi.Spec.DataSource.HTTP.CABundle) > 0
+func HasCABundle(vmd *virtv2alpha1.VirtualMachineDisk) bool {
+	if vmd != nil &&
+		vmd.Spec.DataSource != nil &&
+		vmd.Spec.DataSource.Type == virtv2alpha1.DataSourceTypeHTTP &&
+		vmd.Spec.DataSource.HTTP != nil {
+		return len(vmd.Spec.DataSource.HTTP.CABundle) > 0
 	}
 	return false
 }
 
-func GetCABundle(vmi *virtv2alpha1.VirtualMachineImage) string {
-	if HasCABundle(vmi) {
-		return string(vmi.Spec.DataSource.HTTP.CABundle)
+func GetCABundle(vmd *virtv2alpha1.VirtualMachineDisk) string {
+	if HasCABundle(vmd) {
+		return string(vmd.Spec.DataSource.HTTP.CABundle)
 	}
 	return ""
 }

@@ -2,11 +2,14 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -14,8 +17,21 @@ const (
 	vmdControllerName = "vmd-controller"
 )
 
-func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger) (controller.Controller, error) {
-	reconciler := NewVMDReconciler()
+func NewVMDController(
+	ctx context.Context,
+	mgr manager.Manager,
+	log logr.Logger,
+	importerImage string,
+	uploaderImage string,
+	dvcrSettings *cc.DVCRSettings,
+) (controller.Controller, error) {
+	reconciler := NewVMDReconciler(
+		importerImage,
+		uploaderImage,
+		ImporterPodVerbose,
+		ImporterPodPullPolicy,
+		dvcrSettings,
+	)
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](
 		reconciler,
 		NewVMDReconcilerState,
@@ -27,7 +43,10 @@ func NewVMDController(ctx context.Context, mgr manager.Manager, log logr.Logger)
 			Log:      log.WithName(vmdControllerName),
 		})
 
-	c, err := controller.New(vmdControllerName, mgr, controller.Options{Reconciler: reconcilerCore})
+	c, err := controller.New(vmdControllerName, mgr, controller.Options{
+		Reconciler:  reconcilerCore,
+		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
+	})
 	if err != nil {
 		return nil, err
 	}

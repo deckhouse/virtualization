@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -9,11 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
@@ -21,10 +24,12 @@ import (
 type CVMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 
-	Client client.Client
-	CVMI   *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Pod    *corev1.Pod
-	Result *reconcile.Result
+	Client      client.Client
+	CVMI        *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Service     *corev1.Service
+	Pod         *corev1.Pod
+	AttachedVMs []*virtv2.VirtualMachine
+	Result      *reconcile.Result
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
@@ -75,17 +80,32 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		return nil
 	}
 
-	pod, err := importer.FindImporterPod(ctx, client, state.CVMI.Current())
-	if err != nil {
-		return err
+	switch state.CVMI.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeUpload:
+		pod, err := uploader.FindPod(ctx, client, state.CVMI.Current())
+		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
+			return err
+		}
+		state.Pod = pod
+
+		service, err := uploader.FindService(ctx, client, state.CVMI.Current())
+		if err != nil && !errors.Is(err, uploader.ErrServiceNameNotFound) {
+			return err
+		}
+		state.Service = service
+	default:
+		pod, err := importer.FindPod(ctx, client, state.CVMI.Current())
+		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
+			return err
+		}
+		state.Pod = pod
 	}
-	state.Pod = pod
 
 	return state.AttacheeState.Reload(ctx, req, log, client)
 }
 
 // ShouldReconcile tells if Sync and UpdateStatus should run.
-// CVMI should not be reconciled if phase is Ready and no importer Pod found.
+// CVMI should not be reconciled if phase is Ready and no importer or uploader Pod found.
 func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	// CVMI was not found. E.g. CVMI was deleted, but requeue task was triggered.
 	if state.CVMI.IsEmpty() {
@@ -94,11 +114,15 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	if state.AttacheeState.ShouldReconcile(log) {
 		return true
 	}
-	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil)
+	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil && state.Service == nil)
+}
+
+func (state *CVMIReconcilerState) IsProtected() bool {
+	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMICleanup)
 }
 
 // HasImporterPodAnno returns whether CVMI is just created and has no annotations with importer Pod coordinates.
-func (state *CVMIReconcilerState) HasImporterPodAnno() bool {
+func (state *CVMIReconcilerState) HasImporterAnno() bool {
 	if state.CVMI.IsEmpty() {
 		return false
 	}
@@ -106,29 +130,28 @@ func (state *CVMIReconcilerState) HasImporterPodAnno() bool {
 	if _, ok := anno[cc.AnnImportPodName]; !ok {
 		return false
 	}
-	if _, ok := anno[cc.AnnImportPodNamespace]; !ok {
+	if _, ok := anno[cc.AnnImporterNamespace]; !ok {
 		return false
 	}
 	return true
 }
 
-// CanStartImporterPod returns whether CVMI is just created and has no annotations with importer Pod coordinates.
-func (state *CVMIReconcilerState) CanStartImporterPod() bool {
-	return !state.IsReady() && state.HasImporterPodAnno() && state.Pod == nil
-}
-
-func (state *CVMIReconcilerState) HasImporterPod() bool {
-	return state.HasImporterPodAnno() && state.Pod != nil
-}
-
-func (state *CVMIReconcilerState) IsReady() bool {
+// HasUploaderAnno returns whether CVMI is just created and has no annotations with uploader Pod or Service coordinates.
+func (state *CVMIReconcilerState) HasUploaderAnno() bool {
 	if state.CVMI.IsEmpty() {
 		return false
 	}
-	if !state.HasImporterPodAnno() {
+	anno := state.CVMI.Current().GetAnnotations()
+	if _, ok := anno[cc.AnnUploaderNamespace]; !ok {
 		return false
 	}
-	return state.CVMI.Current().Status.Phase == virtv2.ImageReady
+	if _, ok := anno[cc.AnnUploadPodName]; !ok {
+		return false
+	}
+	if _, ok := anno[cc.AnnUploadServiceName]; !ok {
+		return false
+	}
+	return true
 }
 
 func (state *CVMIReconcilerState) IsDeletion() bool {

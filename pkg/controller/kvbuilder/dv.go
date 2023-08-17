@@ -10,6 +10,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
+const dockerRegistrySchemePrefix = "docker://"
+
 type DV struct {
 	helper.ResourceBuilder[*cdiv1.DataVolume]
 }
@@ -46,9 +48,11 @@ func (b *DV) SetPVC(storageClassName string, size resource.Quantity) {
 	}
 }
 
-func (b *DV) SetHTTPDataSource(url string) {
-	b.Resource.Spec.Source.HTTP = &cdiv1.DataVolumeSourceHTTP{
-		URL: url,
+func (b *DV) SetRegistryDataSource(imageName string) {
+	url := dockerRegistrySchemePrefix + imageName
+
+	b.Resource.Spec.Source.Registry = &cdiv1.DataVolumeSourceRegistry{
+		URL: &url,
 	}
 }
 

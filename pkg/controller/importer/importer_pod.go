@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strconv"
@@ -180,7 +181,7 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 
 func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 	container := &corev1.Container{
-		Name:            common.ImporterPodNamePrefix,
+		Name:            common.ImporterContainerName,
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
 		Command:         []string{"sh"},
@@ -407,16 +408,18 @@ func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
 	return ""
 }
 
-func FindImporterPod(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Pod, error) {
+var ErrPodNameNotFound = errors.New("pod name not found")
+
+func FindPod(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Pod, error) {
 	// Extract namespace and name of the importer Pod from annotations.
 	podName := obj.GetAnnotations()[cc.AnnImportPodName]
 	if podName == "" {
-		return nil, nil
+		return nil, ErrPodNameNotFound
 	}
 
 	// Get namespace from annotations (for cluster-wide resources, e.g. ClusterVirtualMachineImage).
 	// Default is namespace of the input object.
-	podNS := obj.GetAnnotations()[cc.AnnImportPodNamespace]
+	podNS := obj.GetAnnotations()[cc.AnnImporterNamespace]
 	if podNS == "" {
 		podNS = obj.GetNamespace()
 	}

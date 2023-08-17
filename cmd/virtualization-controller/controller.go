@@ -35,6 +35,7 @@ var (
 		virtv1.AddToScheme,
 	}
 	importerImage       string
+	uploaderImage       string
 	controllerNamespace string
 	dvcrSettings        *cc.DVCRSettings
 )
@@ -43,6 +44,7 @@ const defaultVerbosity = "1"
 
 func init() {
 	importerImage = getRequiredEnvVar(common.ImporterPodImageNameVar)
+	uploaderImage = getRequiredEnvVar(common.UploaderPodImageNameVar)
 	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
 	dvcrSettings = cc.NewDVCRSettings(
 		getRequiredEnvVar(common.ImporterDestinationAuthSecretVar),
@@ -137,17 +139,17 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	if _, err := controller.NewVMDController(ctx, mgr, log); err != nil {
+	if _, err := controller.NewVMDController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-	if _, err := controller.NewCVMIController(ctx, mgr, log, importerImage, controllerNamespace, dvcrSettings); err != nil {
+	if _, err := controller.NewCVMIController(ctx, mgr, log, importerImage, uploaderImage, controllerNamespace, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-	if _, err := controller.NewVMIController(ctx, mgr, log, importerImage, dvcrSettings); err != nil {
+	if _, err := controller.NewVMIController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

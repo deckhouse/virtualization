@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: vmd-upload-auto-sized
+spec:
+  persistentVolumeClaim:
+    storageClassName: "local-path"
+  dataSource:
+    type: "Upload"
