@@ -43,3 +43,4 @@ local/caddy/images/
 
 # Secrets
 local/virtualization-controller/templates/auth-secret.yaml
+local/virtualization-controller/validating-certs

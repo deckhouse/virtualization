@@ -6,9 +6,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
@@ -50,9 +52,18 @@ func NewVMDController(
 	if err != nil {
 		return nil, err
 	}
+
 	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
+
+	if err := builder.WebhookManagedBy(mgr).
+		For(&v2alpha1.VirtualMachineDisk{}).
+		WithValidator(NewVMDValidator(log)).
+		Complete(); err != nil {
+		return nil, err
+	}
+
 	log.Info("Initialized VirtualMachineDisk controller")
 	return c, nil
 }
