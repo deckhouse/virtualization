@@ -3,53 +3,129 @@ version: "3"
 silent: true
 
 tasks:
-  watch:
-    desc: "Watch for debian-iso cvmi resource"
+  recreate:
+    desc: "Recreate example CVMI resource"
+    vars:
+      CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
+      CVMI_FILE: '{{ .CVMI_FILE | default "config/samples/cvmi_ubuntu_iso.yaml" }}'
     cmds:
       - |
-        kubectl get clustervirtualmachineimage | head -n1
+        kubectl delete clustervirtualmachineimage/{{ .CVMI_NAME }} || true
+        kubectl delete -n virtualization-controller po/importer-{{ .CVMI_NAME }} || true
+        sleep 1
+        kubectl apply -f {{ .CVMI_FILE }}
+
+  watch:
+    desc: "Watch CVMI resource status"
+    vars:
+      CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
+    cmds:
+      - |
+        kubectl get clustervirtualmachineimage -o wide | head -n1
         for i in `seq 1 400` ; do
-          kubectl get clustervirtualmachineimage/debian-iso --no-headers  || true
+          kubectl get clustervirtualmachineimage/{{ .CVMI_NAME }} --no-headers -o wide || true
           sleep 2
         done
 
   status:
-    desc: "Get importer Pod and cvmi/debian-iso"
+    desc: "Get CVMI resource and related Importer Pod"
+    vars:
+      CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        kubectl -n virtualization-controller get po
-        kubectl get clustervirtualmachineimage/debian-iso
-
-  recreate:
-    desc: "Recreate example CVMI resource"
-    cmds:
-      - |
-        kubectl -n virtualization-controller delete po/importer-debian-iso || true
-        kubectl delete clustervirtualmachineimage/debian-iso || true
-        sleep 1
-        kubectl apply -f config/samples/cvmi_debian_iso.yaml
-
-  recreate2:
-    desc: "Recreate example CVMI resource with caBundle field"
-    cmds:
-      - |
-        kubectl -n virtualization-controller delete po/importer-debian-iso || true
-        kubectl delete clustervirtualmachineimage/debian-iso || true
-        sleep 1
-        kubectl apply -f config/samples/cvmi_debian_iso_ca_bundle.yaml
+        kubectl get clustervirtualmachineimage/{{ .CVMI_NAME }} || true
+        echo ">>> Annotations:"
+        (kubectl get clustervirtualmachineimage/{{ .CVMI_NAME }} -o json | jq '.metadata.annotations') || true
+        echo ">>> Importer Pod"
+        kubectl -n virtualization-controller get po/importer-{{.CVMI_NAME}} || true
 
   progress:
     desc: "Get progress metrics directly from pod importer"
+    vars:
+      CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        PodIP=$(kubectl -n virtualization-controller get po/importer-debian-iso -o json | jq '.status.podIP' -r)
+        PodIP=$(kubectl -n virtualization-controller get po/importer-{{.CVMI_NAME}} -o json | jq '.status.podIP' -r)
         kubectl -n virtualization-controller exec -ti deploy/virtualization-controller -- curl -k https://${PodIP}:8443/metrics | grep registry
 
   logs:
     desc: "Importer Pod logs"
     cmds:
       - |
-        kubectl -n virtualization-controller logs po/importer-debian-iso -f
+        kubectl -n virtualization-controller logs po/importer-{{.CVMI_NAME}} -f
+
+  https:recreate:
+    desc: "Recreate example CVMI resource: https datasource"
+    cmds:
+      - task: recreate
+        vars:
+          CVMI_NAME: debian-iso
+          CVMI_FILE: config/samples/cvmi_debian_iso.yaml
+
+  https:watch:
+    desc: ""
+    cmds:
+      - task: watch
+        vars:
+          CVMI_NAME: debian-iso
+
+  https:status:
+    desc: ""
+    cmds:
+      - task: status
+        vars:
+          CVMI_NAME: debian-iso
+
+  https:progress:
+    desc: ""
+    cmds:
+      - task: progress
+        vars:
+          CVMI_NAME: debian-iso
+
+  https:logs:
+    desc: ""
+    cmds:
+      - task: logs
+        vars:
+          CVMI_NAME: debian-iso
+
+  https-ca:recreate:
+    desc: "Recreate example CVMI resource: https datasource with caBundle field"
+    cmds:
+      - task: recreate
+        vars:
+          CVMI_NAME: debian-iso
+          CVMI_FILE: config/samples/cvmi_debian_iso_ca_bundle.yaml
+
+  https-ca:watch:
+    desc: ""
+    cmds:
+      - task: watch
+        vars:
+          CVMI_NAME: debian-iso
+
+  https-ca:status:
+    desc: ""
+    cmds:
+      - task: status
+        vars:
+          CVMI_NAME: debian-iso
+
+  https-ca:progress:
+    desc: ""
+    cmds:
+      - task: progress
+        vars:
+          CVMI_NAME: debian-iso
+
+  https-ca:logs:
+    desc: ""
+    cmds:
+      - task: logs
+        vars:
+          CVMI_NAME: debian-iso
+
 
   get-ca-bundle-for-test:
     desc: "Get CA chain for debian-iso resource"
