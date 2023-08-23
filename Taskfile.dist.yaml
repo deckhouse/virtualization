@@ -10,8 +10,9 @@ includes:
     optional: true
 
 vars:
-  CDIVersion: "1.57.0-alpha1"
-  KubeVirtVersion: "1.0.0"
+  CDIVersion: "v1.57.0-alpha1"
+  KubeVirtVersion: "v1.0.0"
+  CaddyVersion: "2.4.5"
 
 env:
   K8S_CODEGEN:
@@ -49,43 +50,39 @@ tasks:
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
     cmds:
+      - ( cd $HOME/.virtualization-controller-k3d ; mkdir -p mounts storage )
       - k3d registry create registry.virtualization-controller.test --port 5000
       - |
+        kubevirt_mounts=()
+        if [[ "{{OS}}" == "linux" ]] ; then
+          kubevirt_mounts=(
+            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt:/var/run/kubevirt"
+            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt-private:/var/run/kubevirt-private"
+          )
+        fi
         k3d cluster create \
             --api-port 6550 -p "80:80@loadbalancer" \
             --registry-use k3d-registry.virtualization-controller.test:5000 \
-            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt:/var/run/kubevirt:rshared" \
-            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt-private:/var/run/kubevirt-private:rshared"
+            --volume $HOME/.virtualization-controller-k3d/storage:/var/lib/rancher/k3s/storage@all \
+            "${kubevirt_mounts[@]}"
 
-      - |
-        # Preload images for faster start of importer
-        docker pull       quay.io/kubevirt/cdi-importer:v{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-importer:v{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-operator:v{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-operator:v{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-apiserver:v{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-apiserver:v{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-uploadproxy:v{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-uploadproxy:v{{.CDIVersion}}
-
-        # Preload kubevirt images
-        docker pull quay.io/kubevirt/virt-api:v{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-api:v{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-controller:v{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-controller:v{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-handler:v{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-handler:v{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-launcher:v{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-launcher:v{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-operator:v{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-operator:v{{.KubeVirtVersion}}
+      - task: dev:preload-images
 
       - |
         # Install KubeVirt
-        export RELEASE=v{{.KubeVirtVersion}}
+        export RELEASE={{.KubeVirtVersion}}
         kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
         kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
-        kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
+
+        if [[ "{{OS}}" == "darwin" ]] ; then
+          # Enable emulation mode for MacOS.
+          echo "Enable Software emulation ..."
+          kubectl -n kubevirt patch kubevirt kubevirt  --type=merge --patch '{"spec": {"configuration": {"developerConfiguration": {"useEmulation": true}}}}'
+        else
+          # Do not wait for kubevirt on MacOS, it is always stuck in the CreateContainerError phase.
+          echo "Wait until kubevirt is ready ..."
+          kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
+        fi
 
       - |
         # Install CDI
@@ -93,6 +90,11 @@ tasks:
         export VERSION=$(echo ${TAG##*/})
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
         kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
+
+      - |
+        kubectl patch cdi cdi \
+            --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
+            --type merge
 
       - |
         # Preload test-os-images
@@ -104,11 +106,6 @@ tasks:
           --namespace caddy \
           --create-namespace \
           caddy ./local/caddy
-
-      - |
-        kubectl patch cdi cdi \
-            --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
-            --type merge
 
   dev:down:
     desc: "Delete local kubernetes cluster using k3d"
@@ -124,6 +121,19 @@ tasks:
         # TODO Remove CDI
       - task: build:cache:reset
 
+  dev:preload-images:
+    desc: "Preload images for all components"
+    cmds:
+      - task: cdi:preload-images
+      - task: kubevirt:preload-images
+      - task: caddy:preload-images
+
+  dev:rmns:
+    desc: "Remove namespace with finalizer"
+    cmds:
+      - |
+        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
+
   dev:cluster:push_test_os_images:
     desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
     cmds:
@@ -135,11 +145,43 @@ tasks:
           -t ${CONTROLLER_TEST_OS_IMAGES}
          docker push ${CONTROLLER_TEST_OS_IMAGES}
 
-  dev:rmns:
-    desc: "Remove namespace with finalizer"
+  kubevirt:preload-images:
+    desc: "Preload images for Kubevirt components"
     cmds:
       - |
-        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
+        # Preload kubevirt images.
+        docker pull quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+
+  cdi:preload-images:
+    desc: "Preload images for cdi-importer components"
+    cmds:
+      - |
+        # Preload images for faster start of cdi-importer.
+        docker pull       quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+
+  caddy:preload-images:
+    desc: "Preload images for Caddy components."
+    cmds:
+      - |
+        # Preload images for Caddy components.
+        docker pull "caddy:{{.CaddyVersion}}"
+        k3d image import "caddy:{{.CaddyVersion}}"
 
   build:cache:reset:
     desc: "Reset go build cache"
@@ -263,6 +305,7 @@ tasks:
       - task: dev:update:vmd
       - task: dev:update:vmds
       - task: dev:update:vm
+      - task: dev:update:vmbda
 
   dev:update:cvmi:
     desc: "Update ClusterVirtualMachineImage CRD"
@@ -288,6 +331,11 @@ tasks:
     desc: "Update VirtualMachine CRD"
     cmds:
       - kubectl apply -f api/virtualmachine.yaml
+
+  dev:update:vmbda:
+    desc: "Update VirtualMachineBlockDeviceAttachment CRD"
+    cmds:
+      - kubectl apply -f api/virtualmachineblockdeviceattachment.yaml
 
   kctl:
     cmds:
@@ -431,6 +479,8 @@ tasks:
   _ensure:virtctl:
     desc: "Ensure virtctl tool is installed"
     cmds:
-      - echo "Install virtctl" && exit 1
+      - echo -e >&2 "Install virtctl from the release page of the KubeVirt github page:\n" \
+          "https://github.com/kubevirt/kubevirt/releases\n"
+      - exit 1
     status:
       - which virtctl >/dev/null
