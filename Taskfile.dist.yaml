@@ -228,6 +228,7 @@ tasks:
       - |
         mkdir -p local/virtualization-controller/crds
         cp api/*.yaml local/virtualization-controller/crds
+      - (cd local/virtualization-controller && bash gen-certs.sh -y)
       - |
         helm upgrade --install \
           --namespace virtualization-controller \

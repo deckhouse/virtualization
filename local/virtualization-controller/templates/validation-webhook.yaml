@@ -1,0 +1,22 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: "validation.webhook.com"
+webhooks:
+  - name: "validation.webhook.com"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v2alpha1"]
+        operations:  ["UPDATE"]
+        resources:   ["virtualmachinedisks"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: virtualization-controller
+        name: admission-webhook-service
+        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachinedisk
+        port: 443
+      caBundle: |
+        {{ .Files.Get "validating-certs/ca.pem" | b64enc }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
