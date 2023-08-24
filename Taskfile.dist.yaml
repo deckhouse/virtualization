@@ -50,6 +50,47 @@ tasks:
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
     cmds:
+      - task: cluster:up
+
+      - task: dev:preload-images
+
+      - task: kubevirt:up
+
+      - task: cdi:up
+
+      - task: caddy:up
+      - task: caddy:preload-os-images
+
+      - task: dvcr:up
+
+  dev:down:
+    desc: "Delete local kubernetes cluster using k3d"
+    deps:
+      - _ensure:k3d
+      - _ensure:kubectl
+      - _ensure:k3d-registry-domain
+      - _ensure:k3d-registry-insecure-allowed
+    cmds:
+      - task: cluster:down
+      - task: build:cache:reset
+
+  dev:preload-images:
+    desc: "Preload images for all components"
+    cmds:
+      - task: cdi:preload-images
+      - task: kubevirt:preload-images
+      - task: caddy:preload-images
+      - task: dvcr:preload-images
+
+  dev:rmns:
+    desc: "Remove namespace with finalizer"
+    cmds:
+      - |
+        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
+
+  cluster:up:
+    desc: "Create local k3d cluster"
+    cmds:
       - ( cd $HOME/.virtualization-controller-k3d ; mkdir -p mounts storage )
       - k3d registry create registry.virtualization-controller.test --port 5000
       - |
@@ -66,8 +107,31 @@ tasks:
             --volume $HOME/.virtualization-controller-k3d/storage:/var/lib/rancher/k3s/storage@all \
             "${kubevirt_mounts[@]}"
 
-      - task: dev:preload-images
+  cluster:down:
+    desc: ""
+    cmds:
+      - k3d registry delete --all || true
+      - k3d cluster delete || true
 
+  kubevirt:preload-images:
+    desc: "Preload images for Kubevirt components"
+    cmds:
+      - |
+        # Preload kubevirt images.
+        docker pull quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+        docker pull quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+        k3d image import quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+
+  kubevirt:up:
+    desc: "Insall kubevirt into local cluster"
+    cmds:
       - |
         # Install KubeVirt
         export RELEASE={{.KubeVirtVersion}}
@@ -84,6 +148,24 @@ tasks:
           kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
         fi
 
+
+  cdi:preload-images:
+    desc: "Preload images for cdi-importer components"
+    cmds:
+      - |
+        # Preload images for faster start of cdi-importer.
+        docker pull       quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+        docker pull       quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+        k3d image import  quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+
+  cdi:up:
+    desc: "Install CDI into local cluster"
+    cmds:
       - |
         # Install CDI
         export TAG=$(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest)
@@ -95,39 +177,6 @@ tasks:
         kubectl patch cdi cdi \
             --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
             --type merge
-
-      - task: caddy:up
-      - task: caddy:preload-os-images
-
-      - task: dvcr:up
-
-  dev:down:
-    desc: "Delete local kubernetes cluster using k3d"
-    deps:
-      - _ensure:k3d
-      - _ensure:kubectl
-      - _ensure:k3d-registry-domain
-      - _ensure:k3d-registry-insecure-allowed
-    cmds:
-      - k3d registry delete --all || true
-      - k3d cluster delete || true
-      - |
-        # TODO Remove CDI
-      - task: build:cache:reset
-
-  dev:preload-images:
-    desc: "Preload images for all components"
-    cmds:
-      - task: cdi:preload-images
-      - task: kubevirt:preload-images
-      - task: caddy:preload-images
-      - task: dvcr:preload-images
-
-  dev:rmns:
-    desc: "Remove namespace with finalizer"
-    cmds:
-      - |
-        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
 
   caddy:up:
     desc: "Start caddy file server"
@@ -180,36 +229,6 @@ tasks:
           -f ./local/caddy/Dockerfile \
           -t ${CONTROLLER_TEST_OS_IMAGES}
          docker push ${CONTROLLER_TEST_OS_IMAGES}
-
-  kubevirt:preload-images:
-    desc: "Preload images for Kubevirt components"
-    cmds:
-      - |
-        # Preload kubevirt images.
-        docker pull quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
-
-  cdi:preload-images:
-    desc: "Preload images for cdi-importer components"
-    cmds:
-      - |
-        # Preload images for faster start of cdi-importer.
-        docker pull       quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
 
   caddy:preload-images:
     desc: "Preload images for Caddy components."
