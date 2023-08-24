@@ -7,7 +7,8 @@ replicaCount: 1
 
 image:
   # -- Name of the image repository to pull the container image from.
-  repository: dev-registry.deckhouse.io/virt/test-os-images
+  #repository: dev-registry.deckhouse.io/virt/test-os-images
+  repository: caddy
 
   # -- [Image pull policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for updating already existing images on a node.
   pullPolicy: IfNotPresent
@@ -26,7 +27,12 @@ fullnameOverride: ""
 
 # -- (string) Caddy configuration file content. Accepts [Caddyfile](https://caddyserver.com/docs/caddyfile) format by default.
 # See `adapter` for other formats.
-config:
+config: |
+  :80 {
+     root * /usr/share/caddy
+     file_server browse
+     uri strip_prefix /caddy
+  }
 
 # -- Caddyfile [config adapter](https://caddyserver.com/docs/config-adapters). Set it to empty string to use JSON.
 adapter: caddyfile
@@ -36,11 +42,16 @@ watch: false
 
 # -- Additional storage [volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
-volumes: []
+volumes:
+  - name: caddy-images
+    persistentVolumeClaim:
+      claimName: caddy-images
 
 # -- Additional [volume mounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
-volumeMounts: []
+volumeMounts:
+  - mountPath: "/usr/share/caddy/images"
+    name: caddy-images
 
 # -- Additional environment variables mounted from [secrets](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables) or [config maps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#environment-variables) for details.
@@ -105,7 +116,7 @@ service:
 
 ingress:
   # -- Enable [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/).
-  enabled: false
+  enabled: true
 
   # -- Ingress [class name](https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class).
   className: ""
@@ -118,10 +129,10 @@ ingress:
   # -- Ingress host configuration.
   # @default -- See [values.yaml](values.yaml).
   hosts:
-    - host: chart-example.local
+    - host: ""
       paths:
-        - path: /
-          pathType: ImplementationSpecific
+        - path: /caddy
+          pathType: Prefix
 
   # -- Ingress TLS configuration.
   # @default -- See [values.yaml](values.yaml).

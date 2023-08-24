@@ -96,16 +96,8 @@ tasks:
             --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
             --type merge
 
-      - |
-        # Preload test-os-images
-        docker pull dev-registry.deckhouse.io/virt/test-os-images:latest
-        k3d image import dev-registry.deckhouse.io/virt/test-os-images:latest
-
-      - |
-        helm upgrade --install \
-          --namespace caddy \
-          --create-namespace \
-          caddy ./local/caddy
+      - task: caddy:up
+      - task: caddy:preload-os-images
 
   dev:down:
     desc: "Delete local kubernetes cluster using k3d"
@@ -134,8 +126,49 @@ tasks:
       - |
         ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
 
-  dev:cluster:push_test_os_images:
+  caddy:up:
+    desc: "Start caddy file server"
+    cmds:
+      - |
+        echo "Preload images for CDI components into k3d nodes ..."
+        docker pull "caddy:{{.CaddyVersion}}"
+        k3d image import "caddy:{{.CaddyVersion}}"
+      - |
+        helm upgrade --install \
+          --namespace caddy \
+          --create-namespace \
+          caddy ./local/caddy
+
+  caddy:down:
+    desc: "Uninstall caddy"
+    cmds:
+      - |
+        helm uninstall --namespace caddy caddy
+
+  caddy:preload-os-images:force:
+    desc: "Force download and extract OS images for local HTTP server"
+    cmds:
+      - |
+        echo "Cleanup caddy-images storage ..."
+        rm -rf $HOME/.virtualization-controller-k3d/storage/caddy-images/*
+      - task: caddy:preload-os-images
+
+  caddy:preload-os-images:
     desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
+    cmds:
+      - |
+        CADDY_DIR="$HOME/.virtualization-controller-k3d/storage/caddy-images"
+        if [ "$(ls -A $CADDY_DIR)" ] ; then
+          echo "Images already exist, skip downloading. Use 'task caddy:preload-os-images:force' to force downloading."
+          exit 0
+        fi
+        echo "Download and extract test OS images (be patient) ..."
+        # Extract *.img and *.iso files from archive in dev-registry.
+        # $HOME/.virtualization-controller-k3d/storage/caddy-images is mounted as caddy Pod volume
+        crane export ${CONTROLLER_TEST_OS_IMAGES} - | tar -C $HOME/.virtualization-controller-k3d/storage/caddy-images --strip-components=4 -xvf - usr/share/caddy/images
+
+  caddy:push-os-images:
+    desc: "Archive and push cloud images that will be http-served in the local kubernetes cluster"
     cmds:
       - |
         [ -f local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img ] || wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -O local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img
