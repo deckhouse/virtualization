@@ -1,0 +1,9 @@
+images:
+  nginx: nginx:stable-alpine
+  registry: registry:2
+
+# Settings for docker config secret.
+auth:
+  address: "registry.dvcr.svc.cluster.local"
+  user: admin
+  pass: p4ssw0rd

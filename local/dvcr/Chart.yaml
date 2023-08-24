@@ -1,0 +1,4 @@
+apiVersion: v1
+name: dvcr
+version: 1.0.0
+description: Registry with VM images for local developing and testing
