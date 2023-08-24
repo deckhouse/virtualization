@@ -3,10 +3,6 @@ images:
   importer: k3d-registry.virtualization-controller.test:5000/registry-importer:latest
   uploader: k3d-registry.virtualization-controller.test:5000/registry-uploader:latest
 dvcr:
-  ## Change to your registry:
-  # registry: "ghcr.io/USERNAME"
-  # authSecret: "ghcr-io-auth"
-
-  # Use local registry by default
-  registry: "k3d-registry.virtualization-controller.test:5000/dvcr"
+  registry: "registry.dvcr.svc.cluster.local/dvcr"
+  authSecret: "dvcr-auth"
   insecureTLS: "true"

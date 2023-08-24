@@ -99,6 +99,8 @@ tasks:
       - task: caddy:up
       - task: caddy:preload-os-images
 
+      - task: dvcr:up
+
   dev:down:
     desc: "Delete local kubernetes cluster using k3d"
     deps:
@@ -119,6 +121,7 @@ tasks:
       - task: cdi:preload-images
       - task: kubevirt:preload-images
       - task: caddy:preload-images
+      - task: dvcr:preload-images
 
   dev:rmns:
     desc: "Remove namespace with finalizer"
@@ -215,6 +218,44 @@ tasks:
         # Preload images for Caddy components.
         docker pull "caddy:{{.CaddyVersion}}"
         k3d image import "caddy:{{.CaddyVersion}}"
+
+  dvcr:preload-images:
+    desc: "Preload images for DVCR components."
+    cmds:
+      - |
+        echo "Import images for DVCR ..."
+        docker pull nginx:stable-alpine
+        k3d image import nginx:stable-alpine
+        docker pull registry:2
+        k3d image import registry:2
+        docker pull emberstack/kubernetes-reflector:7.0.193
+        k3d image import emberstack/kubernetes-reflector:7.0.193
+
+  dvcr:up:
+    desc: "Install dvcr registry into the cluster using helm"
+    deps:
+      - _ensure:helm
+      - _ensure:kubectl
+      - _ensure:cluster-available
+    cmds:
+      - |
+        # Gen certs.
+        if [[ ! -f ./local/dvcr/certs/ca.csr ]] ; then
+          echo "Generate TLS certificates for DVCR ..."
+          cd ./local/dvcr
+          ./gen-certs.sh
+        fi
+      - |
+        helm upgrade --install \
+          --namespace dvcr \
+          --create-namespace \
+          dvcr ./local/dvcr
+
+  dvcr:down:
+    desc: "Remove DVCR from cluster"
+    cmds:
+      - |
+        helm uninstall --namespace dvcr dvcr
 
   build:cache:reset:
     desc: "Reset go build cache"

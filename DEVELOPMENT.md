@@ -12,18 +12,9 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.my.
 
 ## Test in local cluster
 
-### Prepare
-
-- Change dvcr settings in local/virtualization-controller/values.yaml
-- Create secret with ghcr.io token:
-
-```
-kubectl create secret docker-registry ghcr-io-auth --docker-username=GITHUB_USERNAME --docker-password=GITHUB_TOKEN --docker-server=ghcr.io --dry-run=client -o yaml > local/virtualization-controller/templates/auth-secret.yaml
-```
-
 ### Configure dev deckhouse registry
 
-Login to `dev-registry.deckhouse.io` registry to pull virtualization-importer image:
+Login to `dev-registry.deckhouse.io` registry to pull virtualization-importer and test OS images:
 
 ```
 docker login dev-registry.deckhouse.io
@@ -49,6 +40,19 @@ docker login dev-registry.deckhouse.io
     task dev:logs
     ```
 
+3. Tasks to test CVMI/VMI
+
+Create ClusterVirtualMachineImage to import ubuntu ISO into DVCR:
+
+    ```
+    task cvmi:recreate
+    ```
+
+Watch CVMI resource:
+    ```
+    task cvmi:watch
+    ```
+
 ### Useful tasks
 
 - `task dev:delete` — delete Helm release with virtualization-controller
@@ -60,6 +64,14 @@ docker login dev-registry.deckhouse.io
 - `task lint` — run Go linters
 - `task dev:update:crds` — apply all manifests from `api` directory
 - `task dev:update:<short-name>` — apply CRD manifest from `api` directory. Short names are: cvmi, vmi, vmd, vmds, vm.
+
+### Local cluster components
+
+- Cluster registry `k3d-registry.virtualization-controller.test:5000`. It is used to deliver dev images of virtualization-controller, importer and uploader.
+- Kubevirt and CDI. Kubevirt not starting VMs on MacOS.
+- Caddy. A local server to test HTTP data sources.
+- DVCR. TLS and basic auth enabled container registry to store all images.
+- Kubernetes reflector (secret copier). It is used to distribute auth Secret to access DVCR among namespaces.
 
 ## CRDs
 
