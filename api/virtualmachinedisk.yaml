@@ -303,6 +303,20 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
+                usedInVMs:
+                  type: array
+                  description: |
+                    A list of virtual machines that use the disk
+                  example: [ 
+                            { name: "VM100" }, 
+                            { name: "VM200" },
+                            { name: "VM200" }
+                            ]
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
       additionalPrinterColumns:
       - name: ImportDuration
         type: string
