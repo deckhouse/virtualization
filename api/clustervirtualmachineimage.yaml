@@ -341,6 +341,30 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error. human-readable
+                usedInVMs:
+                  type: array
+                  description: |
+                    A list of virtual machines and namespaces that use the image
+                  example: [ 
+                            {
+                              name: "VM100",
+                              namespace: "customer1"
+                            }, 
+                            {
+                              name: "VM200",
+                              namespace: "customer1"
+                            },
+                            {
+                              name: "VM200",
+                              namespace: "customer2"
+                            }]
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      namespace:
+                        type: string
       additionalPrinterColumns:
       - name: ImportDuration
         type: string
