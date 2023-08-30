@@ -1,0 +1,12 @@
+crds
+docs
+enabled
+hooks
+images
+lib
+Makefile
+openapi
+*.md
+release.yaml
+werf*.yaml
+NOTES.txt
