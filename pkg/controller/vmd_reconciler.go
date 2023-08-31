@@ -183,7 +183,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	if state.PVC != nil {
 		details += fmt.Sprintf(" pvc.Name='%s' pvc.Status.Phase='%s'", state.PVC.Name, state.PVC.Status.Phase)
 	}
-	opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, "ErrUnknownState", fmt.Sprintf("VMD has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("VMD has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }
@@ -203,7 +203,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	if state.Pod != nil && len(state.Pod.Status.ContainerStatuses) > 0 {
 		if state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
 			state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
-			opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("importer pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
+			opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, fmt.Sprintf("importer pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
 		}
 	}
 
@@ -235,7 +235,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		progress, err := monitoring.GetImportProgressFromPod(string(state.VMD.Current().GetUID()), state.Pod)
 		if err != nil {
-			opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from Pod "+err.Error())
+			opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
 			return err
 		}
 		if progress != nil {
@@ -275,7 +275,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		vmdStatus.Phase = virtv2.DiskReady
 
-		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Successfully imported")
+		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Successfully imported")
 
 		// Cleanup.
 		vmdStatus.Progress = ""
