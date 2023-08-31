@@ -129,7 +129,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 	if state.Pod != nil {
 		details += fmt.Sprintf(" pod.Name='%s' pod.Status.Phase='%s'", state.Pod.Name, state.Pod.Status.Phase)
 	}
-	opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrUnknownState", fmt.Sprintf("CVMI has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("CVMI has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }
@@ -142,7 +142,7 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	if state.Pod != nil && len(state.Pod.Status.ContainerStatuses) > 0 {
 		if state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
 			state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
-			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
+			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, fmt.Sprintf("pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
 		}
 	}
 
@@ -174,7 +174,7 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 
 		progress, err := monitoring.GetImportProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
 		if err != nil {
-			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from Pod "+err.Error())
+			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
 			return err
 		}
 		if progress != nil {
@@ -187,7 +187,7 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 		}
 	case r.isImportComplete(state):
 		// Set CVMI status to Ready and update image size from final report of the importer/uploader Pod.
-		opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
+		opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
 		cvmiStatus.Phase = virtv2.ImageReady
 		// Cleanup.

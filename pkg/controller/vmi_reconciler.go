@@ -163,7 +163,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	if state.PVC != nil {
 		details += fmt.Sprintf(" pvc.Name='%s' pvc.Status.Phase='%s'", state.PVC.Name, state.PVC.Status.Phase)
 	}
-	opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrUnknownState", fmt.Sprintf("VMI has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("VMI has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }
@@ -181,7 +181,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	if state.Pod != nil && len(state.Pod.Status.ContainerStatuses) > 0 {
 		if state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated != nil &&
 			state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.ExitCode > 0 {
-			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrImportFailed", fmt.Sprintf("pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
+			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, fmt.Sprintf("pod phase '%s', message '%s'", state.Pod.Status.Phase, state.Pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message))
 		}
 	}
 
@@ -212,7 +212,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		progress, err := monitoring.GetImportProgressFromPod(string(state.VMI.Current().GetUID()), state.Pod)
 		if err != nil {
-			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, "ErrGetProgressFailed", "Error fetching progress metrics from Pod "+err.Error())
+			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
 			return err
 		}
 		if progress != nil {
@@ -233,7 +233,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		opts.Log.V(1).Info("Import completed successfully")
 
-		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, "ImportSucceeded", "Import Successful")
+		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Import Successful")
 
 		vmiStatus.Progress = ""
 
@@ -273,7 +273,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
-		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, "ImportSucceededToPVC", "Import Successful")
+		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceededToPVC, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
 		vmiStatus.Phase = virtv2.ImageReady
 
