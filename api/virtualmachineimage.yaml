@@ -367,9 +367,8 @@ spec:
                   type: array
                   description: |
                     A list of virtual machines that use the image
-                  example: [ 
-                            { name: "VM100" }, 
-                            { name: "VM200" },
+                  example: [
+                            { name: "VM100" },
                             { name: "VM200" }
                             ]
                   items:

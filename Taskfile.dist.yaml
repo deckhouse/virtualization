@@ -44,6 +44,7 @@ tasks:
     desc: "Setup local kubernetes cluster using k3d"
     deps:
       - _ensure:k3d
+      - _ensure:crane
       - _ensure:kubectl
       - _ensure:virtctl
       - _ensure:k3d-registry-domain
@@ -532,6 +533,13 @@ tasks:
       - echo "Install k3d" && exit 1
     status:
       - which k3d >/dev/null
+
+  _ensure:crane:
+    desc: "Ensure crane is installed"
+    cmds:
+      - echo "Install crane" && exit 1
+    status:
+      - which crane >/dev/null
 
   _ensure:k3d-registry-domain:
     desc: "Ensure k3d registry domain available locally"

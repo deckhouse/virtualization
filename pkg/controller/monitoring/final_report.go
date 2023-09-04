@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/dustin/go-humanize"
@@ -24,15 +25,20 @@ func (r *FinalReport) UnpackedSize() string {
 }
 
 func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
-	if pod != nil && len(pod.Status.ContainerStatuses) > 0 &&
-		pod.Status.ContainerStatuses[0].State.Terminated != nil {
-		message := pod.Status.ContainerStatuses[0].State.Terminated.Message
-		report := new(FinalReport)
-		err := json.Unmarshal([]byte(message), report)
-		if err != nil {
-			return nil, fmt.Errorf("problem parsing final report %s: %w", message, err)
-		}
-		return report, nil
+	if pod == nil {
+		return nil, errors.New("got nil Pod: unable to get the final report from the nil Pod")
 	}
-	return nil, nil
+
+	if len(pod.Status.ContainerStatuses) == 0 || pod.Status.ContainerStatuses[0].State.Terminated == nil {
+		return nil, errors.New("termination message not found in the Pod status")
+	}
+
+	message := pod.Status.ContainerStatuses[0].State.Terminated.Message
+	report := new(FinalReport)
+	err := json.Unmarshal([]byte(message), report)
+	if err != nil {
+		return nil, fmt.Errorf("problem parsing final report %s: %w", message, err)
+	}
+
+	return report, nil
 }

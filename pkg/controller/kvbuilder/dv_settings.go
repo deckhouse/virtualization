@@ -11,7 +11,7 @@ import (
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
-func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize string, dvcrSettings *cc.DVCRSettings) error {
+func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize resource.Quantity, dvcrSettings *cc.DVCRSettings) error {
 	if vmd == nil {
 		return nil
 	}
@@ -26,7 +26,7 @@ func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize
 	return applyDVSettings(dv, vmd, gvk, vmd.Spec.DataSource, pvcSize, vmd.Spec.PersistentVolumeClaim.StorageClassName, dvcrImageName)
 }
 
-func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSize string, dvcrSettings *cc.DVCRSettings) error {
+func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSize resource.Quantity, dvcrSettings *cc.DVCRSettings) error {
 	if vmi == nil {
 		return nil
 	}
@@ -46,7 +46,7 @@ func applyDVSettings(
 	obj metav1.Object,
 	gvk schema.GroupVersionKind,
 	dataSource *virtv2.DataSource,
-	pvcSize string,
+	pvcSize resource.Quantity,
 	pvcStorageClassName string,
 	dvcrImageName string,
 ) error {
@@ -63,12 +63,7 @@ func applyDVSettings(
 		dv.SetBlankDataSource()
 	}
 
-	// FIXME: resource.Quantity should be defined directly in the spec struct (see PVC impl. for details)
-	pvcQuantity, err := resource.ParseQuantity(pvcSize)
-	if err != nil {
-		return err
-	}
-	dv.SetPVC(pvcStorageClassName, pvcQuantity)
+	dv.SetPVC(pvcStorageClassName, pvcSize)
 
 	dv.SetOwnerRef(obj, gvk)
 	dv.AddFinalizer(virtv2.FinalizerDVProtection)
