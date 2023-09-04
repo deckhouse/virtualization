@@ -1,0 +1,56 @@
+version: "3"
+silent: true
+
+env:
+  IMPORTER_IMAGE_NAME: virtualization-importer:latest
+  UPLOADER_IMAGE_NAME: virtualization-uploader:latest
+  K3D_REGISTRY: k3d-registry.virtualization-controller.test:5000
+
+tasks:
+  importer:push:
+    desc: "build importer image and push to registry (local k3d registry by default)"
+    vars:
+      REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
+    cmds:
+      - |
+        docker build -t {{ .REGISTRY }}/${IMPORTER_IMAGE_NAME} -f build/Dockerfile.importer .
+        docker push {{ .REGISTRY }}/${IMPORTER_IMAGE_NAME}
+
+  uploader:push:
+    desc: "build uploader image and push to registry (local k3d registry by default)"
+    vars:
+      REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
+    cmds:
+      - |
+        docker build -t {{ .REGISTRY }}/${UPLOADER_IMAGE_NAME} -f build/Dockerfile.uploader .
+        docker push {{ .REGISTRY }}/${UPLOADER_IMAGE_NAME}
+
+  lint:
+    desc: "Run linters locally"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - |
+        golangci-lint run --sort-results
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint is available"
+    cmds:
+      - |
+        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
+        exit 1
+    status:
+      - |
+        [ -f ./golangci-lint ] || which golangci-lint
+
+  _ensure:k3d-registry:
+    desc: "ensure k3d registry"
+    cmds:
+      - |
+        (k3d registry list | grep k3d-registry.virtualization-controller.test | grep running) ||
+        (echo "Please create local k3d registry: (cd ./.. && task dev:up)"; exit 1)

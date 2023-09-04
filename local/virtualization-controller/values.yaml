@@ -1,7 +1,7 @@
 images:
   controller: k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest
-  importer: k3d-registry.virtualization-controller.test:5000/registry-importer:latest
-  uploader: k3d-registry.virtualization-controller.test:5000/registry-uploader:latest
+  importer: k3d-registry.virtualization-controller.test:5000/virtualization-importer:latest
+  uploader: k3d-registry.virtualization-controller.test:5000/virtualization-uploader:latest
 dvcr:
   registry: "registry.dvcr.svc.cluster.local/dvcr"
   authSecret: "dvcr-auth"

@@ -8,6 +8,9 @@ includes:
   my:
     taskfile: Taskfile.my.yaml
     optional: true
+  dvcr:
+    taskfile: ./dvcr_importers/Taskfile.dist.yaml
+    dir: ./dvcr_importers
 
 vars:
   CDIVersion: "v1.57.0-alpha1"
@@ -23,10 +26,6 @@ env:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
-  REGISTRY_IMPORTER_IMAGE:
-    sh: echo ${REGISTRY_IMPORTER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-importer:latest}
-  REGISTRY_UPLOADER_IMAGE:
-    sh: echo ${REGISTRY_UPLOADER_IMAGE:-k3d-registry.virtualization-controller.test:5000/registry-uploader:latest}
 
 tasks:
   dev:converge:
@@ -287,8 +286,8 @@ tasks:
     # Use cmds to run deps in order.
     cmds:
       - task: build:controller
-      - task: build:registry-importer
-      - task: build:registry-uploader
+      - task: build:importer
+      - task: build:uploader
       - task: build:cleanup
 
   build:controller:cache:
@@ -328,23 +327,15 @@ tasks:
             -t ${CONTROLLER_IMAGE}
         docker push ${CONTROLLER_IMAGE}
 
-  build:registry-importer:
-    desc: "Build registry-importer image for local development"
+  build:importer:
+    desc: "Build dvcr-importer image for local development"
     cmds:
-      - |
-        docker build ./local/registry-importer \
-            -f ./local/registry-importer/Dockerfile \
-            -t ${REGISTRY_IMPORTER_IMAGE}
-        docker push ${REGISTRY_IMPORTER_IMAGE}
+      - task: dvcr:importer:push
 
-  build:registry-uploader:
-    desc: "Build registry-uploader image for local development"
+  build:uploader:
+    desc: "Build dvcr-uploader image for local development"
     cmds:
-      - |
-        docker build ./local/registry-uploader \
-            -f ./local/registry-uploader/Dockerfile \
-            -t ${REGISTRY_UPLOADER_IMAGE}
-        docker push ${REGISTRY_UPLOADER_IMAGE}
+      - task: dvcr:uploader:push
 
   build:cleanup:
     cmds:

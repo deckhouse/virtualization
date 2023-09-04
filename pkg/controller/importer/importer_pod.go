@@ -185,7 +185,7 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
 		Command:         []string{"sh"},
-		Args:            []string{"/entrypoint.sh", "-v=" + imp.Settings.Verbose},
+		Args:            []string{"/importer_entrypoint.sh", "-v=" + imp.Settings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

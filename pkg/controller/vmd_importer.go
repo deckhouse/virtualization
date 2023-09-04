@@ -46,7 +46,7 @@ func (r *VMDReconciler) startImporterPod(ctx context.Context, vmd *virtv2alpha1.
 	return nil
 }
 
-// createImporterSettings fills settings for the registry-importer binary.
+// createImporterSettings fills settings for the dvcr-importer binary.
 func (r *VMDReconciler) createImporterSettings(vmd *virtv2alpha1.VirtualMachineDisk) (*importer.Settings, error) {
 	if vmd.Spec.DataSource == nil {
 		return nil, errors.New("no source to create importer settings")

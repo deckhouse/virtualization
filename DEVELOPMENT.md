@@ -1,6 +1,6 @@
 ## Requirements:
 - IDE
-- Go 1.20
+- Go 1.19
 - [task](https://taskfile.dev/) utility to run tasks
 - [golangci-lint](https://golangci-lint.run/usage/install/) >=1.52.1 (earlier versions has poor performance with Go 1.20)
 - docker and [k3d](https://k3d.io/) to start local cluster
