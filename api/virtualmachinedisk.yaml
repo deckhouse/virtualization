@@ -40,6 +40,7 @@ spec:
                       type: string
                       description: |
                         Desired size for PVC to store the disk.
+                      pattern: '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'
                     storageClassName:
                       type: string
                       description: |
@@ -307,9 +308,8 @@ spec:
                   type: array
                   description: |
                     A list of virtual machines that use the disk
-                  example: [ 
-                            { name: "VM100" }, 
-                            { name: "VM200" },
+                  example: [
+                            { name: "VM100" },
                             { name: "VM200" }
                             ]
                   items:

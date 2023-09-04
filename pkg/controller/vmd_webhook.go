@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -20,11 +19,19 @@ type VMDValidator struct {
 	log logr.Logger
 }
 
-func (v *VMDValidator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	// TODO check spec.pvc.size format uses binary prefixes (Mi, Gi).
-	// Use resource.ParseQuantity to validate or change type of size field to resource.Quantity.
+func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	vmd, ok := obj.(*v2alpha1.VirtualMachineDisk)
+	if !ok {
+		return nil, fmt.Errorf("expected a new VirtualMachineDisk but got a %T", obj)
+	}
 
-	panic("not implemented")
+	v.log.Info("Validating VMD", "spec.pvc.size", vmd.Spec.PersistentVolumeClaim.Size)
+
+	if vmd.Spec.DataSource == nil && vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
+		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank VMD")
+	}
+
+	return nil, nil
 }
 
 func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
@@ -47,18 +54,12 @@ func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.
 		return nil, nil
 	}
 
-	newPVCSize, err := humanize.ParseBytes(newVMD.Spec.PersistentVolumeClaim.Size)
-	if err != nil {
-		return nil, err
-	}
-
-	oldPVCSize, err := humanize.ParseBytes(oldVMD.Spec.PersistentVolumeClaim.Size)
-	if err != nil {
-		return nil, err
-	}
-
-	if newPVCSize < oldPVCSize {
-		return nil, fmt.Errorf("new value of spec.persistentVolumeClaim.size (%s) cannot be smaller than the old one (%s)", newVMD.Spec.PersistentVolumeClaim.Size, oldVMD.Spec.PersistentVolumeClaim.Size)
+	if newVMD.Spec.PersistentVolumeClaim.Size.Cmp(oldVMD.Spec.PersistentVolumeClaim.Size) == -1 {
+		return nil, fmt.Errorf(
+			"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
+			newVMD.Spec.PersistentVolumeClaim.Size.String(),
+			oldVMD.Spec.PersistentVolumeClaim.Size.String(),
+		)
 	}
 
 	return nil, nil

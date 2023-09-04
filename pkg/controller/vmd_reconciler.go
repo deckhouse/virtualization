@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
-	"github.com/dustin/go-humanize"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -470,35 +469,47 @@ func (r *VMDReconciler) initDataVolumeName(vmd *virtv2.VirtualMachineDisk) {
 	vmd.Annotations = anno
 }
 
+func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
+	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
+
+	if vmd.Spec.DataSource == nil {
+		if vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
+			return resource.Quantity{}, errors.New("spec.pvc.size cannot be zero for blank VMD")
+		}
+
+		return pvcSize, nil
+	}
+
+	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("cannot create PVC without final report from the Pod: %w", err)
+	}
+
+	unpackedSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
+	if unpackedSize.IsZero() {
+		return resource.Quantity{}, errors.New("no unpacked size in final report")
+	}
+
+	switch {
+	case pvcSize.IsZero():
+		// Set the resulting size from the importer/uploader pod.
+		pvcSize = unpackedSize
+	case pvcSize.Cmp(unpackedSize) == -1:
+		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
+
+		return resource.Quantity{}, errors.New("the specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
+	}
+
+	return pvcSize, nil
+}
+
 func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	dvName := types.NamespacedName{Name: vmd.GetAnnotations()[cc.AnnVMDDataVolume], Namespace: vmd.GetNamespace()}
 	dvBuilder := kvbuilder.NewDV(dvName)
 
-	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+	pvcSize, err := r.getPVCSize(vmd, state, opts)
 	if err != nil {
 		return err
-	}
-
-	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
-
-	// TODO process case with missing spec.pvc.size and empty final report.
-	if finalReport != nil {
-		if pvcSize == "" {
-			// Set the resulting size from the importer/uploader pod.
-			pvcSize = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
-		} else {
-			// Validate specified spec.PersistentVolumeClaim.size.
-			parsedSize, err := humanize.ParseBytes(vmd.Spec.PersistentVolumeClaim.Size)
-			if err != nil {
-				return err
-			}
-
-			if parsedSize < finalReport.StoredSizeBytes {
-				opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, "WrongPVCSize", "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
-
-				return errors.New("the specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
-			}
-		}
 	}
 
 	err = kvbuilder.ApplyVirtualMachineDiskSpec(dvBuilder, vmd, pvcSize, r.dvcrSettings)

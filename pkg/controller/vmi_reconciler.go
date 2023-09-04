@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -466,14 +467,14 @@ func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.Virtua
 
 	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot create DV without final report from the Pod: %w", err)
 	}
 
 	if finalReport.UnpackedSizeBytes == 0 {
 		return errors.New("no unpacked size in final report")
 	}
 
-	pvcSize := strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+	pvcSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
 
 	err = kvbuilder.ApplyVirtualMachineImageSpec(dvBuilder, vmi, pvcSize, r.dvcrSettings)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -112,7 +113,7 @@ var _ = Describe("VM", func() {
 						},
 					},
 					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             "10Gi",
+						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
 						StorageClassName: "local-path",
 					},
 				},

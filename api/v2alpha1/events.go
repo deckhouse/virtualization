@@ -1,18 +1,21 @@
 package v2alpha1
 
 const (
-	// VMI has unexpected state
+	// ReasonErrUnknownState is event reason that VMI has unexpected state
 	ReasonErrUnknownState = "ErrUnknownState"
 
-	// If importer/uploader Pod has error.
+	// ReasonErrWrongPVCSize is event reason that PVC has wrong size
+	ReasonErrWrongPVCSize = "ErrWrongPVCSize"
+
+	// ReasonErrImportFailed is event reason that importer/uploader Pod is failed
 	ReasonErrImportFailed = "ErrImportFailed"
 
-	// Error fetching progress metrics from Pod
+	// ReasonErrGetProgressFailed is event reason about the failure of getting progress.
 	ReasonErrGetProgressFailed = "ErrGetProgressFailed"
 
-	// Import completed successfully
+	// ReasonImportSucceeded is event reason that the import is successfully completed
 	ReasonImportSucceeded = "ImportSucceeded"
 
-	// When copy capacity from PVC successfully
+	// ReasonImportSucceededToPVC is event reason that the import is successfully completed to PVC
 	ReasonImportSucceededToPVC = "ImportSucceededToPVC"
 )

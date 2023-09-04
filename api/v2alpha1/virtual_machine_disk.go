@@ -1,6 +1,7 @@
 package v2alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,8 +46,8 @@ type DiskTarget struct {
 }
 
 type VMDPersistentVolumeClaim struct {
-	StorageClassName string `json:"storageClassName"`
-	Size             string `json:"size"`
+	StorageClassName string            `json:"storageClassName"`
+	Size             resource.Quantity `json:"size"`
 }
 
 // VirtualMachineDiskList contains a list of VirtualMachineDisk
