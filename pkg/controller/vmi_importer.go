@@ -45,7 +45,7 @@ func (r *VMIReconciler) startImporterPod(ctx context.Context, vmi *virtv2alpha1.
 	return nil
 }
 
-// createImporterSettings fills settings for the registry-importer binary.
+// createImporterSettings fills settings for the dvcr-importer binary.
 func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineImage) (*importer.Settings, error) {
 	settings := &importer.Settings{
 		Verbose: r.verbose,

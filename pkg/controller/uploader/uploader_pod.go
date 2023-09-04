@@ -120,7 +120,7 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 		Image:           p.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(p.PodSettings.PullPolicy),
 		Command:         []string{"sh"},
-		Args:            []string{"/entrypoint.sh", "-v=" + p.Settings.Verbose},
+		Args:            []string{"/uploader_entrypoint.sh", "-v=" + p.Settings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

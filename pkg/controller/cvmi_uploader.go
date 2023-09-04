@@ -32,7 +32,7 @@ func (r *CVMIReconciler) startUploaderPod(ctx context.Context, cvmi *virtv2alpha
 	return nil
 }
 
-// createUploaderSettings fills settings for the registry-uploader binary.
+// createUploaderSettings fills settings for the dvcr-uploader binary.
 func (r *CVMIReconciler) createUploaderSettings(cvmi *virtv2alpha1.ClusterVirtualMachineImage) *uploader.Settings {
 	settings := &uploader.Settings{
 		Verbose: r.verbose,

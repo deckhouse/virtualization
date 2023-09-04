@@ -17,7 +17,7 @@ fi
 echo
 echo "Start importer ..."
 
-/usr/local/bin/cdi-registry-importer "$@"
+/usr/local/bin/dvcr_importer "$@"
 exitCode=$?
 if [ "x$exitCode" != "x0" ] ; then
   # Add some messages for test purposes.

@@ -5,7 +5,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
-// Settings stores all possible settings for registry-importer binary.
+// Settings stores all possible settings for dvcr-importer binary.
 // Fields from this struct are passed via environment variables.
 type Settings struct {
 	Verbose                string

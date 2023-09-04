@@ -12,7 +12,7 @@ echo "$@"
 echo
 echo "Start uploader ..."
 
-/usr/local/bin/cdi-registry-uploader "$@"
+/usr/local/bin/dvcr_uploader "$@"
 exitCode=$?
 if [ "x$exitCode" != "x0" ] ; then
   # Add some messages for test purposes.
