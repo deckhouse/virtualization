@@ -277,7 +277,7 @@ metadata:
   name: cdi-operator
   namespace: d8-{{ .Chart.Name }}
 imagePullSecrets:
-- name: deckhouse-registry
+- name: virtualization-module-registry
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
