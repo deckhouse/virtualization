@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Chart.Name }}-virt-handler
+  namespace: d8-monitoring
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  endpoints:
+  - bearerTokenSecret:
+      key: token
+      name: prometheus-token
+    path: /metrics
+    port: metrics
+    # relabelings:
+    # - action: labeldrop
+    #   regex: endpoint|namespace|pod|container
+    # - action: replace
+    #   replacement: linstor-controller
+    #   targetLabel: job
+    # - action: replace
+    #   replacement: cluster
+    #   targetLabel: tier
+    # - action: keep
+    #   regex: "true"
+    #   sourceLabels:
+    #   - __meta_kubernetes_endpoint_ready
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
+  namespaceSelector:
+    matchNames:
+    - d8-{{ .Chart.Name }}
+  selector:
+    matchLabels:
+      prometheus.kubevirt.io: "true"

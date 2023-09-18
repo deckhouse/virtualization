@@ -1,0 +1,126 @@
+project: virtualization
+configVersion: 1
+
+# modules_images
+{{- define "module_image_template" }}
+  {{- if eq .ImageInstructionType "Dockerfile" }}
+---
+image: images/{{ .ImageName }}
+context: images/{{ .ImageName }}
+dockerfile: Dockerfile
+  {{- else }}
+{{ tpl .ImageBuildData . }}
+  {{- end }}
+{{- end }}
+
+{{- $ImagesIDList := list }}
+{{ $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
+{{- range $path, $content := $ImagesBuildFiles  }}
+  {{- $ctx := dict }}
+  {{- if regexMatch "/werf.inc.yaml$" $path }}
+    {{- $_ := set $ctx "ImageInstructionType" "Stapel" }}
+  {{- else }}
+    {{- $_ := set $ctx "ImageInstructionType" "Dockerfile" }}
+  {{- end }}
+  {{- $ImageData := $path | split "/" }}
+  {{- $_ := set $ctx "ImageName" $ImageData._1 }}
+  {{- $_ := set $ctx "ImageBuildData" $content }}
+  {{- include "module_image_template" $ctx }}
+  {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
+    {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
+    {{- if $ImageManifest.image }}
+      {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+---
+image: images-digests
+from: alpine:3.17
+dependencies:
+  {{- range $ImageID := $ImagesIDList }}
+  {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
+- image: {{ $ImageID }}
+  before: setup
+  imports:
+    - type: ImageDigest
+      targetEnv: MODULE_IMAGE_DIGEST_{{ $ImageNameCamel }}
+  {{- end }}
+shell:
+  beforeInstall:
+    - apk add --no-cache jq
+  setup:
+    - |
+      env | grep MODULE_IMAGE_DIGEST | jq -Rn '
+        reduce inputs as $i (
+          {};
+          . * (
+            $i | ltrimstr("MODULE_IMAGE_DIGEST_") | sub("=";"_") |
+            split("_") as [$imageName, $digest] |
+            {($imageName): $digest}
+          )
+        )
+      ' > /images_digests.json
+---
+image: python-dependencies
+from: alpine:3.17
+fromCacheVersion: "2023-09-14.0"
+git:
+  - add: /
+    to: /
+    includePaths:
+      - lib/python
+shell:
+  beforeInstall:
+    - apk add --no-cache python3 py3-pip
+  setup:
+    - pip3 install -r /lib/python/requirements.txt -t /lib/python/dist
+---
+image: bundle
+from: spotify/scratch
+import:
+  - image: images-digests
+    add: /images_digests.json
+    to: /images_digests.json
+    after: setup
+  - image: python-dependencies
+    add: /lib/python/dist
+    to: /lib/python/dist
+    after: setup
+git:
+  - add: /
+    to: /
+    includePaths:
+      - charts
+      - crds
+      - hooks
+      - openapi
+      - templates
+      - Chart.yaml
+      - .helmignore
+---
+artifact: release-channel-version-artifact
+from: alpine:3.17
+git:
+  - add: /
+    to: /
+    includePaths:
+      - release.yaml
+shell:
+  beforeInstall:
+    - apk add --no-cache curl
+    - curl -sfL https://github.com/mikefarah/yq/releases/download/2.4.1/yq_linux_amd64 --output /usr/local/bin/yq
+    - chmod +x /usr/local/bin/yq
+  install:
+    - |
+      version="{{ env "CI_COMMIT_REF_NAME" }}"
+      yq w /release.yaml version $version | yq r - -j > version.json
+---
+image: release-channel-version
+from: spotify/scratch
+import:
+  - artifact: release-channel-version-artifact
+    add: /
+    to: /
+    after: install
+    includePaths:
+      - version.json
