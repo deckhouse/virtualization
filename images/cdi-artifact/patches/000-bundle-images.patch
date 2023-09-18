@@ -1,9 +1,9 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index b4bad1af..8cc57f42 100644
+index 3d4babaf7..d39b91aec 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -67,6 +67,19 @@ container_bundle(
-     },
+@@ -48,6 +48,19 @@ load(
+     "container_push",
  )
 
 +container_bundle(
@@ -20,5 +20,5 @@ index b4bad1af..8cc57f42 100644
 +)
 +
  container_bundle(
-     name = "test-container-images-aarch64",
+     name = "test-container-images-amd64",
      images = {

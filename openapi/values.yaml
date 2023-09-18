@@ -5,4 +5,13 @@ properties:
   internal:
     type: object
     default: {}
-    properties: {}
+    properties:
+      customCertificateData:
+        type: object
+        properties:
+          tls.crt:
+            type: string
+          tls.key:
+            type: string
+          ca.crt:
+            type: string
