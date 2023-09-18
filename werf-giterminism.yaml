@@ -1,0 +1,12 @@
+giterminismConfigVersion: 1
+config:
+  goTemplateRendering:	# The rules for the Go-template functions
+    allowEnvVariables: [ /CI_.+/ ]
+  stapel:
+    mount:
+     allowFromPaths:
+     - ~/go-pkg-cache
+helm:
+  allowUncommittedFiles:
+  - "Chart.lock"
+  - "charts/*.tgz"

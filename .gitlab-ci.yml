@@ -1,0 +1,194 @@
+stages:
+  - build
+  - deploy_dev
+  - deploy_prod
+  - info_dev
+
+# variables:
+#   GIT_STRATEGY: clone
+
+default:
+  tags:
+    - tfprod-distributed-werf
+
+.registry-login: &registry-login
+  - export DOCKER_CONFIG=$(mktemp -d)
+  - docker login ${REGISTRY} -u ${REGISTRY_LOGIN} -p ${REGISTRY_PASSWORD}
+  - export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
+
+before_script:
+  - |
+    env | grep CI
+    type trdl && . $(trdl use werf 1.2 stable)
+    type werf && source $(werf ci-env gitlab --as-file)
+
+    if [[ ${MODULE_NAME} == "" ]]; then
+      export MODULE_NAME=${CI_PROJECT_NAME};
+    fi
+    echo "Module name: ${MODULE_NAME}"
+
+    # Hack to generate a tag for the dev version. Check if CI_COMMIT_REF_NAME matches semver. If not, we get the last tag via gitlab API, add the hash of the last commit to it and override CI_COMMIT_REF_NAME.
+
+    if [[ $ENV == "DEV" ]]; then
+      export RELEASE_VERSION="v0.0.0-mr${CI_MERGE_REQUEST_IID}-${CI_PIPELINE_IID}"
+    else
+      export RELEASE_VERSION=$CI_COMMIT_REF_NAME
+    fi
+
+.build_sctipt:
+  script:
+    - *registry-login
+    - |
+      # Build
+
+      CI_COMMIT_REF_NAME=${RELEASE_VERSION} werf build --save-build-report --build-report-path images_tags_werf.json
+
+      # Bundle image ===========================================================
+
+      # IMAGE_SRC registry.example.com/modules/virtualization:52cd3d08aded45c0ad260e8118b9e77a026c12a7def3ef7f9bd7bdb5-1691940564755
+      IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+
+      # REPO registry.example.com/modules/virtualization
+      REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
+
+      # registry.example.com/modules/virtualization:${RELEASE_VERSION}
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${REPO}:${RELEASE_VERSION}
+      docker image push ${REPO}:${RELEASE_VERSION}
+      docker image rmi ${REPO}:${RELEASE_VERSION} || true;
+
+      # Release-channel image ==================================================
+
+      # IMAGE_SRC registry.example.com/modules/virtualization:0f6fe98c4087bddfb8c7afe262f0bc529c23c86a345db1de193f711f-1691937185066
+      IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+
+      # REPO registry.example.com/modules/virtualization
+      REPO="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)"
+
+      # registry.example.com/modules/virtualization/release:${RELEASE_VERSION}
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${REPO}/release:${RELEASE_VERSION}
+      docker image push ${REPO}/release:${RELEASE_VERSION}
+      docker image rmi ${REPO}/release:${RELEASE_VERSION} || true;
+
+      # Register module ========================================================
+      # registry.example.com/modules/virtualization
+      docker pull spotify/scratch
+      docker image tag spotify/scratch:latest ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
+      docker image push ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
+      docker image rmi ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME} || true
+
+.deploy_script:
+  script:
+    - *registry-login
+    - |
+      IMAGE_SRC="${WERF_REPO}/release:${RELEASE_VERSION}"
+      IMAGE_DST="${WERF_REPO}/release:${RELEASE_CHANNEL}"
+      docker pull ${IMAGE_SRC}
+      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
+      docker image push ${IMAGE_DST}
+      docker image rmi ${IMAGE_DST} || true;
+
+# PROD registry
+.prod_vars:
+  variables:
+    REGISTRY: ${EXTERNAL_MODULES_REGISTRY}
+    REGISTRY_PATH: ${EXTERNAL_MODULES_REGISTRY_PATH}
+    REGISTRY_LOGIN: ${EXTERNAL_MODULES_REGISTRY_LOGIN}
+    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
+    ENV: PROD
+
+# DEV registry
+.dev_vars:
+  variables:
+    REGISTRY: ${EXTERNAL_MODULES_DEV_REGISTRY}
+    REGISTRY_PATH: ${EXTERNAL_MODULES_DEV_REGISTRY_PATH}
+    REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
+    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
+    ENV: DEV
+
+.prod_rules:
+  only:
+    - tags
+  except:
+    - main
+  when: manual
+
+.dev_rules:
+  only:
+    - merge_requests
+  when: always
+
+.dev:
+  extends:
+  - .dev_vars
+  - .dev_rules
+
+.prod:
+  extends:
+  - .prod_vars
+  - .prod_rules
+
+build_prod:
+  stage: build
+  extends:
+    - .prod
+    - .build_sctipt
+
+build_dev:
+  stage: build
+  extends:
+    - .dev
+    - .build_sctipt
+
+deploy_to_dev_channel:
+  stage: deploy_dev
+  variables:
+    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
+  extends:
+    - .dev
+    - .deploy_script
+
+deploy_to_prod_channels:
+  stage: deploy_prod
+  extends:
+    - .prod
+    - .deploy_script
+  parallel:
+    matrix:
+      - RELEASE_CHANNEL:
+          - alpha
+          - beta
+          - early-access
+          - stable
+
+show_module_manifest:
+  stage: info_dev
+  variables:
+    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
+  extends:
+    - .dev
+  script:
+  - |
+    cat << EOF
+      Build version: ${RELEASE_VERSION}
+      ---
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ExternalModuleSource
+      metadata:
+        name: ${MODULE_NAME}
+      spec:
+        releaseChannel: ${RELEASE_CHANNEL}
+        registry:
+          repo: ${REGISTRY}/${REGISTRY_PATH}
+          dockerCfg: <base64 encoded credentials for ${REGISTRY}>
+      ---
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ModuleConfig
+      metadata:
+        name: ${MODULE_NAME}
+      spec:
+        enabled: true
+        settings: {}
+        version: 1
+    EOF

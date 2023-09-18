@@ -1,0 +1,3 @@
+---
+image: {{ $.ImageName }}
+from: docker.io/ubuntu:jammy-20230624@sha256:0bced47fffa3361afa981854fcabcd4577cd43cebbb808cea2b1f33a3dd7f508
