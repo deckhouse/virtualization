@@ -13,8 +13,10 @@ tasks:
       REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
     cmds:
       - |
-        docker build -t {{ .REGISTRY }}/${IMPORTER_IMAGE_NAME} -f build/Dockerfile.importer .
-        docker push {{ .REGISTRY }}/${IMPORTER_IMAGE_NAME}
+        IMAGE="{{ .REGISTRY }}/${IMPORTER_IMAGE_NAME}"
+        echo "Build dvcr-importer image $IMAGE ..."
+        docker build -t $IMAGE -f build/Dockerfile.importer .
+        docker push $IMAGE
 
   uploader:push:
     desc: "build uploader image and push to registry (local k3d registry by default)"
@@ -22,8 +24,10 @@ tasks:
       REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
     cmds:
       - |
-        docker build -t {{ .REGISTRY }}/${UPLOADER_IMAGE_NAME} -f build/Dockerfile.uploader .
-        docker push {{ .REGISTRY }}/${UPLOADER_IMAGE_NAME}
+        IMAGE="{{ .REGISTRY }}/${UPLOADER_IMAGE_NAME}"
+        echo "Build dvcr-uploader image $IMAGE ..."
+        docker build -t $IMAGE -f build/Dockerfile.uploader .
+        docker push $IMAGE
 
   lint:
     desc: "Run linters locally"

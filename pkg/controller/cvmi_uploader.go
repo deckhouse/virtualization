@@ -39,7 +39,7 @@ func (r *CVMIReconciler) createUploaderSettings(cvmi *virtv2alpha1.ClusterVirtua
 	}
 
 	// Set DVCR settings.
-	uploader.UpdateDVCRSettings(settings, r.dvcrSettings, cc.PrepareDVCREndpointFromCVMI(cvmi, r.dvcrSettings))
+	uploader.UpdateDVCRSettings(settings, r.dvcrSettings, cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromCVMI(cvmi)))
 
 	// TODO Update proxy settings.
 

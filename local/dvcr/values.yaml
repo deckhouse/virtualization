@@ -7,3 +7,5 @@ auth:
   address: "registry.dvcr.svc.cluster.local"
   user: admin
   pass: p4ssw0rd
+
+clusterType: "local"

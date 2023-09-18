@@ -2,19 +2,30 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
+# Cluster type:
+# - local: use local path provisioner to save space for OS images. (Default)
+# - remote: use the full image with OS images to start caddy when cloud lab is available.
+clusterType: local
+
 # -- Number of replicas (pods) to launch.
 replicaCount: 1
 
 image:
-  # -- Name of the image repository to pull the container image from.
-  #repository: dev-registry.deckhouse.io/virt/test-os-images
-  repository: caddy
+  local:
+    # -- Name of the image repository to pull the container image from.
+    #repository: dev-registry.deckhouse.io/virt/test-os-images
+    repository: caddy
 
-  # -- [Image pull policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for updating already existing images on a node.
-  pullPolicy: IfNotPresent
+    # -- [Image pull policy](https://kubernetes.io/docs/concepts/containers/images/#updating-images) for updating already existing images on a node.
+    pullPolicy: IfNotPresent
 
-  # -- Image tag override for the default value (chart appVersion).
-  tag: latest
+    # -- Image tag override for the default value (chart appVersion).
+    tag: latest
+  remote:
+    # Use image from dev-registry with all OS images to run Caddy in virtlab environment.
+    repository: dev-registry.deckhouse.io/virt/test-os-images
+    pullPolicy: IfNotPresent
+    tag: latest
 
 # -- Reference to one or more secrets to be used when [pulling images](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/#create-a-pod-that-uses-your-secret) (from private registries).
 imagePullSecrets: []
@@ -43,15 +54,19 @@ watch: false
 # -- Additional storage [volumes](https://kubernetes.io/docs/concepts/storage/volumes/).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
 volumes:
+  local:
   - name: caddy-images
     persistentVolumeClaim:
       claimName: caddy-images
+  remote:
 
 # -- Additional [volume mounts](https://kubernetes.io/docs/tasks/configure-pod-container/configure-volume-storage/).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#volumes-1) for details.
 volumeMounts:
+  local:
   - mountPath: "/usr/share/caddy/images"
     name: caddy-images
+  remote:
 
 # -- Additional environment variables mounted from [secrets](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-environment-variables) or [config maps](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables).
 # See the [API reference](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#environment-variables) for details.

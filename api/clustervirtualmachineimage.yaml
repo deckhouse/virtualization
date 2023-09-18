@@ -9,6 +9,8 @@ spec:
   group: virtualization.deckhouse.io
   scope: Cluster
   names:
+    categories:
+      - virtualization
     # TODO: Почему Order
     plural: clustervirtualmachineimages
     singular: clustervirtualmachineimage
@@ -345,11 +347,11 @@ spec:
                   type: array
                   description: |
                     A list of virtual machines and namespaces that use the image
-                  example: [ 
+                  example: [
                             {
                               name: "VM100",
                               namespace: "customer1"
-                            }, 
+                            },
                             {
                               name: "VM200",
                               namespace: "customer1"

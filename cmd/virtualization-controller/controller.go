@@ -49,6 +49,7 @@ func init() {
 	dvcrSettings = cc.NewDVCRSettings(
 		getRequiredEnvVar(common.ImporterDestinationAuthSecretVar),
 		getRequiredEnvVar(common.ImporterDestinationRegistryVar),
+		os.Getenv(common.DVCRAddressForVMLauncherVar),
 		getRequiredEnvVar(common.ImporterDestinationInsecureTLSVar))
 }
 
@@ -154,7 +155,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := controller.NewVMController(ctx, mgr, log); err != nil {
+	if _, err := controller.NewVMController(ctx, mgr, log, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

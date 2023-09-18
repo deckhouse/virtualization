@@ -8,39 +8,57 @@ import (
 )
 
 type DVCRSettings struct {
-	AuthSecret  string
-	Registry    string
-	InsecureTLS string
+	AuthSecret    string
+	Registry      string
+	InsecureTLS   string
+	RegistryForVM string
 }
 
 const (
-	CVMIPath = "%s/cvmi/%s"
-	VMIPath  = "%s/vmi/%s/%s"
-	VMDPath  = "%s/vmd/%s/%s"
+	CVMIImageTmpl = "cvmi/%s"
+	VMIImageTmpl  = "vmi/%s/%s"
+	VMDImageTmpl  = "vmd/%s/%s"
 )
 
-func NewDVCRSettings(authSecret, registry, insecureTLS string) *DVCRSettings {
+func NewDVCRSettings(authSecret, registry, registryForVM, insecureTLS string) *DVCRSettings {
 	return &DVCRSettings{
-		AuthSecret:  authSecret,
-		Registry:    registry,
-		InsecureTLS: insecureTLS,
+		AuthSecret:    authSecret,
+		Registry:      registry,
+		RegistryForVM: registryForVM,
+		InsecureTLS:   insecureTLS,
 	}
 }
 
-// PrepareDVCREndpointFromCVMI returns cvmi endpoint in registry.
-func PrepareDVCREndpointFromCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage, dvcr *DVCRSettings) string {
-	ep := fmt.Sprintf(CVMIPath, dvcr.Registry, cvmi.Name)
+// DVCRImageNameFromCVMI returns image name for CVMI.
+func DVCRImageNameFromCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage) string {
+	ep := fmt.Sprintf(CVMIImageTmpl, cvmi.Name)
 	return path.Clean(ep)
 }
 
-// PrepareDVCREndpointFromVMI returns vmi endpoint in registry.
-func PrepareDVCREndpointFromVMI(vmi *virtv2alpha1.VirtualMachineImage, dvcr *DVCRSettings) string {
-	ep := fmt.Sprintf(VMIPath, dvcr.Registry, vmi.Namespace, vmi.Name)
+// DVCRImageNameFromVMI returns image name for VMI.
+func DVCRImageNameFromVMI(vmi *virtv2alpha1.VirtualMachineImage) string {
+	ep := fmt.Sprintf(VMIImageTmpl, vmi.Namespace, vmi.Name)
 	return path.Clean(ep)
 }
 
-// PrepareDVCREndpointFromVMD returns vmd endpoint in registry.
-func PrepareDVCREndpointFromVMD(vmd *virtv2alpha1.VirtualMachineDisk, dvcr *DVCRSettings) string {
-	ep := fmt.Sprintf(VMDPath, dvcr.Registry, vmd.Namespace, vmd.Name)
+// DVCRImageNameFromVMD returns image name for VMD.
+func DVCRImageNameFromVMD(vmd *virtv2alpha1.VirtualMachineDisk) string {
+	ep := fmt.Sprintf(VMDImageTmpl, vmd.Namespace, vmd.Name)
 	return path.Clean(ep)
+}
+
+// DVCREndpointForImporter prepares endpoint to use by dvcr-importer, dvcr-uploader, and DataVolume.
+func DVCREndpointForImporter(dvcr *DVCRSettings, imageName string) string {
+	return path.Join(dvcr.Registry, imageName)
+}
+
+// DVCREndpointForVM prepares endpoint to use in containerDisk in VirtualMachines.
+// It uses dvcr registry or a separate vm registry if specified in RegistryForVm field.
+// E.g. to use internal name for importer Pods and publicly available domain for kubelet.
+func DVCREndpointForVM(dvcr *DVCRSettings, imageName string) string {
+	registry := dvcr.RegistryForVM
+	if registry == "" {
+		registry = dvcr.Registry
+	}
+	return path.Join(registry, imageName)
 }

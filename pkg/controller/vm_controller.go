@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -14,8 +15,15 @@ const (
 	vmControllerName = "vm-controller"
 )
 
-func NewVMController(ctx context.Context, mgr manager.Manager, log logr.Logger) (controller.Controller, error) {
-	reconciler := &VMReconciler{}
+func NewVMController(
+	ctx context.Context,
+	mgr manager.Manager,
+	log logr.Logger,
+	dvcrSettings *cc.DVCRSettings,
+) (controller.Controller, error) {
+	reconciler := &VMReconciler{
+		dvcrSettings: dvcrSettings,
+	}
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMReconcilerState](
 		reconciler,
 		NewVMReconcilerState,

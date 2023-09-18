@@ -12,5 +12,25 @@ spec:
       port: 443
       targetPort: 443
       protocol: TCP
+  type: ClusterIP
   selector:
     app: {{ .Release.Name }}
+{{ if eq .Values.clusterType "remote"}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-insecure
+  labels:
+    heritage: storage
+spec:
+  ports:
+    - name: registry-insecure
+      nodePort: 30101
+      port: 5000
+      protocol: TCP
+      targetPort: 5000
+  selector:
+    app: {{ .Release.Name }}
+  type: NodePort
+{{end}}

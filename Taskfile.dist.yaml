@@ -16,12 +16,40 @@ vars:
   CDIVersion: "v1.57.0-alpha1"
   KubeVirtVersion: "v1.0.0"
   CaddyVersion: "2.4.5"
+  LocalRegistry: "k3d-registry.virtualization-controller.test:5000"
+  DevRegistry: "dev-registry.deckhouse.io/virt/dev"
+  ControllerImageName: "virtualization-controller:latest"
+  ImporterImageName: "virtualization-importer:latest"
+  UploaderImageName: "virtualization-uploader:latest"
+  ClusterType:
+    sh: |
+      # Cluster type may be overriden with CLUSTER_TYPE env var.
+      [ -n "${CLUSTER_TYPE}" ] && echo -n ${CLUSTER_TYPE} && exit
+      # Cluster type detection is a heavy operation. Run kubectl only for particular tasks.
+      ForTasks="build:controller build:importer build:uploader dev:up dev:run caddy:up dvcr:up cluster:info _ensure:cluster-type _ensure:image-prefix"
+      if [[ " ${ForTasks} " == *' {{.TASK}} '* ]] ; then
+        if nodes=$(kubectl get no -o wide --show-labels) ; then
+          echo "${nodes}" | grep node.kubernetes.io/instance-type=k3s 2>&1 >/dev/null \
+            && echo "local" || echo "remote"
+        fi
+      fi
+
+  ImagePrefix:
+    desc: 'This prefix is required to use one shared registry'
+    sh: |
+      # Cluster type may be overriden with CLUSTER_TYPE env var.
+      [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
+      # Image prefix detection is a heavy operation. Run it only for particular tasks.
+      ForTasks="build:controller build:importer build:uploader dev:run cluster:info _ensure:image-prefix"
+      if [[ " ${ForTasks} " == *' {{.TASK}} '* ]] ; then
+        kubectl get no -o jsonpath='{.items[0].metadata.name}' -l node-role.kubernetes.io/master= 2>/dev/null || echo ""
+      fi
 
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
   CONTROLLER_IMAGE:
-    sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller:latest}
+    sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
   CONTROLLER_BUILDER_IMAGE:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
   CONTROLLER_TEST_OS_IMAGES:
@@ -41,7 +69,12 @@ tasks:
       - task: dev:up
 
   dev:up:
-    desc: "Setup local kubernetes cluster using k3d"
+    desc: "Setup required components in local k3d cluster or in remote deckhouse cluster"
+    cmds:
+      - task: _dev:up:local
+      - task: _dev:up:remote
+
+  _dev:up:local:
     deps:
       - _ensure:k3d
       - _ensure:crane
@@ -62,6 +95,17 @@ tasks:
       - task: caddy:preload-os-images
 
       - task: dvcr:up
+    preconditions:
+      - '![ "{{.ClusterType}}" == "local" ]'
+
+  _dev:up:remote:
+    desc: "Setup components in a remote deckhouse cluster"
+    cmds:
+      - task: _ensure:cluster-type
+      - task: caddy:up
+      - task: dvcr:up
+    preconditions:
+      - '![ "{{.ClusterType}}" == "remote" ]'
 
   dev:down:
     desc: "Delete local kubernetes cluster using k3d"
@@ -106,6 +150,24 @@ tasks:
             --registry-use k3d-registry.virtualization-controller.test:5000 \
             --volume $HOME/.virtualization-controller-k3d/storage:/var/lib/rancher/k3s/storage@all \
             "${kubevirt_mounts[@]}"
+
+  cluster:info:
+    desc: "Show cluster type and installed components"
+    cmds:
+      - |
+        echo "Will use context '$(kubectl config current-context)' for kubectl and helm"
+      - task: _ensure:image-prefix
+      - |
+        echo 'Detected cluster type is {{.ClusterType}}'
+        if [ "{{.ClusterType}}" == "remote" ] ; then
+          echo 'Detected image prefix is {{.ImagePrefix}}'
+          echo Dev images:
+          echo '  Controller: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}'
+          echo '  Importer: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}'
+          echo '  Uploader: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}'
+        fi
+
+
 
   cluster:down:
     desc: ""
@@ -182,14 +244,16 @@ tasks:
     desc: "Start caddy file server"
     cmds:
       - |
-        echo "Preload images for CDI components into k3d nodes ..."
-        docker pull "caddy:{{.CaddyVersion}}"
-        k3d image import "caddy:{{.CaddyVersion}}"
-      - |
+        echo "Install caddy server into '{{.ClusterType}}' cluster ..."
+
         helm upgrade --install \
           --namespace caddy \
           --create-namespace \
+          --set clusterType={{.ClusterType}} \
           caddy ./local/caddy
+      - task: _copy_d8_registry_secret
+        vars:
+          NAMESPACE: caddy
 
   caddy:down:
     desc: "Uninstall caddy"
@@ -255,7 +319,7 @@ tasks:
     deps:
       - _ensure:helm
       - _ensure:kubectl
-      - _ensure:cluster-available
+      - _ensure:cluster-type
     cmds:
       - |
         # Gen certs.
@@ -268,6 +332,7 @@ tasks:
         helm upgrade --install \
           --namespace dvcr \
           --create-namespace \
+          --set clusterType={{.ClusterType}} \
           dvcr ./local/dvcr
 
   dvcr:down:
@@ -284,7 +349,6 @@ tasks:
         docker rmi -f $CONTROLLER_BUILDER_IMAGE || true
 
   build:
-    # Use cmds to run deps in order.
     cmds:
       - task: build:controller
       - task: build:importer
@@ -319,30 +383,54 @@ tasks:
     deps:
       - build:controller:cache
     cmds:
+      - task: _ensure:image-prefix
+
       # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
+      - task: _build:controller
+        vars:
+          RemoteImage:
+            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}/{{.ControllerImageName}}" || true'
+
+
+  _build:controller:
+    internal: true
+    vars:
+      ControllerImage: '{{.RemoteImage | default "${CONTROLLER_IMAGE}" }}'
+    cmds:
       - |
-        echo "Build image with virtualization-controller binary"
+        IMAGE="{{.ControllerImage}}"
+        echo "Build virtualization-controller image $IMAGE ..."
         docker build . \
             -f ./local/virtualization-controller/Dockerfile \
             --build-arg BUILDER_CACHE_IMAGE=${CONTROLLER_BUILDER_IMAGE} \
-            -t ${CONTROLLER_IMAGE}
-        docker push ${CONTROLLER_IMAGE}
+            -t ${IMAGE}
+        docker push ${IMAGE}
+
 
   build:importer:
     desc: "Build dvcr-importer image for local development"
     cmds:
+      - task: _ensure:image-prefix
       - task: dvcr:importer:push
+        vars:
+          REGISTRY:
+            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
   build:uploader:
     desc: "Build dvcr-uploader image for local development"
     cmds:
+      - task: _ensure:image-prefix
       - task: dvcr:uploader:push
+        vars:
+          REGISTRY:
+            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
   build:cleanup:
     cmds:
       - |
         echo "Remove dangling images"
         docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
+        docker rmi -f $(docker image ls | grep {{ .DevRegistry }}/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
 
   dev:run:
     desc: "Install virtualization-controller into the cluster using helm"
@@ -350,18 +438,33 @@ tasks:
       - _ensure:helm
       - _ensure:kubectl
       - _ensure:cluster-available
+      - _ensure:image-prefix
+    preconditions:
+      - sh: |
+          docker images | grep 'virtualization-controller.*latest'
+        msg: 'Image for virtualization-controller should be built'
     cmds:
-      - (docker images | grep 'virtualization-controller.*latest') || (echo "Image should be built"; exit 1)
       - |
         mkdir -p local/virtualization-controller/crds
         cp api/*.yaml local/virtualization-controller/crds
       - (cd local/virtualization-controller && bash gen-certs.sh -y)
       - |
+        images=()
+        if [ "{{.ClusterType}}" == "remote" ] ; then
+          images=(
+            --set images.controller={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}
+            --set images.importer={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}
+            --set images.uploader={{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}
+          )
+        fi
         helm upgrade --install \
           --namespace virtualization-controller \
           --create-namespace \
-          --set image=$CONTROLLER_IMAGE \
+          "${images[@]}" \
           virtualization-controller ./local/virtualization-controller
+      - task: _copy_d8_registry_secret
+        vars:
+          NAMESPACE: virtualization-controller
 
   dev:logs:
     desc: "Watch current virtualization-controller logs"
@@ -449,6 +552,7 @@ tasks:
 
   _ci:verify-gen:
     desc: "Check generated files are up-to-date."
+    internal: true
     cmds:
       - |
         git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
@@ -490,8 +594,23 @@ tasks:
       - |
         golangci-lint run --sort-results
 
+  _copy_d8_registry_secret:
+    internal: true
+    vars:
+      NAMESPACE: '{{.NAMESPACE}}'
+    cmds:
+      - |
+        [ "{{.NAMESPACE}}" == "" ] && echo "No NS specified for copy deckhouse-registry Secret." && exit 0
+        # Copy d8 registry secret
+        if kubectl get -n kube-system secret deckhouse-registry ; then
+        kubectl get -n kube-system secret deckhouse-registry -o json \
+        | jq 'del(.metadata["namespace","creationTimestamp","resourceVersion","selfLink","uid"])' \
+        | kubectl apply -n "{{.NAMESPACE}}" -f -
+        fi
+
   _ensure:k8s-codegen-mod:
     desc: "Ensure k8s.io/codegen module is present"
+    internal: true
     cmds:
       - echo -e "Path K8S_CODEGEN=${K8S_CODEGEN} should exists.\nAdd k8s.io/code-generator to go.mod and run go mod download" > /dev/stderr
       - exit 1
@@ -501,6 +620,7 @@ tasks:
 
   _ensure:helm:
     desc: "Ensure helm is installed"
+    internal: true
     cmds:
       - echo "Install helm" && exit 1
     status:
@@ -508,6 +628,7 @@ tasks:
 
   _ensure:kind:
     desc: "Ensure kind is installed"
+    internal: true
     cmds:
       - echo "Install kind" && exit 1
     status:
@@ -515,6 +636,7 @@ tasks:
 
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
+    internal: true
     cmds:
       - echo "Install kubectl" && exit 1
     status:
@@ -522,13 +644,39 @@ tasks:
 
   _ensure:cluster-available:
     desc: "Ensure kubernetes cluster available"
-    cmds:
-      - echo "No cluster available, you can use 'task dev:cluster:reset' to setup local k3d cluster" && exit 1
-    status:
-      - kubectl version >/dev/null
+    internal: true
+    preconditions:
+      - sh: kubectl version
+      #>/dev/null
+        msg: |-
+          No cluster available, run 'task dev:up' or 'task dev:cluster:reset' to setup local k3d cluster
+          or switch KUBECONFIG to use remote cluster.
+
+  _ensure:cluster-type:
+    desc: "Ensure cluster type variable is not empty"
+    internal: true
+    preconditions:
+      - sh: '[ -n "{{.ClusterType}}" ]'
+        msg: |-
+          ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
+#      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
+#        msg: |-
+#          Image prefix not detected for remote cluster. Switch KUBECONFIG, check SSH tunnel, or set .
+
+  _ensure:image-prefix:
+    internal: true
+    run: once
+    preconditions:
+      - sh: '[ -n "{{.ClusterType}}" ]'
+        msg: |-
+          ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
+      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
+        msg: |-
+          ImagePrefix is empty: '{{.ImagePrefix}}'. Check cluster connection or set IMAGE_PREFIX env var.
 
   _ensure:k3d:
     desc: "Ensure k3d is installed"
+    internal: true
     cmds:
       - echo "Install k3d" && exit 1
     status:
@@ -536,6 +684,7 @@ tasks:
 
   _ensure:crane:
     desc: "Ensure crane is installed"
+    internal: true
     cmds:
       - echo "Install crane" && exit 1
     status:
@@ -543,11 +692,13 @@ tasks:
 
   _ensure:k3d-registry-domain:
     desc: "Ensure k3d registry domain available locally"
+    internal: true
     cmds:
       - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please add '127.0.0.1   k3d-registry.virtualization-controller.test' into /etc/hosts" && exit 1)
 
   _ensure:k3d-registry-insecure-allowed:
     desc: "Ensure docker daemon allows insecure k3d registry"
+    internal: true
     cmds:
       - |
         echo -e >&2 "Please add k3d registry as insecure:\n" \
@@ -560,6 +711,7 @@ tasks:
 
   _ensure:golangci-lint:
     desc: "Ensure golangci-lint is available"
+    internal: true
     cmds:
       - |
         echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
@@ -570,6 +722,7 @@ tasks:
 
   _ensure:virtctl:
     desc: "Ensure virtctl tool is installed"
+    internal: true
     cmds:
       - echo -e >&2 "Install virtctl from the release page of the KubeVirt github page:\n" \
           "https://github.com/kubevirt/kubevirt/releases\n"

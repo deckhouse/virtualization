@@ -75,7 +75,12 @@ spec:
       volumes:
         - name: dvcr-storage
           persistentVolumeClaim:
+{{ if eq .Values.clusterType "local"}}
             claimName: dvcr
+{{end}}
+{{ if eq .Values.clusterType "remote"}}
+            claimName: dvcr-linstor
+{{end}}
         - name: nginx-config
           configMap:
             name: registry-nginx-config
