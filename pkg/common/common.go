@@ -134,6 +134,9 @@ const (
 	UploaderDestinationAuthConfigFile = "/ghcr-io-auth/.dockerconfigjson"
 	UploaderSecretExtraHeadersDir     = "/extraheaders"
 
+	// DVCRAddressForVMLauncherVar an alternative address to use by the virt-launcher Pod.
+	DVCRAddressForVMLauncherVar = "DVCR_ADDRESS_FOR_VM_LAUNCHER"
+
 	// ImporterGoogleCredentialFileVar provides a constant to capture our env variable "GOOGLE_APPLICATION_CREDENTIALS"
 	ImporterGoogleCredentialFileVar = "GOOGLE_APPLICATION_CREDENTIALS"
 	// ImporterGoogleCredentialDir provides a constant to capture our secret mount Dir

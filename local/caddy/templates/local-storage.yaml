@@ -1,3 +1,4 @@
+{{ if eq .Values.clusterType "local" }}
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -35,3 +36,4 @@ spec:
   resources:
     requests:
       storage: 10Gi
+{{ end }}

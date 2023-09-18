@@ -39,7 +39,7 @@ func (r *VMDReconciler) createUploaderSettings(vmd *virtv2alpha1.VirtualMachineD
 	}
 
 	// Set DVCR settings.
-	uploader.UpdateDVCRSettings(settings, r.dvcrSettings, cc.PrepareDVCREndpointFromVMD(vmd, r.dvcrSettings))
+	uploader.UpdateDVCRSettings(settings, r.dvcrSettings, cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromVMD(vmd)))
 
 	// TODO Update proxy settings.
 

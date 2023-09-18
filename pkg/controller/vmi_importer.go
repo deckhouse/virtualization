@@ -63,7 +63,7 @@ func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineI
 	}
 
 	// Set DVCR settings.
-	importer.UpdateDVCRSettings(settings, r.dvcrSettings, cc.PrepareDVCREndpointFromVMI(vmi, r.dvcrSettings))
+	importer.UpdateDVCRSettings(settings, r.dvcrSettings, cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromVMI(vmi)))
 
 	// TODO Update proxy settings.
 

@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
@@ -13,6 +14,7 @@ func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *virtv2.VirtualMachine,
 	vmdByName map[string]*virtv2.VirtualMachineDisk,
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
+	dvcrSettings *cc.DVCRSettings,
 ) {
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
 
@@ -44,8 +46,9 @@ func ApplyVirtualMachineSpec(
 				panic(fmt.Sprintf("unexpected CVMI %q status phase %q: expected ready phase, please report a bug", cvmi.Name, cvmi.Status.Phase))
 			}
 
+			dvcrImage := cc.DVCREndpointForVM(dvcrSettings, cc.DVCRImageNameFromCVMI(cvmi))
 			kvvm.SetDisk(bd.ClusterVirtualMachineImage.Name, SetDiskOptions{
-				ContainerDisk: util.GetPointer(cvmi.Status.Target.RegistryURL),
+				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       cvmi.Status.CDROM,
 			})
 

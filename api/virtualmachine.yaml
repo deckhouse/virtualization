@@ -9,6 +9,9 @@ spec:
   group: virtualization.deckhouse.io
   scope: Namespaced
   names:
+    categories:
+      - all
+      - virtualization
     plural: virtualmachines
     singular: virtualmachine
     listKind: VirtualMachineList

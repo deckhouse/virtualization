@@ -21,7 +21,7 @@ func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize
 		Kind:    virtv2.VMDKind,
 	}
 
-	dvcrImageName := cc.PrepareDVCREndpointFromVMD(vmd, dvcrSettings)
+	dvcrImageName := cc.DVCREndpointForImporter(dvcrSettings, cc.DVCRImageNameFromVMD(vmd))
 
 	return applyDVSettings(dv, vmd, gvk, vmd.Spec.DataSource, pvcSize, vmd.Spec.PersistentVolumeClaim.StorageClassName, dvcrImageName)
 }
@@ -36,7 +36,7 @@ func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSi
 		Kind:    virtv2.VMIKind,
 	}
 
-	dvcrImageName := cc.PrepareDVCREndpointFromVMI(vmi, dvcrSettings)
+	dvcrImageName := cc.DVCREndpointForImporter(dvcrSettings, cc.DVCRImageNameFromVMI(vmi))
 
 	return applyDVSettings(dv, vmi, gvk, &vmi.Spec.DataSource, pvcSize, vmi.Spec.PersistentVolumeClaim.StorageClassName, dvcrImageName)
 }

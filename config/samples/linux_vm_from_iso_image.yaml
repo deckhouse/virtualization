@@ -17,7 +17,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClassName: linstor-thin-data-r1
 ---
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachine

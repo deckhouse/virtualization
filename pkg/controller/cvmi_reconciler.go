@@ -149,7 +149,7 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	cvmiStatus := state.CVMI.Current().Status.DeepCopy()
 
 	// Set target image name the same way as for the importer/uploader Pod.
-	cvmiStatus.Target.RegistryURL = cc.PrepareDVCREndpointFromCVMI(state.CVMI.Current(), r.dvcrSettings)
+	cvmiStatus.Target.RegistryURL = cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromCVMI(state.CVMI.Current()))
 
 	switch {
 	case !r.isInited(state.CVMI.Current(), state), state.CVMI.Current().Status.Phase == "":

@@ -17,11 +17,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-type VMReconciler struct{}
+type VMReconciler struct {
+	dvcrSettings *cc.DVCRSettings
+}
 
 func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
@@ -94,7 +97,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
-			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
 			if err := opts.Client.Create(ctx, kvvm); err != nil {
@@ -111,7 +114,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
-			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName)
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
 			if err := opts.Client.Update(ctx, kvvm); err != nil {
