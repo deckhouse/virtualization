@@ -1,15 +1,14 @@
 stages:
+  - lint
+  - test
   - build
   - deploy_dev
   - deploy_prod
   - info_dev
 
-# variables:
-#   GIT_STRATEGY: clone
-
 default:
   tags:
-    - tfprod-distributed-werf
+    - deckhouse
 
 .registry-login: &registry-login
   - export DOCKER_CONFIG=$(mktemp -d)
@@ -18,7 +17,6 @@ default:
 
 before_script:
   - |
-    env | grep CI
     type trdl && . $(trdl use werf 1.2 stable)
     type werf && source $(werf ci-env gitlab --as-file)
 
@@ -129,6 +127,32 @@ before_script:
   - .prod_vars
   - .prod_rules
 
+dco:
+  stage: lint
+  script:
+    - pip3 install -U dco-check
+    - CI_MERGE_REQUEST_TARGET_BRANCH_SHA=$(git merge-base --fork-point origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME) dco-check --verbose -b origin/main
+  extends:
+  - .dev
+
+lint:virtualization-controller:
+  stage: lint
+  script:
+      - task virtualization-controller:init
+      - task virtualization-controller:lint
+      # TODO: need to fix this
+      # - task virtualization-controller:dvcr:lint
+  extends:
+  - .dev
+
+test:virtualization-controller:
+  stage: test
+  script:
+      - task virtualization-controller:init
+      - task virtualization-controller:test:unit
+  extends:
+  - .dev
+
 build_prod:
   stage: build
   extends:
@@ -174,7 +198,7 @@ show_module_manifest:
       Build version: ${RELEASE_VERSION}
       ---
       apiVersion: deckhouse.io/v1alpha1
-      kind: ExternalModuleSource
+      kind: ModuleSource
       metadata:
         name: ${MODULE_NAME}
       spec:

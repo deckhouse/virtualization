@@ -3,6 +3,7 @@ version: "3"
 silent: true
 
 includes:
+  init: Taskfile.init.yaml
   cvmi: Taskfile.cvmi.yaml
   vmi: Taskfile.vmi.yaml
   my:

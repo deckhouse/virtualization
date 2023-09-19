@@ -4,8 +4,9 @@ config:
     allowEnvVariables: [ /CI_.+/ ]
   stapel:
     mount:
-     allowFromPaths:
-     - ~/go-pkg-cache
+      allowBuildDir: true
+      allowFromPaths:
+      - ~/go-pkg-cache
 helm:
   allowUncommittedFiles:
   - "Chart.lock"
