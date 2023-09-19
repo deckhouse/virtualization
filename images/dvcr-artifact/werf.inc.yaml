@@ -1,0 +1,7 @@
+---
+artifact: {{ $.ImageName }}
+fromImage: base-debian-bookworm-slim
+shell:
+  install:
+  - apt-get -qq update
+  - apt-get -qq install -y --no-install-recommends ca-certificates libnbd0 qemu-utils file

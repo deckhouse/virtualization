@@ -1,5 +1,5 @@
 ---
-artifact: golang-builder
+artifact: vmi-router-builder
 fromImage: base-golang-19-buster
 git:
 - add: /images/{{ $.ImageName }}
@@ -10,9 +10,9 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-# mount:
-# - fromPath: ~/go-pkg-cache
-#   to: /usr/local/go/pkg
+mount:
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 shell:
   install:
   - cd /usr/local/go/src/vmi-router
@@ -26,7 +26,7 @@ shell:
 image: {{ $.ImageName }}
 fromImage: base-ubuntu-jammy
 import:
-- artifact: golang-builder
+- artifact: vmi-router-builder
   add: /usr/local/go/src/vmi-router/vmi-router
   to: /workspace/vmi-router
   after: install
