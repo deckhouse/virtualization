@@ -1,0 +1,57 @@
+# https://taskfile.dev
+
+version: "3"
+
+includes:
+  vmi-router:
+    taskfile: ./images/vmi-router
+    dir: ./images/vmi-router
+  virtualization-controller:
+    taskfile: ./images/virtualization-controller
+    dir: ./images/virtualization-controller
+
+vars:
+  deckhouse_lib_helm_ver: 1.7.0
+  target: ""
+
+tasks:
+  check-werf:
+    cmds:
+      - which werf >/dev/null || (echo "werf not found."; exit 1)
+    silent: true
+
+  check-yq:
+    cmds:
+      - which yq >/dev/null || (echo "yq not found."; exit 1)
+    silent: true
+
+  check-jq:
+    cmds:
+      - which jq >/dev/null || (echo "jq not found."; exit 1)
+    silent: true
+
+  check-helm:
+    cmds:
+      - which helm >/dev/null || (echo "helm not found."; exit 1)
+    silent: true
+
+  helm-update-subcharts:
+    deps:
+      - check-helm
+    cmds:
+      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
+      - helm repo update deckhouse
+      - helm dep update
+
+  helm-bump-helm-lib:
+    deps:
+      - check-yq
+    cmds:
+      - yq -i '.dependencies[] |= select(.name == "deckhouse_lib_helm").version = "{{ .deckhouse_lib_helm_ver }}"' Chart.yaml
+      - task: helm-update-subcharts
+
+  build:
+    deps:
+      - check-werf
+    cmds:
+      - werf build {{ .target }}
