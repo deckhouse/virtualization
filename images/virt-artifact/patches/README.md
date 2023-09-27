@@ -5,6 +5,13 @@
 Internal patch which adds `libguestfs`, `virt-exportserver` and `virt-exportproxy`
 to images bundle target.
 
+#### `002-fix-vcpu-count-issue.patch`
+
+Fixes an bug where a VM was created with one socket even though more sockets were specified in the domain spec.
+
+- https://github.com/kubevirt/kubevirt/pull/10473
+
+
 #### `003-macvtap-binding.patch`
 
 This PR adds macvtap networking mode for binding podNetwork.
