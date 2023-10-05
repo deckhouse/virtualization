@@ -10,8 +10,8 @@ includes:
     taskfile: Taskfile.my.yaml
     optional: true
   dvcr:
-    taskfile: ./dvcr_importers/Taskfile.dist.yaml
-    dir: ./dvcr_importers
+    taskfile: ../dvcr-artifact/Taskfile.dist.yaml
+    dir: ../dvcr-artifact/
 
 vars:
   CDIVersion: "v1.57.0-alpha1"
