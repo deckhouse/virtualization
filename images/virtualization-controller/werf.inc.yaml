@@ -34,26 +34,3 @@ docker:
   USER: "65532:65532"
   WORKDIR: "/app"
   ENTRYPOINT: ["/app/virtualization-controller"]
----
-artifact: dvcr-importers-builder
-fromImage: base-golang-20-bookworm
-git:
-- add: /images/{{ $.ImageName }}/dvcr_importers
-  to: /usr/local/go/src/dvcr_importers
-  stageDependencies:
-    install:
-    - go.mod
-    - go.sum
-    setup:
-    - "**/*.go"
-mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
-shell:
-  install:
-  - apt-get -qq update
-  - apt-get -qq install -y --no-install-recommends libnbd-dev
-  setup:
-  - cd /usr/local/go/src/dvcr_importers
-  - go build ./cmd/dvcr_importer
-  - go build ./cmd/dvcr_uploader
