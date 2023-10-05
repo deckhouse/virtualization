@@ -127,13 +127,20 @@ before_script:
   - .prod_vars
   - .prod_rules
 
-# dco:
-#  stage: lint
-#  script:
-#    - pip3 install -U dco-check
-#    - CI_MERGE_REQUEST_TARGET_BRANCH_SHA=$(git merge-base --fork-point origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME) dco-check --verbose -b origin/main
-#  extends:
-#  - .dev
+dco:
+ stage: lint
+ script:
+  - pip3 install -U dco-check
+  - |
+        if [ "${CI_MERGE_REQUEST_EVENT_TYPE:-}" = detached ]; then
+            git fetch -a  # so that we can resolve branch names below
+            export CI_COMMIT_BRANCH="$CI_COMMIT_REF_NAME";
+            export CI_MERGE_REQUEST_SOURCE_BRANCH_SHA="$(git rev-parse "origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME")";
+            export CI_MERGE_REQUEST_TARGET_BRANCH_SHA="$(git rev-parse "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME")";
+        fi
+  - dco-check --default-branch-from-remote --verbose
+ extends:
+ - .dev
 
 lint:virtualization-controller:
   stage: lint
