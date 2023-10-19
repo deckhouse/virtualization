@@ -9,6 +9,9 @@ includes:
   virtualization-controller:
     taskfile: ./images/virtualization-controller
     dir: ./images/virtualization-controller
+  hooks:
+    taskfile: ./hooks
+    dir: ./hooks
 
 vars:
   deckhouse_lib_helm_ver: 1.7.0

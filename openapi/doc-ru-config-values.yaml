@@ -35,14 +35,52 @@ properties:
               Имя Secret'а в пространстве имён `d8-system`, который будет использоваться для web-интерфейса загрузки модуля CDI.
 
               Secret должен быть в формате [kubernetes.io/tls](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#tls-secrets).
-  nodeSelector:
+  dvcr:
     description: |
-      Структура, аналогичная `spec.nodeSelector` Kubernetes pod.
-
-      Если ничего не указано или указано `false` — `nodeSelector` будет определяться [автоматически](https://deckhouse.ru/documentation/v1/#выделение-узлов-под-определенный-вид-нагрузки).
-  tolerations:
-    type: array
-    description: |
-      Структура, аналогичная  `spec.tolerations` в Kubernetes Pod.
-
-      Если ничего не указано или указано `false` — `tolerations` будет определяться [автоматически](https://deckhouse.ru/documentation/v1/#выделение-узлов-под-определенный-вид-нагрузки).
+      Параметры, для настройки deckhouse virtualization container registry.
+      Внутренний сервис для хранения и кеширования образов виртуальных машин. 
+    properties:
+      storage: 
+        description: |
+          Параметры для настройки хранилища. 
+        properties:
+          type:
+            description: |
+              Тип используемого хранилища.
+              - `persistentVolumeClaim` — Использование pvc
+              - `objectStorage` — Использование objectStorage
+          persistentVolumeClaim:
+            description: |
+              Параметры для настройки PersistentVolumeClaim.
+            properties:
+              storageClassName:
+                description: |
+                  Имя StorageClass, используемого для создания persistentvolumeclaim. 
+              size:
+                description: |
+                  Размер pvc.
+          objectStorage:
+            description: |
+              Параметры для настройки объектного хранилища. 
+            properties:
+              s3:
+                description: | 
+                  Параметры для использования s3.
+                properties:
+                  accessKey:
+                    description: |
+                      accessKey должен быть закодирован в base64.
+                      accessKey — это уникальный идентификатор, который идентифицирует вас как пользователя, имеющего доступ к S3.
+                  secretKey:
+                    description: |
+                      secretKey должен быть закодирован в base64.
+                      secretKey — это конфиденциальный секретный ключ, связанный с вашим идентификатором ключа доступа.
+                  region: 
+                    description: | 
+                      Географическая зона.
+                  regionEndpoint:
+                    description: |
+                      Конечная точка для подключения к сервису S3.
+                  bucket:
+                    description: |
+                      Контейнер, в котором вы можете хранить свои файлы и объекты данных.
