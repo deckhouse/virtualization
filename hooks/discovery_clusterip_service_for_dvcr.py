@@ -24,33 +24,33 @@ class DiscoveryClusterIPServiceHook(Hook):
     def __init__(self, module_name: str = None):
         super().__init__(module_name=module_name)
         self.namespace    = common.NAMESPACE
-        self.service_name = "dvcr",
+        self.service_name = "dvcr"
         self.value_path   = f"{self.module_name}.internal.dvcr.serviceIP"
 
     def generate_config(self) -> dict:
         return {
-        "configVersion": "v1",
-        "beforeHelm": 5,
-        "kubernetes": [
-            {
-                "name": self.SNAPSHOT_NAME,
-                "apiVersion": "v1",
-                "kind": "Service",
-                "nameSelector": {
-                    "matchNames": [self.service_name]
-                },
-                "namespace": {
+            "configVersion": "v1",
+            "beforeHelm": 5,
+            "kubernetes": [
+                {
+                    "name": self.SNAPSHOT_NAME,
+                    "apiVersion": "v1",
+                    "kind": "Service",
                     "nameSelector": {
-                        "matchNames": [self.namespace]
-                    }
+                        "matchNames": [self.service_name]
+                    },
+                    "namespace": {
+                        "nameSelector": {
+                            "matchNames": [self.namespace]
+                        }
+                    },
+                    "includeSnapshotsFrom": [self.SNAPSHOT_NAME],
+                    "jqFilter": '{"clusterIP": .spec.clusterIP}',
+                    "queue": f"/modules/{self.module_name}/discovery-service",
+                    "keepFullObjectsInMemory": False
                 },
-                "includeSnapshotsFrom": [self.SNAPSHOT_NAME],
-                "jqFilter": '{"clusterIP": .spec.clusterIP}',
-                "queue": f"/modules/{self.module_name}/discovery-service",
-                "keepFullObjectsInMemory": False
-            },
-        ]
-    }
+            ]
+        }
 
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context):

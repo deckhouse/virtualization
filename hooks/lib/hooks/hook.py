@@ -17,12 +17,13 @@ from deckhouse import hook
 from typing import Callable
 from lib.module import module
 from lib.module import values as module_values
+import yaml
 
 class Hook:
     def __init__(self, module_name: str = None) -> None:
         self.module_name = self.get_module_name(module_name)
 
-    def generate_config(self) -> dict:
+    def generate_config(self):
         pass
 
     @staticmethod
@@ -49,4 +50,7 @@ class Hook:
         return r
     
     def run(self) -> None:
-        hook.run(func=self.reconcile(), config=self.generate_config())
+        conf = self.generate_config()
+        if isinstance(conf, dict):
+            conf = yaml.dump(conf)
+        hook.run(func=self.reconcile(), config=conf)
