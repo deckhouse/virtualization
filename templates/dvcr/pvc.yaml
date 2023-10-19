@@ -1,0 +1,18 @@
+{{- if eq .Values.virtualization.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- $storageClassName := dig "storageClassName" "" .Values.virtualization.dvcr.storage.persistentVolumeClaim }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: dvcr
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr")) | nindent 2 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.virtualization.dvcr.storage.persistentVolumeClaim.size | quote }}
+  {{- if ne $storageClassName "" }}
+  storageClassName: {{ $storageClassName }}
+  {{- end }}
+{{- end }}

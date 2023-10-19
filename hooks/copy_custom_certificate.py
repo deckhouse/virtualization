@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from lib.copy_custom_certificate_hook import register_hook
-
+from lib.hooks.copy_custom_certificate import CopyCustomCertificatesHook
 
 if __name__ == "__main__":
-    register_hook("virtualization")
+    hook = CopyCustomCertificatesHook()
+    hook.run()
