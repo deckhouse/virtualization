@@ -23,23 +23,25 @@ class CopyCustomCertificatesHook(Hook):
     def __init__(self,
                  module_name: str = None):
         super().__init__(module_name=module_name)
-        self.queue = f"/modules/{self.module_name}/copy-custom-certificates",
+        self.queue = f"/modules/{self.module_name}/copy-custom-certificates"
 
     def generate_config(self) -> dict:
         return {
             "configVersion": "v1",
-            "beforeHelm": 5,
+            "beforeHelm": 10,
             "kubernetes": [
                 {
                     "name": self.CUSTOM_CERTIFICATES_SNAPSHOT_NAME,
                     "apiVersion": "v1",
                     "kind": "Secret",
                     "labelSelector": {
-                        "matchExpressions": [{
-                            "key": "owner",
-                            "operator": "NotIn",
-                            "values": ["helm"]
-                        }]
+                        "matchExpressions": [
+                            {
+                                "key": "owner",
+                                "operator": "NotIn",
+                                "values": ["helm"]
+                            }
+                        ]
                     },
                     "namespace": {
                         "nameSelector": {
@@ -47,7 +49,7 @@ class CopyCustomCertificatesHook(Hook):
                         }
                     },
                     "includeSnapshotsFrom": [self.CUSTOM_CERTIFICATES_SNAPSHOT_NAME],
-                    "jqFilter": '{""name": .metadata.name, "data": .data}',
+                    "jqFilter": '{"name": .metadata.name, "data": .data}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
