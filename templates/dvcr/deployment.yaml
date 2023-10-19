@@ -1,0 +1,100 @@
+{{- define "dvcr_resources" }}
+cpu: 50m
+memory: 150Mi
+{{- end }}
+{{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: dvcr
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr" )) | nindent 2 }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: dvcr
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: dvcr
+      minAllowed:
+        {{- include "dvcr_resources" . | nindent 8 }}
+      maxAllowed:
+        cpu: 100m
+        memory: 250Mi
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dvcr
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr" )) | nindent 2 }}
+spec:
+  minAvailable: {{ include "dvcr.helm_lib_is_ha_to_value" (list . 1 0) }}
+  selector:
+    matchLabels:
+      app: dvcr
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr")) | nindent 2 }}
+  name: dvcr
+  namespace: d8-{{ .Chart.Name }}
+spec:
+  {{ include "dvcr.helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: dvcr
+  template:
+    metadata:
+      labels:
+        app: dvcr
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/dvcr/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/dvcr/secret.yaml") . | sha256sum }}
+    spec:
+      {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "dvcr")) | nindent 6 }}
+      containers:
+        - name: dvcr
+          image: {{ include "helm_lib_module_image" (list . "dvcr") }}
+          imagePullPolicy: IfNotPresent
+          command:
+          - /bin/registry
+          - serve
+          - /etc/docker/registry/config.yml
+          ports:
+            - containerPort: 5000
+              name: https
+              protocol: TCP
+            - containerPort: 5001
+              name: metrics
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /
+              port: https
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /
+              port: https
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "dvcr_resources" . | nindent 12 }}
+              {{- end }}
+          env: {{ include "dvcr.envs" . | nindent 12 }}
+          volumeMounts: {{ include "dvcr.volumeMounts" . | nindent 12 }}
+      volumes: {{ include "dvcr.volumes" . | nindent 8 }}
+      {{- include "helm_lib_priority_class" (tuple . "cluster-low") | nindent 6 }}
+      {{- include "helm_lib_node_selector" (tuple . "system") | nindent 6 }}
+      {{- include "helm_lib_tolerations" (tuple . "system") | nindent 6 }}
+      serviceAccountName: dvcr

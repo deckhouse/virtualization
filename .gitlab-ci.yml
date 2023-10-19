@@ -160,6 +160,13 @@ test:virtualization-controller:
   extends:
   - .dev
 
+test:hooks:
+  stage: test
+  script:
+      - task hooks:test
+  extends:
+  - .dev
+
 build_prod:
   stage: build
   extends:
