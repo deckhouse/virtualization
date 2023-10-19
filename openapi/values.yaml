@@ -15,3 +15,21 @@ properties:
             type: string
           ca.crt:
             type: string
+      dvcr: 
+        type: object 
+        properties:
+          cert:
+            type: object
+            properties:
+              ca:
+                type: string
+              crt:
+                type: string
+              key:
+                type: string
+          passwordRW: 
+            type: string
+          salt:
+            type: string
+          serviceIP:
+            type: string
