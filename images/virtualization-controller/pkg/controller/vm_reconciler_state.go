@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -14,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -24,6 +29,7 @@ type VMReconcilerState struct {
 	VM         *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	KVVM       *virtv1.VirtualMachine
 	KVVMI      *virtv1.VirtualMachineInstance
+	KVPods     *corev1.PodList
 	VMDByName  map[string]*virtv2.VirtualMachineDisk
 	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
 	Result     *reconcile.Result
@@ -81,11 +87,27 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
 			// if state.KVVM.Status.ObservedGeneration == state.KVVM.Status.DesiredGeneration {
 			kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
-			if err != nil {
+			if err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
 			}
 			state.KVVMI = kvvmi
 			//}
+		}
+	}
+
+	// Search for virt-launcher Pods if KubeVirt VMI exists for VM.
+	if state.KVVMI != nil {
+		pods := new(corev1.PodList)
+		selector := labels.SelectorFromSet(map[string]string{"vm.kubevirt.io/name": state.KVVM.GetName()})
+		err = state.Client.List(ctx, pods, &client.ListOptions{
+			LabelSelector: selector,
+			Namespace:     kvvm.Namespace,
+		})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("unable to list virt-launcher Pod for KubeVirt VM %q: %w", kvvmName, err)
+		}
+		if len(pods.Items) > 0 {
+			state.KVPods = pods
 		}
 	}
 
@@ -222,34 +244,21 @@ func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.Volu
 	return nil
 }
 
-func (state *VMReconcilerState) SetAttachedBlockDevicesLabels() bool {
-	var newLabels map[string]string
-	getNewLabels := func() map[string]string {
-		if newLabels == nil {
-			newLabels = make(map[string]string)
-		}
-		return newLabels
-	}
+func (state *VMReconcilerState) SetVMLabelsWithAttachedBlockDevices() bool {
+	// Exclude attach related labels.
+	newLabels := RemoveAttachRelatedLabels(state.VM.Current().Labels)
 
-	// exclude attach related labels
-	for k, v := range state.VM.Current().Labels {
-		_, isCvmi := vmattachee.ExtractAttachedResourceName("cvmi", k)
-		_, isVmi := vmattachee.ExtractAttachedResourceName("vmi", k)
-		_, isVmd := vmattachee.ExtractAttachedResourceName("vmd", k)
-		if !(isCvmi || isVmi || isVmd) {
-			getNewLabels()[k] = v
-		}
-	}
-
-	// reset attach related labels
+	// Regenerate attach related labels.
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
 			panic("not implemented")
 		case virtv2.ClusterImageDevice:
-			getNewLabels()[vmattachee.MakeAttachedResourceLabelKeyFormat("cvmi", bd.ClusterVirtualMachineImage.Name)] = vmattachee.AttachedLabelValue
+			cvmiAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("cvmi", bd.ClusterVirtualMachineImage.Name)
+			newLabels[cvmiAttachedLabel] = vmattachee.AttachedLabelValue
 		case virtv2.DiskDevice:
-			getNewLabels()[vmattachee.MakeAttachedResourceLabelKeyFormat("vmd", bd.VirtualMachineDisk.Name)] = vmattachee.AttachedLabelValue
+			vmdAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("vmd", bd.VirtualMachineDisk.Name)
+			newLabels[vmdAttachedLabel] = vmattachee.AttachedLabelValue
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 		}
@@ -262,7 +271,9 @@ func (state *VMReconcilerState) SetAttachedBlockDevicesLabels() bool {
 	return false
 }
 
-func (state *VMReconcilerState) SetBlockDevicesFinalizers(ctx context.Context) error {
+// SetFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.
+// TODO implement for VMI.
+func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context) error {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
@@ -291,7 +302,7 @@ func (state *VMReconcilerState) SetBlockDevicesFinalizers(ctx context.Context) e
 	return nil
 }
 
-// Check all images and disks are ready to use
+// BlockDevicesReady check if all attached images and disks are ready to use by the VM.
 func (state *VMReconcilerState) BlockDevicesReady() bool {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
@@ -329,4 +340,70 @@ func (state *VMReconcilerState) GetKVVMErrors() (res []error) {
 		res = append(res, fmt.Errorf("%s", virtv1.VirtualMachineStatusUnschedulable))
 	}
 	return
+}
+
+// RemoveAttachRelatedLabels filters out attach related labels from the input map.
+// E.g. virtualization.deckhouse.io/cvmi.ubuntu-iso.attached
+func RemoveAttachRelatedLabels(labels map[string]string) map[string]string {
+	result := make(map[string]string)
+
+	// Copy labels into result map excluding attach related labels.
+	for k, v := range labels {
+		if _, isCvmi := vmattachee.ExtractAttachedResourceName("cvmi", k); isCvmi {
+			continue
+		}
+		if _, isVmi := vmattachee.ExtractAttachedResourceName("vmi", k); isVmi {
+			continue
+		}
+		if _, isVmd := vmattachee.ExtractAttachedResourceName("vmd", k); isVmd {
+			continue
+		}
+		result[k] = v
+	}
+	return result
+}
+
+// CleanupVMAnno removes well known annotations that are dangerous to propagate.
+func CleanupVMAnno(anno map[string]string) map[string]string {
+	res := make(map[string]string)
+
+	for k, v := range anno {
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
+			continue
+		}
+
+		res[k] = v
+	}
+
+	return res
+}
+
+// PropagateVMMetadata merges labels and annotations from the input VM into destination object.
+// Attach related labels and some dangerous annotations are not copied.
+// Return true if destination object was changed.
+func PropagateVMMetadata(vm *virtv2.VirtualMachine, destObj client.Object) bool {
+	// No changes if dest is nil.
+	if destObj == nil {
+		return false
+	}
+
+	isChanged := false
+
+	// Attach related labels are not needed on kubevirt resources.
+	vmLabels := RemoveAttachRelatedLabels(vm.GetLabels())
+	newLabels := common.MergeLabels(destObj.GetLabels(), vmLabels)
+	if !reflect.DeepEqual(newLabels, destObj.GetLabels()) {
+		destObj.SetLabels(newLabels)
+		isChanged = true
+	}
+
+	// Remove dangerous annotations.
+	vmAnno := CleanupVMAnno(vm.GetAnnotations())
+	newAnno := common.MergeLabels(destObj.GetAnnotations(), vmAnno)
+	if !reflect.DeepEqual(newAnno, destObj.GetAnnotations()) {
+		destObj.SetAnnotations(newAnno)
+		isChanged = true
+	}
+
+	return isChanged
 }

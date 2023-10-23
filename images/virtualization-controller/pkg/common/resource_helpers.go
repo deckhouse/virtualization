@@ -1,14 +1,16 @@
 package common
 
-// MergeLabels adds source labels to destination (does not change existing ones)
-func MergeLabels(src, dest map[string]string) map[string]string {
-	if dest == nil {
-		dest = map[string]string{}
+// MergeLabels merges maps of labels into one map.
+// Labels in the first argument are
+// overridden with labels from the next argument and so on.
+func MergeLabels(in ...map[string]string) map[string]string {
+	res := make(map[string]string)
+
+	for _, labels := range in {
+		for k, v := range labels {
+			res[k] = v
+		}
 	}
 
-	for k, v := range src {
-		dest[k] = v
-	}
-
-	return dest
+	return res
 }
