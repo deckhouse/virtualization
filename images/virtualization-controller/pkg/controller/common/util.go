@@ -529,10 +529,8 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, 
 		common.AppKubernetesComponentLabel: "storage",
 	}
 
-	// Merge static & existing labels
-	mergedLabels := common.MergeLabels(staticLabels, obj.GetLabels())
-	// Add installer dynamic labels as well (/version, /part-of)
-	mergedLabels = common.MergeLabels(installerLabels, mergedLabels)
+	// Merge existing labels with static labels and add installer dynamic labels as well (/version, /part-of).
+	mergedLabels := common.MergeLabels(obj.GetLabels(), staticLabels, installerLabels)
 
 	obj.SetLabels(mergedLabels)
 }
