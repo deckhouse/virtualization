@@ -17,6 +17,8 @@ func MakeAttachedResourceLabelKeyFormat(kind, name string) string {
 	return fmt.Sprintf(AttachedResourceLabelKeyFormat, kind, name)
 }
 
+// ExtractAttachedResourceName extracts CVMI/VMI/VMD name from the label name.
+// kind input is one of "cvmi", "vmi" or "vmd".
 func ExtractAttachedResourceName(kind, labelKey string) (string, bool) {
 	kind = strings.ToLower(kind)
 	parts := strings.SplitN(labelKey, "/", 2)

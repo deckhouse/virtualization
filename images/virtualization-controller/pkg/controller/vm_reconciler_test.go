@@ -23,6 +23,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/testutil"
 )
 
+var testVMLabels = map[string]string{
+	"test-label-1": "test-value-1",
+}
+
+var testVMAnno = map[string]string{
+	"test-anno-1": "test-value-1",
+}
+
 var _ = Describe("VM", func() {
 	var reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState]
 	var reconcileExecutor *testutil.ReconcileExecutor
@@ -47,8 +55,8 @@ var _ = Describe("VM", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "test-ns",
 					Name:        "test-vm",
-					Labels:      nil,
-					Annotations: nil,
+					Labels:      testVMLabels,
+					Annotations: testVMAnno,
 				},
 				Spec: virtv2.VirtualMachineSpec{
 					RunPolicy:                virtv2.AlwaysOnPolicy,
@@ -158,6 +166,15 @@ var _ = Describe("VM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kvvm).NotTo(BeNil(), fmt.Sprintf("Expected KubeVirt VM %q to exist", vm.Name))
 			Expect(controllerutil.ContainsFinalizer(kvvm, virtv2.FinalizerKVVMProtection)).To(BeTrue())
+			// Check custom labels and annotations
+			for k, v := range testVMLabels {
+				Expect(kvvm.Labels).To(HaveKey(k), "kvvm should have label %s from vm", k)
+				Expect(kvvm.Labels[k]).To(Equal(v), "kvvm should have label %s=%s", k, v)
+			}
+			for k, v := range testVMAnno {
+				Expect(kvvm.Annotations).To(HaveKey(k), "kvvm should have annotation %s from vm", k)
+				Expect(kvvm.Annotations[k]).To(Equal(v), "kvvm should have annotation %s=%s", k, v)
+			}
 		}
 
 		{
@@ -269,6 +286,35 @@ var _ = Describe("VM", func() {
 			)).To(BeTrue())
 			Expect(vm.Status.BlockDevicesAttached[0].Target).To(Equal(kvvmi.Status.VolumeStatus[0].Target))
 			Expect(vm.Status.BlockDevicesAttached[0].Size).To(Equal("10Gi"))
+		}
+
+		{
+			// Test propagating labels.
+			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachine{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm).NotTo(BeNil())
+
+			// Set new label.
+			vm.Labels["new-label"] = "new-value"
+
+			err = reconciler.Client.Update(ctx, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = reconcileExecutor.Execute(ctx, reconciler)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Check labels in underlying resources.
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kvvm).NotTo(BeNil())
+			Expect(kvvm.Labels).To(HaveKey("new-label"))
+			Expect(kvvm.Labels["new-label"]).To(Equal("new-value"))
+
+			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kvvmi).NotTo(BeNil())
+			Expect(kvvmi.Labels).To(HaveKey("new-label"))
+			Expect(kvvmi.Labels["new-label"]).To(Equal("new-value"))
 		}
 	})
 })

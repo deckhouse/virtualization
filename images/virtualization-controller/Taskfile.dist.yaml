@@ -28,12 +28,15 @@ vars:
       [ -n "${CLUSTER_TYPE}" ] && echo -n ${CLUSTER_TYPE} && exit
       # Cluster type detection is a heavy operation. Run kubectl only for particular tasks.
       ForTasks="build:controller build:importer build:uploader dev:up dev:run caddy:up dvcr:up cluster:info _ensure:cluster-type _ensure:image-prefix"
-      if [[ " ${ForTasks} " == *' {{.TASK}} '* ]] ; then
-        if nodes=$(kubectl get no -o wide --show-labels) ; then
-          echo "${nodes}" | grep node.kubernetes.io/instance-type=k3s 2>&1 >/dev/null \
-            && echo "local" || echo "remote"
+      for task in $ForTasks ; do
+        if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
+          if nodes=$(kubectl get no -o wide --show-labels) ; then
+            echo "${nodes}" | grep node.kubernetes.io/instance-type=k3s 2>&1 >/dev/null \
+              && echo "local" || echo "remote"
+            break
+          fi
         fi
-      fi
+      done
 
   ImagePrefix:
     desc: 'This prefix is required to use one shared registry'
@@ -42,10 +45,12 @@ vars:
       [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
       # Image prefix detection is a heavy operation. Run it only for particular tasks.
       ForTasks="build:controller build:importer build:uploader dev:run cluster:info _ensure:image-prefix"
-      if [[ " ${ForTasks} " == *' {{.TASK}} '* ]] ; then
-        kubectl get no -o jsonpath='{.items[0].metadata.name}' -l node-role.kubernetes.io/master= 2>/dev/null || echo ""
-      fi
-
+      for task in $ForTasks ; do
+        if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
+          kubectl get no -o jsonpath='{.items[0].metadata.name}' -l node-role.kubernetes.io/master= 2>/dev/null || echo ""
+          break
+        fi
+      done
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)

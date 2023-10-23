@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,19 +72,19 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	// Set finalizer atomically
+	// Set finalizer atomically using requeue.
 	if controllerutil.AddFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup) {
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
 	}
 
-	// First set attached devices labels
-	if state.SetAttachedBlockDevicesLabels() {
+	// First set VM labels with attached devices names and requeue to go to the next step.
+	if state.SetVMLabelsWithAttachedBlockDevices() {
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
 	}
-	// Only then set finalizers to devices
-	if err := state.SetBlockDevicesFinalizers(ctx); err != nil {
+	// Next set finalizers on attached devices.
+	if err := state.SetFinalizersOnBlockDevices(ctx); err != nil {
 		return fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
@@ -91,6 +92,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		kvvmName := state.VM.Name()
 
 		if state.KVVM == nil {
+			// No underlying VM found, create fresh kubevirt VirtualMachine resource from d8 VirtualMachine spec.
 			kvvmBuilder := kvbuilder.NewEmptyKVVM(kvvmName, kvbuilder.KVVMOptions{
 				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 				OsType:                    state.VM.Current().Spec.OsType,
@@ -107,6 +109,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 
 			opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
 		} else {
+			// Update underlying kubevirt VirtualMachine resource from updated d8 VirtualMachine spec.
 			// FIXME(VM): This will be changed for effective-spec logic implementation
 			kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
 				EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
@@ -117,6 +120,10 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
+			// TODO Decide how to update underlying KVVM.
+			// Send subresource "signals" if hotplug detected
+			// Change kubevirt vm and restart/recreate for other changes.
+
 			if err := opts.Client.Update(ctx, kvvm); err != nil {
 				return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
 			}
@@ -125,16 +132,47 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			opts.Log.Info("Updated KubeVirt VM spec", "name", kvvmName, "kvvm", state.KVVM)
 		}
 	} else {
+		// Wait until block devices are ready.
 		opts.Log.Info("Waiting for block devices to become available")
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 	}
 
-	// Add KubeVirt VM finalizer
+	// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
+
+	// Ensure kubevirt VM has finalizer in case d8 VM was created manually (use case: take ownership of already existing object).
 	if state.KVVM != nil {
-		// Ensure KubeVirt VM finalizer is set in case VM was created manually (take ownership of already existing object)
-		if controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
+		// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
+		shouldUpdate := PropagateVMMetadata(state.VM.Current(), state.KVVM)
+
+		shouldUpdate = shouldUpdate || controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
+
+		if shouldUpdate {
 			if err := opts.Client.Update(ctx, state.KVVM); err != nil {
 				return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
+			}
+		}
+	}
+
+	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
+	if state.KVVMI != nil {
+		if PropagateVMMetadata(state.VM.Current(), state.KVVMI) {
+			if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
+				return fmt.Errorf("unable to update KubeVirt VMI %q: %w", state.KVVMI.GetName(), err)
+			}
+		}
+	}
+
+	// Propagate user specified labels and annotations from the d8 VM to the kubevirt virtual machine Pods.
+	if state.KVPods != nil {
+		for _, pod := range state.KVPods.Items {
+			// Update only Running pods.
+			if pod.Status.Phase != corev1.PodRunning {
+				continue
+			}
+			if PropagateVMMetadata(state.VM.Current(), &pod) {
+				if err := opts.Client.Update(ctx, &pod); err != nil {
+					return fmt.Errorf("unable to update KubeVirt Pod %q: %w", pod.GetName(), err)
+				}
 			}
 		}
 	}
