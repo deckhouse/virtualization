@@ -63,7 +63,7 @@ env:
 
 tasks:
   dev:converge:
-    desc: "Rebuild and deploy all components into local cluster"
+    desc: "Rebuild and deploy all components into detected cluster"
     cmds:
       - task: build
       - task: dev:run
@@ -75,12 +75,7 @@ tasks:
       - task: dev:up
 
   dev:up:
-    desc: "Setup required components in local k3d cluster or in remote deckhouse cluster"
-    cmds:
-      - task: _dev:up:local
-      - task: _dev:up:remote
-
-  _dev:up:local:
+    desc: "Setup required components in local k3d cluster"
     deps:
       - _ensure:k3d
       - _ensure:crane
@@ -88,6 +83,8 @@ tasks:
       - _ensure:virtctl
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
+    vars:
+      ClusterType: "local"
     cmds:
       - task: cluster:up
 
@@ -101,20 +98,9 @@ tasks:
       - task: caddy:preload-os-images
 
       - task: dvcr:up
-    preconditions:
-      - '![ "{{.ClusterType}}" == "local" ]'
-
-  _dev:up:remote:
-    desc: "Setup components in a remote deckhouse cluster"
-    cmds:
-      - task: _ensure:cluster-type
-      - task: caddy:up
-      - task: dvcr:up
-    preconditions:
-      - '![ "{{.ClusterType}}" == "remote" ]'
 
   dev:down:
-    desc: "Delete local kubernetes cluster using k3d"
+    desc: "Delete local k3d cluster"
     deps:
       - _ensure:k3d
       - _ensure:kubectl
@@ -123,6 +109,15 @@ tasks:
     cmds:
       - task: cluster:down
       - task: build:cache:reset
+
+  dev:up:remote:
+    desc: "Setup components in a remote deckhouse cluster"
+    vars:
+      ClusterType: "remote"
+    cmds:
+      - task: _ensure:cluster-available
+      - task: caddy:up
+      - task: dvcr:up
 
   dev:preload-images:
     desc: "Preload images for all components"
