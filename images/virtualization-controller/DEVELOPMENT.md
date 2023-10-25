@@ -87,13 +87,19 @@ Set default context or use kubeswitch to switch to remote cluster context.
 
 ### Run
 
+0. Install caddy and dvcr into remote cluster:
+
+   ```
+   task dev:up:remote
+   ``` 
+
 1. Build and run with new changes:
 
     ```
     task dev:converge
     ```
 
-2. Run infinite logs watcher (restart this task after each build and run cycle):
+2. Run infinite logs watcher (restart this task after each 'build and run' cycle):
 
     ```
     task dev:logs
