@@ -109,6 +109,10 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 
 			opts.Log.Info("Created new KubeVirt VM", "name", kvvmName, "kvvm", state.KVVM)
 		} else {
+			// Save current KVVM.
+			currKVVM := &kvbuilder.KVVM{}
+			currKVVM.Resource = state.KVVM.DeepCopy()
+
 			// Update underlying kubevirt VirtualMachine resource from updated d8 VirtualMachine spec.
 			// FIXME(VM): This will be changed for effective-spec logic implementation
 			kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
@@ -120,20 +124,40 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
-			// TODO Decide how to update underlying KVVM.
-			// Send subresource "signals" if hotplug detected
-			// Change kubevirt vm and restart/recreate for other changes.
+			// Compare current version of the underlying KVVM
+			// with newly generated from VM spec. Perform action if needed to apply
+			// changes to underlying virtual machine instance.
 
-			if err := opts.Client.Update(ctx, kvvm); err != nil {
-				return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
+			action, err := kvbuilder.CompareKVVM(currKVVM, kvvmBuilder)
+			if err != nil {
+				opts.Log.Error(err, "Detect action to apply changes failed", "vm.name", state.VM.Current().GetName())
+				return fmt.Errorf("detect action to apply changes on vm/%s failed: %w", state.VM.Current().GetName(), err)
 			}
-			state.KVVM = kvvm
 
-			opts.Log.Info("Updated KubeVirt VM spec", "name", kvvmName, "kvvm", state.KVVM)
+			switch action.ActionType() {
+			case kvbuilder.ActionRestart:
+				// Restart is a dangerous action, check if Manual approve is required.
+				// TODO(approve Manual) sync virtv2.VirtualMachine and its CRD, add Disruptions fields.
+				opts.Log.Info("Change underlying KVVM requires restart", "vm.name", state.VM.Current().GetName(), "action", action)
+				if err := r.ApplyChangesWithRestart(ctx, action, state, kvvm, opts); err != nil {
+					return fmt.Errorf("unable to apply restart KVVM instance action: %w", err)
+				}
+			case kvbuilder.ActionSubresourceSignal:
+				// TODO implement
+			case kvbuilder.ActionApplyImmediate:
+				opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", action)
+				if err := opts.Client.Update(ctx, kvvm); err != nil {
+					return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
+				}
+				state.KVVM = kvvm
+			case kvbuilder.ActionNone:
+				opts.Log.V(2).Info("No changes to underlying KVVM", "vm.name", state.VM.Current().GetName())
+			}
 		}
 	} else {
 		// Wait until block devices are ready.
 		opts.Log.Info("Waiting for block devices to become available")
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, "WaitForBlockDevices", "Waiting for block devices to become available")
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 	}
 
@@ -205,6 +229,9 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 			}
 		}
 	case virtv2.MachineRunning:
+		if state.KVVM != nil && state.KVVMI == nil {
+			state.VM.Changed().Status.Phase = virtv2.MachineTerminating
+		}
 	case virtv2.MachineTerminating:
 	case virtv2.MachineStopped:
 	case virtv2.MachineFailed:
