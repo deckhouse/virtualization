@@ -188,8 +188,19 @@ func (b *KVVM) SetTablet(name string) {
 	)
 }
 
+// HasTablet checks tablet presence by its name.
+func (b *KVVM) HasTablet(name string) bool {
+	for _, input := range b.Resource.Spec.Template.Spec.Domain.Devices.Inputs {
+		if input.Name == name && input.Type == virtv1.InputTypeTablet {
+			return true
+		}
+	}
+	return false
+}
+
 func (b *KVVM) SetCloudInit() {
 	// TODO(VM): implement this helper to attach cloud-init volume with an initialization data
+	// TODO(VM): implement CompareCloudInit in kvvm_diff.
 }
 
 func (b *KVVM) SetOsType(osType virtv2.OsType) {
@@ -242,6 +253,24 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) {
 
 	case virtv2.LegacyWindows:
 		panic("not implemented")
+	}
+}
+
+// GetOSSettings returns a portion of devices and features related to d8 VM osType.
+func (b *KVVM) GetOSSettings() map[string]interface{} {
+	return map[string]interface{}{
+		"machine": b.Resource.Spec.Template.Spec.Domain.Machine,
+		"devices": map[string]interface{}{
+			"autoattach": b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice,
+			"tpm":        b.Resource.Spec.Template.Spec.Domain.Devices.TPM,
+			"rng":        b.Resource.Spec.Template.Spec.Domain.Devices.Rng,
+		},
+		"features": map[string]interface{}{
+			"acpi":   b.Resource.Spec.Template.Spec.Domain.Features.ACPI,
+			"apic":   b.Resource.Spec.Template.Spec.Domain.Features.APIC,
+			"smm":    b.Resource.Spec.Template.Spec.Domain.Features.SMM,
+			"hyperv": b.Resource.Spec.Template.Spec.Domain.Features.Hyperv,
+		},
 	}
 }
 
@@ -304,5 +333,15 @@ func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) {
 		}
 	default:
 		panic(fmt.Sprintf("unknown bootloader type %q, please report a bug", bootloader))
+	}
+}
+
+// GetBootloaderSettings returns a portion of features related to d8 VM bootloader.
+func (b *KVVM) GetBootloaderSettings() map[string]interface{} {
+	return map[string]interface{}{
+		"firmare": b.Resource.Spec.Template.Spec.Domain.Firmware,
+		"features": map[string]interface{}{
+			"smm": b.Resource.Spec.Template.Spec.Domain.Features.SMM,
+		},
 	}
 }

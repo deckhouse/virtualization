@@ -318,3 +318,157 @@ var _ = Describe("VM", func() {
 		}
 	})
 })
+
+var _ = Describe("Apply VM changes", func() {
+	var reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState]
+	var reconcileExecutor *testutil.ReconcileExecutor
+
+	AfterEach(func() {
+		if reconciler != nil {
+			reconciler = nil
+		}
+	})
+
+	AfterEach(func() {
+		if reconciler != nil && reconciler.Recorder != nil {
+			close(reconciler.Recorder.(*record.FakeRecorder).Events)
+		}
+	})
+
+	It("Restart VM on memory change", func(ctx SpecContext) {
+		nsName := "test-ns-2"
+		vmName := "test-vm-2"
+		vmdName := "test-vmd"
+
+		{
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: nsName,
+					Name:      vmName,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					RunPolicy:                virtv2.AlwaysOnPolicy,
+					EnableParavirtualization: true,
+					OsType:                   virtv2.GenericOs,
+					CPU: virtv2.CPUSpec{
+						Cores: 2,
+					},
+					Memory: virtv2.MemorySpec{
+						Size: "2Gi",
+					},
+					BlockDevices: []virtv2.BlockDeviceSpec{
+						{
+							Type:               virtv2.DiskDevice,
+							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{},
+			}
+
+			vmd := &virtv2.VirtualMachineDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: nsName,
+					Name:      vmdName,
+				},
+				Spec: virtv2.VirtualMachineDiskSpec{
+					DataSource: &virtv2.DataSource{
+						HTTP: &virtv2.DataSourceHTTP{
+							URL: "http://mydomain.org/image.img",
+						},
+					},
+					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
+						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						StorageClassName: "local-path",
+					},
+				},
+				Status: virtv2.VirtualMachineDiskStatus{
+					Phase:    virtv2.DiskReady,
+					Capacity: "10Gi",
+				},
+			}
+
+			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
+				KnownObjects: []client.Object{
+					&virtv2.VirtualMachine{},
+					&virtv2.VirtualMachineDisk{},
+					&virtv2.ClusterVirtualMachineImage{},
+					&virtv1.VirtualMachine{},
+					&virtv1.VirtualMachineInstance{},
+				},
+				RuntimeObjects: []runtime.Object{vm},
+			})
+			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: vmName, Namespace: nsName})
+
+			CreateReadyVM(ctx, reconciler, reconcileExecutor, vm, vmd)
+		}
+
+		{
+			// Ensure kubevirt VMI is present.
+			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvmi).ShouldNot(BeNil(), "kubevirt VirtualMachineInstance should present")
+
+			// Change memory settings.
+			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachine{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vm).ShouldNot(BeNil())
+			vm.Spec.Memory.Size = "1" + vm.Spec.Memory.Size
+			err = reconciler.Client.Update(ctx, vm)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// Reconcile new memory settings.
+			err = reconcileExecutor.Execute(ctx, reconciler)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			// Check that kubevirt VMI was deleted because memory changes require restart.
+			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted")
+		}
+	})
+})
+
+func CreateReadyVM(ctx context.Context, reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState], reconcileExecutor *testutil.ReconcileExecutor, vm *virtv2.VirtualMachine, vmd *virtv2.VirtualMachineDisk) {
+	// Create Disk.
+	err := reconciler.Client.Create(ctx, vmd)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Emulate CDI converge: set Ready status directly.
+	vmdObj, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmd.Name, Namespace: vmd.Namespace}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(vmd).NotTo(BeNil())
+	vmdObj.Status.Phase = virtv2.DiskReady
+	err = reconciler.Client.Status().Update(ctx, vmd)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Emulate Add VM with DisksReady.
+	err = reconcileExecutor.Execute(ctx, reconciler)
+	Expect(err).NotTo(HaveOccurred())
+
+	kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, reconciler.Client, &virtv1.VirtualMachine{})
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(kvvm).ShouldNot(BeNil())
+
+	// Emulate kubevirt converge: create kubevirt VirtualMachineInstance based on specs from kubevirt VirtualMachine.
+	kvvmi := &virtv1.VirtualMachineInstance{
+		ObjectMeta: kvvm.Spec.Template.ObjectMeta,
+		Spec:       kvvm.Spec.Template.Spec,
+	}
+	kvvmi.ObjectMeta.Name = kvvm.Name
+	kvvmi.ObjectMeta.Namespace = kvvm.Namespace
+	err = reconciler.Client.Create(ctx, kvvmi)
+	Expect(err).NotTo(HaveOccurred())
+
+	kvvmi.Status.Phase = virtv1.Running
+	err = reconciler.Client.Status().Update(ctx, kvvmi)
+	Expect(err).NotTo(HaveOccurred())
+
+	kvvm.Status.Created = true
+	kvvm.Status.Ready = true
+	err = reconciler.Client.Status().Update(ctx, kvvm)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = reconcileExecutor.Execute(ctx, reconciler)
+	Expect(err).NotTo(HaveOccurred())
+}
