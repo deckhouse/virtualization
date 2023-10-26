@@ -63,7 +63,8 @@ func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.log.V(2).Info("Resource.Fetch", "name", r.name, "obj", currentObj, "status", r.getObjStatus(currentObj))
+	r.log.V(2).Info("Resource.Fetch", "name", r.name.String())
+	r.log.V(5).Info("Resource.Fetch", "name", r.name.String(), "obj", currentObj, "status", r.getObjStatus(currentObj))
 
 	r.currentObj = currentObj
 	if r.IsEmpty() {
