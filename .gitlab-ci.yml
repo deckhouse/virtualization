@@ -117,15 +117,26 @@ before_script:
     - merge_requests
   when: always
 
-.dev:
-  extends:
-  - .dev_vars
-  - .dev_rules
+.main_rules:
+  only:
+    refs:
+      - main
+  when: always
 
 .prod:
   extends:
   - .prod_vars
   - .prod_rules
+
+.dev:
+  extends:
+  - .dev_vars
+  - .dev_rules
+
+.main:
+  extends:
+  - .dev_vars
+  - .main_rules
 
 # dco:
 #  stage: lint
@@ -179,12 +190,26 @@ build_dev:
     - .dev
     - .build_sctipt
 
+build_main:
+  stage: build
+  extends:
+    - .main
+    - .build_sctipt
+
 deploy_to_dev_channel:
   stage: deploy_dev
   variables:
     RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
   extends:
     - .dev
+    - .deploy_script
+
+deploy_to_main_channel:
+  stage: deploy_dev
+  variables:
+    RELEASE_CHANNEL: main
+  extends:
+    - .main
     - .deploy_script
 
 deploy_to_prod_channels:
