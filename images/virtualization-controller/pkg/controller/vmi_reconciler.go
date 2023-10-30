@@ -198,8 +198,6 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	case state.ShouldTrackPod() && state.IsPodInProgress():
 		opts.Log.V(2).Info("Fetch progress from Pod", "vmi.name", state.VMI.Current().GetName())
 
-		vmiStatus.Phase = virtv2.ImageProvisioning
-
 		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
 			vmiStatus.UploadCommand == "" &&
 			state.Service != nil &&
@@ -228,6 +226,13 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
 			vmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
 			vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+		}
+
+		// Set VMI phase.
+		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
+			vmiStatus.Phase = virtv2.ImageWaitForUserUpload
+		} else {
+			vmiStatus.Phase = virtv2.ImageProvisioning
 		}
 	case !state.ShouldTrackDataVolume() && state.ShouldTrackPod() && state.IsPodComplete():
 		vmiStatus.Phase = virtv2.ImageReady
