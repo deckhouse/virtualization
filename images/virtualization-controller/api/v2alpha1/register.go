@@ -51,6 +51,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineDiskList{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&VirtualMachineBlockDeviceAttachment{},
+		&VirtualMachineBlockDeviceAttachmentList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

@@ -28,17 +28,17 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            The resource provides a hot plug for connecting an image or disk to a VM.
+            The resource provides a hot plug for connecting a disk to a VM.
           required:
             - spec
           properties:
             spec:
               type: object
               required:
-                - vmName
+                - virtualMachineName
                 - blockDevice
               properties:
-                vmName:
+                virtualMachineName:
                   type: string
                   description: |
                     The name of the VM to which the disk or image is connected.
@@ -72,7 +72,7 @@ spec:
             status:
               type: object
               properties:
-                vmName:
+                virtualMachineName:
                   type: string
                   description: |
                     The name of the VM to which this disk is attached.
@@ -100,9 +100,9 @@ spec:
       - name: Phase
         type: string
         jsonPath: .status.phase
-      - name: VMName
+      - name: VirtualMachineName
         type: string
-        jsonPath: .status.vmName
+        jsonPath: .status.virtualMachineName
         priority: 1
       subresources:
         status: {}

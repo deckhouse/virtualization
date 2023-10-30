@@ -12,6 +12,7 @@ type BlockDeviceStatus struct {
 	VirtualMachineImage        *ImageDeviceSpec        `json:"virtualMachineImage"`
 	ClusterVirtualMachineImage *ClusterImageDeviceSpec `json:"clusterVirtualMachineImage"`
 	VirtualMachineDisk         *DiskDeviceSpec         `json:"virtualMachineDisk"`
+	Hotpluggable               bool                    `json:"hotpluggable"`
 	Target                     string                  `json:"target"`
 	Size                       string                  `json:"size"`
 }

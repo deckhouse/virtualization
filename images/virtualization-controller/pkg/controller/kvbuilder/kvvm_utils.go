@@ -27,6 +27,15 @@ func ApplyVirtualMachineSpec(
 	// FIXME(VM): real coreFraction
 	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
 
+	var hotpluggedDevices []string
+
+	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable ||
+			volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			hotpluggedDevices = append(hotpluggedDevices, volume.Name)
+		}
+	}
+
 	kvvm.ClearDisks()
 	for _, bd := range vm.Spec.BlockDevices {
 		switch bd.Type {
@@ -68,6 +77,13 @@ func ApplyVirtualMachineSpec(
 		default:
 			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 		}
+	}
+
+	for _, device := range hotpluggedDevices {
+		kvvm.SetDisk(device, SetDiskOptions{
+			PersistentVolumeClaim: util.GetPointer(device),
+			IsHotplugged:          true,
+		})
 	}
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{

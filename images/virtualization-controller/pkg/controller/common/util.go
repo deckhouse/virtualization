@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -394,9 +394,9 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 			container.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			}
-			container.SecurityContext.AllowPrivilegeEscalation = pointer.Bool(false)
-			container.SecurityContext.RunAsNonRoot = pointer.Bool(true)
-			container.SecurityContext.RunAsUser = pointer.Int64(common.QemuSubGid)
+			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+			container.SecurityContext.RunAsNonRoot = ptr.To(true)
+			container.SecurityContext.RunAsUser = ptr.To(common.QemuSubGid)
 			if len(container.VolumeMounts) > 0 {
 				hasVolumeMounts = true
 			}
@@ -407,7 +407,7 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 		if podSpec.SecurityContext == nil {
 			podSpec.SecurityContext = &corev1.PodSecurityContext{}
 		}
-		podSpec.SecurityContext.FSGroup = pointer.Int64(common.QemuSubGid)
+		podSpec.SecurityContext.FSGroup = ptr.To(common.QemuSubGid)
 	}
 }
 
