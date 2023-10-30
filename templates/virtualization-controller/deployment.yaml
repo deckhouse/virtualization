@@ -1,0 +1,88 @@
+{{- define "virtualization_controller_resources" }}
+cpu: 10m
+memory: 150Mi
+{{- end }}
+{{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: virtualization-controller
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller" "workload-resource-policy.deckhouse.io" "master")) | nindent 2 }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: virtualization-controller
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: virtualization-controller
+      minAllowed:
+        {{- include "virtualization_controller_resources" . | nindent 8 }}
+      maxAllowed:
+        cpu: 20m
+        memory: 250Mi
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: virtualization-controller
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller" )) | nindent 2 }}
+spec:
+  minAvailable: {{ include "helm_lib_is_ha_to_value" (list . 1 0) }}
+  selector:
+    matchLabels:
+      app: virtualization-controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: virtualization-controller
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+spec:
+  {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: virtualization-controller
+  template:
+    metadata:
+      labels:
+        app: virtualization-controller
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/admission-webhook-secret.yaml") . | sha256sum }}
+    spec:
+      {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
+      containers:
+        - name: virtualization-controller
+          image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
+          imagePullPolicy: Always
+          volumeMounts:
+          - mountPath: /tmp/k8s-webhook-server/serving-certs
+            name: admission-webhook-secret
+          ports:
+            - containerPort: 9443
+              name: controller
+              protocol: TCP
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "virtualization_controller_resources" . | nindent 12 }}
+              {{- end }}
+          env: {{ include "virtualization-controller.envs" . | nindent 12 }}
+      dnsPolicy: Default
+      serviceAccountName: virtualization-controller
+      {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
+      {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      volumes:
+        - name: admission-webhook-secret
+          secret:
+            secretName: admission-webhook-secret
