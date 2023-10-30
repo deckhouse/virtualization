@@ -5,7 +5,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func Test_MakePodSpec(t *testing.T) {
@@ -19,8 +19,8 @@ func Test_MakePodSpec(t *testing.T) {
 			Kind:               "Pod",
 			Name:               "other-pod",
 			UID:                "123-123",
-			Controller:         pointer.Bool(true),
-			BlockOwnerDeletion: pointer.Bool(true),
+			Controller:         ptr.To(true),
+			BlockOwnerDeletion: ptr.To(true),
 		},
 		ControllerName: "test-controller",
 	}
@@ -55,8 +55,8 @@ func Test_MakePodSpec_CABundle(t *testing.T) {
 			Kind:               "Pod",
 			Name:               "other-pod",
 			UID:                "123-123",
-			Controller:         pointer.Bool(true),
-			BlockOwnerDeletion: pointer.Bool(true),
+			Controller:         ptr.To(true),
+			BlockOwnerDeletion: ptr.To(true),
 		},
 		ControllerName: "test-controller",
 	}

@@ -1,0 +1,10 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: vmd-blank-attachment
+spec:
+  virtualMachineName: linux-vm
+  blockDevice:
+    type: VirtualMachineDisk
+    virtualMachineDisk:
+      name: vmd-blank
