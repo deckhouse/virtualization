@@ -447,7 +447,7 @@ tasks:
     cmds:
       - |
         mkdir -p local/virtualization-controller/crds
-        cp api/*.yaml local/virtualization-controller/crds
+        cp api/crds/*.yaml local/virtualization-controller/crds
       - (cd local/virtualization-controller && bash gen-certs.sh -y)
       - |
         images=()
@@ -499,32 +499,32 @@ tasks:
   dev:update:cvmi:
     desc: "Update ClusterVirtualMachineImage CRD"
     cmds:
-      - kubectl apply -f api/clustervirtualmachineimage.yaml
+      - kubectl apply -f api/crds/clustervirtualmachineimage.yaml
 
   dev:update:vmi:
     desc: "Update VirtualMachineImage CRD"
     cmds:
-      - kubectl apply -f api/virtualmachineimage.yaml
+      - kubectl apply -f api/crds/virtualmachineimage.yaml
 
   dev:update:vmd:
     desc: "Update VirtualMachineDisk CRD"
     cmds:
-      - kubectl apply -f api/virtualmachinedisk.yaml
+      - kubectl apply -f api/crds/virtualmachinedisk.yaml
 
   dev:update:vmds:
     desc: "Update VirtualMachineDiskSnapshot CRD"
     cmds:
-      - kubectl apply -f api/virtualmachinedisksnapshot.yaml
+      - kubectl apply -f api/crds/virtualmachinedisksnapshot.yaml
 
   dev:update:vm:
     desc: "Update VirtualMachine CRD"
     cmds:
-      - kubectl apply -f api/virtualmachine.yaml
+      - kubectl apply -f api/crds/virtualmachine.yaml
 
   dev:update:vmbda:
     desc: "Update VirtualMachineBlockDeviceAttachment CRD"
     cmds:
-      - kubectl apply -f api/virtualmachineblockdeviceattachment.yaml
+      - kubectl apply -f api/crds/virtualmachineblockdeviceattachment.yaml
 
   kctl:
     cmds:

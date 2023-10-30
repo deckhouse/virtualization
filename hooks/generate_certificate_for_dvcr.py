@@ -17,7 +17,7 @@
 
 from lib.hooks.internal_tls import GenerateCertificateHook
 from lib.module import values as module_values
-from deckhouse import hook
+from deckhouse.hook import Context
 from typing import Callable
 import common
 
@@ -36,7 +36,7 @@ def main():
     hook.run()
 
 
-def hook_check(ctx: hook.Context) -> bool:
+def hook_check(ctx: Context) -> bool:
     val = get_serviceIP(values=ctx.values)
     if val is None:
         return False
@@ -45,8 +45,8 @@ def hook_check(ctx: hook.Context) -> bool:
 def get_serviceIP(values: dict):
     return module_values.get_value(path=f"{common.MODULE_NAME}.internal.dvcr.serviceIP", values=values)
  
-def sans_generator(sans: list[str]) -> Callable[[hook.Context], list[str]]:
-    def generator(ctx: hook.Context) -> list:
+def sans_generator(sans: list[str]) -> Callable[[Context], list[str]]:
+    def generator(ctx: Context) -> list:
         sans.extend(["localhost", "127.0.0.1", get_serviceIP(ctx.values)])
         return sans
     return generator
