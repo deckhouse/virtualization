@@ -694,7 +694,7 @@ spec:
                     - "Stopped"
                 nodeName:
                   type: string
-                  description: NodeName is the name of the nodewhere the VM is currently running.
+                  description: NodeName is the name of the node where the VM is currently running.
                 ipAddress:
                   type: string
                   description: IP address of VM.
@@ -793,6 +793,10 @@ spec:
                       - type
                     type: object
                   type: array
+                message:
+                  type: string
+                  description: |
+                    Detailed description of the VM state.
       additionalPrinterColumns:
       - name: Phase
         type: string
@@ -805,5 +809,8 @@ spec:
         type: string
         jsonPath: .status.ipAddress
         priority: 1
+      - name: Message
+        type: string
+        jsonPath: .status.message
       subresources:
         status: {}

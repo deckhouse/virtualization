@@ -74,6 +74,7 @@ var _ = Describe("VM", func() {
 							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: "test-vmd"},
 						},
 					},
+					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Automatic},
 				},
 				Status: virtv2.VirtualMachineStatus{},
 			}
@@ -362,6 +363,7 @@ var _ = Describe("Apply VM changes", func() {
 							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
 						},
 					},
+					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Automatic},
 				},
 				Status: virtv2.VirtualMachineStatus{},
 			}

@@ -1,6 +1,7 @@
 package v2alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 )
@@ -22,13 +23,32 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	RunPolicy                RunPolicy         `json:"runPolicy"`
-	CPU                      CPUSpec           `json:"cpu"`
-	Memory                   MemorySpec        `json:"memory"`
-	BlockDevices             []BlockDeviceSpec `json:"blockDevices"`
-	EnableParavirtualization bool              `json:"enableParavirtualization,omitempty"`
-	OsType                   OsType            `json:"osType,omitempty"`
-	Bootloader               BootloaderType    `json:"bootloader,omitempty"`
+	// RunPolicy is a power-on behaviour of the VM.
+	RunPolicy RunPolicy `json:"runPolicy"`
+	// VirtualMachineIPAddressClaimName specifies a name for the associated
+	// `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.
+	VirtualMachineIPAddressClaimName string `json:"virtualMachineIPAddressClaimName,omitempty"`
+	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	// Affinity is a group of affinity scheduling rules.
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	// A selector which must be true for the vm to fit on a node.
+	// Selector which must match a node's labels for the VM to be scheduled on that node.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// PriorityClassName
+	PriorityClassName string `json:"priorityClassName"`
+	// Tolerations define rules to tolerate node taints.
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// Disruptions define an approval mode to apply disruptive (dangerous) changes.
+	Disruptions                   *Disruptions      `json:"disruptions"`
+	TerminationGracePeriodSeconds int64             `json:"terminationGracePeriodSeconds"`
+	EnableParavirtualization      bool              `json:"enableParavirtualization,omitempty"`
+	OsType                        OsType            `json:"osType,omitempty"`
+	Bootloader                    BootloaderType    `json:"bootloader,omitempty"`
+	CPU                           CPUSpec           `json:"cpu"`
+	Memory                        MemorySpec        `json:"memory"`
+	BlockDevices                  []BlockDeviceSpec `json:"blockDevices"`
 }
 
 type RunPolicy string
@@ -64,12 +84,25 @@ type MemorySpec struct {
 	Size string `json:"size"`
 }
 
+type ApprovalMode string
+
+const (
+	Automatic ApprovalMode = "Automatic"
+	Manual    ApprovalMode = "Manual"
+)
+
+type Disruptions struct {
+	// Allow disruptive update mode: Manual or Automatic.
+	ApprovalMode ApprovalMode `json:"approvalMode"`
+}
+
 type VirtualMachineStatus struct {
 	Phase                MachinePhase                             `json:"phase"`
 	NodeName             string                                   `json:"nodeName"`
 	IPAddress            string                                   `json:"ipAddress"`
 	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
+	Message              string                                   `json:"message"`
 }
 
 type MachinePhase string

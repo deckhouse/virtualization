@@ -44,8 +44,8 @@ type BlockDeviceAttachmentVirtualMachineDisk struct {
 type VirtualMachineBlockDeviceAttachmentStatus struct {
 	VMName         string                     `json:"virtualMachineName,omitempty"`
 	Phase          BlockDeviceAttachmentPhase `json:"phase,omitempty"`
-	FailureReason  string                     `json:"downloadSpeed,omitempty"`
-	FailureMessage string                     `json:"capacity,omitempty"`
+	FailureReason  string                     `json:"failureReason,omitempty"`
+	FailureMessage string                     `json:"failureMessage,omitempty"`
 }
 
 type BlockDeviceAttachmentPhase string
