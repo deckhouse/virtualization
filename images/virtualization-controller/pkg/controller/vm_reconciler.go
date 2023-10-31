@@ -99,7 +99,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
-			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
 			if err := opts.Client.Create(ctx, kvvm); err != nil {
@@ -122,7 +122,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 			})
 
-			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.CVMIByName, r.dvcrSettings)
+			kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings)
 			kvvm := kvvmBuilder.GetResource()
 
 			// Compare current version of the underlying KVVM
