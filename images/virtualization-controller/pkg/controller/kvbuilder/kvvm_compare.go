@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 )
 
 type ActionType string
@@ -307,36 +308,33 @@ func CompareResourceRequirements(curr, next *KVVM) (*ChangeApplyAction, error) {
 // CompareDisks returns Restart action if VM volumes are changed.
 // TODO add meaningful diff messages.
 // TODO add detailed changes to generate proper change ID.
-// TODO detect dosk or volume removing and set ManualApprove to true.
+// TODO detect disk or volume removing and set ManualApprove to true.
 func CompareDisks(curr, next *KVVM) (*ChangeApplyAction, error) {
 	changes := make([]ChangeItem, 0)
 
-	// Check if there are changes in VM disks.
-	{
-		currDisks := curr.Resource.Spec.Template.Spec.Domain.Devices.Disks
-		nextDisks := next.Resource.Spec.Template.Spec.Domain.Devices.Disks
-
-		sort.SliceStable(currDisks, func(i, j int) bool {
-			return currDisks[i].Name < currDisks[j].Name
-		})
-
-		sort.SliceStable(nextDisks, func(i, j int) bool {
-			return nextDisks[i].Name < nextDisks[j].Name
-		})
-
-		if !reflect.DeepEqual(currDisks, nextDisks) {
-			changes = append(changes, ChangeItem{
-				Title: "Disks",
-				Curr:  "old",
-				Next:  "new",
-			})
-		}
-	}
+	hotpluggedDisks := map[string]struct{}{}
 
 	// Check if there are changes in VM volumes.
 	{
-		currVolumes := curr.Resource.Spec.Template.Spec.Volumes
-		nextVolumes := next.Resource.Spec.Template.Spec.Volumes
+		var currVolumes []virtv1.Volume
+		for _, volume := range curr.Resource.Spec.Template.Spec.Volumes {
+			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable ||
+				volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+				hotpluggedDisks[volume.Name] = struct{}{}
+				continue
+			}
+			currVolumes = append(currVolumes, volume)
+		}
+
+		var nextVolumes []virtv1.Volume
+		for _, volume := range next.Resource.Spec.Template.Spec.Volumes {
+			if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable ||
+				volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+				hotpluggedDisks[volume.Name] = struct{}{}
+				continue
+			}
+			nextVolumes = append(nextVolumes, volume)
+		}
 
 		sort.SliceStable(currVolumes, func(i, j int) bool {
 			return currVolumes[i].Name < currVolumes[j].Name
@@ -349,6 +347,41 @@ func CompareDisks(curr, next *KVVM) (*ChangeApplyAction, error) {
 		if !reflect.DeepEqual(currVolumes, nextVolumes) {
 			changes = append(changes, ChangeItem{
 				Title: "Volumes",
+				Curr:  "old",
+				Next:  "new",
+			})
+		}
+	}
+
+	// Check if there are changes in VM disks.
+	{
+		var currDisks []virtv1.Disk
+		for _, disk := range curr.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+			_, isHotplugged := hotpluggedDisks[disk.Name]
+			if !isHotplugged {
+				currDisks = append(currDisks, disk)
+			}
+		}
+
+		var nextDisks []virtv1.Disk
+		for _, disk := range next.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+			_, isHotplugged := hotpluggedDisks[disk.Name]
+			if !isHotplugged {
+				nextDisks = append(nextDisks, disk)
+			}
+		}
+
+		sort.SliceStable(currDisks, func(i, j int) bool {
+			return currDisks[i].Name < currDisks[j].Name
+		})
+
+		sort.SliceStable(nextDisks, func(i, j int) bool {
+			return nextDisks[i].Name < nextDisks[j].Name
+		})
+
+		if !reflect.DeepEqual(currDisks, nextDisks) {
+			changes = append(changes, ChangeItem{
+				Title: "Disks",
 				Curr:  "old",
 				Next:  "new",
 			})
