@@ -25,13 +25,14 @@ func NewVMIController(
 	uploaderImage string,
 	dvcrSettings *cc.DVCRSettings,
 ) (controller.Controller, error) {
-	reconciler := &VMIReconciler{
-		importerImage: importerImage,
-		uploaderImage: uploaderImage,
-		verbose:       ImporterPodVerbose,
-		pullPolicy:    ImporterPodPullPolicy,
-		dvcrSettings:  dvcrSettings,
-	}
+	reconciler := NewVMIReconciler(
+		importerImage,
+		uploaderImage,
+		ImporterPodVerbose,
+		ImporterPodPullPolicy,
+		dvcrSettings,
+	)
+
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMIReconcilerState](
 		reconciler,
 		NewVMIReconcilerState,
