@@ -104,5 +104,13 @@ spec:
         type: string
         jsonPath: .status.virtualMachineName
         priority: 1
+      - name: FailureReason
+        type: string
+        jsonPath: .status.failureReason
+        priority: 1
+      - name: FailureMessage
+        type: string
+        jsonPath: .status.failureMessage
+        priority: 1
       subresources:
         status: {}

@@ -96,15 +96,19 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 		return nil
 	}
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
+		r.log.V(4).Info("UpdateMeta: status changes not allowed in the meta updater", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
 		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
+	r.log.V(4).Info("UpdateMeta obj meta before update", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta(), "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
-		r.log.V(2).Info("BEFORE UPD", "changedObj", r.changedObj)
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
-		r.log.V(2).Info("UpdateMeta object updated", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta(), "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
 		r.currentObj = r.changedObj.DeepCopy()
+		r.log.V(1).Info("UpdateStatus applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
+		r.log.V(4).Info("UpdateMeta obj meta after update", "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
+	} else {
+		r.log.V(4).Info("UpdateMeta skipped: no changes", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta())
 	}
 	return nil
 }
@@ -114,7 +118,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		return nil
 	}
 
-	r.log.Info("UpdateStatus obj before status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
+	r.log.V(4).Info("UpdateStatus obj before status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
 		return fmt.Errorf("meta update is not allowed in the status updater: %#v changed to %#v", r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta())
 	}
@@ -127,7 +131,8 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		}
 		r.currentObj = r.changedObj.DeepCopy()
 
-		r.log.V(2).Info("UpdateStatus obj after status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
+		r.log.V(1).Info("UpdateStatus applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
+		r.log.V(4).Info("UpdateStatus obj after status update", "changedObj.Status", r.getObjStatus(r.changedObj))
 	} else {
 		r.log.V(2).Info("UpdateStatus skipped: no changes", "currentObj.Status", r.getObjStatus(r.currentObj))
 	}

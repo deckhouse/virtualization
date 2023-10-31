@@ -10,7 +10,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -27,6 +26,9 @@ type VMBDAReconcilerState struct {
 	PVC *corev1.PersistentVolumeClaim
 
 	Result *reconcile.Result
+
+	FailureReason  string
+	FailureMessage string
 }
 
 func NewVMBDAReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMBDAReconcilerState {
@@ -63,6 +65,11 @@ func (state *VMBDAReconcilerState) SetReconcilerResult(result *reconcile.Result)
 
 func (state *VMBDAReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
+}
+
+func (state *VMBDAReconcilerState) SetStatusFailure(reason, message string) {
+	state.FailureReason = reason
+	state.FailureMessage = message
 }
 
 func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
@@ -109,13 +116,44 @@ func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Req
 }
 
 func (state *VMBDAReconcilerState) ShouldReconcile(_ logr.Logger) bool {
-	return !state.VMBDA.IsEmpty() && state.VM != nil && state.KVVMI != nil && state.VMD != nil && state.PVC != nil
-}
-
-func (state *VMBDAReconcilerState) isProtected() bool {
-	return controllerutil.ContainsFinalizer(state.VMBDA.Current(), virtv2.FinalizerVMBDACleanup)
+	return !state.VMBDA.IsEmpty()
 }
 
 func (state *VMBDAReconcilerState) isDeletion() bool {
 	return state.VMBDA.Current().DeletionTimestamp != nil
+}
+
+func (state *VMBDAReconcilerState) IndexVMStatusBDA() int {
+	if state.VM == nil {
+		return -1
+	}
+
+	for i, blockDevice := range state.VM.Status.BlockDevicesAttached {
+		if blockDevice.VirtualMachineDisk != nil && blockDevice.VirtualMachineDisk.Name == state.VMD.Name {
+			return i
+		}
+	}
+	return -1
+}
+
+// RemoveVMStatusBDA removes device from VM.Status.BlockDevicesAttached
+// by its name.
+func (state *VMBDAReconcilerState) RemoveVMStatusBDA() bool {
+	if state.VM == nil {
+		return false
+	}
+	if state.VMD == nil {
+		return false
+	}
+
+	blockDeviceIndex := state.IndexVMStatusBDA()
+	if blockDeviceIndex == -1 {
+		return false
+	}
+
+	state.VM.Status.BlockDevicesAttached = append(
+		state.VM.Status.BlockDevicesAttached[:blockDeviceIndex],
+		state.VM.Status.BlockDevicesAttached[blockDeviceIndex+1:]...,
+	)
+	return true
 }
