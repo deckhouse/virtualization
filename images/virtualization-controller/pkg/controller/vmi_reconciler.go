@@ -32,11 +32,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMIReconciler struct {
+	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+
 	importerImage string
 	uploaderImage string
 	verbose       string
@@ -44,7 +47,21 @@ type VMIReconciler struct {
 	dvcrSettings  *cc.DVCRSettings
 }
 
-func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *cc.DVCRSettings) *VMIReconciler {
+	return &VMIReconciler{
+		importerImage: importerImage,
+		uploaderImage: uploaderImage,
+		verbose:       verbose,
+		pullPolicy:    pullPolicy,
+		dvcrSettings:  dvcrSettings,
+		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
+			*virtv2.VirtualMachineImage,
+			virtv2.VirtualMachineImageStatus,
+		]("vmi", true),
+	}
+}
+
+func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineImage{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -67,7 +84,7 @@ func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, 
 		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 
-	return nil
+	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
 }
 
 // Sync starts an importer/uploader Pod or creates a DataVolume to import image into DVCR or into PVC.
@@ -76,6 +93,10 @@ func (r *VMIReconciler) SetupController(_ context.Context, mgr manager.Manager, 
 // - Start importer/uploader Pod first and then create DataVolume (e.g. target size is unknown: dataSource is HTTP and storage is Kubernetes without specified size for PVC).
 // - Create and track DataVolume only (e.g. dataSource is ClusterVirtualMachineImage and storage is Kubernetes).
 func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
+		return nil
+	}
+
 	switch {
 	case state.IsDeletion():
 		opts.Log.V(1).Info("Delete VMI, remove protective finalizers")
