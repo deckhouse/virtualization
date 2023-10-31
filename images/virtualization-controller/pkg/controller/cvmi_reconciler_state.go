@@ -24,12 +24,11 @@ import (
 type CVMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 
-	Client      client.Client
-	CVMI        *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Service     *corev1.Service
-	Pod         *corev1.Pod
-	AttachedVMs []*virtv2.VirtualMachine
-	Result      *reconcile.Result
+	Client  client.Client
+	CVMI    *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Service *corev1.Service
+	Pod     *corev1.Pod
+	Result  *reconcile.Result
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
