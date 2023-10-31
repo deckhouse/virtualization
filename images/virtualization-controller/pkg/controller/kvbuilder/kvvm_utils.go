@@ -13,6 +13,7 @@ import (
 func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *virtv2.VirtualMachine,
 	vmdByName map[string]*virtv2.VirtualMachineDisk,
+	vmiByName map[string]*virtv2.VirtualMachineImage,
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 	dvcrSettings *cc.DVCRSettings,
 ) {
@@ -40,9 +41,30 @@ func ApplyVirtualMachineSpec(
 	for _, bd := range vm.Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("not implemented")
-
 			// Depending on type Kubernetes|ContainerRegistry we should enable disk or containerDisk
+
+			vmi, hasVMI := vmiByName[bd.VirtualMachineImage.Name]
+			if !hasVMI {
+				panic(fmt.Sprintf("not found loaded VMI %q which is used in the VM configuration, please report a bug", bd.VirtualMachineImage.Name))
+			}
+			if vmi.Status.Phase != virtv2.ImageReady {
+				panic(fmt.Sprintf("unexpected VMI %q status phase %q: expected ready phase, please report a bug", vmi.Name, vmi.Status.Phase))
+			}
+
+			switch vmi.Spec.Storage {
+			case virtv2.StorageKubernetes:
+				kvvm.SetDisk(bd.VirtualMachineImage.Name, SetDiskOptions{
+					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
+				})
+			case virtv2.StorageContainerRegistry:
+				dvcrImage := cc.DVCREndpointForVM(dvcrSettings, cc.DVCRImageNameFromVMI(vmi))
+				kvvm.SetDisk(bd.VirtualMachineImage.Name, SetDiskOptions{
+					ContainerDisk: util.GetPointer(dvcrImage),
+					IsCdrom:       vmi.Status.CDROM,
+				})
+			default:
+				panic(fmt.Sprintf("unexpected VMI %s spec.storage: %s", vmi.Name, vmi.Spec.Storage))
+			}
 
 		case virtv2.ClusterImageDevice:
 			// ClusterVirtualMachineImage always has logical type as type=ContainerRegistry (unlinke the VirtualMachineImage)

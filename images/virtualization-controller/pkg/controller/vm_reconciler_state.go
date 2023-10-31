@@ -31,6 +31,7 @@ type VMReconcilerState struct {
 	KVVMI      *virtv1.VirtualMachineInstance
 	KVPods     *corev1.PodList
 	VMDByName  map[string]*virtv2.VirtualMachineDisk
+	VMIByName  map[string]*virtv2.VirtualMachineImage
 	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
 	Result     *reconcile.Result
 }
@@ -112,12 +113,26 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 
 	var vmdByName map[string]*virtv2.VirtualMachineDisk
+	var vmiByName map[string]*virtv2.VirtualMachineImage
 	var cvmiByName map[string]*virtv2.ClusterVirtualMachineImage
 
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("not implemented")
+			vmi, err := helper.FetchObject(ctx, types.NamespacedName{
+				Name:      bd.VirtualMachineImage.Name,
+				Namespace: state.VM.Name().Namespace,
+			}, state.Client, &virtv2.VirtualMachineImage{})
+			if err != nil {
+				return fmt.Errorf("unable to get VMI %q: %w", bd.VirtualMachineImage.Name, err)
+			}
+			if vmi == nil {
+				continue
+			}
+			if vmiByName == nil {
+				vmiByName = make(map[string]*virtv2.VirtualMachineImage)
+			}
+			vmiByName[bd.VirtualMachineImage.Name] = vmi
 
 		case virtv2.ClusterImageDevice:
 			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{
@@ -156,6 +171,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 
 	state.VMDByName = vmdByName
+	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
 
 	return nil
@@ -175,7 +191,9 @@ func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceS
 			}
 
 		case virtv2.ImageDevice:
-			panic("not implemented")
+			if bda.Type == spec.Type && bda.VirtualMachineImage.Name == spec.VirtualMachineImage.Name {
+				return bda
+			}
 
 		case virtv2.ClusterImageDevice:
 			if bda.Type == spec.Type && bda.ClusterVirtualMachineImage.Name == spec.ClusterVirtualMachineImage.Name {
@@ -192,6 +210,23 @@ func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceS
 
 func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
 	switch spec.Type {
+	case virtv2.ImageDevice:
+		vs := state.FindVolumeStatus(spec.VirtualMachineImage.Name)
+		if vs == nil {
+			return nil
+		}
+
+		vmi, hasVMI := state.VMIByName[spec.VirtualMachineImage.Name]
+		if !hasVMI {
+			return nil
+		}
+		return &virtv2.BlockDeviceStatus{
+			Type:                virtv2.ImageDevice,
+			VirtualMachineImage: util.CopyByPointer(spec.VirtualMachineImage),
+			Target:              vs.Target,
+			Size:                vmi.Status.Capacity,
+		}
+
 	case virtv2.DiskDevice:
 		vs := state.FindVolumeStatus(spec.VirtualMachineDisk.Name)
 		if vs == nil {
@@ -208,9 +243,6 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 			Target:             vs.Target,
 			Size:               vmd.Status.Capacity,
 		}
-
-	case virtv2.ImageDevice:
-		panic("not implemented")
 
 	case virtv2.ClusterImageDevice:
 		vs := state.FindVolumeStatus(spec.ClusterVirtualMachineImage.Name)
@@ -252,7 +284,8 @@ func (state *VMReconcilerState) SetVMLabelsWithAttachedBlockDevices() bool {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("not implemented")
+			vmiAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("vmi", bd.VirtualMachineImage.Name)
+			newLabels[vmiAttachedLabel] = vmattachee.AttachedLabelValue
 		case virtv2.ClusterImageDevice:
 			cvmiAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("cvmi", bd.ClusterVirtualMachineImage.Name)
 			newLabels[cvmiAttachedLabel] = vmattachee.AttachedLabelValue
@@ -272,12 +305,17 @@ func (state *VMReconcilerState) SetVMLabelsWithAttachedBlockDevices() bool {
 }
 
 // SetFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.
-// TODO implement for VMI.
 func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context) error {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("not implemented")
+			if vmi, hasKey := state.VMIByName[bd.VirtualMachineImage.Name]; hasKey {
+				if controllerutil.AddFinalizer(vmi, virtv2.FinalizerVMIProtection) {
+					if err := state.Client.Update(ctx, vmi); err != nil {
+						return fmt.Errorf("error setting finalizer on a VMI %q: %w", vmi.Name, err)
+					}
+				}
+			}
 		case virtv2.ClusterImageDevice:
 			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
 				if controllerutil.AddFinalizer(cvmi, virtv2.FinalizerCVMIProtection) {
@@ -307,7 +345,13 @@ func (state *VMReconcilerState) BlockDevicesReady() bool {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			panic("not implemented")
+			if vmi, hasKey := state.VMIByName[bd.VirtualMachineImage.Name]; hasKey {
+				if vmi.Status.Phase != virtv2.ImageReady {
+					return false
+				}
+			} else {
+				return false
+			}
 
 		case virtv2.ClusterImageDevice:
 			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {

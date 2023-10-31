@@ -33,7 +33,7 @@ func Test_kvvm_compare_resources(t *testing.T) {
 		Namespace: vm.Namespace,
 		Name:      vm.Name,
 	}, KVVMOptions{})
-	ApplyVirtualMachineSpec(curr, vm, nil, nil, nil)
+	ApplyVirtualMachineSpec(curr, vm, nil, nil, nil, nil)
 
 	vm.Spec.Memory.Size = "5Gi"
 
@@ -41,7 +41,7 @@ func Test_kvvm_compare_resources(t *testing.T) {
 		Namespace: vm.Namespace,
 		Name:      vm.Name,
 	}, KVVMOptions{})
-	ApplyVirtualMachineSpec(next, vm, nil, nil, nil)
+	ApplyVirtualMachineSpec(next, vm, nil, nil, nil, nil)
 
 	actions, err := CompareKVVM(curr, next)
 

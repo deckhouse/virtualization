@@ -18,10 +18,14 @@ import (
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type VMIReconcilerState struct {
+	*vmattachee.AttacheeState[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	AttachedVMs []*virtv2.VirtualMachine
+
 	Client  client.Client
 	VMI     *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
 	DV      *cdiv1.DataVolume
@@ -33,7 +37,7 @@ type VMIReconcilerState struct {
 }
 
 func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMIReconcilerState {
-	return &VMIReconcilerState{
+	state := &VMIReconcilerState{
 		Client: client,
 		VMI: helper.NewResource(
 			name, log, client, cache,
@@ -41,6 +45,15 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 			func(obj *virtv2.VirtualMachineImage) virtv2.VirtualMachineImageStatus { return obj.Status },
 		),
 	}
+
+	state.AttacheeState = vmattachee.NewAttacheeState(
+		state,
+		"vmi",
+		virtv2.FinalizerVMIProtection,
+		state.VMI,
+	)
+
+	return state
 }
 
 func (state *VMIReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
@@ -134,11 +147,19 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		}
 	}
 
-	return nil
+	return state.AttacheeState.Reload(ctx, req, log, client)
 }
 
-func (state *VMIReconcilerState) ShouldReconcile(_ logr.Logger) bool {
-	return !state.VMI.IsEmpty()
+func (state *VMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
+	if state.VMI.IsEmpty() {
+		return false
+	}
+
+	if state.AttacheeState.ShouldReconcile(log) {
+		return true
+	}
+
+	return true
 }
 
 func (state *VMIReconcilerState) IsProtected() bool {
