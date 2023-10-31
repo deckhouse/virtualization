@@ -103,8 +103,8 @@ type SetDiskOptions struct {
 	ContainerDisk         *string
 	PersistentVolumeClaim *string
 
-	IsEphemeralPVC bool
-	IsCdrom        bool
+	IsHotplugged bool
+	IsCdrom      bool
 }
 
 func (b *KVVM) ClearDisks() {
@@ -140,18 +140,11 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 	var vs virtv1.VolumeSource
 	switch {
 	case opts.PersistentVolumeClaim != nil:
-		if opts.IsEphemeralPVC {
-			vs.Ephemeral = &virtv1.EphemeralVolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: *opts.PersistentVolumeClaim,
-				},
-			}
-		} else {
-			vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: *opts.PersistentVolumeClaim,
-				},
-			}
+		vs.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
+			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: *opts.PersistentVolumeClaim,
+			},
+			Hotpluggable: opts.IsHotplugged,
 		}
 	case opts.ContainerDisk != nil:
 		vs.ContainerDisk = &virtv1.ContainerDiskSource{

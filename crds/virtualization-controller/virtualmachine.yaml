@@ -733,6 +733,9 @@ spec:
                           - required: ["virtualMachineImage"]
                           - required: ["clusterVirtualMachineImage"]
                     properties:
+                      hotpluggable:
+                        type: boolean
+                        description: Block device is available for hot plug.
                       type:
                         type: string
                         description: The type of block device.
