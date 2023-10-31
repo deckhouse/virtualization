@@ -215,13 +215,11 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	case state.IsReady():
 		// No need to update status.
 		break
-	case state.ShouldTrackPod() && state.IsPodInProgress():
+	case state.ShouldTrackPod() && state.IsPodRunning():
 		log.V(2).Info("Fetch progress from Pod")
 
-		vmdStatus.Phase = virtv2.DiskProvisioning
-
-		if state.VMD.Current().Spec.DataSource != nil &&
-			state.VMD.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
+		// Set statue UploadCommand if necessary.
+		if state.VMD.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
 			vmdStatus.UploadCommand == "" &&
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
@@ -248,6 +246,14 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmdStatus.DownloadSpeed.Avg = progress.AvgSpeed()
 			vmdStatus.DownloadSpeed.Current = progress.CurrentSpeed()
 		}
+
+		// Set VMD phase.
+		if state.VMD.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
+			vmdStatus.Phase = virtv2.DiskWaitForUserUpload
+		} else {
+			vmdStatus.Phase = virtv2.DiskProvisioning
+		}
+
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmdStatus.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
