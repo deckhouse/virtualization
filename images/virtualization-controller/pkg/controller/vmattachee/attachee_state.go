@@ -22,7 +22,7 @@ type AttacheeState[T helper.Object[T, ST], ST any] struct {
 
 	Kind                string
 	ProtectionFinalizer string
-	AttachedVMs         []*virtv2.VirtualMachine
+	isAttached          bool
 	Resource            *helper.Resource[T, ST]
 }
 
@@ -45,18 +45,26 @@ func (state *AttacheeState[T, ST]) Reload(ctx context.Context, _ reconcile.Reque
 	if err != nil {
 		return err
 	}
-	state.AttachedVMs = attachedVMs
+	state.isAttached = len(attachedVMs) > 0
 
-	log.V(2).Info("Attachee Reload", "Kind", state.Kind, "AttachedVMs", attachedVMs)
+	if !state.isAttached {
+		attachedVMs, err = state.findHotpluggedVMs(ctx, client)
+		if err != nil {
+			return err
+		}
+		state.isAttached = len(attachedVMs) > 0
+	}
+
+	log.V(2).Info("Attachee Reload", "Kind", state.Kind, "isAttached", state.isAttached)
 
 	return nil
 }
 
 func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client.Client) ([]*virtv2.VirtualMachine, error) {
-	vml := &virtv2.VirtualMachineList{}
+	label := MakeAttachedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name)
 
 	req, err := labels.NewRequirement(
-		MakeAttachedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name),
+		label,
 		selection.Equals,
 		[]string{AttachedLabelValue},
 	)
@@ -65,7 +73,29 @@ func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client
 	}
 
 	sel := labels.NewSelector()
-	sel.Add(*req)
+	sel = sel.Add(*req)
+
+	var vml virtv2.VirtualMachineList
+	if err := c.List(ctx, &vml, &client.ListOptions{LabelSelector: sel}); err != nil {
+		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
+	}
+	return util.ToPointersArray(vml.Items), nil
+}
+
+func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, c client.Client) ([]*virtv2.VirtualMachine, error) {
+	vml := &virtv2.VirtualMachineList{}
+
+	req, err := labels.NewRequirement(
+		MakeHotpluggedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name),
+		selection.Equals,
+		[]string{HotpluggedLabelValue},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create label requirement: %w", err)
+	}
+
+	sel := labels.NewSelector()
+	sel = sel.Add(*req)
 
 	if err := c.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
 		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
@@ -74,7 +104,7 @@ func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client
 }
 
 func (state *AttacheeState[T, ST]) ShouldRemoveProtectionFinalizer() bool {
-	return controllerutil.ContainsFinalizer(state.Resource.Current(), state.ProtectionFinalizer) && (len(state.AttachedVMs) == 0)
+	return controllerutil.ContainsFinalizer(state.Resource.Current(), state.ProtectionFinalizer) && !state.isAttached
 }
 
 func (state *AttacheeState[T, ST]) RemoveProtectionFinalizer() {
