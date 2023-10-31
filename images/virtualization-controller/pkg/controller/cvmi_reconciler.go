@@ -159,7 +159,6 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	case r.isInProgress(state.CVMI.Current(), state):
 		// Set CVMI status to Provisioning and copy progress metrics from importer/uploader Pod.
 		opts.Log.V(2).Info("Fetch progress", "cvmi.name", state.CVMI.Current().Name)
-		cvmiStatus.Phase = virtv2.ImageProvisioning
 
 		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
 			cvmiStatus.UploadCommand == "" &&
@@ -184,6 +183,13 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
 			cvmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
 			cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+		}
+
+		// Set CVMI phase.
+		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
+			cvmiStatus.Phase = virtv2.ImageWaitForUserUpload
+		} else {
+			cvmiStatus.Phase = virtv2.ImageProvisioning
 		}
 	case r.isImportComplete(state):
 		// Set CVMI status to Ready and update image size from final report of the importer/uploader Pod.

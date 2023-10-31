@@ -253,8 +253,8 @@ func (state *VMDReconcilerState) IsPodComplete() bool {
 	return state.Pod != nil && cc.IsPodComplete(state.Pod)
 }
 
-// IsPodInProgress returns whether importer/uploader Pod is in progress.
-func (state *VMDReconcilerState) IsPodInProgress() bool {
+// IsPodRunning returns whether importer/uploader Pod is in progress.
+func (state *VMDReconcilerState) IsPodRunning() bool {
 	return state.Pod != nil && state.Pod.Status.Phase == corev1.PodRunning
 }
 
