@@ -19,6 +19,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -60,13 +61,21 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			return err
 		}
 
+		if r.removeVMHotpluggedLabel(state) {
+			err = opts.Client.Update(ctx, state.VM)
+			if err != nil {
+				return fmt.Errorf("failed to remove VM labels with hotplugged block device %s: %w", state.VMD.Name, err)
+			}
+		}
+
 		if blockDeviceIndex > -1 {
 			state.VM.Status.BlockDevicesAttached = append(
 				state.VM.Status.BlockDevicesAttached[:blockDeviceIndex],
 				state.VM.Status.BlockDevicesAttached[blockDeviceIndex+1:]...,
 			)
 
-			if err = opts.Client.Status().Update(ctx, state.VM); err != nil {
+			err = opts.Client.Status().Update(ctx, state.VM)
+			if err != nil {
 				return fmt.Errorf("failed to remove attached disk %s: %w", state.VMD.Name, err)
 			}
 		}
@@ -97,42 +106,25 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		opts.Log.Info("Volume attached")
 	}
 
-	var vs virtv1.VolumeStatus
-
-	for i := range state.KVVMI.Status.VolumeStatus {
-		if state.KVVMI.Status.VolumeStatus[i].Name == state.VMD.Name {
-			vs = state.KVVMI.Status.VolumeStatus[i]
+	if r.setVMHotpluggedLabel(state) {
+		err := opts.Client.Update(ctx, state.VM)
+		if err != nil {
+			return fmt.Errorf("failed to set VM labels with hotplugged block device %s: %w", state.VMD.Name, err)
 		}
 	}
 
-	if blockDeviceIndex > -1 {
-		blockDevice := state.VM.Status.BlockDevicesAttached[blockDeviceIndex]
-		if blockDevice.Target != vs.Target || blockDevice.Size != state.VMD.Status.Capacity {
-			blockDevice.Target = vs.Target
-			blockDevice.Size = state.VMD.Status.Capacity
-
-			state.VM.Status.BlockDevicesAttached[blockDeviceIndex] = blockDevice
-
-			if err := opts.Client.Status().Update(ctx, state.VM); err != nil {
-				return fmt.Errorf("failed to update attached block device %s: %w", state.VM.Status.BlockDevicesAttached[blockDeviceIndex].VirtualMachineDisk.Name, err)
-			}
+	if r.setVMHotpluggedFinalizer(state) {
+		err := opts.Client.Update(ctx, state.VMD)
+		if err != nil {
+			return fmt.Errorf("failed to set VMD finalizer with hotplugged block device %s: %w", state.VMD.Name, err)
 		}
-
-		return nil
 	}
 
-	state.VM.Status.BlockDevicesAttached = append(state.VM.Status.BlockDevicesAttached, virtv2.BlockDeviceStatus{
-		Type: virtv2.DiskDevice,
-		VirtualMachineDisk: &virtv2.DiskDeviceSpec{
-			Name: state.VMD.Name,
-		},
-		Target:       vs.Target,
-		Size:         state.VMD.Status.Capacity,
-		Hotpluggable: true,
-	})
-
-	if err := opts.Client.Status().Update(ctx, state.VM); err != nil {
-		return fmt.Errorf("failed to add new attached block device %s: %w", state.VMD.Name, err)
+	if r.setVMStatusBlockDevicesAttached(blockDeviceIndex, state) {
+		err := opts.Client.Status().Update(ctx, state.VM)
+		if err != nil {
+			return fmt.Errorf("failed to update VM status with hotplugged block device %s: %w", state.VMD.Name, err)
+		}
 	}
 
 	return nil
@@ -241,4 +233,82 @@ func (r *VMBDAReconciler) unhotplugVolume(ctx context.Context, state *VMBDARecon
 	}
 
 	return nil
+}
+
+func (r *VMBDAReconciler) setVMHotpluggedLabel(state *VMBDAReconcilerState) bool {
+	labels := state.VM.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	label := vmattachee.MakeHotpluggedResourceLabelKeyFormat("vmd", state.VMD.Name)
+	_, ok := labels[label]
+	if ok {
+		return false
+	}
+
+	labels[label] = vmattachee.HotpluggedLabelValue
+
+	state.VM.SetLabels(labels)
+
+	return true
+}
+
+func (r *VMBDAReconciler) removeVMHotpluggedLabel(state *VMBDAReconcilerState) bool {
+	labels := state.VM.GetLabels()
+	if labels == nil {
+		return false
+	}
+
+	label := vmattachee.MakeHotpluggedResourceLabelKeyFormat("vmd", state.VMD.Name)
+	_, ok := labels[label]
+	if !ok {
+		return false
+	}
+
+	delete(labels, label)
+
+	state.VM.SetLabels(labels)
+
+	return true
+}
+
+func (r *VMBDAReconciler) setVMHotpluggedFinalizer(state *VMBDAReconcilerState) bool {
+	return controllerutil.AddFinalizer(state.VMD, virtv2.FinalizerVMDProtection)
+}
+
+func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, state *VMBDAReconcilerState) bool {
+	var vs virtv1.VolumeStatus
+
+	for i := range state.KVVMI.Status.VolumeStatus {
+		if state.KVVMI.Status.VolumeStatus[i].Name == state.VMD.Name {
+			vs = state.KVVMI.Status.VolumeStatus[i]
+		}
+	}
+
+	if blockDeviceIndex > -1 {
+		blockDevice := state.VM.Status.BlockDevicesAttached[blockDeviceIndex]
+		if blockDevice.Target != vs.Target || blockDevice.Size != state.VMD.Status.Capacity {
+			blockDevice.Target = vs.Target
+			blockDevice.Size = state.VMD.Status.Capacity
+
+			state.VM.Status.BlockDevicesAttached[blockDeviceIndex] = blockDevice
+
+			return true
+		}
+
+		return false
+	}
+
+	state.VM.Status.BlockDevicesAttached = append(state.VM.Status.BlockDevicesAttached, virtv2.BlockDeviceStatus{
+		Type: virtv2.DiskDevice,
+		VirtualMachineDisk: &virtv2.DiskDeviceSpec{
+			Name: state.VMD.Name,
+		},
+		Target:       vs.Target,
+		Size:         state.VMD.Status.Capacity,
+		Hotpluggable: true,
+	})
+
+	return true
 }

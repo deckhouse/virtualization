@@ -35,8 +35,14 @@ func NewAttacheeReconciler[T helper.Object[T, ST], ST any](kind string, isNamesp
 
 func (r *AttacheeReconciler[T, ST]) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	matchAttacheeKindFunc := func(k, _ string) bool {
-		_, isAttachee := ExtractAttachedResourceName(r.Kind, k)
-		return isAttachee
+		_, found := ExtractAttachedResourceName(r.Kind, k)
+		if found {
+			return true
+		}
+
+		_, found = ExtractHotpluggedResourceName(r.Kind, k)
+
+		return found
 	}
 
 	if err := ctr.Watch(
@@ -63,8 +69,12 @@ func (r *AttacheeReconciler[T, ST]) SetupController(_ context.Context, mgr manag
 
 func (r *AttacheeReconciler[T, ST]) enqueueAttacheeRequestsFromVM(_ context.Context, obj client.Object) (res []reconcile.Request) {
 	for k := range obj.GetLabels() {
-		name, isAttachee := ExtractAttachedResourceName(r.Kind, k)
-		if isAttachee {
+		name, found := ExtractAttachedResourceName(r.Kind, k)
+		if !found {
+			name, found = ExtractHotpluggedResourceName(r.Kind, k)
+		}
+
+		if found {
 			targetName := types.NamespacedName{Name: name}
 			if r.IsNamespaced {
 				if obj.GetNamespace() == "" {

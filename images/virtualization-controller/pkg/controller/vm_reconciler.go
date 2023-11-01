@@ -169,7 +169,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
 		shouldUpdate := PropagateVMMetadata(state.VM.Current(), state.KVVM)
 
-		shouldUpdate = shouldUpdate || controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
+		shouldUpdate = controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) || shouldUpdate
 
 		if shouldUpdate {
 			if err := opts.Client.Update(ctx, state.KVVM); err != nil {
