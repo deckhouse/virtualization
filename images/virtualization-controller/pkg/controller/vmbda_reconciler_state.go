@@ -109,7 +109,7 @@ func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Req
 }
 
 func (state *VMBDAReconcilerState) ShouldReconcile(_ logr.Logger) bool {
-	return !state.VMBDA.IsEmpty()
+	return !state.VMBDA.IsEmpty() && state.VM != nil && state.KVVMI != nil && state.VMD != nil && state.PVC != nil
 }
 
 func (state *VMBDAReconcilerState) isProtected() bool {
