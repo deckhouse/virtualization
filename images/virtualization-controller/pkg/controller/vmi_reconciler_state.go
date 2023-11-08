@@ -205,7 +205,7 @@ func (state *VMIReconcilerState) ShouldTrackPod() bool {
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *VMIReconcilerState) IsPodInited() bool {
 	switch state.VMI.Current().Spec.DataSource.Type {
-	case virtv2.DataSourceTypeHTTP:
+	case virtv2.DataSourceTypeHTTP, virtv2.DataSourceTypeContainerImage:
 		return state.hasImporterPodAnno()
 	case virtv2.DataSourceTypeUpload:
 		return state.hasUploaderPodAnno()

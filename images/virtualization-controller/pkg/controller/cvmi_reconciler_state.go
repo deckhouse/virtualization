@@ -21,14 +21,23 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
+var ErrImagePullSecretNotFound = errors.New("imagePullSecret not found")
+
 type CVMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 
-	Client  client.Client
-	CVMI    *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Service *corev1.Service
-	Pod     *corev1.Pod
-	Result  *reconcile.Result
+	Client          client.Client
+	CVMI            *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Service         *corev1.Service
+	Pod             *corev1.Pod
+	ImagePullSecret *ImagePullSecret
+	AttachedVMs     []*virtv2.VirtualMachine
+	Result          *reconcile.Result
+}
+
+type ImagePullSecret struct {
+	Secret       *corev1.Secret
+	SourceSecret *corev1.Secret
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
@@ -97,6 +106,27 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 			return err
 		}
+
+		secretName := state.CVMI.Current().Spec.DataSource.ContainerImage.ImagePullSecret.Name
+		secretNS := state.CVMI.Current().Spec.DataSource.ContainerImage.ImagePullSecret.Namespace
+		if secretName != "" && secretNS != "" {
+			secret, err := importer.FindSecret(ctx, client, state.CVMI.Current())
+			if err != nil && !errors.Is(err, importer.ErrSecretNameNotFound) {
+				return err
+			}
+			imgPullSecret := &ImagePullSecret{Secret: secret}
+			if !errors.Is(err, importer.ErrSecretNameNotFound) {
+				srcSecret, err := helper.FetchObject[*corev1.Secret](ctx, types.NamespacedName{Name: secretName, Namespace: secretNS}, client, &corev1.Secret{})
+				if err != nil {
+					return err
+				}
+				if srcSecret == nil {
+					return ErrImagePullSecretNotFound
+				}
+				imgPullSecret.SourceSecret = srcSecret
+				state.ImagePullSecret = imgPullSecret
+			}
+		}
 		state.Pod = pod
 	}
 
@@ -125,12 +155,21 @@ func (state *CVMIReconcilerState) HasImporterAnno() bool {
 	if state.CVMI.IsEmpty() {
 		return false
 	}
-	anno := state.CVMI.Current().GetAnnotations()
+	cvmi := state.CVMI.Current()
+	anno := cvmi.GetAnnotations()
 	if _, ok := anno[cc.AnnImportPodName]; !ok {
 		return false
 	}
 	if _, ok := anno[cc.AnnImporterNamespace]; !ok {
 		return false
+	}
+
+	if cvmi.Spec.DataSource.Type == virtv2.DataSourceTypeContainerImage &&
+		cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" &&
+		cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace != "" {
+		if _, ok := anno[cc.AnnAuthSecret]; !ok {
+			return false
+		}
 	}
 	return true
 }

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containers/image/v5/docker/reference"
+	"github.com/distribution/reference"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 )

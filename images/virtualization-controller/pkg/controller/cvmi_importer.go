@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha1.ClusterVirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *CVMIReconciler) startImporterPod(
+	ctx context.Context,
+	cvmi *virtv2alpha1.ClusterVirtualMachineImage,
+	imgPullSecret *ImagePullSecret,
+	opts two_phase_reconciler.ReconcilerOptions,
+) error {
 	opts.Log.V(1).Info("Creating importer POD for PVC", "pvc.Name", cvmi.Name)
 
 	importerSettings, err := r.createImporterSettings(cvmi)
@@ -42,6 +50,12 @@ func (r *CVMIReconciler) startImporterPod(ctx context.Context, cvmi *virtv2alpha
 		opts.Log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
 	}
 
+	if imgPullSecret.Secret == nil && imgPullSecret.SourceSecret != nil {
+		if err := r.createImporterAuthSecret(ctx, cvmi, pod, imgPullSecret.SourceSecret, opts); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -56,6 +70,13 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 	case cc.SourceHTTP:
 		if http := cvmi.Spec.DataSource.HTTP; http != nil {
 			importer.UpdateHTTPSettings(settings, http)
+		}
+	case cc.SourceRegistry:
+		if annSecret := cvmi.GetAnnotations()[cc.AnnAuthSecret]; annSecret != "" {
+			settings.AuthSecret = annSecret
+		}
+		if ctrImg := cvmi.Spec.DataSource.ContainerImage; ctrImg != nil {
+			importer.UpdateContainerImageSettings(settings, ctrImg)
 		}
 	case cc.SourceNone:
 	default:
@@ -79,5 +100,35 @@ func (r *CVMIReconciler) createImporterPodSettings(cvmi *virtv2alpha1.ClusterVir
 		OwnerReference:  cvmiutil.MakeOwnerReference(cvmi),
 		ControllerName:  cvmiControllerName,
 		InstallerLabels: r.installerLabels,
+	}
+}
+
+func (r *CVMIReconciler) createImporterAuthSecret(
+	ctx context.Context,
+	cvmi *virtv2alpha1.ClusterVirtualMachineImage,
+	pod *corev1.Pod,
+	srcSecret *corev1.Secret,
+	opts two_phase_reconciler.ReconcilerOptions,
+) error {
+	opts.Log.V(1).Info("Creating importer Secret for Pod", "pod.Name", cvmi.Name)
+
+	importerSecret := importer.NewSecret(r.createImporterAuthSecretSettings(cvmi, pod, srcSecret))
+
+	secret, err := importerSecret.Create(ctx, opts.Client)
+	if err != nil {
+		return err
+	}
+	opts.Log.V(1).Info("Created importer Secret", "secret.Name", secret.Name)
+
+	return nil
+}
+
+func (r *CVMIReconciler) createImporterAuthSecretSettings(cvmi *virtv2alpha1.ClusterVirtualMachineImage, pod *corev1.Pod, srcSecret *corev1.Secret) *importer.SecretSettings {
+	return &importer.SecretSettings{
+		Name:           cvmi.Annotations[cc.AnnAuthSecret],
+		Namespace:      r.namespace,
+		OwnerReference: podutil.MakeOwnerReference(pod),
+		Data:           srcSecret.Data,
+		Type:           srcSecret.Type,
 	}
 }
