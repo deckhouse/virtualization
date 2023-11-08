@@ -19,21 +19,23 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type VMReconcilerState struct {
-	Client     client.Client
-	VM         *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	KVVM       *virtv1.VirtualMachine
-	KVVMI      *virtv1.VirtualMachineInstance
-	KVPods     *corev1.PodList
-	VMDByName  map[string]*virtv2.VirtualMachineDisk
-	VMIByName  map[string]*virtv2.VirtualMachineImage
-	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
-	Result     *reconcile.Result
+	Client        client.Client
+	VM            *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	KVVM          *virtv1.VirtualMachine
+	KVVMI         *virtv1.VirtualMachineInstance
+	KVPods        *corev1.PodList
+	VMDByName     map[string]*virtv2.VirtualMachineDisk
+	VMIByName     map[string]*virtv2.VirtualMachineImage
+	CVMIByName    map[string]*virtv2.ClusterVirtualMachineImage
+	Result        *reconcile.Result
+	StatusMessage string
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -179,6 +181,10 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 
 func (state *VMReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 	return !state.VM.IsEmpty()
+}
+
+func (state *VMReconcilerState) SetStatusMessage(msg string) {
+	state.StatusMessage = msg
 }
 
 func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
@@ -386,6 +392,10 @@ func (state *VMReconcilerState) GetKVVMErrors() (res []error) {
 	return
 }
 
+func (state *VMReconcilerState) isDeletion() bool {
+	return !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero()
+}
+
 // RemoveAttachRelatedLabels filters out attach related labels from the input map.
 // E.g. virtualization.deckhouse.io/cvmi.ubuntu-iso.attached
 func RemoveAttachRelatedLabels(labels map[string]string) map[string]string {
@@ -412,7 +422,12 @@ func CleanupVMAnno(anno map[string]string) map[string]string {
 	res := make(map[string]string)
 
 	for k, v := range anno {
-		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
+		switch {
+		case strings.HasPrefix(k, "kubectl.kubernetes.io"):
+			continue
+		case k == cc.AnnVMChangeID:
+			continue
+		case k == cc.AnnVMChangeIDApprove:
 			continue
 		}
 

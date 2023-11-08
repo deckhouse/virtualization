@@ -176,6 +176,9 @@ const (
 	AnnVMIDataVolume = AnnAPIGroup + "/vmi.data-volume"
 	AnnVMDDataVolume = AnnAPIGroup + "/vmd.data-volume"
 
+	AnnVMChangeID        = AnnAPIGroup + "/vm-change-id"
+	AnnVMChangeIDApprove = AnnAPIGroup + "/vm-change-id-approve"
+
 	// ErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (reason)
 	ErrStartingPod = "ErrStartingPod"
 	// MessageErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (message)

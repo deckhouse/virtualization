@@ -42,7 +42,7 @@ type ChangeApplyAction struct {
 	Type              ActionType
 	Changes           []ChangeItem
 	SubresourceSignal *SubresourceSignal
-	ManualApprove     bool
+	Disruptive        bool
 }
 
 func (c *ChangeApplyAction) ChangeID() string {
@@ -83,7 +83,11 @@ type ChangeApplyActions struct {
 }
 
 func NewChangeApplyActions() *ChangeApplyActions {
-	return &ChangeApplyActions{Actions: make([]*ChangeApplyAction, 0)}
+	return &ChangeApplyActions{}
+}
+
+func (caa *ChangeApplyActions) IsEmpty() bool {
+	return caa == nil || len(caa.Actions) == 0
 }
 
 func (caa *ChangeApplyActions) Add(action *ChangeApplyAction) {
@@ -96,13 +100,26 @@ func (caa *ChangeApplyActions) Add(action *ChangeApplyAction) {
 // ActionType returns the most dangerous action type:
 // None < ApplyImmediate < SubresourceSignal < Restart
 func (caa *ChangeApplyActions) ActionType() ActionType {
-	res := ActionNone
-	for _, action := range caa.Actions {
-		if ActionTypePriority(res) < ActionTypePriority(action.Type) {
-			res = action.Type
+	if caa == nil {
+		return ActionNone
+	}
+
+	// Types from most dangerous to least dangerous.
+	typesInOrder := []ActionType{
+		ActionRestart,
+		ActionSubresourceSignal,
+		ActionApplyImmediate,
+	}
+
+	for _, typ := range typesInOrder {
+		for _, action := range caa.Actions {
+			if action.Type == typ {
+				return typ
+			}
 		}
 	}
-	return res
+
+	return ActionNone
 }
 
 func (caa *ChangeApplyActions) GetChangesTitles() []string {
@@ -117,19 +134,6 @@ func (caa *ChangeApplyActions) GetChangesTitles() []string {
 	return res
 }
 
-func ActionTypePriority(actionType ActionType) int {
-	switch actionType {
-	case ActionRestart:
-		return 3
-	case ActionSubresourceSignal:
-		return 2
-	case ActionApplyImmediate:
-		return 1
-	default:
-		return 0
-	}
-}
-
 func (caa *ChangeApplyActions) ChangeID() string {
 	// Assume actions are always in same order: cpu, run policy, disks and so on.
 	hasher := sha256.New()
@@ -137,6 +141,19 @@ func (caa *ChangeApplyActions) ChangeID() string {
 		hasher.Write([]byte(action.ChangeID()))
 	}
 	return fmt.Sprintf("%x", hasher.Sum(nil))
+}
+
+// IsDisruptive detects whether actions are disruptive.
+func (caa *ChangeApplyActions) IsDisruptive() bool {
+	if caa.ActionType() == ActionRestart {
+		return true
+	}
+	for _, action := range caa.Actions {
+		if action.Disruptive {
+			return true
+		}
+	}
+	return false
 }
 
 func CompareKVVM(curr, next *KVVM) (*ChangeApplyActions, error) {
@@ -308,7 +325,7 @@ func CompareResourceRequirements(curr, next *KVVM) (*ChangeApplyAction, error) {
 // CompareDisks returns Restart action if VM volumes are changed.
 // TODO add meaningful diff messages.
 // TODO add detailed changes to generate proper change ID.
-// TODO detect disk or volume removing and set ManualApprove to true.
+// TODO detect disk or volume removing and set Disruptive to true.
 func CompareDisks(curr, next *KVVM) (*ChangeApplyAction, error) {
 	changes := make([]ChangeItem, 0)
 
