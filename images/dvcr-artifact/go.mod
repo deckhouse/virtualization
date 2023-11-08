@@ -4,11 +4,13 @@ go 1.19
 
 require (
 	github.com/containers/image/v5 v5.19.1
+	github.com/distribution/reference v0.5.0
 	github.com/djherbis/buffer v1.1.0
 	github.com/djherbis/nio/v3 v3.0.1
 	github.com/docker/cli v23.0.5+incompatible
 	github.com/golang/snappy v0.0.3
 	github.com/google/go-containerregistry v0.15.2
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/openshift/library-go v0.0.0-20230328115725-6ed98e0ed0b9
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
@@ -60,7 +62,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.7.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20160803190731-bd40a432e4c7 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -168,5 +169,5 @@ replace (
 
 replace (
 	k8s.io/client-go => k8s.io/client-go v0.26.1
-	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.54.1-0.20230816113545-071c5d94baba
+	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.54.1-0.20231108105404-81f1cea8c40d // branch: virtualization-controller
 )

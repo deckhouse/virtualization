@@ -40,6 +40,9 @@ const (
 
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
+
+	// sourceRegistryAuthVol is the name of the volume containing source registry docker auth config.
+	sourceRegistryAuthVol = "source-registry-secret-vol"
 )
 
 type Importer struct {
@@ -119,15 +122,7 @@ func (imp *Importer) EnsureCABundleConfigMap(ctx context.Context, client client.
 // CleanupPod deletes importer Pod.
 // No need to delete CABundle configmap. It has ownerRef and will be gc'ed.
 func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	if pod == nil {
-		return nil
-	}
-
-	if err := client.Delete(ctx, pod); cc.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	return nil
+	return helper.DeleteObject(ctx, client, pod)
 }
 
 // makeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
@@ -328,6 +323,18 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
+	if imp.Settings.AuthSecret != "" {
+		// Mount source registry auth Secret and pass directory with mounted source registry login config.
+		podutil.AddVolume(pod, container,
+			podutil.CreateSecretVolume(sourceRegistryAuthVol, imp.Settings.AuthSecret),
+			podutil.CreateVolumeMount(sourceRegistryAuthVol, common.ImporterAuthConfigDir),
+			corev1.EnvVar{
+				Name:  common.ImporterAuthConfigVar,
+				Value: common.ImporterAuthConfigFile,
+			},
+		)
+	}
+
 	if imp.Settings.DestinationAuthSecret != "" {
 		// Mount DVCR auth Secret and pass directory with mounted DVCR login config.
 		podutil.AddVolume(pod, container,

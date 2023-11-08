@@ -18,3 +18,14 @@ func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName,
 	}
 	return obj, nil
 }
+
+func DeleteObject(ctx context.Context, client client.Client, obj client.Object, opts ...client.DeleteOption) error {
+	if obj == nil || obj.GetName() == "" {
+		return nil
+	}
+	err := client.Delete(ctx, obj, opts...)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}

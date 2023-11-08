@@ -2,6 +2,7 @@ package importer
 
 import (
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
@@ -24,6 +25,7 @@ type Settings struct {
 	BackingFile            string
 	Thumbprint             string
 	FilesystemOverhead     string
+	AuthSecret             string
 	InsecureTLS            bool
 	HTTPProxy              string
 	HTTPSProxy             string
@@ -54,4 +56,8 @@ func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP)
 			podEnvVars.SHA256 = http.Checksum.SHA256
 		}
 	}
+}
+
+func UpdateContainerImageSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry) {
+	podEnvVars.Endpoint = cc.DockerRegistrySchemePrefix + ctrImg.Image
 }

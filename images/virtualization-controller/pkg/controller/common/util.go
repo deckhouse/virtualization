@@ -78,6 +78,8 @@ const (
 	// AnnEndpoint provides a const for our PVC endpoint annotation
 	AnnEndpoint = AnnAPIGroup + "/storage.import.endpoint"
 
+	// AnnAuthSecret is the name of a imagePullSecret
+	AnnAuthSecret = AnnAPIGroup + "/storage.import.authSecretName"
 	// AnnSecret provides a const for our PVC secretName annotation
 	AnnSecret = AnnAPIGroup + "/storage.import.secretName"
 	// AnnCertConfigMap is the name of a configmap containing tls certs
@@ -239,17 +241,17 @@ func GetPriorityClass(pvc *corev1.PersistentVolumeClaim) string {
 }
 
 // ShouldCleanupSubResources returns whether sub resources should be deleted:
-// - CVMI has no annotation to retain pod after import
-// - CVMI is deleted
-func ShouldCleanupSubResources(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
-	return cvmi.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || cvmi.DeletionTimestamp != nil
+// - CVMI, VMI has no annotation to retain pod after import
+// - CVMI, VMI is deleted
+func ShouldCleanupSubResources(obj metav1.Object) bool {
+	return obj.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || obj.GetDeletionTimestamp() != nil
 }
 
 func ShouldDeletePod(obj metav1.Object) bool {
 	if len(obj.GetAnnotations()) == 0 {
 		return false
 	}
-	return obj.GetAnnotations()[AnnPodRetainAfterCompletion] != "true" || obj.GetDeletionTimestamp() != nil
+	return ShouldCleanupSubResources(obj)
 }
 
 // AddFinalizer adds a finalizer to a resource
@@ -337,21 +339,14 @@ func PublishPodErr(err error, podName string, obj client.Object, recorder record
 
 // GetSource returns the source string which determines the type of source. If no source or invalid source found, default to http
 func GetSource(ds virtv2alpha1.DataSource) string {
-	srcType := string(ds.Type)
-	switch srcType {
-	case
-		SourceHTTP,
-		SourceS3,
-		SourceGCS,
-		SourceGlance,
-		SourceNone,
-		SourceRegistry,
-		SourceImageio,
-		SourceVDDK:
+	switch ds.Type {
+	case virtv2alpha1.DataSourceTypeHTTP:
+		return SourceHTTP
+	case virtv2alpha1.DataSourceTypeContainerImage:
+		return SourceRegistry
 	default:
-		srcType = SourceHTTP
+		return SourceHTTP
 	}
-	return srcType
 }
 
 type UIDable interface {
