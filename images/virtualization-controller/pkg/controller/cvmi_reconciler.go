@@ -98,16 +98,20 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		return nil
 	case r.isReady(state.CVMI.Current(), state):
 		// Note: state.ShouldReconcile was positive, so state.Pod is not nil and should be deleted.
-		// Delete sub recourses (Pods and Services) when CVMI is marked as ready and stop the reconcile process.
+		// Delete sub recourses (Pods, Services, Secrets) when CVMI is marked as ready and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
 			opts.Log.V(1).Info("Import done, cleanup")
+			if err := r.removeFinalizers(ctx, state, opts); err != nil {
+				return err
+			}
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
 		}
+		return nil
 	case r.canStart(state.CVMI.Current(), state):
 		// Create Pod using name and namespace from annotation.
 		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
 
-		if err := r.start(ctx, state.CVMI.Current(), opts); err != nil {
+		if err := r.start(ctx, state.CVMI.Current(), state.ImagePullSecret, opts); err != nil {
 			return err
 		}
 
@@ -278,7 +282,12 @@ func (r *CVMIReconciler) cleanup(ctx context.Context, cvmi *virtv2.ClusterVirtua
 	}
 }
 
-func (r *CVMIReconciler) start(ctx context.Context, cvmi *virtv2.ClusterVirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *CVMIReconciler) start(
+	ctx context.Context,
+	cvmi *virtv2.ClusterVirtualMachineImage,
+	imgPullSecret *ImagePullSecret,
+	opts two_phase_reconciler.ReconcilerOptions,
+) error {
 	switch cvmi.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
 		if err := r.startUploaderPod(ctx, cvmi, opts); err != nil {
@@ -289,7 +298,7 @@ func (r *CVMIReconciler) start(ctx context.Context, cvmi *virtv2.ClusterVirtualM
 			return err
 		}
 	default:
-		if err := r.startImporterPod(ctx, cvmi, opts); err != nil {
+		if err := r.startImporterPod(ctx, cvmi, imgPullSecret, opts); err != nil {
 			return err
 		}
 	}
@@ -310,6 +319,12 @@ func (r *CVMIReconciler) init(cvmi *virtv2.ClusterVirtualMachineImage) {
 		anno[cc.AnnUploaderNamespace] = r.namespace
 		anno[cc.AnnUploadPodName] = fmt.Sprintf("%s-%s", common.UploaderPodNamePrefix, cvmi.GetName())
 		anno[cc.AnnUploadServiceName] = fmt.Sprintf("%s-%s", common.UploaderServiceNamePrefix, cvmi.GetName())
+	case virtv2.DataSourceTypeContainerImage:
+		if cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" &&
+			cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace != "" {
+			anno[cc.AnnAuthSecret] = fmt.Sprintf("%s-%s", common.ImporterSecretNamePrefix, cvmi.GetName())
+		}
+		fallthrough
 	default:
 		anno[cc.AnnImporterNamespace] = r.namespace
 		anno[cc.AnnImportPodName] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, cvmi.GetName())
@@ -338,6 +353,13 @@ func (r *CVMIReconciler) ensurePodFinalizers(ctx context.Context, state *CVMIRec
 			}
 		}
 	}
+	if state.ImagePullSecret.Secret != nil {
+		if controllerutil.AddFinalizer(state.ImagePullSecret.Secret, virtv2.FinalizerSecretProtection) {
+			if err := opts.Client.Update(ctx, state.ImagePullSecret.Secret); err != nil {
+				return fmt.Errorf("error setting finalizer on a Secret %q: %w", state.ImagePullSecret.Secret.Name, err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -355,6 +377,13 @@ func (r *CVMIReconciler) removeFinalizers(ctx context.Context, state *CVMIReconc
 		if controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
 			if err := opts.Client.Update(ctx, state.Service); err != nil {
 				return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
+			}
+		}
+	}
+	if state.ImagePullSecret.Secret != nil {
+		if controllerutil.RemoveFinalizer(state.ImagePullSecret.Secret, virtv2.FinalizerSecretProtection) {
+			if err := opts.Client.Update(ctx, state.ImagePullSecret.Secret); err != nil {
+				return fmt.Errorf("unable to remove Secret %q finalizer %q: %w", state.ImagePullSecret.Secret.Name, virtv2.FinalizerSecretProtection, err)
 			}
 		}
 	}

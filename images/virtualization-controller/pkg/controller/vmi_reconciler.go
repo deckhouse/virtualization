@@ -109,10 +109,8 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		}
 	case state.IsReady():
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
-		if err := r.cleanup(ctx, state.VMI.Changed(), state.Client, state); err != nil {
-			return err
-		}
-		return nil
+		return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
+
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
 		switch {
@@ -517,7 +515,14 @@ func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.Virtua
 	return nil
 }
 
-func (r *VMIReconciler) cleanup(ctx context.Context, vmi *virtv2.VirtualMachineImage, client client.Client, state *VMIReconcilerState) error {
+func (r *VMIReconciler) cleanup(
+	ctx context.Context,
+	vmi *virtv2.VirtualMachineImage,
+	client client.Client,
+	state *VMIReconcilerState,
+	opts two_phase_reconciler.ReconcilerOptions,
+) error {
+	opts.Log.V(1).Info("Import done, cleanup")
 	if state.DV != nil {
 		if err := client.Delete(ctx, state.DV); err != nil {
 			return fmt.Errorf("cleanup DataVolume: %w", err)
@@ -535,6 +540,9 @@ func (r *VMIReconciler) cleanup(ctx context.Context, vmi *virtv2.VirtualMachineI
 				return err
 			}
 		default:
+			if err := r.removeFinalizers(ctx, state, opts); err != nil {
+				return err
+			}
 			if err := importer.CleanupPod(ctx, client, state.Pod); err != nil {
 				return err
 			}

@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 )
 
@@ -54,7 +55,7 @@ const (
 )
 
 type DataProcessor struct {
-	ds            importer.DataSourceInterface
+	ds            datasource.DataSourceInterface
 	destUsername  string
 	destPassword  string
 	destImageName string
@@ -70,7 +71,7 @@ type DestinationRegistry struct {
 	Insecure  bool
 }
 
-func NewDataProcessor(ds importer.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
+func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistry, sha256Sum, md5Sum string) (*DataProcessor, error) {
 	return &DataProcessor{
 		ds,
 		dest.Username,

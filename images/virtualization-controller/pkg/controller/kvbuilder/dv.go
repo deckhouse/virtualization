@@ -6,11 +6,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
-
-const dockerRegistrySchemePrefix = "docker://"
 
 type DV struct {
 	helper.ResourceBuilder[*cdiv1.DataVolume]
@@ -41,7 +40,7 @@ func (b *DV) SetPVC(storageClassName string, size resource.Quantity) {
 }
 
 func (b *DV) SetRegistryDataSource(imageName string) {
-	url := dockerRegistrySchemePrefix + imageName
+	url := common.DockerRegistrySchemePrefix + imageName
 
 	b.Resource.Spec.Source.Registry = &cdiv1.DataVolumeSourceRegistry{
 		URL: &url,

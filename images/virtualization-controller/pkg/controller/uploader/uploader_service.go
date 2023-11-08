@@ -39,15 +39,7 @@ func (s *Service) Create(ctx context.Context, client client.Client) (*corev1.Ser
 }
 
 func CleanupService(ctx context.Context, client client.Client, service *corev1.Service) error {
-	if service == nil {
-		return nil
-	}
-
-	if err := client.Delete(ctx, service); cc.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	return nil
+	return helper.DeleteObject(ctx, client, service)
 }
 
 func (s *Service) makeSpec() *corev1.Service {
