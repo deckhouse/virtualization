@@ -57,7 +57,13 @@ func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineI
 		if http := vmi.Spec.DataSource.HTTP; http != nil {
 			importer.UpdateHTTPSettings(settings, http)
 		}
-	case cc.SourceNone:
+	case cc.SourceRegistry:
+		if secret := vmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name; secret != "" {
+			settings.AuthSecret = secret
+		}
+		if ctrImg := vmi.Spec.DataSource.ContainerImage; ctrImg != nil {
+			importer.UpdateContainerImageSettings(settings, ctrImg)
+		}
 	default:
 		return nil, fmt.Errorf("unknown settings source: %s", settings.Source)
 	}

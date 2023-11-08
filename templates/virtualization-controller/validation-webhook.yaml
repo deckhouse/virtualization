@@ -1,9 +1,9 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: "validation.webhook.com"
+  name: "virtualization-controller-admission-webhook"
 webhooks:
-  - name: "validation.webhook.com"
+  - name: "virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v2alpha1"]

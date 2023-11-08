@@ -17,6 +17,8 @@ shell:
   install:
   - cd /usr/local/go/src/virtualization-controller
   - go mod download
+  setup: 
+  - cd /usr/local/go/src/virtualization-controller
   - export GO111MODULE=on
   - export GOOS=linux
   - export CGO_ENABLED=0

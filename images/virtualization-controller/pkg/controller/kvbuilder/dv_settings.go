@@ -52,7 +52,9 @@ func applyDVSettings(
 ) error {
 	if dataSource != nil {
 		switch dataSource.Type {
-		case virtv2.DataSourceTypeHTTP, virtv2.DataSourceTypeUpload:
+		case virtv2.DataSourceTypeHTTP,
+			virtv2.DataSourceTypeUpload,
+			virtv2.DataSourceTypeContainerImage:
 			// The image was preloaded from source into dvcr.
 			// We can't use the same data source a second time, but we can set dvcr as the data source.
 			dv.SetRegistryDataSource(dvcrImageName)

@@ -14,6 +14,8 @@ const (
 	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
 	KeySecret = "secretKey"
 
+	// ImporterSecretNamePrefix provides a constant that can be used as a prefix to create a secret
+	ImporterSecretNamePrefix = "importer-secret"
 	// ImporterPodNamePrefix provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodNamePrefix = "importer"
 	// ImporterContainerName provides a constant to use as a name for importer Container
@@ -122,7 +124,9 @@ const (
 	DestinationInsecureTLSVar      = "DESTINATION_INSECURE_TLS"
 	ImporterSHA256Sum              = "IMPORTER_SHA256SUM"
 	ImporterMD5Sum                 = "IMPORTER_MD5SUM"
-	ImporterAuthConfig             = "IMPORTER_AUTH_CONFIG"
+	ImporterAuthConfigVar          = "IMPORTER_AUTH_CONFIG"
+	ImporterAuthConfigDir          = "/src-auth"
+	ImporterAuthConfigFile         = "/src-auth/.dockerconfigjson"
 	ImporterDestinationEndpoint    = "IMPORTER_DESTINATION_ENDPOINT"
 	ImporterDestinationAccessKeyID = "IMPORTER_DESTINATION_ACCESS_KEY_ID"
 	ImporterDestinationSecretKey   = "IMPORTER_DESTINATION_SECRET_KEY"
@@ -146,4 +150,6 @@ const (
 
 	// ClonerSourcePodNameSuffix (controller pkg only)
 	ClonerSourcePodNameSuffix = "-source-pod"
+
+	DockerRegistrySchemePrefix = "docker://"
 )

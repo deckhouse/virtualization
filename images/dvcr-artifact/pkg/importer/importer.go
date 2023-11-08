@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"k8s.io/klog/v2"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
@@ -20,10 +20,13 @@ import (
 	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
 )
 
 // FIXME(ilya-lesikov): certdir
+
+const DockerRegistrySchemePrefix = "docker://"
 
 func New() *Importer {
 	return &Importer{}
@@ -57,10 +60,6 @@ func (i *Importer) Run(ctx context.Context) error {
 		return fmt.Errorf("error parsing options: %w", err)
 	}
 
-	if i.srcType == cc.SourceRegistry {
-		return i.runForRegistry(ctx)
-	}
-
 	return i.runForDataSource(ctx)
 }
 
@@ -84,8 +83,8 @@ func (i *Importer) parseOptions() error {
 			if err != nil {
 				return fmt.Errorf("error parsing source auth config: %w", err)
 			}
-
-			i.srcUsername, i.srcPassword, err = auth.CredsFromRegistryAuthFile(authFile, i.src)
+			img := strings.TrimPrefix(i.src, DockerRegistrySchemePrefix)
+			i.srcUsername, i.srcPassword, err = auth.CredsFromRegistryAuthFile(authFile, img)
 			if err != nil {
 				return fmt.Errorf("error getting creds from source auth config: %w", err)
 			}
@@ -112,48 +111,12 @@ func (i *Importer) parseOptions() error {
 	return nil
 }
 
-func (i *Importer) runForRegistry(ctx context.Context) error {
-	srcNameOpts := i.srcNameOptions()
-	srcRemoteOpts := i.srcRemoteOptions(ctx)
-	destNameOpts := i.destNameOptions()
-	destRemoteOpts := i.destRemoteOptions(ctx)
-
-	srcRef, err := name.ParseReference(i.src, srcNameOpts...)
-	if err != nil {
-		return fmt.Errorf("error parsing source image name: %w", err)
-	}
-
-	srcDesc, err := remote.Get(srcRef, srcRemoteOpts...)
-	if err != nil {
-		return fmt.Errorf("error getting source image descriptor: %w", err)
-	}
-
-	srcImage, err := srcDesc.Image()
-	if err != nil {
-		return fmt.Errorf("error getting source image from descriptor: %w", err)
-	}
-
-	destRef, err := name.ParseReference(i.destImageName, destNameOpts...)
-	if err != nil {
-		return fmt.Errorf("error parsing destination image name: %w", err)
-	}
-
-	klog.Infof("Writing image %q to registry", i.destImageName)
-	if err := remote.Write(destRef, srcImage, destRemoteOpts...); err != nil {
-		return fmt.Errorf("error writing image to registry: %w", err)
-	}
-
-	klog.Infoln("Image upload completed")
-	return nil
-}
-
 func (i *Importer) runForDataSource(ctx context.Context) error {
 	ds, err := i.newDataSource(ctx)
 	if err != nil {
 		return fmt.Errorf("error creating data source: %w", err)
 	}
 	defer ds.Close()
-
 	processor, err := registry.NewDataProcessor(ds, registry.DestinationRegistry{
 		ImageName: i.destImageName,
 		Username:  i.destUsername,
@@ -167,8 +130,8 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 	return processor.Process(context.Background())
 }
 
-func (i *Importer) newDataSource(_ context.Context) (importer.DataSourceInterface, error) {
-	var result importer.DataSourceInterface
+func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
+	var result datasource.DataSourceInterface
 
 	switch i.srcType {
 	case cc.SourceHTTP:
@@ -176,6 +139,12 @@ func (i *Importer) newDataSource(_ context.Context) (importer.DataSourceInterfac
 		result, err = importer.NewHTTPDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir, cdiv1.DataVolumeContentType(i.srcContentType))
 		if err != nil {
 			return nil, fmt.Errorf("error creating HTTP data source: %w", err)
+		}
+	case cc.SourceRegistry:
+		var err error
+		result, err = datasource.NewContainerRegistryDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir, i.srcInsecure)
+		if err != nil {
+			return nil, fmt.Errorf("error creating container registry data source: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)
