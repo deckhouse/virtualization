@@ -64,6 +64,23 @@ func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineI
 		if ctrImg := vmi.Spec.DataSource.ContainerImage; ctrImg != nil {
 			importer.UpdateContainerImageSettings(settings, ctrImg)
 		}
+	case cc.SourceDVCR:
+		switch vmi.Spec.DataSource.Type {
+		case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
+			if cvmiImg := vmi.Spec.DataSource.ClusterVirtualMachineImage; cvmiImg != nil {
+				importer.UpdateClusterVirtualMachineImageSettings(settings, cvmiImg, r.dvcrSettings.Registry)
+			}
+		case virtv2alpha1.DataSourceTypeVirtualMachineImage:
+			if vmiImg := vmi.Spec.DataSource.VirtualMachineImage; vmiImg != nil {
+				vi := &virtv2alpha1.DataSourceVirtualMachineImage{
+					Name:      vmiImg.Name,
+					Namespace: vmi.Namespace,
+				}
+				importer.UpdateVirtualMachineImageSettings(settings, vi, r.dvcrSettings.Registry)
+			}
+		default:
+			return nil, fmt.Errorf("unknown dvcr settings source type: %s", vmi.Spec.DataSource.Type)
+		}
 	default:
 		return nil, fmt.Errorf("unknown settings source: %s", settings.Source)
 	}

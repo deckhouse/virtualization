@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -26,7 +27,10 @@ import (
 
 // FIXME(ilya-lesikov): certdir
 
-const DockerRegistrySchemePrefix = "docker://"
+const (
+	DockerRegistrySchemePrefix = "docker://"
+	DVCRSource                 = "dvcr"
+)
 
 func New() *Importer {
 	return &Importer{}
@@ -59,7 +63,9 @@ func (i *Importer) Run(ctx context.Context) error {
 	if err := i.parseOptions(); err != nil {
 		return fmt.Errorf("error parsing options: %w", err)
 	}
-
+	if i.srcType == DVCRSource {
+		return i.runForDVCRSource(ctx)
+	}
 	return i.runForDataSource(ctx)
 }
 
@@ -109,6 +115,15 @@ func (i *Importer) parseOptions() error {
 	}
 
 	return nil
+}
+
+func (i Importer) runForDVCRSource(ctx context.Context) error {
+	craneOpts := i.destCraneOptions(ctx)
+	err := crane.CopyRepository(i.src, i.destImageName, craneOpts...)
+	if err != nil {
+		return fmt.Errorf("error copy repository: %w", err)
+	}
+	return registry.WriteImportCompleteMessage(0, 0, "")
 }
 
 func (i *Importer) runForDataSource(ctx context.Context) error {
@@ -169,7 +184,6 @@ func (i *Importer) destNameOptions() []name.Option {
 	if i.destInsecure {
 		nameOpts = append(nameOpts, name.Insecure)
 	}
-
 	return nameOpts
 }
 
@@ -205,4 +219,21 @@ func (i *Importer) destRemoteOptions(ctx context.Context) []remote.Option {
 	}
 
 	return remoteOpts
+}
+
+func (i Importer) destCraneOptions(ctx context.Context) []crane.Option {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: i.destInsecure,
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = tlsConfig
+
+	craneOpts := []crane.Option{
+		crane.WithContext(ctx),
+		crane.WithTransport(transport),
+		crane.WithAuth(&authn.Basic{Username: i.destUsername, Password: i.destPassword}),
+	}
+
+	return craneOpts
 }
