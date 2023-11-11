@@ -285,7 +285,7 @@ func (p DataProcessor) uploadLayersAndImage(
 		return fmt.Errorf("error uploading image: %w", err)
 	}
 
-	if err := writeImportCompleteMessage(sourceImageSize, imageInfo.VirtualSize, imageInfo.Format); err != nil {
+	if err := WriteImportCompleteMessage(sourceImageSize, imageInfo.VirtualSize, imageInfo.Format); err != nil {
 		return fmt.Errorf("error writing import complete message: %w", err)
 	}
 
@@ -374,7 +374,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 	}
 }
 
-func writeImportCompleteMessage(sourceImageSize, sourceImageVirtualSize int, sourceImageFormat string) error {
+func WriteImportCompleteMessage(sourceImageSize, sourceImageVirtualSize int, sourceImageFormat string) error {
 	rawMsg, err := json.Marshal(util.RegistryImporterInfo{
 		SourceImageSize:        sourceImageSize,
 		SourceImageVirtualSize: sourceImageVirtualSize,

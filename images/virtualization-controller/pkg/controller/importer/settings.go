@@ -1,6 +1,9 @@
 package importer
 
 import (
+	"fmt"
+	"path"
+
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -60,4 +63,12 @@ func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP)
 
 func UpdateContainerImageSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry) {
 	podEnvVars.Endpoint = cc.DockerRegistrySchemePrefix + ctrImg.Image
+}
+
+func UpdateClusterVirtualMachineImageSettings(podEnvVars *Settings, cvmiImg *virtv2alpha1.DataSourceClusterVirtualMachineImage, registry string) {
+	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(common.CVMIImageTmpl, cvmiImg.Name))
+}
+
+func UpdateVirtualMachineImageSettings(podEnvVars *Settings, vmiImg *virtv2alpha1.DataSourceVirtualMachineImage, registry string) {
+	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(common.VMIImageTmpl, vmiImg.Namespace, vmiImg.Name))
 }

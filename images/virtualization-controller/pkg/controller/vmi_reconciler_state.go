@@ -24,16 +24,16 @@ import (
 
 type VMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
-	AttachedVMs []*virtv2.VirtualMachine
-
-	Client  client.Client
-	VMI     *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
-	DV      *cdiv1.DataVolume
-	PVC     *corev1.PersistentVolumeClaim
-	PV      *corev1.PersistentVolume
-	Pod     *corev1.Pod
-	Service *corev1.Service
-	Result  *reconcile.Result
+	AttachedVMs    []*virtv2.VirtualMachine
+	Client         client.Client
+	VMI            *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	DV             *cdiv1.DataVolume
+	PVC            *corev1.PersistentVolumeClaim
+	PV             *corev1.PersistentVolume
+	Pod            *corev1.Pod
+	DVCRDataSource *DataSourcesFromDVCR
+	Service        *corev1.Service
+	Result         *reconcile.Result
 }
 
 func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMIReconcilerState {
@@ -107,6 +107,11 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 			return err
 		}
 		state.Pod = pod
+		dsDvcr, err := NewDVCRDataSource(ctx, state.VMI.Current().Spec.DataSource, state.VMI.Current(), client)
+		if err != nil {
+			return err
+		}
+		state.DVCRDataSource = dsDvcr
 	}
 
 	if dvName, hasKey := state.VMI.Current().Annotations[cc.AnnVMIDataVolume]; hasKey {
@@ -205,12 +210,10 @@ func (state *VMIReconcilerState) ShouldTrackPod() bool {
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *VMIReconcilerState) IsPodInited() bool {
 	switch state.VMI.Current().Spec.DataSource.Type {
-	case virtv2.DataSourceTypeHTTP, virtv2.DataSourceTypeContainerImage:
-		return state.hasImporterPodAnno()
 	case virtv2.DataSourceTypeUpload:
 		return state.hasUploaderPodAnno()
 	default:
-		return true
+		return state.hasImporterPodAnno()
 	}
 }
 
