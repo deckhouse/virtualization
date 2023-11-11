@@ -90,6 +90,9 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			return nil
 		}
 	case !r.isInited(state.CVMI.Changed(), state):
+		if err := r.verifyDataSource(state.CVMI.Current(), state); err != nil {
+			return err
+		}
 		opts.Log.V(1).Info("New CVMI observed, update annotations with Pod name and namespace")
 		// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
 		r.init(state.CVMI.Changed())
@@ -158,13 +161,18 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	switch {
 	case !r.isInited(state.CVMI.Current(), state), state.CVMI.Current().Status.Phase == "":
 		cvmiStatus.Phase = virtv2.ImagePending
+		if err := r.verifyDataSource(state.CVMI.Current(), state); err != nil {
+			cvmiStatus.FailureReason = FailureReasonCannotBeProcessed
+			cvmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
+		}
 	case r.isReady(state.CVMI.Current(), state):
 		break
 	case r.isInProgress(state.CVMI.Current(), state):
 		// Set CVMI status to Provisioning and copy progress metrics from importer/uploader Pod.
 		opts.Log.V(2).Info("Fetch progress", "cvmi.name", state.CVMI.Current().Name)
-
-		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
+		cvmiStatus.Phase = virtv2.ImageProvisioning
+		t := state.CVMI.Current().Spec.DataSource.Type
+		if t == virtv2.DataSourceTypeUpload &&
 			cvmiStatus.UploadCommand == "" &&
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
@@ -174,21 +182,23 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 				state.Service.Spec.Ports[0].Port,
 			)
 		}
-
-		progress, err := monitoring.GetImportProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
-		if err != nil {
-			opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
-			return err
+		var progress *monitoring.ImportProgress
+		if t != virtv2.DataSourceTypeClusterVirtualMachineImage &&
+			t != virtv2.DataSourceTypeVirtualMachineImage {
+			progress, err := monitoring.GetImportProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
+			if err != nil {
+				opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
+				return err
+			}
+			if progress != nil {
+				opts.Log.V(2).Info("Got progress", "cvmi.name", state.CVMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+				cvmiStatus.Progress = progress.Progress()
+				cvmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
+				cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
+				cvmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
+				cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+			}
 		}
-		if progress != nil {
-			opts.Log.V(2).Info("Got progress", "cvmi.name", state.CVMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
-			cvmiStatus.Progress = progress.Progress()
-			cvmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
-			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
-			cvmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
-			cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
-		}
-
 		// Set CVMI phase.
 		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
 			cvmiStatus.Phase = virtv2.ImageWaitForUserUpload
@@ -212,11 +222,37 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 			cvmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
 			cvmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			cvmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+			switch state.CVMI.Current().Spec.DataSource.Type {
+			case virtv2.DataSourceTypeClusterVirtualMachineImage:
+				cvmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
+			case virtv2.DataSourceTypeVirtualMachineImage:
+				cvmiStatus.Format = state.DVCRDataSource.VMI.Status.Format
+			default:
+				cvmiStatus.Format = finalReport.Format
+			}
 		}
 	}
 
 	state.CVMI.Changed().Status = *cvmiStatus
 
+	return nil
+}
+
+func (r *CVMIReconciler) verifyDataSource(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) error {
+	switch cvmi.Spec.DataSource.Type {
+	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+		if err := VerifyDVCRDataSources(cvmi.Spec.DataSource, state.DVCRDataSource); err != nil {
+			return err
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		ns := cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace
+		name := cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name
+		if ns != "" && name != "" {
+			if state.ImagePullSecret == nil || (state.ImagePullSecret.Secret == nil && state.ImagePullSecret.SourceSecret == nil) {
+				return fmt.Errorf("secret %s/%s not found", ns, name)
+			}
+		}
+	}
 	return nil
 }
 
@@ -353,7 +389,7 @@ func (r *CVMIReconciler) ensurePodFinalizers(ctx context.Context, state *CVMIRec
 			}
 		}
 	}
-	if state.ImagePullSecret.Secret != nil {
+	if state.ImagePullSecret != nil && state.ImagePullSecret.Secret != nil {
 		if controllerutil.AddFinalizer(state.ImagePullSecret.Secret, virtv2.FinalizerSecretProtection) {
 			if err := opts.Client.Update(ctx, state.ImagePullSecret.Secret); err != nil {
 				return fmt.Errorf("error setting finalizer on a Secret %q: %w", state.ImagePullSecret.Secret.Name, err)
@@ -380,7 +416,7 @@ func (r *CVMIReconciler) removeFinalizers(ctx context.Context, state *CVMIReconc
 			}
 		}
 	}
-	if state.ImagePullSecret.Secret != nil {
+	if state.ImagePullSecret != nil && state.ImagePullSecret.Secret != nil {
 		if controllerutil.RemoveFinalizer(state.ImagePullSecret.Secret, virtv2.FinalizerSecretProtection) {
 			if err := opts.Client.Update(ctx, state.ImagePullSecret.Secret); err != nil {
 				return fmt.Errorf("unable to remove Secret %q finalizer %q: %w", state.ImagePullSecret.Secret.Name, virtv2.FinalizerSecretProtection, err)

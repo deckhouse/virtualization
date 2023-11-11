@@ -31,13 +31,9 @@ type CVMIReconcilerState struct {
 	Service         *corev1.Service
 	Pod             *corev1.Pod
 	ImagePullSecret *ImagePullSecret
+	DVCRDataSource  *DataSourcesFromDVCR
 	AttachedVMs     []*virtv2.VirtualMachine
 	Result          *reconcile.Result
-}
-
-type ImagePullSecret struct {
-	Secret       *corev1.Secret
-	SourceSecret *corev1.Secret
 }
 
 func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
@@ -87,8 +83,9 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		log.Info("Reconcile observe an absent CVMI: it may be deleted", "CVMI", req.NamespacedName)
 		return nil
 	}
+	t := state.CVMI.Current().Spec.DataSource.Type
 
-	switch state.CVMI.Current().Spec.DataSource.Type {
+	switch t {
 	case virtv2.DataSourceTypeUpload:
 		pod, err := uploader.FindPod(ctx, client, state.CVMI.Current())
 		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
@@ -106,28 +103,21 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 			return err
 		}
-
-		secretName := state.CVMI.Current().Spec.DataSource.ContainerImage.ImagePullSecret.Name
-		secretNS := state.CVMI.Current().Spec.DataSource.ContainerImage.ImagePullSecret.Namespace
-		if secretName != "" && secretNS != "" {
-			secret, err := importer.FindSecret(ctx, client, state.CVMI.Current())
-			if err != nil && !errors.Is(err, importer.ErrSecretNameNotFound) {
-				return err
-			}
-			imgPullSecret := &ImagePullSecret{Secret: secret}
-			if !errors.Is(err, importer.ErrSecretNameNotFound) {
-				srcSecret, err := helper.FetchObject[*corev1.Secret](ctx, types.NamespacedName{Name: secretName, Namespace: secretNS}, client, &corev1.Secret{})
-				if err != nil {
-					return err
-				}
-				if srcSecret == nil {
-					return ErrImagePullSecretNotFound
-				}
-				imgPullSecret.SourceSecret = srcSecret
-				state.ImagePullSecret = imgPullSecret
-			}
-		}
 		state.Pod = pod
+	}
+	switch t {
+	case virtv2.DataSourceTypeContainerImage:
+		imgPullSecret, err := NewImagePullSecret(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)
+		if err != nil {
+			return err
+		}
+		state.ImagePullSecret = imgPullSecret
+	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+		dsDvcr, err := NewDVCRDataSource(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)
+		if err != nil {
+			return err
+		}
+		state.DVCRDataSource = dsDvcr
 	}
 
 	return state.AttacheeState.Reload(ctx, req, log, client)

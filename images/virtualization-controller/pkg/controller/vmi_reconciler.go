@@ -115,6 +115,9 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		// Start and track importer/uploader Pod.
 		switch {
 		case !state.IsPodInited():
+			if err := r.verifyDataSource(state.VMI.Current(), state); err != nil {
+				return err
+			}
 			opts.Log.V(1).Info("Update annotations with Pod name and namespace")
 			r.initPodName(state.VMI.Changed())
 			// Update annotations and status and restart reconcile to create an importer Pod.
@@ -211,13 +214,19 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	case vmiStatus.Phase == "":
 		vmiStatus.Phase = virtv2.ImagePending
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		if err := r.verifyDataSource(state.VMI.Current(), state); err != nil {
+			vmiStatus.FailureReason = FailureReasonCannotBeProcessed
+			vmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
+		}
 	case state.IsReady():
 		// No need to update status.
 		break
 	case state.ShouldTrackPod() && state.IsPodInProgress():
 		opts.Log.V(2).Info("Fetch progress from Pod", "vmi.name", state.VMI.Current().GetName())
 
-		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
+		vmiStatus.Phase = virtv2.ImageProvisioning
+		t := state.VMI.Current().Spec.DataSource.Type
+		if t == virtv2.DataSourceTypeUpload &&
 			vmiStatus.UploadCommand == "" &&
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
@@ -227,24 +236,27 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 				state.Service.Spec.Ports[0].Port,
 			)
 		}
-
-		progress, err := monitoring.GetImportProgressFromPod(string(state.VMI.Current().GetUID()), state.Pod)
-		if err != nil {
-			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
-			return err
-		}
-		if progress != nil {
-			opts.Log.V(2).Info("Got progress", "vmi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
-			// map 0-100% to 0-50%.
-			progressPct := progress.Progress()
-			if state.ShouldTrackDataVolume() {
-				progressPct = common.ScalePercentage(progressPct, 0, 50.0)
+		var progress *monitoring.ImportProgress
+		if t != virtv2.DataSourceTypeClusterVirtualMachineImage &&
+			t != virtv2.DataSourceTypeVirtualMachineImage {
+			progress, err := monitoring.GetImportProgressFromPod(string(state.VMI.Current().GetUID()), state.Pod)
+			if err != nil {
+				opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
+				return err
 			}
-			vmiStatus.Progress = progressPct
-			vmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
-			vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
-			vmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
-			vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+			if progress != nil {
+				opts.Log.V(2).Info("Got progress", "vmi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+				// map 0-100% to 0-50%.
+				progressPct := progress.Progress()
+				if state.ShouldTrackDataVolume() {
+					progressPct = common.ScalePercentage(progressPct, 0, 50.0)
+				}
+				vmiStatus.Progress = progressPct
+				vmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
+				vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
+				vmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
+				vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+			}
 		}
 
 		// Set VMI phase.
@@ -273,6 +285,14 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
 			vmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			vmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+			switch state.VMI.Current().Spec.DataSource.Type {
+			case virtv2.DataSourceTypeClusterVirtualMachineImage:
+				vmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
+			case virtv2.DataSourceTypeVirtualMachineImage:
+				vmiStatus.Format = state.DVCRDataSource.VMI.Status.Format
+			default:
+				vmiStatus.Format = finalReport.Format
+			}
 		}
 		// Set target image name the same way as for the importer/uploader Pod.
 		vmiStatus.Target.RegistryURL = cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromVMI(state.VMI.Current()))
@@ -423,6 +443,10 @@ func (r *VMIReconciler) removeFinalizers(ctx context.Context, state *VMIReconcil
 	controllerutil.RemoveFinalizer(state.VMI.Changed(), virtv2.FinalizerVMICleanup)
 
 	return nil
+}
+
+func (r *VMIReconciler) verifyDataSource(vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState) error {
+	return VerifyDVCRDataSources(vmi.Spec.DataSource, state.DVCRDataSource)
 }
 
 // initPodName creates new name and update it in the annotation.

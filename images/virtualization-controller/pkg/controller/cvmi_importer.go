@@ -49,8 +49,7 @@ func (r *CVMIReconciler) startImporterPod(
 		}
 		opts.Log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
 	}
-
-	if imgPullSecret.Secret == nil && imgPullSecret.SourceSecret != nil {
+	if imgPullSecret != nil && imgPullSecret.Secret == nil && imgPullSecret.SourceSecret != nil {
 		if err := r.createImporterAuthSecret(ctx, cvmi, pod, imgPullSecret.SourceSecret, opts); err != nil {
 			return err
 		}
@@ -65,7 +64,6 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 		Verbose: r.verbose,
 		Source:  cc.GetSource(cvmi.Spec.DataSource),
 	}
-
 	switch settings.Source {
 	case cc.SourceHTTP:
 		if http := cvmi.Spec.DataSource.HTTP; http != nil {
@@ -77,6 +75,19 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 		}
 		if ctrImg := cvmi.Spec.DataSource.ContainerImage; ctrImg != nil {
 			importer.UpdateContainerImageSettings(settings, ctrImg)
+		}
+	case cc.SourceDVCR:
+		switch cvmi.Spec.DataSource.Type {
+		case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
+			if cvmiImg := cvmi.Spec.DataSource.ClusterVirtualMachineImage; cvmiImg != nil {
+				importer.UpdateClusterVirtualMachineImageSettings(settings, cvmiImg, r.dvcrSettings.Registry)
+			}
+		case virtv2alpha1.DataSourceTypeVirtualMachineImage:
+			if vmiImg := cvmi.Spec.DataSource.VirtualMachineImage; vmiImg != nil {
+				importer.UpdateVirtualMachineImageSettings(settings, vmiImg, r.dvcrSettings.Registry)
+			}
+		default:
+			return nil, fmt.Errorf("unknown dvcr settings source type: %s", cvmi.Spec.DataSource.Type)
 		}
 	case cc.SourceNone:
 	default:
