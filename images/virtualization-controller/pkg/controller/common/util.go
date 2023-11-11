@@ -208,7 +208,8 @@ const (
 	SourceImageio = "imageio"
 	// SourceVDDK is the source type of VDDK
 	SourceVDDK = "vddk"
-
+	// SourceDVCR is the source type of dvcr
+	SourceDVCR = "dvcr"
 	// ClaimLost reason const
 	ClaimLost = "ClaimLost"
 	// NotFound reason const
@@ -344,6 +345,8 @@ func GetSource(ds virtv2alpha1.DataSource) string {
 		return SourceHTTP
 	case virtv2alpha1.DataSourceTypeContainerImage:
 		return SourceRegistry
+	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage, virtv2alpha1.DataSourceTypeVirtualMachineImage:
+		return SourceDVCR
 	default:
 		return SourceHTTP
 	}

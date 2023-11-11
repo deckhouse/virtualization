@@ -286,6 +286,10 @@ spec:
                       type: string
                       example: 5123456
                       description: Current download speed in bytes per second.
+                format: 
+                  type: string 
+                  description: |
+                    Discovered format of the image.
                 size:
                   type: object
                   description: |
