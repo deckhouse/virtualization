@@ -15,6 +15,9 @@ spec:
     plural: virtualmachineimages
     singular: virtualmachineimage
     kind: VirtualMachineImage
+    shortNames:
+      - vmi
+      - vmis
   preserveUnknownFields: false
   versions:
     - name: v2alpha1
