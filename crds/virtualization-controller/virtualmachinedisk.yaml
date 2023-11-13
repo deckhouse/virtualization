@@ -15,6 +15,9 @@ spec:
     plural: virtualmachinedisks
     singular: virtualmachinedisk
     kind: VirtualMachineDisk
+    shortNames:
+      - vmd
+      - vmds
   preserveUnknownFields: false
   versions:
     - name: v2alpha1

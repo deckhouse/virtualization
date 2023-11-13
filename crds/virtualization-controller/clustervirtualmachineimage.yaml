@@ -14,6 +14,9 @@ spec:
     plural: clustervirtualmachineimages
     singular: clustervirtualmachineimage
     kind: ClusterVirtualMachineImage
+    shortNames:
+      - cvmi
+      - cvmis
   preserveUnknownFields: false
   versions:
     - name: v2alpha1

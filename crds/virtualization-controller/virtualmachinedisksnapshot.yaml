@@ -15,6 +15,9 @@ spec:
     plural: virtualmachinedisksnapshots
     singular: virtualmachinedisksnapshot
     kind: VirtualMachineDiskSnapshot
+    shortNames:
+      - vmdsnapshot
+      - vmdsnapshots
   preserveUnknownFields: false
   versions:
     - name: v2alpha1
