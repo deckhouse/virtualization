@@ -78,7 +78,7 @@ class GenerateSecretHook(Hook):
                     self.set_value(key.value_path, ctx.values, key_from_secret)
                 except (IndexError, KeyError):
                     print(f"Generate new key {key.name} for secret {self.secret_name}.")
-                    genkey = utils.base64_encode_from_str(password_generator.alpha_num_symbols(key.lenght))
+                    genkey = utils.base64_encode_from_str(password_generator.alpha_num(key.lenght))
                     self.set_value(key.value_path, ctx.values, genkey)
         return r
 
