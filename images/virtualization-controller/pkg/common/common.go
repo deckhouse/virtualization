@@ -108,12 +108,13 @@ const (
 	// ImporterSecretExtraHeadersDir is where the secrets containing extra HTTP headers will be mounted
 	ImporterSecretExtraHeadersDir = "/extraheaders"
 
-	// ImporterDestinationRegistryVar is a DVCR registry name.
-	ImporterDestinationRegistryVar = "IMPORTER_DESTINATION_REGISTRY"
-	// ImporterDestinationAuthSecretVar is a name of the Secret with auth config for DVCR.
-	ImporterDestinationAuthSecretVar = "IMPORTER_DESTINATION_AUTH_SECRET"
-	// ImporterDestinationInsecureTLSVar defines whether DVCR is insecure.
-	ImporterDestinationInsecureTLSVar = "IMPORTER_DESTINATION_INSECURE_TLS"
+	// DVCRAddressVar is an env variable holds address to DVCR registry.
+	DVCRRegistryURLVar = "DVCR_REGISTRY_URL"
+	// DVCRAuthSecretVar is an env variable holds the name of the Secret with DVCR auth credentials.
+	DVCRAuthSecretVar = "DVCR_AUTH_SECRET"
+	// DVCRInsecureTLSVar is an env variable holds the flag whether DVCR is insecure.
+	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
+
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
 	ImporterDestinationAuthConfigDir = "/ghcr-io-auth"
 	// ImporterDestinationAuthConfigVar is an environment variable with auth config file for Importer Pod.

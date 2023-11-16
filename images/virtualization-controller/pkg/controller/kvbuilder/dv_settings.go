@@ -8,10 +8,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
-func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize resource.Quantity, dvcrSettings *cc.DVCRSettings) error {
+func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize resource.Quantity, dvcrSettings *dvcr.Settings) error {
 	if vmd == nil {
 		return nil
 	}
@@ -21,12 +21,12 @@ func ApplyVirtualMachineDiskSpec(dv *DV, vmd *virtv2.VirtualMachineDisk, pvcSize
 		Kind:    virtv2.VMDKind,
 	}
 
-	dvcrImageName := cc.DVCREndpointForImporter(dvcrSettings, cc.DVCRImageNameFromVMD(vmd))
+	dvcrImageName := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForVMD(vmd))
 
 	return applyDVSettings(dv, vmd, gvk, vmd.Spec.DataSource, pvcSize, vmd.Spec.PersistentVolumeClaim.StorageClassName, dvcrImageName)
 }
 
-func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSize resource.Quantity, dvcrSettings *cc.DVCRSettings) error {
+func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSize resource.Quantity, dvcrSettings *dvcr.Settings) error {
 	if vmi == nil {
 		return nil
 	}
@@ -36,7 +36,7 @@ func ApplyVirtualMachineImageSpec(dv *DV, vmi *virtv2.VirtualMachineImage, pvcSi
 		Kind:    virtv2.VMIKind,
 	}
 
-	dvcrImageName := cc.DVCREndpointForImporter(dvcrSettings, cc.DVCRImageNameFromVMI(vmi))
+	dvcrImageName := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForVMI(vmi))
 
 	return applyDVSettings(dv, vmi, gvk, &vmi.Spec.DataSource, pvcSize, vmi.Spec.PersistentVolumeClaim.StorageClassName, dvcrImageName)
 }

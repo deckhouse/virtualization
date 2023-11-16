@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -26,7 +26,7 @@ func NewCVMIController(
 	importerImage string,
 	uploaderImage string,
 	controllerNamespace string,
-	dvcrSettings *cc.DVCRSettings,
+	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	reconciler := NewCVMIReconciler(
 		importerImage,

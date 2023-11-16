@@ -11,6 +11,7 @@ import (
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -80,11 +81,11 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 		switch cvmi.Spec.DataSource.Type {
 		case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
 			if cvmiImg := cvmi.Spec.DataSource.ClusterVirtualMachineImage; cvmiImg != nil {
-				importer.UpdateClusterVirtualMachineImageSettings(settings, cvmiImg, r.dvcrSettings.Registry)
+				importer.UpdateClusterVirtualMachineImageSettings(settings, cvmiImg, r.dvcrSettings.RegistryURL)
 			}
 		case virtv2alpha1.DataSourceTypeVirtualMachineImage:
 			if vmiImg := cvmi.Spec.DataSource.VirtualMachineImage; vmiImg != nil {
-				importer.UpdateVirtualMachineImageSettings(settings, vmiImg, r.dvcrSettings.Registry)
+				importer.UpdateVirtualMachineImageSettings(settings, vmiImg, r.dvcrSettings.RegistryURL)
 			}
 		default:
 			return nil, fmt.Errorf("unknown dvcr settings source type: %s", cvmi.Spec.DataSource.Type)
@@ -95,7 +96,7 @@ func (r *CVMIReconciler) createImporterSettings(cvmi *virtv2alpha1.ClusterVirtua
 	}
 
 	// Set DVCR settings.
-	importer.UpdateDVCRSettings(settings, r.dvcrSettings, cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromCVMI(cvmi)))
+	importer.UpdateDVCRSettings(settings, r.dvcrSettings, dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForCVMI(cvmi)))
 
 	// TODO Update proxy settings.
 

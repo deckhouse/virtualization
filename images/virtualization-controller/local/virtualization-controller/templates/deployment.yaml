@@ -45,16 +45,14 @@ spec:
               fieldPath: metadata.namespace
         - name: IMPORTER_IMAGE
           value: {{ .Values.images.importer | quote }}
-        - name: IMPORTER_DESTINATION_AUTH_SECRET
-          value: {{ .Values.dvcr.authSecret | quote }}
-        - name: IMPORTER_DESTINATION_REGISTRY
-          value: {{ .Values.dvcr.registry | quote }}
-        - name: IMPORTER_DESTINATION_INSECURE_TLS
-          value: {{ .Values.dvcr.insecureTLS | quote }}
-        - name: DVCR_ADDRESS_FOR_VM_LAUNCHER
-          value: {{ .Values.dvcr.registryForVM | quote }}
         - name: UPLOADER_IMAGE
           value: {{ .Values.images.uploader | quote }}
+        - name: DVCR_REGISTRY_URL
+          value: {{ .Values.dvcr.registryURL | quote }}
+        - name: DVCR_AUTH_SECRET
+          value: {{ .Values.dvcr.authSecret | quote }}
+        - name: DVCR_INSECURE_TLS
+          value: {{ .Values.dvcr.insecureTLS | quote }}
 
       dnsPolicy: Default
       serviceAccountName: {{ .Release.Name }}

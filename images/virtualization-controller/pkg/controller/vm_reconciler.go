@@ -22,11 +22,12 @@ import (
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 type VMReconciler struct {
-	dvcrSettings *cc.DVCRSettings
+	dvcrSettings *dvcr.Settings
 }
 
 func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
