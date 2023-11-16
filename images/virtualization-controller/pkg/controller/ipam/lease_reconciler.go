@@ -70,13 +70,19 @@ func (r *LeaseReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	return nil
 }
 
-func (r *LeaseReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *LeaseReconcilerState, _ two_phase_reconciler.ReconcilerOptions) error {
+func (r *LeaseReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, state *LeaseReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// Do nothing if object is being deleted as any update will lead to en error.
 	if state.isDeletion() {
 		return nil
 	}
 
+	if state.Claim == nil && state.Lease.Current().Spec.ReclaimPolicy == virtv2.VirtualMachineIPAddressReclaimPolicyDelete {
+		return opts.Client.Delete(ctx, state.Lease.Current())
+	}
+
 	leaseStatus := state.Lease.Current().Status.DeepCopy()
+
+	state.Lease.Changed().Status = *leaseStatus
 
 	switch {
 	case state.Claim != nil:
