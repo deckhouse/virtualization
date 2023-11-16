@@ -25,6 +25,8 @@ type VirtualMachineIPAddressLeaseList struct {
 type VirtualMachineIPAddressLeaseSpec struct {
 	// The link to existing `VirtualMachineIPAddressClaim`.
 	ClaimRef *VirtualMachineIPAddressLeaseClaimRef `json:"claimRef,omitempty"`
+	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
+	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
 
 type VirtualMachineIPAddressLeaseClaimRef struct {
@@ -33,6 +35,13 @@ type VirtualMachineIPAddressLeaseClaimRef struct {
 	// The name of the referenced `VirtualMachineIPAddressClaim`.
 	Name string `json:"name"`
 }
+
+type VirtualMachineIPAddressReclaimPolicy string
+
+const (
+	VirtualMachineIPAddressReclaimPolicyDelete VirtualMachineIPAddressReclaimPolicy = "Delete"
+	VirtualMachineIPAddressReclaimPolicyRetain VirtualMachineIPAddressReclaimPolicy = "Retain"
+)
 
 // VirtualMachineIPAddressLeaseStatus is the observed state of `VirtualMachineIPAddressLease`.
 type VirtualMachineIPAddressLeaseStatus struct {
