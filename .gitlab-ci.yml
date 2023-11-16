@@ -252,6 +252,15 @@ show_module_manifest:
         name: ${MODULE_NAME}
       spec:
         enabled: true
-        settings: {}
+        settings:
+          dvcr:
+            storage:
+              type: PersistentVolumeClaim
+              persistentVolumeClaim:
+                size: 50G
+          vmCIDRs:
+            - 10.66.10.0/24
+            - 10.66.20.0/24
+            - 10.66.30.0/24
         version: 1
     EOF
