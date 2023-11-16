@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -25,7 +25,7 @@ func NewVMDController(
 	log logr.Logger,
 	importerImage string,
 	uploaderImage string,
-	dvcrSettings *cc.DVCRSettings,
+	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	reconciler := NewVMDReconciler(
 		importerImage,

@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -43,10 +44,10 @@ type VMDReconciler struct {
 	uploaderImage string
 	verbose       string
 	pullPolicy    string
-	dvcrSettings  *cc.DVCRSettings
+	dvcrSettings  *dvcr.Settings
 }
 
-func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *cc.DVCRSettings) *VMDReconciler {
+func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *VMDReconciler {
 	return &VMDReconciler{
 		importerImage: importerImage,
 		uploaderImage: uploaderImage,

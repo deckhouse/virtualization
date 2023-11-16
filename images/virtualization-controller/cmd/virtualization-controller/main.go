@@ -22,7 +22,7 @@ import (
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 	importerImage       string
 	uploaderImage       string
 	controllerNamespace string
-	dvcrSettings        *cc.DVCRSettings
+	dvcrSettings        *dvcr.Settings
 )
 
 const defaultVerbosity = "1"
@@ -46,11 +46,11 @@ func init() {
 	importerImage = getRequiredEnvVar(common.ImporterPodImageNameVar)
 	uploaderImage = getRequiredEnvVar(common.UploaderPodImageNameVar)
 	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
-	dvcrSettings = cc.NewDVCRSettings(
-		getRequiredEnvVar(common.ImporterDestinationAuthSecretVar),
-		getRequiredEnvVar(common.ImporterDestinationRegistryVar),
-		os.Getenv(common.DVCRAddressForVMLauncherVar),
-		getRequiredEnvVar(common.ImporterDestinationInsecureTLSVar))
+	dvcrSettings = &dvcr.Settings{
+		AuthSecret:  getRequiredEnvVar(common.DVCRAuthSecretVar),
+		RegistryURL: getRequiredEnvVar(common.DVCRRegistryURLVar),
+		InsecureTLS: getRequiredEnvVar(common.DVCRInsecureTLSVar),
+	}
 }
 
 func setupLogger() {
