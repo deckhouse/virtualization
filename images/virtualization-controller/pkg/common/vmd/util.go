@@ -40,6 +40,18 @@ func GetDataSourceType(vmd *virtv2alpha1.VirtualMachineDisk) string {
 	return string(vmd.Spec.DataSource.Type)
 }
 
+func IsDVCRSource(vmd *virtv2alpha1.VirtualMachineDisk) bool {
+	if vmd == nil || vmd.Spec.DataSource == nil {
+		return false
+	}
+	switch vmd.Spec.DataSource.Type {
+	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage,
+		virtv2alpha1.DataSourceTypeVirtualMachineImage:
+		return true
+	}
+	return false
+}
+
 func IsTwoPhaseImport(vmd *virtv2alpha1.VirtualMachineDisk) bool {
 	if vmd == nil || vmd.Spec.DataSource == nil {
 		return false

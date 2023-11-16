@@ -14,8 +14,8 @@ type Settings struct {
 	DestinationAuthSecret  string
 }
 
-func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, endpoint string) {
+func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, dvcrImageName string) {
 	podEnvVars.DestinationAuthSecret = dvcrSettings.AuthSecret
 	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
-	podEnvVars.DestinationEndpoint = endpoint
+	podEnvVars.DestinationEndpoint = dvcrImageName
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
-	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -80,8 +79,8 @@ func (r *VMIReconciler) makeDataVolumeFromVMI(vmi *virtv2.VirtualMachineImage, d
 		// The image was preloaded from source into dvcr.
 		// We can't use the same data source a second time, but we can set dvcr as the data source.
 		// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-		dvcrImageName := dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMI(vmi))
-		dvBuilder.SetRegistryDataSource(dvcrImageName, dvName.Name, dvName.Name)
+		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
+		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, dvName.Name, dvName.Name)
 	default:
 		return nil, fmt.Errorf("unsupported dataSource type %q", vmiutil.GetDataSourceType(vmi))
 	}
@@ -94,35 +93,42 @@ func (r *VMIReconciler) makeDataVolumeFromVMI(vmi *virtv2.VirtualMachineImage, d
 	return dvBuilder.GetResource(), nil
 }
 
+// copyDVCRSecrets copies auth Secret and ca bundle ConfigMap to access DVCR by CDI.
 func (r *VMIReconciler) copyDVCRSecrets(ctx context.Context, client client.Client, vmi *virtv2.VirtualMachineImage, targetName string, ownerRef metav1.OwnerReference) error {
-	authCopier := &copier.AuthSecret{
-		Source: types.NamespacedName{
-			Name:      r.dvcrSettings.AuthSecret,
-			Namespace: r.dvcrSettings.AuthSecretNamespace,
-		},
-		Destination: types.NamespacedName{
-			Name:      targetName,
-			Namespace: vmi.GetNamespace(),
-		},
-		OwnerReference: ownerRef,
+	if r.dvcrSettings.AuthSecret != "" {
+		authCopier := &copier.AuthSecret{
+			Source: types.NamespacedName{
+				Name:      r.dvcrSettings.AuthSecret,
+				Namespace: r.dvcrSettings.AuthSecretNamespace,
+			},
+			Destination: types.NamespacedName{
+				Name:      targetName,
+				Namespace: vmi.GetNamespace(),
+			},
+			OwnerReference: ownerRef,
+		}
+
+		err := authCopier.CopyCDICompatible(ctx, client, r.dvcrSettings.RegistryURL)
+		if err != nil {
+			return err
+		}
 	}
 
-	err := authCopier.CopyCDICompatible(ctx, client, r.dvcrSettings.RegistryURL)
-	if err != nil {
-		return err
+	if r.dvcrSettings.CertsSecret != "" {
+		caBundleCopier := &copier.CABundleConfigMap{
+			SourceSecret: types.NamespacedName{
+				Name:      r.dvcrSettings.CertsSecret,
+				Namespace: r.dvcrSettings.CertsSecretNamespace,
+			},
+			Destination: types.NamespacedName{
+				Name:      targetName,
+				Namespace: vmi.GetNamespace(),
+			},
+			OwnerReference: ownerRef,
+		}
+
+		return caBundleCopier.Copy(ctx, client)
 	}
 
-	caBundleCopier := &copier.CABundleConfigMap{
-		SourceSecret: types.NamespacedName{
-			Name:      r.dvcrSettings.CertsSecret,
-			Namespace: r.dvcrSettings.CertsSecretNamespace,
-		},
-		Destination: types.NamespacedName{
-			Name:      targetName,
-			Namespace: vmi.GetNamespace(),
-		},
-		OwnerReference: ownerRef,
-	}
-
-	return caBundleCopier.Copy(ctx, client)
+	return nil
 }
