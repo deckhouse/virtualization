@@ -92,7 +92,7 @@ func ApplyVirtualMachineSpec(
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
 				})
 			case virtv2.StorageContainerRegistry:
-				dvcrImage := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForVMI(vmi))
+				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
 				kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: util.GetPointer(dvcrImage),
 					IsCdrom:       vmi.Status.CDROM,
@@ -112,7 +112,7 @@ func ApplyVirtualMachineSpec(
 				panic(fmt.Sprintf("unexpected CVMI %q status phase %q: expected ready phase, please report a bug", cvmi.Name, cvmi.Status.Phase))
 			}
 			name := GenerateCVMIDiskName(bd.ClusterVirtualMachineImage.Name)
-			dvcrImage := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForCVMI(cvmi))
+			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
 			kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       cvmi.Status.CDROM,

@@ -188,6 +188,11 @@ func (state *VMDReconcilerState) ShouldTrackPod() bool {
 		return false
 	}
 
+	// Importer Pod is not needed if source image is already in DVCR.
+	if vmdutil.IsDVCRSource(state.VMD.Current()) {
+		return false
+	}
+
 	// Use 2 phase import process for HTTP, Upload and ContainerImage sources.
 	return vmdutil.IsTwoPhaseImport(state.VMD.Current())
 }

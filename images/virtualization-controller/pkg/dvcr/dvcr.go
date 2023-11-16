@@ -3,8 +3,6 @@ package dvcr
 import (
 	"fmt"
 	"path"
-
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 )
 
 type Settings struct {
@@ -28,25 +26,20 @@ const (
 	VMDImageTmpl  = "vmd/%s/%s"
 )
 
-// ImagePathForCVMI returns image name for CVMI.
-func ImagePathForCVMI(cvmi *virtv2alpha1.ClusterVirtualMachineImage) string {
-	ep := fmt.Sprintf(CVMIImageTmpl, cvmi.Name)
-	return path.Clean(ep)
+// RegistryImageForCVMI returns image name for CVMI.
+func (s *Settings) RegistryImageForCVMI(name string) string {
+	imgPath := path.Clean(fmt.Sprintf(CVMIImageTmpl, name))
+	return path.Join(s.RegistryURL, imgPath)
 }
 
-// ImagePathForVMI returns image name for VMI.
-func ImagePathForVMI(vmi *virtv2alpha1.VirtualMachineImage) string {
-	ep := fmt.Sprintf(VMIImageTmpl, vmi.Namespace, vmi.Name)
-	return path.Clean(ep)
+// RegistryImageForVMI returns image name for VMI.
+func (s *Settings) RegistryImageForVMI(name, namespace string) string {
+	imgPath := path.Clean(fmt.Sprintf(VMIImageTmpl, namespace, name))
+	return path.Join(s.RegistryURL, imgPath)
 }
 
-// ImagePathForVMD returns image name for VMD.
-func ImagePathForVMD(vmd *virtv2alpha1.VirtualMachineDisk) string {
-	ep := fmt.Sprintf(VMDImageTmpl, vmd.Namespace, vmd.Name)
-	return path.Clean(ep)
-}
-
-// RegistryImageName prepares full registry URL for image path to use by dvcr-importer, dvcr-uploader, and DataVolume.
-func RegistryImageName(dvcr *Settings, imagePath string) string {
-	return path.Join(dvcr.RegistryURL, imagePath)
+// RegistryImageForVMD returns image name for VMD.
+func (s *Settings) RegistryImageForVMD(name, namespace string) string {
+	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, namespace, name))
+	return path.Join(s.RegistryURL, imgPath)
 }
