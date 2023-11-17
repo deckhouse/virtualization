@@ -49,6 +49,7 @@ type VirtualMachineSpec struct {
 	CPU                           CPUSpec           `json:"cpu"`
 	Memory                        MemorySpec        `json:"memory"`
 	BlockDevices                  []BlockDeviceSpec `json:"blockDevices"`
+	Provisioning                  *Provisioning     `json:"provisioning"`
 }
 
 type RunPolicy string
@@ -96,6 +97,12 @@ type Disruptions struct {
 	ApprovalMode ApprovalMode `json:"approvalMode"`
 }
 
+type Provisioning struct {
+	Type              ProvisioningType             `json:"type"`
+	UserData          string                       `json:"userData"`
+	UserDataSecretRef *corev1.LocalObjectReference `json:"userDataSecretRef"`
+}
+
 type VirtualMachineStatus struct {
 	Phase                MachinePhase                             `json:"phase"`
 	NodeName             string                                   `json:"nodeName"`
@@ -123,3 +130,10 @@ type VirtualMachineList struct {
 	metav1.ListMeta `json:"metadata"`
 	Items           []VirtualMachine `json:"items"`
 }
+
+type ProvisioningType string
+
+const (
+	ProvisioningTypeUserData       ProvisioningType = "UserData"
+	ProvisioningTypeUserDataSecret ProvisioningType = "UserDataSecret"
+)
