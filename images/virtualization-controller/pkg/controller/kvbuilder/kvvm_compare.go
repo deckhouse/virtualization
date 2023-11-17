@@ -440,10 +440,21 @@ func CompareTablet(curr, next *KVVM) (*ChangeApplyAction, error) {
 }
 
 func CompareCloudInit(curr, next *KVVM) (*ChangeApplyAction, error) {
-	// TODO(VM): implement along with KVVM.SetCloudInit.
-	_ = curr
-	_ = next
-	return nil, nil
+	currSettings := curr.GetCloudInitSettings()
+	nextSettings := next.GetCloudInitSettings()
+	if reflect.DeepEqual(currSettings, nextSettings) {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: CloudInitDiskName,
+				Curr:  "old",
+				Next:  "new",
+			},
+		},
+	}, nil
 }
 
 // CompareOSType compares some devices and some features to detect changes on OSType change.
