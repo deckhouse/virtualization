@@ -107,6 +107,7 @@ func ApplyVirtualMachineSpec(
 			IsHotplugged:          true,
 		})
 	}
+	kvvm.SetCloudInit(vm.Spec.Provisioning)
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
 		Group:   virtv2.SchemeGroupVersion.Group,

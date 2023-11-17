@@ -18,6 +18,8 @@ import (
 // TODO(VM): KVVM builder should know which fields are allowed to be changed on-fly, and what params need a new KVVM instance.
 // TODO(VM): Somehow report from this layer that "restart is needed" and controller will do other "effectiveSpec"-related stuff.
 
+const CloudInitDiskName = "cloudinit"
+
 type KVVMOptions struct {
 	EnableParavirtualization bool
 	OsType                   virtv2.OsType
@@ -100,6 +102,8 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 }
 
 type SetDiskOptions struct {
+	Provisioning *virtv2.Provisioning
+
 	ContainerDisk         *string
 	PersistentVolumeClaim *string
 
@@ -150,6 +154,21 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 		vs.ContainerDisk = &virtv1.ContainerDiskSource{
 			Image: *opts.ContainerDisk,
 		}
+
+	case opts.Provisioning != nil:
+		switch opts.Provisioning.Type {
+		case virtv2.ProvisioningTypeUserData:
+			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
+				UserData: opts.Provisioning.UserData,
+			}
+		case virtv2.ProvisioningTypeUserDataSecret:
+			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
+				UserDataSecretRef: opts.Provisioning.UserDataSecretRef,
+			}
+		default:
+			panic("expected either Provisioning.UserData or Provisioning.UserDataSecretRef to be set, please report a bug")
+		}
+
 	default:
 		panic("expected either opts.PersistentVolumeClaim or opts.ContainerDisk to be set, please report a bug")
 	}
@@ -191,9 +210,31 @@ func (b *KVVM) HasTablet(name string) bool {
 	return false
 }
 
-func (b *KVVM) SetCloudInit() {
-	// TODO(VM): implement this helper to attach cloud-init volume with an initialization data
-	// TODO(VM): implement CompareCloudInit in kvvm_diff.
+func (b *KVVM) SetCloudInit(p *virtv2.Provisioning) {
+	if p != nil {
+		b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
+	}
+}
+
+func (b KVVM) GetCloudInitSettings() map[string]interface{} {
+	var disk virtv1.Disk
+	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+		if d.Name == CloudInitDiskName {
+			disk = d
+			break
+		}
+	}
+	var volume virtv1.Volume
+	for _, v := range b.Resource.Spec.Template.Spec.Volumes {
+		if v.Name == CloudInitDiskName && v.CloudInitNoCloud != nil {
+			volume = v
+			break
+		}
+	}
+	return map[string]interface{}{
+		"disk":   &disk,
+		"volume": &volume,
+	}
 }
 
 func (b *KVVM) SetOsType(osType virtv2.OsType) {

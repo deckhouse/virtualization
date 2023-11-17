@@ -38,6 +38,36 @@ spec:
                 - memory
                 - blockDevices
               properties:
+                provisioning:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - UserData
+                        - UserDataSecret
+                    userData:
+                      type: string
+                    userDataSecretRef:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                      required: ["name"]
+                  oneOf:
+                  - properties:
+                      type:
+                        enum: ['UserData']
+                    required: ['userData']
+                    not:
+                      required: ['userDataSecretRef']
+                  - properties:
+                      type:
+                        enum: ['UserDataSecret']
+                      userDataSecretRef: {}
+                    required: ['userDataSecretRef']
+                    not:
+                      required: ['userData']
                 runPolicy:
                   type: string
                   enum:
@@ -526,7 +556,7 @@ spec:
                 terminationGracePeriodSeconds:
                   format: int64
                   type: integer
-                  default: 60 
+                  default: 60
                   description: Grace period observed after signalling a VM to stop after which the VM is force terminated.
 
                 enableParavirtualization:
