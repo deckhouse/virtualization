@@ -9,6 +9,7 @@ import (
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -74,7 +75,7 @@ func (r *VMDReconciler) createImporterSettings(vmd *virtv2alpha1.VirtualMachineD
 	}
 
 	// Set DVCR settings.
-	importer.UpdateDVCRSettings(settings, r.dvcrSettings, cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromVMD(vmd)))
+	importer.UpdateDVCRSettings(settings, r.dvcrSettings, dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMD(vmd)))
 
 	// TODO Update proxy settings.
 

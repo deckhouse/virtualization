@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -44,10 +45,10 @@ type VMIReconciler struct {
 	uploaderImage string
 	verbose       string
 	pullPolicy    string
-	dvcrSettings  *cc.DVCRSettings
+	dvcrSettings  *dvcr.Settings
 }
 
-func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *cc.DVCRSettings) *VMIReconciler {
+func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *VMIReconciler {
 	return &VMIReconciler{
 		importerImage: importerImage,
 		uploaderImage: uploaderImage,
@@ -295,7 +296,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			}
 		}
 		// Set target image name the same way as for the importer/uploader Pod.
-		vmiStatus.Target.RegistryURL = cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromVMI(state.VMI.Current()))
+		vmiStatus.Target.RegistryURL = dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMI(state.VMI.Current()))
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)

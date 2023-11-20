@@ -3,8 +3,6 @@ images:
   importer: k3d-registry.virtualization-controller.test:5000/virtualization-importer:latest
   uploader: k3d-registry.virtualization-controller.test:5000/virtualization-uploader:latest
 dvcr:
-  registry: "registry.dvcr.svc.cluster.local/dvcr"
-  # See local/dvcr/template/service.yaml
-  registryForVM: "localhost:30101/dvcr"
+  registryURL: "registry.dvcr.svc.cluster.local/dvcr"
   authSecret: "dvcr-auth"
   insecureTLS: "true"

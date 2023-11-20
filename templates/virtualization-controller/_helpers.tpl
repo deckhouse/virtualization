@@ -12,12 +12,12 @@
       fieldPath: metadata.namespace
 - name: IMPORTER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
-- name: IMPORTER_DESTINATION_AUTH_SECRET
-  value: dvcr-dockercfg-rw
-- name: IMPORTER_DESTINATION_REGISTRY
-  value: {{ $registry | quote }}
-- name: IMPORTER_DESTINATION_INSECURE_TLS
-  value: "true"
 - name: UPLOADER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
+- name: DVCR_AUTH_SECRET
+  value: dvcr-dockercfg-rw
+- name: DVCR_REGISTRY_URL
+  value: {{ $registry | quote }}
+- name: DVCR_INSECURE_TLS
+  value: "true"
 {{- end }}
