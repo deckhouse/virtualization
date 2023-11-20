@@ -25,6 +25,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -37,10 +38,10 @@ type CVMIReconciler struct {
 	pullPolicy      string
 	installerLabels map[string]string
 	namespace       string
-	dvcrSettings    *cc.DVCRSettings
+	dvcrSettings    *dvcr.Settings
 }
 
-func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy, namespace string, dvcrSettings *cc.DVCRSettings) *CVMIReconciler {
+func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy, namespace string, dvcrSettings *dvcr.Settings) *CVMIReconciler {
 	return &CVMIReconciler{
 		importerImage: importerImage,
 		uploaderImage: uploaderImage,
@@ -156,7 +157,7 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	cvmiStatus := state.CVMI.Current().Status.DeepCopy()
 
 	// Set target image name the same way as for the importer/uploader Pod.
-	cvmiStatus.Target.RegistryURL = cc.DVCREndpointForImporter(r.dvcrSettings, cc.DVCRImageNameFromCVMI(state.CVMI.Current()))
+	cvmiStatus.Target.RegistryURL = dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForCVMI(state.CVMI.Current()))
 
 	switch {
 	case !r.isInited(state.CVMI.Current(), state), state.CVMI.Current().Status.Phase == "":

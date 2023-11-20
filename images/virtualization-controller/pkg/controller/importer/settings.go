@@ -6,7 +6,7 @@ import (
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
 // Settings stores all possible settings for dvcr-importer binary.
@@ -41,7 +41,7 @@ type Settings struct {
 	DestinationAuthSecret  string
 }
 
-func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *common.DVCRSettings, endpoint string) {
+func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, endpoint string) {
 	podEnvVars.DestinationAuthSecret = dvcrSettings.AuthSecret
 	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
 	podEnvVars.DestinationEndpoint = endpoint
@@ -66,9 +66,9 @@ func UpdateContainerImageSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.Dat
 }
 
 func UpdateClusterVirtualMachineImageSettings(podEnvVars *Settings, cvmiImg *virtv2alpha1.DataSourceClusterVirtualMachineImage, registry string) {
-	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(common.CVMIImageTmpl, cvmiImg.Name))
+	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(dvcr.CVMIImageTmpl, cvmiImg.Name))
 }
 
 func UpdateVirtualMachineImageSettings(podEnvVars *Settings, vmiImg *virtv2alpha1.DataSourceVirtualMachineImage, registry string) {
-	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(common.VMIImageTmpl, vmiImg.Namespace, vmiImg.Name))
+	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(dvcr.VMIImageTmpl, vmiImg.Namespace, vmiImg.Name))
 }
