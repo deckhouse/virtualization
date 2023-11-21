@@ -97,7 +97,7 @@ func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, c clie
 	sel := labels.NewSelector()
 	sel = sel.Add(*req)
 
-	if err := c.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
+	if err = c.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
 		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
 	}
 	return util.ToPointersArray(vml.Items), nil
