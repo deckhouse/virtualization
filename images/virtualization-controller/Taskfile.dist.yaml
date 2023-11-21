@@ -495,6 +495,8 @@ tasks:
       - task: dev:update:vmds
       - task: dev:update:vm
       - task: dev:update:vmbda
+      - task: dev:update:vmip
+      - task: dev:update:vmipl
 
   dev:update:cvmi:
     desc: "Update ClusterVirtualMachineImage CRD"
@@ -525,6 +527,16 @@ tasks:
     desc: "Update VirtualMachineBlockDeviceAttachment CRD"
     cmds:
       - kubectl apply -f api/crds/virtualmachineblockdeviceattachment.yaml
+
+  dev:update:vmip:
+    desc: "Update VirtualMachineIPAddressClaim CRD"
+    cmds:
+      - kubectl apply -f api/crds/virtualmachineipaddressclaim.yaml
+
+  dev:update:vmipl:
+    desc: "Update VirtualMachineIPAddressLease CRD"
+    cmds:
+      - kubectl apply -f api/crds/virtualmachineipaddresslease.yaml
 
   kctl:
     cmds:

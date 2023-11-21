@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap/zapcore"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -22,6 +24,7 @@ import (
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
@@ -128,6 +131,13 @@ func main() {
 		Scheme:                     scheme,
 	}
 
+	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)
+	if vmCIDRsRaw == "" {
+		log.Error(errors.New("vmCIDRs not found, but required"), "Failed to get vmCIDRs")
+		os.Exit(1)
+	}
+	vmCIDRs := strings.Split(vmCIDRsRaw, ",")
+
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
@@ -161,6 +171,16 @@ func main() {
 	}
 
 	if _, err := controller.NewVMBDAController(ctx, mgr, log); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if _, err := ipam.NewClaimController(ctx, mgr, log, vmCIDRs); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if _, err := ipam.NewLeaseController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
