@@ -31,7 +31,7 @@ type VirtualMachineSpec struct {
 	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 	// Affinity is a group of affinity scheduling rules.
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	Affinity *VMAffinity `json:"affinity,omitempty"`
 	// A selector which must be true for the vm to fit on a node.
 	// Selector which must match a node's labels for the VM to be scheduled on that node.
 	// +optional
@@ -42,7 +42,7 @@ type VirtualMachineSpec struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// Disruptions define an approval mode to apply disruptive (dangerous) changes.
 	Disruptions                   *Disruptions      `json:"disruptions"`
-	TerminationGracePeriodSeconds int64             `json:"terminationGracePeriodSeconds"`
+	TerminationGracePeriodSeconds *int64            `json:"terminationGracePeriodSeconds,omitempty"`
 	EnableParavirtualization      bool              `json:"enableParavirtualization,omitempty"`
 	OsType                        OsType            `json:"osType,omitempty"`
 	Bootloader                    BootloaderType    `json:"bootloader,omitempty"`

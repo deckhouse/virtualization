@@ -2,6 +2,7 @@ package kvbuilder
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -230,6 +231,48 @@ func CompareKVVM(curr, next *KVVM) (*ChangeApplyActions, error) {
 
 	{
 		action, err := CompareBootloader(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := CompareNodeSelector(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := CompareTolerations(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := CompareAffinity(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := ComparePriorityClassName(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := CompareTerminationGracePeriod(curr, next)
+		if err != nil {
+			return nil, err
+		}
+		actions.Add(action)
+	}
+	{
+		action, err := CompareTopologySpreadConstraint(curr, next)
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +529,12 @@ func CompareOSType(curr, next *KVVM) (*ChangeApplyAction, error) {
 func CompareNetworkInterfaces(curr, next *KVVM) (*ChangeApplyAction, error) {
 	currIfaces := curr.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
 	nextIfaces := next.Resource.Spec.Template.Spec.Domain.Devices.Interfaces
-
+	sort.SliceStable(currIfaces, func(i, j int) bool {
+		return currIfaces[i].Name < currIfaces[j].Name
+	})
+	sort.SliceStable(nextIfaces, func(i, j int) bool {
+		return nextIfaces[i].Name < nextIfaces[j].Name
+	})
 	if reflect.DeepEqual(currIfaces, nextIfaces) {
 		return nil, nil
 	}
@@ -519,6 +567,134 @@ func CompareBootloader(curr, next *KVVM) (*ChangeApplyAction, error) {
 		Changes: []ChangeItem{
 			{
 				Title: "Bootloader settings",
+				Curr:  "old",
+				Next:  "new",
+			},
+		},
+	}, nil
+}
+
+func CompareNodeSelector(curr, next *KVVM) (*ChangeApplyAction, error) {
+	currNS := curr.Resource.Spec.Template.Spec.NodeSelector
+	nextNS := next.Resource.Spec.Template.Spec.NodeSelector
+	if reflect.DeepEqual(currNS, nextNS) {
+		return nil, nil
+	}
+	oldNS, err := json.Marshal(currNS)
+	if err != nil {
+		return nil, fmt.Errorf("comparison failed. %w", err)
+	}
+	newNS, err := json.Marshal(nextNS)
+	if err != nil {
+		return nil, fmt.Errorf("comparison failed. %w", err)
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "NodeSelector",
+				Curr:  string(oldNS),
+				Next:  string(newNS),
+			},
+		},
+	}, nil
+}
+
+// TODO add meaningful diff message
+// TODO add detailed changes to generate proper change ID.
+func CompareTolerations(curr, next *KVVM) (*ChangeApplyAction, error) {
+	currT := curr.Resource.Spec.Template.Spec.Tolerations
+	nextT := next.Resource.Spec.Template.Spec.Tolerations
+	if reflect.DeepEqual(currT, nextT) {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "Tolerations",
+				Curr:  "old",
+				Next:  "new",
+			},
+		},
+	}, nil
+}
+
+// TODO add meaningful diff message
+// TODO add detailed changes to generate proper change ID.
+func CompareAffinity(curr, next *KVVM) (*ChangeApplyAction, error) {
+	currAff := curr.Resource.Spec.Template.Spec.Affinity
+	nextAff := next.Resource.Spec.Template.Spec.Affinity
+	if reflect.DeepEqual(currAff, nextAff) {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "Affinity",
+				Curr:  "old",
+				Next:  "new",
+			},
+		},
+	}, nil
+}
+
+func ComparePriorityClassName(curr, next *KVVM) (*ChangeApplyAction, error) {
+	oldPCN := curr.Resource.Spec.Template.Spec.PriorityClassName
+	newPCN := next.Resource.Spec.Template.Spec.PriorityClassName
+	if oldPCN == newPCN {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "PriorityClassName",
+				Curr:  oldPCN,
+				Next:  newPCN,
+			},
+		},
+	}, nil
+}
+
+func CompareTerminationGracePeriod(curr, next *KVVM) (*ChangeApplyAction, error) {
+	var oldPeriod string
+	var newPeriod string
+	if c := curr.Resource.Spec.Template.Spec.TerminationGracePeriodSeconds; c != nil {
+		oldPeriod = strconv.FormatInt(*c, 10)
+	}
+	if n := next.Resource.Spec.Template.Spec.TerminationGracePeriodSeconds; n != nil {
+		newPeriod = strconv.FormatInt(*n, 10)
+	}
+	if oldPeriod == newPeriod {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "TerminationGracePeriod",
+				Curr:  oldPeriod,
+				Next:  newPeriod,
+			},
+		},
+	}, nil
+}
+
+// TODO add meaningful diff message
+// TODO add detailed changes to generate proper change ID.
+func CompareTopologySpreadConstraint(curr, next *KVVM) (*ChangeApplyAction, error) {
+	currT := curr.Resource.Spec.Template.Spec.TopologySpreadConstraints
+	nextT := next.Resource.Spec.Template.Spec.TopologySpreadConstraints
+	if reflect.DeepEqual(currT, nextT) {
+		return nil, nil
+	}
+	return &ChangeApplyAction{
+		Type: ActionRestart,
+		Changes: []ChangeItem{
+			{
+				Title: "TopologySpreadConstraint",
 				Curr:  "old",
 				Next:  "new",
 			},
