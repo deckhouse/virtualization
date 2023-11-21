@@ -18,13 +18,17 @@ func ApplyVirtualMachineSpec(
 	dvcrSettings *dvcr.Settings,
 ) {
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
-
 	kvvm.SetOsType(vm.Spec.OsType)
 	kvvm.SetBootloader(vm.Spec.Bootloader)
 	kvvm.SetCPUModel("Nehalem")
 	kvvm.SetNetworkInterface("default")
 	kvvm.SetTablet("default-0")
-
+	kvvm.SetNodeSelector(vm.Spec.NodeSelector)
+	kvvm.SetTolerations(vm.Spec.Tolerations)
+	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity))
+	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
+	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
+	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
 	// FIXME(VM): real coreFraction
 	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
 
