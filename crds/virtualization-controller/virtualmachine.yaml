@@ -191,6 +191,8 @@ spec:
                                     type: array
                                 type: object
                               weight:
+                                maximum: 100
+                                minimum: 1
                                 format: int32
                                 type: integer
                             required:
@@ -305,6 +307,8 @@ spec:
                                 - topologyKey
                                 type: object
                               weight:
+                                maximum: 100
+                                minimum: 1
                                 format: int32
                                 type: integer
                             required:
@@ -436,6 +440,8 @@ spec:
                                 - topologyKey
                                 type: object
                               weight:
+                                maximum: 100
+                                minimum: 1
                                 format: int32
                                 type: integer
                             required:

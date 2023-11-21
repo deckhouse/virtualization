@@ -85,6 +85,30 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) {
 	}
 }
 
+func (b *KVVM) SetNodeSelector(nodeSelector map[string]string) {
+	b.Resource.Spec.Template.Spec.NodeSelector = nodeSelector
+}
+
+func (b *KVVM) SetTolerations(tolerations []corev1.Toleration) {
+	b.Resource.Spec.Template.Spec.Tolerations = tolerations
+}
+
+func (b *KVVM) SetPriorityClassName(priorityClassName string) {
+	b.Resource.Spec.Template.Spec.PriorityClassName = priorityClassName
+}
+
+func (b *KVVM) SetAffinity(affinity *corev1.Affinity) {
+	b.Resource.Spec.Template.Spec.Affinity = affinity
+}
+
+func (b *KVVM) SetTerminationGracePeriod(period *int64) {
+	b.Resource.Spec.Template.Spec.TerminationGracePeriodSeconds = period
+}
+
+func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConstraint) {
+	b.Resource.Spec.Template.Spec.TopologySpreadConstraints = topology
+}
+
 func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) {
 	_ = coreFraction
 	b.Resource.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
