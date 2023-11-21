@@ -95,8 +95,9 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 	if r.IsEmpty() {
 		return nil
 	}
+
+	r.log.Info("UpdateMeta obj before update", "currentObj", r.currentObj.GetObjectMeta(), "changedObj", r.changedObj.GetObjectMeta())
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
-		r.log.V(4).Info("UpdateMeta: status changes not allowed in the meta updater", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
 		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
 	r.log.V(4).Info("UpdateMeta obj meta before update", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta(), "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())

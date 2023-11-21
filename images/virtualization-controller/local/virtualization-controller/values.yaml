@@ -6,3 +6,5 @@ dvcr:
   registryURL: "registry.dvcr.svc.cluster.local/dvcr"
   authSecret: "dvcr-auth"
   insecureTLS: "true"
+network:
+  vmCIDRs: "10.10.10.0/24"

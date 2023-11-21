@@ -152,5 +152,8 @@ const (
 	// ClonerSourcePodNameSuffix (controller pkg only)
 	ClonerSourcePodNameSuffix = "-source-pod"
 
+	// VirtualMachineCIDRs is a list of CIDRs used to allocate static IP addresses for Virtual Machines.
+	VirtualMachineCIDRs = "VIRTUAL_MACHINE_CIDRS"
+
 	DockerRegistrySchemePrefix = "docker://"
 )
