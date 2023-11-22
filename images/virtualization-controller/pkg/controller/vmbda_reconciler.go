@@ -20,6 +20,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
@@ -234,7 +235,7 @@ func isFailed(state *VMBDAReconcilerState) (string, string) {
 
 func isAttached(state *VMBDAReconcilerState) bool {
 	for _, status := range state.KVVMI.Status.VolumeStatus {
-		if status.Name == state.VMD.Name {
+		if status.Name == kvbuilder.GenerateVMDDiskName(state.VMD.Name) {
 			return status.Phase == virtv1.VolumeReady
 		}
 	}
@@ -248,11 +249,11 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
 		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
 	}
-
+	name := kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name)
 	hotplugRequest := virtv1.AddVolumeOptions{
-		Name: state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name,
+		Name: name,
 		Disk: &virtv1.Disk{
-			Name: state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name,
+			Name: name,
 			DiskDevice: virtv1.DiskDevice{
 				Disk: &virtv1.DiskTarget{
 					Bus: "scsi",
@@ -282,9 +283,8 @@ func (r *VMBDAReconciler) unhotplugVolume(ctx context.Context, state *VMBDARecon
 	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
 		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
 	}
-
 	unhotplugRequest := virtv1.RemoveVolumeOptions{
-		Name: state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name,
+		Name: kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name),
 	}
 
 	err := r.kubevirt.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unhotplugRequest)
