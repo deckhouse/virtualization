@@ -29,8 +29,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
-	// FIXME(VM): real coreFraction
-	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, "", vm.Spec.Memory.Size)
+	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size)
 
 	var hotpluggedDevices []string
 

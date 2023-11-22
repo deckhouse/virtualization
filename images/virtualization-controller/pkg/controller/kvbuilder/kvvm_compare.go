@@ -332,25 +332,34 @@ func CompareRunPolicy(curr, next *KVVM) (*ChangeApplyAction, error) {
 // CompareResourceRequirements returns Restart action of CPU or Memory limits are changed.
 func CompareResourceRequirements(curr, next *KVVM) (*ChangeApplyAction, error) {
 	changes := make([]ChangeItem, 0)
-
 	currResources := curr.Resource.Spec.Template.Spec.Domain.Resources
 	nextResources := next.Resource.Spec.Template.Spec.Domain.Resources
-
-	if currResources.Requests[corev1.ResourceCPU] != nextResources.Requests[corev1.ResourceCPU] ||
-		currResources.Limits[corev1.ResourceCPU] != nextResources.Limits[corev1.ResourceCPU] {
+	if !currResources.Requests[corev1.ResourceCPU].Equal(nextResources.Requests[corev1.ResourceCPU]) {
 		changes = append(changes, ChangeItem{
-			Title: "ResourceRequirements CPU",
+			Title: "ResourceRequirements CPU Requests",
 			Curr:  currResources.Requests.Cpu().String(),
 			Next:  nextResources.Requests.Cpu().String(),
 		})
 	}
-
-	if currResources.Requests[corev1.ResourceMemory] != nextResources.Requests[corev1.ResourceMemory] ||
-		currResources.Limits[corev1.ResourceMemory] != nextResources.Limits[corev1.ResourceMemory] {
+	if !currResources.Limits[corev1.ResourceCPU].Equal(nextResources.Limits[corev1.ResourceCPU]) {
 		changes = append(changes, ChangeItem{
-			Title: "ResourceRequirements Memory",
+			Title: "ResourceRequirements CPU Limits",
+			Curr:  currResources.Limits.Cpu().String(),
+			Next:  nextResources.Limits.Cpu().String(),
+		})
+	}
+	if !currResources.Requests[corev1.ResourceMemory].Equal(nextResources.Requests[corev1.ResourceMemory]) {
+		changes = append(changes, ChangeItem{
+			Title: "ResourceRequirements Memory Requests",
 			Curr:  currResources.Requests.Memory().String(),
 			Next:  nextResources.Requests.Memory().String(),
+		})
+	}
+	if !currResources.Limits[corev1.ResourceMemory].Equal(nextResources.Limits[corev1.ResourceMemory]) {
+		changes = append(changes, ChangeItem{
+			Title: "ResourceRequirements Memory Limits",
+			Curr:  currResources.Limits.Memory().String(),
+			Next:  nextResources.Limits.Memory().String(),
 		})
 	}
 
@@ -358,7 +367,6 @@ func CompareResourceRequirements(curr, next *KVVM) (*ChangeApplyAction, error) {
 	if len(changes) == 0 {
 		return nil, nil
 	}
-
 	return &ChangeApplyAction{
 		Type:    ActionRestart,
 		Changes: changes,
