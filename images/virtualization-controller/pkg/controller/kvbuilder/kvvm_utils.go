@@ -10,6 +10,30 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
+const (
+	VMDDiskPrefix  = "vmd-"
+	VMIDiskPrefix  = "vmi-"
+	CVMIDiskPrefix = "cvmi-"
+)
+
+func GenerateVMDDiskName(name string) string {
+	return VMDDiskPrefix + name
+}
+
+func GenerateVMIDiskName(name string) string {
+	return VMIDiskPrefix + name
+}
+
+func GenerateCVMIDiskName(name string) string {
+	return CVMIDiskPrefix + name
+}
+
+type HotPlugDeviceSettings struct {
+	VolumeName     string
+	PVCName        string
+	DataVolumeName string
+}
+
 func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *virtv2.VirtualMachine,
 	vmdByName map[string]*virtv2.VirtualMachineDisk,
@@ -31,12 +55,20 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
 	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size)
 
-	var hotpluggedDevices []string
-
+	hotpluggedDevices := make([]HotPlugDeviceSettings, 0)
 	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
-		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable ||
-			volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
-			hotpluggedDevices = append(hotpluggedDevices, volume.Name)
+		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
+				VolumeName: volume.Name,
+				PVCName:    volume.PersistentVolumeClaim.ClaimName,
+			})
+		}
+		// FIXME(VM): not used, now only supports PVC
+		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
+				VolumeName:     volume.Name,
+				DataVolumeName: volume.DataVolume.Name,
+			})
 		}
 	}
 
@@ -53,15 +85,15 @@ func ApplyVirtualMachineSpec(
 			if vmi.Status.Phase != virtv2.ImageReady {
 				panic(fmt.Sprintf("unexpected VMI %q status phase %q: expected ready phase, please report a bug", vmi.Name, vmi.Status.Phase))
 			}
-
+			name := GenerateVMIDiskName(bd.VirtualMachineImage.Name)
 			switch vmi.Spec.Storage {
 			case virtv2.StorageKubernetes:
-				kvvm.SetDisk(bd.VirtualMachineImage.Name, SetDiskOptions{
+				kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
 				})
 			case virtv2.StorageContainerRegistry:
 				dvcrImage := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForVMI(vmi))
-				kvvm.SetDisk(bd.VirtualMachineImage.Name, SetDiskOptions{
+				kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: util.GetPointer(dvcrImage),
 					IsCdrom:       vmi.Status.CDROM,
 				})
@@ -79,9 +111,9 @@ func ApplyVirtualMachineSpec(
 			if cvmi.Status.Phase != virtv2.ImageReady {
 				panic(fmt.Sprintf("unexpected CVMI %q status phase %q: expected ready phase, please report a bug", cvmi.Name, cvmi.Status.Phase))
 			}
-
+			name := GenerateCVMIDiskName(bd.ClusterVirtualMachineImage.Name)
 			dvcrImage := dvcr.RegistryImageName(dvcrSettings, dvcr.ImagePathForCVMI(cvmi))
-			kvvm.SetDisk(bd.ClusterVirtualMachineImage.Name, SetDiskOptions{
+			kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       cvmi.Status.CDROM,
 			})
@@ -94,8 +126,8 @@ func ApplyVirtualMachineSpec(
 			if vmd.Status.Phase != virtv2.DiskReady {
 				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase, please report a bug", vmd.Name, vmd.Status.Phase))
 			}
-
-			kvvm.SetDisk(bd.VirtualMachineDisk.Name, SetDiskOptions{
+			name := GenerateVMDDiskName(bd.VirtualMachineDisk.Name)
+			kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),
 			})
 
@@ -105,10 +137,15 @@ func ApplyVirtualMachineSpec(
 	}
 
 	for _, device := range hotpluggedDevices {
-		kvvm.SetDisk(device, SetDiskOptions{
-			PersistentVolumeClaim: util.GetPointer(device),
-			IsHotplugged:          true,
-		})
+		switch {
+		case device.PVCName != "":
+			kvvm.SetDisk(device.VolumeName, SetDiskOptions{
+				PersistentVolumeClaim: util.GetPointer(device.PVCName),
+				IsHotplugged:          true,
+			})
+			// FIXME(VM): not used, now only supports PVC
+		case device.DataVolumeName != "":
+		}
 	}
 	kvvm.SetCloudInit(vm.Spec.Provisioning)
 
