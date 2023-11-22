@@ -546,6 +546,8 @@ spec:
 
                 disruptions:
                   type: object
+                  default: 
+                    approvalMode: Manual
                   description: |
                     Disruptions settings for VM.
                   properties:
