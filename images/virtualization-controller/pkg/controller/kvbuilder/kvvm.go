@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
@@ -110,19 +111,35 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) {
-	_ = coreFraction
 	b.Resource.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			// FIXME: support coreFraction: req = resource.Spec.CPU.Cores * coreFraction
-			// FIXME: coreFraction is percents between 0 and 100, for example: "50%"
-			corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", cores)),
+			corev1.ResourceCPU:    *b.mustGetCPURequest(cores, coreFraction),
 			corev1.ResourceMemory: resource.MustParse(memorySize),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d", cores)),
+			corev1.ResourceCPU:    *b.getCPULimit(cores),
 			corev1.ResourceMemory: resource.MustParse(memorySize),
 		},
 	}
+}
+
+func (b *KVVM) mustGetCPURequest(cores int, coreFraction string) *resource.Quantity {
+	if coreFraction == "" {
+		return b.getCPULimit(cores)
+	}
+	fraction := intstr.FromString(coreFraction)
+	req, err := intstr.GetScaledValueFromIntOrPercent(&fraction, cores*1000, true)
+	if err != nil {
+		panic(fmt.Errorf("failed to calculate coreFraction. %w", err))
+	}
+	if req == 0 {
+		return b.getCPULimit(cores)
+	}
+	return resource.NewMilliQuantity(int64(req), resource.DecimalSI)
+}
+
+func (b *KVVM) getCPULimit(cores int) *resource.Quantity {
+	return resource.NewQuantity(int64(cores), resource.DecimalSI)
 }
 
 type SetDiskOptions struct {

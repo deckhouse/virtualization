@@ -78,7 +78,8 @@ const (
 )
 
 type CPUSpec struct {
-	Cores int `json:"cores"`
+	Cores        int    `json:"cores"`
+	CoreFraction string `json:"coreFraction"`
 }
 
 type MemorySpec struct {
