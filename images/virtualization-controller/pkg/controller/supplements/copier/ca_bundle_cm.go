@@ -27,7 +27,7 @@ const (
 )
 
 // Create creates Destination ConfigMap with CABundle string.
-func (c *CABundleConfigMap) Create(ctx context.Context, client client.Client, caBundle string) (*corev1.ConfigMap, error) {
+func (c CABundleConfigMap) Create(ctx context.Context, client client.Client, caBundle string) (*corev1.ConfigMap, error) {
 	destObj := c.makeConfigMap(caBundle)
 
 	err := client.Create(ctx, destObj)
@@ -39,7 +39,7 @@ func (c *CABundleConfigMap) Create(ctx context.Context, client client.Client, ca
 }
 
 // Copy creates Destination ConfigMap from SourceSecret or from SourceConfigMap
-func (c *CABundleConfigMap) Copy(ctx context.Context, client client.Client) error {
+func (c CABundleConfigMap) Copy(ctx context.Context, client client.Client) error {
 	var caBundle string
 
 	srcObj, err := helper.FetchObject(ctx, c.SourceSecret, client, &corev1.Secret{})
@@ -62,7 +62,7 @@ func (c *CABundleConfigMap) Copy(ctx context.Context, client client.Client) erro
 
 // makeConfigMap create CDI compatible ConfigMap resource with CA bundle
 // in the field named as "ca.crt".
-func (c *CABundleConfigMap) makeConfigMap(caBundle string) *corev1.ConfigMap {
+func (c CABundleConfigMap) makeConfigMap(caBundle string) *corev1.ConfigMap {
 	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",

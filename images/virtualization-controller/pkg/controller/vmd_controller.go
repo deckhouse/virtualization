@@ -17,6 +17,7 @@ import (
 
 const (
 	vmdControllerName = "vmd-controller"
+	vmdShortName      = "vmd"
 )
 
 func NewVMDController(

@@ -15,6 +15,7 @@ import (
 
 const (
 	vmiControllerName = "vmi-controller"
+	vmiShortName      = "vmi"
 )
 
 func NewVMIController(

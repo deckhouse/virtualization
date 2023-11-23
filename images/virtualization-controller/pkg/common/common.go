@@ -32,8 +32,6 @@ const (
 	UploaderPodImageNameVar = "UPLOADER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
-	// ImporterCABundleDir is where the configmap containing certs from dataSource.http.caBundle field will be mounted
-	ImporterCABundleDir = "/ca-bundle"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted
 	ImporterProxyCertDir = "/proxycerts/"
 
@@ -122,31 +120,26 @@ const (
 	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
 
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
-	ImporterDestinationAuthConfigDir = "/ghcr-io-auth"
+	ImporterDestinationAuthConfigDir = "/dvcr-auth"
 	// ImporterDestinationAuthConfigVar is an environment variable with auth config file for Importer Pod.
 	ImporterDestinationAuthConfigVar = "IMPORTER_DESTINATION_AUTH_CONFIG"
 	// ImporterDestinationAuthConfigFile is a path to auth config file in mount directory.
-	ImporterDestinationAuthConfigFile = "/ghcr-io-auth/.dockerconfigjson"
+	ImporterDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
 	// DestinationInsecureTLSVar is an environment variable for Importer Pod that defines whether DVCR is insecure.
-	DestinationInsecureTLSVar      = "DESTINATION_INSECURE_TLS"
-	ImporterSHA256Sum              = "IMPORTER_SHA256SUM"
-	ImporterMD5Sum                 = "IMPORTER_MD5SUM"
-	ImporterAuthConfigVar          = "IMPORTER_AUTH_CONFIG"
-	ImporterAuthConfigDir          = "/src-auth"
-	ImporterAuthConfigFile         = "/src-auth/.dockerconfigjson"
-	ImporterDestinationEndpoint    = "IMPORTER_DESTINATION_ENDPOINT"
-	ImporterDestinationAccessKeyID = "IMPORTER_DESTINATION_ACCESS_KEY_ID"
-	ImporterDestinationSecretKey   = "IMPORTER_DESTINATION_SECRET_KEY"
+	DestinationInsecureTLSVar   = "DESTINATION_INSECURE_TLS"
+	ImporterSHA256Sum           = "IMPORTER_SHA256SUM"
+	ImporterMD5Sum              = "IMPORTER_MD5SUM"
+	ImporterAuthConfigVar       = "IMPORTER_AUTH_CONFIG"
+	ImporterAuthConfigDir       = "/dvcr-src-auth"
+	ImporterAuthConfigFile      = "/dvcr-src-auth/.dockerconfigjson"
+	ImporterDestinationEndpoint = "IMPORTER_DESTINATION_ENDPOINT"
 
 	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
 	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
-	UploaderDestinationAuthConfigDir  = "/ghcr-io-auth"
-	UploaderDestinationAuthConfigFile = "/ghcr-io-auth/.dockerconfigjson"
+	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
+	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
 	UploaderSecretExtraHeadersDir     = "/extraheaders"
-
-	// DVCRAddressForVMLauncherVar an alternative address to use by the virt-launcher Pod.
-	DVCRAddressForVMLauncherVar = "DVCR_ADDRESS_FOR_VM_LAUNCHER"
 
 	// ImporterGoogleCredentialFileVar provides a constant to capture our env variable "GOOGLE_APPLICATION_CREDENTIALS"
 	ImporterGoogleCredentialFileVar = "GOOGLE_APPLICATION_CREDENTIALS"

@@ -16,44 +16,48 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
-var ErrImagePullSecretNotFound = errors.New("imagePullSecret not found")
-
 type CVMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 
-	Client          client.Client
-	CVMI            *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
-	Service         *corev1.Service
-	Pod             *corev1.Pod
-	ImagePullSecret *ImagePullSecret
-	DVCRDataSource  *DataSourcesFromDVCR
-	AttachedVMs     []*virtv2.VirtualMachine
-	Result          *reconcile.Result
+	Client      client.Client
+	Supplements *supplements.Generator
+	Result      *reconcile.Result
+	Namespace   string
+
+	CVMI           *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	Service        *corev1.Service
+	Pod            *corev1.Pod
+	DVCRDataSource *DataSourcesFromDVCR
+	AttachedVMs    []*virtv2.VirtualMachine
 }
 
-func NewCVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
-	state := &CVMIReconcilerState{
-		Client: client,
-		CVMI: helper.NewResource(
-			name, log, client, cache,
-			func() *virtv2.ClusterVirtualMachineImage { return &virtv2.ClusterVirtualMachineImage{} },
-			func(obj *virtv2.ClusterVirtualMachineImage) virtv2.ClusterVirtualMachineImageStatus {
-				return obj.Status
-			},
-		),
+func NewCVMIReconcilerState(namespace string) func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
+	return func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
+		state := &CVMIReconcilerState{
+			Client: client,
+			CVMI: helper.NewResource(
+				name, log, client, cache,
+				func() *virtv2.ClusterVirtualMachineImage { return &virtv2.ClusterVirtualMachineImage{} },
+				func(obj *virtv2.ClusterVirtualMachineImage) virtv2.ClusterVirtualMachineImageStatus {
+					return obj.Status
+				},
+			),
+			Namespace: namespace,
+		}
+		state.AttacheeState = vmattachee.NewAttacheeState(
+			state,
+			"cvmi",
+			virtv2.FinalizerCVMIProtection,
+			state.CVMI,
+		)
+		return state
 	}
-	state.AttacheeState = vmattachee.NewAttacheeState(
-		state,
-		"cvmi",
-		virtv2.FinalizerCVMIProtection,
-		state.CVMI,
-	)
-	return state
 }
 
 func (state *CVMIReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
@@ -83,6 +87,14 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		log.Info("Reconcile observe an absent CVMI: it may be deleted", "CVMI", req.NamespacedName)
 		return nil
 	}
+
+	state.Supplements = &supplements.Generator{
+		Prefix:    cvmiShortName,
+		Name:      state.CVMI.Current().Name,
+		Namespace: state.Namespace,
+		UID:       state.CVMI.Current().UID,
+	}
+
 	t := state.CVMI.Current().Spec.DataSource.Type
 
 	switch t {
@@ -105,14 +117,9 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		}
 		state.Pod = pod
 	}
+
 	// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
 	switch t {
-	case virtv2.DataSourceTypeContainerImage:
-		imgPullSecret, err := NewImagePullSecret(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)
-		if err != nil {
-			return err
-		}
-		state.ImagePullSecret = imgPullSecret
 	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
 		dsDvcr, err := NewDVCRDataSource(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)
 		if err != nil {
@@ -141,7 +148,7 @@ func (state *CVMIReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMICleanup)
 }
 
-// HasImporterPodAnno returns whether CVMI is just created and has no annotations with importer Pod coordinates.
+// HasImporterAnno returns whether CVMI is just created and has no annotations with importer Pod coordinates.
 func (state *CVMIReconcilerState) HasImporterAnno() bool {
 	if state.CVMI.IsEmpty() {
 		return false
@@ -155,13 +162,6 @@ func (state *CVMIReconcilerState) HasImporterAnno() bool {
 		return false
 	}
 
-	if cvmi.Spec.DataSource.Type == virtv2.DataSourceTypeContainerImage &&
-		cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" &&
-		cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace != "" {
-		if _, ok := anno[cc.AnnAuthSecret]; !ok {
-			return false
-		}
-	}
 	return true
 }
 
@@ -175,9 +175,6 @@ func (state *CVMIReconcilerState) HasUploaderAnno() bool {
 		return false
 	}
 	if _, ok := anno[cc.AnnUploadPodName]; !ok {
-		return false
-	}
-	if _, ok := anno[cc.AnnUploadServiceName]; !ok {
 		return false
 	}
 	return true

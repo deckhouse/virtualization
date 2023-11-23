@@ -317,8 +317,6 @@ tasks:
         k3d image import nginx:stable-alpine
         docker pull registry:2
         k3d image import registry:2
-        docker pull emberstack/kubernetes-reflector:7.0.193
-        k3d image import emberstack/kubernetes-reflector:7.0.193
 
   dvcr:up:
     desc: "Install dvcr registry into the cluster using helm"
@@ -346,6 +344,8 @@ tasks:
     cmds:
       - |
         helm uninstall --namespace dvcr dvcr
+      - |
+        kubectl delete ns/dvcr
 
   build:cache:reset:
     desc: "Reset go build cache"

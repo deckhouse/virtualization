@@ -78,16 +78,6 @@ const (
 	// AnnEndpoint provides a const for our PVC endpoint annotation
 	AnnEndpoint = AnnAPIGroup + "/storage.import.endpoint"
 
-	// AnnAuthSecret is the name of a imagePullSecret
-	AnnAuthSecret = AnnAPIGroup + "/storage.import.authSecretName"
-	// AnnSecret provides a const for our PVC secretName annotation
-	AnnSecret = AnnAPIGroup + "/storage.import.secretName"
-	// AnnCertConfigMap is the name of a configmap containing tls certs
-	AnnCertConfigMap = AnnAPIGroup + "/storage.import.certConfigMap"
-	// AnnCABundleSecret is the name of a secret containing tls certs from caBundle field.
-	AnnCABundleSecret = AnnAPIGroup + "/storage.import.certConfigMap"
-	// AnnCABundleConfigMap is the name of a configmap containing tls certs from caBundle field.
-	AnnCABundleConfigMap = AnnAPIGroup + "/storage.import.caBundleConfigMap"
 	// AnnRegistryImportMethod provides a const for registry import method annotation
 	AnnRegistryImportMethod = AnnAPIGroup + "/storage.import.registryImportMethod"
 	// AnnRegistryImageStream provides a const for registry image stream annotation

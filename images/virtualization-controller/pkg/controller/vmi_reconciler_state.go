@@ -18,6 +18,7 @@ import (
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -25,8 +26,11 @@ import (
 
 type VMIReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
-	AttachedVMs    []*virtv2.VirtualMachine
-	Client         client.Client
+
+	Client      client.Client
+	Supplements *supplements.Generator
+	Result      *reconcile.Result
+
 	VMI            *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
 	DV             *cdiv1.DataVolume
 	PVC            *corev1.PersistentVolumeClaim
@@ -34,7 +38,7 @@ type VMIReconcilerState struct {
 	Pod            *corev1.Pod
 	DVCRDataSource *DataSourcesFromDVCR
 	Service        *corev1.Service
-	Result         *reconcile.Result
+	AttachedVMs    []*virtv2.VirtualMachine
 }
 
 func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMIReconcilerState {
@@ -89,6 +93,13 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		return nil
 	}
 
+	state.Supplements = &supplements.Generator{
+		Prefix:    vmiShortName,
+		Name:      state.VMI.Current().Name,
+		Namespace: state.VMI.Current().Namespace,
+		UID:       state.VMI.Current().UID,
+	}
+
 	switch state.VMI.Current().Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
 		pod, err := uploader.FindPod(ctx, client, state.VMI.Current())
@@ -115,6 +126,7 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		state.DVCRDataSource = dsDvcr
 	}
 
+	// TODO use status to save underlying DataVolume name.
 	if dvName, hasKey := state.VMI.Current().Annotations[cc.AnnVMIDataVolume]; hasKey {
 		var err error
 		name := types.NamespacedName{Name: dvName, Namespace: state.VMI.Current().Namespace}
@@ -232,9 +244,6 @@ func (state *VMIReconcilerState) hasUploaderPodAnno() bool {
 	}
 	anno := state.VMI.Current().GetAnnotations()
 	if _, ok := anno[cc.AnnUploadPodName]; !ok {
-		return false
-	}
-	if _, ok := anno[cc.AnnUploadServiceName]; !ok {
 		return false
 	}
 	return true
