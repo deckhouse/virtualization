@@ -121,6 +121,7 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 				Name: leaseName,
 			},
 			Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
+				ReclaimPolicy: state.Claim.Current().Spec.ReclaimPolicy,
 				ClaimRef: &virtv2.VirtualMachineIPAddressLeaseClaimRef{
 					Name:      state.Claim.Name().Name,
 					Namespace: state.Claim.Name().Namespace,
@@ -136,6 +137,18 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	case isBoundedLease(state):
 		opts.Log.Info("Lease already exists, claim ref is valid")
+
+		if state.Lease.Spec.ReclaimPolicy != state.Claim.Current().Spec.ReclaimPolicy {
+			opts.Log.Info("Reclaim policy has changed: update lease")
+
+			state.Lease.Spec.ReclaimPolicy = state.Claim.Current().Spec.ReclaimPolicy
+
+			err := opts.Client.Update(ctx, state.Lease)
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 
 	case state.Lease.Status.Phase == "":
@@ -154,6 +167,7 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			Name:      state.Claim.Name().Name,
 			Namespace: state.Claim.Name().Namespace,
 		}
+		state.Lease.Spec.ReclaimPolicy = state.Claim.Current().Spec.ReclaimPolicy
 
 		err := opts.Client.Update(ctx, state.Lease)
 		if err != nil {

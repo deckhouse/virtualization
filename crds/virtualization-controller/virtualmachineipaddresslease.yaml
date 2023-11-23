@@ -32,6 +32,14 @@ spec:
             spec:
               description: The desired state of `VirtualMachineIPAddressLease`.
               properties:
+                reclaimPolicy:
+                  type: string
+                  enum: ['Delete', 'Retain']
+                  description: |
+                    Reclaim policies to determine the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
+
+                    * `Delete` — this means that a VirtualMachineIPAddressLease is automatically deleted when a user deletes the corresponding VirtualMachineIPAddressClaim.
+                    * `Retain` — if a user deletes a VirtualMachineIPAddressClaim, the corresponding VirtualMachineIPAddressLease will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
                 claimRef:
                   description: The link to existing `VirtualMachineIPAddressClaim`.
                   properties:
