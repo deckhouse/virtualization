@@ -7,7 +7,6 @@ import (
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -39,8 +38,9 @@ func (r *VMDReconciler) createUploaderSettings(vmd *virtv2alpha1.VirtualMachineD
 		Verbose: r.verbose,
 	}
 
-	// Set DVCR settings.
-	uploader.UpdateDVCRSettings(settings, r.dvcrSettings, dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMD(vmd)))
+	// Set DVCR destination settings.
+	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(vmd.Name, vmd.Namespace)
+	uploader.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, dvcrDestImageName)
 
 	// TODO Update proxy settings.
 
