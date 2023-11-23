@@ -1,11 +1,9 @@
 package importer
 
 import (
-	"fmt"
-	"path"
-
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	cc "github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
@@ -41,13 +39,14 @@ type Settings struct {
 	DestinationAuthSecret  string
 }
 
-func UpdateDVCRSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, endpoint string) {
+func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, dvcrImageName string) {
 	podEnvVars.DestinationAuthSecret = dvcrSettings.AuthSecret
 	podEnvVars.DestinationInsecureTLS = dvcrSettings.InsecureTLS
-	podEnvVars.DestinationEndpoint = endpoint
+	podEnvVars.DestinationEndpoint = dvcrImageName
 }
 
-func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP) {
+// ApplyHTTPSourceSettings updates importer Pod settings to use http source.
+func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP) {
 	podEnvVars.Endpoint = http.URL
 
 	if http.Checksum != nil {
@@ -61,14 +60,19 @@ func UpdateHTTPSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP)
 	}
 }
 
-func UpdateContainerImageSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry) {
-	podEnvVars.Endpoint = cc.DockerRegistrySchemePrefix + ctrImg.Image
+// ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry) {
+	podEnvVars.Source = cc.SourceRegistry
+	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
+	// Optional auth secret.
+	if secret := ctrImg.ImagePullSecret.Name; secret != "" {
+		podEnvVars.AuthSecret = secret
+	}
 }
 
-func UpdateClusterVirtualMachineImageSettings(podEnvVars *Settings, cvmiImg *virtv2alpha1.DataSourceClusterVirtualMachineImage, registry string) {
-	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(dvcr.CVMIImageTmpl, cvmiImg.Name))
-}
-
-func UpdateVirtualMachineImageSettings(podEnvVars *Settings, vmiImg *virtv2alpha1.DataSourceVirtualMachineImage, registry string) {
-	podEnvVars.Endpoint = path.Join(registry, fmt.Sprintf(dvcr.VMIImageTmpl, vmiImg.Namespace, vmiImg.Name))
+// ApplyDVCRSourceSettings updates importer Pod settings to use dvcr registry source.
+// NOTE: no auth secret required, it will be taken from DVCR destination settings.
+func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
+	podEnvVars.Source = cc.SourceDVCR
+	podEnvVars.Endpoint = dvcrImageName
 }

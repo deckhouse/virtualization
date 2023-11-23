@@ -292,7 +292,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			}
 		}
 		// Set target image name the same way as for the importer/uploader Pod.
-		vmiStatus.Target.RegistryURL = dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMI(state.VMI.Current()))
+		dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(state.VMI.Current().Name, state.VMI.Current().Namespace)
+		vmiStatus.Target.RegistryURL = dvcrDestImageName
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)

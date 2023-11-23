@@ -8,7 +8,6 @@ import (
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
-	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -50,44 +49,43 @@ func (r *VMIReconciler) startImporterPod(ctx context.Context, vmi *virtv2alpha1.
 func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineImage) (*importer.Settings, error) {
 	settings := &importer.Settings{
 		Verbose: r.verbose,
-		Source:  cc.GetSource(vmi.Spec.DataSource),
 	}
 
-	switch settings.Source {
-	case cc.SourceHTTP:
-		if http := vmi.Spec.DataSource.HTTP; http != nil {
-			importer.UpdateHTTPSettings(settings, http)
+	ds := vmi.Spec.DataSource
+
+	switch ds.Type {
+	case virtv2alpha1.DataSourceTypeHTTP:
+		if ds.HTTP == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'http' section", ds.Type)
 		}
-	case cc.SourceRegistry:
-		if secret := vmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name; secret != "" {
-			settings.AuthSecret = secret
+		importer.ApplyHTTPSourceSettings(settings, ds.HTTP)
+	case virtv2alpha1.DataSourceTypeContainerImage:
+		if ds.ContainerImage == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'containerImage' section", ds.Type)
 		}
-		if ctrImg := vmi.Spec.DataSource.ContainerImage; ctrImg != nil {
-			importer.UpdateContainerImageSettings(settings, ctrImg)
+		importer.ApplyRegistrySourceSettings(settings, ds.ContainerImage)
+	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
+		cvmiRef := ds.ClusterVirtualMachineImage
+		if cvmiRef == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'clusterVirtualMachineImage' section", ds.Type)
 		}
-	case cc.SourceDVCR:
-		switch vmi.Spec.DataSource.Type {
-		case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
-			if cvmiImg := vmi.Spec.DataSource.ClusterVirtualMachineImage; cvmiImg != nil {
-				importer.UpdateClusterVirtualMachineImageSettings(settings, cvmiImg, r.dvcrSettings.RegistryURL)
-			}
-		case virtv2alpha1.DataSourceTypeVirtualMachineImage:
-			if vmiImg := vmi.Spec.DataSource.VirtualMachineImage; vmiImg != nil {
-				vi := &virtv2alpha1.DataSourceVirtualMachineImage{
-					Name:      vmiImg.Name,
-					Namespace: vmi.Namespace,
-				}
-				importer.UpdateVirtualMachineImageSettings(settings, vi, r.dvcrSettings.RegistryURL)
-			}
-		default:
-			return nil, fmt.Errorf("unknown dvcr settings source type: %s", vmi.Spec.DataSource.Type)
+		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(cvmiRef.Name)
+		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
+	case virtv2alpha1.DataSourceTypeVirtualMachineImage:
+		vmiRef := ds.VirtualMachineImage
+		if vmiRef == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'virtualMachineImage' section", ds.Type)
 		}
+		// Note: use namespace from the current VMI resource.
+		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmi.Namespace)
+		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
 	default:
-		return nil, fmt.Errorf("unknown settings source: %s", settings.Source)
+		return nil, fmt.Errorf("unknown dataSource: %s", ds.Type)
 	}
 
-	// Set DVCR settings.
-	importer.UpdateDVCRSettings(settings, r.dvcrSettings, dvcr.RegistryImageName(r.dvcrSettings, dvcr.ImagePathForVMI(vmi)))
+	// Set DVCR destination settings.
+	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
+	importer.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, dvcrDestImageName)
 
 	// TODO Update proxy settings.
 
