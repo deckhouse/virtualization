@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,6 +15,7 @@ import (
 	common "github.com/deckhouse/virtualization-controller/pkg/common"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -107,15 +107,18 @@ func (imp *Importer) EnsureCABundleConfigMap(ctx context.Context, client client.
 		return nil
 	}
 
-	cm := makeCABundleConfigMap(pod, imp.CABundle)
-
-	cc.SetRecommendedLabels(cm, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
-
-	err := client.Create(ctx, cm)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return fmt.Errorf("create ConfigMap/%s with certs from dataSource.http.caBundle: %w", cm.Name, err)
+	caBundleCopier := &copier.CABundleConfigMap{
+		Destination: types.NamespacedName{
+			Name:      pod.Namespace,
+			Namespace: imp.CABundle.ConfigMapName,
+		},
+		OwnerReference: podutil.MakeOwnerReference(pod),
 	}
 
+	_, err := caBundleCopier.Create(ctx, client, imp.CABundle.CABundle)
+	if err != nil {
+		return fmt.Errorf("create ConfigMap/%s with ca bundle: %w", imp.CABundle.ConfigMapName, err)
+	}
 	return nil
 }
 
