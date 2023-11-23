@@ -10,6 +10,12 @@ import (
 type Settings struct {
 	// AuthSecret is a name of the Secret with docker authentication.
 	AuthSecret string
+	// AuthSecretNamespace is a namespace for the AuthSecret.
+	AuthSecretNamespace string
+	// CertsSecret is a name of the TLS Secret with DVCR certificates (only CA cert is used).
+	CertsSecret string
+	// CertsSecretNamespace is a namespace for the CertsSecret.
+	CertsSecretNamespace string
 	// RegistryURL is a registry hostname with optional endpoint.
 	RegistryURL string
 	// InsecureTLS specifies if registry is insecure (trust all certificates). Works for destination only.

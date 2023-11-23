@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -188,14 +189,7 @@ func (state *VMDReconcilerState) ShouldTrackPod() bool {
 	}
 
 	// Use 2 phase import process for HTTP, Upload and ContainerImage sources.
-	switch state.VMD.Current().Spec.DataSource.Type {
-	case virtv2.DataSourceTypeHTTP,
-		virtv2.DataSourceTypeUpload,
-		virtv2.DataSourceTypeContainerImage:
-		return true
-	}
-
-	return false
+	return vmdutil.IsTwoPhaseImport(state.VMD.Current())
 }
 
 // IsPodInited returns whether VMD has annotations with importer or uploader coordinates.

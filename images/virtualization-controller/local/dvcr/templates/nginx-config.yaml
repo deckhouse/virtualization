@@ -42,8 +42,6 @@ data:
       uwsgi_temp_path       /tmp/uwsgi_temp;
       scgi_temp_path        /tmp/scgi_temp;
 
-      client_max_body_size 10000M;
-
       server {
         listen 443 default_server ssl;
         server_name _ default;
@@ -69,7 +67,9 @@ data:
 
           deny  all;
 
-          # Pass everything to registry container.
+          # Remove limits to speedup downloading big files.
+          proxy_buffering      off;
+          client_max_body_size 0;
 
           proxy_redirect    off;
           proxy_set_header  Host              $host;
@@ -79,6 +79,7 @@ data:
           proxy_http_version 1.1;
           proxy_pass_request_headers on;
 
+          # Pass all requests to registry2 container.
           proxy_pass http://127.0.0.1:5000;
         }
       }
