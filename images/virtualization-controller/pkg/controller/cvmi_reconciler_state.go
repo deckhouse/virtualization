@@ -105,6 +105,7 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		}
 		state.Pod = pod
 	}
+	// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
 	switch t {
 	case virtv2.DataSourceTypeContainerImage:
 		imgPullSecret, err := NewImagePullSecret(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)

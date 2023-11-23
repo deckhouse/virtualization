@@ -64,7 +64,10 @@ func (c *CABundleConfigMap) Copy(ctx context.Context, client client.Client) erro
 // in the field named as "ca.crt".
 func (c *CABundleConfigMap) makeConfigMap(caBundle string) *corev1.ConfigMap {
 	cm := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.Destination.Name,
 			Namespace: c.Destination.Namespace,

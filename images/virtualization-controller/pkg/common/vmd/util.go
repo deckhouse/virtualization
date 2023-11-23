@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 )
 
 // MakeOwnerReference makes owner reference from a ClusterVirtualMachineImage.
@@ -17,20 +18,17 @@ func MakeOwnerReference(vmd *virtv2alpha1.VirtualMachineDisk) metav1.OwnerRefere
 }
 
 func HasCABundle(vmd *virtv2alpha1.VirtualMachineDisk) bool {
-	if vmd != nil &&
-		vmd.Spec.DataSource != nil &&
-		vmd.Spec.DataSource.Type == virtv2alpha1.DataSourceTypeHTTP &&
-		vmd.Spec.DataSource.HTTP != nil {
-		return len(vmd.Spec.DataSource.HTTP.CABundle) > 0
+	if vmd == nil {
+		return false
 	}
-	return false
+	return datasource.HasCABundle(vmd.Spec.DataSource)
 }
 
 func GetCABundle(vmd *virtv2alpha1.VirtualMachineDisk) string {
-	if HasCABundle(vmd) {
-		return string(vmd.Spec.DataSource.HTTP.CABundle)
+	if vmd == nil {
+		return ""
 	}
-	return ""
+	return datasource.GetCABundle(vmd.Spec.DataSource)
 }
 
 func GetDataSourceType(vmd *virtv2alpha1.VirtualMachineDisk) string {
