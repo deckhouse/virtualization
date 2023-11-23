@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -189,21 +190,14 @@ func (state *VMIReconcilerState) ShouldTrackPod() bool {
 	if state.VMI.IsEmpty() {
 		return false
 	}
+
+	// Always run importer Pod when storage is DVCR.
 	if state.VMI.Current().Spec.Storage == virtv2.StorageContainerRegistry {
 		return true
 	}
 
-	dsType := state.VMI.Current().Spec.DataSource.Type
-
-	// Use 2 phase import process for HTTP, Upload and ContainerImage sources.
-	switch dsType {
-	case virtv2.DataSourceTypeHTTP,
-		virtv2.DataSourceTypeUpload,
-		virtv2.DataSourceTypeContainerImage:
-		return true
-	}
-
-	return false
+	// Run importer Pod for 2 phase import process (HTTP, Upload and ContainerImage sources).
+	return vmiutil.IsTwoPhaseImport(state.VMI.Current())
 }
 
 // IsPodInited returns whether VMI has annotations with importer or uploader coordinates.
@@ -276,10 +270,12 @@ func (state *VMIReconcilerState) GetTargetPVCSize() string {
 	return state.VMI.Current().Status.Size.UnpackedBytes
 }
 
+// ShouldTrackDataVolume returns true if import should be done via DataVolume.
 func (state *VMIReconcilerState) ShouldTrackDataVolume() bool {
 	if state.VMI.IsEmpty() {
 		return false
 	}
+
 	return state.VMI.Current().Spec.Storage == virtv2.StorageKubernetes
 }
 

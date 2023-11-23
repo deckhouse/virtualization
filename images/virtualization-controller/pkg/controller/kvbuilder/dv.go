@@ -11,6 +11,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
+// DV is a helper to construct DataVolume to import an image from DVCR onto PVC.
 type DV struct {
 	helper.ResourceBuilder[*cdiv1.DataVolume]
 }
@@ -19,6 +20,10 @@ func NewDV(name types.NamespacedName) *DV {
 	return &DV{
 		ResourceBuilder: helper.NewResourceBuilder(
 			&cdiv1.DataVolume{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "DataVolume",
+					APIVersion: cdiv1.SchemeGroupVersion.String(),
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: name.Namespace,
 					Name:      name.Name,
@@ -39,12 +44,21 @@ func (b *DV) SetPVC(storageClassName string, size resource.Quantity) {
 	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName, size)
 }
 
-func (b *DV) SetRegistryDataSource(imageName string) {
+func (b *DV) SetRegistryDataSource(imageName, authSecret, caBundleConfigMap string) {
 	url := common.DockerRegistrySchemePrefix + imageName
 
-	b.Resource.Spec.Source.Registry = &cdiv1.DataVolumeSourceRegistry{
+	dataSource := cdiv1.DataVolumeSourceRegistry{
 		URL: &url,
 	}
+
+	if authSecret != "" {
+		dataSource.SecretRef = &authSecret
+	}
+	if caBundleConfigMap != "" {
+		dataSource.CertConfigMap = &caBundleConfigMap
+	}
+
+	b.Resource.Spec.Source.Registry = &dataSource
 }
 
 func (b *DV) SetBlankDataSource() {

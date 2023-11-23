@@ -2,13 +2,10 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/strings"
@@ -28,7 +25,6 @@ import (
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
@@ -474,65 +470,6 @@ func (r *VMDReconciler) initDataVolumeName(vmd *virtv2.VirtualMachineDisk) {
 	anno[cc.AnnVMDDataVolume] = strings.ShortenString(fmt.Sprintf("vmd-%s-%s", vmd.GetName(), uuid.NewUUID()), kvalidation.DNS1123SubdomainMaxLength)
 
 	vmd.Annotations = anno
-}
-
-func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
-	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
-
-	if vmd.Spec.DataSource == nil {
-		if vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
-			return resource.Quantity{}, errors.New("spec.pvc.size cannot be zero for blank VMD")
-		}
-
-		return pvcSize, nil
-	}
-
-	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("cannot create PVC without final report from the Pod: %w", err)
-	}
-
-	unpackedSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
-	if unpackedSize.IsZero() {
-		return resource.Quantity{}, errors.New("no unpacked size in final report")
-	}
-
-	switch {
-	case pvcSize.IsZero():
-		// Set the resulting size from the importer/uploader pod.
-		pvcSize = unpackedSize
-	case pvcSize.Cmp(unpackedSize) == -1:
-		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
-
-		return resource.Quantity{}, errors.New("the specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
-	}
-
-	return pvcSize, nil
-}
-
-func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	dvName := types.NamespacedName{Name: vmd.GetAnnotations()[cc.AnnVMDDataVolume], Namespace: vmd.GetNamespace()}
-	dvBuilder := kvbuilder.NewDV(dvName)
-
-	pvcSize, err := r.getPVCSize(vmd, state, opts)
-	if err != nil {
-		return err
-	}
-
-	err = kvbuilder.ApplyVirtualMachineDiskSpec(dvBuilder, vmd, pvcSize, r.dvcrSettings)
-	if err != nil {
-		return fmt.Errorf("apply VMD spec to DataVolume: %w", err)
-	}
-
-	dv := dvBuilder.GetResource()
-
-	if err = opts.Client.Create(ctx, dv); err != nil {
-		opts.Log.V(2).Info("Error create new DV spec", "dv.spec", dv.Spec)
-		return fmt.Errorf("create DataVolume/%s for VMD/%s: %w", dv.GetName(), vmd.GetName(), err)
-	}
-	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
-	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec)
-	return nil
 }
 
 func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineDisk, client client.Client, state *VMDReconcilerState) error {

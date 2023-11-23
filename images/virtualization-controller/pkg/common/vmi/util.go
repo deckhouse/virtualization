@@ -1,4 +1,4 @@
-package cvmi
+package vmi
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,4 +34,29 @@ func GetCABundle(vmi *virtv2alpha1.VirtualMachineImage) string {
 		return string(vmi.Spec.DataSource.HTTP.CABundle)
 	}
 	return ""
+}
+
+func GetDataSourceType(vmi *virtv2alpha1.VirtualMachineImage) string {
+	if vmi == nil {
+		return ""
+	}
+	return string(vmi.Spec.DataSource.Type)
+}
+
+// IsTwoPhaseImport returns true when two phase import is required:
+// 1. Import from dataSource to DVCR image using dvcr-importer or dvcr-uploader.
+// 2. Import DVCR image to PVC using DataVolume.
+func IsTwoPhaseImport(vmi *virtv2alpha1.VirtualMachineImage) bool {
+	if vmi == nil {
+		return false
+	}
+
+	switch vmi.Spec.DataSource.Type {
+	case virtv2alpha1.DataSourceTypeHTTP,
+		virtv2alpha1.DataSourceTypeUpload,
+		virtv2alpha1.DataSourceTypeContainerImage:
+		return vmi.Spec.Storage == virtv2alpha1.StorageKubernetes
+	}
+
+	return false
 }
