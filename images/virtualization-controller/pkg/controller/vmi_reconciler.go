@@ -2,14 +2,11 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/strings"
@@ -29,7 +26,6 @@ import (
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
@@ -508,36 +504,6 @@ func (r *VMIReconciler) initDataVolumeName(vmi *virtv2.VirtualMachineImage) {
 	anno[cc.AnnVMIDataVolume] = strings.ShortenString(fmt.Sprintf("vmi-%s-%s", vmi.GetName(), uuid.NewUUID()), kvalidation.DNS1123SubdomainMaxLength)
 
 	vmi.Annotations = anno
-}
-
-func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	dvName := types.NamespacedName{Name: vmi.GetAnnotations()[cc.AnnVMIDataVolume], Namespace: vmi.GetNamespace()}
-	dvBuilder := kvbuilder.NewDV(dvName)
-
-	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-	if err != nil {
-		return fmt.Errorf("cannot create DV without final report from the Pod: %w", err)
-	}
-
-	if finalReport.UnpackedSizeBytes == 0 {
-		return errors.New("no unpacked size in final report")
-	}
-
-	pvcSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
-
-	err = kvbuilder.ApplyVirtualMachineImageSpec(dvBuilder, vmi, pvcSize, r.dvcrSettings)
-	if err != nil {
-		return fmt.Errorf("apply VMI spec to DataVolume: %w", err)
-	}
-	dv := dvBuilder.GetResource()
-
-	if err = opts.Client.Create(ctx, dv); err != nil {
-		opts.Log.V(2).Info("Error create new DV spec", "dv.spec", dv.Spec)
-		return fmt.Errorf("create DataVolume/%s for VMI/%s: %w", dv.GetName(), vmi.GetName(), err)
-	}
-	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
-	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec)
-	return nil
 }
 
 func (r *VMIReconciler) cleanup(

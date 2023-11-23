@@ -112,6 +112,12 @@ const (
 	DVCRRegistryURLVar = "DVCR_REGISTRY_URL"
 	// DVCRAuthSecretVar is an env variable holds the name of the Secret with DVCR auth credentials.
 	DVCRAuthSecretVar = "DVCR_AUTH_SECRET"
+	// DVCRAuthSecretNSVar is an env variable holds the namespace for the Secret with DVCR auth credentials.
+	DVCRAuthSecretNSVar = "DVCR_AUTH_SECRET_NAMESPACE"
+	// DVCRCertsSecretVar is an env variable holds the name of the Secret with DVCR certificates.
+	DVCRCertsSecretVar = "DVCR_CERTS_SECRET"
+	// DVCRCertsSecretNSVar is an env variable holds the namespace for the Secret with DVCR certificates.
+	DVCRCertsSecretNSVar = "DVCR_CERTS_SECRET_NAMESPACE"
 	// DVCRInsecureTLSVar is an env variable holds the flag whether DVCR is insecure.
 	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
 

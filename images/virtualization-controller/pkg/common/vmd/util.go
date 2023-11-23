@@ -1,4 +1,4 @@
-package cvmi
+package vmd
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,4 +31,32 @@ func GetCABundle(vmd *virtv2alpha1.VirtualMachineDisk) string {
 		return string(vmd.Spec.DataSource.HTTP.CABundle)
 	}
 	return ""
+}
+
+func GetDataSourceType(vmd *virtv2alpha1.VirtualMachineDisk) string {
+	if vmd == nil || vmd.Spec.DataSource == nil {
+		return ""
+	}
+	return string(vmd.Spec.DataSource.Type)
+}
+
+func IsTwoPhaseImport(vmd *virtv2alpha1.VirtualMachineDisk) bool {
+	if vmd == nil || vmd.Spec.DataSource == nil {
+		return false
+	}
+	switch vmd.Spec.DataSource.Type {
+	case virtv2alpha1.DataSourceTypeHTTP,
+		virtv2alpha1.DataSourceTypeUpload,
+		virtv2alpha1.DataSourceTypeContainerImage:
+		return true
+	}
+	return false
+}
+
+// IsBlankPVC returns true if VMD has no DataSource: only PVC should be created.
+func IsBlankPVC(vmd *virtv2alpha1.VirtualMachineDisk) bool {
+	if vmd == nil {
+		return false
+	}
+	return vmd.Spec.DataSource == nil
 }

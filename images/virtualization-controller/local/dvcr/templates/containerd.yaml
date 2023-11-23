@@ -49,6 +49,6 @@ spec:
     }
     bb-sync-file /etc/containerd/conf.d/dvcr-test.toml - containerd-config-changed << "EOF"
       [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{.Values.auth.address}}"]
-        endpoint =  ["https://127.0.0.1:30101"]
+        endpoint =  ["http://127.0.0.1:30101"]
     EOF
 {{end}}

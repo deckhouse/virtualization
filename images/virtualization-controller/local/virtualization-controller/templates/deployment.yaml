@@ -51,6 +51,12 @@ spec:
           value: {{ .Values.dvcr.registryURL | quote }}
         - name: DVCR_AUTH_SECRET
           value: {{ .Values.dvcr.authSecret | quote }}
+        - name: DVCR_AUTH_SECRET_NAMESPACE
+          value: {{ .Values.dvcr.namespace | quote }}
+        - name: DVCR_CERTS_SECRET
+          value: {{ .Values.dvcr.certsSecret | quote }}
+        - name: DVCR_CERTS_SECRET_NAMESPACE
+          value: {{ .Values.dvcr.namespace | quote }}
         - name: DVCR_INSECURE_TLS
           value: {{ .Values.dvcr.insecureTLS | quote }}
         - name: VIRTUAL_MACHINE_CIDRS
