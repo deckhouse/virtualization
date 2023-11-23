@@ -100,6 +100,8 @@ rules:
   - virtualmachinedisks
   - virtualmachinedisksnapshots
   - virtualmachineimages
+  - virtualmachineipaddressleases
+  - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
   - virtualmachines
   - clustervirtualmachineimages
@@ -120,6 +122,10 @@ rules:
   - virtualmachineblockdeviceattachments/finalizers
   - virtualmachines/finalizers
   - clustervirtualmachineimages/finalizers
+  - virtualmachineipaddressleases/finalizers
+  - virtualmachineipaddressclaims/finalizers
+  - virtualmachineipaddressclaims/status
+  - virtualmachineipaddressleases/status
   - virtualmachinedisks/status
   - virtualmachinedisksnapshots/status
   - virtualmachineimages/status
