@@ -20,6 +20,7 @@ rules:
   - pods
   - services
   - secrets
+  - configmaps
   verbs:
   - get
   - create
@@ -37,12 +38,6 @@ rules:
   - list
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
 - apiGroups:
   - ""
   resources:

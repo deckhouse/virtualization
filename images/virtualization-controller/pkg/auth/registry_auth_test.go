@@ -8,22 +8,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_get_creds(t *testing.T) {
-	authUsername := "admin"
-	authPassword := "pass"
-	authAddress := "registry.dvcr.svc.cluster.local"
+func TestCredsFromRegistryAuthFile(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		password string
+		address  string
+		ref      string
+	}{
+		{
+			"standalone dvcr",
+			"admin",
+			"pass",
+			"registry.dvcr.svc.cluster.local",
+			"registry.dvcr.svc.cluster.local/dvcr",
+		},
+		{
+			"in-module dvcr",
+			"admin",
+			"pass",
+			"dvcr.d8-virtualization.svc",
+			"dvcr.d8-virtualization.svc",
+		},
+	}
 
-	cfg, err := ReadDockerConfigJSON(mustEncodeDockerConfigJSON(authUsername, authPassword, authAddress))
-	require.NoError(t, err, "should read config from string")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := ReadDockerConfigJSON(mustEncodeDockerConfigJSON(tt.username, tt.password, tt.address))
+			require.NoError(t, err, "should read config from string")
 
-	// Use registry URL as ref.
-	ref := "registry.dvcr.svc.cluster.local/dvcr"
+			authUsername, authPassword, err := CredsFromRegistryAuthFile(cfg, tt.ref)
+			require.NoError(t, err, "should find config for registry url")
 
-	username, password, err := CredsFromRegistryAuthFile(cfg, ref)
-	require.NoError(t, err, "should find config for registry url")
-
-	require.Equal(t, authUsername, username)
-	require.Equal(t, authPassword, password)
+			require.Equal(t, tt.username, authUsername)
+			require.Equal(t, tt.password, authPassword)
+		})
+	}
 }
 
 // mustEncodeDockerConfigJSON returns

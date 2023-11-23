@@ -35,7 +35,7 @@ func Test_MakePodSpec(t *testing.T) {
 		DestinationAuthSecret:  "dvcr-auth",
 	}
 
-	imp := NewImporter(podSettings, settings, nil)
+	imp := NewImporter(podSettings, settings)
 
 	pod := imp.makeImporterPodSpec()
 
@@ -66,20 +66,19 @@ func Test_MakePodSpec_CABundle(t *testing.T) {
 		Endpoint:               "https://localhost/mini.iso",
 		Source:                 "HTTP",
 		InsecureTLS:            false,
+		CertConfigMap:          "cm-name",
 		DestinationEndpoint:    "dvcr:5000/test-image:latest",
 		DestinationInsecureTLS: "false",
 		DestinationAuthSecret:  "dvcr-auth",
 	}
 
-	caBundle := NewCABundleSettings("BEGIN CERT", "cm-name")
-
-	imp := NewImporter(podSettings, settings, caBundle)
+	imp := NewImporter(podSettings, settings)
 
 	pod := imp.makeImporterPodSpec()
 
 	hasCAVol := false
 	for _, vol := range pod.Spec.Volumes {
-		if vol.Name == caBundleVolName {
+		if vol.Name == certVolName {
 			hasCAVol = true
 			if vol.ConfigMap.Name == "" {
 				t.Fatalf("configMap.name should not be empty for %s volume", caBundleVolName)

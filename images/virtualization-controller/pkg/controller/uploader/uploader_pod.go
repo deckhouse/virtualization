@@ -64,7 +64,7 @@ func (p *Pod) Create(ctx context.Context, client client.Client) (*corev1.Pod, er
 }
 
 func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	return helper.DeleteObject(ctx, client, pod)
+	return helper.CleanupObject(ctx, client, pod)
 }
 
 func (p *Pod) makeSpec() *corev1.Pod {

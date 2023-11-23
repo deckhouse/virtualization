@@ -39,7 +39,7 @@ func (s *Service) Create(ctx context.Context, client client.Client) (*corev1.Ser
 }
 
 func CleanupService(ctx context.Context, client client.Client, service *corev1.Service) error {
-	return helper.DeleteObject(ctx, client, service)
+	return helper.CleanupObject(ctx, client, service)
 }
 
 func (s *Service) makeSpec() *corev1.Service {

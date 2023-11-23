@@ -7,9 +7,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
-	kvalidation "k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/utils/strings"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -23,10 +20,10 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -105,19 +102,19 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
+		opts.Log.Info("vmd is ready. Cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
 			return err
 		}
 		return nil
+	// First phase: import to DVCR.
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
 		switch {
 		case !state.IsPodInited():
-			log.V(1).Info("Update annotations with importer/uploader Pod name and namespace")
-			if err := r.initPodName(state.VMD.Changed()); err != nil {
-				return err
-			}
+			log.V(1).Info("New VMI observed, update annotations with Pod name and namespace")
+			r.initPodName(state)
 			// Update annotations and status and restart reconcile to create an importer/uploader Pod.
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
@@ -125,7 +122,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			// Create Pod using name and namespace from annotation.
 			log.V(1).Info("Start new Pod for VMD")
 			// Create importer/uploader pod, make sure the VMD owns it.
-			if err := r.startPod(ctx, state.VMD.Current(), opts); err != nil {
+			if err := r.startPod(ctx, state, opts); err != nil {
 				return err
 			}
 			// Requeue to wait until Pod become Running.
@@ -140,12 +137,13 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
 		}
+	// Second phase: import to PVC.
 	case state.ShouldTrackDataVolume() && (!state.ShouldTrackPod() || state.IsPodComplete()):
 		// Start and track DataVolume.
 		switch {
 		case !state.HasDataVolumeAnno():
 			log.V(1).Info("Update annotations with new DataVolume name")
-			r.initDataVolumeName(state.VMD.Changed())
+			r.initDataVolumeName(state)
 			// Update annotations and status and restart reconcile to create a DV.
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
@@ -392,10 +390,10 @@ func (r *VMDReconciler) removeFinalizers(ctx context.Context, state *VMDReconcil
 			}
 		}
 	}
-	if state.DV != nil {
-		if controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
-			if err := opts.Client.Update(ctx, state.DV); err != nil {
-				return fmt.Errorf("unable to remove DV %q finalizer %q: %w", state.DV.Name, virtv2.FinalizerDVProtection, err)
+	if state.PV != nil {
+		if controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
+			if err := opts.Client.Update(ctx, state.PV); err != nil {
+				return fmt.Errorf("unable to remove PV %q finalizer %q: %w", state.PV.Name, virtv2.FinalizerPVProtection, err)
 			}
 		}
 	}
@@ -406,10 +404,10 @@ func (r *VMDReconciler) removeFinalizers(ctx context.Context, state *VMDReconcil
 			}
 		}
 	}
-	if state.PV != nil {
-		if controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
-			if err := opts.Client.Update(ctx, state.PV); err != nil {
-				return fmt.Errorf("unable to remove PV %q finalizer %q: %w", state.PV.Name, virtv2.FinalizerPVProtection, err)
+	if state.DV != nil {
+		if controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
+			if err := opts.Client.Update(ctx, state.DV); err != nil {
+				return fmt.Errorf("unable to remove DV %q finalizer %q: %w", state.DV.Name, virtv2.FinalizerDVProtection, err)
 			}
 		}
 	}
@@ -418,50 +416,48 @@ func (r *VMDReconciler) removeFinalizers(ctx context.Context, state *VMDReconcil
 	return nil
 }
 
-// initPodName creates new name and update it in the annotation.
-func (r *VMDReconciler) initPodName(vmd *virtv2.VirtualMachineDisk) error {
-	if vmd.Spec.DataSource == nil {
-		return fmt.Errorf("unexpected nil spec.dataSource to init pod name")
-	}
+// initPodName saves the Pod name in the annotation.
+func (r *VMDReconciler) initPodName(state *VMDReconcilerState) {
+	vmd := state.VMD.Changed()
 
-	anno := vmd.GetAnnotations()
-	if anno == nil {
-		anno = make(map[string]string)
+	// Should not happen, but check it anyway.
+	if vmd.Spec.DataSource == nil {
+		return
 	}
 
 	switch vmd.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		anno[cc.AnnUploadPodName] = fmt.Sprintf("%s-%s", common.UploaderPodNamePrefix, vmd.GetName())
-		anno[cc.AnnUploadServiceName] = fmt.Sprintf("%s-%s", common.UploaderServiceNamePrefix, vmd.GetName())
+		uploaderPod := state.Supplements.UploaderPod()
+		cc.AddAnnotation(vmd, cc.AnnUploadPodName, uploaderPod.Name)
 	default:
-		anno[cc.AnnImportPodName] = fmt.Sprintf("%s-%s", common.ImporterPodNamePrefix, vmd.GetName())
-		// Generate name for secret with certs from caBundle.
-		if vmdutil.HasCABundle(vmd) {
-			anno[cc.AnnCABundleConfigMap] = fmt.Sprintf("%s-ca", vmd.GetName())
-		}
+		importerPod := state.Supplements.ImporterPod()
+		cc.AddAnnotation(vmd, cc.AnnImportPodName, importerPod.Name)
 	}
-
-	vmd.SetAnnotations(anno)
-
-	return nil
 }
 
-func (r *VMDReconciler) startPod(ctx context.Context, vmd *virtv2.VirtualMachineDisk, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMDReconciler) startPod(
+	ctx context.Context,
+	state *VMDReconcilerState,
+	opts two_phase_reconciler.ReconcilerOptions,
+) error {
+	vmd := state.VMD.Current()
+
+	// Should not happen, but check it anyway.
 	if vmd.Spec.DataSource == nil {
-		return fmt.Errorf("unexpected nil spec.dataSource to start pod")
+		return nil
 	}
 
 	switch vmd.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		if err := r.startUploaderPod(ctx, vmd, opts); err != nil {
+		if err := r.startUploaderPod(ctx, state, opts); err != nil {
 			return err
 		}
 
-		if err := r.startUploaderService(ctx, vmd, opts); err != nil {
+		if err := r.startUploaderService(ctx, state, opts); err != nil {
 			return err
 		}
 	default:
-		if err := r.startImporterPod(ctx, vmd, opts); err != nil {
+		if err := r.startImporterPod(ctx, state, opts); err != nil {
 			return err
 		}
 	}
@@ -470,29 +466,28 @@ func (r *VMDReconciler) startPod(ctx context.Context, vmd *virtv2.VirtualMachine
 }
 
 // initDataVolumeName creates new DV name and update it in the annotation.
-func (r *VMDReconciler) initDataVolumeName(vmd *virtv2.VirtualMachineDisk) {
+func (r *VMDReconciler) initDataVolumeName(state *VMDReconcilerState) {
+	vmd := state.VMD.Changed()
+
 	// Prevent DataVolume name regeneration.
 	if _, hasKey := vmd.Annotations[cc.AnnVMDDataVolume]; hasKey {
 		return
 	}
 
-	anno := vmd.GetAnnotations()
-	if anno == nil {
-		anno = make(map[string]string)
-	}
-
-	// Generate DataVolume name.
-	// FIXME: move shortening to separate method. (See https://github.com/deckhouse/3p-containerized-data-importer/blob/ab8b9c025e40b43272a433c600c107cb993ebf90/pkg/util/naming/namer.go).
-	anno[cc.AnnVMDDataVolume] = strings.ShortenString(fmt.Sprintf("vmd-%s-%s", vmd.GetName(), uuid.NewUUID()), kvalidation.DNS1123SubdomainMaxLength)
-
-	vmd.Annotations = anno
+	dv := state.Supplements.DataVolume()
+	cc.AddAnnotation(vmd, cc.AnnVMDDataVolume, dv.Name)
 }
 
 func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineDisk, client client.Client, state *VMDReconcilerState) error {
 	if state.DV != nil {
-		if err := client.Delete(ctx, state.DV); err != nil {
-			return fmt.Errorf("cleanup DataVolume: %w", err)
+		err := supplements.CleanupForDataVolume(ctx, client, state.Supplements, r.dvcrSettings)
+		if err != nil {
+			return fmt.Errorf("cleanup supplements for DataVolume: %w", err)
 		}
+		// TODO(future): take ownership on PVC and delete DataVolume.
+		// if err := client.Delete(ctx, state.DV); err != nil {
+		//	return fmt.Errorf("cleanup DataVolume: %w", err)
+		// }
 	}
 
 	if state.Pod != nil && cc.ShouldDeletePod(state.VMD.Current()) {

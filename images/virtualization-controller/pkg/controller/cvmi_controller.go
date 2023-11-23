@@ -14,6 +14,7 @@ import (
 
 const (
 	cvmiControllerName = "cvmi-controller"
+	cvmiShortName      = "cvmi"
 
 	ImporterPodVerbose    = "3"
 	ImporterPodPullPolicy = string(corev1.PullAlways)
@@ -39,7 +40,7 @@ func NewCVMIController(
 
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*CVMIReconcilerState](
 		reconciler,
-		NewCVMIReconcilerState,
+		NewCVMIReconcilerState(controllerNamespace),
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
 			Cache:    mgr.GetCache(),
