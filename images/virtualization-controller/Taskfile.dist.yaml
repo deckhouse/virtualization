@@ -85,6 +85,8 @@ tasks:
       - _ensure:k3d-registry-insecure-allowed
     vars:
       ClusterType: "local"
+    env:
+      CLUSTER_TYPE: "local"
     cmds:
       - task: cluster:up
 

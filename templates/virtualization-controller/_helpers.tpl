@@ -16,6 +16,8 @@
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
 - name: DVCR_AUTH_SECRET
   value: dvcr-dockercfg-rw
+- name: DVCR_CERTS_SECRET
+  value: dvcr-tls
 - name: DVCR_REGISTRY_URL
   value: {{ $registry | quote }}
 - name: DVCR_INSECURE_TLS
