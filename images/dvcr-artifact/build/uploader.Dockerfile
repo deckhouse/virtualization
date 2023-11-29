@@ -1,8 +1,17 @@
-FROM golang:1.20-bookworm AS builder
-WORKDIR /go/src/github.com/deckhouse/virtualization-controller/dvcr_importers
+ARG BUILDER_CACHE_IMAGE=golang:1.20-bookworm
+FROM $BUILDER_CACHE_IMAGE as builder
+
+# Cache-friendly download modules.
+ADD go.mod go.sum /app/
+WORKDIR /app
+RUN go mod download
+
+# Build uploader
+RUN rm -rf /app
+ADD . /app
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends libnbd-dev
-COPY . ./
-RUN go build ./cmd/dvcr_uploader && chmod +x dvcr_uploader
+RUN GOOS=linux \
+    go build -o uploader ./cmd/dvcr_uploader
 
 FROM debian:bookworm-slim
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
@@ -11,7 +20,7 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
     qemu-utils \
     file && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=builder /go/src/github.com/deckhouse/virtualization-controller/dvcr_importers/dvcr_uploader /usr/local/bin/dvcr_uploader
+COPY --from=builder /app/uploader /usr/local/bin/dvcr_uploader
 
 ADD build/uploader_entrypoint.sh /
 

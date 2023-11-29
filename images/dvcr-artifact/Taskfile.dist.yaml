@@ -3,30 +3,70 @@ silent: true
 
 env:
   IMPORTER_IMAGE_NAME: virtualization-importer:latest
+  IMPORTER_BUILDER_IMAGE_NAME: virtualization-importer-builder:latest
   UPLOADER_IMAGE_NAME: virtualization-uploader:latest
+  UPLOADER_BUILDER_IMAGE_NAME: virtualization-uploader-builder:latest
   K3D_REGISTRY: k3d-registry.virtualization-controller.test:5000
 
 tasks:
+  build:importer:cache:
+    desc: "Download Go modules and prebuild them to speedup next builds of the importer."
+    cmds:
+      - |
+        echo "Build go modules cache"
+        BUILDER_IMAGE="${K3D_REGISTRY}/${IMPORTER_BUILDER_IMAGE_NAME}"
+        docker build . \
+          -f build/importer.Dockerfile \
+          --target builder \
+          -t ${BUILDER_IMAGE} \
+          --platform linux/amd64
+
+  build:uploader:cache:
+    desc: "Download Go modules and prebuild them to speedup next builds of the uploader."
+    cmds:
+      - |
+        echo "Build go modules cache"
+        BUILDER_IMAGE="${K3D_REGISTRY}/${UPLOADER_BUILDER_IMAGE_NAME}"
+        docker build . \
+          -f build/uploader.Dockerfile \
+          --target builder \
+          -t ${BUILDER_IMAGE} \
+          --platform linux/amd64
+
   importer:push:
     desc: "build importer image and push to registry (local k3d registry by default)"
     vars:
       REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
+      IMAGE_NAME: '{{ .IMAGE_NAME | default "${IMPORTER_IMAGE_NAME}" }}'
     cmds:
+      - task: build:importer:cache
       - |
-        IMAGE="{{ .REGISTRY }}/${IMPORTER_IMAGE_NAME}"
+        IMAGE="{{ .REGISTRY }}/{{ .IMPORTER_IMAGE_NAME }}"
+        BUILDER_IMAGE="${K3D_REGISTRY}/${IMPORTER_BUILDER_IMAGE_NAME}"
         echo "Build dvcr-importer image $IMAGE ..."
-        docker build -t $IMAGE -f build/Dockerfile.importer .
+        docker build . \
+          --build-arg BUILDER_CACHE_IMAGE=${BUILDER_IMAGE} \
+          -f build/importer.Dockerfile \
+          --platform linux/amd64 \
+          -t $IMAGE
         docker push $IMAGE
 
   uploader:push:
     desc: "build uploader image and push to registry (local k3d registry by default)"
     vars:
       REGISTRY: '{{ .REGISTRY | default "${K3D_REGISTRY}" }}'
+      IMAGE_NAME: '{{ .IMAGE_NAME | default "${UPLOADER_IMAGE_NAME}" }}'
     cmds:
+      - task: build:uploader:cache
       - |
-        IMAGE="{{ .REGISTRY }}/${UPLOADER_IMAGE_NAME}"
+        IMAGE="{{ .REGISTRY }}/{{ .UPLOADER_IMAGE_NAME }}"
+        BUILDER_IMAGE="${K3D_REGISTRY}/${UPLOADER_BUILDER_IMAGE_NAME}"
         echo "Build dvcr-uploader image $IMAGE ..."
-        docker build -t $IMAGE -f build/Dockerfile.uploader .
+        docker build . \
+          --build-arg BUILDER_CACHE_IMAGE=${BUILDER_IMAGE} \
+          -f build/uploader.Dockerfile \
+          --platform linux/amd64 \
+          -t $IMAGE
         docker push $IMAGE
 
   lint:
