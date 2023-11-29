@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -82,7 +83,9 @@ func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Recon
 	rec := record.NewFakeRecorder(10)
 
 	return two_phase_reconciler.NewReconcilerCore[*VMReconcilerState](
-		&VMReconciler{},
+		&VMReconciler{
+			ipam: &MockIPAM{},
+		},
 		NewVMReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   cl,
@@ -90,4 +93,27 @@ func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Recon
 			Scheme:   s,
 			Log:      vmControllerLog,
 		})
+}
+
+// TODO add auto generated mock.
+type MockIPAM struct{}
+
+func (m *MockIPAM) IsBound(_ string, _ *v2alpha1.VirtualMachineIPAddressClaim) bool {
+	return true
+}
+
+func (m *MockIPAM) CheckClaimAvailableForBinding(_ string, _ *v2alpha1.VirtualMachineIPAddressClaim) error {
+	return nil
+}
+
+func (m *MockIPAM) CreateIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachine, _ client.Client) error {
+	return nil
+}
+
+func (m *MockIPAM) BindIPAddressClaim(_ context.Context, _ string, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
+	return nil
+}
+
+func (m *MockIPAM) DeleteIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
+	return nil
 }

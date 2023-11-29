@@ -13,6 +13,9 @@ const (
 	// ReasonErrGetProgressFailed is event reason about the failure of getting progress.
 	ReasonErrGetProgressFailed = "ErrGetProgressFailed"
 
+	// ReasonClaimNotAvailable is event reason that VM cannot use defined claim.
+	ReasonClaimNotAvailable = "ErrClaimNotAvailable"
+
 	// ReasonImportSucceeded is event reason that the import is successfully completed
 	ReasonImportSucceeded = "ImportSucceeded"
 

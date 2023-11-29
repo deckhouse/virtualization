@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -48,17 +49,48 @@ func (r *ClaimReconciler) SetupController(_ context.Context, mgr manager.Manager
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}),
 		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromLeases),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on leases: %w", err)
 	}
 
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
+		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMs),
 		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
+			CreateFunc: func(e event.CreateEvent) bool { return false },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
-	)
+	); err != nil {
+		return fmt.Errorf("error setting watch on vms: %w", err)
+	}
+
+	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}), &handler.EnqueueRequestForObject{})
+}
+
+func (r *ClaimReconciler) enqueueRequestsFromVMs(_ context.Context, obj client.Object) []reconcile.Request {
+	vm, ok := obj.(*virtv2.VirtualMachine)
+	if !ok {
+		return nil
+	}
+
+	if vm.Spec.VirtualMachineIPAddressClaimName == "" {
+		return nil
+	}
+
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Namespace: vm.Namespace,
+				Name:      vm.Spec.VirtualMachineIPAddressClaimName,
+			},
+		},
+	}
 }
 
 func (r *ClaimReconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Object) []reconcile.Request {
@@ -83,6 +115,13 @@ func (r *ClaimReconciler) enqueueRequestsFromLeases(_ context.Context, obj clien
 
 func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *ClaimReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	switch {
+	case shouldUnboundClaim(state):
+		opts.Log.Info("The claim is no longer used by the VM: unbound")
+
+		delete(state.Claim.Changed().Annotations, common.AnnBoundVirtualMachineName)
+
+		return nil
+
 	case state.Lease == nil && state.Claim.Current().Spec.LeaseName != "":
 		opts.Log.Info("Lease by name not found: waiting for the lease to be available")
 		return nil
@@ -116,6 +155,13 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			leaseName = ipToLeaseName(state.Claim.Changed().Spec.Address)
 		}
 
+		opts.Log.Info("Create lease",
+			"leaseName", leaseName,
+			"reclaimPolicy", state.Claim.Current().Spec.ReclaimPolicy,
+			"refName", state.Claim.Name().Name,
+			"refNamespace", state.Claim.Name().Namespace,
+		)
+
 		err := opts.Client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: leaseName,
@@ -133,20 +179,10 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		}
 
 		state.Claim.Changed().Spec.LeaseName = leaseName
-		return opts.Client.Update(ctx, state.Claim.Changed())
 
-	case isBoundedLease(state):
-		opts.Log.Info("Lease already exists, claim ref is valid")
-
-		if state.Lease.Spec.ReclaimPolicy != state.Claim.Current().Spec.ReclaimPolicy {
-			opts.Log.Info("Reclaim policy has changed: update lease")
-
-			state.Lease.Spec.ReclaimPolicy = state.Claim.Current().Spec.ReclaimPolicy
-
-			err := opts.Client.Update(ctx, state.Lease)
-			if err != nil {
-				return err
-			}
+		err = opts.Client.Update(ctx, state.Claim.Changed())
+		if err != nil {
+			return fmt.Errorf("failed to set lease name for claim: %w", err)
 		}
 
 		return nil
@@ -154,6 +190,10 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	case state.Lease.Status.Phase == "":
 		opts.Log.Info("Lease is not ready: waiting for the lease")
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second})
+		return nil
+
+	case isBoundLease(state):
+		opts.Log.Info("Lease already exists, claim ref is valid")
 		return nil
 
 	case state.Lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
@@ -188,6 +228,11 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 
 	claimStatus := state.Claim.Current().Status.DeepCopy()
 
+	claimStatus.VMName = ""
+	if state.VM != nil && state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName] != "" {
+		claimStatus.VMName = state.VM.Name
+	}
+
 	claimStatus.Address = ""
 	claimStatus.ConflictMessage = ""
 
@@ -198,7 +243,7 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 	case state.Lease == nil:
 		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhasePending
 
-	case isBoundedLease(state):
+	case isBoundLease(state):
 		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhaseBound
 		claimStatus.Address = state.Claim.Current().Spec.Address
 
@@ -214,14 +259,30 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhasePending
 	}
 
-	opts.Log.Info("Set claim phase Pending", "phase", claimStatus.Phase)
+	opts.Log.Info("Set claim phase", "phase", claimStatus.Phase)
 
 	state.Claim.Changed().Status = *claimStatus
 
 	return nil
 }
 
-func isBoundedLease(state *ClaimReconcilerState) bool {
+func shouldUnboundClaim(state *ClaimReconcilerState) bool {
+	// Claim isn't bound to any VM.
+	if state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName] == "" {
+		return false
+	}
+
+	// Claim is bound, but VM is bound to another Claim (Claim changed for VM).
+	return state.VM != nil &&
+		state.VM.Spec.VirtualMachineIPAddressClaimName != "" &&
+		state.VM.Spec.VirtualMachineIPAddressClaimName != state.Claim.Name().Name
+}
+
+func isBoundLease(state *ClaimReconcilerState) bool {
+	if state.Lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
+		return false
+	}
+
 	if state.Lease.Spec.ClaimRef == nil {
 		return false
 	}

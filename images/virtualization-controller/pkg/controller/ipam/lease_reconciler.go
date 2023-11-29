@@ -28,17 +28,16 @@ func (r *LeaseReconciler) SetupController(_ context.Context, mgr manager.Manager
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}),
 		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromClaims),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on claims: %w", err)
 	}
 
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}), &handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
+	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}), &handler.EnqueueRequestForObject{})
 }
 
 func (r *LeaseReconciler) enqueueRequestsFromClaims(_ context.Context, obj client.Object) []reconcile.Request {
@@ -61,37 +60,44 @@ func (r *LeaseReconciler) enqueueRequestsFromClaims(_ context.Context, obj clien
 }
 
 func (r *LeaseReconciler) Sync(ctx context.Context, _ reconcile.Request, state *LeaseReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.Claim == nil && state.Lease.Current().Spec.ClaimRef != nil {
-		state.Lease.Changed().Spec.ClaimRef = nil
+	if state.Claim != nil {
+		return nil
+	}
 
-		return opts.Client.Update(ctx, state.Lease.Changed())
+	switch state.Lease.Current().Spec.ReclaimPolicy {
+	case virtv2.VirtualMachineIPAddressReclaimPolicyDelete, "":
+		opts.Log.Info("Claim not found: remove this Lease")
+
+		return opts.Client.Delete(ctx, state.Lease.Current())
+	case virtv2.VirtualMachineIPAddressReclaimPolicyRetain:
+		if state.Lease.Current().Spec.ClaimRef != nil {
+			opts.Log.Info("Claim not found: remove this ref from the spec and retain Lease")
+
+			state.Lease.Changed().Spec.ClaimRef = nil
+
+			return opts.Client.Update(ctx, state.Lease.Changed())
+		}
+	default:
+		return fmt.Errorf("unexpected reclaimPolicy: %s", state.Lease.Current().Spec.ReclaimPolicy)
 	}
 
 	return nil
 }
 
-func (r *LeaseReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, state *LeaseReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *LeaseReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *LeaseReconcilerState, _ two_phase_reconciler.ReconcilerOptions) error {
 	// Do nothing if object is being deleted as any update will lead to en error.
 	if state.isDeletion() {
 		return nil
 	}
 
-	if state.Claim == nil && state.Lease.Current().Spec.ReclaimPolicy == virtv2.VirtualMachineIPAddressReclaimPolicyDelete {
-		return opts.Client.Delete(ctx, state.Lease.Current())
-	}
-
-	leaseStatus := state.Lease.Current().Status.DeepCopy()
-
-	state.Lease.Changed().Status = *leaseStatus
-
 	switch {
 	case state.Claim != nil:
-		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+		state.Lease.Changed().Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+	case state.Lease.Current().Spec.ReclaimPolicy == virtv2.VirtualMachineIPAddressReclaimPolicyRetain:
+		state.Lease.Changed().Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
 	default:
-		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
+		// No need to do anything: it should be already in the process of being deleted.
 	}
-
-	state.Lease.Changed().Status = *leaseStatus
 
 	return nil
 }

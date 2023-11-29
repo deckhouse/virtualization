@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -26,8 +27,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
+type IPAM interface {
+	IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) bool
+	CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error
+	CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
+	BindIPAddressClaim(ctx context.Context, vmName string, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
+	DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
+}
+
 type VMReconciler struct {
 	dvcrSettings *dvcr.Settings
+	ipam         IPAM
 }
 
 func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -67,6 +77,16 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
+	// Ensure IP address claim.
+	claimed, err := r.ensureIPAddressClaim(ctx, state, opts)
+	if err != nil {
+		return err
+	}
+
+	if !claimed {
+		return nil
+	}
+
 	disksMessage := r.checkBlockDevicesSanity(state)
 	if disksMessage != "" {
 		state.SetStatusMessage(disksMessage)
@@ -91,13 +111,13 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 	// Next set finalizers on attached devices.
-	if err := state.SetFinalizersOnBlockDevices(ctx); err != nil {
+	if err = state.SetFinalizersOnBlockDevices(ctx); err != nil {
 		return fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
 	if state.BlockDevicesReady() {
 		if state.KVVM == nil {
-			err := r.createKVVM(ctx, state, opts)
+			err = r.createKVVM(ctx, state, opts)
 			if err != nil {
 				return err
 			}
@@ -125,6 +145,30 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	opts.Log.Info("VMReconciler.UpdateStatus")
+
+	state.VM.Changed().Status.Message = ""
+
+	// Ensure IP address claim.
+	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
+
+		switch {
+		case state.IPAddressClaim != nil:
+			err := r.ipam.CheckClaimAvailableForBinding(state.VM.Name().Name, state.IPAddressClaim)
+			if err != nil {
+				state.VM.Changed().Status.Message = err.Error()
+			}
+		case state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "":
+			state.VM.Changed().Status.Message = "Claim not found: waiting for the Claim"
+		default:
+			state.VM.Changed().Status.Message = "Claim not found: it may be in the process of being created"
+		}
+
+		return nil
+	}
+
+	state.VM.Changed().Status.IPAddressClaim = state.IPAddressClaim.Name
+	state.VM.Changed().Status.IPAddress = state.IPAddressClaim.Spec.Address
 
 	// Change previous state to new
 	switch state.VM.Current().Status.Phase {
@@ -154,6 +198,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		}
 	case virtv2.MachineStopped:
 	case virtv2.MachineFailed:
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
 	}
 
 	// Set fields after phase changed
@@ -205,8 +250,52 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	return nil
 }
 
+func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (bool, error) {
+	// 1. OK: already bound.
+	if r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
+		return true, nil
+	}
+
+	// 2. Claim not found: create if possible or wait for the claim.
+	if state.IPAddressClaim == nil {
+		if state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "" {
+			opts.Log.Info("Claim not found: waiting for the Claim", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+
+			return false, nil
+		}
+
+		opts.Log.Info("Claim not found: create the new one", "claimName", state.VM.Name().Name)
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+
+		return false, r.ipam.CreateIPAddressClaim(ctx, state.VM.Current(), opts.Client)
+	}
+
+	// 3. Check if possible to bind virtual machine with the found claim.
+	err := r.ipam.CheckClaimAvailableForBinding(state.VM.Name().Name, state.IPAddressClaim)
+	if err != nil {
+		opts.Log.Info("Claim is not available to be bound", "err", err, "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonClaimNotAvailable, err.Error())
+
+		return false, nil
+	}
+
+	// 4. Claim exists and available for binding with virtual machine: set binding.
+	opts.Log.Info("Bind VM with Claim and requeue request", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+	state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+
+	return false, r.ipam.BindIPAddressClaim(ctx, state.VM.Name().Name, state.IPAddressClaim, opts.Client)
+}
+
 func (r *VMReconciler) cleanupOnDeletion(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// The object is being deleted
+	if state.IPAddressClaim != nil && state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "" {
+		err := r.ipam.DeleteIPAddressClaim(ctx, state.IPAddressClaim, opts.Client)
+		if err != nil {
+			return err
+		}
+	}
+
 	if controllerutil.ContainsFinalizer(state.VM.Current(), virtv2.FinalizerVMCleanup) {
 		// Our finalizer is present, so lets cleanup DV, PVC & PV dependencies
 		if state.KVVM != nil && controllerutil.RemoveFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {

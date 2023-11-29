@@ -26,9 +26,9 @@ type VirtualMachineIPAddressClaimList struct {
 // VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.
 type VirtualMachineIPAddressClaimSpec struct {
 	// The issued `VirtualMachineIPAddressLease`, managed automatically.
-	LeaseName string `json:"leaseName,omitempty"`
+	LeaseName string `json:"leaseName"`
 	// The requested IP address. If omitted the next available IP address will be assigned.
-	Address string `json:"address,omitempty"`
+	Address string `json:"address"`
 	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
 	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
