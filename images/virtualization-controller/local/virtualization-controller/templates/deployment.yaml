@@ -38,7 +38,7 @@ spec:
         - name: DISABLE_HYPERV_SYNIC
           value: "1"
         - name: FORCE_DV_READ_WRITE_ONCE
-          value: "yes"
+          value: "no"
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
