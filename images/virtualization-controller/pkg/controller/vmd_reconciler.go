@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -205,6 +206,10 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 	vmdStatus := state.VMD.Current().Status.DeepCopy()
 
+	if vmdStatus.Phase != virtv2.DiskReady {
+		vmdStatus.ImportDuration = time.Since(state.VMD.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+	}
+
 	switch {
 	case vmdStatus.Phase == "":
 		vmdStatus.Phase = virtv2.DiskPending
@@ -241,7 +246,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			}
 			vmdStatus.Progress = progressPct
 			vmdStatus.DownloadSpeed.Avg = progress.AvgSpeed()
-			vmdStatus.DownloadSpeed.Current = progress.CurrentSpeed()
+			vmdStatus.DownloadSpeed.Current = progress.CurSpeed()
 		}
 
 		// Set VMD phase.
@@ -256,7 +261,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 
 		// Download speed is not available from DataVolume.
-		vmdStatus.DownloadSpeed = virtv2.VMDDownloadSpeed{}
+		vmdStatus.DownloadSpeed.Current = ""
 
 		// Copy progress from DataVolume.
 		// map 0-100% to 50%-100%.
@@ -280,8 +285,19 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Successfully imported")
 
 		// Cleanup.
-		vmdStatus.Progress = ""
-		vmdStatus.DownloadSpeed = virtv2.VMDDownloadSpeed{}
+		vmdStatus.DownloadSpeed.Current = ""
+		vmdStatus.DownloadSpeed.CurrentBytes = ""
+
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+		if err != nil {
+			return err
+		}
+
+		if finalReport != nil {
+			vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+			vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
+		}
+
 		// PVC name is the same as the DataVolume name.
 		vmdStatus.Target.PersistentVolumeClaimName = state.VMD.Current().Annotations[cc.AnnVMDDataVolume]
 	}
