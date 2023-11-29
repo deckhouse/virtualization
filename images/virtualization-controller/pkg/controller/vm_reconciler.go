@@ -21,7 +21,6 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
@@ -246,7 +245,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	state.VM.Changed().Status.Message = state.StatusMessage
-
+	state.VM.Changed().Status.ChangeID = state.ChangeID
 	return nil
 }
 
@@ -376,10 +375,9 @@ func (r *VMReconciler) detectApplyChangeActions(state *VMReconcilerState, opts t
 	// Save current KVVM.
 	currKVVM := &kvbuilder.KVVM{}
 	currKVVM.Resource = state.KVVM.DeepCopy()
-
 	// Update underlying kubevirt VirtualMachine resource from updated d8 VirtualMachine spec.
 	// FIXME(VM): This will be changed for effective-spec logic implementation
-	kvvmBuilder := kvbuilder.NewKVVM(state.KVVM, kvbuilder.KVVMOptions{
+	kvvmBuilder := kvbuilder.NewKVVM(state.KVVM.DeepCopy(), kvbuilder.KVVMOptions{
 		EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 		OsType:                    state.VM.Current().Spec.OsType,
 		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
@@ -409,31 +407,25 @@ func (r *VMReconciler) shouldWaitForApproval(state *VMReconcilerState, opts two_
 
 	// Should not wait if no changes detected or if changes are non-disruptive.
 	if actions.IsEmpty() || !actions.IsDisruptive() {
-		// Delete approval related annotations.
-		if len(state.VM.Current().Annotations) > 0 {
-			delete(state.VM.Current().Annotations, cc.AnnVMChangeID)
-			delete(state.VM.Current().Annotations, cc.AnnVMChangeIDApprove)
-		}
+		state.SetChangeID("")
 		return false
 	}
-
 	// Wait for Manual approval.
 	// Always set status message when in approval wait mode.
 	statusMessage := ""
 	if actions.ActionType() == kvbuilder.ActionRestart {
-		statusMessage = fmt.Sprintf("VM restart required to apply changes. Check spec and add annotation %s to restart VM.", cc.AnnVMChangeIDApprove)
+		statusMessage = "VM restart required to apply changes. Check status.changeID and add spec.approvedChangeID to restart VM."
 	} else {
 		// Non restart changes, e.g. subresource signaling.
-		statusMessage = fmt.Sprintf("Approval required to apply changes. Check spec and add annotation %s to change VM.", cc.AnnVMChangeIDApprove)
+		statusMessage = "Approval required to apply changes. Check status.changeID and add spec.approvedChangeID to change VM."
 	}
 	state.SetStatusMessage(statusMessage)
 
 	changeID := actions.ChangeID()
-	currChangeID := state.VM.Current().Annotations[cc.AnnVMChangeID]
-
+	currChangeID := state.VM.Current().Status.ChangeID
 	// Save or update Change ID into annotation and wait for approval.
 	if currChangeID == "" || currChangeID != changeID {
-		cc.AddAnnotation(state.VM.Changed(), cc.AnnVMChangeID, changeID)
+		state.SetChangeID(changeID)
 
 		opts.Log.V(2).Info("Change ID updated", "actions", actions)
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
@@ -441,12 +433,11 @@ func (r *VMReconciler) shouldWaitForApproval(state *VMReconcilerState, opts two_
 	}
 
 	// Change ID is matched to changes, check approval.
-	approveChangeID := state.VM.Current().Annotations[cc.AnnVMChangeIDApprove]
+	approveChangeID := state.VM.Current().Spec.ApprovedChangeID
 	if approveChangeID == "" {
 		// Change not approved yet, do nothing, wait for the next update.
 		return true
 	}
-
 	// Change IDs are not equal: approved Change ID was expired. Record event and wait for the next update.
 	if currChangeID != approveChangeID {
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Approved Change ID is expired, check VM spec and update approve annotation with the latest Change ID.")
@@ -490,10 +481,8 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		opts.Log.V(2).Info("No changes to underlying KVVM", "vm.name", state.VM.Current().GetName())
 	}
 
-	// Cleanup: remove Change ID related annotations after applying changes.
-	delete(state.VM.Changed().Annotations, cc.AnnVMChangeID)
-	delete(state.VM.Changed().Annotations, cc.AnnVMChangeIDApprove)
-
+	// Cleanup: remove Change ID related status after applying changes.
+	state.SetChangeID("")
 	return nil
 }
 

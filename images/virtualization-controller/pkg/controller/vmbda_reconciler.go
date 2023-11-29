@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
@@ -394,8 +393,7 @@ func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) string
 			break
 		}
 	}
-
-	if state.VM.Annotations[cc.AnnVMChangeID] != "" {
+	if state.VM.Status.ChangeID != "" {
 		messages = append(messages, "vm waits for changes approval")
 	}
 
