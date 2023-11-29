@@ -74,9 +74,6 @@ spec:
         - jsonPath: .spec.address
           name: Address
           type: string
-        - jsonPath: .spec.static
-          name: Static
-          type: string
         - jsonPath: .status.phase
           name: Status
           type: string

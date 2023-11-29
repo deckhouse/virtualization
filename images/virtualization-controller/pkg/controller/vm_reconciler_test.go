@@ -59,9 +59,10 @@ var _ = Describe("VM", func() {
 					Annotations: testVMAnno,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					RunPolicy:                virtv2.AlwaysOnPolicy,
-					EnableParavirtualization: true,
-					OsType:                   virtv2.GenericOs,
+					VirtualMachineIPAddressClaimName: "test-vmip",
+					RunPolicy:                        virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:         true,
+					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
 						Cores: 2,
 					},
@@ -84,12 +85,27 @@ var _ = Describe("VM", func() {
 					&virtv2.VirtualMachine{},
 					&virtv2.VirtualMachineDisk{},
 					&virtv2.ClusterVirtualMachineImage{},
+					&virtv2.VirtualMachineIPAddressClaim{},
 					&virtv1.VirtualMachine{},
 					&virtv1.VirtualMachineInstance{},
 				},
 				RuntimeObjects: []runtime.Object{vm},
 			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: "test-vm", Namespace: "test-ns"})
+		}
+
+		{
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmip",
+					Namespace: "test-ns",
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmip, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmip", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineIPAddressClaim{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmip).NotTo(BeNil())
 		}
 
 		{
@@ -339,6 +355,7 @@ var _ = Describe("Apply VM changes", func() {
 	It("Restart VM on memory change", func(ctx SpecContext) {
 		nsName := "test-ns-2"
 		vmName := "test-vm-2"
+		vmipName := "test-vmip"
 		vmdName := "test-vmd"
 
 		{
@@ -348,9 +365,10 @@ var _ = Describe("Apply VM changes", func() {
 					Name:      vmName,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					RunPolicy:                virtv2.AlwaysOnPolicy,
-					EnableParavirtualization: true,
-					OsType:                   virtv2.GenericOs,
+					VirtualMachineIPAddressClaimName: vmipName,
+					RunPolicy:                        virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:         true,
+					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
 						Cores: 2,
 					},
@@ -401,6 +419,18 @@ var _ = Describe("Apply VM changes", func() {
 				RuntimeObjects: []runtime.Object{vm},
 			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: vmName, Namespace: nsName})
+
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vmipName,
+					Namespace: nsName,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmip, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmipName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachineIPAddressClaim{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmip).NotTo(BeNil())
 
 			CreateReadyVM(ctx, reconciler, reconcileExecutor, vm, vmd)
 		}

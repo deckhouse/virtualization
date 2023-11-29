@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -19,6 +19,8 @@ type ClaimReconcilerState struct {
 	Client client.Client
 	Claim  *helper.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus]
 	Lease  *virtv2.VirtualMachineIPAddressLease
+
+	VM *virtv2.VirtualMachine
 
 	AllocatedIPs AllocatedIPs
 
@@ -70,6 +72,15 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		return nil
 	}
 
+	vmName := state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName]
+	if vmName != "" {
+		vmKey := types.NamespacedName{Name: vmName, Namespace: state.Claim.Current().Namespace}
+		state.VM, err = helper.FetchObject(ctx, vmKey, client, &virtv2.VirtualMachine{})
+		if err != nil {
+			return fmt.Errorf("unable to get VM %s: %w", vmKey, err)
+		}
+	}
+
 	leaseName := state.Claim.Current().Spec.LeaseName
 	if leaseName == "" {
 		leaseName = ipToLeaseName(state.Claim.Current().Spec.Address)
@@ -77,7 +88,7 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 	if leaseName != "" {
 		leaseKey := types.NamespacedName{Name: leaseName}
 		state.Lease, err = helper.FetchObject(ctx, leaseKey, client, &virtv2.VirtualMachineIPAddressLease{})
-		if err != nil && !k8serrors.IsNotFound(err) {
+		if err != nil {
 			return fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
 		}
 	}
