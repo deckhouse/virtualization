@@ -22,8 +22,6 @@
   value: {{ $registry | quote }}
 - name: DVCR_INSECURE_TLS
   value: "true"
-- name: UPLOADER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.vmCIDRs | quote }}
 {{- end }}

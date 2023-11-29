@@ -18,6 +18,7 @@ import (
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -26,14 +27,16 @@ import (
 type VMDReconcilerState struct {
 	*vmattachee.AttacheeState[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 
-	Client  client.Client
+	Client      client.Client
+	Supplements *supplements.Generator
+	Result      *reconcile.Result
+
 	VMD     *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 	DV      *cdiv1.DataVolume
 	PVC     *corev1.PersistentVolumeClaim
 	PV      *corev1.PersistentVolume
 	Pod     *corev1.Pod
 	Service *corev1.Service
-	Result  *reconcile.Result
 }
 
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
@@ -83,6 +86,13 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	if state.VMD.IsEmpty() {
 		log.Info("Reconcile observe an absent VMD: it may be deleted", "vmd.name", req.Name, "vmd.namespace", req.Namespace)
 		return nil
+	}
+
+	state.Supplements = &supplements.Generator{
+		Prefix:    vmdShortName,
+		Name:      state.VMD.Current().Name,
+		Namespace: state.VMD.Current().Namespace,
+		UID:       state.VMD.Current().UID,
 	}
 
 	if state.VMD.Current().Spec.DataSource != nil {

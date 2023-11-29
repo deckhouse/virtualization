@@ -8,26 +8,26 @@ import (
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-func (r *VMIReconciler) startImporterPod(ctx context.Context, vmi *virtv2alpha1.VirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating importer POD for PVC", "pvc.Name", vmi.Name)
+func (r *VMIReconciler) startImporterPod(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	vmi := state.VMI.Current()
+	opts.Log.V(1).Info("Creating importer POD for VMI", "vmi.Name", vmi.Name)
 
-	importerSettings, err := r.createImporterSettings(vmi)
+	importerSettings, err := r.createImporterSettings(state)
 	if err != nil {
 		return err
 	}
 
 	// all checks passed, let's create the importer pod!
-	podSettings := r.createImporterPodSettings(vmi)
+	podSettings := r.createImporterPodSettings(state)
 
-	caBundleSettings := importer.NewCABundleSettings(vmiutil.GetCABundle(vmi), vmi.Annotations[cc.AnnCABundleConfigMap])
-
-	imp := importer.NewImporter(podSettings, importerSettings, caBundleSettings)
+	imp := importer.NewImporter(podSettings, importerSettings)
 	pod, err := imp.CreatePod(ctx, opts.Client)
 	if err != nil {
-		err = cc.PublishPodErr(err, vmi.Annotations[cc.AnnImportPodName], vmi, opts.Recorder, opts.Client)
+		err = cc.PublishPodErr(err, podSettings.Name, vmi, opts.Recorder, opts.Client)
 		if err != nil {
 			return err
 		}
@@ -35,22 +35,17 @@ func (r *VMIReconciler) startImporterPod(ctx context.Context, vmi *virtv2alpha1.
 
 	opts.Log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
 
-	if caBundleSettings != nil {
-		if err := imp.EnsureCABundleConfigMap(ctx, opts.Client, pod); err != nil {
-			return fmt.Errorf("create ConfigMap with certs from caBundle: %w", err)
-		}
-		opts.Log.V(1).Info("Created ConfigMap with caBundle", "cm.Name", caBundleSettings.ConfigMapName)
-	}
-
-	return nil
+	// Ensure supplement resources for the Pod.
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, &vmi.Spec.DataSource, r.dvcrSettings)
 }
 
 // createImporterSettings fills settings for the dvcr-importer binary.
-func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineImage) (*importer.Settings, error) {
+func (r *VMIReconciler) createImporterSettings(state *VMIReconcilerState) (*importer.Settings, error) {
 	settings := &importer.Settings{
 		Verbose: r.verbose,
 	}
 
+	vmi := state.VMI.Current()
 	ds := vmi.Spec.DataSource
 
 	switch ds.Type {
@@ -58,12 +53,13 @@ func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineI
 		if ds.HTTP == nil {
 			return nil, fmt.Errorf("dataSource '%s' specified without related 'http' section", ds.Type)
 		}
-		importer.ApplyHTTPSourceSettings(settings, ds.HTTP)
+
+		importer.ApplyHTTPSourceSettings(settings, ds.HTTP, state.Supplements)
 	case virtv2alpha1.DataSourceTypeContainerImage:
 		if ds.ContainerImage == nil {
 			return nil, fmt.Errorf("dataSource '%s' specified without related 'containerImage' section", ds.Type)
 		}
-		importer.ApplyRegistrySourceSettings(settings, ds.ContainerImage)
+		importer.ApplyRegistrySourceSettings(settings, ds.ContainerImage, state.Supplements)
 	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
 		cvmiRef := ds.ClusterVirtualMachineImage
 		if cvmiRef == nil {
@@ -85,20 +81,21 @@ func (r *VMIReconciler) createImporterSettings(vmi *virtv2alpha1.VirtualMachineI
 
 	// Set DVCR destination settings.
 	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
-	importer.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, dvcrDestImageName)
+	importer.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, state.Supplements, dvcrDestImageName)
 
 	// TODO Update proxy settings.
 
 	return settings, nil
 }
 
-func (r *VMIReconciler) createImporterPodSettings(vmi *virtv2alpha1.VirtualMachineImage) *importer.PodSettings {
+func (r *VMIReconciler) createImporterPodSettings(state *VMIReconcilerState) *importer.PodSettings {
+	importerPod := state.Supplements.ImporterPod()
 	return &importer.PodSettings{
-		Name:            vmi.Annotations[cc.AnnImportPodName],
+		Name:            importerPod.Name,
 		Image:           r.importerImage,
 		PullPolicy:      r.pullPolicy,
-		Namespace:       vmi.GetNamespace(),
-		OwnerReference:  vmiutil.MakeOwnerReference(vmi),
+		Namespace:       importerPod.Namespace,
+		OwnerReference:  vmiutil.MakeOwnerReference(state.VMI.Current()),
 		ControllerName:  vmiControllerName,
 		InstallerLabels: map[string]string{},
 	}
