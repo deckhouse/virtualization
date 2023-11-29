@@ -15,7 +15,6 @@ import (
 	common "github.com/deckhouse/virtualization-controller/pkg/common"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -48,14 +47,12 @@ const (
 type Importer struct {
 	PodSettings *PodSettings
 	Settings    *Settings
-	CABundle    *CABundleSettings
 }
 
-func NewImporter(podSettings *PodSettings, settings *Settings, caBundleSettings *CABundleSettings) *Importer {
+func NewImporter(podSettings *PodSettings, settings *Settings) *Importer {
 	return &Importer{
 		PodSettings: podSettings,
 		Settings:    settings,
-		CABundle:    caBundleSettings,
 	}
 }
 
@@ -102,30 +99,10 @@ func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*core
 	return pod, nil
 }
 
-func (imp *Importer) EnsureCABundleConfigMap(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	if imp.CABundle == nil {
-		return nil
-	}
-
-	caBundleCopier := &copier.CABundleConfigMap{
-		Destination: types.NamespacedName{
-			Name:      pod.Namespace,
-			Namespace: imp.CABundle.ConfigMapName,
-		},
-		OwnerReference: podutil.MakeOwnerReference(pod),
-	}
-
-	_, err := caBundleCopier.Create(ctx, client, imp.CABundle.CABundle)
-	if err != nil {
-		return fmt.Errorf("create ConfigMap/%s with ca bundle: %w", imp.CABundle.ConfigMapName, err)
-	}
-	return nil
-}
-
 // CleanupPod deletes importer Pod.
-// No need to delete CABundle configmap. It has ownerRef and will be gc'ed.
+// No need to delete CABundle configmap and auth Secret. They have ownerRef and will be gc'ed.
 func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	return helper.DeleteObject(ctx, client, pod)
+	return helper.CleanupObject(ctx, client, pod)
 }
 
 // makeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
@@ -161,10 +138,6 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 			PriorityClassName: imp.PodSettings.PriorityClassName,
 			ImagePullSecrets:  imp.PodSettings.ImagePullSecrets,
 		},
-	}
-
-	if imp.CABundle != nil {
-		pod.ObjectMeta.Annotations[cc.AnnCABundleConfigMap] = imp.CABundle.ConfigMapName
 	}
 
 	cc.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
@@ -358,15 +331,6 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.EnvVar{
 				Name:  common.ImporterCertDirVar,
 				Value: common.ImporterCertDir,
-			},
-		)
-	} else if imp.CABundle != nil {
-		podutil.AddVolume(pod, container,
-			podutil.CreateConfigMapVolume(caBundleVolName, imp.CABundle.ConfigMapName),
-			podutil.CreateVolumeMount(caBundleVolName, common.ImporterCABundleDir),
-			corev1.EnvVar{
-				Name:  common.ImporterCertDirVar,
-				Value: common.ImporterCABundleDir,
 			},
 		)
 	}

@@ -2,16 +2,13 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -50,35 +47,6 @@ func NewDVCRDataSource(ctx context.Context, ds virtv2.DataSource, obj metav1.Obj
 		}
 	}
 	return dsDVCR, nil
-}
-
-type ImagePullSecret struct {
-	Secret       *corev1.Secret
-	SourceSecret *corev1.Secret
-}
-
-func NewImagePullSecret(ctx context.Context, ds virtv2.DataSource, obj metav1.Object, client client.Client) (*ImagePullSecret, error) {
-	imgPullSecret := &ImagePullSecret{}
-	if ds.ContainerImage == nil {
-		return imgPullSecret, nil
-	}
-	secretName := ds.ContainerImage.ImagePullSecret.Name
-	secretNS := ds.ContainerImage.ImagePullSecret.Namespace
-	if secretName != "" && secretNS != "" {
-		secret, err := importer.FindSecret(ctx, client, obj)
-		if err != nil && !errors.Is(err, importer.ErrSecretNameNotFound) {
-			return imgPullSecret, err
-		}
-		if secret == nil {
-			srcSecret, err := helper.FetchObject[*corev1.Secret](ctx, types.NamespacedName{Name: secretName, Namespace: secretNS}, client, &corev1.Secret{})
-			if err != nil {
-				return imgPullSecret, err
-			}
-			imgPullSecret.SourceSecret = srcSecret
-		}
-		imgPullSecret.Secret = secret
-	}
-	return imgPullSecret, nil
 }
 
 func VerifyDVCRDataSources(ds virtv2.DataSource, dsDVCR *DataSourcesFromDVCR) error {

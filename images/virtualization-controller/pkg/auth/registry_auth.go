@@ -28,6 +28,7 @@ func ReadDockerConfigJSON(dockerconfigjson []byte) (*configfile.ConfigFile, erro
 // It returns auth for the first registry if ref is empty.
 func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (string, string, error) {
 	var authConfig types.AuthConfig
+	var host string
 
 	if ref == "" {
 		// Get credentials for the first entry.
@@ -40,16 +41,21 @@ func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (s
 			break
 		}
 	} else {
-		namedRef, err := reference.ParseNormalizedNamed(ref)
-		if err != nil {
-			return "", "", fmt.Errorf("parsing reference: %w", err)
+		// Parse ref as reference if it contains / or :. Otherwise, consider ref is a host name.
+		host = ref
+		if strings.Contains(ref, ":") || strings.Contains(ref, "/") {
+			namedRef, err := reference.ParseNormalizedNamed(ref)
+			if err != nil {
+				return "", "", fmt.Errorf("parsing reference: %w", err)
+			}
+
+			host = reference.Domain(namedRef)
+			if host == "docker.io" {
+				host = "https://index.docker.io/v1/"
+			}
 		}
 
-		host := reference.Domain(namedRef)
-		if host == "docker.io" {
-			host = "https://index.docker.io/v1/"
-		}
-
+		var err error
 		authConfig, err = configFile.GetAuthConfig(host)
 		if err != nil {
 			return "", "", fmt.Errorf("get auth config for %s: %w", host, err)
@@ -69,6 +75,10 @@ func CredsFromRegistryAuthFile(configFile *configfile.ConfigFile, ref string) (s
 	default:
 		username = authConfig.Username
 		password = authConfig.Password
+	}
+
+	if username == "" || password == "" {
+		return "", "", fmt.Errorf("got empty credentials for '%s' using host '%s'", ref, host)
 	}
 
 	return username, password, nil

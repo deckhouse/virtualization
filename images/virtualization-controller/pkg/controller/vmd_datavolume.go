@@ -7,18 +7,15 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -74,7 +71,7 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 
 	dvName := types.NamespacedName{Name: vmd.GetAnnotations()[cc.AnnVMDDataVolume], Namespace: vmd.GetNamespace()}
 
-	dv, err := r.makeDataVolumeFromVMD(vmd, dvName, pvcSize)
+	dv, err := r.makeDataVolumeFromVMD(state, dvName, pvcSize)
 	if err != nil {
 		return fmt.Errorf("apply VMD spec to DataVolume: %w", err)
 	}
@@ -91,8 +88,7 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 	if vmdutil.IsTwoPhaseImport(vmd) || vmdutil.IsDVCRSource(vmd) {
 		// Copy auth credentials and ca bundle to access DVCR as 'registry' data source.
 		// Set DV as an ownerRef to auto-cleanup these copies on DV deletion.
-		dvRef := dvutil.MakeOwnerReference(dv)
-		return r.copyDVCRSecrets(ctx, opts.Client, vmd, dv.Name, dvRef)
+		return supplements.EnsureForDataVolume(ctx, opts.Client, state.Supplements, dv, r.dvcrSettings)
 	}
 
 	return nil
@@ -100,10 +96,17 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 
 // makeDataVolumeFromVMD makes DataVolume with 'registry' dataSource to import
 // DVCR image onto PVC.
-func (r *VMDReconciler) makeDataVolumeFromVMD(vmd *virtv2.VirtualMachineDisk, dvName types.NamespacedName, pvcSize resource.Quantity) (*cdiv1.DataVolume, error) {
+func (r *VMDReconciler) makeDataVolumeFromVMD(state *VMDReconcilerState, dvName types.NamespacedName, pvcSize resource.Quantity) (*cdiv1.DataVolume, error) {
 	dvBuilder := kvbuilder.NewDV(dvName)
-
+	vmd := state.VMD.Current()
 	ds := vmd.Spec.DataSource
+
+	authSecretName := r.dvcrSettings.AuthSecret
+	if supplements.ShouldCopyDVCRAuthSecretForDataVolume(r.dvcrSettings, state.Supplements) {
+		authSecret := state.Supplements.DVCRAuthSecretForDV()
+		authSecretName = authSecret.Name
+	}
+	caBundleName := state.Supplements.DVCRCABundleConfigMapForDV().Name
 
 	// Set datasource:
 	// 'registry' if import is two phased.
@@ -115,14 +118,14 @@ func (r *VMDReconciler) makeDataVolumeFromVMD(vmd *virtv2.VirtualMachineDisk, dv
 		// We can't use the same data source a second time, but we can set dvcr as the data source.
 		// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
 		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMD(vmd.Name, vmd.Namespace)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, dvName.Name, dvName.Name)
+		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
 	case ds != nil && ds.Type == virtv2.DataSourceTypeClusterVirtualMachineImage:
 		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ClusterVirtualMachineImage.Name)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, dvName.Name, dvName.Name)
+		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
 	case ds != nil && ds.Type == virtv2.DataSourceTypeVirtualMachineImage:
 		vmiRef := ds.VirtualMachineImage
 		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmd.Namespace)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, dvName.Name, dvName.Name)
+		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
 	case vmdutil.IsBlankPVC(vmd):
 		dvBuilder.SetBlankDataSource()
 	default:
@@ -135,44 +138,4 @@ func (r *VMDReconciler) makeDataVolumeFromVMD(vmd *virtv2.VirtualMachineDisk, dv
 	dvBuilder.AddFinalizer(virtv2.FinalizerDVProtection)
 
 	return dvBuilder.GetResource(), nil
-}
-
-// copyDVCRSecrets copies auth Secret and ca bundle ConfigMap to access DVCR by CDI.
-func (r *VMDReconciler) copyDVCRSecrets(ctx context.Context, client client.Client, vmd *virtv2.VirtualMachineDisk, targetName string, ownerRef metav1.OwnerReference) error {
-	if r.dvcrSettings.AuthSecret != "" {
-		authCopier := &copier.AuthSecret{
-			Source: types.NamespacedName{
-				Name:      r.dvcrSettings.AuthSecret,
-				Namespace: r.dvcrSettings.AuthSecretNamespace,
-			},
-			Destination: types.NamespacedName{
-				Name:      targetName,
-				Namespace: vmd.GetNamespace(),
-			},
-			OwnerReference: ownerRef,
-		}
-
-		err := authCopier.CopyCDICompatible(ctx, client, r.dvcrSettings.RegistryURL)
-		if err != nil {
-			return err
-		}
-	}
-
-	if r.dvcrSettings.CertsSecret != "" {
-		caBundleCopier := &copier.CABundleConfigMap{
-			SourceSecret: types.NamespacedName{
-				Name:      r.dvcrSettings.CertsSecret,
-				Namespace: r.dvcrSettings.CertsSecretNamespace,
-			},
-			Destination: types.NamespacedName{
-				Name:      targetName,
-				Namespace: vmd.GetNamespace(),
-			},
-			OwnerReference: ownerRef,
-		}
-
-		return caBundleCopier.Copy(ctx, client)
-	}
-
-	return nil
 }

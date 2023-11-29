@@ -3,25 +3,27 @@ package controller
 import (
 	"context"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-func (r *VMIReconciler) startUploaderPod(ctx context.Context, vmi *virtv2alpha1.VirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader POD for PVC", "pvc.Name", vmi.Name)
+func (r *VMIReconciler) startUploaderPod(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	vmi := state.VMI.Current()
 
-	uploaderSettings := r.createUploaderSettings(vmi)
+	opts.Log.V(1).Info("Creating uploader POD for VMI", "vmi.Name", vmi.Name)
 
-	podSettings := r.createUploaderPodSettings(vmi)
+	uploaderSettings := r.createUploaderSettings(state)
+
+	podSettings := r.createUploaderPodSettings(state)
 
 	uploaderPod := uploader.NewPod(podSettings, uploaderSettings)
 
 	pod, err := uploaderPod.Create(ctx, opts.Client)
 	if err != nil {
-		err = cc.PublishPodErr(err, vmi.Annotations[cc.AnnUploadPodName], vmi, opts.Recorder, opts.Client)
+		err = cc.PublishPodErr(err, podSettings.Name, vmi, opts.Recorder, opts.Client)
 		if err != nil {
 			return err
 		}
@@ -29,41 +31,45 @@ func (r *VMIReconciler) startUploaderPod(ctx context.Context, vmi *virtv2alpha1.
 
 	opts.Log.V(1).Info("Created uploader POD", "pod.Name", pod.Name)
 
-	return nil
+	// Ensure supplement resources for the Pod.
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, &vmi.Spec.DataSource, r.dvcrSettings)
 }
 
 // createUploaderSettings fills settings for the dvcr-uploader binary.
-func (r *VMIReconciler) createUploaderSettings(vmi *virtv2alpha1.VirtualMachineImage) *uploader.Settings {
+func (r *VMIReconciler) createUploaderSettings(state *VMIReconcilerState) *uploader.Settings {
+	vmi := state.VMI.Current()
 	settings := &uploader.Settings{
 		Verbose: r.verbose,
 	}
 
 	// Set DVCR destination settings.
 	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
-	uploader.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, dvcrDestImageName)
+	uploader.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, state.Supplements, dvcrDestImageName)
 
 	// TODO Update proxy settings.
 
 	return settings
 }
 
-func (r *VMIReconciler) createUploaderPodSettings(vmi *virtv2alpha1.VirtualMachineImage) *uploader.PodSettings {
+func (r *VMIReconciler) createUploaderPodSettings(state *VMIReconcilerState) *uploader.PodSettings {
+	uploaderPod := state.Supplements.UploaderPod()
+	uploaderSvc := state.Supplements.UploaderService()
 	return &uploader.PodSettings{
-		Name:            vmi.Annotations[cc.AnnUploadPodName],
+		Name:            uploaderPod.Name,
 		Image:           r.uploaderImage,
 		PullPolicy:      r.pullPolicy,
-		Namespace:       vmi.GetNamespace(),
-		OwnerReference:  vmiutil.MakeOwnerReference(vmi),
+		Namespace:       uploaderPod.Namespace,
+		OwnerReference:  vmiutil.MakeOwnerReference(state.VMI.Current()),
 		ControllerName:  vmiControllerName,
 		InstallerLabels: map[string]string{},
-		ServiceName:     vmi.Annotations[cc.AnnUploadServiceName],
+		ServiceName:     uploaderSvc.Name,
 	}
 }
 
-func (r *VMIReconciler) startUploaderService(ctx context.Context, vmi *virtv2alpha1.VirtualMachineImage, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader Service for PVC", "pvc.Name", vmi.Name)
+func (r *VMIReconciler) startUploaderService(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.V(1).Info("Creating uploader Service for VMI", "vmi.Name", state.VMI.Current().Name)
 
-	uploaderService := uploader.NewService(r.createUploaderServiceSettings(vmi))
+	uploaderService := uploader.NewService(r.createUploaderServiceSettings(state))
 
 	service, err := uploaderService.Create(ctx, opts.Client)
 	if err != nil {
@@ -75,10 +81,11 @@ func (r *VMIReconciler) startUploaderService(ctx context.Context, vmi *virtv2alp
 	return nil
 }
 
-func (r *VMIReconciler) createUploaderServiceSettings(vmi *virtv2alpha1.VirtualMachineImage) *uploader.ServiceSettings {
+func (r *VMIReconciler) createUploaderServiceSettings(state *VMIReconcilerState) *uploader.ServiceSettings {
+	uploaderSvc := state.Supplements.UploaderService()
 	return &uploader.ServiceSettings{
-		Name:           vmi.Annotations[cc.AnnUploadServiceName],
-		Namespace:      vmi.GetNamespace(),
-		OwnerReference: vmiutil.MakeOwnerReference(vmi),
+		Name:           uploaderSvc.Name,
+		Namespace:      uploaderSvc.Namespace,
+		OwnerReference: vmiutil.MakeOwnerReference(state.VMI.Current()),
 	}
 }

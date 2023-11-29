@@ -57,7 +57,6 @@ Watch CVMI resource:
 - Kubevirt and CDI. Kubevirt not starting VMs on MacOS.
 - Caddy. A local server to test HTTP data sources.
 - DVCR. TLS and basic auth enabled container registry to store all images.
-- Kubernetes reflector (secret copier). It is used to distribute auth Secret to access DVCR among namespaces.
 
 ### Caddy
  
