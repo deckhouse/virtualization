@@ -20,6 +20,7 @@ vars:
   LocalRegistry: "k3d-registry.virtualization-controller.test:5000"
   DevRegistry: "dev-registry.deckhouse.io/virt/dev"
   ControllerImageName: "virtualization-controller:latest"
+  ControllerBuilderImageName: "virtualization-controller-builder:latest"
   ImporterImageName: "virtualization-importer:latest"
   UploaderImageName: "virtualization-uploader:latest"
   ClusterType:
@@ -41,7 +42,7 @@ vars:
   ImagePrefix:
     desc: 'This prefix is required to use one shared registry'
     sh: |
-      # Cluster type may be overriden with CLUSTER_TYPE env var.
+      # Image prefix may be overriden with IMAGE_PREFIX env var.
       [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
       # Image prefix detection is a heavy operation. Run it only for particular tasks.
       ForTasks="build:controller build:importer build:uploader dev:run cluster:info _ensure:image-prefix"
@@ -57,7 +58,7 @@ env:
   CONTROLLER_IMAGE:
     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
   CONTROLLER_BUILDER_IMAGE:
-    sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/virtualization-controller-builder:latest}
+    sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
 
@@ -108,6 +109,7 @@ tasks:
       - _ensure:kubectl
       - _ensure:k3d-registry-domain
       - _ensure:k3d-registry-insecure-allowed
+      - _ensure:image-prefix
     cmds:
       - task: cluster:down
       - task: build:cache:reset
@@ -294,7 +296,8 @@ tasks:
       - |
         docker build ./local/caddy/ \
           -f ./local/caddy/Dockerfile \
-          -t ${CONTROLLER_TEST_OS_IMAGES}
+          -t ${CONTROLLER_TEST_OS_IMAGES} \
+          --platform linux/amd64
          docker push ${CONTROLLER_TEST_OS_IMAGES}
 
   caddy:preload-images:
@@ -358,19 +361,6 @@ tasks:
       - task: build:uploader
       - task: build:cleanup
 
-  build:controller:cache:
-    desc: "Download Go modules and prebuild them to speedup next builds of the controller."
-    cmds:
-      - |
-        echo "Build go modules cache"
-        docker build . \
-            -f ./local/virtualization-controller/Dockerfile \
-            --target builder \
-            -t ${CONTROLLER_BUILDER_IMAGE}
-    status:
-      - |
-        docker image inspect $CONTROLLER_BUILDER_IMAGE -f '{{ .Created }}'
-
   build:controller:nocache:
     desc: "Build virtualization-controller image"
     cmds:
@@ -378,37 +368,51 @@ tasks:
       - |
         docker build . \
             -f ./local/virtualization-controller/Dockerfile \
-            -t ${CONTROLLER_IMAGE}
+            -t ${CONTROLLER_IMAGE} \
+            --platform linux/amd64
         docker push ${CONTROLLER_IMAGE}
 
   build:controller:
     desc: "Build virtualization-controller image for local development"
-    deps:
-      - build:controller:cache
     cmds:
       - task: _ensure:image-prefix
-
-      # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
       - task: _build:controller
         vars:
           RemoteImage:
             sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}/{{.ControllerImageName}}" || true'
 
-
   _build:controller:
     internal: true
     vars:
       ControllerImage: '{{.RemoteImage | default "${CONTROLLER_IMAGE}" }}'
+    deps:
+      - task: _build:controller:cache
     cmds:
+      # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
       - |
         IMAGE="{{.ControllerImage}}"
         echo "Build virtualization-controller image $IMAGE ..."
         docker build . \
             -f ./local/virtualization-controller/Dockerfile \
             --build-arg BUILDER_CACHE_IMAGE=${CONTROLLER_BUILDER_IMAGE} \
-            -t ${IMAGE}
+            -t ${IMAGE} \
+            --platform linux/amd64
         docker push ${IMAGE}
 
+  _build:controller:cache:
+    internal: true
+    desc: "Download Go modules and prebuild them to speedup next builds of the controller."
+    cmds:
+      - |
+        BUILDER_IMAGE="{{.BuilderImage}}"
+        docker build . \
+            -f ./local/virtualization-controller/Dockerfile \
+            --target builder \
+            -t ${CONTROLLER_BUILDER_IMAGE} \
+            --platform linux/amd64
+    status:
+      - |
+        docker image inspect ${CONTROLLER_BUILDER_IMAGE} -f '{{ .Created }}'
 
   build:importer:
     desc: "Build dvcr-importer image for local development"
@@ -416,6 +420,7 @@ tasks:
       - task: _ensure:image-prefix
       - task: dvcr:importer:push
         vars:
+          IMAGE_NAME: '{{.ImporterImageName}}'
           REGISTRY:
             sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
@@ -425,6 +430,7 @@ tasks:
       - task: _ensure:image-prefix
       - task: dvcr:uploader:push
         vars:
+          IMAGE_NAME: '{{.UploaderImageName}}'
           REGISTRY:
             sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
