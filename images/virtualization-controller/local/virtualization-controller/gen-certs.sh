@@ -12,7 +12,7 @@ echo THIS SCRIPT IS NOT SECURE! USE IT ONLY FOR DEMONSTATION PURPOSES.
 echo =================================================================
 echo
 
-mkdir -p validating-certs && cd validating-certs
+mkdir -p admission-webhook-certs && cd admission-webhook-certs
 
 while getopts "y" arg; do
   case $arg in

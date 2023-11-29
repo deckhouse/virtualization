@@ -2,9 +2,9 @@ package v2alpha1
 
 type BlockDeviceSpec struct {
 	Type                       BlockDeviceType         `json:"type"`
-	VirtualMachineImage        *ImageDeviceSpec        `json:"virtualMachineImage"`
-	ClusterVirtualMachineImage *ClusterImageDeviceSpec `json:"clusterVirtualMachineImage"`
-	VirtualMachineDisk         *DiskDeviceSpec         `json:"virtualMachineDisk"`
+	VirtualMachineImage        *ImageDeviceSpec        `json:"virtualMachineImage,omitempty"`
+	ClusterVirtualMachineImage *ClusterImageDeviceSpec `json:"clusterVirtualMachineImage,omitempty"`
+	VirtualMachineDisk         *DiskDeviceSpec         `json:"virtualMachineDisk,omitempty"`
 }
 
 type BlockDeviceStatus struct {

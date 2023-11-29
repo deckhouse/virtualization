@@ -38,13 +38,13 @@ func (v *LeaseValidator) ValidateCreate(_ context.Context, obj runtime.Object) (
 func (v *LeaseValidator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rools: update operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
-	return nil, err
+	return nil, nil
 }
 
 func (v *LeaseValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rools: delete operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
-	return nil, err
+	return nil, nil
 }
 
 func isValidAddressFormat(address string) bool {

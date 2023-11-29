@@ -34,6 +34,7 @@ spec:
               properties:
                 reclaimPolicy:
                   type: string
+                  default: "Delete"
                   enum: ['Delete', 'Retain']
                   description: |
                     Reclaim policies to determine the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.

@@ -733,6 +733,9 @@ spec:
                 nodeName:
                   type: string
                   description: NodeName is the name of the node where the VM is currently running.
+                ipAddressClaim:
+                  type: string
+                  description: name of VirtualMachineIPAddressClaim holding the ip address of the VirtualMachine.
                 ipAddress:
                   type: string
                   description: IP address of VM.

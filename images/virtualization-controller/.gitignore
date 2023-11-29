@@ -43,6 +43,8 @@ local/caddy/images/
 
 # Secrets
 local/virtualization-controller/templates/auth-secret.yaml
+local/virtualization-controller/admission-webhook-certs
+# Old name of admission-webhook-certs
 local/virtualization-controller/validating-certs
 
 # VScode

@@ -26,14 +26,17 @@ import (
 )
 
 type VMReconcilerState struct {
-	Client        client.Client
-	VM            *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	KVVM          *virtv1.VirtualMachine
-	KVVMI         *virtv1.VirtualMachineInstance
-	KVPods        *corev1.PodList
-	VMDByName     map[string]*virtv2.VirtualMachineDisk
-	VMIByName     map[string]*virtv2.VirtualMachineImage
-	CVMIByName    map[string]*virtv2.ClusterVirtualMachineImage
+	Client     client.Client
+	VM         *helper.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	KVVM       *virtv1.VirtualMachine
+	KVVMI      *virtv1.VirtualMachineInstance
+	KVPods     *corev1.PodList
+	VMDByName  map[string]*virtv2.VirtualMachineDisk
+	VMIByName  map[string]*virtv2.VirtualMachineImage
+	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
+
+	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
+
 	Result        *reconcile.Result
 	StatusMessage string
 }
@@ -69,12 +72,25 @@ func (state *VMReconcilerState) GetReconcilerResult() *reconcile.Result {
 }
 
 func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, _ client.Client) error {
-	if err := state.VM.Fetch(ctx); err != nil {
+	err := state.VM.Fetch(ctx)
+	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
+
 	if state.VM.IsEmpty() {
 		log.Info("Reconcile observe an absent VM: it may be deleted", "VM", req.NamespacedName)
 		return nil
+	}
+
+	claimName := state.VM.Current().Spec.VirtualMachineIPAddressClaimName
+	if claimName == "" {
+		claimName = state.VM.Name().Name
+	}
+
+	claimKey := types.NamespacedName{Name: claimName, Namespace: state.VM.Name().Namespace}
+	state.IPAddressClaim, err = helper.FetchObject(ctx, claimKey, state.Client, &virtv2.VirtualMachineIPAddressClaim{})
+	if err != nil {
+		return fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
 	}
 
 	kvvmName := state.VM.Name()
@@ -90,7 +106,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
 			// if state.KVVM.Status.ObservedGeneration == state.KVVM.Status.DesiredGeneration {
 			kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
-			if err != nil && !k8serrors.IsNotFound(err) {
+			if err != nil {
 				return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
 			}
 			state.KVVMI = kvvmi
