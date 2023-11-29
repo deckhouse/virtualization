@@ -107,6 +107,7 @@ type Provisioning struct {
 type VirtualMachineStatus struct {
 	Phase                MachinePhase                             `json:"phase"`
 	NodeName             string                                   `json:"nodeName"`
+	IPAddressClaim       string                                   `json:"ipAddressClaim"`
 	IPAddress            string                                   `json:"ipAddress"`
 	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`

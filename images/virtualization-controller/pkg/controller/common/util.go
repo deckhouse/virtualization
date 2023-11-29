@@ -181,6 +181,9 @@ const (
 	AnnVMChangeID        = AnnAPIGroup + "/vm-change-id"
 	AnnVMChangeIDApprove = AnnAPIGroup + "/vm-change-id-approve"
 
+	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
+	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
+
 	// ErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (reason)
 	ErrStartingPod = "ErrStartingPod"
 	// MessageErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (message)

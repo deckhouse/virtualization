@@ -3,6 +3,23 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: "virtualization-controller-admission-webhook"
 webhooks:
+  - name: "vm.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v2alpha1"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["virtualmachines"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller-admission-webhook
+        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachine
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
   - name: "vmd.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
