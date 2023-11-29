@@ -168,9 +168,6 @@ const (
 	AnnVMIDataVolume = AnnAPIGroup + "/vmi.data-volume"
 	AnnVMDDataVolume = AnnAPIGroup + "/vmd.data-volume"
 
-	AnnVMChangeID        = AnnAPIGroup + "/vm-change-id"
-	AnnVMChangeIDApprove = AnnAPIGroup + "/vm-change-id-approve"
-
 	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
 	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
 

@@ -19,7 +19,6 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -39,6 +38,7 @@ type VMReconcilerState struct {
 
 	Result        *reconcile.Result
 	StatusMessage string
+	ChangeID      string
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -69,6 +69,10 @@ func (state *VMReconcilerState) SetReconcilerResult(result *reconcile.Result) {
 
 func (state *VMReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
+}
+
+func (state *VMReconcilerState) SetChangeID(changeID string) {
+	state.ChangeID = changeID
 }
 
 func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, _ client.Client) error {
@@ -191,6 +195,8 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.VMDByName = vmdByName
 	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
+	state.ChangeID = state.VM.Current().Status.ChangeID
+	state.StatusMessage = state.VM.Current().Status.Message
 
 	return nil
 }
@@ -438,15 +444,9 @@ func CleanupVMAnno(anno map[string]string) map[string]string {
 	res := make(map[string]string)
 
 	for k, v := range anno {
-		switch {
-		case strings.HasPrefix(k, "kubectl.kubernetes.io"):
-			continue
-		case k == cc.AnnVMChangeID:
-			continue
-		case k == cc.AnnVMChangeIDApprove:
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
 			continue
 		}
-
 		res[k] = v
 	}
 
