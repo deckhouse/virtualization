@@ -14,6 +14,7 @@ type FinalReport struct {
 	StoredSizeBytes   uint64 `json:"source-image-size"`
 	UnpackedSizeBytes uint64 `json:"source-image-virtual-size"`
 	Format            string `json:"source-image-format"`
+	AverageSpeed      uint64 `json:"average-speed"`
 }
 
 func (r *FinalReport) StoredSize() string {
@@ -22,6 +23,14 @@ func (r *FinalReport) StoredSize() string {
 
 func (r *FinalReport) UnpackedSize() string {
 	return humanize.Bytes(r.UnpackedSizeBytes)
+}
+
+func (r *FinalReport) GetAverageSpeed() string {
+	return humanize.Bytes(r.AverageSpeed) + "/s"
+}
+
+func (r *FinalReport) GetAverageSpeedRaw() uint64 {
+	return r.AverageSpeed
 }
 
 func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
@@ -34,11 +43,12 @@ func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 	}
 
 	message := pod.Status.ContainerStatuses[0].State.Terminated.Message
-	report := new(FinalReport)
-	err := json.Unmarshal([]byte(message), report)
+
+	var report FinalReport
+	err := json.Unmarshal([]byte(message), &report)
 	if err != nil {
 		return nil, fmt.Errorf("problem parsing final report %s: %w", message, err)
 	}
 
-	return report, nil
+	return &report, nil
 }

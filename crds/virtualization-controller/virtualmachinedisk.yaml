@@ -264,6 +264,14 @@ spec:
                       type: string
                       example: 5 Mbps
                       description: Current download speed.
+                    avgBytes:
+                      type: string
+                      example: 1012345
+                      description: Average download speed in bytes per second.
+                    currentBytes:
+                      type: string
+                      example: 5123456
+                      description: Current download speed in bytes per second.
                 capacity:
                   type: string
                   example: 50G

@@ -12,7 +12,7 @@ const (
 )
 
 type ImageStatus struct {
-	ImportDuration string           `json:"importDuration"`
+	ImportDuration string           `json:"importDuration,omitempty"`
 	DownloadSpeed  ImageStatusSpeed `json:"downloadSpeed"`
 	Size           ImageStatusSize  `json:"size"`
 	Format         string           `json:"format"`
@@ -21,17 +21,17 @@ type ImageStatus struct {
 	CDROM          bool              `json:"cdrom"`
 	Target         ImageStatusTarget `json:"target"`
 	Phase          ImagePhase        `json:"phase"`
-	Progress       string            `json:"progress"`
-	UploadCommand  string            `json:"uploadCommand"`
+	Progress       string            `json:"progress,omitempty"`
+	UploadCommand  string            `json:"uploadCommand,omitempty"`
 	FailureReason  string            `json:"failureReason"`
 	FailureMessage string            `json:"failureMessage"`
 }
 
 type ImageStatusSpeed struct {
-	Avg          string `json:"avg"`
-	AvgBytes     string `json:"avgBytes"`
-	Current      string `json:"current"`
-	CurrentBytes string `json:"currentBytes"`
+	Avg          string `json:"avg,omitempty"`
+	AvgBytes     string `json:"avgBytes,omitempty"`
+	Current      string `json:"current,omitempty"`
+	CurrentBytes string `json:"currentBytes,omitempty"`
 }
 
 type ImageStatusSize struct {
