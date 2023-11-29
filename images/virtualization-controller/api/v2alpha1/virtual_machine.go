@@ -50,6 +50,7 @@ type VirtualMachineSpec struct {
 	Memory                        MemorySpec        `json:"memory"`
 	BlockDevices                  []BlockDeviceSpec `json:"blockDevices"`
 	Provisioning                  *Provisioning     `json:"provisioning"`
+	ApprovedChangeID              string            `json:"approvedChangeID,omitempty"`
 }
 
 type RunPolicy string
@@ -112,6 +113,7 @@ type VirtualMachineStatus struct {
 	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 	Message              string                                   `json:"message"`
+	ChangeID             string                                   `json:"changeID"`
 }
 
 type MachinePhase string

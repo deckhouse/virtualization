@@ -546,7 +546,7 @@ spec:
 
                 disruptions:
                   type: object
-                  default: 
+                  default:
                     approvalMode: Manual
                   description: |
                     Disruptions settings for VM.
@@ -708,6 +708,11 @@ spec:
                           anyOf:
                             - required: ["virtualMachineImage"]
                             - required: ["clusterVirtualMachineImage"]
+                approvedChangeID:
+                  type: string
+                  description: |
+                    Hash of virtual machine changes from .status.changeID
+                    Required to approve disruptive VM changes (e.g. restart).
             status:
               type: object
               properties:
@@ -838,6 +843,10 @@ spec:
                   type: string
                   description: |
                     Detailed description of the VM state.
+                changeID:
+                  type: string
+                  description: |
+                    Hash of virtual machine changes. Use spec.approvedChangeID to approve disruptive changes, e.g. restart.
       additionalPrinterColumns:
       - name: Phase
         type: string
