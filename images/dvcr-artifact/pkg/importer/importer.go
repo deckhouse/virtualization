@@ -123,7 +123,7 @@ func (i Importer) runForDVCRSource(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error copy repository: %w", err)
 	}
-	return registry.WriteImportCompleteMessage(0, 0, "")
+	return registry.WriteImportCompleteMessage(0, 0, 0, "")
 }
 
 func (i *Importer) runForDataSource(ctx context.Context) error {

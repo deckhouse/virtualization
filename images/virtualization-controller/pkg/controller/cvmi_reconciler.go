@@ -100,7 +100,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		// Update annotations and status and restart reconcile to create an importer/uploader Pod.
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
-	case r.isReady(state.CVMI.Current(), state):
+	case r.isImportComplete(state):
 		// Note: state.ShouldReconcile was positive, so state.Pod is not nil and should be deleted.
 		// Delete sub recourses (Pods, Services, Secrets) when CVMI is marked as ready and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
@@ -111,7 +111,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
 		}
 		return nil
-	case r.canStart(state.CVMI.Current(), state):
+	case r.canStart(state):
 		// Create Pod using name and namespace from annotation.
 		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
 
@@ -160,6 +160,10 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	dvcrDestImageName := r.dvcrSettings.RegistryImageForCVMI(state.CVMI.Current().Name)
 	cvmiStatus.Target.RegistryURL = dvcrDestImageName
 
+	if cvmiStatus.Phase != virtv2.ImageReady {
+		cvmiStatus.ImportDuration = time.Since(state.CVMI.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+	}
+
 	switch {
 	case !r.isInited(state.CVMI.Current(), state), state.CVMI.Current().Status.Phase == "":
 		cvmiStatus.Phase = virtv2.ImagePending
@@ -197,8 +201,8 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 				cvmiStatus.Progress = progress.Progress()
 				cvmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
 				cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
-				cvmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
-				cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+				cvmiStatus.DownloadSpeed.Current = progress.CurSpeed()
+				cvmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurSpeedRaw(), 10)
 			}
 		}
 		// Set CVMI phase.
@@ -212,18 +216,22 @@ func (r *CVMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 		opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
 		cvmiStatus.Phase = virtv2.ImageReady
+		cvmiStatus.Progress = "100%"
 		// Cleanup.
-		cvmiStatus.Progress = ""
-		cvmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
+		cvmiStatus.DownloadSpeed.Current = ""
+		cvmiStatus.DownloadSpeed.CurrentBytes = ""
 		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 		if err != nil {
 			opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
 		}
 		if finalReport != nil {
+			cvmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			cvmiStatus.Size.Stored = finalReport.StoredSize()
 			cvmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
 			cvmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			cvmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+
 			switch state.CVMI.Current().Spec.DataSource.Type {
 			case virtv2.DataSourceTypeClusterVirtualMachineImage:
 				cvmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
@@ -267,12 +275,8 @@ func (r *CVMIReconciler) isInited(cvmi *virtv2.ClusterVirtualMachineImage, state
 	}
 }
 
-func (r *CVMIReconciler) canStart(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
-	if r.isReady(cvmi, state) || state.Pod != nil {
-		return false
-	}
-
-	return true
+func (r *CVMIReconciler) canStart(state *CVMIReconcilerState) bool {
+	return state.Pod == nil
 }
 
 func (r *CVMIReconciler) isInProgress(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
@@ -292,6 +296,14 @@ func (r *CVMIReconciler) isInPending(cvmi *virtv2.ClusterVirtualMachineImage, st
 }
 
 func (r *CVMIReconciler) isImportComplete(state *CVMIReconcilerState) bool {
+	if state.CVMI.IsEmpty() {
+		return false
+	}
+
+	if !r.isInited(state.CVMI.Current(), state) {
+		return false
+	}
+
 	return state.Pod != nil && cc.IsPodComplete(state.Pod)
 }
 

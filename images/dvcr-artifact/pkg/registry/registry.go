@@ -104,18 +104,19 @@ func (p DataProcessor) Process(ctx context.Context) error {
 	}
 
 	// Wrap data source reader with progress and speed metrics.
-	progressMeterReader := monitoring.NewProgressMeterReader(sourceImageReader, uint64(sourceImageSize))
-	progressMeterReader.StartTimedUpdate()
+	progressMeter := monitoring.NewProgressMeter(sourceImageReader, uint64(sourceImageSize))
+	progressMeter.Start()
+	defer progressMeter.Stop()
 
 	pipeReader, pipeWriter := nio.Pipe(buffer.New(pipeBufSize))
 	imageInfoCh := make(chan ImageInfo)
 	errsGroup, ctx := errgroup.WithContext(ctx)
 	errsGroup.Go(func() error {
-		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeterReader, pipeWriter, imageInfoCh)
+		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeter, pipeWriter, imageInfoCh)
 	})
 	errsGroup.Go(func() error {
 		defer pipeReader.Close()
-		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, imageInfoCh)
+		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, progressMeter, imageInfoCh)
 	})
 
 	return errsGroup.Wait()
@@ -232,6 +233,7 @@ func (p DataProcessor) uploadLayersAndImage(
 	ctx context.Context,
 	pipeReader *nio.PipeReader,
 	sourceImageSize int,
+	progressMeter *monitoring.ProgressMeter,
 	imageInfoCh chan ImageInfo,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
@@ -281,11 +283,11 @@ func (p DataProcessor) uploadLayersAndImage(
 	}
 
 	klog.Infof("Uploading image %q to registry", p.destImageName)
-	if err := remote.Write(ref, image, remoteOpts...); err != nil {
+	if err = remote.Write(ref, image, remoteOpts...); err != nil {
 		return fmt.Errorf("error uploading image: %w", err)
 	}
 
-	if err := WriteImportCompleteMessage(sourceImageSize, imageInfo.VirtualSize, imageInfo.Format); err != nil {
+	if err = WriteImportCompleteMessage(uint64(sourceImageSize), uint64(imageInfo.VirtualSize), progressMeter.GetAvgSpeed(), imageInfo.Format); err != nil {
 		return fmt.Errorf("error writing import complete message: %w", err)
 	}
 
@@ -374,11 +376,19 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 	}
 }
 
-func WriteImportCompleteMessage(sourceImageSize, sourceImageVirtualSize int, sourceImageFormat string) error {
-	rawMsg, err := json.Marshal(util.RegistryImporterInfo{
+type ImportInfo struct {
+	SourceImageSize        uint64 `json:"source-image-size"`
+	SourceImageVirtualSize uint64 `json:"source-image-virtual-size"`
+	SourceImageFormat      string `json:"source-image-format"`
+	AverageSpeed           uint64 `json:"average-speed"`
+}
+
+func WriteImportCompleteMessage(sourceImageSize, sourceImageVirtualSize, avgSpeed uint64, sourceImageFormat string) error {
+	rawMsg, err := json.Marshal(ImportInfo{
 		SourceImageSize:        sourceImageSize,
 		SourceImageVirtualSize: sourceImageVirtualSize,
 		SourceImageFormat:      sourceImageFormat,
+		AverageSpeed:           avgSpeed,
 	})
 	if err != nil {
 		return err

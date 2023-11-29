@@ -207,6 +207,10 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 	vmiStatus := state.VMI.Current().Status.DeepCopy()
 
+	if vmiStatus.Phase != virtv2.ImageReady {
+		vmiStatus.ImportDuration = time.Since(state.VMI.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+	}
+
 	switch {
 	case vmiStatus.Phase == "":
 		vmiStatus.Phase = virtv2.ImagePending
@@ -251,8 +255,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 				vmiStatus.Progress = progressPct
 				vmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
 				vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
-				vmiStatus.DownloadSpeed.Current = progress.CurrentSpeed()
-				vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurrentSpeedRaw(), 10)
+				vmiStatus.DownloadSpeed.Current = progress.CurSpeed()
+				vmiStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurSpeedRaw(), 10)
 			}
 		}
 
@@ -269,19 +273,22 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Import Successful")
 
-		vmiStatus.Progress = ""
-
-		vmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
+		// Cleanup
+		vmiStatus.DownloadSpeed.Current = ""
+		vmiStatus.DownloadSpeed.CurrentBytes = ""
 
 		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 		if err != nil {
 			opts.Log.Error(err, "parsing final report", "vmi.name", state.VMI.Current().Name)
 		}
 		if finalReport != nil {
+			vmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+			vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			vmiStatus.Size.Stored = finalReport.StoredSize()
 			vmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
 			vmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			vmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
+
 			switch state.VMI.Current().Spec.DataSource.Type {
 			case virtv2.DataSourceTypeClusterVirtualMachineImage:
 				vmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
@@ -299,7 +306,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)
 
 		// Download speed is not available from DataVolume.
-		vmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
+		vmiStatus.DownloadSpeed.Current = ""
+		vmiStatus.DownloadSpeed.CurrentBytes = ""
 
 		// Copy progress from DataVolume.
 		// map 0-100% to 50%-100%.
@@ -321,8 +329,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmiStatus.Phase = virtv2.ImageReady
 
 		// Cleanup.
-		vmiStatus.Progress = ""
-		vmiStatus.DownloadSpeed = virtv2.ImageStatusSpeed{}
+		vmiStatus.DownloadSpeed.Current = ""
+		vmiStatus.DownloadSpeed.CurrentBytes = ""
 		// PVC name is the same as the DataVolume name.
 		vmiStatus.Target.PersistentVolumeClaimName = state.VMI.Current().Annotations[cc.AnnVMIDataVolume]
 	}

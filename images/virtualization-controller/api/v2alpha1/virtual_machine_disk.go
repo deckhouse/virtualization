@@ -28,17 +28,19 @@ type VirtualMachineDiskSpec struct {
 
 type VirtualMachineDiskStatus struct {
 	ImportDuration string           `json:"importDuration,omitempty"`
-	DownloadSpeed  VMDDownloadSpeed `json:"downloadSpeed,omitempty"`
+	DownloadSpeed  VMDDownloadSpeed `json:"downloadSpeed"`
 	Capacity       string           `json:"capacity,omitempty"`
-	Target         DiskTarget       `json:"target,omitempty"`
+	Target         DiskTarget       `json:"target"`
 	Progress       string           `json:"progress,omitempty"`
 	UploadCommand  string           `json:"uploadCommand,omitempty"`
 	Phase          DiskPhase        `json:"phase"`
 }
 
 type VMDDownloadSpeed struct {
-	Avg     string `json:"avg"`
-	Current string `json:"current"`
+	Avg          string `json:"avg,omitempty"`
+	AvgBytes     string `json:"avgBytes,omitempty"`
+	Current      string `json:"current,omitempty"`
+	CurrentBytes string `json:"currentBytes,omitempty"`
 }
 
 type DiskTarget struct {
