@@ -104,8 +104,9 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 			}
 			state.Pod = pod
 
-			service, err := uploader.FindService(ctx, client, state.VMD.Current())
-			if err != nil && !errors.Is(err, uploader.ErrServiceNameNotFound) {
+			uploaderService := state.Supplements.UploaderService()
+			service, err := uploader.FindService(ctx, client, uploaderService)
+			if err != nil {
 				return err
 			}
 			state.Service = service
