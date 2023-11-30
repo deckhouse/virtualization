@@ -101,11 +101,7 @@ func (r *VMDReconciler) makeDataVolumeFromVMD(state *VMDReconcilerState, dvName 
 	vmd := state.VMD.Current()
 	ds := vmd.Spec.DataSource
 
-	authSecretName := r.dvcrSettings.AuthSecret
-	if supplements.ShouldCopyDVCRAuthSecretForDataVolume(r.dvcrSettings, state.Supplements) {
-		authSecret := state.Supplements.DVCRAuthSecretForDV()
-		authSecretName = authSecret.Name
-	}
+	authSecretName := state.Supplements.DVCRAuthSecretForDV().Name
 	caBundleName := state.Supplements.DVCRCABundleConfigMapForDV().Name
 
 	// Set datasource:
