@@ -10,6 +10,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
@@ -29,7 +30,11 @@ func (r *VMIReconciler) getPVCSize(state *VMIReconcilerState) (resource.Quantity
 		return resource.Quantity{}, errors.New("no unpacked size in final report")
 	}
 
-	return unpackedSize, nil
+	// Adjust PVC size to feat image onto scratch PVC.
+	// TODO(future): remove after get rid of scratch.
+	size := dvutil.AdjustPVCSize(unpackedSize)
+
+	return size, nil
 }
 
 func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
@@ -69,11 +74,7 @@ func (r *VMIReconciler) makeDataVolumeFromVMI(state *VMIReconcilerState, dvName 
 	vmi := state.VMI.Current()
 	ds := vmi.Spec.DataSource
 
-	authSecretName := r.dvcrSettings.AuthSecret
-	if supplements.ShouldCopyDVCRAuthSecretForDataVolume(r.dvcrSettings, state.Supplements) {
-		authSecret := state.Supplements.DVCRAuthSecretForDV()
-		authSecretName = authSecret.Name
-	}
+	authSecretName := state.Supplements.DVCRAuthSecretForDV().Name
 	caBundleName := state.Supplements.DVCRCABundleConfigMapForDV().Name
 
 	// Set datasource:
