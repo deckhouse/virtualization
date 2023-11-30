@@ -2,7 +2,6 @@ package uploader
 
 import (
 	"context"
-	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,23 +81,6 @@ func (s *Service) makeSpec() *corev1.Service {
 	return service
 }
 
-var ErrServiceNameNotFound = errors.New("service name not found")
-
-func FindService(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Service, error) {
-	// Extract namespace and name of the importer Pod from annotations.
-	serviceName := obj.GetAnnotations()[cc.AnnUploadServiceName]
-	if serviceName == "" {
-		return nil, ErrServiceNameNotFound
-	}
-
-	// Get namespace from annotations (for cluster-wide resources, e.g. ClusterVirtualMachineImage).
-	// Default is namespace of the input object.
-	serviceNS := obj.GetAnnotations()[cc.AnnUploaderNamespace]
-	if serviceNS == "" {
-		serviceNS = obj.GetNamespace()
-	}
-
-	objName := types.NamespacedName{Name: serviceName, Namespace: serviceNS}
-
+func FindService(ctx context.Context, client client.Client, objName types.NamespacedName) (*corev1.Service, error) {
 	return helper.FetchObject(ctx, objName, client, &corev1.Service{})
 }

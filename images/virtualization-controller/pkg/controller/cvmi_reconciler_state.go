@@ -105,8 +105,9 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		}
 		state.Pod = pod
 
-		service, err := uploader.FindService(ctx, client, state.CVMI.Current())
-		if err != nil && !errors.Is(err, uploader.ErrServiceNameNotFound) {
+		uploaderService := state.Supplements.UploaderService()
+		service, err := uploader.FindService(ctx, client, uploaderService)
+		if err != nil {
 			return err
 		}
 		state.Service = service
