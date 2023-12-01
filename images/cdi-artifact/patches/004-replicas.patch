@@ -1,8 +1,8 @@
 diff --git a/api/openapi-spec/swagger.json b/api/openapi-spec/swagger.json
-index 28ff289a1..bef5d38ef 100644
+index 844c1774a..a979879f8 100644
 --- a/api/openapi-spec/swagger.json
 +++ b/api/openapi-spec/swagger.json
-@@ -5091,7 +5091,7 @@
+@@ -5058,7 +5058,7 @@
       "infra": {
        "description": "Rules on which nodes CDI infrastructure pods will be scheduled",
        "default": {},
@@ -11,7 +11,7 @@ index 28ff289a1..bef5d38ef 100644
       },
       "priorityClass": {
        "description": "PriorityClass of the CDI control plane",
-@@ -5965,6 +5965,17 @@
+@@ -5936,6 +5936,17 @@
       }
      }
     },
@@ -30,7 +30,7 @@ index 28ff289a1..bef5d38ef 100644
      "description": "StorageSpec defines the Storage type specification",
      "type": "object",
 diff --git a/pkg/apis/core/v1beta1/openapi_generated.go b/pkg/apis/core/v1beta1/openapi_generated.go
-index e2940a99d..e40fdf273 100644
+index 24f15d3f4..d35b430b4 100644
 --- a/pkg/apis/core/v1beta1/openapi_generated.go
 +++ b/pkg/apis/core/v1beta1/openapi_generated.go
 @@ -568,6 +568,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
@@ -41,7 +41,7 @@ index e2940a99d..e40fdf273 100644
  		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransfer":           schema_pkg_apis_core_v1beta1_ObjectTransfer(ref),
  		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferCondition":  schema_pkg_apis_core_v1beta1_ObjectTransferCondition(ref),
  		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferList":       schema_pkg_apis_core_v1beta1_ObjectTransferList(ref),
-@@ -25192,7 +25193,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
+@@ -25245,7 +25246,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
  						SchemaProps: spec.SchemaProps{
  							Description: "Rules on which nodes CDI infrastructure pods will be scheduled",
  							Default:     map[string]interface{}{},
@@ -50,7 +50,7 @@ index e2940a99d..e40fdf273 100644
  						},
  					},
  					"workload": {
-@@ -25232,7 +25233,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
+@@ -25285,7 +25286,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
  			},
  		},
  		Dependencies: []string{
@@ -59,7 +59,7 @@ index e2940a99d..e40fdf273 100644
  	}
  }
  
-@@ -26845,6 +26846,26 @@ func schema_pkg_apis_core_v1beta1_ImportStatus(ref common.ReferenceCallback) com
+@@ -26906,6 +26907,26 @@ func schema_pkg_apis_core_v1beta1_ImportStatus(ref common.ReferenceCallback) com
  	}
  }
  
@@ -87,10 +87,10 @@ index e2940a99d..e40fdf273 100644
  	return common.OpenAPIDefinition{
  		Schema: spec.Schema{
 diff --git a/pkg/operator/resources/crds_generated.go b/pkg/operator/resources/crds_generated.go
-index d27ea864e..4ac49bf7c 100644
+index dc4ba2ced..b282f494f 100644
 --- a/pkg/operator/resources/crds_generated.go
 +++ b/pkg/operator/resources/crds_generated.go
-@@ -1223,6 +1223,12 @@ spec:
+@@ -1228,6 +1228,12 @@ spec:
                        each of the indicated key-value pairs as labels (it can have
                        additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
                      type: object
@@ -103,7 +103,7 @@ index d27ea864e..4ac49bf7c 100644
                    tolerations:
                      description: tolerations is a list of tolerations applied to the
                        relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-@@ -3458,6 +3464,12 @@ spec:
+@@ -3468,6 +3474,12 @@ spec:
                        each of the indicated key-value pairs as labels (it can have
                        additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
                      type: object
@@ -117,10 +117,10 @@ index d27ea864e..4ac49bf7c 100644
                      description: tolerations is a list of tolerations applied to the
                        relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 diff --git a/pkg/operator/resources/namespaced/BUILD.bazel b/pkg/operator/resources/namespaced/BUILD.bazel
-index 04b149c38..28689a8e0 100644
+index ad68d9227..8485f342c 100644
 --- a/pkg/operator/resources/namespaced/BUILD.bazel
 +++ b/pkg/operator/resources/namespaced/BUILD.bazel
-@@ -16,13 +16,13 @@ go_library(
+@@ -17,13 +17,13 @@ go_library(
          "//pkg/controller:go_default_library",
          "//pkg/operator/resources/utils:go_default_library",
          "//pkg/util:go_default_library",
@@ -136,7 +136,7 @@ index 04b149c38..28689a8e0 100644
          "//vendor/sigs.k8s.io/controller-runtime/pkg/client:go_default_library",
      ],
 diff --git a/pkg/operator/resources/namespaced/apiserver.go b/pkg/operator/resources/namespaced/apiserver.go
-index 3fd2b5ccd..54abf5e1b 100644
+index d05bab470..7add1f3e4 100644
 --- a/pkg/operator/resources/namespaced/apiserver.go
 +++ b/pkg/operator/resources/namespaced/apiserver.go
 @@ -27,8 +27,7 @@ import (
@@ -164,7 +164,7 @@ index 3fd2b5ccd..54abf5e1b 100644
  	}
  }
  
-@@ -92,9 +97,9 @@ func createAPIServerService() *corev1.Service {
+@@ -98,9 +103,9 @@ func createAPIServerService() *corev1.Service {
  	return service
  }
  
@@ -177,7 +177,7 @@ index 3fd2b5ccd..54abf5e1b 100644
  		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
  	}
 diff --git a/pkg/operator/resources/namespaced/controller.go b/pkg/operator/resources/namespaced/controller.go
-index 0dfecbe13..3417b0a9e 100644
+index 3283ebaa2..1fc4a7a90 100644
 --- a/pkg/operator/resources/namespaced/controller.go
 +++ b/pkg/operator/resources/namespaced/controller.go
 @@ -26,8 +26,7 @@ import (
@@ -190,7 +190,7 @@ index 0dfecbe13..3417b0a9e 100644
  	"kubevirt.io/containerized-data-importer/pkg/common"
  	"kubevirt.io/containerized-data-importer/pkg/controller"
  	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
-@@ -160,9 +159,9 @@ func createControllerServiceAccount() *corev1.ServiceAccount {
+@@ -172,9 +171,9 @@ func createControllerServiceAccount() *corev1.ServiceAccount {
  	return utils.ResourceBuilder.CreateServiceAccount(common.ControllerServiceAccountName)
  }
  
@@ -203,10 +203,10 @@ index 0dfecbe13..3417b0a9e 100644
  		deployment.Spec.Template.Spec.PriorityClassName = priorityClassName
  	}
 diff --git a/pkg/operator/resources/namespaced/factory.go b/pkg/operator/resources/namespaced/factory.go
-index 1dedd7777..1606546da 100644
+index e6c2f1a3b..845faefdf 100644
 --- a/pkg/operator/resources/namespaced/factory.go
 +++ b/pkg/operator/resources/namespaced/factory.go
-@@ -23,7 +23,7 @@ import (
+@@ -24,7 +24,7 @@ import (
  	"k8s.io/apimachinery/pkg/runtime"
  	"sigs.k8s.io/controller-runtime/pkg/client"
  
@@ -215,7 +215,7 @@ index 1dedd7777..1606546da 100644
  
  	utils "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/resources"
  )
-@@ -43,7 +43,7 @@ type FactoryArgs struct {
+@@ -44,7 +44,7 @@ type FactoryArgs struct {
  	ImagePullSecrets       []corev1.LocalObjectReference
  	PriorityClassName      string
  	Namespace              string
@@ -225,7 +225,7 @@ index 1dedd7777..1606546da 100644
  
  type factoryFunc func(*FactoryArgs) []client.Object
 diff --git a/pkg/operator/resources/namespaced/uploadproxy.go b/pkg/operator/resources/namespaced/uploadproxy.go
-index 212a19ea5..9b05a357f 100644
+index e455fe0f8..3876b8b49 100644
 --- a/pkg/operator/resources/namespaced/uploadproxy.go
 +++ b/pkg/operator/resources/namespaced/uploadproxy.go
 @@ -24,8 +24,7 @@ import (
@@ -253,8 +253,8 @@ index 212a19ea5..9b05a357f 100644
  	}
  }
  
-@@ -84,9 +89,9 @@ func createUploadProxyRole() *rbacv1.Role {
- 	return utils.ResourceBuilder.CreateRole(uploadProxyResourceName, rules)
+@@ -87,9 +92,9 @@ func createUploadProxyRole() *rbacv1.Role {
+ 	return utils.ResourceBuilder.CreateRole(uploadProxyResourceName, getUploadProxyNamespacedRules())
  }
  
 -func createUploadProxyDeployment(image, verbosity, pullPolicy string, imagePullSecrets []corev1.LocalObjectReference, priorityClassName string, infraNodePlacement *sdkapi.NodePlacement) *appsv1.Deployment {
@@ -318,10 +318,10 @@ index 68ff42140..79fe95a06 100644
  }
  
 diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
-index c03364976..f19a4b064 100644
+index a6f974d64..8f4ae800f 100644
 --- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
 +++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
-@@ -812,7 +812,7 @@ type CDISpec struct {
+@@ -825,7 +825,7 @@ type CDISpec struct {
  	// CDIUninstallStrategy defines the state to leave CDI on uninstall
  	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
  	// Rules on which nodes CDI infrastructure pods will be scheduled
@@ -330,7 +330,7 @@ index c03364976..f19a4b064 100644
  	// Restrict on which nodes CDI workload pods will be scheduled
  	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
  	// Clone strategy override: should we use a host-assisted copy even if snapshots are available?
-@@ -999,3 +999,14 @@ type ImportProxy struct {
+@@ -1015,3 +1015,14 @@ type ImportProxy struct {
  	// +optional
  	TrustedCAProxy *string `json:"trustedCAProxy,omitempty"`
  }
@@ -346,10 +346,10 @@ index c03364976..f19a4b064 100644
 +	Replicas *int32 `json:"replicas,omitempty"`
 +}
 diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
-index e1fa900fc..0c6fe5bf6 100644
+index c95c63c7d..886807dfc 100644
 --- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
 +++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
-@@ -504,3 +504,10 @@ func (ImportProxy) SwaggerDoc() map[string]string {
+@@ -511,3 +511,10 @@ func (ImportProxy) SwaggerDoc() map[string]string {
  		"trustedCAProxy": "TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle.\nThe TrustedCAProxy ConfigMap is consumed by the DataImportCron controller for creating cronjobs, and by the import controller referring a copy of the ConfigMap in the import namespace.\nHere is an example of the ConfigMap (in yaml):\n\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: my-ca-proxy-cm\n  namespace: cdi\ndata:\n  ca.pem: |",
  	}
  }
@@ -361,10 +361,10 @@ index e1fa900fc..0c6fe5bf6 100644
 +	}
 +}
 diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
-index 44a9f88dc..220a0aedd 100644
+index 39d84a69e..dabe247c5 100644
 --- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
 +++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
-@@ -1286,6 +1286,31 @@ func (in *ImportStatus) DeepCopy() *ImportStatus {
+@@ -1296,6 +1296,31 @@ func (in *ImportStatus) DeepCopy() *ImportStatus {
  	return out
  }
  

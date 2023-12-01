@@ -1,11 +1,11 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 3d4babaf7..d39b91aec 100644
+index 3d4baba..d39b91a 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
 @@ -48,6 +48,19 @@ load(
      "container_push",
  )
-
+ 
 +container_bundle(
 +    name = "container-images-bundle",
 +    images = {
