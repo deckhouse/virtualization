@@ -76,7 +76,8 @@ func ApplyVirtualMachineSpec(
 	for _, bd := range vm.Spec.BlockDevices {
 		switch bd.Type {
 		case virtv2.ImageDevice:
-			// Depending on type Kubernetes|ContainerRegistry we should enable disk or containerDisk
+			// Attach ephemeral disk for storage: Kubernetes.
+			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
 			vmi, hasVMI := vmiByName[bd.VirtualMachineImage.Name]
 			if !hasVMI {
@@ -88,8 +89,10 @@ func ApplyVirtualMachineSpec(
 			name := GenerateVMIDiskName(bd.VirtualMachineImage.Name)
 			switch vmi.Spec.Storage {
 			case virtv2.StorageKubernetes:
+				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
+					IsEphemeral:           true,
 				})
 			case virtv2.StorageContainerRegistry:
 				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
@@ -102,7 +105,7 @@ func ApplyVirtualMachineSpec(
 			}
 
 		case virtv2.ClusterImageDevice:
-			// ClusterVirtualMachineImage always has logical type as type=ContainerRegistry (unlinke the VirtualMachineImage)
+			// ClusterVirtualMachineImage is attached as containerDisk.
 
 			cvmi, hasCvmi := cvmiByName[bd.ClusterVirtualMachineImage.Name]
 			if !hasCvmi {
@@ -119,6 +122,8 @@ func ApplyVirtualMachineSpec(
 			})
 
 		case virtv2.DiskDevice:
+			// VirtualMachineDisk is attached as regular disk.
+
 			vmd, hasVmd := vmdByName[bd.VirtualMachineDisk.Name]
 			if !hasVmd {
 				panic(fmt.Sprintf("not found loaded VMD %q which is used in the VM configuration, please report a bug", bd.VirtualMachineDisk.Name))
