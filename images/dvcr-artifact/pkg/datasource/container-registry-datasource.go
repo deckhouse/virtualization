@@ -130,8 +130,8 @@ func parseLayer(ctx context.Context,
 	tarReader := tar.NewReader(fr.TopReader())
 	for {
 		hdr, err := tarReader.Next()
-		fmt.Println(hdr.Name)
 		if err == io.EOF {
+			klog.Infof("No disk file found in layer %s", layer.Digest)
 			break // End of archive
 		}
 		if err != nil {
@@ -139,8 +139,10 @@ func parseLayer(ctx context.Context,
 			return nil, nil, nil, errors.Wrap(err, "Error reading layer")
 		}
 		if importer.HasPrefix(hdr.Name, pathPrefix) && !importer.IsWhiteout(hdr.Name) && !importer.IsDir(hdr) {
-			klog.Infof("File '%v' found in the layer", hdr.Name)
+			klog.Infof("Disk file '%v' found in the layer", hdr.Name)
 			return hdr, tarReader, fr, nil
+		} else {
+			klog.Infof("Ignore non-disk file '%v'", hdr.Name)
 		}
 	}
 	return nil, nil, nil, fr.Close()
