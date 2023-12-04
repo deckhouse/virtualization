@@ -183,7 +183,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
 			cvmiStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST --data-binary @example.iso http://%s:%d/v1beta1/upload",
+				"curl -X POST http://%s:%d/v1beta1/upload -T example.iso",
 				state.Service.Spec.ClusterIP,
 				state.Service.Spec.Ports[0].Port,
 			)

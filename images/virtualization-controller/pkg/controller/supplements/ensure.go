@@ -97,7 +97,7 @@ func ShouldCopyImagePullSecret(ctrImg *virtv2.DataSourceContainerRegistry, targe
 }
 
 func EnsureForDataVolume(ctx context.Context, client client.Client, supGen *Generator, dv *cdiv1.DataVolume, dvcrSettings *dvcr.Settings) error {
-	if ShouldCopyDVCRAuthSecretForDataVolume(dvcrSettings, supGen) {
+	if dvcrSettings.AuthSecret != "" {
 		authSecret := supGen.DVCRAuthSecretForDV()
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
@@ -135,7 +135,8 @@ func EnsureForDataVolume(ctx context.Context, client client.Client, supGen *Gene
 }
 
 func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Generator, dvcrSettings *dvcr.Settings) error {
-	if ShouldCopyDVCRAuthSecretForDataVolume(dvcrSettings, supGen) {
+	// AuthSecret has type dockerconfigjson and should be transformed, so it always copied.
+	if dvcrSettings.AuthSecret != "" {
 		authSecret := supGen.DVCRAuthSecretForDV()
 		err := helper.CleanupByName(ctx, client, authSecret, &corev1.Secret{})
 		if err != nil && !k8serrors.IsNotFound(err) {
@@ -153,13 +154,4 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Gen
 	}
 
 	return nil
-}
-
-func ShouldCopyDVCRAuthSecretForDataVolume(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
-	if dvcrSettings.AuthSecret == "" {
-		return false
-	}
-
-	// Copy if namespaces are different.
-	return dvcrSettings.AuthSecretNamespace != supGen.Namespace
 }
