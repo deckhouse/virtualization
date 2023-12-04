@@ -229,7 +229,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
 			vmiStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST --data-binary @example.iso http://%s:%d/v1beta1/upload",
+				"curl -X POST http://%s:%d/v1beta1/upload -T example.iso",
 				state.Service.Spec.ClusterIP,
 				state.Service.Spec.Ports[0].Port,
 			)

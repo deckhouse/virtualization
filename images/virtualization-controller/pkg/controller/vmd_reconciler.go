@@ -224,7 +224,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			state.Service != nil &&
 			len(state.Service.Spec.Ports) > 0 {
 			vmdStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST --data-binary @example.iso http://%s:%d/v1beta1/upload",
+				"curl -X POST http://%s:%d/v1beta1/upload -T example.iso",
 				state.Service.Spec.ClusterIP,
 				state.Service.Spec.Ports[0].Port,
 			)
@@ -282,22 +282,30 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Successfully imported")
 
-		// Cleanup.
+		// Cleanup download speed and set average from importer/uploader Pod if any.
 		vmdStatus.DownloadSpeed.Current = ""
 		vmdStatus.DownloadSpeed.CurrentBytes = ""
+		vmdStatus.DownloadSpeed.Avg = ""
+		vmdStatus.DownloadSpeed.AvgBytes = ""
 
-		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-		if err != nil {
-			return err
-		}
+		if state.Pod != nil {
+			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+			if err != nil {
+				return err
+			}
 
-		if finalReport != nil {
-			vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
-			vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
+			if finalReport != nil {
+				vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+				vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
+			}
 		}
 
 		// PVC name is the same as the DataVolume name.
 		vmdStatus.Target.PersistentVolumeClaimName = state.VMD.Current().Annotations[cc.AnnVMDDataVolume]
+		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
+		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
+			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
+		}
 	}
 
 	state.VMD.Changed().Status = *vmdStatus
