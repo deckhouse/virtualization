@@ -89,7 +89,16 @@ rules:
   - create
   - update
   - list
-- apiGroups: 
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - get
+  - patch
+  - list
+  - update
+- apiGroups:
   - virtualization.deckhouse.io
   resources:
   - virtualmachinedisks
