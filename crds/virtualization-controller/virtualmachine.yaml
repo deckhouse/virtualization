@@ -514,13 +514,16 @@ spec:
                 nodeSelector:
                   additionalProperties:
                     type: string
-                  description: 'NodeSelector is a selector which must be true for the VM to fit on a node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                  description: |
+                    [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes;
+
                   type: object
 
                 priorityClassName:
-                  description: If specified, indicates the VM priority. If not specified, the VM priority will be default or zero if there is no default.
-                  type: string
+                  description: |
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes;
 
+                  type: string
                 tolerations:
                   type: array
                   description: |
@@ -550,12 +553,14 @@ spec:
                     approvalMode: Manual
                   description: |
                     Disruptions settings for VM.
+
+                    Some VM settings require a reboot of the VM when changing the configuration. To reboot, it is necessary to approve the changes. The `approvalMode` parameter is used for this purpose.
                   properties:
                     approvalMode:
                       type: string
                       description: |
                         The approval mode for disruptive updates:
-                        - `Manual` — disable automatic disruption approval.
+                        - `Manual` — to approve changes, you must do this manually by copying the change ID from `.status.changeID` to `.spec.approvedChangeID`.
                         - `Automatic` —  automatically approve disruption-involving updates.
                       enum:
                         - Manual
@@ -565,12 +570,14 @@ spec:
                   format: int64
                   type: integer
                   default: 60
-                  description: Grace period observed after signalling a VM to stop after which the VM is force terminated.
+                  description: |
+                    Grace period observed after signalling a VM to stop after which the VM is force terminated.
 
                 enableParavirtualization:
                   type: boolean
                   default: true
-                  description: Enables the ability to use the `virtio` bus where possible.
+                  description: |
+                    Use the `virtio` bus to attach disk devices. Set to false to disable `virtio` for this VM.
 
                 osType:
                   type: string
@@ -599,7 +606,7 @@ spec:
 
                 cpu:
                   type: object
-                  description: Specifies the processor settings for the VM.
+                  description: Specifies the CPU settings for the VM.
                   required:
                     - cores
                   properties:
@@ -613,25 +620,24 @@ spec:
                       default: "100%"
                       enum: ["5%", "10%", "25%", "50%", "100%"]
                       description: Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
-                    dedicatedIO:
-                      type: boolean
-                      default: false
-                      description: Requests one more dedicated CPU to be allocated for the VM to place the emulator thread on it. Can be enabled only when coreFraction = 100%.
                     model:
                       type: string
                       default: Nehalem
-                      description: Specifies the CPU model inside the VM.
+                      description: |
+                        Specifies the CPU model inside the VM.
 
                 memory:
                   type: object
-                  description: Specifies the memory settings for the VM.
+                  description: |
+                    Specifies the memory settings for the VM.
                   required:
                     - size
                   properties:
                     size:
                       type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      description: Describes the maximum amount of memory resources allowed.
+                      description: |
+                        Describes the maximum amount of memory resources allowed.
 
                 blockDevices:
                   type: array
@@ -655,31 +661,37 @@ spec:
                             * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
                         clusterVirtualMachineImage:
                           type: object
-                          description: Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          description: |
+                            Attach `ClusterVirtualMachineImage` as the disk in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
                           required:
                             - name
                           properties:
                             name:
                               type: string
-                              description: The name of `ClusterVirtualMachineImage`
+                              description: |
+                                The name of the `ClusterVirtualMachineImage` resource.
                         virtualMachineImage:
                           type: object
-                          description: Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          description: |
+                            Use `VirtualMachineImage` as the disk. The image with storage ContainerRegistry will be mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device. The image with storage Kubernetes will be mounted as ephemeral disk, so changes to volume will be lost on reboot.
                           required:
                             - name
                           properties:
                             name:
                               type: string
-                              description: The name of `VirtualMachineImage`
+                              description: |
+                                The name of the `VirtualMachineImage` resource.
                         virtualMachineDisk:
                           type: object
-                          description: Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                          description: |
+                            Attach `VirtualMachineDisk` as the disk device in RW mode.
                           required:
                             - name
                           properties:
                             name:
                               type: string
-                              description: The name of `VirtualMachineDisk`
+                              description: |
+                                The name of the `VirtualMachineDisk` resource.
                       oneOf:
                       - properties:
                           type:
@@ -718,10 +730,12 @@ spec:
               properties:
                 guestOSInfo:
                   type: object
-                  description: Guest OS Information.
+                  description: |
+                    Guest OS Information.
                 effectiveSpec:
                   type: object
-                  description: The current running configuration of the VM.
+                  description: |
+                    The current running configuration of the VM.
                 phase:
                   type: string
                   description: |
@@ -743,10 +757,12 @@ spec:
                   description: name of VirtualMachineIPAddressClaim holding the ip address of the VirtualMachine.
                 ipAddress:
                   type: string
-                  description: IP address of VM.
+                  description: |
+                    IP address of VM.
                 blockDevicesAttached:
                   type: array
-                  description: The list of attached block devices.
+                  description: |
+                    The list of attached block devices.
                   items:
                     type: object
                     required: ["type", "size"]
@@ -781,7 +797,8 @@ spec:
                     properties:
                       hotpluggable:
                         type: boolean
-                        description: Block device is available for hot plug.
+                        description: |
+                          Block device is available for hot plug.
                       type:
                         type: string
                         description: The type of block device.
@@ -794,28 +811,33 @@ spec:
                         properties:
                           name:
                             type: string
-                            description: The name of `ClusterVirtualMachineImage` resource.
+                            description: |
+                              The name of `ClusterVirtualMachineImage` resource.
                       virtualMachineImage:
                         type: object
                         properties:
                           name:
                             type: string
-                            description: The name of `VirtualMachineImage` resource.
+                            description: |
+                              The name of `VirtualMachineImage` resource.
                       virtualMachineDisk:
                         type: object
                         properties:
                           name:
                             type: string
-                            description: The name of `VirtualMachineDisk` resource.
+                            description: |
+                              The name of `VirtualMachineDisk` resource.
                       target:
                         type: string
                         description: The name of attached block device.
                         example: sda
                       size:
                         type: string
-                        description: The size of attached block device.
+                        description: |
+                          The size of attached block device.
                 conditions:
-                  description: Specific points in VM's runtime.
+                  description: |
+                    Specific points in VM's runtime.
                   items:
                     properties:
                       lastProbeTime:
@@ -859,8 +881,5 @@ spec:
         type: string
         jsonPath: .status.ipAddress
         priority: 1
-      - name: Message
-        type: string
-        jsonPath: .status.message
       subresources:
         status: {}
