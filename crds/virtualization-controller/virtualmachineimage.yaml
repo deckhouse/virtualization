@@ -41,7 +41,7 @@ spec:
               properties:
                 storage:
                   type: string
-                  enum: ['Kubernetes', 'ContainerRegistry']
+                  enum: ["Kubernetes", "ContainerRegistry"]
                   description: |
                     Storage type to store the image for current virtualization setup.
 
@@ -57,21 +57,19 @@ spec:
                         The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
                 dataSource:
                   type: object
-                  description: An origin of the image.
+                  description: |
+                    An origin of the image.
                   required:
-                  - type
+                    - type
                   properties:
                     type:
                       type: string
                       enum:
-                      - 'HTTP'
-                      - 'ContainerImage'
-                      - 'VirtualMachineImage'
-                      - 'ClusterVirtualMachineImage'
-                      - 'VirtualMachineDisk'
-                      - 'VirtualMachineDiskSnapshot'
-                      - 'PersistentVolumeClaim'
-                      - 'Upload'
+                        - "HTTP"
+                        - "ContainerImage"
+                        - "VirtualMachineImage"
+                        - "ClusterVirtualMachineImage"
+                        - "Upload"
                       description: |
                         The type of an origin of the image. Options are:
 
@@ -79,8 +77,6 @@ spec:
                         * `ContainerImage` — use an image, stored in container registry image.
                         * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
                         * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
-                        * `VirtualMachineDisk` — use an existing `VirtualMachineDisk`.
-                        * `PersistentVolumeClaim` — use an existing `PersistentVolumeClaim`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -92,11 +88,11 @@ spec:
 
                         For https schema there is an option to skip TLS verification.
                       required:
-                      - url
+                        - url
                       properties:
                         url:
                           type: string
-                          example: 'https://mirror.example.com/images/slackware-15.qcow.gz'
+                          example: "https://mirror.example.com/images/slackware-15.qcow.gz"
                           # https://regex101.com/r/2zx8as/1
                           pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
                           description: |
@@ -142,124 +138,85 @@ spec:
                     containerImage:
                       type: object
                       required:
-                      - image
+                        - image
                       description: |
                         Use an image stored in external container regitry. Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
-                          example: 'registry.example.com/images/slackware:15'
-                          # https://regex101.com/r/NXfP8Y/1 (Python version https://regex101.com/r/nmSDPA/1 not supported as is, newlines should be deleted to work in Golang)
+                          example: "registry.example.com/images/slackware:15"
+                          # https://regex101.com/r/NXfP8Y/1
                           pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
-                          description: The container registry address of an image.
+                          description: |
+                            The container registry address of an image.
                         imagePullSecret:
                           type: object
                           properties:
                             name:
                               type: string
-                              description: A name of the secret containing registry credentials which must be located in the same namespace.
+                              description: |
+                                A name of the secret containing registry credentials which must be located in the same namespace.
                         caBundle:
                           type: string
-                          description: The CA chain in base64 format to verify the container registry.
+                          description: |
+                            The CA chain in base64 format to verify the container registry.
                           example: |
                             YWFhCg==
                     virtualMachineImage:
                       type: object
-                      description: Use another existing `VirtualMachineImage`.
+                      description: |
+                        Use another existing `VirtualMachineImage`.
                       required:
                         - name
                       properties:
                         name:
                           type: string
-                          description: A name of existing `VirtualMachineImage`.
+                          description: |
+                            A name of existing `VirtualMachineImage`.
                     clusterVirtualMachineImage:
                       type: object
-                      description: Use another existing `ClusterVirtualMachineImage`.
+                      description: |
+                        Use another existing `ClusterVirtualMachineImage`.
                       required:
                         - name
                       properties:
                         name:
                           type: string
-                          description: A name of existing `ClusterVirtualMachineImage`.
-                    virtualMachineDisk:
-                      type: object
-                      description: Use another existing `VirtualMachineDisk`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `VirtualMachineDisk`.
-                    virtualMachineDiskSnapshot:
-                      type: object
-                      description: Use another existing `VirtualMachineDiskSnapshot`.
-                      required:
-                        - name
-                        - namespace
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `virtualMachineDiskSnapshot`.
-                        namespace:
-                          type: string
-                          description: A namespace where `virtualMachineDiskSnapshot` is located.
-                    persistentVolumeClaim:
-                      type: object
-                      description: Use another existing `PersistentVolumeClaim`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `PersistentVolumeClaim`.
+                          description: |
+                            A name of existing `ClusterVirtualMachineImage`.
                   oneOf:
-                  - properties:
-                      type:
-                        enum: ['HTTP']
-                      http: {}
-                    required: ['http']
-                  - properties:
-                      type:
-                        enum: ['ContainerImage']
-                      containerImage: {}
-                    required: ['containerImage']
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineImage']
-                      virtualMachineImage: {}
-                    required: ['virtualMachineImage']
-                  - properties:
-                      type:
-                        enum: ['ClusterVirtualMachineImage']
-                      clusterVirtualMachineImage: {}
-                    required: ['clusterVirtualMachineImage']
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineDisk']
-                      virtualMachineDisk: {}
-                    required: ['virtualMachineDisk']
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineDiskSnapshot']
-                      virtualMachineDiskSnapshot: {}
-                    required: ['virtualMachineDiskSnapshot']
-                  - properties:
-                      type:
-                        enum: ['PersistentVolumeClaim']
-                      persistentVolumeClaim: {}
-                    required: ['persistentVolumeClaim']
-                  - properties:
-                      type:
-                        enum: ['Upload']
+                    - properties:
+                        type:
+                          enum: ["HTTP"]
+                        http: {}
+                      required: ["http"]
+                    - properties:
+                        type:
+                          enum: ["ContainerImage"]
+                        containerImage: {}
+                      required: ["containerImage"]
+                    - properties:
+                        type:
+                          enum: ["VirtualMachineImage"]
+                        virtualMachineImage: {}
+                      required: ["virtualMachineImage"]
+                    - properties:
+                        type:
+                          enum: ["ClusterVirtualMachineImage"]
+                        clusterVirtualMachineImage: {}
+                      required: ["clusterVirtualMachineImage"]
+                    - properties:
+                        type:
+                          enum: ["Upload"]
               oneOf:
-              - properties:
-                  storage:
-                    enum: ['Kubernetes']
-                  persistentVolumeClaim: {}
-                required: ['persistentVolumeClaim']
-              - properties:
-                  storage:
-                    enum: ['ContainerRegistry']
+                - properties:
+                    storage:
+                      enum: ["Kubernetes"]
+                    persistentVolumeClaim: {}
+                  required: ["persistentVolumeClaim"]
+                - properties:
+                    storage:
+                      enum: ["ContainerRegistry"]
             status:
               type: object
               properties:
@@ -276,21 +233,25 @@ spec:
                     avg:
                       type: string
                       example: 1 Mbps
-                      description: Average download speed.
+                      description: |
+                        Average download speed.
                     current:
                       type: string
                       example: 5 Mbps
-                      description: Current download speed.
+                      description: |
+                        Current download speed.
                     avgBytes:
                       type: string
                       example: 1012345
-                      description: Average download speed in bytes per second.
+                      description: |
+                        Average download speed in bytes per second.
                     currentBytes:
                       type: string
                       example: 5123456
-                      description: Current download speed in bytes per second.
-                format: 
-                  type: string 
+                      description:  |
+                        Current download speed in bytes per second.
+                format:
+                  type: string
                   description: |
                     Discovered format of the image.
                 size:
@@ -301,19 +262,23 @@ spec:
                     stored:
                       type: string
                       example: 199M
-                      description: Image size in DVCR or in PVC in human-readable format.
+                      description:  |
+                        Image size in DVCR or in PVC in human-readable format.
                     storedBytes:
                       type: string
                       example: 199001234
-                      description: Image size in DVCR or in PVC in bytes.
+                      description:  |
+                        Image size in DVCR or in PVC in bytes.
                     unpacked:
                       type: string
                       example: 1G
-                      description: Unpacked image size in human-readable format.
+                      description:  |
+                        Unpacked image size in human-readable format.
                     unpackedBytes:
                       type: string
                       example: 1000000234
-                      description: Unpacked image size in bytes.
+                      description:  |
+                        Unpacked image size in bytes.
                 capacity:
                   type: string
                   example: 50G
@@ -348,7 +313,17 @@ spec:
                     * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
                     * ImageLost - The child image of the resource is missing. The resource cannot be used.
                     * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
-                  enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'ImageLost','PVCLost']
+                  enum:
+                    [
+                      "Pending",
+                      "Provisioning",
+                      "WaitForUserUpload",
+                      "Ready",
+                      "Failed",
+                      "NotReady",
+                      "ImageLost",
+                      "PVCLost",
+                    ]
                 progress:
                   type: string
                   description: |
@@ -369,52 +344,49 @@ spec:
                   type: array
                   description: |
                     A list of virtual machines that use the image
-                  example: [
-                            { name: "VM100" },
-                            { name: "VM200" }
-                            ]
+                  example: [{ name: "VM100" }, { name: "VM200" }]
                   items:
                     type: object
                     properties:
                       name:
                         type: string
       additionalPrinterColumns:
-      - name: ImportDuration
-        type: string
-        jsonPath: .status.importDuration
-        priority: 1
-      - name: StoredSize
-        type: string
-        jsonPath: .status.size.stored
-        priority: 1
-      - name: UnpackedSize
-        type: string
-        jsonPath: .status.size.unpacked
-        priority: 1
-      - jsonPath: .status.capacity
-        name: Capacity
-        type: string
-        priority: 1
-      - jsonPath: .status.downloadSpeed.avg
-        name: Avg speed
-        type: string
-        priority: 1
-      - name: Progress
-        type: string
-        jsonPath: .status.progress
-      - name: CDROM
-        type: boolean
-        jsonPath: .status.cdrom
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: Registry URL
-        jsonPath: .status.target.registryURL
-        type: string
-        priority: 1
-      - name: Target PVC
-        jsonPath: .status.target.persistentVolumeClaimName
-        type: string
-        priority: 1
+        - name: ImportDuration
+          type: string
+          jsonPath: .status.importDuration
+          priority: 1
+        - name: StoredSize
+          type: string
+          jsonPath: .status.size.stored
+          priority: 1
+        - name: UnpackedSize
+          type: string
+          jsonPath: .status.size.unpacked
+          priority: 1
+        - jsonPath: .status.capacity
+          name: Capacity
+          type: string
+          priority: 1
+        - jsonPath: .status.downloadSpeed.avg
+          name: Avg speed
+          type: string
+          priority: 1
+        - name: Progress
+          type: string
+          jsonPath: .status.progress
+        - name: CDROM
+          type: boolean
+          jsonPath: .status.cdrom
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Registry URL
+          jsonPath: .status.target.registryURL
+          type: string
+          priority: 1
+        - name: Target PVC
+          jsonPath: .status.target.persistentVolumeClaimName
+          type: string
+          priority: 1
       subresources:
         status: {}
