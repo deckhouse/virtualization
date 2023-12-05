@@ -40,7 +40,8 @@ spec:
               properties:
                 persistentVolumeClaim:
                   type: object
-                  description: Settings for creating PVCs to store the disk.
+                  description: |
+                    Settings for creating PVCs to store the disk.
                   properties:
                     size:
                       type: string
@@ -53,7 +54,8 @@ spec:
                         The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
                 dataSource:
                   type: object
-                  description: An origin of the disk. If empty or absent, empty disk will be created.
+                  description: |
+                    An origin of the disk. If empty or absent, empty disk will be created.
                   required:
                     - type
                   properties:
@@ -64,9 +66,6 @@ spec:
                       - 'ContainerImage'
                       - 'VirtualMachineImage'
                       - 'ClusterVirtualMachineImage'
-                      - 'VirtualMachineDisk'
-                      - 'VirtualMachineDiskSnapshot'
-                      - 'PersistentVolumeClaim'
                       - 'Upload'
                       description: |
                         The type of an origin of the image. Options are:
@@ -75,8 +74,6 @@ spec:
                         * `ContainerImage` — use an image, stored in container registry image.
                         * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
                         * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
-                        * `VirtualMachineDisk` — use an existing `VirtualMachineDisk`.
-                        * `PersistentVolumeClaim` — use an existing `PersistentVolumeClaim`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -109,7 +106,8 @@ spec:
                             * xz
                         caBundle:
                           type: string
-                          description: The CA chain in base64 format to verify the url.
+                          description: |
+                            The CA chain in base64 format to verify the url.
                           example: |
                             YWFhCg==
                         insecureSkipVerify:
@@ -145,65 +143,45 @@ spec:
                         image:
                           type: string
                           example: 'registry.example.com/images/slackware:15'
-                          # https://regex101.com/r/NXfP8Y/1 (Python version https://regex101.com/r/nmSDPA/1 not supported as is, newlines should be deleted to work in Golang)
+                          # https://regex101.com/r/NXfP8Y/1
                           pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
-                          description: The container registry address of an image.
+                          description: |
+                            The container registry address of an image.
                         imagePullSecret:
                           type: object
                           properties:
                             name:
                               type: string
-                              description: A name of the secret containing registry credentials.
+                              description: |
+                                A name of the secret containing registry credentials.
                         caBundle:
                           type: string
-                          description: The CA chain in base64 format to verify the container registry.
+                          description: |
+                            The CA chain in base64 format to verify the container registry.
                           example: |
                             YWFhCg==
                     virtualMachineImage:
                       type: object
-                      description: Use another existing `VirtualMachineImage`.
+                      description: |
+                        Use another existing `VirtualMachineImage`.
                       required:
                         - name
                       properties:
                         name:
                           type: string
-                          description: A name of existing `VirtualMachineImage`.
+                          description: |
+                            A name of existing `VirtualMachineImage`.
                     clusterVirtualMachineImage:
                       type: object
-                      description: Use another existing `ClusterVirtualMachineImage`.
+                      description: |
+                        Use another existing `ClusterVirtualMachineImage`.
                       required:
                         - name
                       properties:
                         name:
                           type: string
-                          description: A name of existing `ClusterVirtualMachineImage`.
-                    virtualMachineDisk:
-                      type: object
-                      description: Use another existing `VirtualMachineDisk`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `VirtualMachineDisk`.
-                    virtualMachineDiskSnapshot:
-                      type: object
-                      description: Use another existing `VirtualMachineDiskSnapshot`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `VirtualMachineDiskSnapshot`.
-                    persistentVolumeClaim:
-                      type: object
-                      description: Use another existing `PersistentVolumeClaim`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: A name of existing `PersistentVolumeClaim`.
+                          description: |
+                            A name of existing `ClusterVirtualMachineImage`.
                   oneOf:
                   - properties:
                       type:
@@ -227,21 +205,6 @@ spec:
                     required: ['clusterVirtualMachineImage']
                   - properties:
                       type:
-                        enum: ['VirtualMachineDisk']
-                      virtualMachineDisk: {}
-                    required: ['virtualMachineDisk']
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineDiskSnapshot']
-                      virtualMachineDiskSnapshot: {}
-                    required: ['virtualMachineDiskSnapshot']
-                  - properties:
-                      type:
-                        enum: ['PersistentVolumeClaim']
-                      persistentVolumeClaim: {}
-                    required: ['persistentVolumeClaim']
-                  - properties:
-                      type:
                         enum: ['Upload']
             status:
               type: object
@@ -259,7 +222,8 @@ spec:
                     avg:
                       type: string
                       example: 1 Mbps
-                      description: Average download speed.
+                      description: |
+                        Average download speed.
                     current:
                       type: string
                       example: 5 Mbps
@@ -282,7 +246,8 @@ spec:
                   properties:
                     persistentVolumeClaimName:
                       type: string
-                      description: Created PersistentVolumeClaim name for Kubernetes storage.
+                      description: |
+                        Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
                   type: string
                   description: |
