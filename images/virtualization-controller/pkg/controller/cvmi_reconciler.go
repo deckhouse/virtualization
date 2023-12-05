@@ -256,7 +256,7 @@ func (r *CVMIReconciler) verifyDataSourceRefs(ctx context.Context, client client
 			return err
 		}
 	case virtv2.DataSourceTypeContainerImage:
-		if cvmi.Spec.DataSource.ContainerImage != nil {
+		if cvmi.Spec.DataSource.ContainerImage == nil {
 			return fmt.Errorf("dataSource '%s' specified without related 'containerImage' section", cvmi.Spec.DataSource.Type)
 		}
 		if cvmi.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" {
