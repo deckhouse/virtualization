@@ -42,8 +42,15 @@ const (
 	imageLabelSourceImageFormat      = "source-image-format"
 )
 
+type ImportRes struct {
+	SourceImageSize uint64
+	VirtualSize     uint64
+	AvgSpeed        uint64
+	Format          string
+}
+
 type ImageInfo struct {
-	VirtualSize int    `json:"virtual-size"`
+	VirtualSize uint64 `json:"virtual-size"`
 	Format      string `json:"format"`
 }
 
@@ -83,24 +90,24 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 	}, nil
 }
 
-func (p DataProcessor) Process(ctx context.Context) error {
+func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	sourceImageFilename, err := p.ds.Filename()
 	if err != nil {
-		return fmt.Errorf("error getting source filename: %w", err)
+		return ImportRes{}, fmt.Errorf("error getting source filename: %w", err)
 	}
 
 	sourceImageSize, err := p.ds.Length()
 	if err != nil {
-		return fmt.Errorf("error getting source image size: %w", err)
+		return ImportRes{}, fmt.Errorf("error getting source image size: %w", err)
 	}
 
 	if sourceImageSize == 0 {
-		return fmt.Errorf("zero data source image size")
+		return ImportRes{}, fmt.Errorf("zero data source image size")
 	}
 
 	sourceImageReader, err := p.ds.ReadCloser()
 	if err != nil {
-		return fmt.Errorf("error getting source image reader: %w", err)
+		return ImportRes{}, fmt.Errorf("error getting source image reader: %w", err)
 	}
 
 	// Wrap data source reader with progress and speed metrics.
@@ -109,17 +116,35 @@ func (p DataProcessor) Process(ctx context.Context) error {
 	defer progressMeter.Stop()
 
 	pipeReader, pipeWriter := nio.Pipe(buffer.New(pipeBufSize))
-	imageInfoCh := make(chan ImageInfo)
+
+	informer := NewImageInformer()
+
 	errsGroup, ctx := errgroup.WithContext(ctx)
 	errsGroup.Go(func() error {
-		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeter, pipeWriter, imageInfoCh)
+		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, sourceImageSize, progressMeter, pipeWriter, informer)
 	})
 	errsGroup.Go(func() error {
 		defer pipeReader.Close()
-		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, progressMeter, imageInfoCh)
+		return p.uploadLayersAndImage(ctx, pipeReader, sourceImageSize, informer)
 	})
 
-	return errsGroup.Wait()
+	err = errsGroup.Wait()
+	if err != nil {
+		return ImportRes{}, err
+	}
+
+	select {
+	case <-informer.Wait():
+	default:
+		return ImportRes{}, errors.New("unexpected waiting for the informer, please report a bug")
+	}
+
+	return ImportRes{
+		SourceImageSize: uint64(sourceImageSize),
+		VirtualSize:     informer.GetVirtualSize(),
+		AvgSpeed:        progressMeter.GetAvgSpeed(),
+		Format:          informer.GetFormat(),
+	}, nil
 }
 
 func (p DataProcessor) inspectAndStreamSourceImage(
@@ -128,7 +153,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 	sourceImageSize int,
 	sourceImageReader io.ReadCloser,
 	pipeWriter *nio.PipeWriter,
-	imageInfoCh chan ImageInfo,
+	informer *ImageInformer,
 ) error {
 	var tarWriter *tar.Writer
 	{
@@ -221,7 +246,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 			return err
 		}
 
-		imageInfoCh <- info
+		informer.Set(info.VirtualSize, info.Format)
 
 		return nil
 	})
@@ -233,8 +258,7 @@ func (p DataProcessor) uploadLayersAndImage(
 	ctx context.Context,
 	pipeReader *nio.PipeReader,
 	sourceImageSize int,
-	progressMeter *monitoring.ProgressMeter,
-	imageInfoCh chan ImageInfo,
+	informer *ImageInformer,
 ) error {
 	nameOpts := destNameOptions(p.destInsecure)
 	remoteOpts := destRemoteOptions(ctx, p.destUsername, p.destPassword, p.destInsecure)
@@ -263,14 +287,14 @@ func (p DataProcessor) uploadLayersAndImage(
 		return fmt.Errorf("error getting image config: %w", err)
 	}
 
-	imageInfo := <-imageInfoCh
+	informer.Wait()
 
-	klog.Infof("Got image info: %+v", imageInfo)
+	klog.Infof("Got image info: virtual size: %d, format: %s", informer.GetVirtualSize(), informer.GetFormat())
 
 	cnf.Config.Labels = map[string]string{}
-	cnf.Config.Labels[imageLabelSourceImageVirtualSize] = fmt.Sprintf("%d", imageInfo.VirtualSize)
+	cnf.Config.Labels[imageLabelSourceImageVirtualSize] = fmt.Sprintf("%d", informer.GetVirtualSize())
 	cnf.Config.Labels[imageLabelSourceImageSize] = fmt.Sprintf("%d", sourceImageSize)
-	cnf.Config.Labels[imageLabelSourceImageFormat] = imageInfo.Format
+	cnf.Config.Labels[imageLabelSourceImageFormat] = informer.GetFormat()
 
 	image, err = mutate.ConfigFile(image, cnf)
 	if err != nil {
@@ -285,10 +309,6 @@ func (p DataProcessor) uploadLayersAndImage(
 	klog.Infof("Uploading image %q to registry", p.destImageName)
 	if err = remote.Write(ref, image, remoteOpts...); err != nil {
 		return fmt.Errorf("error uploading image: %w", err)
-	}
-
-	if err = WriteImportCompleteMessage(uint64(sourceImageSize), uint64(imageInfo.VirtualSize), progressMeter.GetAvgSpeed(), imageInfo.Format); err != nil {
-		return fmt.Errorf("error writing import complete message: %w", err)
 	}
 
 	return nil
@@ -370,40 +390,10 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 		}
 
-		imageInfo.VirtualSize = int(uncompressedN + n)
+		imageInfo.VirtualSize = uint64(uncompressedN + n)
 
 		return imageInfo, nil
 	}
-}
-
-type ImportInfo struct {
-	SourceImageSize        uint64 `json:"source-image-size"`
-	SourceImageVirtualSize uint64 `json:"source-image-virtual-size"`
-	SourceImageFormat      string `json:"source-image-format"`
-	AverageSpeed           uint64 `json:"average-speed"`
-}
-
-func WriteImportCompleteMessage(sourceImageSize, sourceImageVirtualSize, avgSpeed uint64, sourceImageFormat string) error {
-	rawMsg, err := json.Marshal(ImportInfo{
-		SourceImageSize:        sourceImageSize,
-		SourceImageVirtualSize: sourceImageVirtualSize,
-		SourceImageFormat:      sourceImageFormat,
-		AverageSpeed:           avgSpeed,
-	})
-	if err != nil {
-		return err
-	}
-
-	message := string(rawMsg)
-
-	err = util.WriteTerminationMessage(message)
-	if err != nil {
-		return err
-	}
-
-	klog.Infoln("Image uploaded: " + message)
-
-	return nil
 }
 
 func destNameOptions(destInsecure bool) []name.Option {

@@ -26,6 +26,10 @@ linters-settings:
     local-prefixes: github.com/deckhouse/
   errcheck:
     ignore: fmt:.*,[rR]ead|[wW]rite|[cC]lose,io:Copy
+  revive:
+    rules:
+      - name: dot-imports
+        disabled: true
 
 linters:
   disable-all: true

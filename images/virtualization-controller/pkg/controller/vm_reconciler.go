@@ -21,6 +21,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
@@ -32,6 +33,8 @@ type IPAM interface {
 	CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 	BindIPAddressClaim(ctx context.Context, vmName string, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
 	DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
+	IsIPAddressRequested(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) bool
+	RequestIPAddress(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim)
 }
 
 type VMReconciler struct {
@@ -84,6 +87,10 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 
 	if !claimed {
 		return nil
+	}
+
+	if !r.ipam.IsIPAddressRequested(state.VM.Current(), state.IPAddressClaim) {
+		r.ipam.RequestIPAddress(state.VM.Current(), state.IPAddressClaim)
 	}
 
 	disksMessage := r.checkBlockDevicesSanity(state)
@@ -288,7 +295,9 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 
 func (r *VMReconciler) cleanupOnDeletion(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// The object is being deleted
-	if state.IPAddressClaim != nil && state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "" {
+
+	// IP address is implicitly linked to the virtual machine: it needs to be deleted when deleting the virtual machine.
+	if state.IPAddressClaim != nil && state.IPAddressClaim.Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue {
 		err := r.ipam.DeleteIPAddressClaim(ctx, state.IPAddressClaim, opts.Client)
 		if err != nil {
 			return err
@@ -351,6 +360,7 @@ func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState,
 		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	})
 	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings)
+
 	kvvm := kvvmBuilder.GetResource()
 
 	if err := opts.Client.Create(ctx, kvvm); err != nil {

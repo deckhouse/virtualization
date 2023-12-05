@@ -117,3 +117,10 @@ func (m *MockIPAM) BindIPAddressClaim(_ context.Context, _ string, _ *v2alpha1.V
 func (m *MockIPAM) DeleteIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
 	return nil
 }
+
+func (m *MockIPAM) IsIPAddressRequested(_ *v2alpha1.VirtualMachine, _ *v2alpha1.VirtualMachineIPAddressClaim) bool {
+	return true
+}
+
+func (m *MockIPAM) RequestIPAddress(_ *v2alpha1.VirtualMachine, _ *v2alpha1.VirtualMachineIPAddressClaim) {
+}

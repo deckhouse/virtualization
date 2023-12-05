@@ -224,7 +224,15 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		if err != nil {
 			opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
 		}
+
 		if finalReport != nil {
+			if finalReport.ErrMessage != "" {
+				cvmiStatus.Phase = virtv2.ImageFailed
+				cvmiStatus.FailureReason = virtv2.ReasonErrImportFailed
+				cvmiStatus.FailureMessage = finalReport.ErrMessage
+				break
+			}
+
 			cvmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
 			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			cvmiStatus.Size.Stored = finalReport.StoredSize()

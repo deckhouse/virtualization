@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/retry"
 	"net/http"
 	"os"
 	"strconv"
@@ -60,7 +62,7 @@ func (i *Importer) Run(ctx context.Context) error {
 	defer os.RemoveAll(promCertsDir)
 	prometheusutil.StartPrometheusEndpoint(promCertsDir)
 
-	if err := i.parseOptions(); err != nil {
+	if err = i.parseOptions(); err != nil {
 		return fmt.Errorf("error parsing options: %w", err)
 	}
 	if i.srcType == DVCRSource {
@@ -117,32 +119,43 @@ func (i *Importer) parseOptions() error {
 	return nil
 }
 
-func (i Importer) runForDVCRSource(ctx context.Context) error {
+func (i *Importer) runForDVCRSource(ctx context.Context) error {
 	craneOpts := i.destCraneOptions(ctx)
 	err := crane.CopyRepository(i.src, i.destImageName, craneOpts...)
 	if err != nil {
 		return fmt.Errorf("error copy repository: %w", err)
 	}
-	return registry.WriteImportCompleteMessage(0, 0, 0, "")
+	return monitoring.WriteImportCompleteMessage(0, 0, 0, "")
 }
 
 func (i *Importer) runForDataSource(ctx context.Context) error {
-	ds, err := i.newDataSource(ctx)
-	if err != nil {
-		return fmt.Errorf("error creating data source: %w", err)
-	}
-	defer ds.Close()
-	processor, err := registry.NewDataProcessor(ds, registry.DestinationRegistry{
-		ImageName: i.destImageName,
-		Username:  i.destUsername,
-		Password:  i.destPassword,
-		Insecure:  i.destInsecure,
-	}, i.sha256Sum, i.md5Sum)
-	if err != nil {
+	var res registry.ImportRes
+
+	err := retry.Retry(ctx, func(ctx context.Context) error {
+		ds, err := i.newDataSource(ctx)
+		if err != nil {
+			return fmt.Errorf("error creating data source: %w", err)
+		}
+		defer ds.Close()
+		processor, err := registry.NewDataProcessor(ds, registry.DestinationRegistry{
+			ImageName: i.destImageName,
+			Username:  i.destUsername,
+			Password:  i.destPassword,
+			Insecure:  i.destInsecure,
+		}, i.sha256Sum, i.md5Sum)
+		if err != nil {
+			return err
+		}
+
+		res, err = processor.Process(ctx)
 		return err
+	})
+
+	if err != nil {
+		return monitoring.WriteImportFailureMessage(err)
 	}
 
-	return processor.Process(context.Background())
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format)
 }
 
 func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
@@ -168,22 +181,13 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 	return result, nil
 }
 
-func (i *Importer) srcNameOptions() []name.Option {
-	nameOpts := []name.Option{}
-
-	if i.srcInsecure {
-		nameOpts = append(nameOpts, name.Insecure)
-	}
-
-	return nameOpts
-}
-
 func (i *Importer) destNameOptions() []name.Option {
-	nameOpts := []name.Option{}
+	var nameOpts []name.Option
 
 	if i.destInsecure {
 		nameOpts = append(nameOpts, name.Insecure)
 	}
+
 	return nameOpts
 }
 
@@ -221,7 +225,7 @@ func (i *Importer) destRemoteOptions(ctx context.Context) []remote.Option {
 	return remoteOpts
 }
 
-func (i Importer) destCraneOptions(ctx context.Context) []crane.Option {
+func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: i.destInsecure,
 	}

@@ -1,4 +1,4 @@
-ARG BUILDER_CACHE_IMAGE=golang:1.20-bookworm
+ARG BUILDER_CACHE_IMAGE=golang:1.21-bookworm
 FROM $BUILDER_CACHE_IMAGE as builder
 
 # Cache-friendly download modules.

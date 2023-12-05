@@ -12,6 +12,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
+const AnnoIPAddressCNIRequest = "cni.cilium.io/ipAddress"
+
 func New() *IPAM {
 	return &IPAM{}
 }
@@ -58,6 +60,9 @@ func (m IPAM) CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachin
 			Annotations: map[string]string{
 				common.AnnBoundVirtualMachineName: vm.Name,
 			},
+			Labels: map[string]string{
+				common.LabelImplicitIPAddressClaim: common.LabelImplicitIPAddressClaimValue,
+			},
 			Name:      vm.Name,
 			Namespace: vm.Namespace,
 		},
@@ -88,6 +93,22 @@ func (m IPAM) BindIPAddressClaim(ctx context.Context, vmName string, claim *virt
 	claim.SetAnnotations(anno)
 
 	return client.Update(ctx, claim)
+}
+
+func (m IPAM) IsIPAddressRequested(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) bool {
+	return vm.Annotations[AnnoIPAddressCNIRequest] == claim.Spec.Address
+}
+
+func (m IPAM) RequestIPAddress(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) {
+	anno := vm.Annotations
+
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+
+	anno[AnnoIPAddressCNIRequest] = claim.Spec.Address
+
+	vm.SetAnnotations(anno)
 }
 
 func (m IPAM) DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error {
