@@ -2,19 +2,19 @@ package v2alpha1
 
 const (
 	// ReasonErrUnknownState is event reason that VMI has unexpected state
-	ReasonErrUnknownState = "ErrUnknownState"
+	ReasonErrUnknownState = "UnknownState"
 
 	// ReasonErrWrongPVCSize is event reason that PVC has wrong size
-	ReasonErrWrongPVCSize = "ErrWrongPVCSize"
+	ReasonErrWrongPVCSize = "WrongPVCSize"
 
 	// ReasonErrImportFailed is event reason that importer/uploader Pod is failed
-	ReasonErrImportFailed = "ErrImportFailed"
+	ReasonErrImportFailed = "ImportFailed"
 
 	// ReasonErrGetProgressFailed is event reason about the failure of getting progress.
-	ReasonErrGetProgressFailed = "ErrGetProgressFailed"
+	ReasonErrGetProgressFailed = "GetProgressFailed"
 
 	// ReasonClaimNotAvailable is event reason that VM cannot use defined claim.
-	ReasonClaimNotAvailable = "ErrClaimNotAvailable"
+	ReasonClaimNotAvailable = "ClaimNotAvailable"
 
 	// ReasonImportSucceeded is event reason that the import is successfully completed
 	ReasonImportSucceeded = "ImportSucceeded"

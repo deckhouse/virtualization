@@ -87,9 +87,10 @@ spec:
                 virtualMachineIPAddressClaimName:
                   type: string
                   description: |
-                    The name for associated `VirtualMahcineIPAddressClaim` resource.
-
-                    If not specified, defaults to `{vm name}`.
+                    The name for associated `VirtualMachineIPAddressClaim` resource.
+                    
+                    If specified, VirtualMachineIPAddressClaim should exists on VirtualMachine creation.
+                    If not specified, a VirtualMachine name will be used to create an implicit VirtualMachineIPAddressClaim. This claim will be deleted on VirtualMachine deletion.
 
                 topologySpreadConstraints:
                   description: |

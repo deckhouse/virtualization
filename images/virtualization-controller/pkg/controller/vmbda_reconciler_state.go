@@ -103,6 +103,10 @@ func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Req
 			return fmt.Errorf("unable to get VMD %s: %w", vmdKey, err)
 		}
 
+		if state.VMD == nil {
+			return nil
+		}
+
 		pvcKey := types.NamespacedName{Name: state.VMD.Status.Target.PersistentVolumeClaimName, Namespace: state.VMBDA.Current().Namespace}
 		state.PVC, err = helper.FetchObject(ctx, pvcKey, client, &corev1.PersistentVolumeClaim{})
 		if err != nil {
