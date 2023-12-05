@@ -11,10 +11,11 @@ import (
 
 // FinalReport example: { "source-image-size": "1111", "source-image-virtual-size": "8888", "source-image-format": "qcow2"}
 type FinalReport struct {
-	StoredSizeBytes   uint64 `json:"source-image-size"`
-	UnpackedSizeBytes uint64 `json:"source-image-virtual-size"`
-	Format            string `json:"source-image-format"`
-	AverageSpeed      uint64 `json:"average-speed"`
+	StoredSizeBytes   uint64 `json:"source-image-size,omitempty"`
+	UnpackedSizeBytes uint64 `json:"source-image-virtual-size,omitempty"`
+	Format            string `json:"source-image-format,omitempty"`
+	AverageSpeed      uint64 `json:"average-speed,omitempty"`
+	ErrMessage        string `json:"error-message,omitempty"`
 }
 
 func (r *FinalReport) StoredSize() string {

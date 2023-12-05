@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -265,6 +266,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		}
 	case !state.ShouldTrackDataVolume() && state.ShouldTrackPod() && state.IsPodComplete():
 		vmiStatus.Phase = virtv2.ImageReady
+		vmiStatus.Progress = "100%"
 
 		opts.Log.V(1).Info("Import completed successfully")
 
@@ -279,6 +281,13 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			opts.Log.Error(err, "parsing final report", "vmi.name", state.VMI.Current().Name)
 		}
 		if finalReport != nil {
+			if finalReport.ErrMessage != "" {
+				vmiStatus.Phase = virtv2.ImageFailed
+				vmiStatus.FailureReason = virtv2.ReasonErrImportFailed
+				vmiStatus.FailureMessage = finalReport.ErrMessage
+				break
+			}
+
 			vmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
 			vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			vmiStatus.Size.Stored = finalReport.StoredSize()
@@ -298,6 +307,20 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// Set target image name the same way as for the importer/uploader Pod.
 		dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(state.VMI.Current().Name, state.VMI.Current().Namespace)
 		vmiStatus.Target.RegistryURL = dvcrDestImageName
+	case state.IsPodComplete() && !state.HasDataVolumeAnno():
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+		if err != nil {
+			err = errors.New("empty final report")
+			opts.Log.Error(err, "Failed to process final report")
+			return err
+		}
+
+		if finalReport.ErrMessage != "" {
+			vmiStatus.Phase = virtv2.ImageFailed
+			vmiStatus.FailureReason = virtv2.ReasonErrImportFailed
+			vmiStatus.FailureMessage = finalReport.ErrMessage
+			break
+		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)
@@ -324,6 +347,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceededToPVC, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
 		vmiStatus.Phase = virtv2.ImageReady
+		vmiStatus.Progress = "100%"
 
 		// Cleanup.
 		vmiStatus.DownloadSpeed.Current = ""

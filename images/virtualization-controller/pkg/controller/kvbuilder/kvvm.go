@@ -266,7 +266,7 @@ func (b *KVVM) SetCloudInit(p *virtv2.Provisioning) {
 	}
 }
 
-func (b KVVM) GetCloudInitSettings() map[string]interface{} {
+func (b *KVVM) GetCloudInitSettings() map[string]interface{} {
 	var disk virtv1.Disk
 	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
 		if d.Name == CloudInitDiskName {

@@ -10,6 +10,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -80,7 +81,14 @@ func (r *ClaimReconciler) enqueueRequestsFromVMs(_ context.Context, obj client.O
 	}
 
 	if vm.Spec.VirtualMachineIPAddressClaimName == "" {
-		return nil
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: vm.Namespace,
+					Name:      vm.Name,
+				},
+			},
+		}
 	}
 
 	return []reconcile.Request{
@@ -119,6 +127,11 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		opts.Log.Info("The claim is no longer used by the VM: unbound")
 
 		delete(state.Claim.Changed().Annotations, common.AnnBoundVirtualMachineName)
+
+		if state.Claim.Current().Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue {
+			opts.Log.Info("The claim is implicit: delete it")
+			return opts.Client.Delete(ctx, state.Claim.Current())
+		}
 
 		return nil
 
@@ -272,9 +285,13 @@ func shouldUnboundClaim(state *ClaimReconcilerState) bool {
 		return false
 	}
 
+	// Claim is bound, but VM deleted.
+	if state.VM == nil {
+		return true
+	}
+
 	// Claim is bound, but VM is bound to another Claim (Claim changed for VM).
-	return state.VM != nil &&
-		state.VM.Spec.VirtualMachineIPAddressClaimName != "" &&
+	return state.VM.Spec.VirtualMachineIPAddressClaimName != "" &&
 		state.VM.Spec.VirtualMachineIPAddressClaimName != state.Claim.Name().Name
 }
 
@@ -314,6 +331,19 @@ func (r *ClaimReconciler) isAvailableAddress(address string, allocatedIPs Alloca
 func (r *ClaimReconciler) allocateNewIP(allocatedIPs AllocatedIPs) (string, error) {
 	for _, cidr := range r.ParsedCIDRs {
 		for ip := cidr.IP.Mask(cidr.Mask); cidr.Contains(ip); inc(ip) {
+			// Allow allocation of IP address explicitly specified using a 32-bit mask.
+			if k8snet.RangeSize(cidr) != 1 {
+				// Skip the allocation of the first or last addresses within the CIDR range.
+				isFirstLast, err := isFirstLastIP(ip, cidr)
+				if err != nil {
+					return "", err
+				}
+
+				if isFirstLast {
+					continue
+				}
+			}
+
 			_, ok := allocatedIPs[ip.String()]
 			if !ok {
 				return ip.String(), nil
@@ -341,6 +371,26 @@ func leaseNameToIP(leaseName string) string {
 	}
 
 	return ""
+}
+
+func isFirstLastIP(ip net.IP, cidr *net.IPNet) (bool, error) {
+	size := int(k8snet.RangeSize(cidr))
+
+	first, err := k8snet.GetIndexedIP(cidr, 0)
+	if err != nil {
+		return false, err
+	}
+
+	if first.Equal(ip) {
+		return true, nil
+	}
+
+	last, err := k8snet.GetIndexedIP(cidr, size-1)
+	if err != nil {
+		return false, err
+	}
+
+	return last.Equal(ip), nil
 }
 
 // http://play.golang.org/p/m8TNTtygK0

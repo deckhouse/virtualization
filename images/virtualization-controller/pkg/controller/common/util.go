@@ -214,6 +214,11 @@ const (
 	// LabelDefaultPreferenceKind provides a default kind of either VirtualMachineClusterPreference or VirtualMachinePreference
 	LabelDefaultPreferenceKind = "instancetype.kubevirt.io/default-preference-kind"
 
+	// LabelImplicitIPAddressClaim is a label to implicitly bind ip address claim to virtual machine.
+	LabelImplicitIPAddressClaim = virtv2alpha1.APIGroup + "/implicit-ip-address-claim"
+	// LabelImplicitIPAddressClaimValue is a value for LabelImplicitIPAddressClaim.
+	LabelImplicitIPAddressClaimValue = "true"
+
 	UploaderServiceLabel = "service"
 
 	// ProgressDone this means we are DONE

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"io"
 	"net"
 	"net/http"
@@ -354,7 +355,12 @@ func (app *uploadServerApp) upload(stream io.ReadCloser, sourceContentType strin
 		return err
 	}
 
-	return processor.Process(context.Background())
+	res, err := processor.Process(context.Background())
+	if err != nil {
+		return monitoring.WriteImportFailureMessage(err)
+	}
+
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format)
 }
 
 func newContentReader(stream io.ReadCloser, contentType string) io.ReadCloser {

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -142,6 +143,21 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		// Start and track DataVolume.
 		switch {
 		case !state.HasDataVolumeAnno():
+			if state.ShouldTrackPod() {
+				finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+				if err != nil {
+					return err
+				}
+
+				if finalReport == nil {
+					return errors.New("empty final report")
+				}
+
+				if finalReport.ErrMessage != "" {
+					return nil
+				}
+			}
+
 			log.V(1).Info("Update annotations with new DataVolume name")
 			r.initDataVolumeName(state)
 			// Update annotations and status and restart reconcile to create a DV.
@@ -244,7 +260,9 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			}
 			vmdStatus.Progress = progressPct
 			vmdStatus.DownloadSpeed.Avg = progress.AvgSpeed()
+			vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
 			vmdStatus.DownloadSpeed.Current = progress.CurSpeed()
+			vmdStatus.DownloadSpeed.CurrentBytes = strconv.FormatUint(progress.CurSpeedRaw(), 10)
 		}
 
 		// Set VMD phase.
@@ -254,12 +272,39 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmdStatus.Phase = virtv2.DiskProvisioning
 		}
 
+	case state.IsPodComplete() && !state.HasDataVolumeAnno():
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+		if err != nil {
+			return err
+		}
+
+		if finalReport == nil {
+			err = errors.New("empty final report")
+			log.Error(err, "Failed to process final report")
+			return err
+		}
+
+		// Cleanup.
+		vmdStatus.DownloadSpeed.Current = ""
+		vmdStatus.DownloadSpeed.CurrentBytes = ""
+
+		if finalReport.ErrMessage != "" {
+			vmdStatus.Phase = virtv2.DiskFailed
+			vmdStatus.FailureReason = virtv2.ReasonErrImportFailed
+			vmdStatus.FailureMessage = finalReport.ErrMessage
+			break
+		}
+
+		vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+		vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
+
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmdStatus.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
 
 		// Download speed is not available from DataVolume.
 		vmdStatus.DownloadSpeed.Current = ""
+		vmdStatus.DownloadSpeed.CurrentBytes = ""
 
 		// Copy progress from DataVolume.
 		// map 0-100% to 50%-100%.
@@ -279,6 +324,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		log.V(1).Info("Import completed successfully")
 
 		vmdStatus.Phase = virtv2.DiskReady
+		vmdStatus.Progress = "100%"
 
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Successfully imported")
 
