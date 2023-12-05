@@ -34,6 +34,8 @@ type VirtualMachineDiskStatus struct {
 	Progress       string           `json:"progress,omitempty"`
 	UploadCommand  string           `json:"uploadCommand,omitempty"`
 	Phase          DiskPhase        `json:"phase"`
+	FailureReason  string           `json:"failureReason"`
+	FailureMessage string           `json:"failureMessage"`
 }
 
 type VMDDownloadSpeed struct {
@@ -68,6 +70,5 @@ const (
 	DiskProvisioning      DiskPhase = "Provisioning"
 	DiskReady             DiskPhase = "Ready"
 	DiskFailed            DiskPhase = "Failed"
-	DiskNotReady          DiskPhase = "NotReady"
 	DiskPVCLost           DiskPhase = "PVCLost"
 )

@@ -17,8 +17,6 @@ func init() {
 }
 
 func main() {
-	ctx := context.Background()
-
 	defer klog.Flush()
 
 	logs.Progress.SetOutput(os.Stdout)
@@ -27,7 +25,7 @@ func main() {
 	klog.Infoln("Starting registry importer")
 
 	imp := importer.New()
-	if err := imp.Run(ctx); err != nil {
+	if err := imp.Run(context.Background()); err != nil {
 		klog.Fatalf("Error running registry importer: %+v", err)
 	}
 

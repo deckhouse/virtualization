@@ -233,6 +233,10 @@ func isFailed(state *VMBDAReconcilerState) (string, string) {
 }
 
 func isAttached(state *VMBDAReconcilerState) bool {
+	if state.KVVMI == nil {
+		return false
+	}
+
 	for _, status := range state.KVVMI.Status.VolumeStatus {
 		if status.Name == kvbuilder.GenerateVMDDiskName(state.VMD.Name) {
 			return status.Phase == virtv1.VolumeReady
