@@ -22,7 +22,8 @@ spec:
     - name: v2alpha1
       schema:
         openAPIV3Schema:
-          description: The resource that defines IP address claim for virtual machine.
+          description:  |
+            The resource that defines IP address claim for virtual machine.
           properties:
             apiVersion:
               type: string
@@ -31,38 +32,46 @@ spec:
             metadata:
               type: object
             spec:
-              description: The desired state of `VirtualMachineIPAddressClaim`.
+              description: |
+                The desired state of `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description: The requested IP address. If omitted the next available IP address will be assigned.
+                  description:  |
+                    The requested IP address. If omitted the next available IP address will be assigned.
                   type: string
                 leaseName:
-                  description: The issued `VirtualMachineIPAddressLease`, managed automatically.
+                  description:  |
+                    The issued `VirtualMachineIPAddressLease`, managed automatically.
                   type: string
                 reclaimPolicy:
                   type: string
                   default: "Delete"
                   enum: [ 'Delete', 'Retain' ]
                   description: |
-                    Reclaim policies to determine the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
+                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
 
-                    * `Delete` — this means that a VirtualMachineIPAddressLease is automatically deleted when a user deletes the corresponding VirtualMachineIPAddressClaim.
-                    * `Retain` — if a user deletes a VirtualMachineIPAddressClaim, the corresponding VirtualMachineIPAddressLease will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
+                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddressClaim`.
+                    * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
               type: object
             status:
-              description: The observed state of `VirtualMachineIPAddressClaim`.
+              description:  |
+                The observed state of `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description: The assigned IP address.
+                  description:  |
+                    The assigned IP address.
                   type: string
                 virtualMachineName:
-                  description: Represents the virtual machine that currently uses this IP address.
+                  description:  |
+                    Represents the virtual machine that currently uses this IP address.
                   type: string
                 phase:
-                  description: Represents the current state of IP address claim.
+                  description:  |
+                    Represents the current state of IP address claim.
                   type: string
                 conflictMessage:
-                  description: Detailed description of the error.
+                  description:  |
+                    Detailed description of the error.
                   type: string
               type: object
           type: object
