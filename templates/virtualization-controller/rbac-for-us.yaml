@@ -89,6 +89,7 @@ rules:
   - create
   - update
   - list
+  - delete
 - apiGroups:
   - subresources.kubevirt.io
   resources:
