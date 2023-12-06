@@ -58,7 +58,7 @@ type RunPolicy string
 const (
 	AlwaysOnPolicy               RunPolicy = "AlwaysOn"
 	AlwaysOffPolicy              RunPolicy = "AlwaysOff"
-	ManualPolicy                 RunPolicy = "ManualPolicy"
+	ManualPolicy                 RunPolicy = "Manual"
 	AlwaysOnUnlessStoppedManualy RunPolicy = "AlwaysOnUnlessStoppedManualy"
 )
 
