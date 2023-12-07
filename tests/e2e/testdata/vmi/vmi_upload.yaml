@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: test-vmi-upload
+  namespace: test-d8-virtualization
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: "Upload"

@@ -1,0 +1,24 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: test-vmi-vmi-old
+  namespace: test-d8-virtualization
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: "HTTP"
+    http:
+      insecureSkipVerify: true
+      url: "https://share.lv426.space/alpine-3-18.qcow2"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: test-vmi-vmi-new
+  namespace: test-d8-virtualization
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: "VirtualMachineImage"
+    virtualMachineImage:
+      name: test-vmi-vmi-old
