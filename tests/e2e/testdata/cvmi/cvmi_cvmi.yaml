@@ -1,0 +1,20 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: ClusterVirtualMachineImage
+metadata:
+  name: test-cvmi-cvmi-old
+spec:
+  dataSource:
+    type: "HTTP"
+    http:
+      url: "https://share.lv426.space/alpine-3-18.qcow2"
+---
+
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: ClusterVirtualMachineImage
+metadata:
+  name: test-cvmi-cvmi-new
+spec:
+  dataSource:
+    type: "ClusterVirtualMachineImage"
+    clusterVirtualMachineImage:
+      name: test-cvmi-cvmi-old
