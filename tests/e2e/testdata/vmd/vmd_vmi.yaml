@@ -1,0 +1,26 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: test-vmd-vmi
+  namespace: test-d8-virtualization
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: "HTTP"
+    http:
+      insecureSkipVerify: true
+      url: "https://share.lv426.space/alpine-3-18.qcow2"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: test-vmd-vmi
+  namespace: test-d8-virtualization
+spec:
+  persistentVolumeClaim:
+    size: 200Mi
+    storageClassName: "linstor-thick-data-r1"
+  dataSource:
+    type: "VirtualMachineImage"
+    virtualMachineImage:
+      name: test-vmd-vmi

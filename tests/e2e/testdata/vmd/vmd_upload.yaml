@@ -1,0 +1,11 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: test-vmd-upload
+  namespace: test-d8-virtualization
+spec:
+  persistentVolumeClaim:
+    size: 100Mi
+    storageClassName: "linstor-thick-data-r1"
+  dataSource:
+    type: "Upload"

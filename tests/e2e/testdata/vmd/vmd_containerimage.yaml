@@ -1,0 +1,16 @@
+
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: test-vmd-containerimage
+  namespace: test-d8-virtualization
+  annotations:
+    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
+spec:
+  persistentVolumeClaim:
+    size: 200Mi
+    storageClassName: "linstor-thick-data-r1"
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
