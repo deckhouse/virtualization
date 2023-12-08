@@ -15,16 +15,47 @@ default:
   tags:
     - deckhouse
 
-include:
-- project: 'deckhouse/modules/gitlab-ci'
-  ref: main
-  file: '/templates/Setup.gitlab-ci.yml'
-- project: 'deckhouse/modules/gitlab-ci'
-  ref: main
-  file: '/templates/Build.gitlab-ci.yml'
-- project: 'deckhouse/modules/gitlab-ci'
-  ref: main
-  file: '/templates/Deploy.gitlab-ci.yml'
+.build:
+  stage: build
+  script:
+    # Build images
+    - |
+      werf build \
+        --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} \
+        --save-build-report --build-report-path images_tags_werf.json
+    # Bundle image
+    - |
+      IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+      IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
+
+      echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      crane copy ${IMAGE_SRC} ${IMAGE_DST}
+    # Release-channel image
+    - |
+      IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+      IMAGE_DST="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)/release:${MODULES_MODULE_TAG}"
+
+      echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      crane copy ${IMAGE_SRC} ${IMAGE_DST}
+    # Register module
+    - |
+      echo "✨ Register the module ${MODULES_MODULE_NAME}"
+      crane append \
+        --oci-empty-base \
+        --new_layer "" \
+        --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+
+.deploy:
+  stage: deploy
+  script:
+  - |
+    REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}/release"
+
+    IMAGE_SRC="${REPO}:${MODULES_MODULE_TAG}"
+    IMAGE_DST="${REPO}:${RELEASE_CHANNEL}"
+
+    echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+    crane copy "${IMAGE_SRC}" "${IMAGE_DST}"
 
 
 .info:
@@ -60,10 +91,26 @@ include:
         version: 1
     EOF
 
+before_script:
+  # Setup werf
+  - |
+    type trdl && . $(trdl use werf 1.2 stable)
+    type werf && source $(werf ci-env gitlab --as-file)
+
+    # Login to gitlab registry by default
+    if [[ "x${MODULES_REGISTRY_LOGIN}" == "x" ]]; then
+      MODULES_REGISTRY_LOGIN="${CI_REGISTRY_USER}"
+    fi
+    if [[ "x${MODULES_REGISTRY_PASSWORD}" == "x" ]]; then
+      MODULES_REGISTRY_PASSWORD="${CI_REGISTRY_PASSWORD}"
+    fi
+    werf cr login -u ${MODULES_REGISTRY_LOGIN} -p ${MODULES_REGISTRY_PASSWORD} ${MODULES_REGISTRY}
+
+
 # Vars =================================================================================================================
 
 variables:
-  MODULE_NAME: virtualization
+  MODULES_MODULE_NAME: virtualization
 
 # DEV registry
 .dev_vars:
