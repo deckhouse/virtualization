@@ -115,7 +115,6 @@ variables:
 # DEV registry
 .dev_vars:
   variables:
-    MODULES_MODULE_TAG: ${CI_COMMIT_REF_SLUG}
     MODULES_REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
     MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
     MODULES_REGISTRY: dev-registry.deckhouse.io
@@ -125,7 +124,6 @@ variables:
 # PROD registry
 .prod_vars:
   variables:
-    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
     MODULES_REGISTRY_LOGIN: ${EXTERNAL_MODULES_PROD_REGISTRY_LOGIN}
     MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD}
     MODULES_REGISTRY: registry.deckhouse.io
@@ -153,16 +151,22 @@ variables:
   when: manual
 
 .dev:
+  variables:
+    MODULES_MODULE_TAG: mr${CI_MERGE_REQUEST_IID}
   extends:
   - .dev_vars
   - .dev_rules
 
 .main:
+  variables:
+    MODULES_MODULE_TAG: main
   extends:
   - .dev_vars
   - .main_rules
 
 .prod:
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
   extends:
   - .prod_vars
   - .prod_rules
