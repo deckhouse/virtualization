@@ -6,255 +6,294 @@ metadata:
   name: d8:containerized-data-importer:cdi-operator
 rules:
 - apiGroups:
-  - rbac.authorization.k8s.io
+    - rbac.authorization.k8s.io
   resources:
-  - clusterrolebindings
-  - clusterroles
+    - clusterrolebindings
+    - clusterroles
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 - apiGroups:
-  - security.openshift.io
+    - security.openshift.io
   resources:
-  - securitycontextconstraints
+    - securitycontextconstraints
   verbs:
-  - get
-  - list
-  - watch
-  - update
-  - create
+    - get
+    - list
+    - watch
+    - update
+    - create
 - apiGroups:
-  - ""
+    - apiextensions.k8s.io
   resources:
-  - pods
-  - services
+    - customresourcedefinitions
+    - customresourcedefinitions/status
   verbs:
-  - get
-  - list
-  - watch
-  - delete
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 - apiGroups:
-  - apiextensions.k8s.io
+    - cdi.kubevirt.io
+    - upload.cdi.kubevirt.io
   resources:
-  - customresourcedefinitions
-  - customresourcedefinitions/status
+    - '*'
   verbs:
-  - '*'
+    - '*'
 - apiGroups:
-  - cdi.kubevirt.io
-  - upload.cdi.kubevirt.io
+    - admissionregistration.k8s.io
   resources:
-  - '*'
+    - validatingwebhookconfigurations
+    - mutatingwebhookconfigurations
   verbs:
-  - '*'
+    - create
+    - list
+    - watch
 - apiGroups:
-  - admissionregistration.k8s.io
+    - admissionregistration.k8s.io
+  resourceNames:
+    - cdi-api-dataimportcron-validate
+    - cdi-api-populator-validate
+    - cdi-api-datavolume-validate
+    - cdi-api-validate
+    - objecttransfer-api-validate
   resources:
-  - validatingwebhookconfigurations
-  - mutatingwebhookconfigurations
+    - validatingwebhookconfigurations
   verbs:
-  - '*'
+    - get
+    - update
+    - delete
 - apiGroups:
-  - apiregistration.k8s.io
+    - admissionregistration.k8s.io
+  resourceNames:
+    - cdi-api-datavolume-mutate
   resources:
-  - apiservices
+    - mutatingwebhookconfigurations
   verbs:
-  - '*'
+    - get
+    - update
+    - delete
 - apiGroups:
-  - authorization.k8s.io
+    - apiregistration.k8s.io
   resources:
-  - subjectaccessreviews
+    - apiservices
   verbs:
-  - create
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 - apiGroups:
-  - ""
+    - authorization.k8s.io
   resources:
-  - configmaps
+    - subjectaccessreviews
   verbs:
-  - get
-  - list
-  - watch
+    - create
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - persistentvolumeclaims
+    - configmaps
   verbs:
-  - get
+    - get
+    - list
+    - watch
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - namespaces
+    - persistentvolumeclaims
   verbs:
-  - get
+    - get
 - apiGroups:
-  - snapshot.storage.k8s.io
+    - ""
   resources:
-  - volumesnapshots
+    - namespaces
   verbs:
-  - get
+    - get
 - apiGroups:
-  - cdi.kubevirt.io
+    - snapshot.storage.k8s.io
   resources:
-  - datavolumes
+    - volumesnapshots
   verbs:
-  - list
-  - get
+    - get
 - apiGroups:
-  - cdi.kubevirt.io
+    - cdi.kubevirt.io
   resources:
-  - datasources
+    - datavolumes
   verbs:
-  - list
-  - get
+    - list
+    - get
 - apiGroups:
-  - cdi.kubevirt.io
+    - cdi.kubevirt.io
   resources:
-  - cdis
+    - datasources
   verbs:
-  - get
+    - get
 - apiGroups:
-  - cdi.kubevirt.io
+    - cdi.kubevirt.io
   resources:
-  - cdis/finalizers
+    - cdis
   verbs:
-  - '*'
+    - get
 - apiGroups:
-  - ""
+    - cdi.kubevirt.io
   resources:
-  - events
+    - cdis/finalizers
   verbs:
-  - create
-  - patch
+    - update
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - persistentvolumes
-  - persistentvolumeclaims
+    - events
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - deletecollection
+    - create
+    - patch
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - persistentvolumeclaims/finalizers
-  - pods/finalizers
+    - persistentvolumeclaims
   verbs:
-  - update
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
+    - deletecollection
+    - patch
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - pods
-  - services
+    - persistentvolumes
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
+    - get
+    - list
+    - watch
+    - update
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - configmaps
+    - persistentvolumeclaims/finalizers
+    - pods/finalizers
   verbs:
-  - get
-  - create
+    - update
 - apiGroups:
-  - storage.k8s.io
+    - ""
   resources:
-  - storageclasses
-  - csidrivers
+    - pods
+    - services
   verbs:
-  - get
-  - list
-  - watch
+    - get
+    - list
+    - watch
+    - create
+    - delete
 - apiGroups:
-  - config.openshift.io
+    - ""
   resources:
-  - proxies
+    - configmaps
   verbs:
-  - get
-  - list
-  - watch
+    - get
+    - create
 - apiGroups:
-  - cdi.kubevirt.io
+    - storage.k8s.io
   resources:
-  - '*'
+    - storageclasses
+    - csidrivers
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
 - apiGroups:
-  - snapshot.storage.k8s.io
+    - config.openshift.io
   resources:
-  - '*'
+    - proxies
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
 - apiGroups:
-  - apiextensions.k8s.io
+    - cdi.kubevirt.io
   resources:
-  - customresourcedefinitions
+    - '*'
   verbs:
-  - get
-  - list
-  - watch
+    - '*'
 - apiGroups:
-  - scheduling.k8s.io
+    - snapshot.storage.k8s.io
   resources:
-  - priorityclasses
+    - volumesnapshots
+    - volumesnapshotclasses
+    - volumesnapshotcontents
   verbs:
-  - get
-  - list
-  - watch
+    - get
+    - list
+    - watch
+    - create
+    - delete
 - apiGroups:
-  - image.openshift.io
+    - snapshot.storage.k8s.io
   resources:
-  - imagestreams
+    - volumesnapshots
   verbs:
-  - get
-  - list
-  - watch
+    - update
+    - deletecollection
 - apiGroups:
-  - ""
+    - apiextensions.k8s.io
   resources:
-  - secrets
+    - customresourcedefinitions
   verbs:
-  - create
+    - get
+    - list
+    - watch
 - apiGroups:
-  - batch
+    - scheduling.k8s.io
   resources:
-  - cronjobs
+    - priorityclasses
   verbs:
-  - list
-  - watch
+    - get
+    - list
+    - watch
 - apiGroups:
-  - batch
+    - image.openshift.io
   resources:
-  - jobs
+    - imagestreams
   verbs:
-  - list
-  - watch
+    - get
+    - list
+    - watch
 - apiGroups:
-  - kubevirt.io
+    - ""
   resources:
-  - virtualmachines/finalizers
+    - secrets
   verbs:
-  - update
+    - create
 - apiGroups:
-  - ""
+    - kubevirt.io
   resources:
-  - persistentvolumeclaims
+    - virtualmachines/finalizers
   verbs:
-  - get
+    - update
 - apiGroups:
-  - cdi.kubevirt.io
+    - ""
   resources:
-  - dataimportcrons
+    - persistentvolumeclaims
   verbs:
-  - get
-  - list
-  - update
+    - get
+- apiGroups:
+    - cdi.kubevirt.io
+  resources:
+    - dataimportcrons
+  verbs:
+    - get
+    - list
+    - update
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -287,63 +326,174 @@ metadata:
   namespace: d8-{{ .Chart.Name }}
 rules:
 - apiGroups:
-  - rbac.authorization.k8s.io
+    - rbac.authorization.k8s.io
   resources:
-  - rolebindings
-  - roles
+    - rolebindings
+    - roles
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 - apiGroups:
-  - ""
+    - ""
   resources:
-  - serviceaccounts
-  - configmaps
-  - events
-  - secrets
-  - services
+    - serviceaccounts
+    - configmaps
+    - events
+    - secrets
+    - services
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
 - apiGroups:
-  - apps
+    - apps
   resources:
-  - deployments
-  - deployments/finalizers
+    - deployments
+    - deployments/finalizers
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
 - apiGroups:
-  - route.openshift.io
+    - route.openshift.io
   resources:
-  - routes
-  - routes/custom-host
+    - routes
+    - routes/custom-host
   verbs:
-  - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
 - apiGroups:
-  - config.openshift.io
+    - config.openshift.io
   resources:
-  - proxies
+    - proxies
   verbs:
-  - get
-  - list
-  - watch
+    - get
+    - list
+    - watch
 - apiGroups:
-  - monitoring.coreos.com
+    - monitoring.coreos.com
   resources:
-  - servicemonitors
-  - prometheusrules
+    - servicemonitors
+    - prometheusrules
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
-  - update
-  - patch
+    - get
+    - list
+    - watch
+    - create
+    - delete
+    - update
+    - patch
 - apiGroups:
-  - coordination.k8s.io
+    - coordination.k8s.io
   resources:
-  - leases
+    - leases
   verbs:
-  - '*'
+    - get
+    - create
+    - update
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+    - configmaps
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+- apiGroups:
+    - ""
+  resources:
+    - configmaps
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - batch
+  resources:
+    - cronjobs
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
+- apiGroups:
+    - batch
+  resources:
+    - jobs
+  verbs:
+    - create
+    - delete
+    - list
+    - watch
+- apiGroups:
+    - coordination.k8s.io
+  resources:
+    - leases
+  verbs:
+    - get
+    - create
+    - update
+- apiGroups:
+    - networking.k8s.io
+  resources:
+    - ingresses
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - route.openshift.io
+  resources:
+    - routes
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - ""
+  resources:
+    - configmaps
+  verbs:
+    - get
+- apiGroups:
+    - ""
+  resources:
+    - services
+    - endpoints
+    - pods
+  verbs:
+    - get
+    - list
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
