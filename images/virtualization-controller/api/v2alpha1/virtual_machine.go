@@ -101,8 +101,8 @@ type Disruptions struct {
 
 type Provisioning struct {
 	Type              ProvisioningType             `json:"type"`
-	UserData          string                       `json:"userData"`
-	UserDataSecretRef *corev1.LocalObjectReference `json:"userDataSecretRef"`
+	UserData          string                       `json:"userData,omitempty"`
+	UserDataSecretRef *corev1.LocalObjectReference `json:"userDataSecretRef,omitempty"`
 }
 
 type VirtualMachineStatus struct {
