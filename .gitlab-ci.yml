@@ -1,116 +1,91 @@
 stages:
+  - info
   - lint
   - test
   - build
-  - deploy_dev
-  - deploy_prod
-  - info_dev
+  - deploy
+  - e2e
+  - deploy_prod_alpha
+  - deploy_prod_beta
+  - deploy_prod_ea
+  - deploy_prod_stable
+  - deploy_prod_rock_solid
 
 default:
   tags:
     - deckhouse
 
-.registry-login: &registry-login
-  - export DOCKER_CONFIG=$(mktemp -d)
-  - docker login ${REGISTRY} -u ${REGISTRY_LOGIN} -p ${REGISTRY_PASSWORD}
-  - export WERF_REPO="${REGISTRY}/${REGISTRY_PATH}/${MODULE_NAME}"
+include:
+- project: 'deckhouse/modules/gitlab-ci'
+  ref: main
+  file: '/templates/Setup.gitlab-ci.yml'
+- project: 'deckhouse/modules/gitlab-ci'
+  ref: main
+  file: '/templates/Build.gitlab-ci.yml'
+- project: 'deckhouse/modules/gitlab-ci'
+  ref: main
+  file: '/templates/Deploy.gitlab-ci.yml'
 
-before_script:
+
+.info:
+  script:
   - |
-    type trdl && . $(trdl use werf 1.2 stable)
-    type werf && source $(werf ci-env gitlab --as-file)
+    cat << EOF
+      ---
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ModulePullOverride
+      metadata:
+        name: virtualization
+      spec:
+        imageTag: ${MODULES_MODULE_TAG}
+        source: deckhouse
 
-    if [[ ${MODULE_NAME} == "" ]]; then
-      export MODULE_NAME=${CI_PROJECT_NAME};
-    fi
-    echo "Module name: ${MODULE_NAME}"
+      ---
+      apiVersion: deckhouse.io/v1alpha1
+      kind: ModuleConfig
+      metadata:
+        name: ${MODULE_NAME}
+      spec:
+        enabled: true
+        settings:
+          dvcr:
+            storage:
+              type: PersistentVolumeClaim
+              persistentVolumeClaim:
+                size: 50G
+          vmCIDRs:
+            - 10.66.10.0/24
+            - 10.66.20.0/24
+            - 10.66.30.0/24
+        version: 1
+    EOF
 
-    # Hack to generate a tag for the dev version. Check if CI_COMMIT_REF_NAME matches semver. If not, we get the last tag via gitlab API, add the hash of the last commit to it and override CI_COMMIT_REF_NAME.
+# Vars =================================================================================================================
 
-    if [[ $ENV == "DEV" ]]; then
-      export RELEASE_VERSION="v0.0.0-mr${CI_MERGE_REQUEST_IID}-${CI_PIPELINE_IID}"
-    else
-      export RELEASE_VERSION=$CI_COMMIT_REF_NAME
-    fi
-
-.build_sctipt:
-  script:
-    - *registry-login
-    - |
-      # Build
-
-      CI_COMMIT_REF_NAME=${RELEASE_VERSION} werf build --save-build-report --build-report-path images_tags_werf.json
-
-      # Bundle image ===========================================================
-
-      # IMAGE_SRC registry.example.com/modules/virtualization:52cd3d08aded45c0ad260e8118b9e77a026c12a7def3ef7f9bd7bdb5-1691940564755
-      IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-
-      # REPO registry.example.com/modules/virtualization
-      REPO="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json)"
-
-      # registry.example.com/modules/virtualization:${RELEASE_VERSION}
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${REPO}:${RELEASE_VERSION}
-      docker image push ${REPO}:${RELEASE_VERSION}
-      docker image rmi ${REPO}:${RELEASE_VERSION} || true;
-
-      # Release-channel image ==================================================
-
-      # IMAGE_SRC registry.example.com/modules/virtualization:0f6fe98c4087bddfb8c7afe262f0bc529c23c86a345db1de193f711f-1691937185066
-      IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
-
-      # REPO registry.example.com/modules/virtualization
-      REPO="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)"
-
-      # registry.example.com/modules/virtualization/release:${RELEASE_VERSION}
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${REPO}/release:${RELEASE_VERSION}
-      docker image push ${REPO}/release:${RELEASE_VERSION}
-      docker image rmi ${REPO}/release:${RELEASE_VERSION} || true;
-
-      # Register module ========================================================
-      # registry.example.com/modules/virtualization
-      docker pull spotify/scratch
-      docker image tag spotify/scratch:latest ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
-      docker image push ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME}
-      docker image rmi ${REGISTRY}/${REGISTRY_PATH}:${MODULE_NAME} || true
-
-.deploy_script:
-  script:
-    - *registry-login
-    - |
-      IMAGE_SRC="${WERF_REPO}/release:${RELEASE_VERSION}"
-      IMAGE_DST="${WERF_REPO}/release:${RELEASE_CHANNEL}"
-      docker pull ${IMAGE_SRC}
-      docker image tag ${IMAGE_SRC} ${IMAGE_DST}
-      docker image push ${IMAGE_DST}
-      docker image rmi ${IMAGE_DST} || true;
-
-# PROD registry
-.prod_vars:
-  variables:
-    REGISTRY: ${EXTERNAL_MODULES_REGISTRY}
-    REGISTRY_PATH: ${EXTERNAL_MODULES_REGISTRY_PATH}
-    REGISTRY_LOGIN: ${EXTERNAL_MODULES_REGISTRY_LOGIN}
-    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_REGISTRY_PASSWORD}
-    ENV: PROD
+variables:
+  MODULE_NAME: virtualization
 
 # DEV registry
 .dev_vars:
   variables:
-    REGISTRY: ${EXTERNAL_MODULES_DEV_REGISTRY}
-    REGISTRY_PATH: ${EXTERNAL_MODULES_DEV_REGISTRY_PATH}
-    REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
-    REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_SLUG}
+    MODULES_REGISTRY_LOGIN: ${EXTERNAL_MODULES_DEV_REGISTRY_LOGIN}
+    MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_DEV_REGISTRY_PASSWORD}
+    MODULES_REGISTRY: dev-registry.deckhouse.io
+    MODULES_MODULE_SOURCE: ${MODULES_REGISTRY}/sys/deckhouse-oss/modules
     ENV: DEV
 
-.prod_rules:
-  only:
-    - tags
-  except:
-    - main
-  when: manual
+# PROD registry
+.prod_vars:
+  variables:
+    MODULES_MODULE_TAG: ${CI_COMMIT_REF_NAME}
+    MODULES_REGISTRY_LOGIN: ${EXTERNAL_MODULES_PROD_REGISTRY_LOGIN}
+    MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD}
+    MODULES_REGISTRY: registry.deckhouse.io
+    MODULES_MODULE_SOURCE: ${MODULES_REGISTRY}/deckhouse/${EDITION}/modules
+    ENV: PROD
+
+# Templates ============================================================================================================
 
 .dev_rules:
   only:
@@ -123,10 +98,12 @@ before_script:
       - main
   when: always
 
-.prod:
-  extends:
-  - .prod_vars
-  - .prod_rules
+.prod_rules:
+  only:
+    - tags
+  except:
+    - main
+  when: manual
 
 .dev:
   extends:
@@ -137,6 +114,13 @@ before_script:
   extends:
   - .dev_vars
   - .main_rules
+
+.prod:
+  extends:
+  - .prod_vars
+  - .prod_rules
+
+# DCO ==================================================================================================================
 
 # dco:
 #  stage: lint
@@ -152,6 +136,28 @@ before_script:
 #   - dco-check --default-branch-from-remote --verbose
 #  extends:
 #  - .dev
+
+# Info =============================================================================================
+
+show_dev_manifest:
+  stage: info
+  extends:
+    - .info
+    - .dev
+
+show_main_manifest:
+  stage: info
+  extends:
+    - .info
+    - .main
+
+show_prod_manifest:
+  stage: info
+  extends:
+    - .info
+    - .prod
+
+# Linsers and Tests ====================================================================================================
 
 lint:virtualization-controller:
   stage: lint
@@ -178,89 +184,116 @@ test:hooks:
   extends:
   - .dev
 
-build_prod:
-  stage: build
-  extends:
-    - .prod
-    - .build_sctipt
+# Build ================================================================================================================
 
 build_dev:
   stage: build
   extends:
+    - .build
     - .dev
-    - .build_sctipt
 
 build_main:
   stage: build
   extends:
+    - .build
     - .main
-    - .build_sctipt
 
-deploy_to_dev_channel:
-  stage: deploy_dev
-  variables:
-    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
+build_prod:
+  stage: build
   extends:
-    - .dev
-    - .deploy_script
-
-deploy_to_main_channel:
-  stage: deploy_dev
-  variables:
-    RELEASE_CHANNEL: main
-  extends:
-    - .main
-    - .deploy_script
-
-deploy_to_prod_channels:
-  stage: deploy_prod
-  extends:
+    - .build
     - .prod
-    - .deploy_script
   parallel:
     matrix:
-      - RELEASE_CHANNEL:
-          - alpha
-          - beta
-          - early-access
-          - stable
+    - EDITION:
+        - ce
+        - ee
+        - fe
 
-show_module_manifest:
-  stage: info_dev
+# Deploy ===============================================================================================================
+
+deploy_to_prod_alpha:
+  stage: deploy_prod_alpha
   variables:
-    RELEASE_CHANNEL: mr-${CI_MERGE_REQUEST_IID}
+    RELEASE_CHANNEL: alpha
+  needs: ['build_prod']
   extends:
-    - .dev
+    - .deploy
+    - .prod
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+
+deploy_to_prod_beta:
+  stage: deploy_prod_beta
+  variables:
+    RELEASE_CHANNEL: beta
+  needs: ['deploy_to_prod_alpha']
+  extends:
+    - .deploy
+    - .prod
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+
+deploy_to_prod_ea:
+  stage: deploy_prod_ea
+  variables:
+    RELEASE_CHANNEL: early-access
+  needs: ['deploy_to_prod_beta']
+  extends:
+    - .deploy
+    - .prod
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+
+deploy_to_prod_stable:
+  stage: deploy_prod_stable
+  variables:
+    RELEASE_CHANNEL: stable
+  needs: ['deploy_to_prod_ea']
+  extends:
+    - .deploy
+    - .prod
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+
+deploy_to_prod_rock_solid:
+  stage: deploy_prod_rock_solid
+  variables:
+    RELEASE_CHANNEL: rock-solid
+  needs: ['deploy_to_prod_stable']
+  extends:
+    - .deploy
+    - .prod
+  parallel:
+    matrix:
+      - EDITION:
+          - ce
+          - ee
+          - fe
+
+# Other ================================================================================================================
+
+e2e_for_main:
+  stage: e2e
+  needs: ['build_main']
+  resource_group: main
+  extends:
+    - .main
   script:
-  - |
-    cat << EOF
-      Build version: ${RELEASE_VERSION}
-      ---
-      apiVersion: deckhouse.io/v1alpha1
-      kind: ModuleSource
-      metadata:
-        name: ${MODULE_NAME}
-      spec:
-        releaseChannel: ${RELEASE_CHANNEL}
-        registry:
-          repo: ${REGISTRY}/${REGISTRY_PATH}
-          dockerCfg: <base64 encoded credentials for ${REGISTRY}>
-      ---
-      apiVersion: deckhouse.io/v1alpha1
-      kind: ModuleConfig
-      metadata:
-        name: ${MODULE_NAME}
-      spec:
-        enabled: true
-        settings:
-          dvcr:
-            storage:
-              type: PersistentVolumeClaim
-              persistentVolumeClaim:
-                size: 50G
-          vmCIDRs:
-            - 10.66.10.0/24
-            - 10.66.20.0/24
-            - 10.66.30.0/24
-        version: 1
-    EOF
+  - echo e2e
