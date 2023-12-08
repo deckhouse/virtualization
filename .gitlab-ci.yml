@@ -287,13 +287,13 @@ deploy_to_prod_rock_solid:
           - ee
           - fe
 
-# Other ================================================================================================================
+# # Other ================================================================================================================
 
-e2e_for_main:
-  stage: e2e
-  needs: ['build_main']
-  resource_group: main
-  extends:
-    - .main
-  script:
-  - echo e2e
+# e2e_for_main:
+#   stage: e2e
+#   needs: ['build_main']
+#   resource_group: main
+#   extends:
+#     - .main
+#   script:
+#   - echo e2e
