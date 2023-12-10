@@ -43,7 +43,7 @@ func (r *VMDReconciler) createUploaderSettings(state *VMDReconcilerState) *uploa
 	}
 
 	// Set DVCR destination settings.
-	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(vmd.Name, vmd.Namespace)
+	dvcrDestImageName := r.dvcrSettings.RegistryImageForVMD(vmd.Name, vmd.Namespace)
 	uploader.ApplyDVCRDestinationSettings(settings, r.dvcrSettings, state.Supplements, dvcrDestImageName)
 
 	// TODO Update proxy settings.
