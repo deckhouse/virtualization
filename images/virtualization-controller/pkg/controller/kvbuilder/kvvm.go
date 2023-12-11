@@ -48,6 +48,10 @@ func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 		opts: opts,
 		ResourceBuilder: helper.NewResourceBuilder(
 			&virtv1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+					APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name.Name,
 					Namespace: name.Namespace,
