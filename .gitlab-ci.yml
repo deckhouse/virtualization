@@ -144,6 +144,7 @@ variables:
     refs:
       - main
   when: always
+  
 
 .prod_rules:
   only:
@@ -366,11 +367,11 @@ deploy_to_prod_rock_solid:
 #   script:
 #   - echo e2e
 
-scheduled_job:
+cleanup:
   stage: cleanup
   extends:
   - .dev_vars
   script:
-    - werf cleanup
+    - werf cleanup --repo dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization --without-kube=true
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
