@@ -63,7 +63,7 @@ shell:
 ---
 image: python-dependencies
 from: alpine:3.17
-fromCacheVersion: "2023-10-04.0"
+fromCacheVersion: "2023-12-11.0"
 git:
   - add: /
     to: /
