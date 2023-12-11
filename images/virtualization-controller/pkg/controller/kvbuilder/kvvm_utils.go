@@ -40,6 +40,7 @@ func ApplyVirtualMachineSpec(
 	vmiByName map[string]*virtv2.VirtualMachineImage,
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 	dvcrSettings *dvcr.Settings,
+	ipAddress string,
 ) {
 	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
 	kvvm.SetOsType(vm.Spec.OsType)
@@ -160,4 +161,6 @@ func ApplyVirtualMachineSpec(
 		Kind:    "VirtualMachine",
 	})
 	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
+
+	kvvm.SetIPAddressRequest(ipAddress)
 }
