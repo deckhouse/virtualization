@@ -35,20 +35,22 @@ import (
 type VMDReconciler struct {
 	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 
-	importerImage string
-	uploaderImage string
-	verbose       string
-	pullPolicy    string
-	dvcrSettings  *dvcr.Settings
+	controllerNamespace string
+	importerImage       string
+	uploaderImage       string
+	verbose             string
+	pullPolicy          string
+	dvcrSettings        *dvcr.Settings
 }
 
-func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *VMDReconciler {
+func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy, controllerNamespace string, dvcrSettings *dvcr.Settings) *VMDReconciler {
 	return &VMDReconciler{
-		importerImage: importerImage,
-		uploaderImage: uploaderImage,
-		verbose:       verbose,
-		pullPolicy:    pullPolicy,
-		dvcrSettings:  dvcrSettings,
+		controllerNamespace: controllerNamespace,
+		importerImage:       importerImage,
+		uploaderImage:       uploaderImage,
+		verbose:             verbose,
+		pullPolicy:          pullPolicy,
+		dvcrSettings:        dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.VirtualMachineDisk,
 			virtv2.VirtualMachineDiskStatus,
@@ -103,12 +105,31 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
-		opts.Log.Info("vmd is ready. Cleanup underlying resources")
+		opts.Log.Info("VMD is ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
 			return err
 		}
-		return nil
+
+		if state.PVC == nil {
+			return errors.New("pvc not found, please report a bug")
+		}
+
+		oldSize := state.PVC.Status.Capacity[corev1.ResourceStorage]
+		newSize := state.VMD.Current().Spec.PersistentVolumeClaim.Size
+
+		if oldSize.Equal(newSize) {
+			return nil
+		}
+
+		opts.Log.Info("Increase PVC size",
+			"oldPVCSize", oldSize.String(),
+			"newPVCSize", newSize.String(),
+		)
+
+		state.PVC.Spec.Resources.Requests[corev1.ResourceStorage] = newSize
+
+		return opts.Client.Update(ctx, state.PVC)
 	// First phase: import to DVCR.
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
@@ -224,6 +245,10 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.ImportDuration = time.Since(state.VMD.Current().CreationTimestamp.Time).Truncate(time.Second).String()
 	}
 
+	if vmdStatus.Progress == "" {
+		vmdStatus.Progress = "0%"
+	}
+
 	switch {
 	case vmdStatus.Phase == "":
 		vmdStatus.Phase = virtv2.DiskPending
@@ -314,6 +339,8 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		if dvProgress != "N/A" && dvProgress != "" {
 			vmdStatus.Progress = common.ScalePercentage(dvProgress, 50.0, 100.0)
+		} else {
+			vmdStatus.Progress = "50%"
 		}
 
 		// Copy capacity from PVC.
@@ -321,6 +348,16 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
+		if state.PVC == nil {
+			return errors.New("pvc not found, please report a bug")
+		}
+
+		if state.PVC.Status.Phase != corev1.ClaimBound {
+			log.V(1).Info("Wait for the PVC to enter the Bound phase")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+			break
+		}
+
 		log.V(1).Info("Import completed successfully")
 
 		vmdStatus.Phase = virtv2.DiskReady
@@ -348,10 +385,9 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		// PVC name is the same as the DataVolume name.
 		vmdStatus.Target.PersistentVolumeClaimName = state.VMD.Current().Annotations[cc.AnnVMDDataVolume]
+
 		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
-		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
-			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
-		}
+		vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 	}
 
 	state.VMD.Changed().Status = *vmdStatus
