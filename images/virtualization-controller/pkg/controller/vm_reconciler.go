@@ -33,8 +33,6 @@ type IPAM interface {
 	CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 	BindIPAddressClaim(ctx context.Context, vmName string, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
 	DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
-	IsIPAddressRequested(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) bool
-	RequestIPAddress(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim)
 }
 
 type VMReconciler struct {
@@ -89,9 +87,8 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	if !r.ipam.IsIPAddressRequested(state.VM.Current(), state.IPAddressClaim) {
-		r.ipam.RequestIPAddress(state.VM.Current(), state.IPAddressClaim)
-	}
+	// Ensure live migration annotation.
+	common.AddAnnotation(state.VM.Changed(), virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
 
 	disksMessage := r.checkBlockDevicesSanity(state)
 	if disksMessage != "" {
@@ -359,7 +356,7 @@ func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState,
 		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	})
-	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings)
+	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
 
 	kvvm := kvvmBuilder.GetResource()
 
@@ -393,7 +390,7 @@ func (r *VMReconciler) detectApplyChangeActions(state *VMReconcilerState, opts t
 		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	})
-	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings)
+	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
 
 	// Compare current version of the underlying KVVM
 	// with newly generated from VM spec. Perform action if needed to apply

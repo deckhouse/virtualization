@@ -95,22 +95,6 @@ func (m IPAM) BindIPAddressClaim(ctx context.Context, vmName string, claim *virt
 	return client.Update(ctx, claim)
 }
 
-func (m IPAM) IsIPAddressRequested(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) bool {
-	return vm.Annotations[AnnoIPAddressCNIRequest] == claim.Spec.Address
-}
-
-func (m IPAM) RequestIPAddress(vm *virtv2.VirtualMachine, claim *virtv2.VirtualMachineIPAddressClaim) {
-	anno := vm.Annotations
-
-	if anno == nil {
-		anno = make(map[string]string)
-	}
-
-	anno[AnnoIPAddressCNIRequest] = claim.Spec.Address
-
-	vm.SetAnnotations(anno)
-}
-
 func (m IPAM) DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error {
 	return client.Delete(ctx, claim)
 }
