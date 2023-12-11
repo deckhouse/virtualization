@@ -1,0 +1,624 @@
+diff --git a/pkg/storage/export/export/links.go b/pkg/storage/export/export/links.go
+index 38bdb9410..5dfd44224 100644
+--- a/pkg/storage/export/export/links.go
++++ b/pkg/storage/export/export/links.go
+@@ -32,6 +32,7 @@ import (
+ 	corev1 "k8s.io/api/core/v1"
+ 	networkingv1 "k8s.io/api/networking/v1"
+ 
++	"kubevirt.io/api/export"
+ 	exportv1 "kubevirt.io/api/export/v1alpha1"
+ 
+ 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+@@ -45,7 +46,7 @@ const (
+ 	routeCaKey           = "ca.crt"
+ 	subjectAltNameId     = "2.5.29.17"
+ 
+-	apiGroup              = "export.kubevirt.io"
++	apiGroup              = export.GroupName
+ 	apiVersion            = "v1alpha1"
+ 	exportResourceName    = "virtualmachineexports"
+ 	gv                    = apiGroup + "/" + apiVersion
+diff --git a/pkg/virt-controller/watch/clone/util.go b/pkg/virt-controller/watch/clone/util.go
+index cb66290f7..9cce76b10 100644
+--- a/pkg/virt-controller/watch/clone/util.go
++++ b/pkg/virt-controller/watch/clone/util.go
+@@ -16,12 +16,13 @@ import (
+ 	"k8s.io/apimachinery/pkg/util/rand"
+ 
+ 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
++	coreapi "kubevirt.io/api/core"
+ 	v1 "kubevirt.io/api/core/v1"
+ )
+ 
+ const (
+ 	vmKind           = "VirtualMachine"
+-	kubevirtApiGroup = "kubevirt.io"
++	kubevirtApiGroup = coreapi.GroupName
+ )
+ 
+ // variable so can be overridden in tests
+diff --git a/pkg/virt-operator/resource/generate/components/crds.go b/pkg/virt-operator/resource/generate/components/crds.go
+index 822f3d82b..3491665ba 100644
+--- a/pkg/virt-operator/resource/generate/components/crds.go
++++ b/pkg/virt-operator/resource/generate/components/crds.go
+@@ -153,12 +153,11 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope:    "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachineinstances",
+-			Singular:   "virtualmachineinstance",
+-			Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+-			ShortNames: []string{"vmi", "vmis"},
++			Plural:   "virtualmachineinstances",
++			Singular: "virtualmachineinstance",
++			Kind:     virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -191,12 +190,11 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope:    "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachines",
+-			Singular:   "virtualmachine",
+-			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+-			ShortNames: []string{"vm", "vms"},
++			Plural:   "virtualmachines",
++			Singular: "virtualmachine",
++			Kind:     virtv1.VirtualMachineGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -241,12 +239,11 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope: "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachineinstancepresets",
+-			Singular:   "virtualmachineinstancepreset",
+-			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+-			ShortNames: []string{"vmipreset", "vmipresets"},
++			Plural:   "virtualmachineinstancepresets",
++			Singular: "virtualmachineinstancepreset",
++			Kind:     virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -268,12 +265,11 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope:    "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachineinstancereplicasets",
+-			Singular:   "virtualmachineinstancereplicaset",
+-			Kind:       virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+-			ShortNames: []string{"vmirs", "vmirss"},
++			Plural:   "virtualmachineinstancereplicasets",
++			Singular: "virtualmachineinstancereplicaset",
++			Kind:     virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -313,12 +309,11 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
+ 		Scope:    "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachineinstancemigrations",
+-			Singular:   "virtualmachineinstancemigration",
+-			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+-			ShortNames: []string{"vmim", "vmims"},
++			Plural:   "virtualmachineinstancemigrations",
++			Singular: "virtualmachineinstancemigration",
++			Kind:     virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -367,12 +362,11 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope:    "Namespaced",
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "kubevirts",
+-			Singular:   "kubevirt",
+-			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
+-			ShortNames: []string{"kv", "kvs"},
++			Plural:   "kubevirts",
++			Singular: "kubevirt",
++			Kind:     virtv1.KubeVirtGroupVersionKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -408,12 +402,11 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
+ 		},
+ 		Scope: "Namespaced",
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachinepools",
+-			Singular:   "virtualmachinepool",
+-			Kind:       "VirtualMachinePool",
+-			ShortNames: []string{"vmpool", "vmpools"},
++			Plural:   "virtualmachinepools",
++			Singular: "virtualmachinepool",
++			Kind:     "VirtualMachinePool",
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -460,12 +453,11 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
+ 		},
+ 		Scope: "Namespaced",
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachinesnapshots",
+-			Singular:   "virtualmachinesnapshot",
+-			Kind:       "VirtualMachineSnapshot",
+-			ShortNames: []string{"vmsnapshot", "vmsnapshots"},
++			Plural:   "virtualmachinesnapshots",
++			Singular: "virtualmachinesnapshot",
++			Kind:     "VirtualMachineSnapshot",
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -502,12 +494,11 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
+ 		},
+ 		Scope: "Namespaced",
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachinesnapshotcontents",
+-			Singular:   "virtualmachinesnapshotcontent",
+-			Kind:       "VirtualMachineSnapshotContent",
+-			ShortNames: []string{"vmsnapshotcontent", "vmsnapshotcontents"},
++			Plural:   "virtualmachinesnapshotcontents",
++			Singular: "virtualmachinesnapshotcontent",
++			Kind:     "VirtualMachineSnapshotContent",
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -541,12 +532,11 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
+ 		},
+ 		Scope: "Namespaced",
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachinerestores",
+-			Singular:   "virtualmachinerestore",
+-			Kind:       "VirtualMachineRestore",
+-			ShortNames: []string{"vmrestore", "vmrestores"},
++			Plural:   "virtualmachinerestores",
++			Singular: "virtualmachinerestore",
++			Kind:     "VirtualMachineRestore",
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -582,12 +572,11 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
+ 		},
+ 		Scope: "Namespaced",
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     "virtualmachineexports",
+-			Singular:   "virtualmachineexport",
+-			Kind:       "VirtualMachineExport",
+-			ShortNames: []string{"vmexport", "vmexports"},
++			Plural:   "virtualmachineexports",
++			Singular: "virtualmachineexport",
++			Kind:     "VirtualMachineExport",
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+@@ -615,9 +604,8 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
+ 		Names: extv1.CustomResourceDefinitionNames{
+ 			Plural:     instancetype.PluralResourceName,
+ 			Singular:   instancetype.SingularResourceName,
+-			ShortNames: []string{"vminstancetype", "vminstancetypes", "vmf", "vmfs"},
+ 			Kind:       "VirtualMachineInstancetype",
+-			Categories: []string{"all"},
++			Categories: []string{"kubevirt"},
+ 		},
+ 		Scope: extv1.NamespaceScoped,
+ 		Conversion: &extv1.CustomResourceConversion{
+@@ -655,10 +643,9 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
+ 	crd.Spec = extv1.CustomResourceDefinitionSpec{
+ 		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     instancetype.ClusterPluralResourceName,
+-			Singular:   instancetype.ClusterSingularResourceName,
+-			ShortNames: []string{"vmclusterinstancetype", "vmclusterinstancetypes", "vmcf", "vmcfs"},
+-			Kind:       "VirtualMachineClusterInstancetype",
++			Plural:   instancetype.ClusterPluralResourceName,
++			Singular: instancetype.ClusterSingularResourceName,
++			Kind:     "VirtualMachineClusterInstancetype",
+ 		},
+ 		Scope: extv1.ClusterScoped,
+ 		Conversion: &extv1.CustomResourceConversion{
+@@ -698,9 +685,8 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Names: extv1.CustomResourceDefinitionNames{
+ 			Plural:     instancetype.PluralPreferenceResourceName,
+ 			Singular:   instancetype.SingularPreferenceResourceName,
+-			ShortNames: []string{"vmpref", "vmprefs", "vmp", "vmps"},
+ 			Kind:       "VirtualMachinePreference",
+-			Categories: []string{"all"},
++			Categories: []string{"kubevirt"},
+ 		},
+ 		Scope: extv1.NamespaceScoped,
+ 		Conversion: &extv1.CustomResourceConversion{
+@@ -738,10 +724,9 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
+ 	crd.Spec = extv1.CustomResourceDefinitionSpec{
+ 		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     instancetype.ClusterPluralPreferenceResourceName,
+-			Singular:   instancetype.ClusterSingularPreferenceResourceName,
+-			ShortNames: []string{"vmcp", "vmcps"},
+-			Kind:       "VirtualMachineClusterPreference",
++			Plural:   instancetype.ClusterPluralPreferenceResourceName,
++			Singular: instancetype.ClusterSingularPreferenceResourceName,
++			Kind:     "VirtualMachineClusterPreference",
+ 		},
+ 		Scope: extv1.ClusterScoped,
+ 		Conversion: &extv1.CustomResourceConversion{
+@@ -825,12 +810,11 @@ func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
+ 		Scope: extv1.NamespaceScoped,
+ 
+ 		Names: extv1.CustomResourceDefinitionNames{
+-			Plural:     clone.ResourceVMClonePlural,
+-			Singular:   clone.ResourceVMCloneSingular,
+-			ShortNames: []string{"vmclone", "vmclones"},
+-			Kind:       clonev1alpha1.VirtualMachineCloneKind.Kind,
++			Plural:   clone.ResourceVMClonePlural,
++			Singular: clone.ResourceVMCloneSingular,
++			Kind:     clonev1alpha1.VirtualMachineCloneKind.Kind,
+ 			Categories: []string{
+-				"all",
++				"kubevirt",
+ 			},
+ 		},
+ 	}
+diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+index 932f7391e..7408cabe4 100644
+--- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
++++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+@@ -28,14 +28,16 @@ import (
+ 
+ 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+ 
++	coreapi "kubevirt.io/api/core"
+ 	virtv1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/api/migrations"
++	snapshotapi "kubevirt.io/api/snapshot"
+ )
+ 
+ const (
+ 	VersionName   = "rbac.authorization.k8s.io"
+ 	VersionNamev1 = "rbac.authorization.k8s.io/v1"
+-	GroupName     = "kubevirt.io"
++	GroupName     = coreapi.GroupName
+ )
+ 
+ func GetAllApiServer(namespace string) []runtime.Object {
+@@ -195,7 +197,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"snapshot.kubevirt.io",
++					snapshotapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"virtualmachinesnapshots",
+@@ -220,7 +222,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"instancetype.kubevirt.io",
++					instancetype.GroupName,
+ 				},
+ 				Resources: []string{
+ 					instancetype.PluralResourceName,
+diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
+index 6ba13c849..6c7208eda 100644
+--- a/pkg/virt-operator/resource/generate/rbac/cluster.go
++++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
+@@ -28,15 +28,20 @@ import (
+ 	virtv1 "kubevirt.io/api/core/v1"
+ 
+ 	"kubevirt.io/api/migrations"
++
++	cloneapi "kubevirt.io/api/clone"
++	exportapi "kubevirt.io/api/export"
++	poolapi "kubevirt.io/api/pool"
++	snapshotapi "kubevirt.io/api/snapshot"
+ )
+ 
+ const (
+ 	GroupNameSubresources  = "subresources.kubevirt.io"
+-	GroupNameSnapshot      = "snapshot.kubevirt.io"
+-	GroupNameExport        = "export.kubevirt.io"
+-	GroupNameClone         = "clone.kubevirt.io"
+-	GroupNameInstancetype  = "instancetype.kubevirt.io"
+-	GroupNamePool          = "pool.kubevirt.io"
++	GroupNameSnapshot      = snapshotapi.GroupName
++	GroupNameExport        = exportapi.GroupName
++	GroupNameClone         = cloneapi.GroupName
++	GroupNameInstancetype  = instancetype.GroupName
++	GroupNamePool          = poolapi.GroupName
+ 	NameDefault            = "kubevirt.io:default"
+ 	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
+ 	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
+diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
+index 8b8313112..651701010 100644
+--- a/pkg/virt-operator/resource/generate/rbac/controller.go
++++ b/pkg/virt-operator/resource/generate/rbac/controller.go
+@@ -28,7 +28,11 @@ import (
+ 
+ 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+ 
++	coreapi "kubevirt.io/api/core"
++	"kubevirt.io/api/export"
+ 	"kubevirt.io/api/instancetype"
++	"kubevirt.io/api/pool"
++	"kubevirt.io/api/snapshot"
+ 
+ 	virtv1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/api/migrations"
+@@ -311,7 +315,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"snapshot.kubevirt.io",
++					snapshot.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"*",
+@@ -322,7 +326,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"export.kubevirt.io",
++					export.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"*",
+@@ -333,7 +337,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"pool.kubevirt.io",
++					pool.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"virtualmachinepools",
+@@ -354,7 +358,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"kubevirt.io",
++					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"*",
+@@ -468,7 +472,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"instancetype.kubevirt.io",
++					instancetype.GroupName,
+ 				},
+ 				Resources: []string{
+ 					instancetype.PluralResourceName,
+diff --git a/pkg/virt-operator/resource/generate/rbac/exportproxy.go b/pkg/virt-operator/resource/generate/rbac/exportproxy.go
+index 071ed91f9..bcfe70f36 100644
+--- a/pkg/virt-operator/resource/generate/rbac/exportproxy.go
++++ b/pkg/virt-operator/resource/generate/rbac/exportproxy.go
+@@ -24,7 +24,9 @@ import (
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/runtime"
+ 
++	coreapi "kubevirt.io/api/core"
+ 	virtv1 "kubevirt.io/api/core/v1"
++	"kubevirt.io/api/export"
+ )
+ 
+ const ExportProxyServiceAccountName = "kubevirt-exportproxy"
+@@ -70,7 +72,7 @@ func newExportProxyClusterRole() *rbacv1.ClusterRole {
+ 		Rules: []rbacv1.PolicyRule{
+ 			{
+ 				APIGroups: []string{
+-					"export.kubevirt.io",
++					export.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"virtualmachineexports",
+@@ -81,7 +83,7 @@ func newExportProxyClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"kubevirt.io",
++					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"kubevirts",
+diff --git a/pkg/virt-operator/resource/generate/rbac/handler.go b/pkg/virt-operator/resource/generate/rbac/handler.go
+index e55a4044e..a953a5929 100644
+--- a/pkg/virt-operator/resource/generate/rbac/handler.go
++++ b/pkg/virt-operator/resource/generate/rbac/handler.go
+@@ -25,6 +25,7 @@ import (
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/runtime"
+ 
++	coreapi "kubevirt.io/api/core"
+ 	virtv1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/api/migrations"
+ 
+@@ -72,7 +73,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
+ 		Rules: []rbacv1.PolicyRule{
+ 			{
+ 				APIGroups: []string{
+-					"kubevirt.io",
++					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"virtualmachineinstances",
+@@ -134,7 +135,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"kubevirt.io",
++					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"kubevirts",
+diff --git a/pkg/virt-operator/resource/generate/rbac/operator.go b/pkg/virt-operator/resource/generate/rbac/operator.go
+index 4eca946a4..be00603f5 100644
+--- a/pkg/virt-operator/resource/generate/rbac/operator.go
++++ b/pkg/virt-operator/resource/generate/rbac/operator.go
+@@ -25,6 +25,7 @@ import (
+ 	rbacv1 "k8s.io/api/rbac/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 
++	coreapi "kubevirt.io/api/core"
+ 	virtv1 "kubevirt.io/api/core/v1"
+ 
+ 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+@@ -83,7 +84,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
+ 		Rules: []rbacv1.PolicyRule{
+ 			{
+ 				APIGroups: []string{
+-					"kubevirt.io",
++					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"kubevirts",
+diff --git a/pkg/virtctl/create/clone/clone.go b/pkg/virtctl/create/clone/clone.go
+index d82de56b9..fae2a0aad 100644
+--- a/pkg/virtctl/create/clone/clone.go
++++ b/pkg/virtctl/create/clone/clone.go
+@@ -28,6 +28,8 @@ import (
+ 	v1 "k8s.io/api/core/v1"
+ 	"k8s.io/apimachinery/pkg/util/rand"
+ 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
++	coreapi "kubevirt.io/api/core"
++	"kubevirt.io/api/snapshot"
+ 	"kubevirt.io/client-go/kubecli"
+ 
+ 	"kubevirt.io/kubevirt/pkg/pointer"
+@@ -248,14 +250,14 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
+ 	switch sourceOrTargetType {
+ 	case "vm", "VM", "VirtualMachine", "virtualmachine":
+ 		kind = "VirtualMachine"
+-		apiGroup = "kubevirt.io"
++		apiGroup = coreapi.GroupName
+ 	case "snapshot", "VirtualMachineSnapshot", "vmsnapshot", "VMSnapshot":
+ 		if !isSource {
+ 			return nil, generateErr()
+ 		}
+ 
+ 		kind = "VirtualMachineSnapshot"
+-		apiGroup = "snapshot.kubevirt.io"
++		apiGroup = snapshot.GroupName
+ 	default:
+ 		return nil, generateErr()
+ 	}
+diff --git a/staging/src/kubevirt.io/api/clone/register.go b/staging/src/kubevirt.io/api/clone/register.go
+index 85a24c26e..7719d92cd 100644
+--- a/staging/src/kubevirt.io/api/clone/register.go
++++ b/staging/src/kubevirt.io/api/clone/register.go
+@@ -21,7 +21,7 @@ package clone
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName     = "clone.kubevirt.io"
++	GroupName     = "x.virtualization.deckhouse.clone.kubevirt.io"
+ 	LatestVersion = "v1alpha1"
+ 	Kind          = "VirtualMachineClone"
+ 	ListKind      = "VirtualMachineCloneList"
+diff --git a/staging/src/kubevirt.io/api/core/register.go b/staging/src/kubevirt.io/api/core/register.go
+index 22080c717..b84195d88 100644
+--- a/staging/src/kubevirt.io/api/core/register.go
++++ b/staging/src/kubevirt.io/api/core/register.go
+@@ -1,4 +1,4 @@
+ package core
+ 
+ // GroupName is the group name use in this package
+-const GroupName = "kubevirt.io"
++const GroupName = "x.virtualization.deckhouse.kubevirt.io"
+diff --git a/staging/src/kubevirt.io/api/export/register.go b/staging/src/kubevirt.io/api/export/register.go
+index 844dbf5e0..93f944e6e 100644
+--- a/staging/src/kubevirt.io/api/export/register.go
++++ b/staging/src/kubevirt.io/api/export/register.go
+@@ -21,5 +21,5 @@ package export
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName = "export.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.export.kubevirt.io"
+ )
+diff --git a/staging/src/kubevirt.io/api/instancetype/register.go b/staging/src/kubevirt.io/api/instancetype/register.go
+index a4784e9f0..5608dcfee 100644
+--- a/staging/src/kubevirt.io/api/instancetype/register.go
++++ b/staging/src/kubevirt.io/api/instancetype/register.go
+@@ -21,7 +21,7 @@ package instancetype
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName = "instancetype.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.instancetype.kubevirt.io"
+ 
+ 	SingularResourceName = "virtualmachineinstancetype"
+ 	PluralResourceName   = SingularResourceName + "s"
+diff --git a/staging/src/kubevirt.io/api/migrations/register.go b/staging/src/kubevirt.io/api/migrations/register.go
+index dbb6d3c41..703d3798f 100644
+--- a/staging/src/kubevirt.io/api/migrations/register.go
++++ b/staging/src/kubevirt.io/api/migrations/register.go
+@@ -21,7 +21,7 @@ package migrations
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName = "migrations.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.migrations.kubevirt.io"
+ 	Version   = "v1alpha1"
+ 
+ 	ResourceMigrationPolicies = "migrationpolicies"
+diff --git a/staging/src/kubevirt.io/api/pool/register.go b/staging/src/kubevirt.io/api/pool/register.go
+index 08b9d8c62..41245e360 100644
+--- a/staging/src/kubevirt.io/api/pool/register.go
++++ b/staging/src/kubevirt.io/api/pool/register.go
+@@ -21,5 +21,5 @@ package pool
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName = "pool.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.pool.kubevirt.io"
+ )
+diff --git a/staging/src/kubevirt.io/api/snapshot/register.go b/staging/src/kubevirt.io/api/snapshot/register.go
+index 880a59292..6ab006499 100644
+--- a/staging/src/kubevirt.io/api/snapshot/register.go
++++ b/staging/src/kubevirt.io/api/snapshot/register.go
+@@ -21,5 +21,5 @@ package snapshot
+ 
+ // GroupName is the group name used in this package
+ const (
+-	GroupName = "snapshot.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.snapshot.kubevirt.io"
+ )

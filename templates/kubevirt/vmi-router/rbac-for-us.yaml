@@ -14,7 +14,7 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "vmi-router")) | nindent 2 }}
 rules:
   - apiGroups:
-    - "kubevirt.io"
+    - "x.virtualization.deckhouse.kubevirt.io"
     resources:
     - virtualmachineinstances
     verbs:

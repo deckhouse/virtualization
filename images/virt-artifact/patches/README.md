@@ -25,3 +25,10 @@ There is a problem when all nodes in cluster have taints, KubeVirt can't run vir
 The provided fix will always run the job in same place where virt-operator runs
 
 - https://github.com/kubevirt/kubevirt/pull/9360
+
+#### `010-override-crds.patch`
+
+Rename group name for all kubevirt CRDs to override them with deckhouse virtualization CRDs.
+
+Also, remove short names and change categories. Just in case.
+
