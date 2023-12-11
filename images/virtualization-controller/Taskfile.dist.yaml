@@ -276,6 +276,8 @@ tasks:
 
   caddy:preload-os-images:
     desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
+    deps:
+      - task: _ensure:crane
     cmds:
       - |
         CADDY_DIR="$HOME/.virtualization-controller-k3d/storage/caddy-images"

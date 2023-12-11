@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -162,6 +163,10 @@ func GetProgressReportFromURL(url string, httpClient *http.Client) (string, erro
 		if net.IsTimeout(err) {
 			return "", nil
 		}
+		if strings.Contains(err.Error(), "no route to host") {
+			return "", nil
+		}
+
 		return "", err
 	}
 	defer resp.Body.Close()

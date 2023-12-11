@@ -150,7 +150,7 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	if _, err := controller.NewVMDController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
+	if _, err := controller.NewVMDController(ctx, mgr, log, importerImage, uploaderImage, controllerNamespace, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

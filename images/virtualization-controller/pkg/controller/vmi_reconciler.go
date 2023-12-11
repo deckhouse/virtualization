@@ -344,6 +344,16 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
+		if state.PVC == nil {
+			return errors.New("pvc not found, please report a bug")
+		}
+
+		if state.PVC.Status.Phase != corev1.ClaimBound {
+			opts.Log.Info("Wait for the PVC to enter the Bound phase")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+			break
+		}
+
 		opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceededToPVC, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
 		vmiStatus.Phase = virtv2.ImageReady
@@ -355,6 +365,9 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// PVC name equals to the DataVolume name.
 		dv := state.Supplements.DataVolume()
 		vmiStatus.Target.PersistentVolumeClaimName = dv.Name
+
+		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
+		vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 	}
 
 	state.VMI.Changed().Status = *vmiStatus
