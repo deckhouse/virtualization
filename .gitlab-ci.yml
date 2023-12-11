@@ -5,11 +5,13 @@ stages:
   - build
   - deploy
   - e2e
+  - deploy_main
   - deploy_prod_alpha
   - deploy_prod_beta
   - deploy_prod_ea
   - deploy_prod_stable
   - deploy_prod_rock_solid
+  - cleanup
 
 default:
   tags:
@@ -126,7 +128,7 @@ variables:
   variables:
     MODULES_REGISTRY_LOGIN: ${EXTERNAL_MODULES_PROD_REGISTRY_LOGIN}
     MODULES_REGISTRY_PASSWORD: ${EXTERNAL_MODULES_PROD_REGISTRY_PASSWORD}
-    MODULES_REGISTRY: registry.deckhouse.io
+    MODULES_REGISTRY: registry-write.deckhouse.io
     MODULES_MODULE_SOURCE: ${MODULES_REGISTRY}/deckhouse/${EDITION}/modules
     ENV: PROD
 
@@ -263,6 +265,21 @@ build_prod:
 
 # Deploy ===============================================================================================================
 
+deploy_to_main:
+  stage: deploy_main
+  needs: ['build_main']
+  extends:
+    - .deploy
+    - .main
+  parallel:
+    matrix:
+      - RELEASE_CHANNEL:
+          - alpha
+          - beta
+          - early-access
+          - stable
+          - rock-solid
+
 deploy_to_prod_alpha:
   stage: deploy_prod_alpha
   variables:
@@ -348,3 +365,12 @@ deploy_to_prod_rock_solid:
 #     - .main
 #   script:
 #   - echo e2e
+
+scheduled_job:
+  stage: cleanup
+  extends:
+  - .dev_vars
+  script:
+    - werf cleanup
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
