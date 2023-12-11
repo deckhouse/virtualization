@@ -26,6 +26,7 @@ func NewVMDController(
 	log logr.Logger,
 	importerImage string,
 	uploaderImage string,
+	controllerNamespace string,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	reconciler := NewVMDReconciler(
@@ -33,6 +34,7 @@ func NewVMDController(
 		uploaderImage,
 		ImporterPodVerbose,
 		ImporterPodPullPolicy,
+		controllerNamespace,
 		dvcrSettings,
 	)
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](

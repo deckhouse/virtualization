@@ -11,6 +11,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -26,39 +27,74 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 		if pvcSize.IsZero() {
 			return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank VMD")
 		}
+
 		return pvcSize, nil
 	}
 
-	// Use specified size if importer Pod should not be started.
-	if !vmdutil.IsTwoPhaseImport(vmd) {
-		if pvcSize.IsZero() {
-			return resource.Quantity{}, fmt.Errorf("spec.persistentVolumeClaim.size should be set for dataSource '%s'", vmd.Spec.DataSource.Type)
-		}
-		return pvcSize, nil
-	}
-
-	// Get size from the importer Pod to detect if specified PVC size is enough.
-	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("cannot create PVC without final report from the Pod: %w", err)
-	}
-
-	unpackedSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
-	if unpackedSize.IsZero() {
-		return resource.Quantity{}, errors.New("no unpacked size in final report")
-	}
+	var unpackedSize resource.Quantity
 
 	switch {
-	case pvcSize.IsZero():
-		// Set the resulting size from the importer/uploader pod.
-		pvcSize = unpackedSize
-	case pvcSize.Cmp(unpackedSize) == -1:
+	case vmdutil.IsTwoPhaseImport(vmd):
+		// Get size from the importer Pod to detect if specified PVC size is enough.
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+		if err != nil {
+			return resource.Quantity{}, fmt.Errorf("cannot create PVC without final report from the Pod: %w", err)
+		}
+
+		unpackedSize = *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
+	case vmd.Spec.DataSource.Type == virtv2.DataSourceTypeVirtualMachineImage && vmd.Spec.DataSource.VirtualMachineImage != nil:
+		var vmi virtv2.VirtualMachineImage
+
+		err := opts.Client.Get(context.Background(), types.NamespacedName{
+			Name:      vmd.Spec.DataSource.VirtualMachineImage.Name,
+			Namespace: vmd.Spec.DataSource.VirtualMachineImage.Namespace,
+		}, &vmi)
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+
+		unpackedSize, err = resource.ParseQuantity(vmi.Status.Size.UnpackedBytes)
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+	case vmd.Spec.DataSource.Type == virtv2.DataSourceTypeClusterVirtualMachineImage && vmd.Spec.DataSource.ClusterVirtualMachineImage != nil:
+		var cvmi virtv2.ClusterVirtualMachineImage
+
+		err := opts.Client.Get(context.Background(), types.NamespacedName{
+			Name:      vmd.Spec.DataSource.ClusterVirtualMachineImage.Name,
+			Namespace: r.controllerNamespace,
+		}, &cvmi)
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+
+		unpackedSize, err = resource.ParseQuantity(cvmi.Status.Size.Unpacked)
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+	default:
+		return resource.Quantity{}, errors.New("failed to get unpacked size from data source")
+	}
+
+	if unpackedSize.IsZero() {
+		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
+	}
+
+	if !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
 
 		return resource.Quantity{}, errors.New("the specified spec.persistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
 	}
 
-	return pvcSize, nil
+	// Adjust PVC size to feat image onto scratch PVC.
+	// TODO(future): remove size adjusting after get rid of scratch.
+	adjustedSize := dvutil.AdjustPVCSize(unpackedSize)
+
+	if pvcSize.Cmp(adjustedSize) == 1 {
+		return pvcSize, nil
+	}
+
+	return adjustedSize, nil
 }
 
 // createDataVolume creates DataVolume resource to copy image from DVCR to PVC.
