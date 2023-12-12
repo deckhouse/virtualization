@@ -20,6 +20,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
+var ErrDataSourceNotReady = errors.New("data source is not ready")
+
 func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
 	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
 
@@ -53,6 +55,10 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 			return resource.Quantity{}, err
 		}
 
+		if vmi.Status.Phase != virtv2.ImageReady {
+			return resource.Quantity{}, fmt.Errorf("%w: cannot get size from non-ready vmi", ErrDataSourceNotReady)
+		}
+
 		unpackedSize, err = resource.ParseQuantity(vmi.Status.Size.UnpackedBytes)
 		if err != nil {
 			return resource.Quantity{}, err
@@ -68,7 +74,11 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 			return resource.Quantity{}, err
 		}
 
-		unpackedSize, err = resource.ParseQuantity(cvmi.Status.Size.Unpacked)
+		if cvmi.Status.Phase != virtv2.ImageReady {
+			return resource.Quantity{}, fmt.Errorf("%w: cannot get size from non-ready cvmi", ErrDataSourceNotReady)
+		}
+
+		unpackedSize, err = resource.ParseQuantity(cvmi.Status.Size.UnpackedBytes)
 		if err != nil {
 			return resource.Quantity{}, err
 		}
@@ -102,7 +112,7 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 	// Retrieve PVC size.
 	pvcSize, err := r.getPVCSize(vmd, state, opts)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get pvc size: %w", err)
 	}
 
 	dvName := types.NamespacedName{Name: vmd.GetAnnotations()[cc.AnnVMDDataVolume], Namespace: vmd.GetNamespace()}
@@ -124,7 +134,10 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 	if vmdutil.IsTwoPhaseImport(vmd) || vmdutil.IsDVCRSource(vmd) {
 		// Copy auth credentials and ca bundle to access DVCR as 'registry' data source.
 		// Set DV as an ownerRef to auto-cleanup these copies on DV deletion.
-		return supplements.EnsureForDataVolume(ctx, opts.Client, state.Supplements, dv, r.dvcrSettings)
+		err = supplements.EnsureForDataVolume(ctx, opts.Client, state.Supplements, dv, r.dvcrSettings)
+		if err != nil {
+			return fmt.Errorf("failed to ensure data volume supplements: %w", err)
+		}
 	}
 
 	return nil
