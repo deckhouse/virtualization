@@ -118,7 +118,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		oldSize := state.PVC.Status.Capacity[corev1.ResourceStorage]
 		newSize := state.VMD.Current().Spec.PersistentVolumeClaim.Size
 
-		if oldSize.Equal(newSize) {
+		if newSize.IsZero() || oldSize.Equal(newSize) {
 			return nil
 		}
 
@@ -187,9 +187,15 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		case state.CanCreateDataVolume():
 			log.V(1).Info("Create DataVolume for VMD")
 
-			if err := r.createDataVolume(ctx, state.VMD.Current(), state, opts); err != nil {
-				return err
+			err := r.createDataVolume(ctx, state.VMD.Current(), state, opts)
+			if err != nil {
+				if !errors.Is(err, ErrDataSourceNotReady) {
+					return err
+				}
+
+				log.V(1).Info("Wait for the data source to be ready", "err", err)
 			}
+
 			// Requeue to wait until Pod become Running.
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
