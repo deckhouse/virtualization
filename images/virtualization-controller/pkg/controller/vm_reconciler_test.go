@@ -124,6 +124,7 @@ var _ = Describe("VM", func() {
 		}
 
 		{
+			storageClassName := "local-path"
 			vmd := &virtv2.VirtualMachineDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "test-ns",
@@ -139,7 +140,7 @@ var _ = Describe("VM", func() {
 					},
 					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
 						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
-						StorageClassName: "local-path",
+						StorageClassName: &storageClassName,
 					},
 				},
 				Status: virtv2.VirtualMachineDiskStatus{
@@ -357,6 +358,7 @@ var _ = Describe("Apply VM changes", func() {
 		vmName := "test-vm-2"
 		vmipName := "test-vmip"
 		vmdName := "test-vmd"
+		storageClassName := "local-path"
 
 		{
 			vm := &virtv2.VirtualMachine{
@@ -399,7 +401,7 @@ var _ = Describe("Apply VM changes", func() {
 					},
 					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
 						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
-						StorageClassName: "local-path",
+						StorageClassName: &storageClassName,
 					},
 				},
 				Status: virtv2.VirtualMachineDiskStatus{
