@@ -34,6 +34,7 @@ func AdjustPVCSize(in resource.Quantity) resource.Quantity {
 }
 
 const (
+	Size24Mi   = 24 * 1024 * 1024
 	Size512Mi  = 512 * 1024 * 1024
 	Size4096Mi = 4096 * 1024 * 1024
 )
@@ -41,6 +42,8 @@ const (
 // adjustRatio returns a ratio for size adjustment.
 func adjustRatio(size int64) float64 {
 	switch {
+	case size < Size24Mi:
+		return 1.4
 	case size < Size512Mi:
 		return 1.25
 	case size < Size4096Mi:
