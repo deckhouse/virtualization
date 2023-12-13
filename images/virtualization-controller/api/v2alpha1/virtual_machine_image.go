@@ -51,5 +51,5 @@ const (
 )
 
 type VMIPersistentVolumeClaim struct {
-	StorageClassName string `json:"storageClassName"`
+	StorageClassName *string `json:"storageClassName,omitempty"`
 }
