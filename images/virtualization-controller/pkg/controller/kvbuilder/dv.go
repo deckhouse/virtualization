@@ -40,7 +40,7 @@ func NewDV(name types.NamespacedName) *DV {
 	}
 }
 
-func (b *DV) SetPVC(storageClassName string, size resource.Quantity) {
+func (b *DV) SetPVC(storageClassName *string, size resource.Quantity) {
 	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName, size)
 }
 

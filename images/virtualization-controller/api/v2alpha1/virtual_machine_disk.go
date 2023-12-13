@@ -50,8 +50,8 @@ type DiskTarget struct {
 }
 
 type VMDPersistentVolumeClaim struct {
-	StorageClassName string            `json:"storageClassName"`
-	Size             resource.Quantity `json:"size"`
+	StorageClassName *string           `json:"storageClassName,omitempty"`
+	Size             resource.Quantity `json:"size,omitempty"`
 }
 
 // VirtualMachineDiskList contains a list of VirtualMachineDisk
