@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	apiruntimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -42,12 +43,17 @@ var (
 	controllerNamespace string
 )
 
-const defaultVerbosity = "1"
+const (
+	defaultVerbosity      = "1"
+	kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
+)
 
 func init() {
 	importerImage = getRequiredEnvVar(common.ImporterPodImageNameVar)
 	uploaderImage = getRequiredEnvVar(common.UploaderPodImageNameVar)
 	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
+
+	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
 }
 
 func setupLogger() {
@@ -86,6 +92,25 @@ func getRequiredEnvVar(name string) string {
 		log.Error(fmt.Errorf("environment variable %q undefined", name), "")
 	}
 	return val
+}
+
+func overrideKubevirtCoreGroupName(groupName string) {
+	virtv1.GroupVersion.Group = groupName
+	virtv1.SchemeGroupVersion.Group = groupName
+	virtv1.StorageGroupVersion.Group = groupName
+	for i := range virtv1.GroupVersions {
+		virtv1.GroupVersions[i].Group = groupName
+	}
+
+	virtv1.VirtualMachineInstanceGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstancePresetGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group = groupName
+	virtv1.KubeVirtGroupVersionKind.Group = groupName
+
+	virtv1.SchemeBuilder = apiruntime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]apiruntimeschema.GroupVersion{virtv1.GroupVersion}))
+	virtv1.AddToScheme = virtv1.SchemeBuilder.AddToScheme
 }
 
 func main() {

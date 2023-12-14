@@ -79,7 +79,7 @@ rules:
   - watch
   - list
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines
   - virtualmachineinstances
