@@ -49,7 +49,7 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 
 		err := opts.Client.Get(context.Background(), types.NamespacedName{
 			Name:      vmd.Spec.DataSource.VirtualMachineImage.Name,
-			Namespace: vmd.Spec.DataSource.VirtualMachineImage.Namespace,
+			Namespace: vmd.Namespace,
 		}, &vmi)
 		if err != nil {
 			return resource.Quantity{}, err
