@@ -86,7 +86,7 @@ metadata:
   name: d8:virtualization:kubevirt-operator
 rules:
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - kubevirts
   verbs:
@@ -294,7 +294,7 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines
   - virtualmachineinstances
@@ -311,13 +311,13 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines/status
   verbs:
   - patch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachineinstancemigrations
   verbs:
@@ -327,7 +327,7 @@ rules:
   - watch
   - patch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachineinstancepresets
   verbs:
@@ -357,7 +357,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - kubevirts
   verbs:
@@ -365,7 +365,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - snapshot.kubevirt.io
+  - x.virtualization.deckhouse.snapshot.kubevirt.io
   resources:
   - virtualmachinesnapshots
   - virtualmachinerestores
@@ -384,7 +384,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - instancetype.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
   - virtualmachineclusterinstancetypes
@@ -395,7 +395,20 @@ rules:
   - list
   - watch
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
+  resources:
+  - virtualmachineinstancetypes
+  - virtualmachineclusterinstancetypes
+  - virtualmachinepreferences
+  - virtualmachineclusterpreferences
+  verbs:
+  - delete
+  - create
+  - update
+  - patch
+  - deletecollection
+- apiGroups:
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -537,19 +550,19 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - snapshot.kubevirt.io
+  - x.virtualization.deckhouse.snapshot.kubevirt.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - export.kubevirt.io
+  - x.virtualization.deckhouse.export.kubevirt.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - pool.kubevirt.io
+  - x.virtualization.deckhouse.pool.kubevirt.io
   resources:
   - virtualmachinepools
   - virtualmachinepools/finalizers
@@ -564,7 +577,7 @@ rules:
   - patch
   - get
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - '*'
   verbs:
@@ -635,7 +648,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - instancetype.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
   - virtualmachineclusterinstancetypes
@@ -646,7 +659,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -654,7 +667,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - clone.kubevirt.io
+  - x.virtualization.deckhouse.clone.kubevirt.io
   resources:
   - virtualmachineclones
   - virtualmachineclones/status
@@ -704,7 +717,7 @@ rules:
   - get
   - watch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachineinstances
   verbs:
@@ -744,7 +757,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - kubevirts
   verbs:
@@ -752,7 +765,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -768,7 +781,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - export.kubevirt.io
+  - x.virtualization.deckhouse.export.kubevirt.io
   resources:
   - virtualmachineexports
   verbs:
@@ -776,7 +789,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - kubevirts
   verbs:
@@ -851,7 +864,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines
   - virtualmachineinstances
@@ -868,7 +881,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - snapshot.kubevirt.io
+  - x.virtualization.deckhouse.snapshot.kubevirt.io
   resources:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
@@ -883,7 +896,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - export.kubevirt.io
+  - x.virtualization.deckhouse.export.kubevirt.io
   resources:
   - virtualmachineexports
   verbs:
@@ -896,7 +909,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - clone.kubevirt.io
+  - x.virtualization.deckhouse.clone.kubevirt.io
   resources:
   - virtualmachineclones
   verbs:
@@ -909,7 +922,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - instancetype.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
   - virtualmachineclusterinstancetypes
@@ -925,7 +938,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - pool.kubevirt.io
+  - x.virtualization.deckhouse.pool.kubevirt.io
   resources:
   - virtualmachinepools
   verbs:
@@ -938,7 +951,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -996,7 +1009,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines
   - virtualmachineinstances
@@ -1012,7 +1025,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - snapshot.kubevirt.io
+  - x.virtualization.deckhouse.snapshot.kubevirt.io
   resources:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
@@ -1026,7 +1039,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - export.kubevirt.io
+  - x.virtualization.deckhouse.export.kubevirt.io
   resources:
   - virtualmachineexports
   verbs:
@@ -1038,7 +1051,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - clone.kubevirt.io
+  - x.virtualization.deckhouse.clone.kubevirt.io
   resources:
   - virtualmachineclones
   verbs:
@@ -1050,7 +1063,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - instancetype.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
   - virtualmachineclusterinstancetypes
@@ -1065,7 +1078,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - pool.kubevirt.io
+  - x.virtualization.deckhouse.pool.kubevirt.io
   resources:
   - virtualmachinepools
   verbs:
@@ -1077,14 +1090,14 @@ rules:
   - list
   - watch
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - kubevirts
   verbs:
   - get
   - list
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
@@ -1107,7 +1120,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - kubevirt.io
+  - x.virtualization.deckhouse.kubevirt.io
   resources:
   - virtualmachines
   - virtualmachineinstances
@@ -1119,7 +1132,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - snapshot.kubevirt.io
+  - x.virtualization.deckhouse.snapshot.kubevirt.io
   resources:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
@@ -1129,7 +1142,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - export.kubevirt.io
+  - x.virtualization.deckhouse.export.kubevirt.io
   resources:
   - virtualmachineexports
   verbs:
@@ -1137,7 +1150,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - clone.kubevirt.io
+  - x.virtualization.deckhouse.clone.kubevirt.io
   resources:
   - virtualmachineclones
   verbs:
@@ -1145,7 +1158,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - instancetype.kubevirt.io
+  - x.virtualization.deckhouse.instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
   - virtualmachineclusterinstancetypes
@@ -1156,15 +1169,16 @@ rules:
   - list
   - watch
 - apiGroups:
-  - pool.kubevirt.io
+  - x.virtualization.deckhouse.pool.kubevirt.io
   resources:
   - virtualmachinepools
   verbs:
   - get
   - list
   - watch
+  - deletecollection
 - apiGroups:
-  - migrations.kubevirt.io
+  - x.virtualization.deckhouse.migrations.kubevirt.io
   resources:
   - migrationpolicies
   verbs:
