@@ -4,6 +4,7 @@ stages:
   - test
   - build
   - deploy
+  - hack
   - e2e
   - deploy_main
   - deploy_prod_alpha
@@ -165,7 +166,7 @@ variables:
 
 .main:
   variables:
-    MODULES_MODULE_TAG: v0.0.0-main
+    MODULES_MODULE_TAG: v0.0.0-main-${CI_PIPELINE_ID}
   extends:
   - .dev_vars
   - .main_rules
@@ -255,6 +256,20 @@ build_main:
   extends:
     - .build
     - .main
+
+build_main_for_mop:
+  stage: hack
+  needs: ['build_main']
+  interruptible: true
+  script:
+    # We need to push v0.0.0-main tag to use as tag in ModulePullOverride
+    REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
+
+    IMAGE_SRC="${REPO}:${MODULES_MODULE_TAG}"
+    IMAGE_DST="${REPO}:v0.0.0-main"
+
+    echo "✨ Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+    crane copy "${IMAGE_SRC}" "${IMAGE_DST}"
 
 build_prod:
   stage: build
