@@ -142,7 +142,7 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	if state.AttacheeState.ShouldReconcile(log) {
 		return true
 	}
-	return !(cc.IsCVMIComplete(state.CVMI.Current()) && state.Pod == nil && state.Service == nil)
+	return !(state.CVMI.Current().Status.Phase == virtv2.ImageReady && state.Pod == nil && state.Service == nil)
 }
 
 func (state *CVMIReconcilerState) IsProtected() bool {

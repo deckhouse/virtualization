@@ -515,21 +515,31 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 	// Ensure kubevirt VM has finalizer in case d8 VM was created manually (use case: take ownership of already existing object).
 	if state.KVVM != nil {
 		// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
-		metaUpdated := PropagateVMMetadata(state.VM.Current(), state.KVVM)
+		metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM)
+		if err != nil {
+			return err
+		}
 
 		finalizerUpdated := controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
 
 		if metaUpdated || finalizerUpdated {
-			if err := opts.Client.Update(ctx, state.KVVM); err != nil {
+			if err = opts.Client.Update(ctx, state.KVVM); err != nil {
 				return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
 			}
 		}
 	}
 
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
-	if state.KVVMI != nil && PropagateVMMetadata(state.VM.Current(), state.KVVMI) {
-		if err := opts.Client.Update(ctx, state.KVVMI); err != nil {
-			return fmt.Errorf("unable to update KubeVirt VMI %q: %w", state.KVVMI.GetName(), err)
+	if state.KVVMI != nil {
+		metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVMI)
+		if err != nil {
+			return err
+		}
+
+		if metaUpdated {
+			if err = opts.Client.Update(ctx, state.KVVMI); err != nil {
+				return fmt.Errorf("unable to update KubeVirt VMI %q: %w", state.KVVMI.GetName(), err)
+			}
 		}
 	}
 
@@ -540,12 +550,27 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
-			if PropagateVMMetadata(state.VM.Current(), &pod) {
-				if err := opts.Client.Update(ctx, &pod); err != nil {
+			metaUpdated, err := PropagateVMMetadata(state.VM.Current(), &pod)
+			if err != nil {
+				return err
+			}
+
+			if metaUpdated {
+				if err = opts.Client.Update(ctx, &pod); err != nil {
 					return fmt.Errorf("unable to update KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
 		}
+	}
+
+	err := SetLastPropagatedLabels(state.VM.Changed())
+	if err != nil {
+		return err
+	}
+
+	err = SetLastPropagatedAnnotations(state.VM.Changed())
+	if err != nil {
+		return err
 	}
 
 	return nil
