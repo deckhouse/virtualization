@@ -1041,10 +1041,8 @@ spec:
       - name: NodeName
         type: string
         jsonPath: .status.nodeName
-        priority: 1
       - name: IPAddress
         type: string
         jsonPath: .status.ipAddress
-        priority: 1
       subresources:
         status: {}
