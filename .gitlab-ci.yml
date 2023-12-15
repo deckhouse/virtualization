@@ -165,7 +165,7 @@ variables:
 
 .main:
   variables:
-    MODULES_MODULE_TAG: main
+    MODULES_MODULE_TAG: v0.0.0-main
   extends:
   - .dev_vars
   - .main_rules
