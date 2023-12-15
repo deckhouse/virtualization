@@ -114,7 +114,7 @@ shell:
   install:
     - |
       version="{{ env "MODULES_MODULE_TAG" }}"
-      yq w /release.yaml version $version | yq r - -j > version.json
+      yq w /release.yaml version $version | yq w - timestamp $(date +%s) | yq r - -j > version.json
 ---
 image: release-channel-version
 from: spotify/scratch
