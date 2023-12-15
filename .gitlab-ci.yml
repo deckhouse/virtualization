@@ -261,6 +261,8 @@ build_main_for_mop:
   stage: hack
   needs: ['build_main']
   interruptible: true
+  extends:
+    - .main
   script:
     # We need to push v0.0.0-main tag to use as tag in ModulePullOverride
     REPO="${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}"
