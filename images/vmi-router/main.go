@@ -26,29 +26,59 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"vmi-router/controllers"
-
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"vmi-router/controllers"
 )
 
 var (
-	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName("setup")
+	log                  = ctrl.Log.WithName("vmi-router")
+	resourcesSchemeFuncs = []func(*runtime.Scheme) error{
+		clientgoscheme.AddToScheme,
+		ciliumv2.AddToScheme,
+		virtv1.AddToScheme,
+	}
+)
+
+const (
+	kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(ciliumv2.AddToScheme(scheme))
-	utilruntime.Must(virtv1.AddToScheme(scheme))
+	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
+}
+
+func overrideKubevirtCoreGroupName(groupName string) {
+	virtv1.GroupVersion.Group = groupName
+	virtv1.SchemeGroupVersion.Group = groupName
+	virtv1.StorageGroupVersion.Group = groupName
+	for i := range virtv1.GroupVersions {
+		virtv1.GroupVersions[i].Group = groupName
+	}
+
+	virtv1.VirtualMachineInstanceGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstancePresetGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineGroupVersionKind.Group = groupName
+	virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group = groupName
+	virtv1.KubeVirtGroupVersionKind.Group = groupName
+
+	virtv1.SchemeBuilder = runtime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]runtimeschema.GroupVersion{virtv1.GroupVersion}))
+	virtv1.AddToScheme = virtv1.SchemeBuilder.AddToScheme
+
+	// Also override kubecli scheme related machinery.
+	kubecli.SchemeBuilder = runtime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]runtimeschema.GroupVersion{virtv1.GroupVersion}))
+	kubecli.SchemeBuilder.AddToScheme(kubecli.Scheme)
+	kubecli.SchemeBuilder.AddToScheme(clientgoscheme.Scheme)
 }
 
 type cidrFlag []string
@@ -87,6 +117,16 @@ func main() {
 	}
 
 	log.Info(fmt.Sprintf("managed CIDRs: %+v", cidrs))
+
+	// Setup scheme for all resources
+	scheme := runtime.NewScheme()
+	for _, f := range resourcesSchemeFuncs {
+		err := f(scheme)
+		if err != nil {
+			log.Error(err, "Failed to add to scheme")
+			os.Exit(1)
+		}
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
