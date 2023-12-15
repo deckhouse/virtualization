@@ -1,6 +1,7 @@
 spec:
   versions:
-    - schema:
+    - name: v2alpha1
+      schema:
         openAPIV3Schema:
           description: |
             Описывает диск виртуальной машины, который может быть смонтирован в `VirtualMachines`. После создания только поле `.spec.persistentVolumeClaim.size` доступно для изменения в сторону увеличения, все остальные поля неизменяемы.

@@ -1,6 +1,7 @@
 spec:
   versions:
-    - schema:
+    - name: v2alpha1
+      schema:
         openAPIV3Schema:
           description: |
             Ресурс обеспечивает возможность «горячего» подключения диска к ВМ.
