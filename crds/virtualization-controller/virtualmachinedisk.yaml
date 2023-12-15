@@ -46,7 +46,7 @@ spec:
                     size:
                       type: string
                       description: |
-                        Desired size for PVC to store the disk.
+                        Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
                       pattern: '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'
                     storageClassName:
                       type: string
@@ -68,13 +68,13 @@ spec:
                       - 'ClusterVirtualMachineImage'
                       - 'Upload'
                       description: |
-                        The type of an origin of the image. Options are:
+                        The type of an origin of the disk. Options are:
 
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
+                        * `HTTP` — fill the disk with data from some external http/https url.
+                        * `ContainerImage` — fill the disk from an image, stored in container registry image.
+                        * `VirtualMachineImage` — fill the disk from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage` — fill the disk from another existing `ClusterVirtualMachineImage`.
+                        * `Upload` — fill the disk with data, uploaded by user via the special interface.
                     http:
                       type: object
                       description: |
@@ -122,12 +122,14 @@ spec:
                             A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
                           properties:
                             md5:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{32}$
                               minLength: 32
                               maxLength: 32
                               example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{64}$
                               minLength: 64
@@ -251,7 +253,7 @@ spec:
                 phase:
                   type: string
                   description: |
-                    Current status of `ClusterVirtualMachineDisk` resource:
+                    Current status of `VirtualMachineDisk` resource:
                     * Pending - The resource has been created and is on a waiting queue.
                     * Provisioning - The process of resource creation (copying/downloading/filling the PVC with data/extending PVC) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
@@ -289,18 +291,22 @@ spec:
                       name:
                         type: string
       additionalPrinterColumns:
-      - name: ImportDuration
-        type: string
-        jsonPath: .status.importDuration
-        priority: 1
-      - name: Capacity
-        type: string
-        jsonPath: .status.capacity
       - name: Phase
         type: string
         jsonPath: .status.phase
+      - name: Capacity
+        type: string
+        jsonPath: .status.capacity
       - name: Progress
         type: string
         jsonPath: .status.progress
+        priority: 1
+      - name: Target PVC
+        jsonPath: .status.target.persistentVolumeClaimName
+        type: string
+        priority: 1
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
