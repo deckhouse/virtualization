@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -18,7 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+	merger "github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -439,14 +441,19 @@ func RemoveAttachRelatedLabels(labels map[string]string) map[string]string {
 	return result
 }
 
-// CleanupVMAnno removes well known annotations that are dangerous to propagate.
-func CleanupVMAnno(anno map[string]string) map[string]string {
+// RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
+func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string {
 	res := make(map[string]string)
 
 	for k, v := range anno {
+		if k == common.LastPropagatedVMAnnotationsAnnotation || k == common.LastPropagatedVMLabelsAnnotation {
+			continue
+		}
+
 		if strings.HasPrefix(k, "kubectl.kubernetes.io") {
 			continue
 		}
+
 		res[k] = v
 	}
 
@@ -456,29 +463,97 @@ func CleanupVMAnno(anno map[string]string) map[string]string {
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
 // Attach related labels and some dangerous annotations are not copied.
 // Return true if destination object was changed.
-func PropagateVMMetadata(vm *virtv2.VirtualMachine, destObj client.Object) bool {
+func PropagateVMMetadata(vm *virtv2.VirtualMachine, destObj client.Object) (bool, error) {
 	// No changes if dest is nil.
 	if destObj == nil {
-		return false
+		return false, nil
 	}
 
-	isChanged := false
+	// 1. Propagate labels.
+	lastPropagatedLabels, err := GetLastPropagatedLabels(vm)
+	if err != nil {
+		return false, err
+	}
 
 	// Attach related labels are not needed on kubevirt resources.
-	vmLabels := RemoveAttachRelatedLabels(vm.GetLabels())
-	newLabels := common.MergeLabels(destObj.GetLabels(), vmLabels)
-	if !reflect.DeepEqual(newLabels, destObj.GetLabels()) {
+	curLabels := RemoveAttachRelatedLabels(vm.GetLabels())
+
+	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, curLabels)
+	if labelsChanged {
 		destObj.SetLabels(newLabels)
-		isChanged = true
+	}
+
+	// 1. Propagate annotations.
+	lastPropagatedAnno, err := GetLastPropagatedAnnotations(vm)
+	if err != nil {
+		return false, err
 	}
 
 	// Remove dangerous annotations.
-	vmAnno := CleanupVMAnno(vm.GetAnnotations())
-	newAnno := common.MergeLabels(destObj.GetAnnotations(), vmAnno)
-	if !reflect.DeepEqual(newAnno, destObj.GetAnnotations()) {
+	curAnno := RemoveNonPropagatableAnnotations(vm.GetAnnotations())
+
+	newAnno, annoChanged := merger.ApplyMapChanges(destObj.GetAnnotations(), lastPropagatedAnno, curAnno)
+	if annoChanged {
 		destObj.SetAnnotations(newAnno)
-		isChanged = true
 	}
 
-	return isChanged
+	return labelsChanged || annoChanged, nil
+}
+
+func GetLastPropagatedLabels(vm *virtv2.VirtualMachine) (map[string]string, error) {
+	var lastPropagatedLabels map[string]string
+
+	if vm.Annotations[common.LastPropagatedVMLabelsAnnotation] != "" {
+		err := json.Unmarshal([]byte(vm.Annotations[common.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return lastPropagatedLabels, nil
+}
+
+func SetLastPropagatedLabels(vm *virtv2.VirtualMachine) error {
+	data, err := json.Marshal(RemoveAttachRelatedLabels(vm.GetLabels()))
+	if err != nil {
+		return err
+	}
+
+	anno := vm.GetAnnotations()
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+	anno[common.LastPropagatedVMLabelsAnnotation] = string(data)
+	vm.SetAnnotations(anno)
+
+	return nil
+}
+
+func GetLastPropagatedAnnotations(vm *virtv2.VirtualMachine) (map[string]string, error) {
+	var lastPropagatedAnno map[string]string
+
+	if vm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] != "" {
+		err := json.Unmarshal([]byte(vm.Annotations[common.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return lastPropagatedAnno, nil
+}
+
+func SetLastPropagatedAnnotations(vm *virtv2.VirtualMachine) error {
+	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
+	if err != nil {
+		return err
+	}
+
+	anno := vm.GetAnnotations()
+	if anno == nil {
+		anno = make(map[string]string)
+	}
+	anno[common.LastPropagatedVMAnnotationsAnnotation] = string(data)
+	vm.SetAnnotations(anno)
+
+	return nil
 }
