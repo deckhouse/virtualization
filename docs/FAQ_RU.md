@@ -11,7 +11,6 @@ title: "FAQ"
 Создадим пустой диск для установки ОС:
 
 ```yaml
----
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachineDisk
 metadata:

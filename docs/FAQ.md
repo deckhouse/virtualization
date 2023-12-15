@@ -11,7 +11,6 @@ To install the OS we will need an iso-image of Windows OS. We need to download i
 Let's create an empty disk for OS installation:
 
 ```yaml
----
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachineDisk
 metadata:
