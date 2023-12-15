@@ -39,7 +39,7 @@ The API provides capabilities for creating and managing the following resources:
 - Virtual machine disks
 - Virtual machines
 
-### Images
+### Virtual Machine Images
 
 Images are immutable resources that allow you to create new virtual machines based on preconfigured and configured images. Depending on the type, images can be in `raw`, `qcow2`, `vmdk`, `vhdx` and other formats for virtual machine disk images, and in `iso` format for installation images that can be attached as `cdrom devices`.
 
@@ -69,4 +69,4 @@ A virtual machine's startup policy defines its state. It can be enabled, disable
 
 The virtual machine runs inside the Pod, which allows you to manage virtual machines as normal Kubernetes resources and use all the features of the platform, including load balancers, network policies, automation tools, etc.
 
-![]("images/vm.png")
+![](images/vm.png)
