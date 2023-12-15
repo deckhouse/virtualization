@@ -1,36 +1,50 @@
 # Deckhouse virtualization module
 
-# Порядок устанвки модуля в кластер
+<p align="center">
+  <img src="docs/images/d8-virtualization-logo.png" width="400px" />
+</p>
 
-Данный модуль и внутренний модуль `virtualization` в составе платформы deckhouse имеют одниаковое название, поэтому сборку с ветки `main`, либо любую тегированную использовать нельзя, т.к. будут конфликты. Следует использовать сборку, в которой внутренний модуль `virtualization` удален: https://github.com/deckhouse/deckhouse/pull/5554
+## Description
 
-`dev-registry.deckhouse.io` переодически очищается от старых артефактов, поэтому если вдруг в кластере возникают ошибки вида `ErrPullImage`, следует перезапустить конвейер сборки для `PR5554`
+This module is designed to run and manage virtual machines and their resources on [the Deckhouse platform](https://deckhouse.io).
 
-Переключение на требуемую сборку:
+It offers the following features:
 
-```bash
-kubectl -n d8-system set image deploy/deckhouse deckhouse="dev-registry.deckhouse.io/sys/deckhouse-oss:pr5554"
-```
+- A simple and intuitive interface for declarative creation and management of virtual machines and their resources.
+- The ability to run legacy applications that for some reason cannot or are difficult to run in a container.
+- Ability to run virtual machines and containerized applications in the same environment.
+- Integration with the existing Deckhouse ecosystem to leverage its capabilities for virtual machines.
 
-Сборка dev-версии модуля осуществляется автоматически сразу после создания MR. В рамках сборки пересобираются все образы модуля (не только модуль контроллера) примерное время сборки всех образов ~30 мин.
+## Requirements
 
-Для каждого MR создается свой "канал обновлений", который нужно использовать для тестов.
+The following conditions are required to run the module:
 
-Пример типовой конфигурации для установки модуля в кластер:
+- A processor with x86_64 architecture and support for Intel-VT or AMD-V instructions.
+- The Linux kernel on the cluster nodes must be version 5.7 or newer.
+- The [CNI Cilium](https://deckhouse.ru/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for virtual machines.
+- Modules [LINSTOR](https://deckhouse.ru/documentation/v1/modules/041-linstor/) or [Ceph](https://deckhouse.ru/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
+
+To connect to a virtual machine via Serial Console or VNC protocol, install the [virtctl](https://github.com/kubevirt/kubevirt/releases/tag/v1.1.0) client.
+
+## Architecture
+
+The module includes the following components:
+
+- The module core, based on the [KubeVirt](https://github.com/kubevirt/kubevirt) project and uses QEMU/KVM + libvirtd to run virtual machines.
+- Deckhouse Virtualization Container Registry (DVCR) - repository for storing and caching virtual machine images.
+- Virtualization-controller - API for creating and managing virtual machine resources.
+
+The API provides capabilities for creating and managing the following resources:
+
+- Images
+- Virtual machine disks
+- Virtual machines
+
+## How to enable module
+
+Example of `ModuleConfig` to enable the virtualization module
 
 ```yaml
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleSource
-metadata:
-  name: dev-registry
-spec:
-  registry:
-    dockerCfg: <тут докер конфиг в base64 из файла лицензии>
-    repo: dev-registry.deckhouse.io/modules
-  # порядковый номер МР
-  releaseChannel: mr-69
----
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -38,21 +52,14 @@ metadata:
 spec:
   enabled: true
   settings:
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G # size of DVCR storage
+        type: PersistentVolumeClaim
     vmCIDRs:
-      - 10.66.10.0/24
-      - 10.66.20.0/24
+    - 10.66.10.0/24
+    - 10.66.20.0/24
+    - 10.66.30.0/24
   version: 1
 ```
-
-Прсмотреть конкретно ваш релизный канал можно в финальной джобе `show_module_manifest` конвейера сборки.
-
-
-Также стоит отметить, что каждый коммит должен быть подписан:
-
-```
-git commit -m "fix: some mega fix" --signoff
-```
-
-Проверку подписи осуществляет джоба `dco` в рамках конвейера сборки.
-
-Выкат сборки для релизных каналов alpha, beta, etc должен осуществляться только для тегов, но на данный момент этот флоу не тестировался :)

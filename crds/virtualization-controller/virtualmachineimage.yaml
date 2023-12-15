@@ -124,12 +124,14 @@ spec:
                             A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
                           properties:
                             md5:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{32}$
                               minLength: 32
                               maxLength: 32
                               example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{64}$
                               minLength: 64
@@ -351,42 +353,37 @@ spec:
                       name:
                         type: string
       additionalPrinterColumns:
-        - name: ImportDuration
-          type: string
-          jsonPath: .status.importDuration
-          priority: 1
-        - name: StoredSize
-          type: string
-          jsonPath: .status.size.stored
-          priority: 1
-        - name: UnpackedSize
-          type: string
-          jsonPath: .status.size.unpacked
-          priority: 1
-        - jsonPath: .status.capacity
-          name: Capacity
-          type: string
-          priority: 1
-        - jsonPath: .status.downloadSpeed.avg
-          name: Avg speed
-          type: string
-          priority: 1
-        - name: Progress
-          type: string
-          jsonPath: .status.progress
-        - name: CDROM
-          type: boolean
-          jsonPath: .status.cdrom
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: Registry URL
-          jsonPath: .status.target.registryURL
-          type: string
-          priority: 1
-        - name: Target PVC
-          jsonPath: .status.target.persistentVolumeClaimName
-          type: string
-          priority: 1
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: CDROM
+        type: boolean
+        jsonPath: .status.cdrom
+      - name: Progress
+        type: string
+        jsonPath: .status.progress
+      - name: Capacity
+        type: string
+        jsonPath: .status.capacity
+        priority: 1
+      - name: StoredSize
+        type: string
+        jsonPath: .status.size.stored
+        priority: 1
+      - name: UnpackedSize
+        type: string
+        jsonPath: .status.size.unpacked
+        priority: 1
+      - name: Registry URL
+        jsonPath: .status.target.registryURL
+        type: string
+        priority: 1
+      - name: Target PVC
+        jsonPath: .status.target.persistentVolumeClaimName
+        type: string
+        priority: 1
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}

@@ -89,7 +89,8 @@ spec:
                             * xz
                         caBundle:
                           type: string
-                          description: The CA chain in base64 format to verify the url.
+                          description: |
+                            The CA chain in base64 format to verify the url.
                           example: |
                             YWFhCg==
                         insecureSkipVerify:
@@ -104,12 +105,14 @@ spec:
                             A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
                           properties:
                             md5:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{32}$
                               minLength: 32
                               maxLength: 32
                               example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
+                              description: ""
                               type: string
                               pattern: ^[0-9a-fA-F]{64}$
                               minLength: 64
@@ -120,50 +123,59 @@ spec:
                       required:
                       - image
                       description: |
-                        Use an image stored in external container regitry. Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+                        Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
                           example: 'registry.example.com/images/slackware:15'
                           # https://regex101.com/r/NXfP8Y/1
                           pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
-                          description: The container registry address of an image.
+                          description: |
+                            The container registry address of an image.
                         imagePullSecret:
                           type: object
                           properties:
                             name:
                               type: string
-                              description: A name of the secret containing registry credentials.
+                              description: |
+                                A name of the secret containing registry credentials.
                             namespace:
                               type: string
-                              description: A namespace where imagePullSecret is located.
+                              description: |
+                                A namespace where imagePullSecret is located.
                         caBundle:
                           type: string
-                          description: The CA chain in base64 format to verify the container registry.
+                          description: |
+                            The CA chain in base64 format to verify the container registry.
                           example: |
                             YWFhCg==
                     virtualMachineImage:
                       type: object
-                      description: Use another existing `VirtualMachineImage`.
+                      description: |
+                        Use another existing `VirtualMachineImage`.
                       required:
                         - name
                         - namespace
                       properties:
                         name:
                           type: string
-                          description: A name of existing `VirtualMachineImage`.
+                          description: |
+                            A name of existing `VirtualMachineImage`.
                         namespace:
                           type: string
-                          description: A namespace where `VirtualMachineImage` is located.
+                          description: |
+                            A namespace where `VirtualMachineImage` is located.
                     clusterVirtualMachineImage:
                       type: object
-                      description: Use another existing `ClusterVirtualMachineImage`.
+                      description: |
+                        Use another existing `ClusterVirtualMachineImage`.
                       required:
                         - name
                       properties:
                         name:
                           type: string
-                          description: A name of existing `ClusterVirtualMachineImage`.
+                          description: |
+                            A name of existing `ClusterVirtualMachineImage`.
                   oneOf:
                   - properties:
                       type:
@@ -204,19 +216,23 @@ spec:
                     avg:
                       type: string
                       example: 1 Mbps
-                      description: Average download speed.
+                      description: |
+                        Average download speed.
                     current:
                       type: string
                       example: 5 Mbps
-                      description: Current download speed.
+                      description: |
+                        Current download speed.
                     avgBytes:
                       type: string
                       example: 1012345
-                      description: Average download speed in bytes per second.
+                      description: |
+                        Average download speed in bytes per second.
                     currentBytes:
                       type: string
                       example: 5123456
-                      description: Current download speed in bytes per second.
+                      description: |
+                        Current download speed in bytes per second.
                 format:
                   type: string
                   description: |
@@ -229,19 +245,23 @@ spec:
                     stored:
                       type: string
                       example: 199M
-                      description: Image size in DVCR or in PVC in human-readable format.
+                      description: |
+                        Image size in DVCR or in PVC in human-readable format.
                     storedBytes:
                       type: string
                       example: 199001234
-                      description: Image size in DVCR or in PVC in bytes.
+                      description: |
+                        Image size in DVCR or in PVC in bytes.
                     unpacked:
                       type: string
                       example: 1G
-                      description: Unpacked image size in human-readable format.
+                      description: |
+                        Unpacked image size in human-readable format.
                     unpackedBytes:
                       type: string
                       example: 1000000234
-                      description: Unpacked image size in bytes.
+                      description: |
+                        Unpacked image size in bytes.
                 cdrom:
                   type: boolean
                   description: |
@@ -307,26 +327,29 @@ spec:
                       namespace:
                         type: string
       additionalPrinterColumns:
-      - name: ImportDuration
+      - name: Phase
         type: string
-        jsonPath: .status.importDuration
+        jsonPath: .status.phase
+      - name: CDROM
+        type: boolean
+        jsonPath: .status.cdrom
+      - name: Progress
+        type: string
+        jsonPath: .status.progress
+      - name: StoredSize
+        type: string
+        jsonPath: .status.size.stored
         priority: 1
       - name: UnpackedSize
         type: string
         jsonPath: .status.size.unpacked
         priority: 1
-      - name: StoredSize
+      - name: Registry URL
+        jsonPath: .status.target.registryURL
         type: string
-        jsonPath: .status.size.stored
         priority: 1
-      - name: CDROM
-        type: boolean
-        jsonPath: .status.cdrom
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: Progress
-        type: string
-        jsonPath: .status.progress
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
