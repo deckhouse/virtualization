@@ -1,0 +1,49 @@
+spec:
+  versions:
+    - schema:
+        openAPIV3Schema:
+          description: |
+            Ресурс обеспечивает возможность «горячего» подключения диска к ВМ.
+          properties:
+            spec:
+              properties:
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, к которой подключен диск.
+                blockDevice:
+                  description: |
+                    Блочное устройство, которое будет подключено к ВМ в качестве диска hotPlug.
+                  properties:
+                    type:
+                      description: |
+                        Тип блочного устройства. Возможны следующие варианты:
+
+                        * `VirtualMachineDisk` — использовать `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме RW.
+                    virtualMachineDisk:
+                      description: |
+                        Использовать `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме RW.
+                      required:
+                        - name
+                      properties:
+                        name:
+                          description: |
+                            Имя существующего ресурса `VirtualMachineDisk`
+            status:
+              properties:
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, к которой подключен этот диск.
+                phase:
+                  description: |
+                    Фаза ресурса:
+
+                    * InProgress — диск в процессе подключения к ВМ.
+                    * Attached — диск подключен к ВМ.
+                    * Failed — возникла проблема с подключением диска. Смотрите `.status.failureReason`.
+                failureReason:
+                  description: |
+                    Краткое описание причины ошибки.
+                failureMessage:
+                  type: string
+                  description: |
+                    Подробное описание ошибки.

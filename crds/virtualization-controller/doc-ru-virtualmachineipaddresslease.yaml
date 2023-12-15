@@ -1,0 +1,35 @@
+spec:
+  versions:
+    - schema:
+        openAPIV3Schema:
+          description:  |
+            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddressClaim`.
+          properties:
+            spec:
+              description:  |
+                Параметры конфигурации `VirtualMachineIPAddressLease`.
+              properties:
+                reclaimPolicy:
+                  description: |
+                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
+
+                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
+
+                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                claimRef:
+                  description:  |
+                    Ссылка на существующие `VirtualMachineIPAddressClaim`.
+                  properties:
+                    name:
+                      description:  |
+                        Имя ссылающегося `VirtualMachineIPAddressClaim`.
+                    namespace:
+                      description:  |
+                        Пространство имен ссылающегося `VirtualMachineIPAddressClaim`.
+            status:
+              description:  |
+                Состояние ресурса `VirtualMachineIPAddressLease`.
+              properties:
+                phase:
+                  description:  |
+                    Представляет текущее состояние выданной аренды IP-адреса.

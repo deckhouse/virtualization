@@ -67,7 +67,7 @@ spec:
                   type: string
                 phase:
                   description:  |
-                    Represents the current state of IP address claim.
+                    The current state of the resource.
                   type: string
                 conflictMessage:
                   description:  |
