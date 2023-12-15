@@ -171,6 +171,11 @@ const (
 	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
 	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
 
+	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
+	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
+	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.
+	LastPropagatedVMLabelsAnnotation = AnnAPIGroup + "/last-propagated-vm-labels"
+
 	// ErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (reason)
 	ErrStartingPod = "ErrStartingPod"
 	// MessageErrStartingPod provides a const to indicate that a pod wasn't able to start without providing sensitive information (message)
