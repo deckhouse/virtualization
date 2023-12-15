@@ -92,6 +92,7 @@ git:
     includePaths:
       - charts
       - crds
+      - docs
       - hooks
       - openapi
       - templates

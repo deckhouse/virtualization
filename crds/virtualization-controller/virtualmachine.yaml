@@ -27,7 +27,8 @@ spec:
       schema:
         openAPIV3Schema:
           type: object
-          description: Handles the VM according to its configuration and run policy.
+          description: |
+            Handles the VM according to its configuration and run policy.
           required:
             - spec
           properties:
@@ -39,20 +40,36 @@ spec:
                 - blockDevices
               properties:
                 provisioning:
+                  description: |
+                    This block allows you to configure the provisioning script for the VM.
                   type: object
                   properties:
                     type:
+                      description: |
+                        This parameter defines the type of provisioning script:
+
+                        * UserData - allows the use of inline cloud-init userdata in the .spec.provisioning.UserData section.
+
+                        * UserDataSecret - allows the use of an existing Secret with cloud-init userdata.
+
+                        More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
                       type: string
                       enum:
                         - UserData
                         - UserDataSecret
                     userData:
+                      description: |
+                        Inline cloud-init userdata script.
                       type: string
                     userDataSecretRef:
+                      description: |
+                        Reference to an existing Secret with a cloud-init userdata script.
                       type: object
                       properties:
                         name:
                           type: string
+                          description: |
+                            Secret name.
                       required: ["name"]
                   oneOf:
                   - properties:
@@ -88,7 +105,7 @@ spec:
                   type: string
                   description: |
                     The name for associated `VirtualMachineIPAddressClaim` resource.
-                    
+
                     If specified, VirtualMachineIPAddressClaim should exists on VirtualMachine creation.
                     If not specified, a VirtualMachine name will be used to create an implicit VirtualMachineIPAddressClaim. This claim will be deleted on VirtualMachine deletion.
 
@@ -96,40 +113,48 @@ spec:
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pods `spec.topologySpreadConstraints` parameter in Kubernetes;
 
-                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
-
-                    **Format**: the standard [topologySpreadConstraint](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) list. Instance pods inherit this field as is.
                   items:
                     properties:
                       labelSelector:
+                        description: ""
                         properties:
                           matchExpressions:
+                            description: ""
                             items:
                               properties:
                                 key:
                                   type: string
+                                  description: ""
                                 operator:
                                   type: string
+                                  description: ""
                                 values:
                                   items:
                                     type: string
+                                    description: ""
                                   type: array
+                                  description: ""
                               required:
                               - key
                               - operator
                               type: object
                             type: array
                           matchLabels:
+                            description: ""
                             additionalProperties:
                               type: string
+                              description: ""
                             type: object
                         type: object
                       maxSkew:
+                        description: ""
                         format: int32
                         type: integer
                       topologyKey:
+                        description: ""
                         type: string
                       whenUnsatisfiable:
+                        description: ""
                         type: string
                     required:
                     - maxSkew
@@ -146,12 +171,8 @@ spec:
                     * podAffinity -> virtualMachineAndPodAffinity
                     * podAffinityTerm -> virtualMachineAndPodAffinityTerm
 
-                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
-
-                    **Format**: the standard [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) rules. Instance pods inherit this field as is.
                   properties:
                     nodeAffinity:
-                      description: Describes node affinity scheduling rules for the VM.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
                           items:
@@ -162,45 +183,61 @@ spec:
                                     items:
                                       properties:
                                         key:
+                                          description: ""
                                           type: string
                                         operator:
+                                          description: ""
                                           type: string
                                         values:
                                           items:
+                                            description: ""
                                             type: string
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchFields:
                                     items:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                 type: object
+                                description: ""
                               weight:
                                 maximum: 100
                                 minimum: 1
                                 format: int32
                                 type: integer
+                                description: ""
                             required:
                             - preference
                             - weight
                             type: object
+                            description: ""
                           type: array
+                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
                           properties:
                             nodeSelectorTerms:
@@ -211,39 +248,55 @@ spec:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchFields:
                                     items:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                 type: object
+                                description: ""
                               type: array
+                              description: ""
                           required:
                           - nodeSelectorTerms
                           type: object
+                          description: ""
                       type: object
+                      description: Describes node affinity scheduling rules for the VM.
                     virtualMachineAndPodAffinity:
                       description: Describes pod and VM affinity scheduling rules.
                       properties:
@@ -259,22 +312,31 @@ spec:
                                           properties:
                                             key:
                                               type: string
+                                              description: ""
                                             operator:
                                               type: string
+                                              description: ""
                                             values:
                                               items:
                                                 type: string
+                                                description: ""
                                               type: array
+                                              description: ""
                                           required:
                                           - key
                                           - operator
                                           type: object
+                                          description: ""
                                         type: array
+                                        description: ""
                                       matchLabels:
                                         additionalProperties:
                                           type: string
+                                          description: ""
                                         type: object
+                                        description: ""
                                     type: object
+                                    description: ""
                                   namespaceSelector:
                                     properties:
                                       matchExpressions:
@@ -282,41 +344,57 @@ spec:
                                           properties:
                                             key:
                                               type: string
+                                              description: ""
                                             operator:
                                               type: string
+                                              description: ""
                                             values:
                                               items:
                                                 type: string
+                                                description: ""
                                               type: array
+                                              description: ""
                                           required:
                                           - key
                                           - operator
                                           type: object
+                                          description: ""
                                         type: array
+                                        description: ""
                                       matchLabels:
                                         additionalProperties:
                                           type: string
+                                          description: ""
                                         type: object
+                                        description: ""
                                     type: object
+                                    description: ""
                                   namespaces:
                                     items:
                                       type: string
+                                      description: ""
                                     type: array
+                                    description: ""
                                   topologyKey:
                                     type: string
+                                    description: ""
                                 required:
                                 - topologyKey
                                 type: object
+                                description: ""
                               weight:
                                 maximum: 100
                                 minimum: 1
                                 format: int32
                                 type: integer
+                                description: ""
                             required:
                             - virtualMachineAndPodAffinityTerm
                             - weight
                             type: object
+                            description: ""
                           type: array
+                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
                           items:
                             properties:
@@ -327,22 +405,31 @@ spec:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                      description: ""
                                     type: object
+                                    description: ""
                                 type: object
+                                description: ""
                               namespaceSelector:
                                 properties:
                                   matchExpressions:
@@ -350,32 +437,46 @@ spec:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                      description: ""
                                     type: object
+                                    description: ""
                                 type: object
+                                description: ""
                               namespaces:
                                 items:
                                   type: string
+                                  description: ""
                                 type: array
+                                description: ""
                               topologyKey:
                                 type: string
+                                description: ""
                             required:
                             - topologyKey
                             type: object
+                            description: ""
                           type: array
+                          description: ""
                       type: object
                     virtualMachineAndPodAntiAffinity:
                       description: Describes pod and VM anti-affinity scheduling rules.
@@ -392,22 +493,31 @@ spec:
                                           properties:
                                             key:
                                               type: string
+                                              description: ""
                                             operator:
                                               type: string
+                                              description: ""
                                             values:
                                               items:
                                                 type: string
+                                                description: ""
                                               type: array
+                                              description: ""
                                           required:
                                           - key
                                           - operator
                                           type: object
+                                          description: ""
                                         type: array
+                                        description: ""
                                       matchLabels:
                                         additionalProperties:
                                           type: string
+                                          description: ""
                                         type: object
+                                        description: ""
                                     type: object
+                                    description: ""
                                   namespaceSelector:
                                     properties:
                                       matchExpressions:
@@ -415,41 +525,57 @@ spec:
                                           properties:
                                             key:
                                               type: string
+                                              description: ""
                                             operator:
                                               type: string
+                                              description: ""
                                             values:
                                               items:
                                                 type: string
+                                                description: ""
                                               type: array
+                                              description: ""
                                           required:
                                           - key
                                           - operator
                                           type: object
+                                          description: ""
                                         type: array
+                                        description: ""
                                       matchLabels:
                                         additionalProperties:
                                           type: string
+                                          description: ""
                                         type: object
+                                        description: ""
                                     type: object
+                                    description: ""
                                   namespaces:
                                     items:
                                       type: string
+                                      description: ""
                                     type: array
+                                    description: ""
                                   topologyKey:
                                     type: string
+                                    description: ""
                                 required:
                                 - topologyKey
                                 type: object
+                                description: ""
                               weight:
                                 maximum: 100
                                 minimum: 1
                                 format: int32
                                 type: integer
+                                description: ""
                             required:
                             - virtualMachineAndPodAffinityTerm
                             - weight
                             type: object
+                            description: ""
                           type: array
+                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
                           items:
                             properties:
@@ -460,22 +586,31 @@ spec:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                      description: ""
                                     type: object
+                                    description: ""
                                 type: object
+                                description: ""
                               namespaceSelector:
                                 properties:
                                   matchExpressions:
@@ -483,70 +618,87 @@ spec:
                                       properties:
                                         key:
                                           type: string
+                                          description: ""
                                         operator:
                                           type: string
+                                          description: ""
                                         values:
                                           items:
                                             type: string
+                                            description: ""
                                           type: array
+                                          description: ""
                                       required:
                                       - key
                                       - operator
                                       type: object
+                                      description: ""
                                     type: array
+                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                      description: ""
                                     type: object
+                                    description: ""
                                 type: object
+                                description: ""
                               namespaces:
                                 items:
                                   type: string
+                                  description: ""
                                 type: array
+                                description: ""
                               topologyKey:
                                 type: string
+                                description: ""
                             required:
                             - topologyKey
                             type: object
+                            description: ""
                           type: array
+                          description: ""
                       type: object
                   type: object
+
 
                 nodeSelector:
                   additionalProperties:
                     type: string
                   description: |
                     [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes;
-
                   type: object
 
                 priorityClassName:
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes;
-
                   type: string
+
                 tolerations:
                   type: array
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pods `spec.tolerations` parameter in Kubernetes;
 
-                    If the parameter is omitted, it will be determined [automatically](../../#advanced-scheduling).
-
-                    **Format**: the standard [toleration](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) list. Instance pods inherit this field as is.
                   items:
                     type: object
+                    description: ""
                     properties:
                       effect:
                         type: string
+                        description: ""
                       key:
                         type: string
+                        description: ""
                       operator:
                         type: string
+                        description: ""
                       tolerationSeconds:
                         type: integer
+                        description: ""
                         format: int64
                       value:
                         type: string
+                        description: ""
 
                 disruptions:
                   type: object
@@ -620,12 +772,9 @@ spec:
                       type: string
                       default: "100%"
                       enum: ["5%", "10%", "25%", "50%", "100%"]
-                      description: Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
-                    model:
-                      type: string
-                      default: Nehalem
                       description: |
-                        Specifies the CPU model inside the VM.
+                        Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+                        Supported values: `5%`, `10%`, `25%`, `50%`, `100%`.
 
                 memory:
                   type: object
@@ -732,17 +881,24 @@ spec:
                 guestOSInfo:
                   type: object
                   description: |
-                    Guest OS Information.
+                    Guest OS information obtained from the QEMU Guest Agent. The agent must be pre-installed.
+
+                    More information about the agent, you can read here: https://www.qemu.org/docs/master/interop/qemu-ga.html
                 effectiveSpec:
                   type: object
                   description: |
-                    The current running configuration of the VM.
+                    The current current configuration of the virtual machine. When making changes that require a reboot of the VM, this block will display the configuration before the changes were made.
                 phase:
                   type: string
                   description: |
-                    Represents the current phase of VM
+                    The current phase of the virtual machine:
 
-                    # TODO: Add description for each phase.
+                    * `Scheduling` - The VM is scheduled for placement on cluster nodes.
+                    * `Pending` - The process of starting the VM is in progress.
+                    * `Running` - VM is running.
+                    * `Failed` - An error occurred during the startup process or while the VM is running.
+                    * `Terminating` - The VM is currently in the process of shutting down.
+                    * `Stopped` - The VM is stopped.
                   enum:
                     - "Scheduling"
                     - "Pending"
@@ -752,10 +908,12 @@ spec:
                     - "Stopped"
                 nodeName:
                   type: string
-                  description: NodeName is the name of the node where the VM is currently running.
+                  description: |
+                    The name of the node on which the VM is currently running.
                 ipAddressClaim:
                   type: string
-                  description: name of VirtualMachineIPAddressClaim holding the ip address of the VirtualMachine.
+                  description: |
+                    Name of `VirtualMachineIPAddressClaim` holding the ip address of the VirtualMachine.
                 ipAddress:
                   type: string
                   description: |
@@ -842,20 +1000,26 @@ spec:
                   items:
                     properties:
                       lastProbeTime:
+                        description: ""
                         format: date-time
                         nullable: true
                         type: string
                       lastTransitionTime:
+                        description: ""
                         format: date-time
                         nullable: true
                         type: string
                       message:
+                        description: ""
                         type: string
                       reason:
+                        description: ""
                         type: string
                       status:
+                        description: ""
                         type: string
                       type:
+                        description: ""
                         type: string
                     required:
                       - status
