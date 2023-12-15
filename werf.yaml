@@ -113,7 +113,7 @@ shell:
     - chmod +x /usr/local/bin/yq
   install:
     - |
-      version="{{ env "CI_COMMIT_REF_NAME" }}"
+      version="{{ env "MODULES_MODULE_TAG" }}"
       yq w /release.yaml version $version | yq r - -j > version.json
 ---
 image: release-channel-version
