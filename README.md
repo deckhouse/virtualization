@@ -22,15 +22,15 @@ The following conditions are required to run the module:
 - A processor with x86_64 architecture and support for Intel-VT or AMD-V instructions.
 - The Linux kernel on the cluster nodes must be version 5.7 or newer.
 - The [CNI Cilium](https://deckhouse.ru/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for virtual machines.
-- Modules [LINSTOR](https://deckhouse.ru/documentation/v1/modules/041-linstor/) or [Ceph](https://deckhouse.ru/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
+- Modules SDS-DRBD or [Ceph](https://deckhouse.ru/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
 
-To connect to a virtual machine via Serial Console or VNC protocol, install the [virtctl](https://github.com/kubevirt/kubevirt/releases/tag/v1.1.0) client.
+To connect to a virtual machine via Serial Console or VNC protocol, install the virtctl client.
 
 ## Architecture
 
 The module includes the following components:
 
-- The module core, based on the [KubeVirt](https://github.com/kubevirt/kubevirt) project and uses QEMU/KVM + libvirtd to run virtual machines.
+- The module core, based on the KubeVirt project and uses QEMU/KVM + libvirtd to run virtual machines.
 - Deckhouse Virtualization Container Registry (DVCR) - repository for storing and caching virtual machine images.
 - Virtualization-controller - API for creating and managing virtual machine resources.
 
