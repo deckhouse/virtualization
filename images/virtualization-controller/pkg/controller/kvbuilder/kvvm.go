@@ -11,7 +11,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -64,13 +63,13 @@ func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	}
 }
 
-func (b *KVVM) SetIPAddressRequest(ipAddress string) {
+func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	anno := b.Resource.Spec.Template.ObjectMeta.GetAnnotations()
 	if anno == nil {
 		anno = make(map[string]string)
 	}
 
-	anno[ipam.AnnoIPAddressCNIRequest] = ipAddress
+	anno[annoKey] = annoValue
 
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }

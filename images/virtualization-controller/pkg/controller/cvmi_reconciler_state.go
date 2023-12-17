@@ -53,7 +53,7 @@ func NewCVMIReconcilerState(controllerNamespace string) func(name types.Namespac
 		}
 		state.AttacheeState = vmattachee.NewAttacheeState(
 			state,
-			"cvmi",
+			virtv2.ClusterImageDevice,
 			virtv2.FinalizerCVMIProtection,
 			state.CVMI,
 		)
