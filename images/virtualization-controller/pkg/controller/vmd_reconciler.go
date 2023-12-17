@@ -113,21 +113,30 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return errors.New("pvc not found, please report a bug")
 		}
 
-		oldSize := state.PVC.Status.Capacity[corev1.ResourceStorage]
+		oldSize := state.PVC.Spec.Resources.Requests[corev1.ResourceStorage]
 		newSize := state.VMD.Current().Spec.PersistentVolumeClaim.Size
 
-		if newSize.IsZero() || oldSize.Equal(newSize) {
+		if newSize == nil || newSize.Cmp(oldSize) == -1 {
 			return nil
 		}
 
-		opts.Log.Info("Increase PVC size",
-			"oldPVCSize", oldSize.String(),
-			"newPVCSize", newSize.String(),
-		)
+		if !newSize.Equal(oldSize) {
+			opts.Log.Info("Increase PVC size", "oldPVCSize", oldSize.String(), "newPVCSize", newSize.String())
 
-		state.PVC.Spec.Resources.Requests[corev1.ResourceStorage] = newSize
+			state.PVC.Spec.Resources.Requests[corev1.ResourceStorage] = *newSize
 
-		return opts.Client.Update(ctx, state.PVC)
+			err := opts.Client.Update(ctx, state.PVC)
+			if err != nil {
+				return fmt.Errorf("failed to increase pvc size: %w", err)
+			}
+		}
+
+		if !newSize.Equal(state.PVC.Status.Capacity[corev1.ResourceStorage]) {
+			opts.Log.Info("PVC is in a process of increasing: wait for the PVC to be increased")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		}
+
+		return nil
 	// First phase: import to DVCR.
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
@@ -258,8 +267,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.Phase = virtv2.DiskPending
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.IsReady():
-		// No need to update status.
-		break
+		vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 	case state.ShouldTrackPod() && state.IsPodRunning():
 		log.V(2).Info("Fetch progress from Pod")
 
