@@ -104,6 +104,22 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		return nil
 	}
 
+	// Do nothing if VMD not found or not running.
+	if state.VMD == nil || state.VMD.Status.Phase != virtv2.DiskReady {
+		opts.Log.V(1).Info("VMD is not ready yet, do nothing")
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VMD is not ready")
+		return nil
+	}
+
+	// Do nothing if PVC not found or not running.
+	if state.PVC == nil || state.PVC.Status.Phase != corev1.ClaimBound {
+		opts.Log.V(1).Info("PVC is not bound yet, do nothing")
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "PVC is not bound")
+		return nil
+	}
+
 	blockDeviceIndex := state.IndexVMStatusBDA()
 
 	// VM is running and disk is valid. Attach volume if not attached yet.
@@ -145,7 +161,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			Hotpluggable: true,
 		})
 
-		if err := opts.Client.Status().Update(ctx, state.VM); err != nil {
+		if err = opts.Client.Status().Update(ctx, state.VM); err != nil {
 			return fmt.Errorf("failed to add new attached block device %s: %w", state.VMD.Name, err)
 		}
 	}
