@@ -54,7 +54,7 @@ func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, 
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.VirtualMachineDisk,
 			virtv2.VirtualMachineDiskStatus,
-		]("vmd", true),
+		](virtv2.DiskDevice),
 	}
 }
 

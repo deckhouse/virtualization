@@ -21,7 +21,6 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -87,9 +86,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
-	// Ensure live migration annotation.
-	common.AddAnnotation(state.VM.Changed(), virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
-
 	disksMessage := r.checkBlockDevicesSanity(state)
 	if disksMessage != "" {
 		state.SetStatusMessage(disksMessage)
@@ -108,11 +104,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return r.syncMetadata(ctx, state, opts)
 	}
 
-	// First set VM labels with attached devices names and requeue to go to the next step.
-	if state.SetVMLabelsWithAttachedBlockDevices() {
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-		return nil
-	}
 	// Next set finalizers on attached devices.
 	if err = state.SetFinalizersOnBlockDevices(ctx); err != nil {
 		return fmt.Errorf("unable to add block devices finalizers: %w", err)
@@ -510,26 +501,28 @@ func (r *VMReconciler) applyChangesWithRestart(ctx context.Context, state *VMRec
 
 // syncMetadata propagates labels and annotations from VM to underlying objects and sets a finalizer on the KVVM.
 func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.KVVM == nil {
+		return nil
+	}
+
+	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
+	metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVM)
+	if err != nil {
+		return err
+	}
+
 	// Ensure kubevirt VM has finalizer in case d8 VM was created manually (use case: take ownership of already existing object).
-	if state.KVVM != nil {
-		// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
-		metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM)
-		if err != nil {
-			return err
-		}
+	finalizerUpdated := controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
 
-		finalizerUpdated := controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
-
-		if metaUpdated || finalizerUpdated {
-			if err = opts.Client.Update(ctx, state.KVVM); err != nil {
-				return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
-			}
+	if metaUpdated || finalizerUpdated {
+		if err = opts.Client.Update(ctx, state.KVVM); err != nil {
+			return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
 		}
 	}
 
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
 	if state.KVVMI != nil {
-		metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVMI)
+		metaUpdated, err = PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVMI)
 		if err != nil {
 			return err
 		}
@@ -548,7 +541,7 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
-			metaUpdated, err := PropagateVMMetadata(state.VM.Current(), &pod)
+			metaUpdated, err = PropagateVMMetadata(state.VM.Current(), state.KVVM, &pod)
 			if err != nil {
 				return err
 			}
@@ -561,14 +554,14 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 		}
 	}
 
-	err := SetLastPropagatedLabels(state.VM.Changed())
+	err = SetLastPropagatedLabels(state.KVVM, state.VM.Current())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set last propagated labels: %w", err)
 	}
 
-	err = SetLastPropagatedAnnotations(state.VM.Changed())
+	err = SetLastPropagatedAnnotations(state.KVVM, state.VM.Current())
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set last propagated annotations: %w", err)
 	}
 
 	return nil

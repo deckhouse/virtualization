@@ -54,7 +54,7 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
-		"vmi",
+		virtv2.ImageDevice,
 		virtv2.FinalizerVMIProtection,
 		state.VMI,
 	)

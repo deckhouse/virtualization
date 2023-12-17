@@ -38,22 +38,20 @@ type CVMIReconciler struct {
 	verbose         string
 	pullPolicy      string
 	installerLabels map[string]string
-	namespace       string
 	dvcrSettings    *dvcr.Settings
 }
 
-func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy, namespace string, dvcrSettings *dvcr.Settings) *CVMIReconciler {
+func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *CVMIReconciler {
 	return &CVMIReconciler{
 		importerImage: importerImage,
 		uploaderImage: uploaderImage,
 		verbose:       verbose,
 		pullPolicy:    pullPolicy,
-		namespace:     namespace,
 		dvcrSettings:  dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.ClusterVirtualMachineImage,
 			virtv2.ClusterVirtualMachineImageStatus,
-		]("cvmi", false),
+		](virtv2.ClusterImageDevice),
 	}
 }
 
