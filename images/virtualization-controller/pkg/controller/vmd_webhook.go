@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -27,7 +28,11 @@ func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (ad
 
 	v.log.Info("Validating VMD", "spec.pvc.size", vmd.Spec.PersistentVolumeClaim.Size)
 
-	if vmd.Spec.DataSource == nil && vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
+	if vmd.Spec.PersistentVolumeClaim.Size != nil && vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
+		return nil, fmt.Errorf("virtual machine disk size must be greater than 0")
+	}
+
+	if vmd.Spec.DataSource == nil && (vmd.Spec.PersistentVolumeClaim.Size == nil || vmd.Spec.PersistentVolumeClaim.Size.IsZero()) {
 		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank VMD")
 	}
 
@@ -54,7 +59,15 @@ func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.
 		return nil, nil
 	}
 
-	if newVMD.Spec.PersistentVolumeClaim.Size.Cmp(oldVMD.Spec.PersistentVolumeClaim.Size) == -1 {
+	if newVMD.Spec.PersistentVolumeClaim.Size == nil {
+		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
+	}
+
+	if newVMD.Spec.PersistentVolumeClaim.Size.IsZero() {
+		return nil, fmt.Errorf("virtual machine disk size must be greater than 0")
+	}
+
+	if oldVMD.Spec.PersistentVolumeClaim.Size != nil && newVMD.Spec.PersistentVolumeClaim.Size.Cmp(*oldVMD.Spec.PersistentVolumeClaim.Size) == -1 {
 		return nil, fmt.Errorf(
 			"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
 			newVMD.Spec.PersistentVolumeClaim.Size.String(),
