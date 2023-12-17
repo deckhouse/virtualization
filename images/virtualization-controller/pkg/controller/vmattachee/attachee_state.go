@@ -60,7 +60,7 @@ func (state *AttacheeState[T, ST]) Reload(ctx context.Context, _ reconcile.Reque
 	return nil
 }
 
-func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client.Client) ([]*virtv2.VirtualMachine, error) {
+func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, apiClient client.Client) ([]*virtv2.VirtualMachine, error) {
 	label := MakeAttachedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name)
 
 	req, err := labels.NewRequirement(
@@ -76,13 +76,13 @@ func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, c client
 	sel = sel.Add(*req)
 
 	var vml virtv2.VirtualMachineList
-	if err := c.List(ctx, &vml, &client.ListOptions{LabelSelector: sel}); err != nil {
+	if err = apiClient.List(ctx, &vml, &client.ListOptions{LabelSelector: sel}); err != nil {
 		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
 	}
 	return util.ToPointersArray(vml.Items), nil
 }
 
-func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, c client.Client) ([]*virtv2.VirtualMachine, error) {
+func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, apiClient client.Client) ([]*virtv2.VirtualMachine, error) {
 	vml := &virtv2.VirtualMachineList{}
 
 	req, err := labels.NewRequirement(
@@ -97,7 +97,7 @@ func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, c clie
 	sel := labels.NewSelector()
 	sel = sel.Add(*req)
 
-	if err = c.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
+	if err = apiClient.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
 		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
 	}
 	return util.ToPointersArray(vml.Items), nil

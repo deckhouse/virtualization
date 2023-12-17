@@ -101,12 +101,16 @@ var _ = Describe("VM", func() {
 					Name:      "test-vmip",
 					Namespace: "test-ns",
 				},
+				Spec: virtv2.VirtualMachineIPAddressClaimSpec{
+					Address: "10.0.0.1",
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			vmip, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmip", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineIPAddressClaim{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmip).NotTo(BeNil())
+			Expect(vmip.Spec.Address).To(Equal("10.0.0.1"))
 		}
 
 		{
@@ -250,7 +254,7 @@ var _ = Describe("VM", func() {
 				ID:   "12345",
 			}
 			kvvmi.Status.Interfaces = append(kvvmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-				IP:   "1.2.4.8",
+				IP:   "10.0.0.1",
 				Name: "default",
 			})
 			kvvmi.Status.NodeName = "k3d-k3s-default-server-0"
@@ -427,6 +431,9 @@ var _ = Describe("Apply VM changes", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmipName,
 					Namespace: nsName,
+				},
+				Spec: virtv2.VirtualMachineIPAddressClaimSpec{
+					Address: "10.0.0.1",
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())

@@ -110,10 +110,6 @@ func (m *MockIPAM) CreateIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMa
 	return nil
 }
 
-func (m *MockIPAM) BindIPAddressClaim(_ context.Context, _ string, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
-	return nil
-}
-
 func (m *MockIPAM) DeleteIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
 	return nil
 }

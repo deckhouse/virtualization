@@ -13,6 +13,7 @@ import (
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -126,15 +127,18 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	case shouldUnboundClaim(state):
 		opts.Log.Info("The claim is no longer used by the VM: unbound")
 
-		delete(state.Claim.Changed().Annotations, common.AnnBoundVirtualMachineName)
+		controllerutil.RemoveFinalizer(state.Claim.Changed(), virtv2.FinalizerIPAddressClaimCleanup)
 
 		if state.Claim.Current().Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue {
 			opts.Log.Info("The claim is implicit: delete it")
 			return opts.Client.Delete(ctx, state.Claim.Current())
 		}
-
+	case controllerutil.AddFinalizer(state.Claim.Changed(), virtv2.FinalizerIPAddressClaimCleanup):
+		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return nil
+	}
 
+	switch {
 	case state.Lease == nil && state.Claim.Current().Spec.LeaseName != "":
 		opts.Log.Info("Lease by name not found: waiting for the lease to be available")
 		return nil
@@ -216,11 +220,11 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	default:
 		opts.Log.Info("Lease is released: set binding")
 
+		state.Lease.Spec.ReclaimPolicy = state.Claim.Current().Spec.ReclaimPolicy
 		state.Lease.Spec.ClaimRef = &virtv2.VirtualMachineIPAddressLeaseClaimRef{
 			Name:      state.Claim.Name().Name,
 			Namespace: state.Claim.Name().Namespace,
 		}
-		state.Lease.Spec.ReclaimPolicy = state.Claim.Current().Spec.ReclaimPolicy
 
 		err := opts.Client.Update(ctx, state.Lease)
 		if err != nil {
@@ -229,6 +233,7 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 		state.Claim.Changed().Spec.LeaseName = state.Lease.Name
 		state.Claim.Changed().Spec.Address = leaseNameToIP(state.Lease.Name)
+
 		return opts.Client.Update(ctx, state.Claim.Changed())
 	}
 }
@@ -242,7 +247,7 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 	claimStatus := state.Claim.Current().Status.DeepCopy()
 
 	claimStatus.VMName = ""
-	if state.VM != nil && state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName] != "" {
+	if state.VM != nil {
 		claimStatus.VMName = state.VM.Name
 	}
 
@@ -280,19 +285,8 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 }
 
 func shouldUnboundClaim(state *ClaimReconcilerState) bool {
-	// Claim isn't bound to any VM.
-	if state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName] == "" {
-		return false
-	}
-
-	// Claim is bound, but VM deleted.
-	if state.VM == nil {
-		return true
-	}
-
-	// Claim is bound, but VM is bound to another Claim (Claim changed for VM).
-	return state.VM.Spec.VirtualMachineIPAddressClaimName != "" &&
-		state.VM.Spec.VirtualMachineIPAddressClaimName != state.Claim.Name().Name
+	// Claim is bound, but VM not found.
+	return state.VM == nil
 }
 
 func isBoundLease(state *ClaimReconcilerState) bool {
