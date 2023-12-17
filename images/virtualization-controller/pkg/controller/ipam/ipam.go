@@ -29,12 +29,7 @@ func (m IPAM) IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim)
 		return false
 	}
 
-	anno := claim.GetAnnotations()
-	if anno == nil {
-		return false
-	}
-
-	return anno[common.AnnBoundVirtualMachineName] == vmName
+	return claim.Status.VMName == vmName
 }
 
 func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error {
@@ -42,7 +37,7 @@ func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.Virtual
 		return errors.New("cannot to bind with empty claim")
 	}
 
-	boundVMName := claim.Annotations[common.AnnBoundVirtualMachineName]
+	boundVMName := claim.Status.VMName
 	if boundVMName == "" || boundVMName == vmName {
 		return nil
 	}
@@ -57,9 +52,6 @@ func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.Virtual
 func (m IPAM) CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
 	return client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				common.AnnBoundVirtualMachineName: vm.Name,
-			},
 			Labels: map[string]string{
 				common.LabelImplicitIPAddressClaim: common.LabelImplicitIPAddressClaimValue,
 			},
@@ -70,29 +62,6 @@ func (m IPAM) CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachin
 			ReclaimPolicy: virtv2.VirtualMachineIPAddressReclaimPolicyDelete,
 		},
 	})
-}
-
-func (m IPAM) BindIPAddressClaim(ctx context.Context, vmName string, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error {
-	anno := claim.GetAnnotations()
-	if anno == nil {
-		anno = map[string]string{}
-	}
-
-	boundVMName, ok := anno[common.AnnBoundVirtualMachineName]
-	if ok {
-		// Already in progress.
-		if boundVMName == vmName {
-			return nil
-		}
-
-		return fmt.Errorf("ip address claim %s already bound to another vm", claim.Name)
-	}
-
-	anno[common.AnnBoundVirtualMachineName] = vmName
-
-	claim.SetAnnotations(anno)
-
-	return client.Update(ctx, claim)
 }
 
 func (m IPAM) DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error {

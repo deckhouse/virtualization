@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -61,8 +62,12 @@ func (r *LeaseReconciler) enqueueRequestsFromClaims(_ context.Context, obj clien
 
 func (r *LeaseReconciler) Sync(ctx context.Context, _ reconcile.Request, state *LeaseReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.Claim != nil {
+		// Set finalizer atomically using requeue.
+		controllerutil.AddFinalizer(state.Lease.Changed(), virtv2.FinalizerIPAddressLeaseCleanup)
 		return nil
 	}
+
+	controllerutil.RemoveFinalizer(state.Lease.Changed(), virtv2.FinalizerIPAddressLeaseCleanup)
 
 	switch state.Lease.Current().Spec.ReclaimPolicy {
 	case virtv2.VirtualMachineIPAddressReclaimPolicyDelete, "":
