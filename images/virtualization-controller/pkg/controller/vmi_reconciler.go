@@ -487,7 +487,12 @@ func (r *VMIReconciler) removeFinalizers(ctx context.Context, state *VMIReconcil
 }
 
 func (r *VMIReconciler) verifyDataSource(state *VMIReconcilerState) error {
-	return state.DVCRDataSource.Validate()
+	switch state.VMI.Current().Spec.DataSource.Type {
+	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+		return state.DVCRDataSource.Validate()
+	default:
+		return nil
+	}
 }
 
 // initPodName creates new name and update it in the annotation.
