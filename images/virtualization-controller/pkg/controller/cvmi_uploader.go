@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -32,7 +33,7 @@ func (r *CVMIReconciler) startUploaderPod(ctx context.Context, state *CVMIReconc
 	opts.Log.V(1).Info("Created uploader POD", "pod.Name", pod.Name)
 
 	// Ensure supplement resources for the Pod.
-	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, &cvmi.Spec.DataSource, r.dvcrSettings)
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, datasource.NewCABundleForCVMI(cvmi.Spec.DataSource), r.dvcrSettings)
 }
 
 // createUploaderSettings fills settings for the dvcr-uploader binary.

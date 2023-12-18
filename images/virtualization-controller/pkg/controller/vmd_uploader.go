@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -32,7 +33,7 @@ func (r *VMDReconciler) startUploaderPod(ctx context.Context, state *VMDReconcil
 	opts.Log.V(1).Info("Created uploader POD", "pod.Name", pod.Name)
 
 	// Ensure supplement resources for the Pod.
-	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, vmd.Spec.DataSource, r.dvcrSettings)
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, datasource.NewCABundleForVMD(vmd.Spec.DataSource), r.dvcrSettings)
 }
 
 // createUploaderSettings fills settings for the dvcr-uploader binary.

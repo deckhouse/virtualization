@@ -36,7 +36,15 @@ type ClusterVirtualMachineImageList struct {
 }
 
 type ClusterVirtualMachineImageSpec struct {
-	DataSource DataSource `json:"dataSource"`
+	DataSource CVMIDataSource `json:"dataSource"`
+}
+
+type CVMIDataSource struct {
+	Type                       DataSourceType               `json:"type,omitempty"`
+	HTTP                       *DataSourceHTTP              `json:"http,omitempty"`
+	ContainerImage             *DataSourceContainerRegistry `json:"containerImage,omitempty"`
+	VirtualMachineImage        *DataSourceNameNamespacedRef `json:"virtualMachineImage,omitempty"`
+	ClusterVirtualMachineImage *DataSourceNamedRef          `json:"clusterVirtualMachineImage,omitempty"`
 }
 
 type ClusterVirtualMachineImageStatus struct {
