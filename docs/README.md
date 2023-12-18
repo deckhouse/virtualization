@@ -41,7 +41,7 @@ The API provides capabilities for creating and managing the following resources:
 
 ### Virtual Machine Images
 
-Images are immutable resources that allow you to create new virtual machines based on preconfigured and configured images. Depending on the type, images can be in `raw`, `qcow2`, `vmdk`, `vhdx` and other formats for virtual machine disk images, and in `iso` format for installation images that can be attached as `cdrom devices`.
+Images are immutable resources that allow you to create new virtual machines based on preconfigured and configured images. Depending on the type, images can be in `raw`, `qcow2`, `vmdk` and other formats for virtual machine disk images, and in `iso` format for installation images that can be attached as `cdrom devices`.
 
 You can use external sources such as `http server`, `container registry`, and locally via the command line (`cli`) to download images. It is also possible to create images from virtual machine disks, for example when you need to create a base image for replication (`golden-image`).
 
