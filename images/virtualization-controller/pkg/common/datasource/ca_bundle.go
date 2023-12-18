@@ -1,24 +1,58 @@
 package datasource
 
-import virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+import virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 
-func HasCABundle(ds *virtv2alpha1.DataSource) bool {
-	return len(GetCABundle(ds)) > 0
+type CABundle struct {
+	Type           virtv2.DataSourceType
+	HTTP           *virtv2.DataSourceHTTP
+	ContainerImage *virtv2.DataSourceContainerRegistry
 }
 
-func GetCABundle(ds *virtv2alpha1.DataSource) string {
+func NewCABundleForCVMI(ds virtv2.CVMIDataSource) *CABundle {
+	return &CABundle{
+		Type:           ds.Type,
+		HTTP:           ds.HTTP,
+		ContainerImage: ds.ContainerImage,
+	}
+}
+
+func NewCABundleForVMI(ds virtv2.VMIDataSource) *CABundle {
+	return &CABundle{
+		Type:           ds.Type,
+		HTTP:           ds.HTTP,
+		ContainerImage: ds.ContainerImage,
+	}
+}
+
+func NewCABundleForVMD(ds *virtv2.VMDDataSource) *CABundle {
+	return &CABundle{
+		Type:           ds.Type,
+		HTTP:           ds.HTTP,
+		ContainerImage: ds.ContainerImage,
+	}
+}
+
+func (ds *CABundle) HasCABundle() bool {
+	return len(ds.GetCABundle()) > 0
+}
+
+func (ds *CABundle) GetCABundle() string {
 	if ds == nil {
 		return ""
 	}
 	switch ds.Type {
-	case virtv2alpha1.DataSourceTypeHTTP:
-		if http := ds.HTTP; http != nil {
-			return string(http.CABundle)
+	case virtv2.DataSourceTypeHTTP:
+		if ds.HTTP != nil {
+			return string(ds.HTTP.CABundle)
 		}
-	case virtv2alpha1.DataSourceTypeContainerImage:
-		if img := ds.ContainerImage; img != nil {
-			return string(img.CABundle)
+	case virtv2.DataSourceTypeContainerImage:
+		if ds.ContainerImage != nil {
+			return string(ds.ContainerImage.CABundle)
 		}
 	}
 	return ""
+}
+
+func (ds *CABundle) GetContainerImage() *virtv2.DataSourceContainerRegistry {
+	return ds.ContainerImage
 }

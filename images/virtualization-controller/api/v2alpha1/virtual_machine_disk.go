@@ -22,7 +22,7 @@ type VirtualMachineDisk struct {
 }
 
 type VirtualMachineDiskSpec struct {
-	DataSource            *DataSource              `json:"dataSource,omitempty"`
+	DataSource            *VMDDataSource           `json:"dataSource,omitempty"`
 	PersistentVolumeClaim VMDPersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
@@ -36,6 +36,14 @@ type VirtualMachineDiskStatus struct {
 	Phase          DiskPhase        `json:"phase"`
 	FailureReason  string           `json:"failureReason"`
 	FailureMessage string           `json:"failureMessage"`
+}
+
+type VMDDataSource struct {
+	Type                       DataSourceType               `json:"type,omitempty"`
+	HTTP                       *DataSourceHTTP              `json:"http,omitempty"`
+	ContainerImage             *DataSourceContainerRegistry `json:"containerImage,omitempty"`
+	VirtualMachineImage        *DataSourceNamedRef          `json:"virtualMachineImage,omitempty"`
+	ClusterVirtualMachineImage *DataSourceNamedRef          `json:"clusterVirtualMachineImage,omitempty"`
 }
 
 type VMDDownloadSpeed struct {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -41,7 +42,7 @@ func (r *VMDReconciler) startImporterPod(ctx context.Context, state *VMDReconcil
 
 	opts.Log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
 
-	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, vmd.Spec.DataSource, r.dvcrSettings)
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, datasource.NewCABundleForVMD(vmd.Spec.DataSource), r.dvcrSettings)
 }
 
 // createImporterSettings fills settings for the dvcr-importer binary.

@@ -36,7 +36,7 @@ type VMIReconcilerState struct {
 	PVC            *corev1.PersistentVolumeClaim
 	PV             *corev1.PersistentVolume
 	Pod            *corev1.Pod
-	DVCRDataSource *DataSourcesFromDVCR
+	DVCRDataSource *DVCRDataSource
 	Service        *corev1.Service
 	AttachedVMs    []*virtv2.VirtualMachine
 }
@@ -85,7 +85,8 @@ func (state *VMIReconcilerState) ShouldApplyUpdateStatus() bool {
 }
 
 func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
-	if err := state.VMI.Fetch(ctx); err != nil {
+	err := state.VMI.Fetch(ctx)
+	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 	if state.VMI.IsEmpty() {
@@ -102,34 +103,30 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 
 	switch state.VMI.Current().Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		pod, err := uploader.FindPod(ctx, client, state.VMI.Current())
+		state.Pod, err = uploader.FindPod(ctx, client, state.VMI.Current())
 		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
 			return err
 		}
-		state.Pod = pod
 
 		uploaderService := state.Supplements.UploaderService()
-		service, err := uploader.FindService(ctx, client, uploaderService)
+		state.Service, err = uploader.FindService(ctx, client, uploaderService)
 		if err != nil {
 			return err
 		}
-		state.Service = service
 	default:
-		pod, err := importer.FindPod(ctx, client, state.VMI.Current())
+		state.Pod, err = importer.FindPod(ctx, client, state.VMI.Current())
 		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 			return err
 		}
-		state.Pod = pod
-		dsDvcr, err := NewDVCRDataSource(ctx, state.VMI.Current().Spec.DataSource, state.VMI.Current(), client)
+
+		state.DVCRDataSource, err = NewDVCRDataSourcesForVMI(ctx, state.VMI.Current().Spec.DataSource, state.VMI.Current(), client)
 		if err != nil {
 			return err
 		}
-		state.DVCRDataSource = dsDvcr
 	}
 
 	// TODO use status to save underlying DataVolume name.
 	if dvName, hasKey := state.VMI.Current().Annotations[cc.AnnVMIDataVolume]; hasKey {
-		var err error
 		name := types.NamespacedName{Name: dvName, Namespace: state.VMI.Current().Namespace}
 
 		state.DV, err = helper.FetchObject(ctx, name, client, &cdiv1.DataVolume{})
