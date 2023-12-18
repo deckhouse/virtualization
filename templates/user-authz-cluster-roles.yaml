@@ -1,0 +1,101 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: User
+  name: d8:user-authz:virtualization:user
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachinedisks
+  - virtualmachineimages
+  - virtualmachineipaddressleases
+  - virtualmachineipaddressclaims
+  - virtualmachineblockdeviceattachments
+  - virtualmachines
+  - clustervirtualmachineimages
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: PrivilegedUser
+  name: d8:user-authz:virtualization:privileged-user
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+rules:
+
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/console
+  - virtualmachineinstances/vnc
+  - virtualmachineinstances/vnc/screenshot
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/softreboot
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
+  - virtualmachines/restart
+  - virtualmachines/start
+  - virtualmachines/stop
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  - virtualmachineinstances/freeze
+  verbs:
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: Editor
+  name: d8:user-authz:virtualization:editor
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachinedisks
+  - virtualmachineimages
+  - virtualmachineipaddressleases
+  - virtualmachineipaddressclaims
+  - virtualmachineblockdeviceattachments
+  - virtualmachines
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: ClusterEditor
+  name: d8:user-authz:virtualization:cluster-editor
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - clustervirtualmachineimages
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
