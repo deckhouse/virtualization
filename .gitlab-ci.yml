@@ -262,6 +262,7 @@ build_main:
 
 build_prod:
   stage: build
+  resource_group: prod
   extends:
     - .build
     - .prod
