@@ -35,22 +35,20 @@ import (
 type VMDReconciler struct {
 	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
 
-	controllerNamespace string
-	importerImage       string
-	uploaderImage       string
-	verbose             string
-	pullPolicy          string
-	dvcrSettings        *dvcr.Settings
+	importerImage string
+	uploaderImage string
+	verbose       string
+	pullPolicy    string
+	dvcrSettings  *dvcr.Settings
 }
 
-func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy, controllerNamespace string, dvcrSettings *dvcr.Settings) *VMDReconciler {
+func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *VMDReconciler {
 	return &VMDReconciler{
-		controllerNamespace: controllerNamespace,
-		importerImage:       importerImage,
-		uploaderImage:       uploaderImage,
-		verbose:             verbose,
-		pullPolicy:          pullPolicy,
-		dvcrSettings:        dvcrSettings,
+		importerImage: importerImage,
+		uploaderImage: uploaderImage,
+		verbose:       verbose,
+		pullPolicy:    pullPolicy,
+		dvcrSettings:  dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.VirtualMachineDisk,
 			virtv2.VirtualMachineDiskStatus,
