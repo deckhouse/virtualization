@@ -242,9 +242,9 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 
 			switch state.CVMI.Current().Spec.DataSource.Type {
 			case virtv2.DataSourceTypeClusterVirtualMachineImage:
-				cvmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
+				cvmiStatus.Format = state.DVCRDataSource.GetFormat()
 			case virtv2.DataSourceTypeVirtualMachineImage:
-				cvmiStatus.Format = state.DVCRDataSource.VMI.Status.Format
+				cvmiStatus.Format = state.DVCRDataSource.GetFormat()
 			default:
 				cvmiStatus.Format = finalReport.Format
 			}
@@ -260,7 +260,7 @@ func (r *CVMIReconciler) verifyDataSourceRefs(ctx context.Context, client client
 	cvmi := state.CVMI.Current()
 	switch cvmi.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
-		if err := VerifyDVCRDataSources(cvmi.Spec.DataSource, state.DVCRDataSource); err != nil {
+		if err := state.DVCRDataSource.Validate(); err != nil {
 			return err
 		}
 	case virtv2.DataSourceTypeContainerImage:

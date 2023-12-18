@@ -133,7 +133,7 @@ var _ = Describe("VM", func() {
 					Annotations: nil,
 				},
 				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: &virtv2.DataSource{
+					DataSource: &virtv2.VMDDataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},
@@ -394,7 +394,7 @@ var _ = Describe("Apply VM changes", func() {
 					Name:      vmdName,
 				},
 				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: &virtv2.DataSource{
+					DataSource: &virtv2.VMDDataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},

@@ -338,20 +338,6 @@ func PublishPodErr(err error, podName string, obj client.Object, recorder record
 	return err
 }
 
-// GetSource returns the source string which determines the type of source. If no source or invalid source found, default to http
-func GetSource(ds virtv2alpha1.DataSource) string {
-	switch ds.Type {
-	case virtv2alpha1.DataSourceTypeHTTP:
-		return SourceHTTP
-	case virtv2alpha1.DataSourceTypeContainerImage:
-		return SourceRegistry
-	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage, virtv2alpha1.DataSourceTypeVirtualMachineImage:
-		return SourceDVCR
-	default:
-		return SourceHTTP
-	}
-}
-
 type UIDable interface {
 	GetUID() types.UID
 }

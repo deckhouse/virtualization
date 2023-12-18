@@ -1,12 +1,12 @@
 package v2alpha1
 
-// TODO: more fields from the CRD
-type DataSource struct {
-	Type                       DataSourceType                        `json:"type,omitempty"`
-	HTTP                       *DataSourceHTTP                       `json:"http,omitempty"`
-	ContainerImage             *DataSourceContainerRegistry          `json:"containerImage,omitempty"`
-	VirtualMachineImage        *DataSourceVirtualMachineImage        `json:"virtualMachineImage,omitempty"`
-	ClusterVirtualMachineImage *DataSourceClusterVirtualMachineImage `json:"clusterVirtualMachineImage,omitempty"`
+type DataSourceNamedRef struct {
+	Name string `json:"name"`
+}
+
+type DataSourceNameNamespacedRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 type DataSourceHTTP struct {
@@ -19,11 +19,6 @@ type DataSourceContainerRegistry struct {
 	Image           string          `json:"image"`
 	ImagePullSecret ImagePullSecret `json:"imagePullSecret"`
 	CABundle        []byte          `json:"caBundle"`
-}
-
-type DataSourceVirtualMachineImage struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
 }
 
 type DataSourceClusterVirtualMachineImage struct {
