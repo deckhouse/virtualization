@@ -377,6 +377,8 @@ deploy_to_prod_rock_solid:
 
 cleanup:
   stage: cleanup
+  variables:
+    MODULES_MODULE_TAG: v0.0.0-main
   extends:
   - .dev_vars
   rules:
