@@ -110,7 +110,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		// Start and track importer/uploader Pod.
 		switch {
 		case !state.IsPodInited():
-			if err := r.verifyDataSource(state.VMI.Current(), state); err != nil {
+			if err := r.verifyDataSource(state); err != nil {
 				return err
 			}
 			opts.Log.V(1).Info("Update annotations with Pod name and namespace")
@@ -213,7 +213,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	case vmiStatus.Phase == "":
 		vmiStatus.Phase = virtv2.ImagePending
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-		if err := r.verifyDataSource(state.VMI.Current(), state); err != nil {
+		if err := r.verifyDataSource(state); err != nil {
 			vmiStatus.FailureReason = FailureReasonCannotBeProcessed
 			vmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
 		}
@@ -297,9 +297,9 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 			switch state.VMI.Current().Spec.DataSource.Type {
 			case virtv2.DataSourceTypeClusterVirtualMachineImage:
-				vmiStatus.Format = state.DVCRDataSource.CVMI.Status.Format
+				vmiStatus.Format = state.DVCRDataSource.GetFormat()
 			case virtv2.DataSourceTypeVirtualMachineImage:
-				vmiStatus.Format = state.DVCRDataSource.VMI.Status.Format
+				vmiStatus.Format = state.DVCRDataSource.GetFormat()
 			default:
 				vmiStatus.Format = finalReport.Format
 			}
@@ -486,8 +486,8 @@ func (r *VMIReconciler) removeFinalizers(ctx context.Context, state *VMIReconcil
 	return nil
 }
 
-func (r *VMIReconciler) verifyDataSource(vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState) error {
-	return VerifyDVCRDataSources(vmi.Spec.DataSource, state.DVCRDataSource)
+func (r *VMIReconciler) verifyDataSource(state *VMIReconcilerState) error {
+	return state.DVCRDataSource.Validate()
 }
 
 // initPodName creates new name and update it in the annotation.

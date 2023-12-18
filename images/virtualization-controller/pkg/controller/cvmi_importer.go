@@ -6,6 +6,7 @@ import (
 
 	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -40,7 +41,7 @@ func (r *CVMIReconciler) startImporterPod(
 	opts.Log.V(1).Info("Created importer POD", "pod.Name", pod.Name)
 
 	// Ensure supplement resources for the Pod.
-	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, &cvmi.Spec.DataSource, r.dvcrSettings)
+	return supplements.EnsureForPod(ctx, opts.Client, state.Supplements, pod, datasource.NewCABundleForCVMI(cvmi.Spec.DataSource), r.dvcrSettings)
 }
 
 // createImporterSettings fills settings for the dvcr-importer binary.

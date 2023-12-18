@@ -36,11 +36,19 @@ type VirtualMachineImageList struct {
 type VirtualMachineImageSpec struct {
 	Storage               StorageType              `json:"storage"`
 	PersistentVolumeClaim VMIPersistentVolumeClaim `json:"persistentVolumeClaim"`
-	DataSource            DataSource               `json:"dataSource"`
+	DataSource            VMIDataSource            `json:"dataSource"`
 }
 
 type VirtualMachineImageStatus struct {
 	ImageStatus `json:",inline"`
+}
+
+type VMIDataSource struct {
+	Type                       DataSourceType               `json:"type,omitempty"`
+	HTTP                       *DataSourceHTTP              `json:"http,omitempty"`
+	ContainerImage             *DataSourceContainerRegistry `json:"containerImage,omitempty"`
+	VirtualMachineImage        *DataSourceNamedRef          `json:"virtualMachineImage,omitempty"`
+	ClusterVirtualMachineImage *DataSourceNamedRef          `json:"clusterVirtualMachineImage,omitempty"`
 }
 
 type StorageType string

@@ -11,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	dsutil "github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
@@ -19,18 +18,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
+type DataSource interface {
+	HasCABundle() bool
+	GetCABundle() string
+	GetContainerImage() *virtv2.DataSourceContainerRegistry
+}
+
 // EnsureForPod make supplements for importer or uploader Pod:
 // - It creates ConfigMap with caBundle for http and containerImage data sources.
 // - It copies DVCR auth Secret to use DVCR as destination.
-func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds *virtv2.DataSource, dvcrSettings *dvcr.Settings) error {
+func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
 	// Create ConfigMap with caBundle.
-	if dsutil.HasCABundle(ds) {
+	if ds.HasCABundle() {
 		caBundleCM := supGen.CABundleConfigMap()
 		caBundleCopier := copier.CABundleConfigMap{
 			Destination:    caBundleCM,
 			OwnerReference: podutil.MakeOwnerReference(pod),
 		}
-		_, err := caBundleCopier.Create(ctx, client, dsutil.GetCABundle(ds))
+		_, err := caBundleCopier.Create(ctx, client, ds.GetCABundle())
 		if err != nil {
 			return fmt.Errorf("create ConfigMap/%s with ca bundle: %w", caBundleCM.Name, err)
 		}
@@ -56,12 +61,12 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 	}
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
-	if ds != nil && ShouldCopyImagePullSecret(ds.ContainerImage, supGen.Namespace) {
+	if ds != nil && ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace) {
 		imgPull := supGen.ImagePullSecret()
 		imgPullCopier := copier.Secret{
 			Source: types.NamespacedName{
-				Namespace: ds.ContainerImage.ImagePullSecret.Name,
-				Name:      ds.ContainerImage.ImagePullSecret.Namespace,
+				Namespace: ds.GetContainerImage().ImagePullSecret.Name,
+				Name:      ds.GetContainerImage().ImagePullSecret.Namespace,
 			},
 			Destination:    imgPull,
 			OwnerReference: podutil.MakeOwnerReference(pod),

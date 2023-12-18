@@ -33,7 +33,7 @@ type CVMIReconcilerState struct {
 	CVMI           *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 	Service        *corev1.Service
 	Pod            *corev1.Pod
-	DVCRDataSource *DataSourcesFromDVCR
+	DVCRDataSource *DVCRDataSource
 	AttachedVMs    []*virtv2.VirtualMachine
 }
 
@@ -80,7 +80,8 @@ func (state *CVMIReconcilerState) GetReconcilerResult() *reconcile.Result {
 }
 
 func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
-	if err := state.CVMI.Fetch(ctx); err != nil {
+	err := state.CVMI.Fetch(ctx)
+	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 	if state.CVMI.IsEmpty() {
@@ -99,34 +100,30 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 
 	switch t {
 	case virtv2.DataSourceTypeUpload:
-		pod, err := uploader.FindPod(ctx, client, state.CVMI.Current())
+		state.Pod, err = uploader.FindPod(ctx, client, state.CVMI.Current())
 		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
 			return err
 		}
-		state.Pod = pod
 
 		uploaderService := state.Supplements.UploaderService()
-		service, err := uploader.FindService(ctx, client, uploaderService)
+		state.Service, err = uploader.FindService(ctx, client, uploaderService)
 		if err != nil {
 			return err
 		}
-		state.Service = service
 	default:
-		pod, err := importer.FindPod(ctx, client, state.CVMI.Current())
+		state.Pod, err = importer.FindPod(ctx, client, state.CVMI.Current())
 		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 			return err
 		}
-		state.Pod = pod
 	}
 
 	// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
 	switch t {
 	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
-		dsDvcr, err := NewDVCRDataSource(ctx, state.CVMI.Current().Spec.DataSource, state.CVMI.Current(), client)
+		state.DVCRDataSource, err = NewDVCRDataSourcesForCVMI(ctx, state.CVMI.Current().Spec.DataSource, client)
 		if err != nil {
 			return err
 		}
-		state.DVCRDataSource = dsDvcr
 	}
 
 	return state.AttacheeState.Reload(ctx, req, log, client)
