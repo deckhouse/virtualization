@@ -38,8 +38,6 @@ spec:
                             * qcow2;
                             * vmdk;
                             * vdi;
-                            * vhd;
-                            * vhdx;
                             * iso;
                             * raw.
 
