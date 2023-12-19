@@ -26,11 +26,11 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
 
 	if vmdutil.IsBlankPVC(vmd) {
-		if pvcSize.IsZero() {
+		if pvcSize == nil || pvcSize.IsZero() {
 			return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank VMD")
 		}
 
-		return pvcSize, nil
+		return *pvcSize, nil
 	}
 
 	var unpackedSize resource.Quantity
@@ -89,7 +89,7 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	if !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
+	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
 
 		return resource.Quantity{}, errors.New("the specified spec.persistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
@@ -99,8 +99,8 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 	// TODO(future): remove size adjusting after get rid of scratch.
 	adjustedSize := dvutil.AdjustPVCSize(unpackedSize)
 
-	if pvcSize.Cmp(adjustedSize) == 1 {
-		return pvcSize, nil
+	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
+		return *pvcSize, nil
 	}
 
 	return adjustedSize, nil
