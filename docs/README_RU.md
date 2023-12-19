@@ -1,6 +1,7 @@
 ---
 title: "Модуль виртуализации"
 menuTitle: "Виртуализация"
+moduleStatus: experimental
 ---
 
 ## Описание
