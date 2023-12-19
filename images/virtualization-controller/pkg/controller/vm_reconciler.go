@@ -189,10 +189,8 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 			}
 		}
 	case virtv2.MachineScheduling, virtv2.MachineTerminating:
-		if state.KVVMI != nil {
-			if state.KVVMI.Status.Phase == virtv1.Running {
-				state.VM.Changed().Status.Phase = virtv2.MachineRunning
-			}
+		if state.KVVMI != nil && state.KVVMI.Status.Phase == virtv1.Running {
+			state.VM.Changed().Status.Phase = virtv2.MachineRunning
 		}
 	case virtv2.MachineRunning:
 		// VM restart is in progress.

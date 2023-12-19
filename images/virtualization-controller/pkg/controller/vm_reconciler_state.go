@@ -21,6 +21,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	merger "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -241,7 +242,7 @@ func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceS
 func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
 	switch spec.Type {
 	case virtv2.ImageDevice:
-		vs := state.FindVolumeStatus(spec.VirtualMachineImage.Name)
+		vs := state.FindVolumeStatus(kvbuilder.GenerateVMIDiskName(spec.VirtualMachineImage.Name))
 		if vs == nil {
 			return nil
 		}
@@ -258,7 +259,7 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 		}
 
 	case virtv2.DiskDevice:
-		vs := state.FindVolumeStatus(spec.VirtualMachineDisk.Name)
+		vs := state.FindVolumeStatus(kvbuilder.GenerateVMDDiskName(spec.VirtualMachineDisk.Name))
 		if vs == nil {
 			return nil
 		}
@@ -275,7 +276,7 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 		}
 
 	case virtv2.ClusterImageDevice:
-		vs := state.FindVolumeStatus(spec.ClusterVirtualMachineImage.Name)
+		vs := state.FindVolumeStatus(kvbuilder.GenerateCVMIDiskName(spec.ClusterVirtualMachineImage.Name))
 		if vs == nil {
 			return nil
 		}
