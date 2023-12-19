@@ -18,6 +18,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/testutil"
@@ -254,7 +255,7 @@ var _ = Describe("VM", func() {
 			})
 			kvvmi.Status.NodeName = "k3d-k3s-default-server-0"
 			kvvmi.Status.VolumeStatus = append(kvvmi.Status.VolumeStatus, virtv1.VolumeStatus{
-				Name:   "test-vmd",
+				Name:   kvbuilder.GenerateVMDDiskName("test-vmd"),
 				Target: "vda",
 			})
 			kvvmi.Status.Phase = virtv1.Scheduling
