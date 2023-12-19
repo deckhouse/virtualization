@@ -140,7 +140,7 @@ var _ = Describe("VM", func() {
 						},
 					},
 					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
 						StorageClassName: &storageClassName,
 					},
 				},
@@ -401,7 +401,7 @@ var _ = Describe("Apply VM changes", func() {
 						},
 					},
 					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             *resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
 						StorageClassName: &storageClassName,
 					},
 				},

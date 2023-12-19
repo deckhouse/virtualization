@@ -676,7 +676,11 @@ func (in *VMDPersistentVolumeClaim) DeepCopyInto(out *VMDPersistentVolumeClaim) 
 		*out = new(string)
 		**out = **in
 	}
-	out.Size = in.Size.DeepCopy()
+	if in.Size != nil {
+		in, out := &in.Size, &out.Size
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	return
 }
 
