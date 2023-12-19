@@ -1,6 +1,5 @@
 ---
 title: "Примеры конфигурации"
-moduleStatus: experimental
 ---
 
 ## Быстрый старт

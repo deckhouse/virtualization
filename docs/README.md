@@ -1,6 +1,7 @@
 ---
 title: "The virtualization module"
 menuTitle: "Virtualization"
+moduleStatus: experimental
 ---
 
 ## Description

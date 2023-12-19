@@ -1,6 +1,5 @@
 ---
 title: "Configuration examples"
-moduleStatus: experimental
 ---
 
 ## Quick start
