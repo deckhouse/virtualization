@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -24,6 +25,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -290,27 +292,41 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	return false, r.ipam.BindIPAddressClaim(ctx, state.VM.Name().Name, state.IPAddressClaim, opts.Client)
 }
 
+func (r *VMReconciler) ShouldDeleteChildResources(state *VMReconcilerState) bool {
+	return state.KVVM != nil ||
+		(state.IPAddressClaim != nil && r.isIPAddressClaimImplicit(state.IPAddressClaim))
+}
+
 func (r *VMReconciler) cleanupOnDeletion(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// The object is being deleted
-
-	// IP address is implicitly linked to the virtual machine: it needs to be deleted when deleting the virtual machine.
-	if state.IPAddressClaim != nil && state.IPAddressClaim.Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue {
-		err := r.ipam.DeleteIPAddressClaim(ctx, state.IPAddressClaim, opts.Client)
-		if err != nil {
-			return err
-		}
+	opts.Log.V(1).Info("Delete VM, remove protective finalizers")
+	if err := r.removeFinalizerChildResources(ctx, state, opts); err != nil {
+		return err
 	}
-
-	if controllerutil.ContainsFinalizer(state.VM.Current(), virtv2.FinalizerVMCleanup) {
-		// Our finalizer is present, so lets cleanup DV, PVC & PV dependencies
-		if state.KVVM != nil && controllerutil.RemoveFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
-			if err := opts.Client.Update(ctx, state.KVVM); err != nil {
-				return fmt.Errorf("unable to remove KubeVirt VM %q finalizer %q: %w", state.KVVM.Name, virtv2.FinalizerKVVMProtection, err)
+	if r.ShouldDeleteChildResources(state) {
+		// IP address is implicitly linked to the virtual machine: it needs to be deleted when deleting the virtual machine.
+		if state.IPAddressClaim != nil && state.IPAddressClaim.DeletionTimestamp == nil && r.isIPAddressClaimImplicit(state.IPAddressClaim) {
+			err := r.ipam.DeleteIPAddressClaim(ctx, state.IPAddressClaim, opts.Client)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return err
 			}
 		}
-		controllerutil.RemoveFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup)
+		if state.KVVM != nil {
+			if err := helper.DeleteObject(ctx, opts.Client, state.KVVM); err != nil {
+				return err
+			}
+		}
+		requeueAfter := 30 * time.Second
+		if p := state.VM.Current().Spec.TerminationGracePeriodSeconds; p != nil {
+			newRequeueAfter := time.Duration(*p) * time.Second
+			if requeueAfter > newRequeueAfter {
+				requeueAfter = newRequeueAfter
+			}
+		}
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: requeueAfter})
+		return nil
 	}
-
+	controllerutil.RemoveFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup)
 	// Stop reconciliation as the item is being deleted
 	return nil
 }
@@ -573,5 +589,19 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 		return err
 	}
 
+	return nil
+}
+
+func (r *VMReconciler) isIPAddressClaimImplicit(claim *virtv2.VirtualMachineIPAddressClaim) bool {
+	return claim.Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue
+}
+
+// removeFinalizerChildResources removes protective finalizers on KVVM, Ip
+func (r *VMReconciler) removeFinalizerChildResources(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.KVVM != nil && controllerutil.RemoveFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection) {
+		if err := opts.Client.Update(ctx, state.KVVM); err != nil {
+			return fmt.Errorf("unable to remove KubeVirt VM %q finalizer %q: %w", state.KVVM.Name, virtv2.FinalizerKVVMProtection, err)
+		}
+	}
 	return nil
 }

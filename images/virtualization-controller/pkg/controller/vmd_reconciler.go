@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -95,7 +96,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	switch {
 	case state.IsDeletion():
 		log.V(1).Info("Delete VMD, remove protective finalizers")
-		return r.removeFinalizers(ctx, state, opts)
+		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
 		if controllerutil.AddFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup) {
@@ -468,45 +469,37 @@ func (r *VMDReconciler) ensureDVFinalizers(ctx context.Context, state *VMDReconc
 	return nil
 }
 
-// removeFinalizers removes protective finalizers on Pod, Service, DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
-func (r *VMDReconciler) removeFinalizers(ctx context.Context, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.Pod != nil {
-		if controllerutil.RemoveFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
-			if err := opts.Client.Update(ctx, state.Pod); err != nil {
-				return fmt.Errorf("unable to remove Pod %q finalizer %q: %w", state.Pod.Name, virtv2.FinalizerPodProtection, err)
-			}
-		}
-	}
-	if state.Service != nil {
-		if controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
-			if err := opts.Client.Update(ctx, state.Service); err != nil {
-				return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
-			}
-		}
-	}
-	if state.PV != nil {
-		if controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
-			if err := opts.Client.Update(ctx, state.PV); err != nil {
-				return fmt.Errorf("unable to remove PV %q finalizer %q: %w", state.PV.Name, virtv2.FinalizerPVProtection, err)
-			}
-		}
-	}
-	if state.PVC != nil {
-		if controllerutil.RemoveFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
-			if err := opts.Client.Update(ctx, state.PVC); err != nil {
-				return fmt.Errorf("unable to remove PVC %q finalizer %q: %w", state.PVC.Name, virtv2.FinalizerPVCProtection, err)
-			}
-		}
-	}
-	if state.DV != nil {
-		if controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
-			if err := opts.Client.Update(ctx, state.DV); err != nil {
-				return fmt.Errorf("unable to remove DV %q finalizer %q: %w", state.DV.Name, virtv2.FinalizerDVProtection, err)
-			}
-		}
-	}
-	controllerutil.RemoveFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup)
+func (r *VMDReconciler) ShouldDeleteChildResources(state *VMDReconcilerState) bool {
+	return state.Pod != nil || state.Service != nil || state.PV != nil || state.PVC != nil || state.DV != nil
+}
 
+// removeFinalizerChildResources removes protective finalizers on Pod, Service, DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
+func (r *VMDReconciler) removeFinalizerChildResources(ctx context.Context, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.Pod != nil && controllerutil.RemoveFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
+		if err := opts.Client.Update(ctx, state.Pod); err != nil {
+			return fmt.Errorf("unable to remove Pod %q finalizer %q: %w", state.Pod.Name, virtv2.FinalizerPodProtection, err)
+		}
+	}
+	if state.Service != nil && controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
+		if err := opts.Client.Update(ctx, state.Service); err != nil {
+			return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
+		}
+	}
+	if state.PV != nil && controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
+		if err := opts.Client.Update(ctx, state.PV); err != nil {
+			return fmt.Errorf("unable to remove PV %q finalizer %q: %w", state.PV.Name, virtv2.FinalizerPVProtection, err)
+		}
+	}
+	if state.PVC != nil && controllerutil.RemoveFinalizer(state.PVC, virtv2.FinalizerPVCProtection) {
+		if err := opts.Client.Update(ctx, state.PVC); err != nil {
+			return fmt.Errorf("unable to remove PVC %q finalizer %q: %w", state.PVC.Name, virtv2.FinalizerPVCProtection, err)
+		}
+	}
+	if state.DV != nil && controllerutil.RemoveFinalizer(state.DV, virtv2.FinalizerDVProtection) {
+		if err := opts.Client.Update(ctx, state.DV); err != nil {
+			return fmt.Errorf("unable to remove DV %q finalizer %q: %w", state.DV.Name, virtv2.FinalizerDVProtection, err)
+		}
+	}
 	return nil
 }
 
@@ -605,5 +598,23 @@ func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineD
 		}
 	}
 
+	return nil
+}
+
+func (r *VMDReconciler) cleanupOnDeletion(ctx context.Context, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if err := r.removeFinalizerChildResources(ctx, state, opts); err != nil {
+		return err
+	}
+	if r.ShouldDeleteChildResources(state) {
+		if err := r.cleanup(ctx, state.VMD.Current(), opts.Client, state); err != nil {
+			return err
+		}
+		if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
+			return err
+		}
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		return nil
+	}
+	controllerutil.RemoveFinalizer(state.VMD.Changed(), virtv2.FinalizerVMDCleanup)
 	return nil
 }
