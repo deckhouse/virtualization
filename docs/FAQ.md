@@ -123,7 +123,7 @@ docker push docker.io/username/image:latest
 
 ## How to redirect traffic to a virtual machine
 
-Since the virtual machine runs in a kubernetes cluster, redirecting network traffic to it is done similarly to redirecting traffic through Pods.
+Since the virtual machine runs in a Kubernetes cluster, the forwarding of network traffic to it is done similarly to the forwarding of traffic to the pods.
 
 To do this, you just need to create a service with the required settings.
 
