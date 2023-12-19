@@ -21,7 +21,7 @@ func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName,
 }
 
 func DeleteObject(ctx context.Context, client client.Client, obj client.Object, opts ...client.DeleteOption) error {
-	if obj == nil || obj.GetName() == "" {
+	if obj == nil || obj.GetDeletionTimestamp() != nil {
 		return nil
 	}
 	err := client.Delete(ctx, obj, opts...)
