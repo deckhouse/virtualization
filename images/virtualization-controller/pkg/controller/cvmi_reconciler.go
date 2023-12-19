@@ -83,7 +83,8 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 	// Change the world depending on states of CVMI and Pod.
 	switch {
 	case state.IsDeletion():
-		return r.removeFinalizers(ctx, state, opts)
+		opts.Log.V(1).Info("Delete CVMI, remove protective finalizers")
+		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		if err := r.verifyDataSourceRefs(ctx, opts.Client, state); err != nil {
 			return err
@@ -105,9 +106,6 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		// Delete sub recourses (Pods, Services, Secrets) when CVMI is marked as ready and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
 			opts.Log.V(1).Info("Import done, cleanup")
-			if err := r.removeFinalizers(ctx, state, opts); err != nil {
-				return err
-			}
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
 		}
 		return nil
@@ -410,24 +408,18 @@ func (r *CVMIReconciler) ensurePodFinalizers(ctx context.Context, state *CVMIRec
 	return nil
 }
 
-// removeFinalizers removes protective finalizers on Pod and Service dependencies.
-func (r *CVMIReconciler) removeFinalizers(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.Pod != nil {
-		if controllerutil.RemoveFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
-			if err := opts.Client.Update(ctx, state.Pod); err != nil {
-				return fmt.Errorf("unable to remove Pod %q finalizer %q: %w", state.Pod.Name, virtv2.FinalizerPodProtection, err)
-			}
-		}
-	}
-	if state.Service != nil {
-		if controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
-			if err := opts.Client.Update(ctx, state.Service); err != nil {
-				return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
-			}
-		}
-	}
+func (r *CVMIReconciler) ShouldDeleteChildResources(state *CVMIReconcilerState) bool {
+	return state.Pod != nil || state.Service != nil
+}
 
+func (r *CVMIReconciler) cleanupOnDeletion(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if r.ShouldDeleteChildResources(state) {
+		if err := r.cleanup(ctx, state.CVMI.Current(), opts.Client, state); err != nil {
+			return err
+		}
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		return nil
+	}
 	controllerutil.RemoveFinalizer(state.CVMI.Changed(), virtv2.FinalizerCVMICleanup)
-
 	return nil
 }
