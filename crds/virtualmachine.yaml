@@ -1044,5 +1044,8 @@ spec:
       - name: IPAddress
         type: string
         jsonPath: .status.ipAddress
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
