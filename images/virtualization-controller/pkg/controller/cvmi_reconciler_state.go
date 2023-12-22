@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,12 +33,13 @@ type CVMIReconcilerState struct {
 
 	CVMI           *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
 	Service        *corev1.Service
+	Ingress        *netv1.Ingress
 	Pod            *corev1.Pod
 	DVCRDataSource *DVCRDataSource
 	AttachedVMs    []*virtv2.VirtualMachine
 }
 
-func NewCVMIReconcilerState(namespace string) func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
+func NewCVMIReconcilerState(controllerNamespace string) func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
 	return func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {
 		state := &CVMIReconcilerState{
 			Client: client,
@@ -48,7 +50,7 @@ func NewCVMIReconcilerState(namespace string) func(name types.NamespacedName, lo
 					return obj.Status
 				},
 			),
-			Namespace: namespace,
+			Namespace: controllerNamespace,
 		}
 		state.AttacheeState = vmattachee.NewAttacheeState(
 			state,
@@ -100,13 +102,20 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 
 	switch t {
 	case virtv2.DataSourceTypeUpload:
-		state.Pod, err = uploader.FindPod(ctx, client, state.CVMI.Current())
+		uploaderPod := state.Supplements.UploaderPod()
+		state.Pod, err = uploader.FindPod(ctx, client, uploaderPod)
 		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
 			return err
 		}
 
 		uploaderService := state.Supplements.UploaderService()
 		state.Service, err = uploader.FindService(ctx, client, uploaderService)
+		if err != nil {
+			return err
+		}
+
+		uploaderIng := state.Supplements.UploaderIngress()
+		state.Ingress, err = uploader.FindIngress(ctx, client, uploaderIng)
 		if err != nil {
 			return err
 		}

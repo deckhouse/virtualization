@@ -75,6 +75,8 @@ func (s *Service) makeSpec() *corev1.Service {
 			Selector: map[string]string{
 				cc.UploaderServiceLabel: s.Settings.Name,
 			},
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
 

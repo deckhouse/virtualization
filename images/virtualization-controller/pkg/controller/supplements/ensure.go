@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -12,6 +13,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
+	ingutil "github.com/deckhouse/virtualization-controller/pkg/common/ingress"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -90,6 +92,14 @@ func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bo
 	return dvcrSettings.AuthSecretNamespace != supGen.Namespace
 }
 
+func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
+	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
+		return false
+	}
+	// Should copy if namespaces are different.
+	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace
+}
+
 func ShouldCopyImagePullSecret(ctrImg *virtv2.DataSourceContainerRegistry, targetNS string) bool {
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
 		return false
@@ -158,5 +168,23 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Gen
 		}
 	}
 
+	return nil
+}
+
+func EnsureForIngress(ctx context.Context, client client.Client, supGen *Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
+	if ShouldCopyUploaderTLSSecret(dvcrSettings, supGen) {
+		tlsSecret := supGen.UploaderTLSSecretForIngress()
+		tlsCopier := copier.Secret{
+			Source: types.NamespacedName{
+				Name:      dvcrSettings.UploaderIngressSettings.TLSSecret,
+				Namespace: dvcrSettings.UploaderIngressSettings.TLSSecretNamespace,
+			},
+			Destination:    tlsSecret,
+			OwnerReference: ingutil.MakeOwnerReference(ing),
+		}
+		if err := tlsCopier.Copy(ctx, client); err != nil {
+			return err
+		}
+	}
 	return nil
 }

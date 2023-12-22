@@ -193,21 +193,6 @@ func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
 
 var ErrPodNameNotFound = errors.New("pod name not found")
 
-func FindPod(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Pod, error) {
-	// Extract namespace and name of the importer Pod from annotations.
-	podName := obj.GetAnnotations()[cc.AnnUploadPodName]
-	if podName == "" {
-		return nil, ErrPodNameNotFound
-	}
-
-	// Get namespace from annotations (for cluster-wide resources, e.g. ClusterVirtualMachineImage).
-	// Default is namespace of the input object.
-	podNS := obj.GetAnnotations()[cc.AnnUploaderNamespace]
-	if podNS == "" {
-		podNS = obj.GetNamespace()
-	}
-
-	objName := types.NamespacedName{Name: podName, Namespace: podNS}
-
+func FindPod(ctx context.Context, client client.Client, objName types.NamespacedName) (*corev1.Pod, error) {
 	return helper.FetchObject(ctx, objName, client, &corev1.Pod{})
 }

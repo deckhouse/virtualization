@@ -1,2 +1,0 @@
-{{- $namespace := printf "d8-%s" .Chart.Name -}}
-{{- include "helm_lib_module_https_copy_custom_certificate" (list . $namespace "ingress-tls") -}}

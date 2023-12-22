@@ -3,6 +3,7 @@ package helper
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,8 +21,9 @@ func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName,
 	return obj, nil
 }
 
-func DeleteObject(ctx context.Context, client client.Client, obj client.Object, opts ...client.DeleteOption) error {
-	if obj == nil || obj.GetDeletionTimestamp() != nil {
+func DeleteObject[T client.Object](ctx context.Context, client client.Client, obj T, opts ...client.DeleteOption) error {
+	var empty T
+	if reflect.DeepEqual(empty, obj) || obj.GetDeletionTimestamp() != nil {
 		return nil
 	}
 	err := client.Delete(ctx, obj, opts...)
