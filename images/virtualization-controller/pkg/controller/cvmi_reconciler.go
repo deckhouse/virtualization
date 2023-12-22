@@ -178,12 +178,11 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		t := state.CVMI.Current().Spec.DataSource.Type
 		if t == virtv2.DataSourceTypeUpload &&
 			cvmiStatus.UploadCommand == "" &&
-			state.Service != nil &&
-			len(state.Service.Spec.Ports) > 0 {
+			state.Ingress != nil &&
+			state.Ingress.GetAnnotations()[cc.AnnUploadURL] != "" {
 			cvmiStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST http://%s:%d/v1beta1/upload -T example.iso",
-				state.Service.Spec.ClusterIP,
-				state.Service.Spec.Ports[0].Port,
+				"curl -X POST %s -T example.iso",
+				state.Ingress.GetAnnotations()[cc.AnnUploadURL],
 			)
 		}
 		var progress *monitoring.ImportProgress
@@ -339,14 +338,29 @@ func (r *CVMIReconciler) isReady(cvmi *virtv2.ClusterVirtualMachineImage, state 
 func (r *CVMIReconciler) cleanup(ctx context.Context, cvmi *virtv2.ClusterVirtualMachineImage, client client.Client, state *CVMIReconcilerState) error {
 	switch cvmi.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		if err := uploader.CleanupService(ctx, client, state.Service); err != nil {
-			return err
+		if state.Ingress != nil {
+			if err := uploader.CleanupIngress(ctx, client, state.Ingress); err != nil {
+				return err
+			}
 		}
-
-		return uploader.CleanupPod(ctx, client, state.Pod)
+		if state.Service != nil {
+			if err := uploader.CleanupService(ctx, client, state.Service); err != nil {
+				return err
+			}
+		}
+		if state.Pod != nil {
+			if err := uploader.CleanupPod(ctx, client, state.Pod); err != nil {
+				return err
+			}
+		}
 	default:
-		return importer.CleanupPod(ctx, client, state.Pod)
+		if state.Pod != nil {
+			if err := importer.CleanupPod(ctx, client, state.Pod); err != nil {
+				return err
+			}
+		}
 	}
+	return nil
 }
 
 func (r *CVMIReconciler) startPod(
@@ -361,6 +375,9 @@ func (r *CVMIReconciler) startPod(
 		}
 
 		if err := r.startUploaderService(ctx, state, opts); err != nil {
+			return err
+		}
+		if err := r.startUploaderIngress(ctx, state, opts); err != nil {
 			return err
 		}
 	default:
@@ -390,18 +407,19 @@ func (r *CVMIReconciler) initPodName(state *CVMIReconcilerState) {
 
 // ensurePodFinalizers adds protective finalizers on importer/uploader Pod and Service dependencies.
 func (r *CVMIReconciler) ensurePodFinalizers(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.Pod != nil {
-		if controllerutil.AddFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
-			if err := opts.Client.Update(ctx, state.Pod); err != nil {
-				return fmt.Errorf("error setting finalizer on a Pod %q: %w", state.Pod.Name, err)
-			}
+	if state.Pod != nil && controllerutil.AddFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
+		if err := opts.Client.Update(ctx, state.Pod); err != nil {
+			return fmt.Errorf("error setting finalizer on a Pod %q: %w", state.Pod.Name, err)
 		}
 	}
-	if state.Service != nil {
-		if controllerutil.AddFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
-			if err := opts.Client.Update(ctx, state.Service); err != nil {
-				return fmt.Errorf("error setting finalizer on a Service %q: %w", state.Service.Name, err)
-			}
+	if state.Service != nil && controllerutil.AddFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
+		if err := opts.Client.Update(ctx, state.Service); err != nil {
+			return fmt.Errorf("error setting finalizer on a Service %q: %w", state.Service.Name, err)
+		}
+	}
+	if state.Ingress != nil && controllerutil.AddFinalizer(state.Ingress, virtv2.FinalizerIngressProtection) {
+		if err := opts.Client.Update(ctx, state.Ingress); err != nil {
+			return fmt.Errorf("error setting finalizer on a Ingress %q: %w", state.Ingress.Name, err)
 		}
 	}
 
@@ -409,7 +427,7 @@ func (r *CVMIReconciler) ensurePodFinalizers(ctx context.Context, state *CVMIRec
 }
 
 func (r *CVMIReconciler) ShouldDeleteChildResources(state *CVMIReconcilerState) bool {
-	return state.Pod != nil || state.Service != nil
+	return state.Pod != nil || state.Service != nil || state.Ingress != nil
 }
 
 func (r *CVMIReconciler) cleanupOnDeletion(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
