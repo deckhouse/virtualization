@@ -130,7 +130,6 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 }
 
 // ShouldReconcile tells if Sync and UpdateStatus should run.
-// CVMI should not be reconciled if phase is Ready and no importer or uploader Pod found.
 func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	// CVMI was not found. E.g. CVMI was deleted, but requeue task was triggered.
 	if state.CVMI.IsEmpty() {
@@ -139,7 +138,7 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	if state.AttacheeState.ShouldReconcile(log) {
 		return true
 	}
-	return !(state.CVMI.Current().Status.Phase == virtv2.ImageReady && state.Pod == nil && state.Service == nil)
+	return true
 }
 
 func (state *CVMIReconcilerState) IsProtected() bool {
