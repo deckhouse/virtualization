@@ -90,3 +90,39 @@ func (r *VMDReconciler) createUploaderServiceSettings(state *VMDReconcilerState)
 		OwnerReference: vmdutil.MakeOwnerReference(state.VMD.Current()),
 	}
 }
+
+func (r *VMDReconciler) startUploaderIngress(ctx context.Context, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.V(1).Info("Creating uploader Ingress for VMD", "vmd.Name", state.VMD.Current().Name)
+
+	uploaderIng := uploader.NewIngress(r.createUploaderIngressSettings(state))
+
+	ing, err := uploaderIng.Create(ctx, opts.Client)
+	if err != nil {
+		return err
+	}
+
+	opts.Log.V(1).Info("Created uploader Ingress", "ingress.Name", ing.Name)
+	return supplements.EnsureForIngress(ctx, state.Client, state.Supplements, ing, r.dvcrSettings)
+}
+
+func (r *VMDReconciler) createUploaderIngressSettings(state *VMDReconcilerState) *uploader.IngressSettings {
+	uploaderIng := state.Supplements.UploaderIngress()
+	uploaderSvc := state.Supplements.UploaderService()
+	secretName := r.dvcrSettings.UploaderIngressSettings.TLSSecret
+	if supplements.ShouldCopyUploaderTLSSecret(r.dvcrSettings, state.Supplements) {
+		secretName = state.Supplements.UploaderTLSSecretForIngress().Name
+	}
+	var class *string
+	if c := r.dvcrSettings.UploaderIngressSettings.Class; c != "" {
+		class = &c
+	}
+	return &uploader.IngressSettings{
+		Name:           uploaderIng.Name,
+		Namespace:      uploaderIng.Namespace,
+		Host:           r.dvcrSettings.UploaderIngressSettings.Host,
+		TLSSecretName:  secretName,
+		ServiceName:    uploaderSvc.Name,
+		ClassName:      class,
+		OwnerReference: vmdutil.MakeOwnerReference(state.VMD.Current()),
+	}
+}

@@ -3,6 +3,7 @@ package v2alpha1
 const (
 	FinalizerPodProtection     = "virtualization.deckhouse.io/pod-protection"
 	FinalizerServiceProtection = "virtualization.deckhouse.io/svc-protection"
+	FinalizerIngressProtection = "virtualization.deckhouse.io/ingress-protection"
 	FinalizerSecretProtection  = "virtualization.deckhouse.io/secret-protection"
 	FinalizerDVProtection      = "virtualization.deckhouse.io/dv-protection"
 	FinalizerPVCProtection     = "virtualization.deckhouse.io/pvc-protection"

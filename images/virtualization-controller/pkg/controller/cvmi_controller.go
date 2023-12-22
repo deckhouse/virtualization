@@ -17,7 +17,7 @@ const (
 	cvmiShortName      = "cvmi"
 
 	ImporterPodVerbose    = "3"
-	ImporterPodPullPolicy = string(corev1.PullAlways)
+	ImporterPodPullPolicy = string(corev1.PullIfNotPresent)
 )
 
 func NewCVMIController(

@@ -26,6 +26,14 @@ const (
 	UploaderContainerName = "uploader"
 	// UploaderServiceNamePrefix provides a constant to use as a prefix for uploader Service
 	UploaderServiceNamePrefix = "uploader-svc"
+	// UploaderIngressHostVar is a env variable
+	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
+	// UploaderIngressTLSSecretVar is a env variable
+	UploaderIngressTLSSecretVar = "UPLOADER_INGRESS_TLS_SECRET"
+	// UploaderIngressClassVar is a env variable
+	UploaderIngressClassVar = "UPLOADER_INGRESS_CLASS"
+	// UploaderIngressTLSSecretNS is a env variable
+	UploaderIngressTLSSecretNS = "UPLOADER_INGRESS_TLS_SECRET_NAMESPACE"
 	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod

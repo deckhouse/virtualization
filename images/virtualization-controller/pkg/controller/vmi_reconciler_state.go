@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -38,6 +39,7 @@ type VMIReconcilerState struct {
 	Pod            *corev1.Pod
 	DVCRDataSource *DVCRDataSource
 	Service        *corev1.Service
+	Ingress        *netv1.Ingress
 	AttachedVMs    []*virtv2.VirtualMachine
 }
 
@@ -57,7 +59,6 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 		virtv2.FinalizerVMIProtection,
 		state.VMI,
 	)
-
 	return state
 }
 
@@ -103,13 +104,20 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 
 	switch state.VMI.Current().Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		state.Pod, err = uploader.FindPod(ctx, client, state.VMI.Current())
+		uploaderPod := state.Supplements.UploaderPod()
+		state.Pod, err = uploader.FindPod(ctx, client, uploaderPod)
 		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
 			return err
 		}
 
 		uploaderService := state.Supplements.UploaderService()
 		state.Service, err = uploader.FindService(ctx, client, uploaderService)
+		if err != nil {
+			return err
+		}
+
+		uploaderIng := state.Supplements.UploaderIngress()
+		state.Ingress, err = uploader.FindIngress(ctx, client, uploaderIng)
 		if err != nil {
 			return err
 		}

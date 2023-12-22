@@ -275,12 +275,11 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// Set statue UploadCommand if necessary.
 		if state.VMD.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
 			vmdStatus.UploadCommand == "" &&
-			state.Service != nil &&
-			len(state.Service.Spec.Ports) > 0 {
+			state.Ingress != nil &&
+			state.Ingress.GetAnnotations()[cc.AnnUploadURL] != "" {
 			vmdStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST http://%s:%d/v1beta1/upload -T example.iso",
-				state.Service.Spec.ClusterIP,
-				state.Service.Spec.Ports[0].Port,
+				"curl -X POST %s -T example.iso",
+				state.Ingress.GetAnnotations()[cc.AnnUploadURL],
 			)
 		}
 
@@ -431,18 +430,19 @@ func MapDataVolumePhaseToVMDPhase(phase cdiv1.DataVolumePhase) virtv2.DiskPhase 
 
 // ensurePodFinalizers adds protective finalizers on importer/uploader Pod and Service dependencies.
 func (r *VMDReconciler) ensurePodFinalizers(ctx context.Context, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if state.Pod != nil {
-		if controllerutil.AddFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
-			if err := opts.Client.Update(ctx, state.Pod); err != nil {
-				return fmt.Errorf("error setting finalizer on a Pod %q: %w", state.Pod.Name, err)
-			}
+	if state.Pod != nil && controllerutil.AddFinalizer(state.Pod, virtv2.FinalizerPodProtection) {
+		if err := opts.Client.Update(ctx, state.Pod); err != nil {
+			return fmt.Errorf("error setting finalizer on a Pod %q: %w", state.Pod.Name, err)
 		}
 	}
-	if state.Service != nil {
-		if controllerutil.AddFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
-			if err := opts.Client.Update(ctx, state.Service); err != nil {
-				return fmt.Errorf("error setting finalizer on a Service %q: %w", state.Service.Name, err)
-			}
+	if state.Service != nil && controllerutil.AddFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
+		if err := opts.Client.Update(ctx, state.Service); err != nil {
+			return fmt.Errorf("error setting finalizer on a Service %q: %w", state.Service.Name, err)
+		}
+	}
+	if state.Ingress != nil && controllerutil.AddFinalizer(state.Ingress, virtv2.FinalizerIngressProtection) {
+		if err := opts.Client.Update(ctx, state.Ingress); err != nil {
+			return fmt.Errorf("error setting finalizer on a Ingress %q: %w", state.Ingress.Name, err)
 		}
 	}
 
@@ -478,7 +478,7 @@ func (r *VMDReconciler) ensureDVFinalizers(ctx context.Context, state *VMDReconc
 }
 
 func (r *VMDReconciler) ShouldDeleteChildResources(state *VMDReconcilerState) bool {
-	return state.Pod != nil || state.Service != nil || state.PV != nil || state.PVC != nil || state.DV != nil
+	return state.Pod != nil || state.Service != nil || state.Ingress != nil || state.PV != nil || state.PVC != nil || state.DV != nil
 }
 
 // removeFinalizerChildResources removes protective finalizers on Pod, Service, DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
@@ -491,6 +491,11 @@ func (r *VMDReconciler) removeFinalizerChildResources(ctx context.Context, state
 	if state.Service != nil && controllerutil.RemoveFinalizer(state.Service, virtv2.FinalizerServiceProtection) {
 		if err := opts.Client.Update(ctx, state.Service); err != nil {
 			return fmt.Errorf("unable to remove Service %q finalizer %q: %w", state.Service.Name, virtv2.FinalizerServiceProtection, err)
+		}
+	}
+	if state.Ingress != nil && controllerutil.RemoveFinalizer(state.Ingress, virtv2.FinalizerIngressProtection) {
+		if err := opts.Client.Update(ctx, state.Ingress); err != nil {
+			return fmt.Errorf("unable to remove Ingress %q finalizer %q: %w", state.Ingress.Name, virtv2.FinalizerIngressProtection, err)
 		}
 	}
 	if state.PV != nil && controllerutil.RemoveFinalizer(state.PV, virtv2.FinalizerPVProtection) {
@@ -551,6 +556,9 @@ func (r *VMDReconciler) startPod(
 		if err := r.startUploaderService(ctx, state, opts); err != nil {
 			return err
 		}
+		if err := r.startUploaderIngress(ctx, state, opts); err != nil {
+			return err
+		}
 	default:
 		if err := r.startImporterPod(ctx, state, opts); err != nil {
 			return err
@@ -585,27 +593,34 @@ func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineD
 		// }
 	}
 
-	if state.Pod != nil && cc.ShouldDeletePod(state.VMD.Current()) {
-		if vmd.Spec.DataSource == nil {
-			return fmt.Errorf("unexpected nil spec.dataSource to cleanup")
-		}
+	if vmd.Spec.DataSource == nil {
+		return fmt.Errorf("unexpected nil spec.dataSource to cleanup")
+	}
 
-		switch vmd.Spec.DataSource.Type {
-		case virtv2.DataSourceTypeUpload:
+	switch vmd.Spec.DataSource.Type {
+	case virtv2.DataSourceTypeUpload:
+		if state.Ingress != nil {
+			if err := uploader.CleanupIngress(ctx, client, state.Ingress); err != nil {
+				return err
+			}
+		}
+		if state.Service != nil {
 			if err := uploader.CleanupService(ctx, client, state.Service); err != nil {
 				return err
 			}
-
+		}
+		if state.Pod != nil {
 			if err := uploader.CleanupPod(ctx, client, state.Pod); err != nil {
 				return err
 			}
-		default:
+		}
+	default:
+		if state.Pod != nil {
 			if err := importer.CleanupPod(ctx, client, state.Pod); err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 

@@ -16,6 +16,12 @@ properties:
     - ["10.10.10.0/24", "10.10.20.0/24"]
     items:
       type: string
+  ingressClass:
+    type: string
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+    description: |
+      The Ingress class that will be used to upload images.
+      By default, the `modules.ingressClass` global value is used.
   https:
     type: object
     x-examples:
