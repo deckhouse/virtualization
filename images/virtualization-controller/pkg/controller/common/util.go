@@ -90,6 +90,8 @@ const (
 	AnnUploaderNamespace = AnnAPIGroup + "/storage.import.uploadNamespace"
 	// AnnUploadPodName provides a const for CVMI/VMI/VMD uploadPodName annotation
 	AnnUploadPodName = AnnAPIGroup + "/storage.import.uploadPodName"
+	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation
+	AnnUploadURL = AnnAPIGroup + "/upload.url"
 	// AnnUploadServiceName provides a const for CVMI/VMI/VMD uploadServiceName annotation
 	AnnUploadServiceName = AnnAPIGroup + "/storage.import.uploadServiceName"
 	// AnnDiskID provides a const for our PVC diskId annotation

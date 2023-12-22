@@ -24,4 +24,10 @@
   value: "true"
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.vmCIDRs | quote }}
+- name: UPLOADER_INGRESS_HOST
+  value: {{ include "helm_lib_module_public_domain" (list . "virtualziation") }}
+- name: UPLOADER_INGRESS_TLS_SECRET
+  value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
+- name: UPLOADER_INGRESS_CLASS
+  value: {{ include "helm_lib_module_ingress_class" . | quote }}
 {{- end }}

@@ -65,6 +65,18 @@ func (g *Generator) UploaderService() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
+// UploaderIngress generates name for uploader Ingress.
+func (g *Generator) UploaderIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-ingress-%s", g.Prefix, g.Name)
+	return g.shortenNamespaced(name)
+}
+
+// UploaderTLSSecretForIngress generates name for uploader tls secret.
+func (g *Generator) UploaderTLSSecretForIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-tls-ing-%s", g.Prefix, g.Name)
+	return g.shortenNamespaced(name)
+}
+
 // DataVolume generates name for underlying DataVolume.
 // DataVolume is always one for vmd/vmi, so prefix is used.
 func (g *Generator) DataVolume() types.NamespacedName {
