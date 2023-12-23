@@ -1,8 +1,10 @@
-package e2e_test
+package e2e
 
 import (
 	"fmt"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"testing"
@@ -10,25 +12,32 @@ import (
 )
 
 const (
-	testNamespace          = "test-d8-virtualization"
 	ShortWaitDuration      = 60 * time.Second
 	LongWaitDuration       = 300 * time.Second
 	PhaseReady             = "Ready"
 	PhaseSucceeded         = "Succeeded"
 	PhaseWaitForUserUpload = "WaitForUserUpload"
-	TestdataDir            = "./testdata"
 )
 
-var kubectl kc.Kubectl
+var (
+	conf    *config.Config
+	kubectl kc.Kubectl
+	virtctl virt.Virtctl
+)
 
 func init() {
 	var err error
-	kubectl, err = kc.NewKubectl()
-	if err != nil {
+	if conf, err = config.GetConfig(); err != nil {
+		panic(err)
+	}
+	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
+		panic(err)
+	}
+	if virtctl, err = virt.NewVirtctl(virt.VirtctlConf(conf.ClusterTransport)); err != nil {
 		panic(err)
 	}
 	Cleanup()
-	res := kubectl.CreateResource(kc.ResourceNamespace, testNamespace, kc.KubectlOptions{})
+	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
 		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
 	}
@@ -42,5 +51,5 @@ func TestTests(t *testing.T) {
 }
 
 func Cleanup() {
-	kubectl.DeleteResource(kc.ResourceNamespace, testNamespace, kc.KubectlOptions{})
+	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
 }

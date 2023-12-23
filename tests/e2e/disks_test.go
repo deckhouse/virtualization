@@ -1,257 +1,199 @@
-package e2e_test
+package e2e
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"time"
+	"path"
 )
 
 const (
-	CVMITestdataDir = TestdataDir + "/cvmi"
-	VMITestdataDir  = TestdataDir + "/vmi"
-	VMDTestdataDir  = TestdataDir + "/vmd"
-	UploadHelpImage = "yaroslavborbat/curl-alpine-image"
-	UploadHelpPod   = "upload-helper"
+	UploadHelpPod = "upload-helper"
 )
 
+func cvmiPath(file string) string {
+	return path.Join(conf.Disks.CvmiTestDataDir, file)
+}
+
+func vmiPath(file string) string {
+	return path.Join(conf.Disks.VmiTestDataDir, file)
+}
+
+func vmdPath(file string) string {
+	return path.Join(conf.Disks.VmdTestDataDir, file)
+}
+
 var _ = Describe("Disks", func() {
-	BeforeEach(func() {
-		By("Check if kubectl can connect to cluster")
+	CheckProgress := func(filepath string) {
+		GinkgoHelper()
+		out := "jsonpath={.status.progress}"
+		ItCheckStatusFromFile(filepath, out, "100%")
+	}
 
-		res := kubectl.List(kc.ResourceNode, kc.KubectlOptions{
-			Output: "jsonpath={.items[0].status.conditions[-1].type}",
+	ItUpload := func(filepath string) {
+		GinkgoHelper()
+		ItApplyWaitGet(filepath, ApplyWaitGetOptions{
+			Phase: PhaseWaitForUserUpload,
 		})
-
-		Expect(res.StdOut()).To(Equal("Ready"))
-	})
+		It("Run pod upload helper", func() {
+			res := kubectl.Get(filepath, kc.GetOptions{
+				Output: "jsonpath={.status.uploadCommand}",
+			})
+			Expect(res.Error()).To(BeNil(), "get failed upload.\n%s", res.StdErr())
+			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s --image=%s -- %s", conf.Namespace, UploadHelpPod, conf.Disks.UploadHelperImage, res.StdOut())
+			res = kubectl.RawCommand(subCMD, LongWaitDuration)
+			Expect(res.Error()).To(BeNil(), "craete pod upload helper failed.\n%s", res.StdErr())
+			forF := "jsonpath={.status.phase}=" + PhaseSucceeded
+			res = kubectl.WaitResource(kc.ResourcePod, UploadHelpPod, kc.WaitOptions{
+				For:     forF,
+				Timeout: LongWaitDuration,
+			})
+			Expect(res.Error()).To(BeNil(), "wait failed pod %s/%s.\n%s", conf.Namespace, UploadHelpPod, res.StdErr())
+			res = kubectl.GetResource(kc.ResourcePod, UploadHelpPod,
+				kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath={.status.phase}",
+				})
+			Expect(res.Error()).To(BeNil(), "get failed pod %s/%s.\n%s", conf.Namespace, UploadHelpPod, res.StdErr())
+			Expect(res.StdOut()).To(Equal(PhaseSucceeded))
+		})
+		ItWaitFromFile(filepath, PhaseReady, ShortWaitDuration)
+		ItChekStatusPhaseFromFile(filepath, PhaseReady)
+	}
 
 	Context("CVMI", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for cvmi tests")
-			kubectl.Delete(CVMITestdataDir+"/", kc.KubectlOptions{})
+			kubectl.Delete(conf.Disks.CvmiTestDataDir, kc.DeleteOptions{})
 		})
 		When("http source", func() {
-			ApplyWaitGetReady(CVMITestdataDir+"/cvmi_http.yaml", ApplyWaitGetReadyOptions{})
+			filepath := cvmiPath("/cvmi_http.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{})
+			CheckProgress(filepath)
 		})
 		When("containerimage source", func() {
-			ApplyWaitGetReady(CVMITestdataDir+"/cvmi_containerimage.yaml", ApplyWaitGetReadyOptions{})
+			filepath := cvmiPath("/cvmi_containerimage.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{})
+			CheckProgress(filepath)
 		})
 		When("vmi source", func() {
-			ApplyWaitGetReady(CVMITestdataDir+"/cvmi_vmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := cvmiPath("/cvmi_vmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("cvmi source", func() {
-			ApplyWaitGetReady(CVMITestdataDir+"/cvmi_cvmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := cvmiPath("/cvmi_cvmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for cvmi upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.KubectlOptions{
-					Namespace: testNamespace,
+				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+					Namespace: conf.Namespace,
 				})
 			})
-			Upload(CVMITestdataDir + "/cvmi_upload.yaml")
+			filepath := cvmiPath("/cvmi_upload.yaml")
+			ItUpload(filepath)
+			CheckProgress(filepath)
 		})
 	})
 	Context("VMI", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for vmi tests")
-			kubectl.Delete(VMITestdataDir+"/", kc.KubectlOptions{})
+			kubectl.Delete(conf.Disks.VmiTestDataDir, kc.DeleteOptions{})
 		})
 		When("http source", func() {
-			ApplyWaitGetReady(VMITestdataDir+"/vmi_http.yaml", ApplyWaitGetReadyOptions{})
+			filepath := vmiPath("/vmi_http.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{})
+			CheckProgress(filepath)
 		})
 		When("containerimage source", func() {
-			ApplyWaitGetReady(VMITestdataDir+"/vmi_containerimage.yaml", ApplyWaitGetReadyOptions{})
+			filepath := vmiPath("/vmi_containerimage.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{})
+			CheckProgress(filepath)
 		})
 		When("vmi source", func() {
-			ApplyWaitGetReady(VMITestdataDir+"/vmi_vmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmiPath("/vmi_vmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("cvmi source", func() {
-			ApplyWaitGetReady(VMITestdataDir+"/vmi_cvmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmiPath("/vmi_cvmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for vmi upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.KubectlOptions{
-					Namespace: testNamespace,
+				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+					Namespace: conf.Namespace,
 				})
 			})
-			Upload(VMITestdataDir + "/vmi_upload.yaml")
+			filepath := vmiPath("/vmi_upload.yaml")
+			ItUpload(filepath)
+			CheckProgress(filepath)
 		})
 	})
 	Context("VMD", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for vmd tests")
-			kubectl.Delete(VMDTestdataDir+"/", kc.KubectlOptions{})
+			kubectl.Delete(conf.Disks.VmdTestDataDir, kc.DeleteOptions{})
 		})
 		When("http source", func() {
-			ApplyWaitGetReady(VMDTestdataDir+"/vmd_http.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmdPath("/vmd_http.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("containerimage source", func() {
-			ApplyWaitGetReady(VMDTestdataDir+"/vmd_containerimage.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmdPath("/vmd_containerimage.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("vmi source", func() {
-			ApplyWaitGetReady(VMDTestdataDir+"/vmd_vmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmdPath("/vmd_vmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("cvmi source", func() {
-			ApplyWaitGetReady(VMDTestdataDir+"/vmd_cvmi.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmdPath("/vmd_cvmi.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("blank", func() {
-			ApplyWaitGetReady(VMDTestdataDir+"/vmd_blank.yaml", ApplyWaitGetReadyOptions{
+			filepath := vmdPath("/vmd_blank.yaml")
+			ItApplyWaitGet(filepath, ApplyWaitGetOptions{
 				WaitTimeout: LongWaitDuration,
 			})
+			CheckProgress(filepath)
 		})
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for vmd upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.KubectlOptions{
-					Namespace: testNamespace,
+				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+					Namespace: conf.Namespace,
 				})
 			})
-			Upload(VMDTestdataDir + "/vmd_upload.yaml")
+			filepath := vmdPath("/vmd_upload.yaml")
+			ItUpload(filepath)
+			CheckProgress(filepath)
 		})
 	})
 })
-
-type ApplyWaitGetReadyOptions struct {
-	WaitTimeout time.Duration
-	Phase       string
-}
-
-func ApplyWaitGetReady(filepath string, options ApplyWaitGetReadyOptions) {
-	timeout := ShortWaitDuration
-	if options.WaitTimeout != 0 {
-		timeout = options.WaitTimeout
-	}
-	phase := PhaseReady
-	if options.Phase != "" {
-		phase = options.Phase
-	}
-	Apply(filepath)
-	Wait(filepath, phase, timeout)
-	Get(filepath, phase)
-
-}
-
-func Apply(filepath string) {
-	It("Apply resource from file", func() {
-		fmt.Printf("Run test for file %s\n", filepath)
-		res := kubectl.Apply(filepath, kc.KubectlOptions{})
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("apply failed for file %s\n err: %v\n %s", filepath, res.Error(), res.StdErr()))
-		}
-	})
-
-}
-
-func Wait(filepath, phase string, timeout time.Duration) {
-	It("Wait resource", func() {
-		forF := "jsonpath={.status.phase}=" + phase
-		res := kubectl.Wait(filepath, kc.KubectlOptions{
-			WaitTimeout: timeout,
-			WaitFor:     forF,
-		})
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("wait failed for file %s\n err: %v\n %s", filepath, res.Error(), res.StdErr()))
-		}
-	})
-}
-
-func Get(filepath, phase string) {
-	unstructs, err := helper.ParseYaml(filepath)
-	if err != nil {
-		defer GinkgoRecover()
-		Fail(fmt.Sprintf("cannot decode objs from yaml file %s %v", filepath, err))
-	}
-
-	for _, u := range unstructs {
-		It("Get recourse status "+u.GetName(), func() {
-			fullName := helper.GetFullApiResourceName(u)
-			out := "jsonpath={.status.phase}"
-			var res *executor.CMDResult
-			if u.GetNamespace() == "" {
-				res = kubectl.GetResource(fullName, u.GetName(), kc.KubectlOptions{Output: out})
-			} else {
-				res = kubectl.GetResource(fullName, u.GetName(), kc.KubectlOptions{
-					Output:    out,
-					Namespace: u.GetNamespace()})
-			}
-			if !res.WasSuccess() {
-				defer GinkgoRecover()
-				Fail(fmt.Sprintf("get failed resource %s %s/%s\n err: %v\n%s",
-					u.GetKind(),
-					u.GetNamespace(),
-					err,
-					u.GetName(),
-					res.StdErr(),
-				),
-				)
-			}
-			Expect(res.StdOut()).To(Equal(phase))
-		})
-	}
-}
-
-func Upload(filepath string) {
-	ApplyWaitGetReady(filepath, ApplyWaitGetReadyOptions{
-		Phase: PhaseWaitForUserUpload,
-	})
-	It("Run pod upload helper", func() {
-		res := kubectl.Get(filepath, kc.KubectlOptions{
-			Output: "jsonpath={.status.uploadCommand}",
-		})
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("get failed upload. err: %v\n%s", res.Error(), res.StdErr()))
-		}
-		subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s --image=%s -- %s", testNamespace, UploadHelpPod, UploadHelpImage, res.StdOut())
-		res = kubectl.RawCommand(subCMD, LongWaitDuration)
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("craete pod upload helper failed. err: %v\n%s", res.Error(), res.StdErr()))
-		}
-		forF := "jsonpath={.status.phase}=" + PhaseSucceeded
-		res = kubectl.WaitResource(kc.ResourcePod, UploadHelpPod, kc.KubectlOptions{
-			WaitFor:     forF,
-			WaitTimeout: LongWaitDuration,
-		})
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("wait failed pod %s/%s. err: %v\n%s", testNamespace, UploadHelpPod, res.Error(), res.StdErr()))
-		}
-		res = kubectl.GetResource(kc.ResourcePod, UploadHelpPod,
-			kc.KubectlOptions{
-				Namespace: testNamespace,
-				Output:    "jsonpath={.status.phase}",
-			})
-		if !res.WasSuccess() {
-			defer GinkgoRecover()
-			Fail(fmt.Sprintf("get failed pod %s/%s. err: %v\n%s", testNamespace, UploadHelpPod, res.Error(), res.StdErr()))
-		}
-		Expect(res.StdOut()).To(Equal(PhaseSucceeded))
-	})
-	Wait(filepath, PhaseReady, ShortWaitDuration)
-	Get(filepath, PhaseReady)
-}

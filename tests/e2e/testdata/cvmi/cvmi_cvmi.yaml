@@ -6,7 +6,7 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: "https://share.lv426.space/alpine-3-18.qcow2"
+      url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
 
 apiVersion: virtualization.deckhouse.io/v2alpha1

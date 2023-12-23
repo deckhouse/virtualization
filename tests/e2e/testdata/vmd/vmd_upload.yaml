@@ -5,7 +5,6 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
-    size: 100Mi
-    storageClassName: "linstor-thick-data-r1"
+    size: 200Mi
   dataSource:
     type: "Upload"

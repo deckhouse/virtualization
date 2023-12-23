@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v2alpha1
 kind: VirtualMachineImage
 metadata:
-  name: test-vmi-http
+  name: test-vm-image
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -9,4 +9,4 @@ spec:
     type: "HTTP"
     http:
       insecureSkipVerify: true
-      url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+      url: "https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img"

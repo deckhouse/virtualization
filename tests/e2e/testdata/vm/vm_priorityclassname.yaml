@@ -1,0 +1,28 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: test-high-priority
+value: 1000000
+globalDefault: false
+description: "test high priority"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: test-vm-priorityclassname
+  namespace: test-d8-virtualization
+spec:
+  disruptions:
+    approvalMode: Automatic
+  runPolicy: AlwaysOn
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineImage
+      virtualMachineImage:
+        name: test-vm-image
+  priorityClassName: test-high-priority

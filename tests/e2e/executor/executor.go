@@ -89,8 +89,12 @@ func (r CMDResult) StdOut() string {
 	return r.stdOut.String()
 }
 
+func (r CMDResult) StdOutBytes() []byte {
+	return r.stdOut.Bytes()
+}
+
 func (r CMDResult) StdErr() string {
-	return r.stdOut.String()
+	return r.stdErr.String()
 }
 
 func (r CMDResult) WasSuccess() bool {
