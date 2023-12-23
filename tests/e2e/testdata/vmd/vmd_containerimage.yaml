@@ -9,7 +9,6 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 200Mi
-    storageClassName: "linstor-thick-data-r1"
   dataSource:
     type: ContainerImage
     containerImage:

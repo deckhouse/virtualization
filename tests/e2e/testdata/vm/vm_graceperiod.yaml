@@ -1,0 +1,20 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: test-vm-graceperiod
+  namespace: test-d8-virtualization
+spec:
+  disruptions:
+    approvalMode: Automatic
+  runPolicy: AlwaysOn
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineImage
+      virtualMachineImage:
+        name: test-vm-image
+  terminationGracePeriodSeconds: 5

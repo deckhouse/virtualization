@@ -4,64 +4,112 @@ import (
 	"context"
 	"fmt"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 const (
-	Cmd                        = "kubectl"
-	ApplyTimeout               = 10 * time.Second
-	CreateTimeout              = 10 * time.Second
-	GetTimeout                 = 60 * time.Second
-	WaitTimeout                = 30 * time.Second
-	ResourceNode      Resource = "node"
-	ResourceNamespace Resource = "namespace"
-	ResourcePod       Resource = "pod"
+	Cmd           = "kubectl"
+	ShortTimeout  = 10 * time.Second
+	MediumTimeout = 30 * time.Second
+	LongTimeout   = 60 * time.Second
 )
 
 type Resource string
 
 type Kubectl interface {
-	Apply(filepath string, opts KubectlOptions) *executor.CMDResult
-	Create(filepath string, opts KubectlOptions) *executor.CMDResult
-	CreateResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult
-	Get(filepath string, opts KubectlOptions) *executor.CMDResult
-	GetResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult
-	Delete(filepath string, opts KubectlOptions) *executor.CMDResult
-	DeleteResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult
-	List(resource Resource, opts KubectlOptions) *executor.CMDResult
-	Wait(filepath string, opts KubectlOptions) *executor.CMDResult
-	WaitResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult
+	Apply(filepath string, opts ApplyOptions) *executor.CMDResult
+	Create(filepath string, opts CreateOptions) *executor.CMDResult
+	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
+	Get(filepath string, opts GetOptions) *executor.CMDResult
+	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
+	Delete(filepath string, opts DeleteOptions) *executor.CMDResult
+	DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult
+	List(resource Resource, opts GetOptions) *executor.CMDResult
+	Wait(filepath string, opts WaitOptions) *executor.CMDResult
+	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
+	Patch(filepath string, opts PatchOptions) *executor.CMDResult
+	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
 }
 
-type KubectlOptions struct {
-	Namespace   string
-	Output      string
-	Force       bool
-	WaitFor     string
-	WaitTimeout time.Duration
+type ApplyOptions struct {
+	Namespace string
+	Output    string
+	Force     bool
 }
 
-func NewKubectl() (*KubectlCMD, error) {
-	if kubeConfig := os.Getenv("KUBECONFIG"); kubeConfig != "" {
-		e := executor.NewExecutor([]string{"KUBECONFIG=" + kubeConfig})
+type CreateOptions struct {
+	Namespace string
+	Output    string
+}
+
+type DeleteOptions struct {
+	Namespace string
+}
+
+type GetOptions struct {
+	Namespace string
+	Output    string
+}
+
+type WaitOptions struct {
+	Namespace string
+	For       string
+	Timeout   time.Duration
+}
+
+type PatchOptions struct {
+	Namespace string
+	Type      string
+	PatchFile string
+	JsonPatch *JsonPatch
+}
+
+type JsonPatch struct {
+	Op    string
+	Path  string
+	Value string
+}
+
+func (p JsonPatch) String() string {
+	var value string
+	if _, err := strconv.Atoi(p.Value); err == nil ||
+		strings.HasPrefix(p.Value, "[") ||
+		strings.HasPrefix(p.Value, "{") {
+		value = p.Value
+	} else {
+		value = fmt.Sprintf("\"%s\"", p.Value)
+	}
+	return fmt.Sprintf("[{\"op\": \"%s\", \"path\": \"%s\", \"value\":%s}]", p.Op, p.Path, value)
+}
+
+type KubectlConf struct {
+	KubeConfig           string
+	Token                string
+	Endpoint             string
+	CertificateAuthority string
+	InsecureTls          bool
+}
+
+func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
+	if conf.KubeConfig != "" {
+		e := executor.NewExecutor([]string{"KUBECONFIG=" + conf.KubeConfig})
 		return &KubectlCMD{
 			Executor: e,
 			cmd:      Cmd,
 		}, nil
 	}
-	token := os.Getenv("TOKEN")
-	endpoint := os.Getenv("ENDPOINT")
-	if token == "" || endpoint == "" {
+	if conf.Token == "" || conf.Endpoint == "" {
 		return nil, fmt.Errorf("not found creds for connect to cluster")
 	}
-	cmd := fmt.Sprintf("%s --token=%s --server=%s", Cmd, token, endpoint)
-	if ca := os.Getenv("CA_CRT"); ca != "" {
-		cmd = fmt.Sprintf("%s --certificate-authority=%s", cmd, ca)
+	cmd := fmt.Sprintf("%s --token=%s --server=%s", Cmd, conf.Token, conf.Endpoint)
+	if conf.CertificateAuthority != "" {
+		cmd = fmt.Sprintf("%s --certificate-authority=%s", cmd, conf.CertificateAuthority)
 	}
-	if insecureTLS := os.Getenv("INSECURE_TLS"); insecureTLS != "" {
-		cmd = fmt.Sprintf("%s --insecure-skip-tls-verify=%s", cmd, insecureTLS)
+	if conf.InsecureTls {
+		cmd = fmt.Sprintf("%s --insecure-skip-tls-verify=%t", cmd, true)
 	}
 	e := executor.NewExecutor([]string{})
 	return &KubectlCMD{
@@ -75,105 +123,83 @@ type KubectlCMD struct {
 	cmd string
 }
 
-func (k KubectlCMD) addOptions(cmd string, opts KubectlOptions) string {
-	if opts.Namespace != "" {
-		cmd = fmt.Sprintf("%s -n %s", cmd, opts.Namespace)
-	}
-	if opts.Output != "" {
-		cmd = fmt.Sprintf("%s -o %s", cmd, opts.Output)
-	}
-	return cmd
-}
-
-func (k KubectlCMD) Apply(filepath string, opts KubectlOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s apply -f %s --force=%t", k.cmd, filepath, opts.Force)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), ApplyTimeout)
+func (k KubectlCMD) Apply(filepath string, opts ApplyOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s apply -f %s", k.cmd, filepath)
+	cmd = k.applyOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Create(filepath string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) Create(filepath string, opts CreateOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s create -f %s", k.cmd, filepath)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), CreateTimeout)
+	cmd = k.createOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) CreateResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s create %s %s", k.cmd, resource, name)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), CreateTimeout)
+	cmd = k.createOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Get(filepath string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) Get(filepath string, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get -f %s", k.cmd, filepath)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), GetTimeout)
+	cmd = k.getOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) GetResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s %s", k.cmd, resource, name)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), GetTimeout)
+	cmd = k.getOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Delete(filepath string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) Delete(filepath string, opts DeleteOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s delete -f %s", k.cmd, filepath)
-	cmd = k.addOptions(cmd, opts)
+	cmd = k.deleteOptions(cmd, opts)
 	return k.Exec(cmd)
 }
 
-func (k KubectlCMD) DeleteResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s delete %s %s", k.cmd, resource, name)
-	cmd = k.addOptions(cmd, opts)
+	cmd = k.deleteOptions(cmd, opts)
 	return k.Exec(cmd)
 }
 
-func (k KubectlCMD) List(resource Resource, opts KubectlOptions) *executor.CMDResult {
+func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
-	cmd = k.addOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), GetTimeout)
+	cmd = k.getOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Wait(filepath string, opts KubectlOptions) *executor.CMDResult {
-	forFlag := ""
-	if opts.WaitFor != "" {
-		forFlag = "--for=" + opts.WaitFor
+func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult {
+	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
+	timeout := MediumTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
 	}
-	timeoutFlag := ""
-	timeout := WaitTimeout
-	if opts.WaitTimeout != 0 {
-		timeoutFlag = "--timeout=" + opts.WaitTimeout.String()
-		timeout = opts.WaitTimeout
-	}
-	cmd := fmt.Sprintf("%s wait -f %s %s %s", k.cmd, filepath, forFlag, timeoutFlag)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) WaitResource(resource Resource, name string, opts KubectlOptions) *executor.CMDResult {
-	forFlag := ""
-	if opts.WaitFor != "" {
-		forFlag = "--for=" + opts.WaitFor
+func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult {
+	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
+	timeout := MediumTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
 	}
-	timeoutFlag := ""
-	timeout := WaitTimeout
-	if opts.WaitTimeout != 0 {
-		timeoutFlag = "--timeout=" + opts.WaitTimeout.String()
-		timeout = opts.WaitTimeout
-	}
-	cmd := fmt.Sprintf("%s wait  %s %s %s %s", k.cmd, resource, name, forFlag, timeoutFlag)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
@@ -184,4 +210,79 @@ func (k KubectlCMD) RawCommand(subCmd string, timeout time.Duration) *executor.C
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) Patch(filepath string, opts PatchOptions) *executor.CMDResult {
+	cmd := k.patchOptions(fmt.Sprintf("%s patch -f %s", k.cmd, filepath), opts)
+	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult {
+	cmd := k.patchOptions(fmt.Sprintf("%s patch %s %s", k.cmd, resource, name), opts)
+	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) addNamespace(cmd, ns string) string {
+	if ns != "" {
+		return fmt.Sprintf("%s -n %s", cmd, ns)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addOutput(cmd, output string) string {
+	if output != "" {
+		return fmt.Sprintf("%s -o %s", cmd, output)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addOutput(cmd, opts.Output)
+	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
+}
+
+func (k KubectlCMD) createOptions(cmd string, opts CreateOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addOutput(cmd, opts.Output)
+	return cmd
+}
+
+func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addOutput(cmd, opts.Output)
+	return cmd
+}
+
+func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
+	return k.addNamespace(cmd, opts.Namespace)
+}
+
+func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	if opts.For != "" {
+		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
+	}
+	if opts.Timeout != 0 {
+		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	if opts.Type != "" {
+		cmd = fmt.Sprintf("%s --type=%s", cmd, opts.Type)
+	}
+	if opts.PatchFile != "" {
+		cmd = fmt.Sprintf("%s --patch-file=%s", cmd, opts.PatchFile)
+	}
+	if opts.JsonPatch != nil {
+		cmd = fmt.Sprintf("%s --type=json --patch='%s'", cmd, opts.JsonPatch.String())
+	}
+	return cmd
 }

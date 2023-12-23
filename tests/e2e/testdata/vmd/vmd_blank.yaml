@@ -6,5 +6,4 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 100Mi
-    storageClassName: "linstor-thick-data-r1"
 

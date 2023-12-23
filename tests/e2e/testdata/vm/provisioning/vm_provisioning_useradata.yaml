@@ -1,0 +1,35 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: test-vm-provisioning
+  namespace: test-d8-virtualization
+spec:
+  disruptions:
+    approvalMode: Automatic
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineImage
+      virtualMachineImage:
+        name: test-vm-image
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      users:
+        - default
+        - name: user
+          passwd: "$6$qrEOnVb9Hsqc1TJJ$GGSopDMG0lPFB99dqtXLB7Y2V6md8hOixsvl8B5gtBTEAQILPK5QoWy.2nhG8iA6Vav7eoehqzzylDbj0w.BU/" # "password"
+          shell: /bin/bash
+          lock-passwd: false
+          ssh_pwauth: True
+          chpasswd: { expire: False }
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          groups: users, admin
+          ssh_authorized_keys:
+            - 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com'
+      ssh_deletekeys: false

@@ -1,0 +1,33 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: test-vm-boot-vmd
+  namespace: test-d8-virtualization
+spec:
+  persistentVolumeClaim:
+    size: 200Mi
+  dataSource:
+    type: "HTTP"
+    http:
+      insecureSkipVerify: true
+      url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: test-vm-boot-vmd
+  namespace: test-d8-virtualization
+spec:
+  disruptions:
+    approvalMode: Automatic
+  runPolicy: AlwaysOn
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: test-vm-boot-vmd
