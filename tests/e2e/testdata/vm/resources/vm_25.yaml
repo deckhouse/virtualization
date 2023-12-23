@@ -1,0 +1,20 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachine
+metadata:
+  name: test-vm-resources25
+  namespace: test-d8-virtualization
+spec:
+  disruptions:
+    approvalMode: Automatic
+  runPolicy: AlwaysOn
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    coreFraction: 25%
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineImage
+      virtualMachineImage:
+        name: test-vm-image
