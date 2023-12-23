@@ -14,6 +14,9 @@ includes:
   hooks:
     taskfile: ./hooks
     dir: ./hooks
+  e2e:
+    taskfile: ./tests/e2e
+    dir: ./tests/e2e
 
 vars:
   deckhouse_lib_helm_ver: 1.7.0
