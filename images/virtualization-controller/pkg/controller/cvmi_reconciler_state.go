@@ -36,7 +36,6 @@ type CVMIReconcilerState struct {
 	Ingress        *netv1.Ingress
 	Pod            *corev1.Pod
 	DVCRDataSource *DVCRDataSource
-	AttachedVMs    []*virtv2.VirtualMachine
 }
 
 func NewCVMIReconcilerState(controllerNamespace string) func(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *CVMIReconcilerState {

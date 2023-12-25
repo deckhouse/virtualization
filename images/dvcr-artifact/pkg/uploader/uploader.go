@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"io"
 	"net"
 	"net/http"
@@ -27,6 +26,7 @@ import (
 	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
 )
 

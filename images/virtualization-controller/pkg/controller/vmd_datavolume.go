@@ -44,40 +44,9 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 		}
 
 		unpackedSize = *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
-	case vmd.Spec.DataSource.Type == virtv2.DataSourceTypeVirtualMachineImage && vmd.Spec.DataSource.VirtualMachineImage != nil:
-		var vmi virtv2.VirtualMachineImage
-
-		err := opts.Client.Get(context.Background(), types.NamespacedName{
-			Name:      vmd.Spec.DataSource.VirtualMachineImage.Name,
-			Namespace: vmd.Namespace,
-		}, &vmi)
-		if err != nil {
-			return resource.Quantity{}, err
-		}
-
-		if vmi.Status.Phase != virtv2.ImageReady {
-			return resource.Quantity{}, fmt.Errorf("%w: cannot get size from non-ready vmi", ErrDataSourceNotReady)
-		}
-
-		unpackedSize, err = resource.ParseQuantity(vmi.Status.Size.UnpackedBytes)
-		if err != nil {
-			return resource.Quantity{}, err
-		}
-	case vmd.Spec.DataSource.Type == virtv2.DataSourceTypeClusterVirtualMachineImage && vmd.Spec.DataSource.ClusterVirtualMachineImage != nil:
-		var cvmi virtv2.ClusterVirtualMachineImage
-
-		err := opts.Client.Get(context.Background(), types.NamespacedName{
-			Name: vmd.Spec.DataSource.ClusterVirtualMachineImage.Name,
-		}, &cvmi)
-		if err != nil {
-			return resource.Quantity{}, err
-		}
-
-		if cvmi.Status.Phase != virtv2.ImageReady {
-			return resource.Quantity{}, fmt.Errorf("%w: cannot get size from non-ready cvmi", ErrDataSourceNotReady)
-		}
-
-		unpackedSize, err = resource.ParseQuantity(cvmi.Status.Size.UnpackedBytes)
+	case vmdutil.IsDVCRSource(vmd):
+		var err error
+		unpackedSize, err = resource.ParseQuantity(state.DVCRDataSource.GetSize().UnpackedBytes)
 		if err != nil {
 			return resource.Quantity{}, err
 		}

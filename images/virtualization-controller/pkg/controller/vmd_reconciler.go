@@ -21,6 +21,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
@@ -171,6 +172,10 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	case state.ShouldTrackDataVolume() && (!state.ShouldTrackPod() || state.IsPodComplete()):
 		// Start and track DataVolume.
 		switch {
+		case vmd.IsDVCRSource(state.VMD.Current()) && !state.DVCRDataSource.IsReady():
+			opts.Log.V(1).Info("Wait for the data source to be ready")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+			return nil
 		case !state.HasDataVolumeAnno():
 			if state.ShouldTrackPod() {
 				finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
