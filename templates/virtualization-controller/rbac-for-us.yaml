@@ -79,7 +79,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - cdi.kubevirt.io
+  - x.virtualization.deckhouse.cdi.kubevirt.io
   resources:
   - datavolumes
   verbs:
