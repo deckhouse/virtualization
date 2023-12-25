@@ -27,6 +27,18 @@ func GetDataSourceType(vmi *virtv2alpha1.VirtualMachineImage) string {
 	return string(vmi.Spec.DataSource.Type)
 }
 
+func IsDVCRSource(vmi *virtv2alpha1.VirtualMachineImage) bool {
+	if vmi == nil {
+		return false
+	}
+	switch vmi.Spec.DataSource.Type {
+	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage,
+		virtv2alpha1.DataSourceTypeVirtualMachineImage:
+		return true
+	}
+	return false
+}
+
 // IsTwoPhaseImport returns true when two phase import is required:
 // 1. Import from dataSource to DVCR image using dvcr-importer or dvcr-uploader.
 // 2. Import DVCR image to PVC using DataVolume.

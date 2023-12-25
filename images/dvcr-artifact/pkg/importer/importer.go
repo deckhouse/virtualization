@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/retry"
 	"net/http"
 	"os"
 	"strconv"
@@ -24,7 +22,9 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/retry"
 )
 
 // FIXME(ilya-lesikov): certdir
@@ -125,7 +125,7 @@ func (i *Importer) runForDVCRSource(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error copy repository: %w", err)
 	}
-	return monitoring.WriteImportCompleteMessage(0, 0, 0, "")
+	return nil
 }
 
 func (i *Importer) runForDataSource(ctx context.Context) error {
