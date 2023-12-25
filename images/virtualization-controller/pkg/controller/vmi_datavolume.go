@@ -19,15 +19,30 @@ import (
 )
 
 // getPVCSize retrieves PVC size from importer Pod final report after import is done.
-func (r *VMIReconciler) getPVCSize(state *VMIReconcilerState) (resource.Quantity, error) {
-	finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("importer Pod final report missing: %w", err)
+func (r *VMIReconciler) getPVCSize(vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState) (resource.Quantity, error) {
+	var unpackedSize resource.Quantity
+
+	switch {
+	case vmiutil.IsTwoPhaseImport(vmi):
+		// Get size from the importer Pod to detect if specified PVC size is enough.
+		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+		if err != nil {
+			return resource.Quantity{}, fmt.Errorf("cannot create PVC without final report from the Pod: %w", err)
+		}
+
+		unpackedSize = *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
+	case vmiutil.IsDVCRSource(vmi):
+		var err error
+		unpackedSize, err = resource.ParseQuantity(state.DVCRDataSource.GetSize().UnpackedBytes)
+		if err != nil {
+			return resource.Quantity{}, err
+		}
+	default:
+		return resource.Quantity{}, errors.New("failed to get unpacked size from data source")
 	}
 
-	unpackedSize := *resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
 	if unpackedSize.IsZero() {
-		return resource.Quantity{}, errors.New("no unpacked size in final report")
+		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
 	// Adjust PVC size to feat image onto scratch PVC.
@@ -39,7 +54,7 @@ func (r *VMIReconciler) getPVCSize(state *VMIReconcilerState) (resource.Quantity
 
 func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// Retrieve PVC size.
-	pvcSize, err := r.getPVCSize(state)
+	pvcSize, err := r.getPVCSize(vmi, state)
 	if err != nil {
 		return err
 	}
@@ -58,10 +73,13 @@ func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.Virtua
 	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
 	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec)
 
-	if vmiutil.IsTwoPhaseImport(vmi) {
+	if vmiutil.IsTwoPhaseImport(vmi) || vmiutil.IsDVCRSource(vmi) {
 		// Copy auth credentials and ca bundle to access DVCR as 'registry' data source.
 		// Set DV as an ownerRef to auto-cleanup these copies.
-		return supplements.EnsureForDataVolume(ctx, opts.Client, state.Supplements, dv, r.dvcrSettings)
+		err = supplements.EnsureForDataVolume(ctx, opts.Client, state.Supplements, dv, r.dvcrSettings)
+		if err != nil {
+			return fmt.Errorf("failed to ensure data volume supplements: %w", err)
+		}
 	}
 
 	return nil

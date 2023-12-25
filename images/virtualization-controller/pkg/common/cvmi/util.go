@@ -19,3 +19,15 @@ func MakeOwnerReference(cvmi *virtv2alpha1.ClusterVirtualMachineImage) metav1.Ow
 		Controller:         &isController,
 	}
 }
+
+func IsDVCRSource(cvmi *virtv2alpha1.ClusterVirtualMachineImage) bool {
+	if cvmi == nil {
+		return false
+	}
+	switch cvmi.Spec.DataSource.Type {
+	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage,
+		virtv2alpha1.DataSourceTypeVirtualMachineImage:
+		return true
+	}
+	return false
+}

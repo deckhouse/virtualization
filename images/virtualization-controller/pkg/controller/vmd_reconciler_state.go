@@ -32,13 +32,14 @@ type VMDReconcilerState struct {
 	Supplements *supplements.Generator
 	Result      *reconcile.Result
 
-	VMD     *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
-	DV      *cdiv1.DataVolume
-	PVC     *corev1.PersistentVolumeClaim
-	PV      *corev1.PersistentVolume
-	Pod     *corev1.Pod
-	Service *corev1.Service
-	Ingress *netv1.Ingress
+	VMD            *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	DV             *cdiv1.DataVolume
+	PVC            *corev1.PersistentVolumeClaim
+	PV             *corev1.PersistentVolume
+	Pod            *corev1.Pod
+	Service        *corev1.Service
+	Ingress        *netv1.Ingress
+	DVCRDataSource *DVCRDataSource
 }
 
 func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMDReconcilerState {
@@ -81,7 +82,8 @@ func (state *VMDReconcilerState) GetReconcilerResult() *reconcile.Result {
 }
 
 func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
-	if err := state.VMD.Fetch(ctx); err != nil {
+	err := state.VMD.Fetch(ctx)
+	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 
@@ -101,36 +103,35 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		switch state.VMD.Current().Spec.DataSource.Type {
 		case virtv2.DataSourceTypeUpload:
 			uploaderPod := state.Supplements.UploaderPod()
-			pod, err := uploader.FindPod(ctx, client, uploaderPod)
+			state.Pod, err = uploader.FindPod(ctx, client, uploaderPod)
 			if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
 				return err
 			}
-			state.Pod = pod
 
 			uploaderService := state.Supplements.UploaderService()
-			service, err := uploader.FindService(ctx, client, uploaderService)
+			state.Service, err = uploader.FindService(ctx, client, uploaderService)
 			if err != nil {
 				return err
 			}
-			state.Service = service
 
 			uploaderIng := state.Supplements.UploaderIngress()
-			ing, err := uploader.FindIngress(ctx, client, uploaderIng)
+			state.Ingress, err = uploader.FindIngress(ctx, client, uploaderIng)
 			if err != nil {
 				return err
 			}
-			state.Ingress = ing
 		default:
-			pod, err := importer.FindPod(ctx, client, state.VMD.Current())
+			state.Pod, err = importer.FindPod(ctx, client, state.VMD.Current())
 			if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 				return err
 			}
-			state.Pod = pod
+			state.DVCRDataSource, err = NewDVCRDataSourcesForVMD(ctx, state.VMD.Current().Spec.DataSource, state.VMD.Current(), client)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	if dvName, hasKey := state.VMD.Current().Annotations[cc.AnnVMDDataVolume]; hasKey {
-		var err error
 		name := types.NamespacedName{Name: dvName, Namespace: state.VMD.Current().Namespace}
 
 		state.DV, err = helper.FetchObject(ctx, name, client, &cdiv1.DataVolume{})
@@ -155,7 +156,6 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		switch state.PVC.Status.Phase {
 		case corev1.ClaimBound:
 			pvName := state.PVC.Spec.VolumeName
-			var err error
 			state.PV, err = helper.FetchObject(ctx, types.NamespacedName{Name: pvName, Namespace: state.PVC.Namespace}, client, &corev1.PersistentVolume{})
 			if err != nil {
 				return fmt.Errorf("unable to get PV %q: %w", pvName, err)
