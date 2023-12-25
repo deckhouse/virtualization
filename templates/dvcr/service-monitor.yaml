@@ -13,8 +13,6 @@ spec:
     path: /metrics
     port: metrics
     scheme: http
-    tlsConfig:
-      insecureSkipVerify: true
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}
