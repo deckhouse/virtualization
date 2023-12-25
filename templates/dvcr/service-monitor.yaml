@@ -12,7 +12,7 @@ spec:
       name: prometheus-token
     path: /metrics
     port: metrics
-    scheme: https
+    scheme: http
     tlsConfig:
       insecureSkipVerify: true
   namespaceSelector:
