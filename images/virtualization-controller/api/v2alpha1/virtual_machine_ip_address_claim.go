@@ -39,6 +39,8 @@ type VirtualMachineIPAddressClaimStatus struct {
 	VMName string `json:"virtualMachineName,omitempty"`
 	// Assigned IP address.
 	Address string `json:"address,omitempty"`
+	// The issued `VirtualMachineIPAddressLease`, managed automatically.
+	LeaseName string `json:"leaseName,omitempty"`
 	// Represents the current state of IP address claim.
 	Phase VirtualMachineIPAddressClaimPhase `json:"phase,omitempty"`
 	// Detailed description of the error.

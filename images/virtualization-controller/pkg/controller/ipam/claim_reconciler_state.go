@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -61,7 +61,7 @@ func (state *ClaimReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
 }
 
-func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
+func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, apiClient client.Client) error {
 	err := state.Claim.Fetch(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
@@ -72,12 +72,30 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		return nil
 	}
 
-	vmName := state.Claim.Current().Annotations[common.AnnBoundVirtualMachineName]
-	if vmName != "" {
-		vmKey := types.NamespacedName{Name: vmName, Namespace: state.Claim.Current().Namespace}
-		state.VM, err = helper.FetchObject(ctx, vmKey, client, &virtv2.VirtualMachine{})
+	if state.Claim.Current().Status.VMName != "" {
+		vmKey := types.NamespacedName{Name: state.Claim.Current().Status.VMName, Namespace: state.Claim.Name().Namespace}
+		state.VM, err = helper.FetchObject(ctx, vmKey, apiClient, &virtv2.VirtualMachine{})
 		if err != nil {
 			return fmt.Errorf("unable to get VM %s: %w", vmKey, err)
+		}
+	}
+
+	if state.VM == nil {
+		var vms virtv2.VirtualMachineList
+		err = apiClient.List(ctx, &vms, &client.ListOptions{
+			Namespace: state.Claim.Name().Namespace,
+		})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		for _, vm := range vms.Items {
+			if vm.Spec.VirtualMachineIPAddressClaimName == state.Claim.Name().Name ||
+				vm.Spec.VirtualMachineIPAddressClaimName == "" && vm.Name == state.Claim.Name().Name {
+				state.VM = new(virtv2.VirtualMachine)
+				*state.VM = vm
+				break
+			}
 		}
 	}
 
@@ -87,7 +105,7 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 	}
 	if leaseName != "" {
 		leaseKey := types.NamespacedName{Name: leaseName}
-		state.Lease, err = helper.FetchObject(ctx, leaseKey, client, &virtv2.VirtualMachineIPAddressLease{})
+		state.Lease, err = helper.FetchObject(ctx, leaseKey, apiClient, &virtv2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
 		}
@@ -95,7 +113,7 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 
 	if state.Lease == nil {
 		// Improve by moving the processing of AllocatingIPs to the controller level and not requesting them at each iteration of the reconciler.
-		state.AllocatedIPs, err = getAllocatedIPs(ctx, client)
+		state.AllocatedIPs, err = getAllocatedIPs(ctx, apiClient)
 		if err != nil {
 			return err
 		}
@@ -114,10 +132,10 @@ func (state *ClaimReconcilerState) isDeletion() bool {
 
 type AllocatedIPs map[string]*virtv2.VirtualMachineIPAddressLease
 
-func getAllocatedIPs(ctx context.Context, c client.Client) (AllocatedIPs, error) {
+func getAllocatedIPs(ctx context.Context, apiClient client.Client) (AllocatedIPs, error) {
 	var leases virtv2.VirtualMachineIPAddressLeaseList
 
-	err := c.List(ctx, &leases)
+	err := apiClient.List(ctx, &leases)
 	if err != nil {
 		return nil, fmt.Errorf("error getting leases: %w", err)
 	}

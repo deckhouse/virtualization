@@ -8,7 +8,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -33,7 +32,6 @@ type IPAM interface {
 	IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) bool
 	CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error
 	CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
-	BindIPAddressClaim(ctx context.Context, vmName string, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
 	DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
 }
 
@@ -156,19 +154,6 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	// Ensure IP address claim.
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
-
-		switch {
-		case state.IPAddressClaim != nil:
-			err := r.ipam.CheckClaimAvailableForBinding(state.VM.Name().Name, state.IPAddressClaim)
-			if err != nil {
-				state.VM.Changed().Status.Message = err.Error()
-			}
-		case state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "":
-			state.VM.Changed().Status.Message = "Claim not found: waiting for the Claim"
-		default:
-			state.VM.Changed().Status.Message = "Claim not found: it may be in the process of being created"
-		}
-
 		return nil
 	}
 
@@ -222,7 +207,10 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 
 			for _, i := range state.KVVMI.Status.Interfaces {
 				if i.Name == "default" {
-					state.VM.Changed().Status.IPAddress = i.IP
+					if state.IPAddressClaim.Spec.Address != i.IP {
+						err := fmt.Errorf("allocated ip address (%s) is not equeal to assigned (%s)", state.IPAddressClaim.Spec.Address, i.IP)
+						opts.Log.Error(err, "Unexpected kubevirt virtual machine ip address for default network interface, please report a bug", "kvvm", state.KVVM.Name)
+					}
 					break
 				}
 			}
@@ -262,13 +250,15 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	// 2. Claim not found: create if possible or wait for the claim.
 	if state.IPAddressClaim == nil {
 		if state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "" {
-			opts.Log.Info("Claim not found: waiting for the Claim", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+			opts.Log.Info(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaimName))
+			state.SetStatusMessage(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaimName))
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 
 			return false, nil
 		}
 
 		opts.Log.Info("Claim not found: create the new one", "claimName", state.VM.Name().Name)
+		state.SetStatusMessage("Claim not found: it may be in the process of being created")
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 
 		return false, r.ipam.CreateIPAddressClaim(ctx, state.VM.Current(), opts.Client)
@@ -278,21 +268,22 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	err := r.ipam.CheckClaimAvailableForBinding(state.VM.Name().Name, state.IPAddressClaim)
 	if err != nil {
 		opts.Log.Info("Claim is not available to be bound", "err", err, "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+		state.SetStatusMessage(err.Error())
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonClaimNotAvailable, err.Error())
 
 		return false, nil
 	}
 
-	// 4. Claim exists and available for binding with virtual machine: set binding.
-	opts.Log.Info("Bind VM with Claim and requeue request", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
-	state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+	// 4. Claim exists and available for binding with virtual machine: waiting for the claim.
+	opts.Log.Info("Waiting for the Claim to be bound to VM", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+	state.SetStatusMessage("Claim not bound: waiting for the Claim")
+	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 
-	return false, r.ipam.BindIPAddressClaim(ctx, state.VM.Name().Name, state.IPAddressClaim, opts.Client)
+	return false, nil
 }
 
 func (r *VMReconciler) ShouldDeleteChildResources(state *VMReconcilerState) bool {
-	return state.KVVM != nil ||
-		(state.IPAddressClaim != nil && r.isIPAddressClaimImplicit(state.IPAddressClaim))
+	return state.KVVM != nil
 }
 
 func (r *VMReconciler) cleanupOnDeletion(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
@@ -302,13 +293,6 @@ func (r *VMReconciler) cleanupOnDeletion(ctx context.Context, state *VMReconcile
 		return err
 	}
 	if r.ShouldDeleteChildResources(state) {
-		// IP address is implicitly linked to the virtual machine: it needs to be deleted when deleting the virtual machine.
-		if state.IPAddressClaim != nil && state.IPAddressClaim.DeletionTimestamp == nil && r.isIPAddressClaimImplicit(state.IPAddressClaim) {
-			err := r.ipam.DeleteIPAddressClaim(ctx, state.IPAddressClaim, opts.Client)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return err
-			}
-		}
 		if state.KVVM != nil {
 			if err := helper.DeleteObject(ctx, opts.Client, state.KVVM); err != nil {
 				return err
@@ -588,10 +572,6 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 	}
 
 	return nil
-}
-
-func (r *VMReconciler) isIPAddressClaimImplicit(claim *virtv2.VirtualMachineIPAddressClaim) bool {
-	return claim.Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue
 }
 
 // removeFinalizerChildResources removes protective finalizers on KVVM, Ip
