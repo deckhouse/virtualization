@@ -37,10 +37,9 @@ type VMIReconcilerState struct {
 	PVC            *corev1.PersistentVolumeClaim
 	PV             *corev1.PersistentVolume
 	Pod            *corev1.Pod
-	DVCRDataSource *DVCRDataSource
 	Service        *corev1.Service
 	Ingress        *netv1.Ingress
-	AttachedVMs    []*virtv2.VirtualMachine
+	DVCRDataSource *DVCRDataSource
 }
 
 func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMIReconcilerState {
@@ -126,7 +125,6 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
 			return err
 		}
-
 		state.DVCRDataSource, err = NewDVCRDataSourcesForVMI(ctx, state.VMI.Current().Spec.DataSource, state.VMI.Current(), client)
 		if err != nil {
 			return err
@@ -159,7 +157,6 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		switch state.PVC.Status.Phase {
 		case corev1.ClaimBound:
 			pvName := state.PVC.Spec.VolumeName
-			var err error
 			state.PV, err = helper.FetchObject(ctx, types.NamespacedName{Name: pvName, Namespace: state.PVC.Namespace}, client, &corev1.PersistentVolume{})
 			if err != nil {
 				return fmt.Errorf("unable to get PV %q: %w", pvName, err)

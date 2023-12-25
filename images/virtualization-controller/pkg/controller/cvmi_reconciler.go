@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
@@ -95,6 +96,12 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			return nil
 		}
 	case !r.isInited(state.CVMI.Changed(), state):
+		if cvmiutil.IsDVCRSource(state.CVMI.Current()) && !state.DVCRDataSource.IsReady() {
+			opts.Log.V(1).Info("Wait for the data source to be ready")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+			return nil
+		}
+
 		opts.Log.V(1).Info("New CVMI observed, update annotations with Pod name and namespace")
 		// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
 		r.initPodName(state)
@@ -217,12 +224,18 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		// Cleanup.
 		cvmiStatus.DownloadSpeed.Current = ""
 		cvmiStatus.DownloadSpeed.CurrentBytes = ""
-		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-		if err != nil {
-			opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
-		}
 
-		if finalReport != nil {
+		switch {
+		case cvmiutil.IsDVCRSource(state.CVMI.Current()):
+			cvmiStatus.Format = state.DVCRDataSource.GetFormat()
+			cvmiStatus.Size = state.DVCRDataSource.GetSize()
+		default:
+			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+			if err != nil {
+				opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
+				return err
+			}
+
 			if finalReport.ErrMessage != "" {
 				cvmiStatus.Phase = virtv2.ImageFailed
 				cvmiStatus.FailureReason = virtv2.ReasonErrImportFailed
@@ -230,21 +243,13 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 				break
 			}
 
+			cvmiStatus.Format = finalReport.Format
 			cvmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
 			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			cvmiStatus.Size.Stored = finalReport.StoredSize()
 			cvmiStatus.Size.StoredBytes = strconv.FormatUint(finalReport.StoredSizeBytes, 10)
 			cvmiStatus.Size.Unpacked = finalReport.UnpackedSize()
 			cvmiStatus.Size.UnpackedBytes = strconv.FormatUint(finalReport.UnpackedSizeBytes, 10)
-
-			switch state.CVMI.Current().Spec.DataSource.Type {
-			case virtv2.DataSourceTypeClusterVirtualMachineImage:
-				cvmiStatus.Format = state.DVCRDataSource.GetFormat()
-			case virtv2.DataSourceTypeVirtualMachineImage:
-				cvmiStatus.Format = state.DVCRDataSource.GetFormat()
-			default:
-				cvmiStatus.Format = finalReport.Format
-			}
 		}
 	}
 

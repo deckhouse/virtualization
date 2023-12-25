@@ -44,5 +44,5 @@ type ImageStatusSize struct {
 type ImageStatusTarget struct {
 	RegistryURL string `json:"registryURL"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName
-	PersistentVolumeClaimName string `json:"persistentVolumeClaimName"`
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
 }

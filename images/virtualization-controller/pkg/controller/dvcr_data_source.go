@@ -15,8 +15,10 @@ import (
 const FailureReasonCannotBeProcessed = "The resource cannot be processed."
 
 type DVCRDataSource struct {
-	format string
-	meta   metav1.Object
+	size    virtv2.ImageStatusSize
+	meta    metav1.Object
+	format  string
+	isReady bool
 }
 
 func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.CVMIDataSource, client client.Client) (*DVCRDataSource, error) {
@@ -32,8 +34,12 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.CVMIDataSource, cl
 				return nil, err
 			}
 
-			dsDVCR.meta = vmi
-			dsDVCR.format = vmi.Status.Format
+			if vmi != nil {
+				dsDVCR.size = vmi.Status.Size
+				dsDVCR.format = vmi.Status.Format
+				dsDVCR.meta = vmi.GetObjectMeta()
+				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+			}
 		}
 	case virtv2.DataSourceTypeClusterVirtualMachineImage:
 		cvmiName := ds.ClusterVirtualMachineImage.Name
@@ -43,8 +49,12 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.CVMIDataSource, cl
 				return nil, err
 			}
 
-			dsDVCR.meta = cvmi
-			dsDVCR.format = cvmi.Status.Format
+			if cvmi != nil {
+				dsDVCR.size = cvmi.Status.Size
+				dsDVCR.meta = cvmi.GetObjectMeta()
+				dsDVCR.format = cvmi.Status.Format
+				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+			}
 		}
 	}
 
@@ -64,8 +74,12 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VMIDataSource, obj 
 				return nil, err
 			}
 
-			dsDVCR.meta = vmi
-			dsDVCR.format = vmi.Status.Format
+			if vmi != nil {
+				dsDVCR.size = vmi.Status.Size
+				dsDVCR.format = vmi.Status.Format
+				dsDVCR.meta = vmi.GetObjectMeta()
+				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+			}
 		}
 	case virtv2.DataSourceTypeClusterVirtualMachineImage:
 		cvmiName := ds.ClusterVirtualMachineImage.Name
@@ -75,8 +89,57 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VMIDataSource, obj 
 				return nil, err
 			}
 
-			dsDVCR.meta = cvmi
-			dsDVCR.format = cvmi.Status.Format
+			if cvmi != nil {
+				dsDVCR.size = cvmi.Status.Size
+				dsDVCR.meta = cvmi.GetObjectMeta()
+				dsDVCR.format = cvmi.Status.Format
+				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	}
+
+	return &dsDVCR, nil
+}
+
+func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VMDDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
+	if ds == nil {
+		return nil, nil
+	}
+
+	var dsDVCR DVCRDataSource
+
+	switch ds.Type {
+	case virtv2.DataSourceTypeVirtualMachineImage:
+		vmiName := ds.VirtualMachineImage.Name
+		vmiNS := obj.GetNamespace()
+		if vmiName != "" && vmiNS != "" {
+			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualMachineImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if vmi != nil {
+				// TODO Get size from vmi.status.capacity for Kubernetes vmi.
+				dsDVCR.size = vmi.Status.Size
+				dsDVCR.format = vmi.Status.Format
+				dsDVCR.meta = vmi.GetObjectMeta()
+				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	case virtv2.DataSourceTypeClusterVirtualMachineImage:
+		cvmiName := ds.ClusterVirtualMachineImage.Name
+		if cvmiName != "" {
+			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualMachineImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if cvmi != nil {
+				dsDVCR.size = cvmi.Status.Size
+				dsDVCR.meta = cvmi.GetObjectMeta()
+				dsDVCR.format = cvmi.Status.Format
+				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+			}
 		}
 	}
 
@@ -91,6 +154,14 @@ func (ds *DVCRDataSource) Validate() error {
 	return nil
 }
 
+func (ds *DVCRDataSource) GetSize() virtv2.ImageStatusSize {
+	return ds.size
+}
+
 func (ds *DVCRDataSource) GetFormat() string {
 	return ds.format
+}
+
+func (ds *DVCRDataSource) IsReady() bool {
+	return ds.isReady
 }
