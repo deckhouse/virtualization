@@ -170,9 +170,6 @@ const (
 	AnnVMIDataVolume = AnnAPIGroup + "/vmi.data-volume"
 	AnnVMDDataVolume = AnnAPIGroup + "/vmd.data-volume"
 
-	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
-	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
-
 	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
 	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
 	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.
@@ -310,7 +307,7 @@ func AddLabel(obj metav1.Object, key, value string) {
 
 // PublishPodErr handles pod-creation errors and updates the CVMI without providing sensitive information.
 // TODO make work with VirtualMachineImage object.
-func PublishPodErr(err error, podName string, obj client.Object, recorder record.EventRecorder, c client.Client) error {
+func PublishPodErr(err error, podName string, obj client.Object, recorder record.EventRecorder, apiClient client.Client) error {
 	// Generic reason and msg to avoid providing sensitive information
 	reason := ErrStartingPod
 	msg := fmt.Sprintf(MessageErrStartingPod, podName)
@@ -333,11 +330,7 @@ func PublishPodErr(err error, podName string, obj client.Object, recorder record
 	}
 
 	AddAnnotation(obj, AnnPodPhase, string(corev1.PodFailed))
-	if err := c.Update(context.TODO(), obj); err != nil {
-		return err
-	}
-
-	return err
+	return apiClient.Update(context.TODO(), obj)
 }
 
 type UIDable interface {

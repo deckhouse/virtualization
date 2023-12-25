@@ -14,9 +14,11 @@ const (
 	FinalizerVMDProtection  = "virtualization.deckhouse.io/vmd-protection"
 	FinalizerKVVMProtection = "virtualization.deckhouse.io/kvvm-protection"
 
-	FinalizerCVMICleanup  = "virtualization.deckhouse.io/cvmi-cleanup"
-	FinalizerVMICleanup   = "virtualization.deckhouse.io/vmi-cleanup"
-	FinalizerVMDCleanup   = "virtualization.deckhouse.io/vmd-cleanup"
-	FinalizerVMCleanup    = "virtualization.deckhouse.io/vm-cleanup"
-	FinalizerVMBDACleanup = "virtualization.deckhouse.io/vmbda-cleanup"
+	FinalizerCVMICleanup           = "virtualization.deckhouse.io/cvmi-cleanup"
+	FinalizerVMICleanup            = "virtualization.deckhouse.io/vmi-cleanup"
+	FinalizerVMDCleanup            = "virtualization.deckhouse.io/vmd-cleanup"
+	FinalizerVMCleanup             = "virtualization.deckhouse.io/vm-cleanup"
+	FinalizerIPAddressClaimCleanup = "virtualization.deckhouse.io/vmip-cleanup"
+	FinalizerIPAddressLeaseCleanup = "virtualization.deckhouse.io/vmipl-cleanup"
+	FinalizerVMBDACleanup          = "virtualization.deckhouse.io/vmbda-cleanup"
 )
