@@ -13,3 +13,9 @@ Allow to override nodeSelector and tolerations for cdi-apiserver
 Ability to specify replicas
 
 - https://github.com/kubevirt/containerized-data-importer/pull/2563
+
+#### `005-override-crds.patch`
+
+Rename group name for all cdi CRDs to override them with deckhouse virtualization CRDs.
+
+Also, remove short names and change categories. Just in case.
