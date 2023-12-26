@@ -182,3 +182,34 @@ metadata:
   labels:
     app: old
 ```
+
+# Как увеличить размер DVCR
+
+Для увеличения размера нужно задать размер в конфигурации `moduleconfig` `virtualization` размер больший чем есть  
+
+Посмотреть текущий размер dvcr  
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+#Output
+{"size":"58G","storageClassName":"linstor-thick-data-r1"}
+```
+
+Задать размер  
+```shell
+kubectl patch mc virtualization \
+  --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
+  
+#Output
+moduleconfig.deckhouse.io/virtualization patched
+```
+Проверить изменение размера  
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+#Output
+{"size":"59G","storageClassName":"linstor-thick-data-r1"}
+
+kubectl get pvc dvcr -n d8-virtualization
+#Output
+NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
+dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO            linstor-thick-data-r1   7d
+```
