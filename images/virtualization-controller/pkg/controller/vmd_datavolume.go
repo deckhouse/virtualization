@@ -19,7 +19,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
-var ErrDataSourceNotReady = errors.New("data source is not ready")
+var (
+	ErrDataSourceNotReady             = errors.New("data source is not ready")
+	ErrPVCSizeSmallerImageVirtualSize = errors.New("persistentVolumeClaim size is smaller than image virtual size")
+)
 
 func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
 	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
@@ -58,9 +61,9 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 	}
 
 	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
-		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, "The specified spec.PersistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
+		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrWrongPVCSize, ErrPVCSizeSmallerImageVirtualSize.Error())
 
-		return resource.Quantity{}, errors.New("the specified spec.persistentVolumeClaim.size cannot be smaller than the size of image in spec.dataSource")
+		return resource.Quantity{}, ErrPVCSizeSmallerImageVirtualSize
 	}
 
 	// Adjust PVC size to feat image onto scratch PVC.
