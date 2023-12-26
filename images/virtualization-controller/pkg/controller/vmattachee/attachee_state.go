@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -14,19 +12,18 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type AttacheeState[T helper.Object[T, ST], ST any] struct {
 	two_phase_reconciler.ReconcilerState
 
-	Kind                string
+	Kind                virtv2.BlockDeviceType
 	ProtectionFinalizer string
 	isAttached          bool
 	Resource            *helper.Resource[T, ST]
 }
 
-func NewAttacheeState[T helper.Object[T, ST], ST any](reconcilerState two_phase_reconciler.ReconcilerState, kind, protectionFinalizer string, resource *helper.Resource[T, ST]) *AttacheeState[T, ST] {
+func NewAttacheeState[T helper.Object[T, ST], ST any](reconcilerState two_phase_reconciler.ReconcilerState, kind virtv2.BlockDeviceType, protectionFinalizer string, resource *helper.Resource[T, ST]) *AttacheeState[T, ST] {
 	return &AttacheeState[T, ST]{
 		ReconcilerState:     reconcilerState,
 		Kind:                kind,
@@ -41,66 +38,48 @@ func (state *AttacheeState[T, ST]) ShouldReconcile(log logr.Logger) bool {
 }
 
 func (state *AttacheeState[T, ST]) Reload(ctx context.Context, _ reconcile.Request, log logr.Logger, client client.Client) error {
-	attachedVMs, err := state.findAttachedVMs(ctx, client)
+	isAttached, err := state.hasAttachedVM(ctx, client)
 	if err != nil {
 		return err
 	}
-	state.isAttached = len(attachedVMs) > 0
-
-	if !state.isAttached {
-		attachedVMs, err = state.findHotpluggedVMs(ctx, client)
-		if err != nil {
-			return err
-		}
-		state.isAttached = len(attachedVMs) > 0
-	}
+	state.isAttached = isAttached
 
 	log.V(2).Info("Attachee Reload", "Kind", state.Kind, "isAttached", state.isAttached)
 
 	return nil
 }
 
-func (state *AttacheeState[T, ST]) findAttachedVMs(ctx context.Context, apiClient client.Client) ([]*virtv2.VirtualMachine, error) {
-	label := MakeAttachedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name)
-
-	req, err := labels.NewRequirement(
-		label,
-		selection.Equals,
-		[]string{AttachedLabelValue},
-	)
+func (state *AttacheeState[T, ST]) hasAttachedVM(ctx context.Context, apiClient client.Client) (bool, error) {
+	var vms virtv2.VirtualMachineList
+	err := apiClient.List(ctx, &vms, &client.ListOptions{
+		Namespace: state.Resource.Name().Namespace,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to create label requirement: %w", err)
+		return false, fmt.Errorf("error getting virtual machines: %w", err)
 	}
 
-	sel := labels.NewSelector()
-	sel = sel.Add(*req)
-
-	var vml virtv2.VirtualMachineList
-	if err = apiClient.List(ctx, &vml, &client.ListOptions{LabelSelector: sel}); err != nil {
-		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
+	for _, vm := range vms.Items {
+		for _, bda := range vm.Status.BlockDevicesAttached {
+			switch state.Kind {
+			case virtv2.ClusterImageDevice:
+				if state.Kind == bda.Type && bda.ClusterVirtualMachineImage != nil && bda.ClusterVirtualMachineImage.Name == state.Resource.Name().Name {
+					return true, nil
+				}
+			case virtv2.ImageDevice:
+				if state.Kind == bda.Type && bda.VirtualMachineImage != nil && bda.VirtualMachineImage.Name == state.Resource.Name().Name {
+					return true, nil
+				}
+			case virtv2.DiskDevice:
+				if state.Kind == bda.Type && bda.VirtualMachineDisk != nil && bda.VirtualMachineDisk.Name == state.Resource.Name().Name {
+					return true, nil
+				}
+			default:
+				return false, fmt.Errorf("unexpected block device kind: %s", state.Kind)
+			}
+		}
 	}
-	return util.ToPointersArray(vml.Items), nil
-}
 
-func (state *AttacheeState[T, ST]) findHotpluggedVMs(ctx context.Context, apiClient client.Client) ([]*virtv2.VirtualMachine, error) {
-	vml := &virtv2.VirtualMachineList{}
-
-	req, err := labels.NewRequirement(
-		MakeHotpluggedResourceLabelKeyFormat(state.Kind, state.Resource.Name().Name),
-		selection.Equals,
-		[]string{HotpluggedLabelValue},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create label requirement: %w", err)
-	}
-
-	sel := labels.NewSelector()
-	sel = sel.Add(*req)
-
-	if err = apiClient.List(ctx, vml, &client.ListOptions{LabelSelector: sel}); err != nil {
-		return nil, fmt.Errorf("error getting VM by selector %v: %w", sel, err)
-	}
-	return util.ToPointersArray(vml.Items), nil
+	return false, nil
 }
 
 func (state *AttacheeState[T, ST]) ShouldRemoveProtectionFinalizer() bool {

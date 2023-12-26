@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -22,7 +21,6 @@ import (
 	merger "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -307,34 +305,6 @@ func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.Volu
 	return nil
 }
 
-func (state *VMReconcilerState) SetVMLabelsWithAttachedBlockDevices() bool {
-	// Exclude attach related labels.
-	newLabels := RemoveAttachRelatedLabels(state.VM.Current().Labels)
-
-	// Regenerate attach related labels.
-	for _, bd := range state.VM.Current().Spec.BlockDevices {
-		switch bd.Type {
-		case virtv2.ImageDevice:
-			vmiAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("vmi", bd.VirtualMachineImage.Name)
-			newLabels[vmiAttachedLabel] = vmattachee.AttachedLabelValue
-		case virtv2.ClusterImageDevice:
-			cvmiAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("cvmi", bd.ClusterVirtualMachineImage.Name)
-			newLabels[cvmiAttachedLabel] = vmattachee.AttachedLabelValue
-		case virtv2.DiskDevice:
-			vmdAttachedLabel := vmattachee.MakeAttachedResourceLabelKeyFormat("vmd", bd.VirtualMachineDisk.Name)
-			newLabels[vmdAttachedLabel] = vmattachee.AttachedLabelValue
-		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
-		}
-	}
-
-	if !reflect.DeepEqual(state.VM.Current().Labels, newLabels) {
-		state.VM.Changed().SetLabels(newLabels)
-		return true
-	}
-	return false
-}
-
 // SetFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.
 func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context) error {
 	for _, bd := range state.VM.Current().Spec.BlockDevices {
@@ -421,27 +391,6 @@ func (state *VMReconcilerState) isDeletion() bool {
 	return !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero()
 }
 
-// RemoveAttachRelatedLabels filters out attach related labels from the input map.
-// E.g. virtualization.deckhouse.io/cvmi.ubuntu-iso.attached
-func RemoveAttachRelatedLabels(labels map[string]string) map[string]string {
-	result := make(map[string]string)
-
-	// Copy labels into result map excluding attach related labels.
-	for k, v := range labels {
-		if _, isCvmi := vmattachee.ExtractAttachedResourceName("cvmi", k); isCvmi {
-			continue
-		}
-		if _, isVmi := vmattachee.ExtractAttachedResourceName("vmi", k); isVmi {
-			continue
-		}
-		if _, isVmd := vmattachee.ExtractAttachedResourceName("vmd", k); isVmd {
-			continue
-		}
-		result[k] = v
-	}
-	return result
-}
-
 // RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
 func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string {
 	res := make(map[string]string)
@@ -464,28 +413,25 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
 // Attach related labels and some dangerous annotations are not copied.
 // Return true if destination object was changed.
-func PropagateVMMetadata(vm *virtv2.VirtualMachine, destObj client.Object) (bool, error) {
+func PropagateVMMetadata(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, destObj client.Object) (bool, error) {
 	// No changes if dest is nil.
 	if destObj == nil {
 		return false, nil
 	}
 
 	// 1. Propagate labels.
-	lastPropagatedLabels, err := GetLastPropagatedLabels(vm)
+	lastPropagatedLabels, err := GetLastPropagatedLabels(kvvm)
 	if err != nil {
 		return false, err
 	}
 
-	// Attach related labels are not needed on kubevirt resources.
-	curLabels := RemoveAttachRelatedLabels(vm.GetLabels())
-
-	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, curLabels)
+	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, vm.GetLabels())
 	if labelsChanged {
 		destObj.SetLabels(newLabels)
 	}
 
 	// 1. Propagate annotations.
-	lastPropagatedAnno, err := GetLastPropagatedAnnotations(vm)
+	lastPropagatedAnno, err := GetLastPropagatedAnnotations(kvvm)
 	if err != nil {
 		return false, err
 	}
@@ -501,11 +447,11 @@ func PropagateVMMetadata(vm *virtv2.VirtualMachine, destObj client.Object) (bool
 	return labelsChanged || annoChanged, nil
 }
 
-func GetLastPropagatedLabels(vm *virtv2.VirtualMachine) (map[string]string, error) {
+func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedLabels map[string]string
 
-	if vm.Annotations[common.LastPropagatedVMLabelsAnnotation] != "" {
-		err := json.Unmarshal([]byte(vm.Annotations[common.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
+	if kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation] != "" {
+		err := json.Unmarshal([]byte(kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
 		if err != nil {
 			return nil, err
 		}
@@ -514,27 +460,22 @@ func GetLastPropagatedLabels(vm *virtv2.VirtualMachine) (map[string]string, erro
 	return lastPropagatedLabels, nil
 }
 
-func SetLastPropagatedLabels(vm *virtv2.VirtualMachine) error {
-	data, err := json.Marshal(RemoveAttachRelatedLabels(vm.GetLabels()))
+func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
+	data, err := json.Marshal(vm.GetLabels())
 	if err != nil {
 		return err
 	}
 
-	anno := vm.GetAnnotations()
-	if anno == nil {
-		anno = make(map[string]string)
-	}
-	anno[common.LastPropagatedVMLabelsAnnotation] = string(data)
-	vm.SetAnnotations(anno)
+	common.AddLabel(kvvm, common.LastPropagatedVMLabelsAnnotation, string(data))
 
 	return nil
 }
 
-func GetLastPropagatedAnnotations(vm *virtv2.VirtualMachine) (map[string]string, error) {
+func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedAnno map[string]string
 
-	if vm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] != "" {
-		err := json.Unmarshal([]byte(vm.Annotations[common.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
+	if kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] != "" {
+		err := json.Unmarshal([]byte(kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
 		if err != nil {
 			return nil, err
 		}
@@ -543,18 +484,13 @@ func GetLastPropagatedAnnotations(vm *virtv2.VirtualMachine) (map[string]string,
 	return lastPropagatedAnno, nil
 }
 
-func SetLastPropagatedAnnotations(vm *virtv2.VirtualMachine) error {
+func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
 	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 	if err != nil {
 		return err
 	}
 
-	anno := vm.GetAnnotations()
-	if anno == nil {
-		anno = make(map[string]string)
-	}
-	anno[common.LastPropagatedVMAnnotationsAnnotation] = string(data)
-	vm.SetAnnotations(anno)
+	common.AddLabel(kvvm, common.LastPropagatedVMAnnotationsAnnotation, string(data))
 
 	return nil
 }

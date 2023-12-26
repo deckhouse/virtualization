@@ -34,7 +34,6 @@ func NewCVMIController(
 		uploaderImage,
 		ImporterPodVerbose,
 		ImporterPodPullPolicy,
-		controllerNamespace,
 		dvcrSettings,
 	)
 

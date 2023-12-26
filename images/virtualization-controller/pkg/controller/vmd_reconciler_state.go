@@ -54,7 +54,7 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
-		"vmd",
+		virtv2.DiskDevice,
 		virtv2.FinalizerVMDProtection,
 		state.VMD,
 	)
