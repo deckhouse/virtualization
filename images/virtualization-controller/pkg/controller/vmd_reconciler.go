@@ -543,7 +543,7 @@ func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineD
 	}
 
 	if vmd.Spec.DataSource == nil {
-		return fmt.Errorf("unexpected nil spec.dataSource to cleanup")
+		return nil
 	}
 
 	switch vmd.Spec.DataSource.Type {
