@@ -115,18 +115,13 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			opts.Log.V(1).Info("Wait for the data source to be ready")
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
-		case !state.IsPodInited():
-			if err := r.verifyDataSource(state); err != nil {
-				return err
-			}
-			opts.Log.V(1).Info("Update annotations with Pod name and namespace")
-			r.initPodName(state)
-			// Update annotations and status and restart reconcile to create an importer Pod.
-			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-			return nil
 		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
 			opts.Log.V(1).Info("Start new Pod for VMI")
+			if err := r.verifyDataSource(state); err != nil {
+				return err
+			}
+
 			// Create importer/uploader pod, make sure the VMI owns it.
 			if err := r.startPod(ctx, state, opts); err != nil {
 				return err
@@ -153,12 +148,6 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		case vmiutil.IsDVCRSource(state.VMI.Current()) && !state.DVCRDataSource.IsReady():
 			opts.Log.V(1).Info("Wait for the data source to be ready")
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-			return nil
-		case !state.HasDataVolumeAnno():
-			opts.Log.V(1).Info("Update annotations with new DataVolume name")
-			r.initDataVolumeName(state)
-			// Update annotations and status and restart reconcile to create an importer/uploader Pod.
-			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
 		case state.CanCreateDataVolume():
 			opts.Log.V(1).Info("Create DataVolume for VMI")
@@ -292,7 +281,6 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		default:
 			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 			if err != nil {
-				opts.Log.Error(err, "parsing final report", "vmi.name", state.VMI.Current().Name)
 				return err
 			}
 
@@ -315,11 +303,9 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// Set target image name the same way as for the importer/uploader Pod.
 		dvcrDestImageName := r.dvcrSettings.RegistryImageForVMI(state.VMI.Current().Name, state.VMI.Current().Namespace)
 		vmiStatus.Target.RegistryURL = dvcrDestImageName
-	case state.IsPodComplete() && !state.HasDataVolumeAnno():
+	case state.ShouldTrackDataVolume() && state.CanCreateDataVolume():
 		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 		if err != nil {
-			err = errors.New("empty final report")
-			opts.Log.Error(err, "Failed to process final report")
 			return err
 		}
 
@@ -327,8 +313,12 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Phase = virtv2.ImageFailed
 			vmiStatus.FailureReason = virtv2.ReasonErrImportFailed
 			vmiStatus.FailureMessage = finalReport.ErrMessage
-			break
 		}
+
+		vmiStatus.DownloadSpeed.Current = ""
+		vmiStatus.DownloadSpeed.CurrentBytes = ""
+		vmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+		vmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmiStatus.Phase = MapDataVolumePhaseToVMIPhase(state.DV.Status.Phase)
@@ -501,20 +491,6 @@ func (r *VMIReconciler) verifyDataSource(state *VMIReconcilerState) error {
 	}
 }
 
-// initPodName creates new name and update it in the annotation.
-func (r *VMIReconciler) initPodName(state *VMIReconcilerState) {
-	vmi := state.VMI.Changed()
-
-	switch vmi.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
-		uploaderPod := state.Supplements.UploaderPod()
-		cc.AddAnnotation(vmi, cc.AnnUploadPodName, uploaderPod.Name)
-	default:
-		importerPod := state.Supplements.ImporterPod()
-		cc.AddAnnotation(vmi, cc.AnnImportPodName, importerPod.Name)
-	}
-}
-
 func (r *VMIReconciler) startPod(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	switch state.VMI.Current().Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
@@ -535,19 +511,6 @@ func (r *VMIReconciler) startPod(ctx context.Context, state *VMIReconcilerState,
 	}
 
 	return nil
-}
-
-// initDataVolumeName creates new DataVolume name and update it in the annotation.
-func (r *VMIReconciler) initDataVolumeName(state *VMIReconcilerState) {
-	vmi := state.VMI.Changed()
-
-	// Prevent DataVolume name regeneration.
-	if _, hasKey := vmi.Annotations[cc.AnnVMIDataVolume]; hasKey {
-		return
-	}
-
-	dv := state.Supplements.DataVolume()
-	cc.AddAnnotation(vmi, cc.AnnVMIDataVolume, dv.Name)
 }
 
 func (r *VMIReconciler) cleanup(
@@ -605,8 +568,11 @@ func (r *VMIReconciler) cleanupOnDeletion(ctx context.Context, state *VMIReconci
 		if err := r.cleanup(ctx, state.VMI.Current(), opts.Client, state, opts); err != nil {
 			return err
 		}
-		if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
-			return err
+
+		if state.DV != nil {
+			if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
+				return err
+			}
 		}
 
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})

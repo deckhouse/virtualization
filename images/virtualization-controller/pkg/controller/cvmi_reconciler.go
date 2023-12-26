@@ -93,20 +93,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
 		}
-	case !r.isInited(state.CVMI.Changed(), state):
-		if cvmiutil.IsDVCRSource(state.CVMI.Current()) && !state.DVCRDataSource.IsReady() {
-			opts.Log.V(1).Info("Wait for the data source to be ready")
-			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-			return nil
-		}
-
-		opts.Log.V(1).Info("New CVMI observed, update annotations with Pod name and namespace")
-		// TODO(i.mikh) This algorithm is from CDI: put annotation on fresh CVMI and run Pod on next call to reconcile. Is it ok?
-		r.initPodName(state)
-		// Update annotations and status and restart reconcile to create an importer/uploader Pod.
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-		return nil
-	case r.isImportComplete(state):
+	case state.IsPodComplete():
 		// Note: state.ShouldReconcile was positive, so state.Pod is not nil and should be deleted.
 		// Delete sub recourses (Pods, Services, Secrets) when CVMI is marked as ready and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
@@ -114,9 +101,15 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
 		}
 		return nil
-	case r.canStart(state):
+	case state.CanStartPod():
 		// Create Pod using name and namespace from annotation.
 		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
+
+		if cvmiutil.IsDVCRSource(state.CVMI.Current()) && !state.DVCRDataSource.IsReady() {
+			opts.Log.V(1).Info("Wait for the data source to be ready")
+			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+			return nil
+		}
 
 		if err := r.startPod(ctx, state, opts); err != nil {
 			return err
@@ -125,7 +118,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		// Requeue to wait until Pod become Running.
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		return nil
-	case r.isInPending(state.CVMI.Current(), state), r.isInProgress(state.CVMI.Current(), state):
+	case state.IsImportInProgress(), state.IsImportInPending():
 		// Import is in progress, force a re-reconcile in 2 seconds to update status.
 		opts.Log.V(2).Info("Requeue: CVMI import is in progress", "cvmi.name", state.CVMI.Current().Name)
 		if err := r.ensurePodFinalizers(ctx, state, opts); err != nil {
@@ -168,15 +161,15 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 	}
 
 	switch {
-	case !r.isInited(state.CVMI.Current(), state), state.CVMI.Current().Status.Phase == "":
+	case state.CVMI.Current().Status.Phase == "":
 		cvmiStatus.Phase = virtv2.ImagePending
 		if err := r.verifyDataSourceRefs(ctx, opts.Client, state); err != nil {
 			cvmiStatus.FailureReason = FailureReasonCannotBeProcessed
 			cvmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
 		}
-	case r.isReady(state.CVMI.Current(), state):
+	case state.IsReady():
 		break
-	case r.isInProgress(state.CVMI.Current(), state):
+	case !state.IsPodComplete():
 		// Set CVMI status to Provisioning and copy progress metrics from importer/uploader Pod.
 		opts.Log.V(2).Info("Fetch progress", "cvmi.name", state.CVMI.Current().Name)
 		cvmiStatus.Phase = virtv2.ImageProvisioning
@@ -191,9 +184,9 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 			)
 		}
 		var progress *monitoring.ImportProgress
-		if t != virtv2.DataSourceTypeClusterVirtualMachineImage &&
-			t != virtv2.DataSourceTypeVirtualMachineImage {
-			progress, err := monitoring.GetImportProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
+		if !cvmiutil.IsDVCRSource(state.CVMI.Current()) {
+			var err error
+			progress, err = monitoring.GetImportProgressFromPod(string(state.CVMI.Current().GetUID()), state.Pod)
 			if err != nil {
 				opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrGetProgressFailed, "Error fetching progress metrics from Pod "+err.Error())
 				return err
@@ -213,7 +206,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		} else {
 			cvmiStatus.Phase = virtv2.ImageProvisioning
 		}
-	case r.isImportComplete(state):
+	case state.IsPodComplete():
 		// Set CVMI status to Ready and update image size from final report of the importer/uploader Pod.
 		opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Import Successful")
 		opts.Log.V(1).Info("Import completed successfully")
@@ -230,7 +223,6 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		default:
 			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 			if err != nil {
-				opts.Log.Error(err, "parsing final report", "cvmi.name", state.CVMI.Current().Name)
 				return err
 			}
 
@@ -285,59 +277,6 @@ func (r *CVMIReconciler) verifyDataSourceRefs(ctx context.Context, client client
 	return nil
 }
 
-func (r *CVMIReconciler) isInited(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
-	switch cvmi.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
-		return state.HasUploaderAnno()
-	default:
-		return state.HasImporterAnno()
-	}
-}
-
-func (r *CVMIReconciler) canStart(state *CVMIReconcilerState) bool {
-	return state.Pod == nil
-}
-
-func (r *CVMIReconciler) isInProgress(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
-	if state.Pod == nil {
-		return false
-	}
-
-	return r.isInited(cvmi, state) && state.Pod.Status.Phase == corev1.PodRunning
-}
-
-func (r *CVMIReconciler) isInPending(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
-	if state.Pod == nil {
-		return false
-	}
-
-	return r.isInited(cvmi, state) && state.Pod.Status.Phase == corev1.PodPending
-}
-
-func (r *CVMIReconciler) isImportComplete(state *CVMIReconcilerState) bool {
-	if state.CVMI.IsEmpty() {
-		return false
-	}
-
-	if !r.isInited(state.CVMI.Current(), state) {
-		return false
-	}
-
-	return state.Pod != nil && cc.IsPodComplete(state.Pod)
-}
-
-func (r *CVMIReconciler) isReady(cvmi *virtv2.ClusterVirtualMachineImage, state *CVMIReconcilerState) bool {
-	if state.CVMI.IsEmpty() {
-		return false
-	}
-
-	if !r.isInited(cvmi, state) {
-		return false
-	}
-
-	return state.CVMI.Current().Status.Phase == virtv2.ImageReady
-}
-
 func (r *CVMIReconciler) cleanup(ctx context.Context, cvmi *virtv2.ClusterVirtualMachineImage, client client.Client, state *CVMIReconcilerState) error {
 	switch cvmi.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
@@ -390,22 +329,6 @@ func (r *CVMIReconciler) startPod(
 	}
 
 	return nil
-}
-
-// initCVMIPodName saves the Pod name in the annotation.
-func (r *CVMIReconciler) initPodName(state *CVMIReconcilerState) {
-	cvmi := state.CVMI.Changed()
-
-	switch cvmi.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
-		uploaderPod := state.Supplements.UploaderPod()
-		cc.AddAnnotation(cvmi, cc.AnnUploaderNamespace, uploaderPod.Namespace)
-		cc.AddAnnotation(cvmi, cc.AnnUploadPodName, uploaderPod.Name)
-	default:
-		importerPod := state.Supplements.ImporterPod()
-		cc.AddAnnotation(cvmi, cc.AnnImporterNamespace, importerPod.Namespace)
-		cc.AddAnnotation(cvmi, cc.AnnImportPodName, importerPod.Name)
-	}
 }
 
 // ensurePodFinalizers adds protective finalizers on importer/uploader Pod and Service dependencies.

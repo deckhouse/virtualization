@@ -82,18 +82,8 @@ const (
 	AnnRegistryImportMethod = AnnAPIGroup + "/storage.import.registryImportMethod"
 	// AnnRegistryImageStream provides a const for registry image stream annotation
 	AnnRegistryImageStream = AnnAPIGroup + "/storage.import.registryImageStream"
-	// AnnImportPodName provides a const for CVMI/VMI/VMD importPodName annotation
-	AnnImportPodName = AnnAPIGroup + "/storage.import.importPodName"
-	// AnnImporterNamespace provides a const for our CVMI/VMI/VMD importNamespace annotation
-	AnnImporterNamespace = AnnAPIGroup + "/storage.import.importPodNamespace"
-	// AnnUploaderNamespace provides a const for our CVMI/VMI/VMD uploadNamespace annotation
-	AnnUploaderNamespace = AnnAPIGroup + "/storage.import.uploadNamespace"
-	// AnnUploadPodName provides a const for CVMI/VMI/VMD uploadPodName annotation
-	AnnUploadPodName = AnnAPIGroup + "/storage.import.uploadPodName"
 	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation
 	AnnUploadURL = AnnAPIGroup + "/upload.url"
-	// AnnUploadServiceName provides a const for CVMI/VMI/VMD uploadServiceName annotation
-	AnnUploadServiceName = AnnAPIGroup + "/storage.import.uploadServiceName"
 	// AnnDiskID provides a const for our PVC diskId annotation
 	AnnDiskID = AnnAPIGroup + "/storage.import.diskId"
 	// AnnUUID provides a const for our PVC uuid annotation
@@ -167,8 +157,8 @@ const (
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
 
-	AnnVMIDataVolume = AnnAPIGroup + "/vmi.data-volume"
-	AnnVMDDataVolume = AnnAPIGroup + "/vmd.data-volume"
+	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
+	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
 
 	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
 	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
