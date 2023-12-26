@@ -239,7 +239,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			state.Ingress != nil &&
 			state.Ingress.GetAnnotations()[cc.AnnUploadURL] != "" {
 			vmiStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST %s -T example.iso",
+				"curl %s -T example.iso",
 				state.Ingress.GetAnnotations()[cc.AnnUploadURL],
 			)
 		}

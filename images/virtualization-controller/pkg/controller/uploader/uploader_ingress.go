@@ -25,7 +25,8 @@ type IngressSettings struct {
 }
 
 const (
-	TmplIngressPath = "/upload/%s"
+	tmplIngressPath = "/upload/%s"
+	uploadPath      = "/upload"
 )
 
 type Ingress struct {
@@ -65,7 +66,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 				cc.AnnUploadURL: fmt.Sprintf("https://%s%s", i.Settings.Host, path),
 				"nginx.ingress.kubernetes.io/ssl-redirect":    "true",
 				"nginx.ingress.kubernetes.io/proxy-body-size": "0",
-				"nginx.ingress.kubernetes.io/rewrite-target":  "/v1beta1/upload",
+				"nginx.ingress.kubernetes.io/rewrite-target":  uploadPath,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				i.Settings.OwnerReference,
@@ -107,7 +108,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 }
 
 func (i *Ingress) generatePath() string {
-	return fmt.Sprintf(TmplIngressPath, util.AlphaNum(32))
+	return fmt.Sprintf(tmplIngressPath, util.AlphaNum(32))
 }
 
 func FindIngress(ctx context.Context, client client.Client, objName types.NamespacedName) (*netv1.Ingress, error) {

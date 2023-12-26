@@ -33,6 +33,7 @@ import (
 const (
 	healthzPort = 8080
 	healthzPath = "/healthz"
+	uploadPath  = "/upload"
 )
 
 // UploadServer is the interface to uploadServerApp
@@ -92,9 +93,7 @@ func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCe
 		return nil, err
 	}
 
-	for _, path := range common.SyncUploadPaths {
-		server.mux.HandleFunc(path, server.uploadHandler(bodyReadCloser))
-	}
+	server.mux.HandleFunc(uploadPath, server.uploadHandler(bodyReadCloser))
 
 	return server, nil
 }
@@ -249,11 +248,10 @@ func (app *uploadServerApp) healthzHandler(w http.ResponseWriter, _ *http.Reques
 }
 
 func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r *http.Request) bool {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		w.WriteHeader(http.StatusNotFound)
 		return false
 	}
-
 	if r.TLS != nil {
 		found := false
 
