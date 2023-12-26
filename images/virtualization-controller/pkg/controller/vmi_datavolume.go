@@ -59,9 +59,7 @@ func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.Virtua
 		return err
 	}
 
-	dvName := state.Supplements.DataVolume()
-
-	dv, err := r.makeDataVolumeFromVMI(state, dvName, pvcSize)
+	dv, err := r.makeDataVolumeFromVMI(state, state.Supplements.DataVolume(), pvcSize)
 	if err != nil {
 		return err
 	}

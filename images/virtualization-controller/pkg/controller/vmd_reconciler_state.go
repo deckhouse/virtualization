@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -102,28 +101,27 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	if state.VMD.Current().Spec.DataSource != nil {
 		switch state.VMD.Current().Spec.DataSource.Type {
 		case virtv2.DataSourceTypeUpload:
-			uploaderPod := state.Supplements.UploaderPod()
-			state.Pod, err = uploader.FindPod(ctx, client, uploaderPod)
-			if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
-				return err
-			}
-
-			uploaderService := state.Supplements.UploaderService()
-			state.Service, err = uploader.FindService(ctx, client, uploaderService)
+			state.Pod, err = uploader.FindPod(ctx, client, state.Supplements)
 			if err != nil {
 				return err
 			}
 
-			uploaderIng := state.Supplements.UploaderIngress()
-			state.Ingress, err = uploader.FindIngress(ctx, client, uploaderIng)
+			state.Service, err = uploader.FindService(ctx, client, state.Supplements)
+			if err != nil {
+				return err
+			}
+
+			state.Ingress, err = uploader.FindIngress(ctx, client, state.Supplements)
 			if err != nil {
 				return err
 			}
 		default:
-			state.Pod, err = importer.FindPod(ctx, client, state.VMD.Current())
-			if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
+			state.Pod, err = importer.FindPod(ctx, client, state.Supplements)
+			if err != nil {
 				return err
 			}
+
+			// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
 			state.DVCRDataSource, err = NewDVCRDataSourcesForVMD(ctx, state.VMD.Current().Spec.DataSource, state.VMD.Current(), client)
 			if err != nil {
 				return err
@@ -131,39 +129,26 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		}
 	}
 
-	if dvName, hasKey := state.VMD.Current().Annotations[cc.AnnVMDDataVolume]; hasKey {
-		name := types.NamespacedName{Name: dvName, Namespace: state.VMD.Current().Namespace}
-
-		state.DV, err = helper.FetchObject(ctx, name, client, &cdiv1.DataVolume{})
-		if err != nil {
-			return fmt.Errorf("unable to get DV %q: %w", name, err)
-		}
-		if state.DV != nil {
-			switch MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase) {
-			case virtv2.DiskProvisioning, virtv2.DiskReady:
-				state.PVC, err = helper.FetchObject(ctx, name, client, &corev1.PersistentVolumeClaim{})
-				if err != nil {
-					return fmt.Errorf("unable to get PVC %q: %w", name, err)
-				}
-				if state.PVC == nil {
-					return fmt.Errorf("no PVC %q found: expected existing PVC for DataVolume %q in phase %q", name, state.DV.Name, state.DV.Status.Phase)
-				}
-			}
-		}
+	dvName := state.Supplements.DataVolume()
+	state.DV, err = helper.FetchObject(ctx, dvName, client, &cdiv1.DataVolume{})
+	if err != nil {
+		return fmt.Errorf("unable to get DV %q: %w", dvName, err)
 	}
 
-	if state.PVC != nil {
-		switch state.PVC.Status.Phase {
-		case corev1.ClaimBound:
-			pvName := state.PVC.Spec.VolumeName
-			state.PV, err = helper.FetchObject(ctx, types.NamespacedName{Name: pvName, Namespace: state.PVC.Namespace}, client, &corev1.PersistentVolume{})
-			if err != nil {
-				return fmt.Errorf("unable to get PV %q: %w", pvName, err)
-			}
-			if state.PV == nil {
-				return fmt.Errorf("no PV %q found: expected existing PV for PVC %q in phase %q", pvName, state.PVC.Name, state.PVC.Status.Phase)
-			}
-		default:
+	pvcName := dvName
+	state.PVC, err = helper.FetchObject(ctx, pvcName, client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return fmt.Errorf("unable to get PVC %q: %w", pvcName, err)
+	}
+
+	if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
+		pvName := types.NamespacedName{Name: state.PVC.Spec.VolumeName, Namespace: state.PVC.Namespace}
+		state.PV, err = helper.FetchObject(ctx, pvName, client, &corev1.PersistentVolume{})
+		if err != nil {
+			return fmt.Errorf("unable to get PV %q: %w", pvName, err)
+		}
+		if state.PV == nil {
+			return fmt.Errorf("no PV %q found: expected existing PV for PVC %q in phase %q", pvName, state.PVC.Name, state.PVC.Status.Phase)
 		}
 	}
 
@@ -218,53 +203,10 @@ func (state *VMDReconcilerState) ShouldTrackPod() bool {
 	return vmdutil.IsTwoPhaseImport(state.VMD.Current())
 }
 
-// IsPodInited returns whether VMD has annotations with importer or uploader coordinates.
-// NOTE: valid only if ShouldTrackPod is true.
-func (state *VMDReconcilerState) IsPodInited() bool {
-	if state.VMD.Current().Spec.DataSource == nil {
-		return false
-	}
-
-	switch state.VMD.Current().Spec.DataSource.Type {
-	case virtv2.DataSourceTypeHTTP, virtv2.DataSourceTypeContainerImage:
-		return state.hasImporterPodAnno()
-	case virtv2.DataSourceTypeUpload:
-		return state.hasUploaderPodAnno()
-	default:
-		return false
-	}
-}
-
-// hasImporterPodAnno returns whether VMD has annotations with importer Pod coordinates.
-// NOTE: valid only if ShouldTrackPod is true.
-func (state *VMDReconcilerState) hasImporterPodAnno() bool {
-	if state.VMD.IsEmpty() {
-		return false
-	}
-	anno := state.VMD.Current().GetAnnotations()
-	if _, ok := anno[cc.AnnImportPodName]; !ok {
-		return false
-	}
-	return true
-}
-
-// hasImporterPodAnno returns whether VMD has annotations with uploader Pod coordinates.
-// NOTE: valid only if ShouldTrackPod is true.
-func (state *VMDReconcilerState) hasUploaderPodAnno() bool {
-	if state.VMD.IsEmpty() {
-		return false
-	}
-	anno := state.VMD.Current().GetAnnotations()
-	if _, ok := anno[cc.AnnUploadPodName]; !ok {
-		return false
-	}
-	return true
-}
-
 // CanStartPod returns whether importer Pod can be started.
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *VMDReconcilerState) CanStartPod() bool {
-	return !state.IsReady() && state.IsPodInited() && state.Pod == nil
+	return state.Pod == nil && !state.IsReady()
 }
 
 // IsPodComplete returns whether importer/uploader Pod was completed.
@@ -282,17 +224,8 @@ func (state *VMDReconcilerState) ShouldTrackDataVolume() bool {
 	return !state.VMD.IsEmpty()
 }
 
-func (state *VMDReconcilerState) HasDataVolumeAnno() bool {
-	if state.VMD.IsEmpty() {
-		return false
-	}
-	anno := state.VMD.Current().GetAnnotations()
-	_, ok := anno[cc.AnnVMDDataVolume]
-	return ok
-}
-
 func (state *VMDReconcilerState) CanCreateDataVolume() bool {
-	return state.HasDataVolumeAnno() && state.DV == nil
+	return state.DV == nil && !state.IsReady()
 }
 
 func (state *VMDReconcilerState) IsDataVolumeInProgress() bool {

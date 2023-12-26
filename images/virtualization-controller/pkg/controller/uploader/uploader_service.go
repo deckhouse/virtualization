@@ -38,6 +38,10 @@ func (s *Service) Create(ctx context.Context, client client.Client) (*corev1.Ser
 }
 
 func CleanupService(ctx context.Context, client client.Client, service *corev1.Service) error {
+	if service == nil {
+		return nil
+	}
+
 	return helper.CleanupObject(ctx, client, service)
 }
 
@@ -83,6 +87,10 @@ func (s *Service) makeSpec() *corev1.Service {
 	return service
 }
 
-func FindService(ctx context.Context, client client.Client, objName types.NamespacedName) (*corev1.Service, error) {
-	return helper.FetchObject(ctx, objName, client, &corev1.Service{})
+type ServiceNamer interface {
+	UploaderService() types.NamespacedName
+}
+
+func FindService(ctx context.Context, client client.Client, name ServiceNamer) (*corev1.Service, error) {
+	return helper.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
 }

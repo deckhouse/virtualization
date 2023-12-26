@@ -2,7 +2,6 @@ package uploader
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 
@@ -64,6 +63,10 @@ func (p *Pod) Create(ctx context.Context, client client.Client) (*corev1.Pod, er
 }
 
 func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
+	if pod == nil {
+		return nil
+	}
+
 	return helper.CleanupObject(ctx, client, pod)
 }
 
@@ -177,22 +180,10 @@ func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 	}
 }
 
-func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
-	if pod == nil || len(pod.Spec.Containers) == 0 {
-		return ""
-	}
-
-	for _, envVar := range pod.Spec.Containers[0].Env {
-		if envVar.Name == common.UploaderDestinationEndpoint {
-			return envVar.Value
-		}
-	}
-
-	return ""
+type PodNamer interface {
+	UploaderPod() types.NamespacedName
 }
 
-var ErrPodNameNotFound = errors.New("pod name not found")
-
-func FindPod(ctx context.Context, client client.Client, objName types.NamespacedName) (*corev1.Pod, error) {
-	return helper.FetchObject(ctx, objName, client, &corev1.Pod{})
+func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
+	return helper.FetchObject(ctx, name.UploaderPod(), client, &corev1.Pod{})
 }
