@@ -24,8 +24,7 @@ type VMValidator struct {
 func NewVMValidator(ipam IPAM, client client.Client, log logr.Logger) *VMValidator {
 	return &VMValidator{
 		validators: []vmValidator{
-			// TODO: allow this validator after moving kubevirt annotations from vm resource.
-			// newMetaVMValidator(client),
+			newMetaVMValidator(client),
 			newIPAMVMValidator(ipam, client),
 		},
 		log: log.WithName(vmControllerName).WithValues("webhook", "validation"),
@@ -93,17 +92,14 @@ type vmValidator interface {
 	validateUpdate(ctx context.Context, oldVM, newVM *v2alpha1.VirtualMachine) (admission.Warnings, error)
 }
 
-//nolint:all
 type metaVMValidator struct {
 	client client.Client
 }
 
-//nolint:all
 func newMetaVMValidator(client client.Client) *metaVMValidator {
 	return &metaVMValidator{client: client}
 }
 
-//nolint:all
 func (v *metaVMValidator) validateCreate(_ context.Context, vm *v2alpha1.VirtualMachine) (admission.Warnings, error) {
 	for key := range vm.Annotations {
 		if strings.Contains(key, core.GroupName) {
@@ -120,7 +116,6 @@ func (v *metaVMValidator) validateCreate(_ context.Context, vm *v2alpha1.Virtual
 	return nil, nil
 }
 
-//nolint:all
 func (v *metaVMValidator) validateUpdate(_ context.Context, _, newVM *v2alpha1.VirtualMachine) (admission.Warnings, error) {
 	for key := range newVM.Annotations {
 		if strings.Contains(key, core.GroupName) {

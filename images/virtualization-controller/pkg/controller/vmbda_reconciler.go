@@ -20,7 +20,6 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -53,13 +52,6 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			err := r.unhotplugVolume(ctx, state)
 			if err != nil {
 				return err
-			}
-
-			if r.removeVMHotpluggedLabel(state) {
-				err := opts.Client.Update(ctx, state.VM)
-				if err != nil {
-					return fmt.Errorf("failed to remove VM labels with hotplugged block device %s: %w", state.VMD.Name, err)
-				}
 			}
 
 			if state.RemoveVMStatusBDA() {
@@ -170,13 +162,6 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		// Wait until attached to the KVVMI to update Status.Target.
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		return nil
-	}
-
-	if r.setVMHotpluggedLabel(state) {
-		err := opts.Client.Update(ctx, state.VM)
-		if err != nil {
-			return fmt.Errorf("failed to set VM labels with hotplugged block device %s: %w", state.VMD.Name, err)
-		}
 	}
 
 	if r.setVMHotpluggedFinalizer(state) {
@@ -312,44 +297,6 @@ func (r *VMBDAReconciler) unhotplugVolume(ctx context.Context, state *VMBDARecon
 	}
 
 	return nil
-}
-
-func (r *VMBDAReconciler) setVMHotpluggedLabel(state *VMBDAReconcilerState) bool {
-	labels := state.VM.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	label := vmattachee.MakeHotpluggedResourceLabelKeyFormat("vmd", state.VMD.Name)
-	_, ok := labels[label]
-	if ok {
-		return false
-	}
-
-	labels[label] = vmattachee.HotpluggedLabelValue
-
-	state.VM.SetLabels(labels)
-
-	return true
-}
-
-func (r *VMBDAReconciler) removeVMHotpluggedLabel(state *VMBDAReconcilerState) bool {
-	labels := state.VM.GetLabels()
-	if labels == nil {
-		return false
-	}
-
-	label := vmattachee.MakeHotpluggedResourceLabelKeyFormat("vmd", state.VMD.Name)
-	_, ok := labels[label]
-	if !ok {
-		return false
-	}
-
-	delete(labels, label)
-
-	state.VM.SetLabels(labels)
-
-	return true
 }
 
 func (r *VMBDAReconciler) setVMHotpluggedFinalizer(state *VMBDAReconcilerState) bool {

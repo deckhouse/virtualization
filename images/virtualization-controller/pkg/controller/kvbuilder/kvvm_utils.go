@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -162,5 +164,8 @@ func ApplyVirtualMachineSpec(
 	})
 	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
 
-	kvvm.SetIPAddressRequest(ipAddress)
+	// Set ip address cni request annotation.
+	kvvm.SetKVVMIAnnotation(ipam.AnnoIPAddressCNIRequest, ipAddress)
+	// Set live migration annotation.
+	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
 }

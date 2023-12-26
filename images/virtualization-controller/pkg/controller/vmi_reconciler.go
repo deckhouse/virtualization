@@ -54,7 +54,7 @@ func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, 
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.VirtualMachineImage,
 			virtv2.VirtualMachineImageStatus,
-		]("vmi", true),
+		](virtv2.ImageDevice),
 	}
 }
 

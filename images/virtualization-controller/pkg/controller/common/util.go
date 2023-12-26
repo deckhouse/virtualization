@@ -516,12 +516,3 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, 
 
 	obj.SetLabels(mergedLabels)
 }
-
-func HasLabel(labels map[string]string, matchFunc func(k, v string) bool) bool {
-	for k, v := range labels {
-		if matchFunc(k, v) {
-			return true
-		}
-	}
-	return false
-}
