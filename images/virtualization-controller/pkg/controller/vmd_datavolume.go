@@ -13,7 +13,6 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -83,9 +82,7 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 		return fmt.Errorf("failed to get pvc size: %w", err)
 	}
 
-	dvName := types.NamespacedName{Name: vmd.GetAnnotations()[cc.AnnVMDDataVolume], Namespace: vmd.GetNamespace()}
-
-	dv, err := r.makeDataVolumeFromVMD(state, dvName, pvcSize)
+	dv, err := r.makeDataVolumeFromVMD(state, state.Supplements.DataVolume(), pvcSize)
 	if err != nil {
 		return fmt.Errorf("apply VMD spec to DataVolume: %w", err)
 	}

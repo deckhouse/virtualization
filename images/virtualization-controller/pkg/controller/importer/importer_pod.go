@@ -2,7 +2,6 @@ package importer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"strconv"
@@ -102,6 +101,10 @@ func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*core
 // CleanupPod deletes importer Pod.
 // No need to delete CABundle configmap and auth Secret. They have ownerRef and will be gc'ed.
 func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
+	if pod == nil {
+		return nil
+	}
+
 	return helper.CleanupObject(ctx, client, pod)
 }
 
@@ -362,43 +365,10 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 	}
 }
 
-// GetImportProxyConfigMapName return prefixed name.
-// TODO add validation against name limitations
-func GetImportProxyConfigMapName(suffix string) string {
-	return fmt.Sprintf("import-proxy-cm-%s", suffix)
+type PodNamer interface {
+	ImporterPod() types.NamespacedName
 }
 
-func GetDestinationImageNameFromPod(pod *corev1.Pod) string {
-	if pod == nil || len(pod.Spec.Containers) == 0 {
-		return ""
-	}
-
-	for _, envVar := range pod.Spec.Containers[0].Env {
-		if envVar.Name == common.ImporterDestinationEndpoint {
-			return envVar.Value
-		}
-	}
-
-	return ""
-}
-
-var ErrPodNameNotFound = errors.New("pod name not found")
-
-func FindPod(ctx context.Context, client client.Client, obj metav1.Object) (*corev1.Pod, error) {
-	// Extract namespace and name of the importer Pod from annotations.
-	podName := obj.GetAnnotations()[cc.AnnImportPodName]
-	if podName == "" {
-		return nil, ErrPodNameNotFound
-	}
-
-	// Get namespace from annotations (for cluster-wide resources, e.g. ClusterVirtualMachineImage).
-	// Default is namespace of the input object.
-	podNS := obj.GetAnnotations()[cc.AnnImporterNamespace]
-	if podNS == "" {
-		podNS = obj.GetNamespace()
-	}
-
-	objName := types.NamespacedName{Name: podName, Namespace: podNS}
-
-	return helper.FetchObject(ctx, objName, client, &corev1.Pod{})
+func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
+	return helper.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
 }

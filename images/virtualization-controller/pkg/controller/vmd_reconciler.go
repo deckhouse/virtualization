@@ -143,12 +143,6 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
 		switch {
-		case !state.IsPodInited():
-			log.V(1).Info("New VMI observed, update annotations with Pod name and namespace")
-			r.initPodName(state)
-			// Update annotations and status and restart reconcile to create an importer/uploader Pod.
-			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-			return nil
 		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
 			log.V(1).Info("Start new Pod for VMD")
@@ -176,28 +170,19 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			opts.Log.V(1).Info("Wait for the data source to be ready")
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
-		case !state.HasDataVolumeAnno():
+		case state.CanCreateDataVolume():
 			if state.ShouldTrackPod() {
 				finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 				if err != nil {
 					return err
 				}
 
-				if finalReport == nil {
-					return errors.New("empty final report")
-				}
-
 				if finalReport.ErrMessage != "" {
+					log.V(1).Info("Got error in final report", "error", finalReport.ErrMessage)
 					return nil
 				}
 			}
 
-			log.V(1).Info("Update annotations with new DataVolume name")
-			r.initDataVolumeName(state)
-			// Update annotations and status and restart reconcile to create a DV.
-			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-			return nil
-		case state.CanCreateDataVolume():
 			log.V(1).Info("Create DataVolume for VMD")
 
 			err := r.createDataVolume(ctx, state.VMD.Current(), state, opts)
@@ -273,7 +258,9 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.Phase = virtv2.DiskPending
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.IsReady():
-		vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
+		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
+			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
+		}
 	case state.ShouldTrackPod() && state.IsPodRunning():
 		log.V(2).Info("Fetch progress from Pod")
 
@@ -313,33 +300,26 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		} else {
 			vmdStatus.Phase = virtv2.DiskProvisioning
 		}
+	case state.ShouldTrackDataVolume() && state.CanCreateDataVolume():
+		if state.ShouldTrackPod() {
+			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
+			if err != nil {
+				return err
+			}
 
-	case state.IsPodComplete() && !state.HasDataVolumeAnno():
-		finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-		if err != nil {
-			return err
+			if finalReport.ErrMessage != "" {
+				vmdStatus.Phase = virtv2.DiskFailed
+				vmdStatus.FailureReason = virtv2.ReasonErrImportFailed
+				vmdStatus.FailureMessage = finalReport.ErrMessage
+				break
+			}
+
+			vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
+			vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 		}
 
-		if finalReport == nil {
-			err = errors.New("empty final report")
-			log.Error(err, "Failed to process final report")
-			return err
-		}
-
-		// Cleanup.
 		vmdStatus.DownloadSpeed.Current = ""
 		vmdStatus.DownloadSpeed.CurrentBytes = ""
-
-		if finalReport.ErrMessage != "" {
-			vmdStatus.Phase = virtv2.DiskFailed
-			vmdStatus.FailureReason = virtv2.ReasonErrImportFailed
-			vmdStatus.FailureMessage = finalReport.ErrMessage
-			break
-		}
-
-		vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
-		vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
-
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeInProgress():
 		// Set phase from DataVolume resource.
 		vmdStatus.Phase = MapDataVolumePhaseToVMDPhase(state.DV.Status.Phase)
@@ -382,26 +362,12 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 		opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeNormal, virtv2.ReasonImportSucceeded, "Successfully imported")
 
-		// Cleanup download speed and set average from importer/uploader Pod if any.
+		// Cleanup download speed.
 		vmdStatus.DownloadSpeed.Current = ""
 		vmdStatus.DownloadSpeed.CurrentBytes = ""
-		vmdStatus.DownloadSpeed.Avg = ""
-		vmdStatus.DownloadSpeed.AvgBytes = ""
-
-		if state.Pod != nil {
-			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
-			if err != nil {
-				return err
-			}
-
-			if finalReport != nil {
-				vmdStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
-				vmdStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
-			}
-		}
 
 		// PVC name is the same as the DataVolume name.
-		vmdStatus.Target.PersistentVolumeClaimName = state.VMD.Current().Annotations[cc.AnnVMDDataVolume]
+		vmdStatus.Target.PersistentVolumeClaimName = state.PVC.Name
 
 		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
 		vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
@@ -521,25 +487,6 @@ func (r *VMDReconciler) removeFinalizerChildResources(ctx context.Context, state
 	return nil
 }
 
-// initPodName saves the Pod name in the annotation.
-func (r *VMDReconciler) initPodName(state *VMDReconcilerState) {
-	vmd := state.VMD.Changed()
-
-	// Should not happen, but check it anyway.
-	if vmd.Spec.DataSource == nil {
-		return
-	}
-
-	switch vmd.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
-		uploaderPod := state.Supplements.UploaderPod()
-		cc.AddAnnotation(vmd, cc.AnnUploadPodName, uploaderPod.Name)
-	default:
-		importerPod := state.Supplements.ImporterPod()
-		cc.AddAnnotation(vmd, cc.AnnImportPodName, importerPod.Name)
-	}
-}
-
 func (r *VMDReconciler) startPod(
 	ctx context.Context,
 	state *VMDReconcilerState,
@@ -571,19 +518,6 @@ func (r *VMDReconciler) startPod(
 	}
 
 	return nil
-}
-
-// initDataVolumeName creates new DV name and update it in the annotation.
-func (r *VMDReconciler) initDataVolumeName(state *VMDReconcilerState) {
-	vmd := state.VMD.Changed()
-
-	// Prevent DataVolume name regeneration.
-	if _, hasKey := vmd.Annotations[cc.AnnVMDDataVolume]; hasKey {
-		return
-	}
-
-	dv := state.Supplements.DataVolume()
-	cc.AddAnnotation(vmd, cc.AnnVMDDataVolume, dv.Name)
 }
 
 func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineDisk, client client.Client, state *VMDReconcilerState) error {
@@ -637,9 +571,13 @@ func (r *VMDReconciler) cleanupOnDeletion(ctx context.Context, state *VMDReconci
 		if err := r.cleanup(ctx, state.VMD.Current(), opts.Client, state); err != nil {
 			return err
 		}
-		if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
-			return err
+
+		if state.DV != nil {
+			if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
+				return err
+			}
 		}
+
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		return nil
 	}

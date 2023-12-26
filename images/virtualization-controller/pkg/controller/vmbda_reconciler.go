@@ -235,17 +235,19 @@ func isFailed(state *VMBDAReconcilerState) (string, string) {
 		return reason, message
 	}
 
+	if state.KVVMI == nil {
+		return "", ""
+	}
+
 	for _, condition := range state.KVVMI.Status.Conditions {
-		if condition.Type == virtv1.VirtualMachineInstanceIsMigratable {
-			if condition.Status == corev1.ConditionFalse && condition.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
-				reason = condition.Reason
-				message = condition.Message
-			}
-			break
+		if condition.Type == virtv1.VirtualMachineInstanceIsMigratable &&
+			condition.Status == corev1.ConditionFalse &&
+			condition.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
+			return condition.Reason, condition.Message
 		}
 	}
 
-	return reason, message
+	return "", ""
 }
 
 func isAttached(state *VMBDAReconcilerState) bool {
