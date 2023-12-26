@@ -187,6 +187,9 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 
 			err := r.createDataVolume(ctx, state.VMD.Current(), state, opts)
 			if err != nil {
+				if errors.Is(err, ErrPVCSizeSmallerImageVirtualSize) {
+					return nil
+				}
 				if !errors.Is(err, ErrDataSourceNotReady) {
 					return err
 				}
@@ -301,6 +304,13 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmdStatus.Phase = virtv2.DiskProvisioning
 		}
 	case state.ShouldTrackDataVolume() && state.CanCreateDataVolume():
+		_, err := r.getPVCSize(state.VMD.Current(), state, opts)
+		if err != nil && errors.Is(err, ErrPVCSizeSmallerImageVirtualSize) {
+			vmdStatus.Phase = virtv2.DiskFailed
+			vmdStatus.FailureReason = virtv2.ReasonErrWrongPVCSize
+			vmdStatus.FailureMessage = ErrPVCSizeSmallerImageVirtualSize.Error()
+			break
+		}
 		if state.ShouldTrackPod() {
 			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
 			if err != nil {
