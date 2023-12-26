@@ -179,7 +179,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 			state.Ingress != nil &&
 			state.Ingress.GetAnnotations()[cc.AnnUploadURL] != "" {
 			cvmiStatus.UploadCommand = fmt.Sprintf(
-				"curl -X POST %s -T example.iso",
+				"curl %s -T example.iso",
 				state.Ingress.GetAnnotations()[cc.AnnUploadURL],
 			)
 		}
