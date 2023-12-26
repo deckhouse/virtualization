@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -101,26 +100,23 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 
 	switch t {
 	case virtv2.DataSourceTypeUpload:
-		uploaderPod := state.Supplements.UploaderPod()
-		state.Pod, err = uploader.FindPod(ctx, client, uploaderPod)
-		if err != nil && !errors.Is(err, uploader.ErrPodNameNotFound) {
-			return err
-		}
-
-		uploaderService := state.Supplements.UploaderService()
-		state.Service, err = uploader.FindService(ctx, client, uploaderService)
+		state.Pod, err = uploader.FindPod(ctx, client, state.Supplements)
 		if err != nil {
 			return err
 		}
 
-		uploaderIng := state.Supplements.UploaderIngress()
-		state.Ingress, err = uploader.FindIngress(ctx, client, uploaderIng)
+		state.Service, err = uploader.FindService(ctx, client, state.Supplements)
+		if err != nil {
+			return err
+		}
+
+		state.Ingress, err = uploader.FindIngress(ctx, client, state.Supplements)
 		if err != nil {
 			return err
 		}
 	default:
-		state.Pod, err = importer.FindPod(ctx, client, state.CVMI.Current())
-		if err != nil && !errors.Is(err, importer.ErrPodNameNotFound) {
+		state.Pod, err = importer.FindPod(ctx, client, state.Supplements)
+		if err != nil {
 			return err
 		}
 	}
@@ -153,38 +149,6 @@ func (state *CVMIReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMICleanup)
 }
 
-// HasImporterAnno returns whether CVMI is just created and has no annotations with importer Pod coordinates.
-func (state *CVMIReconcilerState) HasImporterAnno() bool {
-	if state.CVMI.IsEmpty() {
-		return false
-	}
-	cvmi := state.CVMI.Current()
-	anno := cvmi.GetAnnotations()
-	if _, ok := anno[cc.AnnImportPodName]; !ok {
-		return false
-	}
-	if _, ok := anno[cc.AnnImporterNamespace]; !ok {
-		return false
-	}
-
-	return true
-}
-
-// HasUploaderAnno returns whether CVMI is just created and has no annotations with uploader Pod or Service coordinates.
-func (state *CVMIReconcilerState) HasUploaderAnno() bool {
-	if state.CVMI.IsEmpty() {
-		return false
-	}
-	anno := state.CVMI.Current().GetAnnotations()
-	if _, ok := anno[cc.AnnUploaderNamespace]; !ok {
-		return false
-	}
-	if _, ok := anno[cc.AnnUploadPodName]; !ok {
-		return false
-	}
-	return true
-}
-
 func (state *CVMIReconcilerState) IsDeletion() bool {
 	if state.CVMI.IsEmpty() {
 		return false
@@ -198,4 +162,27 @@ func (state *CVMIReconcilerState) IsImportComplete() bool {
 
 func (state *CVMIReconcilerState) IsImportInProgress() bool {
 	return state.Pod != nil && state.Pod.Status.Phase == corev1.PodRunning
+}
+
+func (state *CVMIReconcilerState) IsImportInPending() bool {
+	return state.Pod != nil && state.Pod.Status.Phase == corev1.PodPending
+}
+
+// CanStartPod returns whether importer Pod can be started.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *CVMIReconcilerState) CanStartPod() bool {
+	return state.Pod == nil && !state.IsReady()
+}
+
+func (state *CVMIReconcilerState) IsReady() bool {
+	if state.CVMI.IsEmpty() {
+		return false
+	}
+	return state.CVMI.Current().Status.Phase == virtv2.ImageReady
+}
+
+// IsPodComplete returns whether importer/uploader Pod was completed.
+// NOTE: valid only if ShouldTrackPod is true.
+func (state *CVMIReconcilerState) IsPodComplete() bool {
+	return state.Pod != nil && cc.IsPodComplete(state.Pod)
 }

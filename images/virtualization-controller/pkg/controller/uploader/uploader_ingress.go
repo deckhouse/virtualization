@@ -110,6 +110,10 @@ func (i *Ingress) generatePath() string {
 	return fmt.Sprintf(TmplIngressPath, util.AlphaNum(32))
 }
 
-func FindIngress(ctx context.Context, client client.Client, objName types.NamespacedName) (*netv1.Ingress, error) {
-	return helper.FetchObject(ctx, objName, client, &netv1.Ingress{})
+type IngressNamer interface {
+	UploaderIngress() types.NamespacedName
+}
+
+func FindIngress(ctx context.Context, client client.Client, name IngressNamer) (*netv1.Ingress, error) {
+	return helper.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
 }
