@@ -166,6 +166,8 @@ type SetDiskOptions struct {
 	IsHotplugged bool
 	IsCdrom      bool
 	IsEphemeral  bool
+
+	Serial string
 }
 
 func (b *KVVM) ClearDisks() {
@@ -190,6 +192,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 	disk := virtv1.Disk{
 		Name:       name,
 		DiskDevice: dd,
+		Serial:     opts.Serial,
 	}
 	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = util.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk,
