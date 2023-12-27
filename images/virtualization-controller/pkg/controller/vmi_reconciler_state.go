@@ -178,6 +178,13 @@ func (state *VMIReconcilerState) IsReady() bool {
 	return state.VMI.Current().Status.Phase == virtv2.ImageReady
 }
 
+func (state *VMIReconcilerState) IsFailed() bool {
+	if state.VMI.IsEmpty() {
+		return false
+	}
+	return state.VMI.Current().Status.Phase == virtv2.ImageFailed
+}
+
 func (state *VMIReconcilerState) IsDeletion() bool {
 	if state.VMI.IsEmpty() {
 		return false
@@ -202,7 +209,7 @@ func (state *VMIReconcilerState) ShouldTrackPod() bool {
 // CanStartPod returns whether importer/uploader Pod can be started.
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *VMIReconcilerState) CanStartPod() bool {
-	return state.Pod == nil && !state.IsReady()
+	return !state.IsReady() && !state.IsFailed() && state.Pod == nil
 }
 
 // IsPodComplete returns whether importer/uploader Pod was completed.

@@ -145,6 +145,13 @@ func (state *CVMIReconcilerState) ShouldReconcile(log logr.Logger) bool {
 	return true
 }
 
+func (state *CVMIReconcilerState) IsFailed() bool {
+	if state.CVMI.IsEmpty() {
+		return false
+	}
+	return state.CVMI.Current().Status.Phase == virtv2.ImageFailed
+}
+
 func (state *CVMIReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.CVMI.Current(), virtv2.FinalizerCVMICleanup)
 }
@@ -154,10 +161,6 @@ func (state *CVMIReconcilerState) IsDeletion() bool {
 		return false
 	}
 	return state.CVMI.Current().DeletionTimestamp != nil
-}
-
-func (state *CVMIReconcilerState) IsImportComplete() bool {
-	return state.Pod != nil && cc.IsPodComplete(state.Pod)
 }
 
 func (state *CVMIReconcilerState) IsImportInProgress() bool {

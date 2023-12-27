@@ -178,6 +178,13 @@ func (state *VMDReconcilerState) IsReady() bool {
 	return state.VMD.Current().Status.Phase == virtv2.DiskReady
 }
 
+func (state *VMDReconcilerState) IsFailed() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	return state.VMD.Current().Status.Phase == virtv2.DiskFailed
+}
+
 func (state *VMDReconcilerState) IsDeletion() bool {
 	if state.VMD.IsEmpty() {
 		return false
@@ -206,7 +213,7 @@ func (state *VMDReconcilerState) ShouldTrackPod() bool {
 // CanStartPod returns whether importer Pod can be started.
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *VMDReconcilerState) CanStartPod() bool {
-	return state.Pod == nil && !state.IsReady()
+	return !state.IsReady() && !state.IsFailed() && state.Pod == nil
 }
 
 // IsPodComplete returns whether importer/uploader Pod was completed.
