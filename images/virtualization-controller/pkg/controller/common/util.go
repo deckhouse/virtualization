@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -217,6 +218,8 @@ const (
 
 	// ProgressDone this means we are DONE
 	ProgressDone = "100.0%"
+	// UploaderWaitDuration is upload waiting timeout
+	UploaderWaitDuration = 15 * time.Minute
 )
 
 var (
