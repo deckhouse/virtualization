@@ -39,4 +39,7 @@ const (
 
 	// ReasonVMRestarted is event reason that VM restarted.
 	ReasonVMRestarted = "VMRestarted"
+
+	// ReasonErrUploaderWaitDurationExpired is event reason that uploading time expired.
+	ReasonErrUploaderWaitDurationExpired = "UploaderWaitDurationExpired"
 )

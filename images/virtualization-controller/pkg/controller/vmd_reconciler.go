@@ -105,10 +105,12 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
-		opts.Log.Info("VMD is ready: cleanup underlying resources")
+		opts.Log.Info("VMD ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
-		if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
-			return err
+		if cc.ShouldCleanupSubResources(state.VMD.Current()) {
+			if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
+				return err
+			}
 		}
 
 		if state.PVC == nil {
@@ -139,6 +141,14 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		}
 
 		return nil
+	case state.IsFailed():
+		opts.Log.Info("VMD failed: cleanup underlying resources")
+		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
+		if cc.ShouldCleanupSubResources(state.VMD.Current()) {
+			if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
+				return err
+			}
+		}
 	// First phase: import to DVCR.
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
@@ -249,7 +259,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	vmdStatus := state.VMD.Current().Status.DeepCopy()
 
 	if vmdStatus.Phase != virtv2.DiskReady {
-		vmdStatus.ImportDuration = time.Since(state.VMD.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+		vmdStatus.ImportDuration = helper.GetAge(state.VMD.Current()).String()
 	}
 
 	if vmdStatus.Progress == "" {
@@ -264,6 +274,8 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
 			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
+	case state.IsFailed():
+		break
 	case state.ShouldTrackPod() && state.IsPodRunning():
 		log.V(2).Info("Fetch progress from Pod")
 
@@ -300,6 +312,12 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// Set VMD phase.
 		if state.VMD.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
 			vmdStatus.Phase = virtv2.DiskWaitForUserUpload
+			// Fail if uploading time has expired.
+			if helper.GetAge(state.Pod) > cc.UploaderWaitDuration {
+				vmdStatus.Phase = virtv2.DiskFailed
+				vmdStatus.FailureReason = virtv2.ReasonErrUploaderWaitDurationExpired
+				vmdStatus.FailureMessage = "uploading time expired"
+			}
 		} else {
 			vmdStatus.Phase = virtv2.DiskProvisioning
 		}

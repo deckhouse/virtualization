@@ -101,6 +101,13 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
 		}
 		return nil
+	case state.IsFailed():
+		opts.Log.Info("VMI failed: cleanup underlying resources")
+		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
+		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
+			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
+		}
+		return nil
 	case state.CanStartPod():
 		// Create Pod using name and namespace from annotation.
 		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
@@ -157,7 +164,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 	cvmiStatus.Target.RegistryURL = dvcrDestImageName
 
 	if cvmiStatus.Phase != virtv2.ImageReady {
-		cvmiStatus.ImportDuration = time.Since(state.CVMI.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+		cvmiStatus.ImportDuration = helper.GetAge(state.CVMI.Current()).String()
 	}
 
 	switch {
@@ -167,7 +174,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 			cvmiStatus.FailureReason = FailureReasonCannotBeProcessed
 			cvmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
 		}
-	case state.IsReady():
+	case state.IsReady(), state.IsFailed():
 		break
 	case !state.IsPodComplete():
 		// Set CVMI status to Provisioning and copy progress metrics from importer/uploader Pod.
@@ -203,6 +210,11 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		// Set CVMI phase.
 		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
 			cvmiStatus.Phase = virtv2.ImageWaitForUserUpload
+			if helper.GetAge(state.Pod) > cc.UploaderWaitDuration {
+				cvmiStatus.Phase = virtv2.ImageFailed
+				cvmiStatus.FailureReason = virtv2.ReasonErrUploaderWaitDurationExpired
+				cvmiStatus.FailureMessage = "uploading time expired"
+			}
 		} else {
 			cvmiStatus.Phase = virtv2.ImageProvisioning
 		}

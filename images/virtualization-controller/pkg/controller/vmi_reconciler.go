@@ -105,9 +105,19 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
+		opts.Log.Info("VMI ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
-		return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
-
+		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
+			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
+		}
+		return nil
+	case state.IsFailed():
+		opts.Log.Info("VMI failed: cleanup underlying resources")
+		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
+		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
+			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
+		}
+		return nil
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
 		switch {
@@ -205,7 +215,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	vmiStatus := state.VMI.Current().Status.DeepCopy()
 
 	if vmiStatus.Phase != virtv2.ImageReady {
-		vmiStatus.ImportDuration = time.Since(state.VMI.Current().CreationTimestamp.Time).Truncate(time.Second).String()
+		vmiStatus.ImportDuration = helper.GetAge(state.VMI.Current()).String()
 	}
 
 	switch {
@@ -216,7 +226,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.FailureReason = FailureReasonCannotBeProcessed
 			vmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
 		}
-	case state.IsReady():
+	case state.IsReady(), state.IsFailed():
 		// No need to update status.
 		break
 	case state.ShouldTrackPod() && state.IsPodInProgress():
@@ -259,6 +269,12 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		// Set VMI phase.
 		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
 			vmiStatus.Phase = virtv2.ImageWaitForUserUpload
+			// Fail if uploading time has expired.
+			if helper.GetAge(state.Pod) > cc.UploaderWaitDuration {
+				vmiStatus.Phase = virtv2.ImageFailed
+				vmiStatus.FailureReason = virtv2.ReasonErrUploaderWaitDurationExpired
+				vmiStatus.FailureMessage = "uploading time expired"
+			}
 		} else {
 			vmiStatus.Phase = virtv2.ImageProvisioning
 		}
