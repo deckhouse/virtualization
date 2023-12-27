@@ -94,12 +94,14 @@ func ApplyVirtualMachineSpec(
 				kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
 					IsEphemeral:           true,
+					Serial:                name,
 				})
 			case virtv2.StorageContainerRegistry:
 				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
 				kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: util.GetPointer(dvcrImage),
 					IsCdrom:       vmi.Status.CDROM,
+					Serial:        name,
 				})
 			default:
 				panic(fmt.Sprintf("unexpected VMI %s spec.storage: %s", vmi.Name, vmi.Spec.Storage))
@@ -120,6 +122,7 @@ func ApplyVirtualMachineSpec(
 			kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       cvmi.Status.CDROM,
+				Serial:        name,
 			})
 
 		case virtv2.DiskDevice:
@@ -135,6 +138,7 @@ func ApplyVirtualMachineSpec(
 			name := GenerateVMDDiskName(bd.VirtualMachineDisk.Name)
 			kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),
+				Serial:                name,
 			})
 
 		default:
