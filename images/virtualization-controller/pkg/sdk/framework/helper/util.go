@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,4 +73,9 @@ func CleanupByName(ctx context.Context, client client.Client, key client.ObjectK
 	}
 
 	return CleanupObject(ctx, client, obj)
+}
+
+// GetAge returns the age of an object.
+func GetAge(obj client.Object) time.Duration {
+	return time.Since(obj.GetCreationTimestamp().Time).Truncate(time.Second)
 }
