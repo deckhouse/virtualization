@@ -125,6 +125,9 @@ const (
 	MachineFailed      MachinePhase = "Failed"
 	MachineTerminating MachinePhase = "Terminating"
 	MachineStopped     MachinePhase = "Stopped"
+	MachineStopping    MachinePhase = "Stopping"
+	MachineStarting    MachinePhase = "Starting"
+	MachinePause       MachinePhase = "Pause"
 )
 
 // VirtualMachineList contains a list of VirtualMachine

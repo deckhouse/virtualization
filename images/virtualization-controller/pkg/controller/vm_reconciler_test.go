@@ -227,12 +227,12 @@ var _ = Describe("VM", func() {
 		}
 
 		{
-			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kvvmi).NotTo(BeNil())
+			Expect(kvvm).NotTo(BeNil())
 
-			kvvmi.Status.Phase = virtv1.Scheduled
-			err = reconciler.Client.Status().Update(ctx, kvvmi)
+			kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+			err = reconciler.Client.Status().Update(ctx, kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = reconcileExecutor.Execute(ctx, reconciler)
@@ -249,6 +249,10 @@ var _ = Describe("VM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kvvmi).NotTo(BeNil())
 
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vm", Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(kvvm).NotTo(BeNil())
+
 			kvvmi.Status.GuestOSInfo = virtv1.VirtualMachineInstanceGuestOSInfo{
 				Name: "linux",
 				ID:   "12345",
@@ -264,6 +268,10 @@ var _ = Describe("VM", func() {
 			})
 			kvvmi.Status.Phase = virtv1.Scheduling
 			err = reconciler.Client.Status().Update(ctx, kvvmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusProvisioning
+			err = reconciler.Client.Status().Update(ctx, kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = reconcileExecutor.Execute(ctx, reconciler)
@@ -288,6 +296,7 @@ var _ = Describe("VM", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(kvvm).NotTo(BeNil())
 			kvvm.Status.Ready = true
+			kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusRunning
 			err = reconciler.Client.Status().Update(ctx, kvvm)
 			Expect(err).NotTo(HaveOccurred())
 
