@@ -39,257 +39,190 @@ index cb66290f7..9cce76b10 100644
  
  // variable so can be overridden in tests
 diff --git a/pkg/virt-operator/resource/generate/components/crds.go b/pkg/virt-operator/resource/generate/components/crds.go
-index 822f3d82b..3491665ba 100644
+index 822f3d82b..23f3a96a6 100644
 --- a/pkg/virt-operator/resource/generate/components/crds.go
 +++ b/pkg/virt-operator/resource/generate/components/crds.go
-@@ -153,12 +153,11 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope:    "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachineinstances",
--			Singular:   "virtualmachineinstance",
--			Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+@@ -156,9 +156,9 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachineinstances",
+ 			Singular:   "virtualmachineinstance",
+ 			Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
 -			ShortNames: []string{"vmi", "vmis"},
-+			Plural:   "virtualmachineinstances",
-+			Singular: "virtualmachineinstance",
-+			Kind:     virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
++			ShortNames: []string{"xvmi", "xvmis"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -191,12 +190,11 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope:    "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachines",
--			Singular:   "virtualmachine",
--			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
+@@ -194,9 +194,9 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachines",
+ 			Singular:   "virtualmachine",
+ 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
 -			ShortNames: []string{"vm", "vms"},
-+			Plural:   "virtualmachines",
-+			Singular: "virtualmachine",
-+			Kind:     virtv1.VirtualMachineGroupVersionKind.Kind,
++			ShortNames: []string{"xvm", "xvms"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -241,12 +239,11 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope: "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachineinstancepresets",
--			Singular:   "virtualmachineinstancepreset",
--			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+@@ -244,9 +244,9 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachineinstancepresets",
+ 			Singular:   "virtualmachineinstancepreset",
+ 			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
 -			ShortNames: []string{"vmipreset", "vmipresets"},
-+			Plural:   "virtualmachineinstancepresets",
-+			Singular: "virtualmachineinstancepreset",
-+			Kind:     virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
++			ShortNames: []string{"xvmipreset", "xvmipresets"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -268,12 +265,11 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope:    "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachineinstancereplicasets",
--			Singular:   "virtualmachineinstancereplicaset",
--			Kind:       virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+@@ -271,9 +271,9 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachineinstancereplicasets",
+ 			Singular:   "virtualmachineinstancereplicaset",
+ 			Kind:       virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
 -			ShortNames: []string{"vmirs", "vmirss"},
-+			Plural:   "virtualmachineinstancereplicasets",
-+			Singular: "virtualmachineinstancereplicaset",
-+			Kind:     virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
++			ShortNames: []string{"xvmirs", "xvmirss"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -313,12 +309,11 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
- 		Scope:    "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachineinstancemigrations",
--			Singular:   "virtualmachineinstancemigration",
--			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+@@ -316,9 +316,9 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
+ 			Plural:     "virtualmachineinstancemigrations",
+ 			Singular:   "virtualmachineinstancemigration",
+ 			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
 -			ShortNames: []string{"vmim", "vmims"},
-+			Plural:   "virtualmachineinstancemigrations",
-+			Singular: "virtualmachineinstancemigration",
-+			Kind:     virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
++			ShortNames: []string{"xvmim", "xvmims"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -367,12 +362,11 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope:    "Namespaced",
- 
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "kubevirts",
--			Singular:   "kubevirt",
--			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
+@@ -370,9 +370,9 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "kubevirts",
+ 			Singular:   "kubevirt",
+ 			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
 -			ShortNames: []string{"kv", "kvs"},
-+			Plural:   "kubevirts",
-+			Singular: "kubevirt",
-+			Kind:     virtv1.KubeVirtGroupVersionKind.Kind,
++			ShortNames: []string{"xkv", "xkvs"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -408,12 +402,11 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
- 		},
- 		Scope: "Namespaced",
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachinepools",
--			Singular:   "virtualmachinepool",
--			Kind:       "VirtualMachinePool",
+@@ -411,9 +411,9 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachinepools",
+ 			Singular:   "virtualmachinepool",
+ 			Kind:       "VirtualMachinePool",
 -			ShortNames: []string{"vmpool", "vmpools"},
-+			Plural:   "virtualmachinepools",
-+			Singular: "virtualmachinepool",
-+			Kind:     "VirtualMachinePool",
++			ShortNames: []string{"xvmpool", "xvmpools"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -460,12 +453,11 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
- 		},
- 		Scope: "Namespaced",
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachinesnapshots",
--			Singular:   "virtualmachinesnapshot",
--			Kind:       "VirtualMachineSnapshot",
+@@ -463,9 +463,9 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachinesnapshots",
+ 			Singular:   "virtualmachinesnapshot",
+ 			Kind:       "VirtualMachineSnapshot",
 -			ShortNames: []string{"vmsnapshot", "vmsnapshots"},
-+			Plural:   "virtualmachinesnapshots",
-+			Singular: "virtualmachinesnapshot",
-+			Kind:     "VirtualMachineSnapshot",
++			ShortNames: []string{"xvmsnapshot", "xvmsnapshots"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -502,12 +494,11 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
- 		},
- 		Scope: "Namespaced",
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachinesnapshotcontents",
--			Singular:   "virtualmachinesnapshotcontent",
--			Kind:       "VirtualMachineSnapshotContent",
+@@ -505,9 +505,9 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
+ 			Plural:     "virtualmachinesnapshotcontents",
+ 			Singular:   "virtualmachinesnapshotcontent",
+ 			Kind:       "VirtualMachineSnapshotContent",
 -			ShortNames: []string{"vmsnapshotcontent", "vmsnapshotcontents"},
-+			Plural:   "virtualmachinesnapshotcontents",
-+			Singular: "virtualmachinesnapshotcontent",
-+			Kind:     "VirtualMachineSnapshotContent",
++			ShortNames: []string{"xvmsnapshotcontent", "xvmsnapshotcontents"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -541,12 +532,11 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
- 		},
- 		Scope: "Namespaced",
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachinerestores",
--			Singular:   "virtualmachinerestore",
--			Kind:       "VirtualMachineRestore",
+@@ -544,9 +544,9 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachinerestores",
+ 			Singular:   "virtualmachinerestore",
+ 			Kind:       "VirtualMachineRestore",
 -			ShortNames: []string{"vmrestore", "vmrestores"},
-+			Plural:   "virtualmachinerestores",
-+			Singular: "virtualmachinerestore",
-+			Kind:     "VirtualMachineRestore",
++			ShortNames: []string{"xvmrestore", "xvmrestores"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -582,12 +572,11 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
- 		},
- 		Scope: "Namespaced",
- 		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     "virtualmachineexports",
--			Singular:   "virtualmachineexport",
--			Kind:       "VirtualMachineExport",
+@@ -585,9 +585,9 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
+ 			Plural:     "virtualmachineexports",
+ 			Singular:   "virtualmachineexport",
+ 			Kind:       "VirtualMachineExport",
 -			ShortNames: []string{"vmexport", "vmexports"},
-+			Plural:   "virtualmachineexports",
-+			Singular: "virtualmachineexport",
-+			Kind:     "VirtualMachineExport",
++			ShortNames: []string{"xvmexport", "xvmexports"},
  			Categories: []string{
 -				"all",
 +				"kubevirt",
  			},
  		},
  	}
-@@ -615,9 +604,8 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
+@@ -615,9 +615,9 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
  		Names: extv1.CustomResourceDefinitionNames{
  			Plural:     instancetype.PluralResourceName,
  			Singular:   instancetype.SingularResourceName,
 -			ShortNames: []string{"vminstancetype", "vminstancetypes", "vmf", "vmfs"},
++			ShortNames: []string{"xvminstancetype", "xvminstancetypes", "xvmf", "xvmfs"},
  			Kind:       "VirtualMachineInstancetype",
 -			Categories: []string{"all"},
 +			Categories: []string{"kubevirt"},
  		},
  		Scope: extv1.NamespaceScoped,
  		Conversion: &extv1.CustomResourceConversion{
-@@ -655,10 +643,9 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
- 	crd.Spec = extv1.CustomResourceDefinitionSpec{
- 		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+@@ -657,7 +657,7 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
  		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     instancetype.ClusterPluralResourceName,
--			Singular:   instancetype.ClusterSingularResourceName,
+ 			Plural:     instancetype.ClusterPluralResourceName,
+ 			Singular:   instancetype.ClusterSingularResourceName,
 -			ShortNames: []string{"vmclusterinstancetype", "vmclusterinstancetypes", "vmcf", "vmcfs"},
--			Kind:       "VirtualMachineClusterInstancetype",
-+			Plural:   instancetype.ClusterPluralResourceName,
-+			Singular: instancetype.ClusterSingularResourceName,
-+			Kind:     "VirtualMachineClusterInstancetype",
++			ShortNames: []string{"xvmclusterinstancetype", "xvmclusterinstancetypes", "xvmcf", "xvmcfs"},
+ 			Kind:       "VirtualMachineClusterInstancetype",
  		},
  		Scope: extv1.ClusterScoped,
- 		Conversion: &extv1.CustomResourceConversion{
-@@ -698,9 +685,8 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
+@@ -698,9 +698,9 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
  		Names: extv1.CustomResourceDefinitionNames{
  			Plural:     instancetype.PluralPreferenceResourceName,
  			Singular:   instancetype.SingularPreferenceResourceName,
 -			ShortNames: []string{"vmpref", "vmprefs", "vmp", "vmps"},
++			ShortNames: []string{"xvmpref", "xvmprefs", "xvmp", "xvmps"},
  			Kind:       "VirtualMachinePreference",
 -			Categories: []string{"all"},
 +			Categories: []string{"kubevirt"},
  		},
  		Scope: extv1.NamespaceScoped,
  		Conversion: &extv1.CustomResourceConversion{
-@@ -738,10 +724,9 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
- 	crd.Spec = extv1.CustomResourceDefinitionSpec{
- 		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+@@ -740,7 +740,7 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
  		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     instancetype.ClusterPluralPreferenceResourceName,
--			Singular:   instancetype.ClusterSingularPreferenceResourceName,
+ 			Plural:     instancetype.ClusterPluralPreferenceResourceName,
+ 			Singular:   instancetype.ClusterSingularPreferenceResourceName,
 -			ShortNames: []string{"vmcp", "vmcps"},
--			Kind:       "VirtualMachineClusterPreference",
-+			Plural:   instancetype.ClusterPluralPreferenceResourceName,
-+			Singular: instancetype.ClusterSingularPreferenceResourceName,
-+			Kind:     "VirtualMachineClusterPreference",
++			ShortNames: []string{"xvmcp", "xvmcps"},
+ 			Kind:       "VirtualMachineClusterPreference",
  		},
  		Scope: extv1.ClusterScoped,
- 		Conversion: &extv1.CustomResourceConversion{
-@@ -825,12 +810,11 @@ func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
- 		Scope: extv1.NamespaceScoped,
- 
+@@ -827,10 +827,10 @@ func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
  		Names: extv1.CustomResourceDefinitionNames{
--			Plural:     clone.ResourceVMClonePlural,
--			Singular:   clone.ResourceVMCloneSingular,
+ 			Plural:     clone.ResourceVMClonePlural,
+ 			Singular:   clone.ResourceVMCloneSingular,
 -			ShortNames: []string{"vmclone", "vmclones"},
--			Kind:       clonev1alpha1.VirtualMachineCloneKind.Kind,
-+			Plural:   clone.ResourceVMClonePlural,
-+			Singular: clone.ResourceVMCloneSingular,
-+			Kind:     clonev1alpha1.VirtualMachineCloneKind.Kind,
++			ShortNames: []string{"xvmclone", "xvmclones"},
+ 			Kind:       clonev1alpha1.VirtualMachineCloneKind.Kind,
  			Categories: []string{
 -				"all",
 +				"kubevirt",
@@ -297,7 +230,7 @@ index 822f3d82b..3491665ba 100644
  		},
  	}
 diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
-index 932f7391e..7408cabe4 100644
+index 99e8fe12d..0dd55e491 100644
 --- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
 +++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
 @@ -28,14 +28,16 @@ import (
@@ -327,7 +260,7 @@ index 932f7391e..7408cabe4 100644
  				},
  				Resources: []string{
  					"virtualmachinesnapshots",
-@@ -220,7 +222,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
+@@ -233,7 +235,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
  			},
  			{
  				APIGroups: []string{
@@ -337,7 +270,7 @@ index 932f7391e..7408cabe4 100644
  				Resources: []string{
  					instancetype.PluralResourceName,
 diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
-index 6ba13c849..6c7208eda 100644
+index 1af14cb60..82659d6f8 100644
 --- a/pkg/virt-operator/resource/generate/rbac/cluster.go
 +++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
 @@ -28,15 +28,20 @@ import (
@@ -367,7 +300,7 @@ index 6ba13c849..6c7208eda 100644
  	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
  	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
 diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
-index 8b8313112..651701010 100644
+index 474ab93b0..3cb6b44bc 100644
 --- a/pkg/virt-operator/resource/generate/rbac/controller.go
 +++ b/pkg/virt-operator/resource/generate/rbac/controller.go
 @@ -28,7 +28,11 @@ import (
@@ -490,7 +423,7 @@ index e55a4044e..a953a5929 100644
  				Resources: []string{
  					"kubevirts",
 diff --git a/pkg/virt-operator/resource/generate/rbac/operator.go b/pkg/virt-operator/resource/generate/rbac/operator.go
-index 4eca946a4..be00603f5 100644
+index 98939edde..fd6e72c5c 100644
 --- a/pkg/virt-operator/resource/generate/rbac/operator.go
 +++ b/pkg/virt-operator/resource/generate/rbac/operator.go
 @@ -25,6 +25,7 @@ import (
@@ -575,7 +508,7 @@ index 844dbf5e0..93f944e6e 100644
 +	GroupName = "x.virtualization.deckhouse.export.kubevirt.io"
  )
 diff --git a/staging/src/kubevirt.io/api/instancetype/register.go b/staging/src/kubevirt.io/api/instancetype/register.go
-index a4784e9f0..5608dcfee 100644
+index d4eafd31f..4fba2ec4a 100644
 --- a/staging/src/kubevirt.io/api/instancetype/register.go
 +++ b/staging/src/kubevirt.io/api/instancetype/register.go
 @@ -21,7 +21,7 @@ package instancetype

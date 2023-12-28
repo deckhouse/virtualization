@@ -375,7 +375,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - cdi.kubevirt.io
+  - x.virtualization.deckhouse.cdi.kubevirt.io
   resources:
   - datasources
   - datavolumes
@@ -593,7 +593,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - cdi.kubevirt.io
+  - x.virtualization.deckhouse.cdi.kubevirt.io
   resources:
   - '*'
   verbs:
