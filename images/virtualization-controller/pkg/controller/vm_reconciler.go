@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -133,14 +134,16 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	// Do nothing if object is being deleted as any update will lead to en error.
+	opts.Log.V(2).Info("VMReconciler.UpdateStatus")
 	if state.isDeletion() {
+		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
 		return nil
 	}
 
-	opts.Log.Info("VMReconciler.UpdateStatus")
-
 	state.VM.Changed().Status.Message = ""
+	if state.VM.Current().Status.Phase == "" {
+		state.VM.Current().Status.Phase = virtv2.MachinePending
+	}
 
 	// Ensure IP address claim.
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
@@ -151,77 +154,43 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	state.VM.Changed().Status.IPAddressClaim = state.IPAddressClaim.Name
 	state.VM.Changed().Status.IPAddress = state.IPAddressClaim.Spec.Address
 
-	// Change previous state to new
-	switch state.VM.Current().Status.Phase {
-	case "":
-		state.VM.Changed().Status.Phase = virtv2.MachinePending
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-	case virtv2.MachinePending:
-		if state.KVVMI != nil {
-			switch state.KVVMI.Status.Phase {
-			case virtv1.Running:
-				state.VM.Changed().Status.Phase = virtv2.MachineScheduling
-				state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-			case virtv1.Scheduled, virtv1.Scheduling:
-				state.VM.Changed().Status.Phase = virtv2.MachineScheduling
-			}
-		}
-	case virtv2.MachineScheduling, virtv2.MachineTerminating:
-		if state.KVVMI != nil && state.KVVMI.Status.Phase == virtv1.Running {
-			state.VM.Changed().Status.Phase = virtv2.MachineRunning
-		}
-	case virtv2.MachineRunning:
-		// VM restart is in progress.
-		if state.KVVM != nil && state.KVVMI == nil {
-			state.VM.Changed().Status.Phase = virtv2.MachineTerminating
-		}
-	case virtv2.MachineStopped:
-	case virtv2.MachineFailed:
-		state.VM.Changed().Status.Phase = virtv2.MachinePending
-	}
-
-	// Set fields after phase changed
-	switch state.VM.Changed().Status.Phase {
-	case virtv2.MachinePending:
-	case virtv2.MachineScheduling:
-		if errs := state.GetKVVMErrors(); len(errs) > 0 {
-			state.VM.Changed().Status.Phase = virtv2.MachineFailed
-			for _, err := range errs {
-				opts.Log.Error(err, "KVVM failure", "kvvm", state.KVVM.Name)
-			}
-		}
-
-	case virtv2.MachineRunning:
-		if state.KVVMI != nil {
-			state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
-			state.VM.Changed().Status.NodeName = state.KVVMI.Status.NodeName
-
-			for _, i := range state.KVVMI.Status.Interfaces {
-				if i.Name == "default" {
-					if state.IPAddressClaim.Spec.Address != i.IP {
-						err := fmt.Errorf("allocated ip address (%s) is not equeal to assigned (%s)", state.IPAddressClaim.Spec.Address, i.IP)
-						opts.Log.Error(err, "Unexpected kubevirt virtual machine ip address for default network interface, please report a bug", "kvvm", state.KVVM.Name)
-					}
-					break
+	switch {
+	case state.vmIsStopping():
+		state.VM.Changed().Status.Phase = virtv2.MachineStopping
+	case state.vmIsStopped():
+		state.VM.Changed().Status.Phase = virtv2.MachineStopped
+	case state.vmIsScheduling():
+		state.VM.Changed().Status.Phase = virtv2.MachineScheduling
+	case state.vmIsStarting():
+		state.VM.Changed().Status.Phase = virtv2.MachineStarting
+	case state.vmIsRunning():
+		state.VM.Changed().Status.Phase = virtv2.MachineRunning
+		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
+		state.VM.Changed().Status.NodeName = state.KVVMI.Status.NodeName
+		for _, i := range state.KVVMI.Status.Interfaces {
+			if i.Name == "default" {
+				if state.IPAddressClaim.Spec.Address != i.IP {
+					err := fmt.Errorf("allocated ip address (%s) is not equeal to assigned (%s)", state.IPAddressClaim.Spec.Address, i.IP)
+					opts.Log.Error(err, "Unexpected kubevirt virtual machine ip address for default network interface, please report a bug", "kvvm", state.KVVM.Name)
 				}
+				break
 			}
-
-			for _, bd := range state.VM.Current().Spec.BlockDevices {
-				if state.FindAttachedBlockDevice(bd) == nil {
-					if abd := state.CreateAttachedBlockDevice(bd); abd != nil {
-						state.VM.Changed().Status.BlockDevicesAttached = append(
-							state.VM.Changed().Status.BlockDevicesAttached,
-							*abd,
-						)
-					}
+		}
+		for _, bd := range state.VM.Current().Spec.BlockDevices {
+			if state.FindAttachedBlockDevice(bd) == nil {
+				if abd := state.CreateAttachedBlockDevice(bd); abd != nil {
+					state.VM.Changed().Status.BlockDevicesAttached = append(
+						state.VM.Changed().Status.BlockDevicesAttached,
+						*abd,
+					)
 				}
 			}
 		}
-	case virtv2.MachineTerminating:
-		// Wait until restart completes.
-		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-	case virtv2.MachineStopped:
-	case virtv2.MachineFailed:
+	case state.vmIsPaused():
+		state.VM.Changed().Status.Phase = virtv2.MachinePause
+	case state.vmIsFailed():
+		state.VM.Changed().Status.Phase = virtv2.MachineFailed
+		opts.Log.Error(errors.New(string(state.KVVM.Status.PrintableStatus)), "KVVM failure", "kvvm", state.KVVM.Name)
 	default:
 		opts.Log.Error(fmt.Errorf("unexpected VM status phase %q, fallback to Pending", state.VM.Changed().Status.Phase), "")
 		state.VM.Changed().Status.Phase = virtv2.MachinePending

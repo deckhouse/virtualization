@@ -391,6 +391,40 @@ func (state *VMReconcilerState) isDeletion() bool {
 	return !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero()
 }
 
+func (state *VMReconcilerState) vmIsStopped() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped
+}
+
+func (state *VMReconcilerState) vmIsStopping() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStopping
+}
+
+func (state *VMReconcilerState) vmIsScheduling() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusProvisioning
+}
+
+func (state *VMReconcilerState) vmIsStarting() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStarting
+}
+
+func (state *VMReconcilerState) vmIsRunning() bool {
+	return state.KVVMI != nil && state.KVVMI.Status.Phase == virtv1.Running
+}
+
+func (state *VMReconcilerState) vmIsPaused() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusPaused
+}
+
+func (state *VMReconcilerState) vmIsFailed() bool {
+	return state.KVVM != nil &&
+		(state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusCrashLoopBackOff ||
+			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable ||
+			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusErrImagePull ||
+			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusImagePullBackOff ||
+			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusPvcNotFound ||
+			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusDataVolumeError)
+}
+
 // RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
 func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string {
 	res := make(map[string]string)

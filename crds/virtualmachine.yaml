@@ -906,6 +906,9 @@ spec:
                     - "Failed"
                     - "Terminating"
                     - "Stopped"
+                    - "Stopping"
+                    - "Starting"
+                    - "Pause"
                 nodeName:
                   type: string
                   description: |
