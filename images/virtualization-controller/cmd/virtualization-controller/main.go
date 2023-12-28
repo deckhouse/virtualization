@@ -11,11 +11,12 @@ import (
 
 	"go.uber.org/zap/zapcore"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	apiruntimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -35,7 +36,7 @@ var (
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
 		virtv2alpha1.AddToScheme,
-		cdiv1.AddToScheme,
+		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 	}
 	importerImage       string
@@ -46,6 +47,7 @@ var (
 const (
 	defaultVerbosity      = "1"
 	kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
+	cdiCoreGroupName      = "x.virtualization.deckhouse.cdi.kubevirt.io"
 )
 
 func init() {
@@ -54,6 +56,7 @@ func init() {
 	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
 
 	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
+	overrideCDICoreGroupName(cdiCoreGroupName)
 }
 
 func setupLogger() {
@@ -111,6 +114,42 @@ func overrideKubevirtCoreGroupName(groupName string) {
 
 	virtv1.SchemeBuilder = apiruntime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]apiruntimeschema.GroupVersion{virtv1.GroupVersion}))
 	virtv1.AddToScheme = virtv1.SchemeBuilder.AddToScheme
+}
+
+func overrideCDICoreGroupName(groupName string) {
+	cdiv1beta1.SchemeGroupVersion.Group = groupName
+	cdiv1beta1.CDIGroupVersionKind.Group = groupName
+
+	cdiv1beta1.SchemeBuilder = apiruntime.NewSchemeBuilder(addKnownTypes)
+	cdiv1beta1.AddToScheme = cdiv1beta1.SchemeBuilder.AddToScheme
+}
+
+// Adds the list of known types to Scheme.
+func addKnownTypes(scheme *apiruntime.Scheme) error {
+	scheme.AddKnownTypes(cdiv1beta1.SchemeGroupVersion,
+		&cdiv1beta1.DataVolume{},
+		&cdiv1beta1.DataVolumeList{},
+		&cdiv1beta1.CDIConfig{},
+		&cdiv1beta1.CDIConfigList{},
+		&cdiv1beta1.CDI{},
+		&cdiv1beta1.CDIList{},
+		&cdiv1beta1.StorageProfile{},
+		&cdiv1beta1.StorageProfileList{},
+		&cdiv1beta1.DataSource{},
+		&cdiv1beta1.DataSourceList{},
+		&cdiv1beta1.DataImportCron{},
+		&cdiv1beta1.DataImportCronList{},
+		&cdiv1beta1.ObjectTransfer{},
+		&cdiv1beta1.ObjectTransferList{},
+		&cdiv1beta1.VolumeImportSource{},
+		&cdiv1beta1.VolumeImportSourceList{},
+		&cdiv1beta1.VolumeUploadSource{},
+		&cdiv1beta1.VolumeUploadSourceList{},
+		&cdiv1beta1.VolumeCloneSource{},
+		&cdiv1beta1.VolumeCloneSourceList{},
+	)
+	metav1.AddToGroupVersion(scheme, cdiv1beta1.SchemeGroupVersion)
+	return nil
 }
 
 func main() {

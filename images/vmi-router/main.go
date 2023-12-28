@@ -22,15 +22,14 @@ import (
 	"net"
 	"os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/runtime"
 	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,9 +48,7 @@ var (
 	}
 )
 
-const (
-	kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
-)
+const kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
 
 func init() {
 	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
