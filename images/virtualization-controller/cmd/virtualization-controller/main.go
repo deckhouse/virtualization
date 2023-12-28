@@ -46,8 +46,8 @@ var (
 
 const (
 	defaultVerbosity      = "1"
-	kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
-	cdiCoreGroupName      = "x.virtualization.deckhouse.cdi.kubevirt.io"
+	kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
+	cdiCoreGroupName      = "x.virtualization.deckhouse.io"
 )
 
 func init() {
