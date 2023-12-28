@@ -1,5 +1,5 @@
 ---
-apiVersion: x.virtualization.deckhouse.cdi.kubevirt.io/v1beta1
+apiVersion: x.virtualization.deckhouse.io/v1beta1
 kind: CDI
 metadata:
   name: cdi
