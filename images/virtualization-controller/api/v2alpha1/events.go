@@ -40,6 +40,9 @@ const (
 	// ReasonVMRestarted is event reason that VM restarted.
 	ReasonVMRestarted = "VMRestarted"
 
+	// ReasonVMLastAppliedSpecInvalid is event reason that JSON in last-applied-spec annotation is invalid.
+	ReasonVMLastAppliedSpecInvalid = "VMLastAppliedSpecInvalid"
+
 	// ReasonErrUploaderWaitDurationExpired is event reason that uploading time expired.
 	ReasonErrUploaderWaitDurationExpired = "UploaderWaitDurationExpired"
 )

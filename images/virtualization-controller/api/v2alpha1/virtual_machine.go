@@ -114,6 +114,7 @@ type VirtualMachineStatus struct {
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 	Message              string                                   `json:"message"`
 	ChangeID             string                                   `json:"changeID"`
+	PendingChanges       []FieldChangeOperation                   `json:"pendingChanges,omitempty"`
 }
 
 type MachinePhase string
@@ -129,6 +130,19 @@ const (
 	MachineStarting    MachinePhase = "Starting"
 	MachinePause       MachinePhase = "Pause"
 )
+
+// FieldChangeOperation holds one operation to be applied on the spec field.
+//
+// The structure of the field change operation has these fields:
+//
+//	operation enum(add|remove|replace)
+//	path string
+//	currentValue any
+//	desiredValue any
+//
+// An 'any' type can't be described using the OpenAPI v3 schema.
+// The workaround is to declare items of pendingChanges as objects with preserved fields.
+type FieldChangeOperation interface{}
 
 // VirtualMachineList contains a list of VirtualMachine
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

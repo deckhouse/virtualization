@@ -161,6 +161,9 @@ const (
 	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
 	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
 
+	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
+	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
+
 	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
 	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
 	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.
