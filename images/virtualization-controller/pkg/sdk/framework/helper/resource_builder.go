@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
@@ -34,6 +35,10 @@ func (b *ResourceBuilder[T]) SetOwnerRef(obj metav1.Object, gvk schema.GroupVers
 		}, false,
 	)
 	b.Resource.SetOwnerReferences(newOwnerRefs)
+}
+
+func (b *ResourceBuilder[T]) AddAnnotation(annotation, value string) {
+	common.AddAnnotation(b.Resource, annotation, value)
 }
 
 func (b *ResourceBuilder[T]) AddFinalizer(finalizer string) {

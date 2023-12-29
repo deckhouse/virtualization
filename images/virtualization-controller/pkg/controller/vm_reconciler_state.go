@@ -37,9 +37,10 @@ type VMReconcilerState struct {
 
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
 
-	Result        *reconcile.Result
-	StatusMessage string
-	ChangeID      string
+	Result         *reconcile.Result
+	StatusMessage  string
+	ChangeID       string
+	PendingChanges []virtv2.FieldChangeOperation
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -74,6 +75,10 @@ func (state *VMReconcilerState) GetReconcilerResult() *reconcile.Result {
 
 func (state *VMReconcilerState) SetChangeID(changeID string) {
 	state.ChangeID = changeID
+}
+
+func (state *VMReconcilerState) SetPendingChanges(changes []virtv2.FieldChangeOperation) {
+	state.PendingChanges = changes
 }
 
 func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, _ client.Client) error {
@@ -198,6 +203,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.CVMIByName = cvmiByName
 	state.ChangeID = state.VM.Current().Status.ChangeID
 	state.StatusMessage = state.VM.Current().Status.Message
+	state.PendingChanges = state.VM.Current().Status.PendingChanges
 
 	return nil
 }
