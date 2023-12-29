@@ -11,9 +11,9 @@ kind: CustomResourceDefinition
 metadata:
   labels:
     operator.kubevirt.io: ""
-  name: kubevirts.x.virtualization.deckhouse.kubevirt.io
+  name: kubevirts.x.virtualization.deckhouse.io
 spec:
-  group: x.virtualization.deckhouse.kubevirt.io
+  group: x.virtualization.deckhouse.io
   names:
     categories:
     - kubevirt

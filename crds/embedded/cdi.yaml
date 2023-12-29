@@ -3,9 +3,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: cdis.x.virtualization.deckhouse.cdi.kubevirt.io
+  name: cdis.x.virtualization.deckhouse.io
 spec:
-  group: x.virtualization.deckhouse.cdi.kubevirt.io
+  group: x.virtualization.deckhouse.io
   names:
     kind: CDI
     listKind: CDIList

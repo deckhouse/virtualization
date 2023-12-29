@@ -48,7 +48,7 @@ var (
 	}
 )
 
-const kubevirtCoreGroupName = "x.virtualization.deckhouse.kubevirt.io"
+const kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
 
 func init() {
 	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
