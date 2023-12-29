@@ -171,6 +171,13 @@ func (state *VMIReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.VMI.Current(), virtv2.FinalizerVMICleanup)
 }
 
+func (state *VMIReconcilerState) IsLost() bool {
+	if state.VMI.IsEmpty() {
+		return false
+	}
+	return state.VMI.Current().Status.Phase == virtv2.ImagePVCLost
+}
+
 func (state *VMIReconcilerState) IsReady() bool {
 	if state.VMI.IsEmpty() {
 		return false

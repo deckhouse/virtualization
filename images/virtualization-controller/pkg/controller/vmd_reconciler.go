@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -81,6 +82,22 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualMachineDisk{},
+			handler.OnlyControllerOwner(),
+		), predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on PVC: %w", err)
+	}
+
 	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
 }
 
@@ -104,6 +121,8 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
 		}
+	case state.IsLost():
+		return nil
 	case state.IsReady():
 		opts.Log.Info("VMD ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
@@ -114,7 +133,8 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		}
 
 		if state.PVC == nil {
-			return errors.New("pvc not found, please report a bug")
+			opts.Log.Info("PVC lost")
+			return nil
 		}
 
 		oldSize := state.PVC.Spec.Resources.Requests[corev1.ResourceStorage]
@@ -213,9 +233,19 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		case state.DV != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
 			log.V(2).Info("Requeue: wait until DataVolume is completed", "vmd.name", state.VMD.Current().Name)
-			if err := r.ensureDVFinalizers(ctx, state, opts); err != nil {
+
+			if state.IsDataVolumeComplete() {
+				err := r.setPVCOwnerReference(ctx, state, opts.Client)
+				if err != nil {
+					return err
+				}
+			}
+
+			err := r.ensureDVFinalizers(ctx, state, opts)
+			if err != nil {
 				return err
 			}
+
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
 		}
@@ -271,10 +301,16 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.Phase = virtv2.DiskPending
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.IsReady():
-		if state.PVC != nil && state.PVC.Status.Phase == corev1.ClaimBound {
+		if state.PVC == nil {
+			log.V(1).Info("PVC not found for ready vmd")
+			vmdStatus.Phase = virtv2.DiskPVCLost
+			break
+		}
+
+		if state.PVC.Status.Phase == corev1.ClaimBound {
 			vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
 		}
-	case state.IsFailed():
+	case state.IsFailed(), state.IsLost():
 		break
 	case state.ShouldTrackPod() && state.IsPodRunning():
 		log.V(2).Info("Fetch progress from Pod")
@@ -374,7 +410,9 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
 		if state.PVC == nil {
-			return errors.New("pvc not found, please report a bug")
+			log.V(1).Info("PVC not found for completed vmd")
+			vmdStatus.Phase = virtv2.DiskPVCLost
+			break
 		}
 
 		if state.PVC.Status.Phase != corev1.ClaimBound {
@@ -425,6 +463,23 @@ func MapDataVolumePhaseToVMDPhase(phase cdiv1.DataVolumePhase) virtv2.DiskPhase 
 	default:
 		panic(fmt.Sprintf("unexpected DataVolume phase %q, please report a bug", phase))
 	}
+}
+
+func (r *VMDReconciler) setPVCOwnerReference(ctx context.Context, state *VMDReconcilerState, apiClient client.Client) error {
+	if state.PVC == nil {
+		return nil
+	}
+
+	state.PVC.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(state.VMD.Current(), state.VMD.Current().GroupVersionKind()),
+	}
+
+	err := apiClient.Update(ctx, state.PVC)
+	if err != nil {
+		return fmt.Errorf("failed to set pvc owner ref: %w", err)
+	}
+
+	return nil
 }
 
 // ensurePodFinalizers adds protective finalizers on importer/uploader Pod and Service dependencies.
@@ -602,6 +657,12 @@ func (r *VMDReconciler) cleanupOnDeletion(ctx context.Context, state *VMDReconci
 
 		if state.DV != nil {
 			if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
+				return err
+			}
+		}
+
+		if state.PVC != nil {
+			if err := helper.DeleteObject(ctx, opts.Client, state.PVC); err != nil {
 				return err
 			}
 		}
