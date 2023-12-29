@@ -7,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,6 +20,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/testutil"
@@ -476,6 +478,204 @@ var _ = Describe("Apply VM changes", func() {
 			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted")
+		}
+	})
+})
+
+var _ = Describe("Apply VM changes with manual approval", func() {
+	var reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState]
+	var reconcileExecutor *testutil.ReconcileExecutor
+
+	AfterEach(func() {
+		if reconciler != nil {
+			reconciler = nil
+		}
+	})
+
+	AfterEach(func() {
+		if reconciler != nil && reconciler.Recorder != nil {
+			close(reconciler.Recorder.(*record.FakeRecorder).Events)
+		}
+	})
+
+	It("Restart VM on memory change after approval", func(ctx SpecContext) {
+		nsName := "test-ns-3"
+		vmName := "test-vm"
+		vmipName := "test-vmip"
+		vmdName := "test-vmd"
+		storageClassName := "local-path"
+		memoryStartingSize := "2Gi"
+		memoryNewSize := "3Gi"
+		cpuStartingCores := 2
+		cpuNewCores := 4
+		cpuStartingCoreFraction := "80%"
+		cpuNewCoreFraction := "50%"
+
+		{
+			By("Creating VM in Ready status")
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: nsName,
+					Name:      vmName,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					VirtualMachineIPAddressClaimName: vmipName,
+					RunPolicy:                        virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:         true,
+					OsType:                           virtv2.GenericOs,
+					CPU: virtv2.CPUSpec{
+						Cores:        cpuStartingCores,
+						CoreFraction: cpuStartingCoreFraction,
+					},
+					Memory: virtv2.MemorySpec{
+						Size: memoryStartingSize,
+					},
+					BlockDevices: []virtv2.BlockDeviceSpec{
+						{
+							Type:               virtv2.DiskDevice,
+							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
+						},
+					},
+					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Manual},
+				},
+				Status: virtv2.VirtualMachineStatus{},
+			}
+
+			vmd := &virtv2.VirtualMachineDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: nsName,
+					Name:      vmdName,
+				},
+				Spec: virtv2.VirtualMachineDiskSpec{
+					DataSource: &virtv2.VMDDataSource{
+						HTTP: &virtv2.DataSourceHTTP{
+							URL: "http://mydomain.org/image.img",
+						},
+					},
+					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
+						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						StorageClassName: &storageClassName,
+					},
+				},
+				Status: virtv2.VirtualMachineDiskStatus{
+					Phase:    virtv2.DiskReady,
+					Capacity: "10Gi",
+				},
+			}
+
+			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
+				KnownObjects: []client.Object{
+					&virtv2.VirtualMachine{},
+					&virtv2.VirtualMachineDisk{},
+					&virtv2.ClusterVirtualMachineImage{},
+					&virtv1.VirtualMachine{},
+					&virtv1.VirtualMachineInstance{},
+				},
+				RuntimeObjects: []runtime.Object{vm},
+			})
+			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: vmName, Namespace: nsName})
+
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vmipName,
+					Namespace: nsName,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmip, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmipName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachineIPAddressClaim{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmip).NotTo(BeNil())
+
+			CreateReadyVM(ctx, reconciler, reconcileExecutor, vm, vmd)
+
+			By("Emulating kubevirt: create kubevirt VMI in Ready status")
+
+			// Ensure kubevirt VMI is present.
+			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvmi).ShouldNot(BeNil(), "kubevirt VirtualMachineInstance should present")
+		}
+
+		{
+			By("Changing memory size and cpu settings")
+			// Change memory settings.
+			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachine{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vm).ShouldNot(BeNil())
+
+			// Set new memory size and cpu settings.
+			vm.Spec.Memory.Size = memoryNewSize
+			vm.Spec.CPU.Cores = cpuNewCores
+			vm.Spec.CPU.CoreFraction = cpuNewCoreFraction
+
+			// Update vm and reconcile new settings.
+			err = reconciler.Client.Update(ctx, vm)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = reconcileExecutor.Execute(ctx, reconciler)
+			Expect(err).ShouldNot(HaveOccurred())
+		}
+
+		{
+			By("Checking kubevirt VMI was not deleted")
+			// Check that kubevirt VMI was not deleted.
+			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvmi).NotTo(BeNil(), "kubevirt VirtualMachineInstance should not be deleted")
+
+			By("Checking changes are pending")
+			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachine{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vm).ShouldNot(BeNil())
+
+			Expect(vm.Status.ChangeID).ShouldNot(BeEmpty(), "Should put changeID to the status")
+
+			id := func(elem interface{}) string {
+				return elem.(map[string]interface{})["path"].(string)
+			}
+			Expect(vm.Status.PendingChanges).To(MatchAllElements(id, Elements{
+				"cpu": MatchAllKeys(Keys{
+					"path":      Equal("cpu"),
+					"operation": Equal(string(vmchange.ChangeReplace)),
+					"currentValue": MatchAllKeys(Keys{
+						"cores":        BeEquivalentTo(cpuStartingCores),
+						"coreFraction": Equal(cpuStartingCoreFraction),
+					}),
+					"desiredValue": MatchAllKeys(Keys{
+						"cores":        BeEquivalentTo(cpuNewCores),
+						"coreFraction": Equal(cpuNewCoreFraction),
+					}),
+				}),
+				"memory.size": MatchAllKeys(Keys{
+					"path":         Equal("memory.size"),
+					"operation":    Equal(string(vmchange.ChangeReplace)),
+					"currentValue": Equal(memoryStartingSize),
+					"desiredValue": Equal(memoryNewSize),
+				}),
+			}))
+
+			By("Approving pending changes")
+			vm.Spec.ApprovedChangeID = vm.Status.ChangeID
+			// Update vm and reconcile approval.
+			err = reconciler.Client.Update(ctx, vm)
+			Expect(err).ShouldNot(HaveOccurred())
+			err = reconcileExecutor.Execute(ctx, reconciler)
+			Expect(err).ShouldNot(HaveOccurred())
+		}
+
+		{
+			By("Checking kubevirt VMI is gone")
+			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted after manual approval")
+
+			By("Checking status is cleared")
+			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachine{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(vm).ShouldNot(BeNil())
+
+			Expect(vm.Status.ChangeID).Should(BeEmpty(), "Should clear changeID after manual approval")
+			Expect(vm.Status.PendingChanges).Should(BeEmpty(), "Should clear pendingChanges after manual approval")
 		}
 	})
 })

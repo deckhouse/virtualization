@@ -23,6 +23,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
@@ -94,13 +95,10 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return r.syncMetadata(ctx, state, opts)
 	}
 
-	actions, newKVVM, err := r.detectApplyChangeActions(state, opts)
-	if err != nil {
-		return err
-	}
+	changes := r.detectSpecChanges(state, opts)
 
 	// Delay changes propagation to KVVM until user approves them.
-	if r.shouldWaitForApproval(state, opts, actions) {
+	if r.shouldWaitForChangesApproval(state, opts, changes) {
 		// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
 		return r.syncMetadata(ctx, state, opts)
 	}
@@ -117,7 +115,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 				return err
 			}
 		} else {
-			err = r.applyVMChangesToKVVM(ctx, state, opts, actions, newKVVM)
+			err = r.applyVMChangesToKVVM(ctx, state, opts, changes)
 			if err != nil {
 				return err
 			}
@@ -198,6 +196,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 
 	state.VM.Changed().Status.Message = state.StatusMessage
 	state.VM.Changed().Status.ChangeID = state.ChangeID
+	state.VM.Changed().Status.PendingChanges = state.PendingChanges
 	return nil
 }
 
@@ -303,82 +302,153 @@ func (r *VMReconciler) checkBlockDevicesSanity(state *VMReconcilerState) string 
 	return fmt.Sprintf("spec.blockDevices contain hotplugged disks: %s. Unplug or remove them from spec to continue.", strings.Join(disks, ", "))
 }
 
-// createKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
-func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMReconciler) makeKVVMFromVMSpec(state *VMReconcilerState) (*virtv1.VirtualMachine, error) {
 	kvvmName := state.VM.Name()
 
-	// No underlying VM found, create fresh kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	kvvmBuilder := kvbuilder.NewEmptyKVVM(kvvmName, kvbuilder.KVVMOptions{
+	kvvmOpts := kvbuilder.KVVMOptions{
 		EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
 		OsType:                    state.VM.Current().Spec.OsType,
 		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
 		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
-	})
+	}
+
+	var kvvmBuilder *kvbuilder.KVVM
+	if state.KVVM == nil {
+		kvvmBuilder = kvbuilder.NewEmptyKVVM(kvvmName, kvvmOpts)
+	} else {
+		kvvmBuilder = kvbuilder.NewKVVM(state.KVVM.DeepCopy(), kvvmOpts)
+	}
+
+	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
 	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
 
 	kvvm := kvvmBuilder.GetResource()
 
+	err := kvbuilder.SetLastAppliedSpec(kvvm, state.VM.Current())
+	if err != nil {
+		return nil, fmt.Errorf("set last applied spec on KubeVirt VM '%s': %w", state.KVVM.GetName(), err)
+	}
+
+	return kvvm, nil
+}
+
+// createKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
+func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	kvvm, err := r.makeKVVMFromVMSpec(state)
+	if err != nil {
+		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
+	}
+
 	if err := opts.Client.Create(ctx, kvvm); err != nil {
-		return fmt.Errorf("unable to create KubeVirt VM %q: %w", kvvmName, err)
+		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
 	state.KVVM = kvvm
 
-	opts.Log.Info("Created new KubeVirt VM", "name", kvvm.Name, "kvvm", state.KVVM)
+	opts.Log.Info("Created new KubeVirt VM", "name", kvvm.Name)
+	opts.Log.V(4).Info("Created new KubeVirt VM", "name", kvvm.Name, "kvvm", state.KVVM)
 
 	return nil
 }
 
-// detectApplyChangeActions compares KVVM generated from current VM spec with in cluster KVVM
-// to calculate changes and action needed to apply these changes.
-func (r *VMReconciler) detectApplyChangeActions(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (*kvbuilder.ChangeApplyActions, *virtv1.VirtualMachine, error) {
-	// Not applicable if KVVM is absent.
-	if state.KVVM == nil {
-		return nil, nil, nil
-	}
-
-	// Save current KVVM.
-	currKVVM := &kvbuilder.KVVM{}
-	currKVVM.Resource = state.KVVM.DeepCopy()
-	// Update underlying kubevirt VirtualMachine resource from updated d8 VirtualMachine spec.
-	// FIXME(VM): This will be changed for effective-spec logic implementation
-	kvvmBuilder := kvbuilder.NewKVVM(state.KVVM.DeepCopy(), kvbuilder.KVVMOptions{
-		EnableParavirtualization:  state.VM.Current().Spec.EnableParavirtualization,
-		OsType:                    state.VM.Current().Spec.OsType,
-		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
-		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
-	})
-	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
-
-	// Compare current version of the underlying KVVM
-	// with newly generated from VM spec. Perform action if needed to apply
-	// changes to underlying virtual machine instance.
-
-	actions, err := kvbuilder.CompareKVVM(currKVVM, kvvmBuilder)
+// updateKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
+func (r *VMReconciler) updateKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	kvvm, err := r.makeKVVMFromVMSpec(state)
 	if err != nil {
-		opts.Log.Error(err, "Detect action to apply changes failed", "vm.name", state.VM.Current().GetName())
-		return nil, nil, fmt.Errorf("detect action to apply changes on vm/%s failed: %w", state.VM.Current().GetName(), err)
+		return fmt.Errorf("prepare to update KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	return actions, kvvmBuilder.GetResource(), nil
+	if err := opts.Client.Update(ctx, kvvm); err != nil {
+		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
+	}
+
+	state.KVVM = kvvm
+
+	opts.Log.Info("Update KubeVirt VM done", "name", kvvm.Name)
+	opts.Log.V(4).Info("Update KubeVirt VM done", "name", kvvm.Name, "kvvm", state.KVVM)
+
+	return nil
 }
 
-// shouldWaitForApproval returns true if disruptive update was not approved yet.
-func (r *VMReconciler) shouldWaitForApproval(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, actions *kvbuilder.ChangeApplyActions) bool {
+// updateKVVMLastUsedSpec updates last-applied-spec annotation on KubeVirt VirtualMachine.
+func (r *VMReconciler) updateKVVMLastUsedSpec(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	if state.KVVM == nil {
+		return nil
+	}
+
+	err := kvbuilder.SetLastAppliedSpec(state.KVVM, state.VM.Current())
+	if err != nil {
+		return fmt.Errorf("set last applied spec on KubeVirt VM '%s': %w", state.KVVM.GetName(), err)
+	}
+
+	if err := opts.Client.Update(ctx, state.KVVM); err != nil {
+		return fmt.Errorf("unable to update KubeVirt VM '%s': %w", state.KVVM.GetName(), err)
+	}
+
+	opts.Log.Info("Update last applied spec on KubeVirt VM done", "name", state.KVVM.Name)
+
+	return nil
+}
+
+// detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
+// to calculate changes and action needed to apply these changes.
+func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) *vmchange.SpecChanges {
+	// Not applicable if KVVM is absent.
+	if state.KVVM == nil {
+		return nil
+	}
+
+	lastSpec, err := kvbuilder.LoadLastAppliedSpec(state.KVVM)
+	// TODO Add smarter handler for empty/invalid annotation.
+	if lastSpec == nil && err == nil {
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecInvalid, "Could not find last applied spec. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.")
+		lastSpec = &virtv2.VirtualMachineSpec{}
+	}
+	if err != nil {
+		msg := fmt.Sprintf("Could not restore last applied spec: %v. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.", err)
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecInvalid, msg)
+		// In Automatic mode changes are applied immediately, so last-applied-spec annotation will be restored.
+		if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
+			lastSpec = &virtv2.VirtualMachineSpec{}
+		}
+		if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Manual {
+			// Manual mode requires meaningful content in status.pendingChanges.
+			// There are different paths:
+			//   1. Return err and do nothing, user should restore annotation or recreate VM.
+			//   2. Use empty VirtualMachineSpec and show full replace in status.pendingChanges.
+			//      This may lead to unexpected restart.
+			//   3. Restore some fields from KVVM spec to prevent unexpected restarts and reduce
+			//      content in status.pendingChanges.
+			//
+			// At this time, variant 2 is chosen.
+			// TODO(future): Implement variant 3: restore some fields from KVVM.
+			lastSpec = &virtv2.VirtualMachineSpec{}
+		}
+	}
+
+	// Compare VM spec applied to the underlying KVVM
+	// with the current VM spec (maybe edited by the user).
+	specChanges := vmchange.CompareSpecs(lastSpec, &state.VM.Current().Spec)
+
+	return &specChanges
+}
+
+// shouldWaitForChangesApproval returns true if disruptive update was not approved yet.
+func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
 	// Should not wait in Automatic mode.
-	if vmutil.ApprovalMode(state.VM.Changed()) == virtv2.Automatic {
+	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
 		return false
 	}
 
 	// Should not wait if no changes detected or if changes are non-disruptive.
-	if actions.IsEmpty() || !actions.IsDisruptive() {
+	if changes.IsEmpty() || !changes.IsDisruptive() {
 		state.SetChangeID("")
 		return false
 	}
 	// Wait for Manual approval.
 	// Always set status message when in approval wait mode.
 	statusMessage := ""
-	if actions.ActionType() == kvbuilder.ActionRestart {
+	if changes.ActionType() == vmchange.ActionRestart {
 		statusMessage = "VM restart required to apply changes. Check status.changeID and add spec.approvedChangeID to restart VM."
 	} else {
 		// Non restart changes, e.g. subresource signaling.
@@ -386,13 +456,14 @@ func (r *VMReconciler) shouldWaitForApproval(state *VMReconcilerState, opts two_
 	}
 	state.SetStatusMessage(statusMessage)
 
-	changeID := actions.ChangeID()
+	changeID := changes.ChangeID()
 	currChangeID := state.VM.Current().Status.ChangeID
 	// Save or update Change ID into annotation and wait for approval.
 	if currChangeID == "" || currChangeID != changeID {
 		state.SetChangeID(changeID)
+		state.SetPendingChanges(changes.GetPendingChanges())
 
-		opts.Log.V(2).Info("Change ID updated", "actions", actions)
+		opts.Log.V(2).Info("Change ID updated", "changes", changes)
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 		return true
 	}
@@ -418,46 +489,56 @@ func (r *VMReconciler) shouldWaitForApproval(state *VMReconcilerState, opts two_
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
-func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, actions *kvbuilder.ChangeApplyActions, newKVVM *virtv1.VirtualMachine) error {
-	kvvmName := state.VM.Name()
+func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) error {
+	if changes.IsEmpty() {
+		return nil
+	}
 
-	switch actions.ActionType() {
-	case kvbuilder.ActionRestart:
-		opts.Log.Info("Restart VM to apply changes", "vm.name", state.VM.Current().GetName(), "action", actions)
+	switch changes.ActionType() {
+	case vmchange.ActionRestart:
+		opts.Log.Info("Restart VM to apply changes", "vm.name", state.VM.Current().GetName())
 
-		message := fmt.Sprintf("Apply changes with restart: %s", strings.Join(actions.GetChangesTitles(), ", "))
+		message := fmt.Sprintf("Apply changes with ID %s", changes.ChangeID())
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
 
-		if err := r.applyChangesWithRestart(ctx, state, opts, newKVVM); err != nil {
-			return fmt.Errorf("unable to apply restart KVVM instance action: %w", err)
+		if err := r.updateKVVM(ctx, state, opts); err != nil {
+			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
-	case kvbuilder.ActionSubresourceSignal:
-		// TODO implement
-	case kvbuilder.ActionApplyImmediate:
-		opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", actions)
-		message := fmt.Sprintf("Apply changes without restart: %s", strings.Join(actions.GetChangesTitles(), ", "))
+
+		if err := r.restartKVVM(ctx, state, opts); err != nil {
+			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
+		}
+
+	case vmchange.ActionSubresourceSignal:
+		// TODO(future): Implement APIService and its client.
+		opts.Log.Info("Apply changes using subresource signal", "vm.name", state.VM.Current().GetName(), "action", changes)
+		opts.Log.Error(fmt.Errorf("unexpected action: subresource signal, do nothing"), "vm.name", state.VM.Current().GetName(), "action", changes)
+	case vmchange.ActionApplyImmediate:
+		opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", changes)
+		message := fmt.Sprintf("Apply changes with ID %s without restart", changes.ChangeID())
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
-		if err := opts.Client.Update(ctx, newKVVM); err != nil {
-			return fmt.Errorf("unable to update KubeVirt VM %q: %w", kvvmName, err)
+
+		if err := r.updateKVVM(ctx, state, opts); err != nil {
+			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
-		state.KVVM = newKVVM
-	case kvbuilder.ActionNone:
-		opts.Log.V(2).Info("No changes to underlying KVVM", "vm.name", state.VM.Current().GetName())
+
+	case vmchange.ActionNone:
+		opts.Log.V(2).Info("No changes to underlying KVVM, update last-applied-spec", "vm.name", state.VM.Current().GetName())
+
+		if err := r.updateKVVMLastUsedSpec(ctx, state, opts); err != nil {
+			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
+		}
 	}
 
-	// Cleanup: remove Change ID related status after applying changes.
+	// Cleanup: remove change ID and pending changes after applying changes.
 	state.SetChangeID("")
+	state.SetPendingChanges(nil)
 	return nil
 }
 
-// applyChangesWithRestart updates underlying KVVM and deletes KVVMI to restart VM.
-func (r *VMReconciler) applyChangesWithRestart(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, newKVVM *virtv1.VirtualMachine) error {
-	if err := opts.Client.Update(ctx, newKVVM); err != nil {
-		return fmt.Errorf("unable to update KubeVirt VM %q: %w", newKVVM.Name, err)
-	}
-	state.KVVM = newKVVM
-
+// restartKVVM deletes KVVMI to restart VM.
+func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if err := opts.Client.Delete(ctx, state.KVVMI); err != nil {
 		return fmt.Errorf("unable to remove current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
 	}
