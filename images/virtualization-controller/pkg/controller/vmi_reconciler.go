@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -81,6 +81,22 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		return fmt.Errorf("error setting watch on DV: %w", err)
 	}
 
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualMachineImage{},
+			handler.OnlyControllerOwner(),
+		), predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on PVC: %w", err)
+	}
+
 	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
 }
 
@@ -111,12 +127,18 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
 		}
 		return nil
+	case state.IsLost():
+		return nil
 	case state.IsFailed():
 		opts.Log.Info("VMI failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
-			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
+			err := r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
+			if err != nil {
+				return err
+			}
 		}
+
 		return nil
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
@@ -171,9 +193,19 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		case state.DV != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
 			opts.Log.V(2).Info("Requeue: wait until DataVolume is completed", "vmi.name", state.VMI.Current().Name)
-			if err := r.ensureDVFinalizers(ctx, state, opts); err != nil {
+
+			if state.IsDataVolumeComplete() {
+				err := r.setPVCOwnerReference(ctx, state, opts.Client)
+				if err != nil {
+					return err
+				}
+			}
+
+			err := r.ensureDVFinalizers(ctx, state, opts)
+			if err != nil {
 				return err
 			}
+
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
 		}
@@ -226,9 +258,14 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.FailureReason = FailureReasonCannotBeProcessed
 			vmiStatus.FailureMessage = fmt.Sprintf("DataSource is invalid. %s", err)
 		}
-	case state.IsReady(), state.IsFailed():
+	case state.IsFailed(), state.IsLost():
 		// No need to update status.
 		break
+	case state.IsReady():
+		if state.ShouldTrackDataVolume() && state.PVC == nil {
+			opts.Log.Info("PVC not found for ready vmi with kubernetes storage")
+			vmiStatus.Phase = virtv2.ImagePVCLost
+		}
 	case state.ShouldTrackPod() && state.IsPodInProgress():
 		opts.Log.V(2).Info("Fetch progress from Pod", "vmi.name", state.VMI.Current().GetName())
 
@@ -359,7 +396,9 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
 		if state.PVC == nil {
-			return errors.New("pvc not found, please report a bug")
+			opts.Log.Info("PVC not found for completed vmi")
+			vmiStatus.Phase = virtv2.ImagePVCLost
+			break
 		}
 
 		if state.PVC.Status.Phase != corev1.ClaimBound {
@@ -461,6 +500,23 @@ func (r *VMIReconciler) ensureDVFinalizers(ctx context.Context, state *VMIReconc
 
 func (r *VMIReconciler) ShouldDeleteChildResources(state *VMIReconcilerState) bool {
 	return state.Pod != nil || state.Service != nil || state.Ingress != nil || state.PV != nil || state.PVC != nil || state.DV != nil
+}
+
+func (r *VMIReconciler) setPVCOwnerReference(ctx context.Context, state *VMIReconcilerState, apiClient client.Client) error {
+	if state.PVC == nil {
+		return nil
+	}
+
+	state.PVC.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(state.VMI.Current(), state.VMI.Current().GroupVersionKind()),
+	}
+
+	err := apiClient.Update(ctx, state.PVC)
+	if err != nil {
+		return fmt.Errorf("failed to set pvc owner ref: %w", err)
+	}
+
+	return nil
 }
 
 // removeFinalizerChildResources removes protective finalizers on Pod, Service, DataVolume, PersistentVolumeClaim and PersistentVolume dependencies.
@@ -587,6 +643,12 @@ func (r *VMIReconciler) cleanupOnDeletion(ctx context.Context, state *VMIReconci
 
 		if state.DV != nil {
 			if err := helper.DeleteObject(ctx, opts.Client, state.DV); err != nil {
+				return err
+			}
+		}
+
+		if state.PVC != nil {
+			if err := helper.DeleteObject(ctx, opts.Client, state.PVC); err != nil {
 				return err
 			}
 		}

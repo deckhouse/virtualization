@@ -171,6 +171,13 @@ func (state *VMDReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.VMD.Current(), virtv2.FinalizerVMDCleanup)
 }
 
+func (state *VMDReconcilerState) IsLost() bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+	return state.VMD.Current().Status.Phase == virtv2.DiskPVCLost
+}
+
 func (state *VMDReconcilerState) IsReady() bool {
 	if state.VMD.IsEmpty() {
 		return false
