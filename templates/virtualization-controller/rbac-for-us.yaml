@@ -80,7 +80,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.cdi.kubevirt.io
+  - x.virtualization.deckhouse.io
   resources:
   - datavolumes
   verbs:
@@ -91,7 +91,7 @@ rules:
   - watch
   - list
 - apiGroups:
-  - x.virtualization.deckhouse.kubevirt.io
+  - x.virtualization.deckhouse.io
   resources:
   - virtualmachines
   - virtualmachineinstances

@@ -40,8 +40,8 @@ rules:
     - update
     - delete
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
-    - x.virtualization.deckhouse.upload.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
+    - upload.cdi.kubevirt.io
   resources:
     - '*'
   verbs:
@@ -123,26 +123,26 @@ rules:
   verbs:
     - get
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - datavolumes
   verbs:
     - list
     - get
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - datasources
   verbs:
     - get
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - cdis
   verbs:
     - get
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - cdis/finalizers
   verbs:
@@ -219,7 +219,7 @@ rules:
     - list
     - watch
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - '*'
   verbs:
@@ -286,7 +286,7 @@ rules:
   verbs:
     - get
 - apiGroups:
-    - x.virtualization.deckhouse.cdi.kubevirt.io
+    - x.virtualization.deckhouse.io
   resources:
     - dataimportcrons
   verbs:

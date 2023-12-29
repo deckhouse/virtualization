@@ -1,5 +1,5 @@
 diff --git a/pkg/apiserver/apiserver.go b/pkg/apiserver/apiserver.go
-index ef8b993f5..d60a76d79 100644
+index ef8b993f5..16b680fee 100644
 --- a/pkg/apiserver/apiserver.go
 +++ b/pkg/apiserver/apiserver.go
 @@ -44,6 +44,7 @@ import (
@@ -10,17 +10,8 @@ index ef8b993f5..d60a76d79 100644
  	pkgcdiuploadv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1beta1"
  	"kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks"
  	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-@@ -60,7 +61,7 @@ const (
- 	// APISigningKeySecretName is the selfsigned cert secret name
- 	APISigningKeySecretName = "cdi-api-signing-key"
- 
--	uploadTokenGroup = "upload.cdi.kubevirt.io"
-+	uploadTokenGroup = "x.virtualization.deckhouse.upload.cdi.kubevirt.io"
- 
- 	dvValidatePath = "/datavolume-validate"
- 
 diff --git a/pkg/operator/resources/cluster/apiserver.go b/pkg/operator/resources/cluster/apiserver.go
-index d6e14f339..4a5c7056f 100644
+index d6e14f339..bdcb1c593 100644
 --- a/pkg/operator/resources/cluster/apiserver.go
 +++ b/pkg/operator/resources/cluster/apiserver.go
 @@ -30,6 +30,7 @@ import (
@@ -36,7 +27,7 @@ index d6e14f339..4a5c7056f 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"datavolumes",
@@ -45,7 +36,7 @@ index d6e14f339..4a5c7056f 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"datasources",
@@ -54,7 +45,7 @@ index d6e14f339..4a5c7056f 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"cdis",
@@ -63,12 +54,12 @@ index d6e14f339..4a5c7056f 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"cdis/finalizers",
 diff --git a/pkg/operator/resources/cluster/controller.go b/pkg/operator/resources/cluster/controller.go
-index d29b0dd16..b732137bd 100644
+index d29b0dd16..2097a7768 100644
 --- a/pkg/operator/resources/cluster/controller.go
 +++ b/pkg/operator/resources/cluster/controller.go
 @@ -154,7 +154,7 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
@@ -76,12 +67,12 @@ index d29b0dd16..b732137bd 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"*",
 diff --git a/pkg/operator/resources/cluster/cronjob.go b/pkg/operator/resources/cluster/cronjob.go
-index c21285c4a..fda3e19bb 100644
+index c21285c4a..995bb9657 100644
 --- a/pkg/operator/resources/cluster/cronjob.go
 +++ b/pkg/operator/resources/cluster/cronjob.go
 @@ -38,7 +38,7 @@ func getCronJobClusterPolicyRules() []rbacv1.PolicyRule {
@@ -89,12 +80,12 @@ index c21285c4a..fda3e19bb 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"dataimportcrons",
 diff --git a/pkg/operator/resources/cluster/rbac.go b/pkg/operator/resources/cluster/rbac.go
-index 264b83891..8964cff79 100644
+index 264b83891..f63aa0efe 100644
 --- a/pkg/operator/resources/cluster/rbac.go
 +++ b/pkg/operator/resources/cluster/rbac.go
 @@ -38,7 +38,7 @@ func getAdminPolicyRules() []rbacv1.PolicyRule {
@@ -102,7 +93,7 @@ index 264b83891..8964cff79 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"datavolumes",
@@ -111,25 +102,16 @@ index 264b83891..8964cff79 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"datavolumes/source",
-@@ -65,7 +65,7 @@ func getAdminPolicyRules() []rbacv1.PolicyRule {
- 		},
- 		{
- 			APIGroups: []string{
--				"upload.cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.upload.cdi.kubevirt.io",
- 			},
- 			Resources: []string{
- 				"uploadtokenrequests",
 @@ -87,7 +87,7 @@ func getViewPolicyRules() []rbacv1.PolicyRule {
  	return []rbacv1.PolicyRule{
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"cdiconfigs",
@@ -138,7 +120,7 @@ index 264b83891..8964cff79 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"datavolumes/source",
@@ -147,12 +129,12 @@ index 264b83891..8964cff79 100644
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
  			},
  			Resources: []string{
  				"cdiconfigs",
 diff --git a/pkg/operator/resources/crds_generated.go b/pkg/operator/resources/crds_generated.go
-index dc4ba2ced..b736c10b8 100644
+index dc4ba2ced..6148d5dc6 100644
 --- a/pkg/operator/resources/crds_generated.go
 +++ b/pkg/operator/resources/crds_generated.go
 @@ -8,16 +8,16 @@ metadata:
@@ -160,10 +142,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: cdis.cdi.kubevirt.io
-+  name: cdis.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: cdis.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: CDI
      listKind: CDIList
@@ -181,10 +163,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: cdiconfigs.cdi.kubevirt.io
-+  name: cdiconfigs.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: cdiconfigs.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: CDIConfig
      listKind: CDIConfigList
@@ -193,10 +175,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: dataimportcrons.cdi.kubevirt.io
-+  name: dataimportcrons.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: dataimportcrons.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      categories:
 -    - all
@@ -217,10 +199,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: datasources.cdi.kubevirt.io
-+  name: datasources.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: datasources.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      categories:
 -    - all
@@ -239,10 +221,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: datavolumes.cdi.kubevirt.io
-+  name: datavolumes.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: datavolumes.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      categories:
 -    - all
@@ -263,10 +245,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: objecttransfers.cdi.kubevirt.io
-+  name: objecttransfers.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: objecttransfers.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: ObjectTransfer
      listKind: ObjectTransferList
@@ -284,10 +266,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: storageprofiles.cdi.kubevirt.io
-+  name: storageprofiles.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: storageprofiles.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: StorageProfile
      listKind: StorageProfileList
@@ -296,10 +278,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: volumeclonesources.cdi.kubevirt.io
-+  name: volumeclonesources.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: volumeclonesources.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: VolumeCloneSource
      listKind: VolumeCloneSourceList
@@ -308,10 +290,10 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: volumeimportsources.cdi.kubevirt.io
-+  name: volumeimportsources.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: volumeimportsources.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: VolumeImportSource
      listKind: VolumeImportSourceList
@@ -320,39 +302,37 @@ index dc4ba2ced..b736c10b8 100644
      controller-gen.kubebuilder.io/version: v0.13.0
    creationTimestamp: null
 -  name: volumeuploadsources.cdi.kubevirt.io
-+  name: volumeuploadsources.x.virtualization.deckhouse.cdi.kubevirt.io
++  name: volumeuploadsources.x.virtualization.deckhouse.io
  spec:
 -  group: cdi.kubevirt.io
-+  group: x.virtualization.deckhouse.cdi.kubevirt.io
++  group: x.virtualization.deckhouse.io
    names:
      kind: VolumeUploadSource
      listKind: VolumeUploadSourceList
 diff --git a/pkg/operator/resources/operator/operator.go b/pkg/operator/resources/operator/operator.go
-index 1ad35841f..9b64721e3 100644
+index 1ad35841f..bd6a40d77 100644
 --- a/pkg/operator/resources/operator/operator.go
 +++ b/pkg/operator/resources/operator/operator.go
-@@ -97,8 +97,8 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
+@@ -97,7 +97,7 @@ func getClusterPolicyRules() []rbacv1.PolicyRule {
  		},
  		{
  			APIGroups: []string{
 -				"cdi.kubevirt.io",
--				"upload.cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.cdi.kubevirt.io",
-+				"x.virtualization.deckhouse.upload.cdi.kubevirt.io",
++				"x.virtualization.deckhouse.io",
+ 				"upload.cdi.kubevirt.io",
  			},
  			Resources: []string{
- 				"*",
 @@ -523,7 +523,7 @@ _The CDI Operator does not support updates yet._
  				"alm-examples": `
        [
          {
 -          "apiVersion":"cdi.kubevirt.io/v1beta1",
-+          "apiVersion":"x.virtualization.deckhouse.cdi.kubevirt.io/v1beta1",
++          "apiVersion":"x.virtualization.deckhouse.io/v1beta1",
            "kind":"CDI",
            "metadata": {
              "name":"cdi",
 diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1alpha1/register.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1alpha1/register.go
-index 2b59307be..e45d8b4bb 100644
+index 2b59307be..dc8a31bca 100644
 --- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1alpha1/register.go
 +++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1alpha1/register.go
 @@ -4,14 +4,12 @@ import (
@@ -365,7 +345,7 @@ index 2b59307be..e45d8b4bb 100644
  
  // SchemeGroupVersion is group version used to register these objects
 -var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: "v1alpha1"}
-+var SchemeGroupVersion = schema.GroupVersion{Group: "x.virtualization.deckhouse.cdi.kubevirt.io", Version: "v1alpha1"}
++var SchemeGroupVersion = schema.GroupVersion{Group: "x.virtualization.deckhouse.io", Version: "v1alpha1"}
  
 -//CDIGroupVersionKind group version kind
 +// CDIGroupVersionKind group version kind
@@ -373,7 +353,7 @@ index 2b59307be..e45d8b4bb 100644
  
  // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/register.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/register.go
-index 8aa80f3c5..93834bb81 100644
+index 8aa80f3c5..f9806b5b5 100644
 --- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/register.go
 +++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/register.go
 @@ -4,12 +4,10 @@ import (
@@ -386,36 +366,7 @@ index 8aa80f3c5..93834bb81 100644
  
  // SchemeGroupVersion is group version used to register these objects
 -var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: "v1beta1"}
-+var SchemeGroupVersion = schema.GroupVersion{Group: "x.virtualization.deckhouse.cdi.kubevirt.io", Version: "v1beta1"}
++var SchemeGroupVersion = schema.GroupVersion{Group: "x.virtualization.deckhouse.io", Version: "v1beta1"}
  
  // CDIGroupVersionKind group version kind
  var CDIGroupVersionKind = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: "CDI"}
-diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/register.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/register.go
-index dedf78059..f5db26908 100644
---- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/register.go
-+++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/register.go
-@@ -2,5 +2,5 @@ package upload
- 
- const (
- 	// GroupName to hold the string name for the cdi uploads
--	GroupName = "upload.cdi.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.upload.cdi.kubevirt.io"
- )
-diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1/register.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1/register.go
-index e10da1e64..07fa6a510 100644
---- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1/register.go
-+++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1/register.go
-@@ -4,12 +4,10 @@ import (
- 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
- 	"k8s.io/apimachinery/pkg/runtime"
- 	"k8s.io/apimachinery/pkg/runtime/schema"
--
--	"kubevirt.io/containerized-data-importer-api/pkg/apis/upload"
- )
- 
- // SchemeGroupVersion is group version used to register these objects
--var SchemeGroupVersion = schema.GroupVersion{Group: upload.GroupName, Version: "v1beta1"}
-+var SchemeGroupVersion = schema.GroupVersion{Group: "x.virtualization.deckhouse.upload.cdi.kubevirt.io", Version: "v1beta1"}
- 
- // Kind takes an unqualified kind and returns back a Group qualified GroupKind
- func Kind(kind string) schema.GroupKind {

@@ -1,3 +1,16 @@
+diff --git a/pkg/storage/export/export/export.go b/pkg/storage/export/export/export.go
+index 51eb69df6..7a8a29381 100644
+--- a/pkg/storage/export/export/export.go
++++ b/pkg/storage/export/export/export.go
+@@ -140,7 +140,7 @@ var exportGVK = schema.GroupVersionKind{
+ }
+ 
+ var datavolumeGVK = schema.GroupVersionKind{
+-	Group:   cdiv1.SchemeGroupVersion.Group,
++	Group:   "x.virtualization.deckhouse.io",
+ 	Version: cdiv1.SchemeGroupVersion.Version,
+ 	Kind:    "DataVolume",
+ }
 diff --git a/pkg/storage/export/export/links.go b/pkg/storage/export/export/links.go
 index 38bdb9410..5dfd44224 100644
 --- a/pkg/storage/export/export/links.go
@@ -19,6 +32,337 @@ index 38bdb9410..5dfd44224 100644
  	apiVersion            = "v1alpha1"
  	exportResourceName    = "virtualmachineexports"
  	gv                    = apiGroup + "/" + apiVersion
+diff --git a/pkg/storage/export/virt-exportserver/exportserver.go b/pkg/storage/export/virt-exportserver/exportserver.go
+index 388f9c752..8e20fe5c4 100644
+--- a/pkg/storage/export/virt-exportserver/exportserver.go
++++ b/pkg/storage/export/virt-exportserver/exportserver.go
+@@ -579,7 +579,7 @@ func vmHandler(filePath string, vi []VolumeInfo, getBasePath func() (string, err
+ 		for _, dv := range datavolumes {
+ 			dv.TypeMeta = metav1.TypeMeta{
+ 				Kind:       "DataVolume",
+-				APIVersion: "cdi.kubevirt.io/v1beta1",
++				APIVersion: "x.virtualization.deckhouse.io/v1beta1",
+ 			}
+ 			for _, info := range vi {
+ 				if strings.Contains(info.RawGzURI, dv.Name) {
+diff --git a/pkg/virt-api/definitions/definitions.go b/pkg/virt-api/definitions/definitions.go
+index 94443cbe3..b71cca384 100644
+--- a/pkg/virt-api/definitions/definitions.go
++++ b/pkg/virt-api/definitions/definitions.go
+@@ -55,8 +55,33 @@ const (
+ )
+ 
+ func ComposeAPIDefinitions() []*restful.WebService {
+-	var result []*restful.WebService
+-	for _, f := range []func() []*restful.WebService{
++	return xGVApiServiceDefinitions(v1.GroupVersion)
++}
++
++func xGVApiServiceDefinitions(xGV schema.GroupVersion) []*restful.WebService {
++	ws := new(restful.WebService)
++	ws.Doc("The KubeVirt and CDI API, a virtual machine management.")
++
++	ws.Route(
++		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
++			To(noop).
++			Operation(fmt.Sprintf("getAPIResources-%s", xGV.Group)).
++			Doc("Get KubeVirt and CDI API Resources").
++			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
++			Returns(http.StatusNotFound, "Not Found", ""),
++	)
++
++	ws2 := new(restful.WebService)
++	ws2.Path(GroupBasePath(xGV))
++	ws2.Route(ws2.GET("/").
++		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
++		To(noop).
++		Doc("Get a KubeVirt and CDI API group").
++		Operation("getAPIGroup-"+xGV.Group).
++		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
++		Returns(http.StatusNotFound, "Not Found", ""))
++
++	for _, f := range []func(ws *restful.WebService) *restful.WebService{
+ 		kubevirtApiServiceDefinitions,
+ 		snapshotApiServiceDefinitions,
+ 		exportApiServiceDefinitions,
+@@ -65,13 +90,13 @@ func ComposeAPIDefinitions() []*restful.WebService {
+ 		poolApiServiceDefinitions,
+ 		vmCloneDefinitions,
+ 	} {
+-		result = append(result, f()...)
++		ws = f(ws)
+ 	}
+ 
+-	return result
++	return []*restful.WebService{ws, ws2}
+ }
+ 
+-func kubevirtApiServiceDefinitions() []*restful.WebService {
++func kubevirtApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	vmiGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
+ 	vmirsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
+ 	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
+@@ -79,11 +104,7 @@ func kubevirtApiServiceDefinitions() []*restful.WebService {
+ 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
+ 	kubeVirtGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "kubevirt"}
+ 
+-	ws, err := groupVersionProxyBase(v1.GroupVersion)
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericNamespacedResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
+ 	if err != nil {
+ 		panic(err)
+@@ -113,24 +134,15 @@ func kubevirtApiServiceDefinitions() []*restful.WebService {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(vmiGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func snapshotApiServiceDefinitions() []*restful.WebService {
++func snapshotApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
+ 	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
+ 	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
+ 
+-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericNamespacedResourceProxy(ws, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
+ 	if err != nil {
+ 		panic(err)
+@@ -146,64 +158,40 @@ func snapshotApiServiceDefinitions() []*restful.WebService {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(vmsGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func exportApiServiceDefinitions() []*restful.WebService {
++func exportApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	exportsGVR := exportv1.SchemeGroupVersion.WithResource("virtualmachineexports")
+ 
+-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: exportv1.SchemeGroupVersion.Group, Version: exportv1.SchemeGroupVersion.Version})
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericNamespacedResourceProxy(ws, exportsGVR, &exportv1.VirtualMachineExport{}, "VirtualMachineExport", &exportv1.VirtualMachineExportList{})
+ 	if err != nil {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(exportsGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func migrationPoliciesApiServiceDefinitions() []*restful.WebService {
++func migrationPoliciesApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	mpGVR := migrationsv1.SchemeGroupVersion.WithResource(migrations.ResourceMigrationPolicies)
+ 
+-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: migrationsv1.SchemeGroupVersion.Group, Version: migrationsv1.SchemeGroupVersion.Version})
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericClusterResourceProxy(ws, mpGVR, &migrationsv1.MigrationPolicy{}, migrationsv1.MigrationPolicyKind.Kind, &migrationsv1.MigrationPolicyList{})
+ 	if err != nil {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(mpGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func instancetypeApiServiceDefinitions() []*restful.WebService {
++func instancetypeApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	instancetypeGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.PluralResourceName)
+ 	clusterInstancetypeGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralResourceName)
+ 	preferenceGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.PluralPreferenceResourceName)
+ 	clusterPreferenceGVR := instancetypev1beta1.SchemeGroupVersion.WithResource(instancetype.ClusterPluralPreferenceResourceName)
+ 
+-	ws, err := groupVersionProxyBase(instancetypev1beta1.SchemeGroupVersion)
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericNamespacedResourceProxy(ws, instancetypeGVR, &instancetypev1beta1.VirtualMachineInstancetype{}, "VirtualMachineInstancetype", &instancetypev1beta1.VirtualMachineInstancetypeList{})
+ 	if err != nil {
+ 		panic(err)
+@@ -224,53 +212,31 @@ func instancetypeApiServiceDefinitions() []*restful.WebService {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(instancetypeGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func poolApiServiceDefinitions() []*restful.WebService {
++func poolApiServiceDefinitions(ws *restful.WebService) *restful.WebService {
+ 	poolGVR := poolv1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools")
+ 
+-	ws, err := groupVersionProxyBase(poolv1alpha1.SchemeGroupVersion)
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericNamespacedResourceProxy(ws, poolGVR, &poolv1alpha1.VirtualMachinePool{}, "VirtualMachinePool", &poolv1alpha1.VirtualMachinePoolList{})
+ 	if err != nil {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(poolGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+-func vmCloneDefinitions() []*restful.WebService {
++func vmCloneDefinitions(ws *restful.WebService) *restful.WebService {
+ 	mpGVR := clonev1lpha1.SchemeGroupVersion.WithResource(clone.ResourceVMClonePlural)
+ 
+-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: clonev1lpha1.SchemeGroupVersion.Group, Version: clonev1lpha1.SchemeGroupVersion.Version})
+-	if err != nil {
+-		panic(err)
+-	}
+-
++	var err error
+ 	ws, err = genericClusterResourceProxy(ws, mpGVR, &clonev1lpha1.VirtualMachineClone{}, clonev1lpha1.VirtualMachineCloneKind.Kind, &clonev1lpha1.VirtualMachineCloneList{})
+ 	if err != nil {
+ 		panic(err)
+ 	}
+ 
+-	ws2, err := resourceProxyAutodiscovery(mpGVR)
+-	if err != nil {
+-		panic(err)
+-	}
+-	return []*restful.WebService{ws, ws2}
++	return ws
+ }
+ 
+ func groupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) {
+@@ -295,25 +261,25 @@ func genericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVers
+ 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		createOperation(ws, NamespacedResourceBasePath(gvr), objExample).
++		createOperation(ws, BaseNamespacedResourceBasePath(gvr), objExample).
+ 			Operation("createNamespaced"+objKind).
+ 			Doc("Create a "+objKind+obj),
+ 	))
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		replaceOperation(ws, NamespacedResourcePath(gvr), objExample).
++		replaceOperation(ws, BaseNamespacedResourcePath(gvr), objExample).
+ 			Operation("replaceNamespaced"+objKind).
+ 			Doc("Update a "+objKind+obj),
+ 	))
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		deleteOperation(ws, NamespacedResourcePath(gvr)).
++		deleteOperation(ws, BaseNamespacedResourcePath(gvr)).
+ 			Operation("deleteNamespaced"+objKind).
+ 			Doc("Delete a "+objKind+obj),
+ 	))
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		readOperation(ws, NamespacedResourcePath(gvr), objExample).
++		readOperation(ws, BaseNamespacedResourcePath(gvr), objExample).
+ 			Operation("readNamespaced"+objKind).
+ 			Doc("Get a "+objKind+obj),
+ 	))
+@@ -325,7 +291,7 @@ func genericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVers
+ 	)
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		patchOperation(ws, NamespacedResourcePath(gvr), objExample).
++		patchOperation(ws, BaseNamespacedResourcePath(gvr), objExample).
+ 			Operation("patchNamespaced"+objKind).
+ 			Doc("Patch a "+objKind+obj),
+ 	))
+@@ -339,19 +305,19 @@ func genericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVers
+ 
+ 	// TODO, implement watch. For now it is here to provide swagger doc only
+ 	ws.Route(addNamespaceParam(ws,
+-		watchOperation(ws, "/watch"+NamespacedResourceBasePath(gvr)).
++		watchOperation(ws, "/watch"+BaseNamespacedResourceBasePath(gvr)).
+ 			Operation("watchNamespaced"+objKind).
+ 			Doc(watch+objKind+obj),
+ 	))
+ 
+ 	ws.Route(addNamespaceParam(ws,
+-		listOperation(ws, NamespacedResourceBasePath(gvr), listExample).
++		listOperation(ws, BaseNamespacedResourceBasePath(gvr), listExample).
+ 			Operation("listNamespaced"+objKind).
+ 			Doc("Get a list of "+objKind+objs),
+ 	))
+ 
+ 	ws.Route(
+-		deleteCollectionOperation(ws, NamespacedResourceBasePath(gvr)).
++		deleteCollectionOperation(ws, BaseNamespacedResourceBasePath(gvr)).
+ 			Operation("deleteCollectionNamespaced" + objKind).
+ 			Doc("Delete a collection of " + objKind + objs),
+ 	)
+@@ -642,10 +608,22 @@ func GroupVersionBasePath(gvr schema.GroupVersion) string {
+ 	return fmt.Sprintf("/apis/%s/%s", gvr.Group, gvr.Version)
+ }
+ 
++// BaseNamespacedResourceBasePath concatenates NamespacedResourceBasePath result with group version base prefix.
++// WebService no longer uses the root path with group version, so it's necessary to set group version path here.
++func BaseNamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
++	return GroupVersionBasePath(gvr.GroupVersion()) + NamespacedResourceBasePath(gvr)
++}
++
+ func NamespacedResourceBasePath(gvr schema.GroupVersionResource) string {
+ 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", gvr.Resource)
+ }
+ 
++// BaseNamespacedResourcePath concatenates NamespacedResourcePath result with group version base prefix.
++// WebService no longer uses the root path with group version, so it's necessary to set group version path here.
++func BaseNamespacedResourcePath(gvr schema.GroupVersionResource) string {
++	return GroupVersionBasePath(gvr.GroupVersion()) + NamespacedResourcePath(gvr)
++}
++
+ func NamespacedResourcePath(gvr schema.GroupVersionResource) string {
+ 	return fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s/{name:[a-z0-9][a-z0-9\\-]*}", gvr.Resource)
+ }
 diff --git a/pkg/virt-controller/watch/clone/util.go b/pkg/virt-controller/watch/clone/util.go
 index cb66290f7..9cce76b10 100644
 --- a/pkg/virt-controller/watch/clone/util.go
@@ -230,7 +574,7 @@ index 822f3d82b..23f3a96a6 100644
  		},
  	}
 diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
-index 99e8fe12d..0dd55e491 100644
+index 99e8fe12d..1f409c28c 100644
 --- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
 +++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
 @@ -28,14 +28,16 @@ import (
@@ -260,6 +604,15 @@ index 99e8fe12d..0dd55e491 100644
  				},
  				Resources: []string{
  					"virtualmachinesnapshots",
+@@ -208,7 +210,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"cdi.kubevirt.io",
++					"x.virtualization.deckhouse.io",
+ 				},
+ 				Resources: []string{
+ 					"datasources",
 @@ -233,7 +235,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
  			},
  			{
@@ -300,7 +653,7 @@ index 1af14cb60..82659d6f8 100644
  	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
  	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
 diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
-index 474ab93b0..3cb6b44bc 100644
+index 474ab93b0..b7a1e2a55 100644
 --- a/pkg/virt-operator/resource/generate/rbac/controller.go
 +++ b/pkg/virt-operator/resource/generate/rbac/controller.go
 @@ -28,7 +28,11 @@ import (
@@ -348,6 +701,15 @@ index 474ab93b0..3cb6b44bc 100644
  				APIGroups: []string{
 -					"kubevirt.io",
 +					coreapi.GroupName,
+ 				},
+ 				Resources: []string{
+ 					"*",
+@@ -380,7 +384,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 			},
+ 			{
+ 				APIGroups: []string{
+-					"cdi.kubevirt.io",
++					"x.virtualization.deckhouse.io",
  				},
  				Resources: []string{
  					"*",
@@ -474,7 +836,7 @@ index d82de56b9..fae2a0aad 100644
  		return nil, generateErr()
  	}
 diff --git a/staging/src/kubevirt.io/api/clone/register.go b/staging/src/kubevirt.io/api/clone/register.go
-index 85a24c26e..7719d92cd 100644
+index 85a24c26e..faa19eed5 100644
 --- a/staging/src/kubevirt.io/api/clone/register.go
 +++ b/staging/src/kubevirt.io/api/clone/register.go
 @@ -21,7 +21,7 @@ package clone
@@ -482,12 +844,12 @@ index 85a24c26e..7719d92cd 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName     = "clone.kubevirt.io"
-+	GroupName     = "x.virtualization.deckhouse.clone.kubevirt.io"
++	GroupName     = "x.virtualization.deckhouse.io"
  	LatestVersion = "v1alpha1"
  	Kind          = "VirtualMachineClone"
  	ListKind      = "VirtualMachineCloneList"
 diff --git a/staging/src/kubevirt.io/api/core/register.go b/staging/src/kubevirt.io/api/core/register.go
-index 22080c717..b84195d88 100644
+index 22080c717..56b23f7d7 100644
 --- a/staging/src/kubevirt.io/api/core/register.go
 +++ b/staging/src/kubevirt.io/api/core/register.go
 @@ -1,4 +1,4 @@
@@ -495,9 +857,9 @@ index 22080c717..b84195d88 100644
  
  // GroupName is the group name use in this package
 -const GroupName = "kubevirt.io"
-+const GroupName = "x.virtualization.deckhouse.kubevirt.io"
++const GroupName = "x.virtualization.deckhouse.io"
 diff --git a/staging/src/kubevirt.io/api/export/register.go b/staging/src/kubevirt.io/api/export/register.go
-index 844dbf5e0..93f944e6e 100644
+index 844dbf5e0..82f95d730 100644
 --- a/staging/src/kubevirt.io/api/export/register.go
 +++ b/staging/src/kubevirt.io/api/export/register.go
 @@ -21,5 +21,5 @@ package export
@@ -505,10 +867,10 @@ index 844dbf5e0..93f944e6e 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName = "export.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.export.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.io"
  )
 diff --git a/staging/src/kubevirt.io/api/instancetype/register.go b/staging/src/kubevirt.io/api/instancetype/register.go
-index d4eafd31f..4fba2ec4a 100644
+index d4eafd31f..cffbb27f5 100644
 --- a/staging/src/kubevirt.io/api/instancetype/register.go
 +++ b/staging/src/kubevirt.io/api/instancetype/register.go
 @@ -21,7 +21,7 @@ package instancetype
@@ -516,12 +878,12 @@ index d4eafd31f..4fba2ec4a 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName = "instancetype.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.instancetype.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.io"
  
  	SingularResourceName = "virtualmachineinstancetype"
  	PluralResourceName   = SingularResourceName + "s"
 diff --git a/staging/src/kubevirt.io/api/migrations/register.go b/staging/src/kubevirt.io/api/migrations/register.go
-index dbb6d3c41..703d3798f 100644
+index dbb6d3c41..03d40a9c2 100644
 --- a/staging/src/kubevirt.io/api/migrations/register.go
 +++ b/staging/src/kubevirt.io/api/migrations/register.go
 @@ -21,7 +21,7 @@ package migrations
@@ -529,12 +891,12 @@ index dbb6d3c41..703d3798f 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName = "migrations.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.migrations.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.io"
  	Version   = "v1alpha1"
  
  	ResourceMigrationPolicies = "migrationpolicies"
 diff --git a/staging/src/kubevirt.io/api/pool/register.go b/staging/src/kubevirt.io/api/pool/register.go
-index 08b9d8c62..41245e360 100644
+index 08b9d8c62..9f45555b2 100644
 --- a/staging/src/kubevirt.io/api/pool/register.go
 +++ b/staging/src/kubevirt.io/api/pool/register.go
 @@ -21,5 +21,5 @@ package pool
@@ -542,10 +904,10 @@ index 08b9d8c62..41245e360 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName = "pool.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.pool.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.io"
  )
 diff --git a/staging/src/kubevirt.io/api/snapshot/register.go b/staging/src/kubevirt.io/api/snapshot/register.go
-index 880a59292..6ab006499 100644
+index 880a59292..4a1216cb8 100644
 --- a/staging/src/kubevirt.io/api/snapshot/register.go
 +++ b/staging/src/kubevirt.io/api/snapshot/register.go
 @@ -21,5 +21,5 @@ package snapshot
@@ -553,5 +915,78 @@ index 880a59292..6ab006499 100644
  // GroupName is the group name used in this package
  const (
 -	GroupName = "snapshot.kubevirt.io"
-+	GroupName = "x.virtualization.deckhouse.snapshot.kubevirt.io"
++	GroupName = "x.virtualization.deckhouse.io"
  )
+diff --git a/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme/register.go b/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme/register.go
+index 3ac7803dd..66a3c3a43 100644
+--- a/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme/register.go
++++ b/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme/register.go
+@@ -31,10 +31,6 @@ import (
+ var Scheme = runtime.NewScheme()
+ var Codecs = serializer.NewCodecFactory(Scheme)
+ var ParameterCodec = runtime.NewParameterCodec(Scheme)
+-var localSchemeBuilder = runtime.SchemeBuilder{
+-	cdiv1beta1.AddToScheme,
+-	uploadv1beta1.AddToScheme,
+-}
+ 
+ // AddToScheme adds all types of this clientset into the given scheme. This allows composition
+ // of clientsets, like in:
+@@ -50,9 +46,44 @@ var localSchemeBuilder = runtime.SchemeBuilder{
+ //
+ // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
+ // correctly.
+-var AddToScheme = localSchemeBuilder.AddToScheme
++var AddToScheme func(scheme *runtime.Scheme) error
+ 
+ func init() {
++	cdiv1beta1.SchemeGroupVersion.Group = "x.virtualization.deckhouse.io"
++	cdiv1beta1.CDIGroupVersionKind.Group = "x.virtualization.deckhouse.io"
++	cdiv1beta1.SchemeBuilder = runtime.NewSchemeBuilder(func(scheme *runtime.Scheme) error {
++		scheme.AddKnownTypes(cdiv1beta1.SchemeGroupVersion,
++			&cdiv1beta1.DataVolume{},
++			&cdiv1beta1.DataVolumeList{},
++			&cdiv1beta1.CDIConfig{},
++			&cdiv1beta1.CDIConfigList{},
++			&cdiv1beta1.CDI{},
++			&cdiv1beta1.CDIList{},
++			&cdiv1beta1.StorageProfile{},
++			&cdiv1beta1.StorageProfileList{},
++			&cdiv1beta1.DataSource{},
++			&cdiv1beta1.DataSourceList{},
++			&cdiv1beta1.DataImportCron{},
++			&cdiv1beta1.DataImportCronList{},
++			&cdiv1beta1.ObjectTransfer{},
++			&cdiv1beta1.ObjectTransferList{},
++			&cdiv1beta1.VolumeImportSource{},
++			&cdiv1beta1.VolumeImportSourceList{},
++			&cdiv1beta1.VolumeUploadSource{},
++			&cdiv1beta1.VolumeUploadSourceList{},
++			&cdiv1beta1.VolumeCloneSource{},
++			&cdiv1beta1.VolumeCloneSourceList{},
++		)
++		v1.AddToGroupVersion(scheme, cdiv1beta1.SchemeGroupVersion)
++		return nil
++	})
++	cdiv1beta1.AddToScheme = cdiv1beta1.SchemeBuilder.AddToScheme
++
++	AddToScheme = (&runtime.SchemeBuilder{
++		cdiv1beta1.AddToScheme,
++		uploadv1beta1.AddToScheme,
++	}).AddToScheme
++
+ 	v1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
+ 	utilruntime.Must(AddToScheme(Scheme))
+ }
+diff --git a/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/core_client.go b/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/core_client.go
+index 2fd57771a..03660be5c 100644
+--- a/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/core_client.go
++++ b/staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1beta1/core_client.go
+@@ -113,6 +113,7 @@ func New(c rest.Interface) *CdiV1beta1Client {
+ 
+ func setConfigDefaults(config *rest.Config) error {
+ 	gv := v1beta1.SchemeGroupVersion
++	gv.Group = "x.virtualization.deckhouse.io"
+ 	config.GroupVersion = &gv
+ 	config.APIPath = "/apis"
+ 	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
