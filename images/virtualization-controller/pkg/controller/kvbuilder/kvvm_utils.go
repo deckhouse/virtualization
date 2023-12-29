@@ -9,6 +9,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
@@ -102,7 +103,7 @@ func ApplyVirtualMachineSpec(
 				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
 				kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: util.GetPointer(dvcrImage),
-					IsCdrom:       vmi.Status.CDROM,
+					IsCdrom:       imageformat.IsISO(vmi.Status.Format),
 					Serial:        name,
 				})
 			default:
@@ -123,7 +124,7 @@ func ApplyVirtualMachineSpec(
 			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
 			kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
-				IsCdrom:       cvmi.Status.CDROM,
+				IsCdrom:       imageformat.IsISO(cvmi.Status.Format),
 				Serial:        name,
 			})
 
