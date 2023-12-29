@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
@@ -231,6 +232,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		switch {
 		case cvmiutil.IsDVCRSource(state.CVMI.Current()):
 			cvmiStatus.Format = state.DVCRDataSource.GetFormat()
+			cvmiStatus.CDROM = imageformat.IsISO(cvmiStatus.Format)
 			cvmiStatus.Size = state.DVCRDataSource.GetSize()
 		default:
 			finalReport, err := monitoring.GetFinalReportFromPod(state.Pod)
@@ -246,6 +248,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 			}
 
 			cvmiStatus.Format = finalReport.Format
+			cvmiStatus.CDROM = imageformat.IsISO(cvmiStatus.Format)
 			cvmiStatus.DownloadSpeed.Avg = finalReport.GetAverageSpeed()
 			cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(finalReport.GetAverageSpeedRaw(), 10)
 			cvmiStatus.Size.Stored = finalReport.StoredSize()
