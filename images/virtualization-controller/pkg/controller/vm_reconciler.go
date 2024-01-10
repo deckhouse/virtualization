@@ -71,7 +71,6 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 	if state.isDeletion() {
 		return r.cleanupOnDeletion(ctx, state, opts)
 	}
-
 	// Set finalizer atomically using requeue.
 	if controllerutil.AddFinalizer(state.VM.Changed(), virtv2.FinalizerVMCleanup) {
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
@@ -95,6 +94,15 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return r.syncMetadata(ctx, state, opts)
 	}
 
+	if !state.BlockDevicesReady() {
+		// Wait until block devices are ready.
+		opts.Log.Info("Waiting for block devices to become available")
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMWaitForBlockDevices, "Waiting for block devices to become available")
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
+		return r.syncMetadata(ctx, state, opts)
+	}
+
 	changes := r.detectSpecChanges(state, opts)
 
 	// Delay changes propagation to KVVM until user approves them.
@@ -108,23 +116,16 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
-	if state.BlockDevicesReady() {
-		if state.KVVM == nil {
-			err = r.createKVVM(ctx, state, opts)
-			if err != nil {
-				return err
-			}
-		} else {
-			err = r.applyVMChangesToKVVM(ctx, state, opts, changes)
-			if err != nil {
-				return err
-			}
+	if state.KVVM == nil {
+		err = r.createKVVM(ctx, state, opts)
+		if err != nil {
+			return err
 		}
 	} else {
-		// Wait until block devices are ready.
-		opts.Log.Info("Waiting for block devices to become available")
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMWaitForBlockDevices, "Waiting for block devices to become available")
-		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		err = r.applyVMChangesToKVVM(ctx, state, opts, changes)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
@@ -146,13 +147,22 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	// Ensure IP address claim.
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		state.VM.Changed().Status.Message = "Waiting for IPAddressClaim to become available"
 		return nil
 	}
 
 	state.VM.Changed().Status.IPAddressClaim = state.IPAddressClaim.Name
 	state.VM.Changed().Status.IPAddress = state.IPAddressClaim.Spec.Address
 
+	if !state.BlockDevicesReady() {
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		state.VM.Changed().Status.Message = "Waiting for block devices to become available"
+		return nil
+	}
+
 	switch {
+	case state.vmIsPending():
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
 	case state.vmIsStopping():
 		state.VM.Changed().Status.Phase = virtv2.MachineStopping
 	case state.vmIsStopped():
@@ -184,6 +194,8 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 				}
 			}
 		}
+	case state.vmIsMigrating():
+		state.VM.Changed().Status.Phase = virtv2.MachineMigrating
 	case state.vmIsPaused():
 		state.VM.Changed().Status.Phase = virtv2.MachinePause
 	case state.vmIsFailed():

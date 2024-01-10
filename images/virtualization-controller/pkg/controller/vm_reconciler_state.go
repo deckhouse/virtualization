@@ -417,6 +417,10 @@ func (state *VMReconcilerState) vmIsRunning() bool {
 	return state.KVVMI != nil && state.KVVMI.Status.Phase == virtv1.Running
 }
 
+func (state *VMReconcilerState) vmIsMigrating() bool {
+	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusMigrating
+}
+
 func (state *VMReconcilerState) vmIsPaused() bool {
 	return state.KVVM != nil && state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusPaused
 }
@@ -429,6 +433,11 @@ func (state *VMReconcilerState) vmIsFailed() bool {
 			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusImagePullBackOff ||
 			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusPvcNotFound ||
 			state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusDataVolumeError)
+}
+
+func (state *VMReconcilerState) vmIsPending() bool {
+	return state.KVVM != nil &&
+		(state.KVVM.Status.PrintableStatus == "" || state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusWaitingForVolumeBinding)
 }
 
 // RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
