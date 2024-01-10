@@ -83,13 +83,8 @@ func ApplyVirtualMachineSpec(
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
-			vmi, hasVMI := vmiByName[bd.VirtualMachineImage.Name]
-			if !hasVMI {
-				panic(fmt.Sprintf("not found loaded VMI %q which is used in the VM configuration, please report a bug", bd.VirtualMachineImage.Name))
-			}
-			if vmi.Status.Phase != virtv2.ImageReady {
-				panic(fmt.Sprintf("unexpected VMI %q status phase %q: expected ready phase, please report a bug", vmi.Name, vmi.Status.Phase))
-			}
+			vmi := vmiByName[bd.VirtualMachineImage.Name]
+
 			name := GenerateVMIDiskName(bd.VirtualMachineImage.Name)
 			switch vmi.Spec.Storage {
 			case virtv2.StorageKubernetes:
@@ -113,13 +108,8 @@ func ApplyVirtualMachineSpec(
 		case virtv2.ClusterImageDevice:
 			// ClusterVirtualMachineImage is attached as containerDisk.
 
-			cvmi, hasCvmi := cvmiByName[bd.ClusterVirtualMachineImage.Name]
-			if !hasCvmi {
-				panic(fmt.Sprintf("not found loaded CVMI %q which is used in the VM configuration, please report a bug", bd.ClusterVirtualMachineImage.Name))
-			}
-			if cvmi.Status.Phase != virtv2.ImageReady {
-				panic(fmt.Sprintf("unexpected CVMI %q status phase %q: expected ready phase, please report a bug", cvmi.Name, cvmi.Status.Phase))
-			}
+			cvmi := cvmiByName[bd.ClusterVirtualMachineImage.Name]
+
 			name := GenerateCVMIDiskName(bd.ClusterVirtualMachineImage.Name)
 			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
 			kvvm.SetDisk(name, SetDiskOptions{
@@ -131,13 +121,8 @@ func ApplyVirtualMachineSpec(
 		case virtv2.DiskDevice:
 			// VirtualMachineDisk is attached as regular disk.
 
-			vmd, hasVmd := vmdByName[bd.VirtualMachineDisk.Name]
-			if !hasVmd {
-				panic(fmt.Sprintf("not found loaded VMD %q which is used in the VM configuration, please report a bug", bd.VirtualMachineDisk.Name))
-			}
-			if vmd.Status.Phase != virtv2.DiskReady {
-				panic(fmt.Sprintf("unexpected VMD %q status phase %q: expected ready phase, please report a bug", vmd.Name, vmd.Status.Phase))
-			}
+			vmd := vmdByName[bd.VirtualMachineDisk.Name]
+
 			name := GenerateVMDDiskName(bd.VirtualMachineDisk.Name)
 			kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),

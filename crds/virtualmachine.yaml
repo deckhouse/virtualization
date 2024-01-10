@@ -908,6 +908,7 @@ spec:
                     - "Stopped"
                     - "Stopping"
                     - "Starting"
+                    - "Migrating"
                     - "Pause"
                 nodeName:
                   type: string

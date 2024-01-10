@@ -128,6 +128,7 @@ const (
 	MachineStopped     MachinePhase = "Stopped"
 	MachineStopping    MachinePhase = "Stopping"
 	MachineStarting    MachinePhase = "Starting"
+	MachineMigrating   MachinePhase = "Migrating"
 	MachinePause       MachinePhase = "Pause"
 )
 
