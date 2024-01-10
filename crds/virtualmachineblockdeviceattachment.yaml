@@ -28,7 +28,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            The resource provides a hot plug for connecting a disk to a VM.
+            The resource provides a hot plug for connecting a disk to a virtual machine.
           required:
             - spec
           properties:
@@ -41,11 +41,11 @@ spec:
                 virtualMachineName:
                   type: string
                   description: |
-                    The name of the VM to which the disk or image is connected.
+                    The name of the virtual machine to which the disk or image is connected.
                 blockDevice:
                   type: object
                   description: |
-                    The block device that will be connected as a hotPlug disk to the VM.
+                    The block device that will be connected as a hot plug disk to the virtual machine.
                   properties:
                     type:
                       type: string
@@ -75,14 +75,14 @@ spec:
                 virtualMachineName:
                   type: string
                   description: |
-                    The name of the VM to which this disk is attached.
+                    The name of the virtual machine to which this disk is attached.
                 phase:
                   type: string
                   description: |
                     Represents the current phase of resource:
 
                     * InProgress - the disk is in the process of being attached.
-                    * Attached - the disk is attached to VM.
+                    * Attached - the disk is attached to virtual machine.
                     * Failed - there was a problem with attaching the disk. See `.status.failureReason`.
                   enum:
                     - "InProgress"

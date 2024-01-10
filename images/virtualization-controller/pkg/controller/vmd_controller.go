@@ -54,11 +54,11 @@ func NewVMDController(
 		return nil, err
 	}
 
-	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
+	if err = reconciler.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
 
-	if err := builder.WebhookManagedBy(mgr).
+	if err = builder.WebhookManagedBy(mgr).
 		For(&v2alpha1.VirtualMachineDisk{}).
 		WithValidator(NewVMDValidator(log)).
 		Complete(); err != nil {
