@@ -14,3 +14,5 @@ disks:
   vmdTestDataDir: "./testdata/vmd"
 vm:
   testDataDir: "./testdata/vm"
+ipam:
+  testDataDir: "./testdata/ipam"

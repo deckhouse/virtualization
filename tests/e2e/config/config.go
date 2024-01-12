@@ -31,6 +31,7 @@ type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
 	Disks            DisksConf        `yaml:"disks"`
 	VM               VmConf           `yaml:"vm"`
+	Ipam             IpamConf         `yaml:"ipam"`
 }
 
 type ClusterTransport struct {
@@ -49,6 +50,10 @@ type DisksConf struct {
 }
 
 type VmConf struct {
+	TestDataDir string `yaml:"testDataDir"`
+}
+
+type IpamConf struct {
 	TestDataDir string `yaml:"testDataDir"`
 }
 
@@ -92,6 +97,10 @@ func (c *Config) setEnvs() error {
 	// VM
 	if e, ok := os.LookupEnv("E2E_VM_TESTDATADIR"); ok {
 		c.VM.TestDataDir = e
+	}
+	// IPAM
+	if e, ok := os.LookupEnv("E2E_IPAM_TESTDATADIR"); ok {
+		c.Ipam.TestDataDir = e
 	}
 	return nil
 

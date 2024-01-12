@@ -42,7 +42,7 @@ func ApplyFromFile(filepath string) {
 	GinkgoHelper()
 	fmt.Printf("Apply file %s\n", filepath)
 	res := kubectl.Apply(filepath, kc.ApplyOptions{})
-	Expect(res.Error()).To(BeNil(), "apply failed for file %s\n%s", filepath, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "apply failed for file %s\n%s", filepath, res.StdErr())
 }
 
 func ItWaitFromFile(filepath, phase string, timeout time.Duration) {
@@ -58,7 +58,7 @@ func WaitFromFile(filepath, phase string, timeout time.Duration) {
 		Timeout: timeout,
 		For:     For,
 	})
-	Expect(res.Error()).To(BeNil(), "wait failed for file %s\n%s", filepath, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed for file %s\n%s", filepath, res.StdErr())
 }
 
 func ItChekStatusPhaseFromFile(filepath, phase string) {
@@ -70,7 +70,7 @@ func ItChekStatusPhaseFromFile(filepath, phase string) {
 func ItCheckStatusFromFile(filepath, output, compareField string) {
 	GinkgoHelper()
 	unstructs, err := helper.ParseYaml(filepath)
-	Expect(err).To(BeNil(), "cannot decode objs from yaml file %s", filepath)
+	Expect(err).NotTo(HaveOccurred(), "cannot decode objs from yaml file %s", filepath)
 
 	for _, u := range unstructs {
 		It("Get recourse status "+u.GetName(), func() {
@@ -83,7 +83,7 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 					Output:    output,
 					Namespace: u.GetNamespace()})
 			}
-			Expect(res.Error()).To(BeNil(),
+			Expect(res.Error()).NotTo(HaveOccurred(),
 				"get failed resource %s %s/%s.\n%s",
 				u.GetKind(),
 				u.GetNamespace(),
@@ -102,7 +102,7 @@ func WaitResource(resource kc.Resource, name, For string, timeout time.Duration)
 		For:       For,
 		Timeout:   timeout,
 	})
-	Expect(res.Error()).To(BeNil(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
 func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
@@ -111,7 +111,7 @@ func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
 		Namespace: conf.Namespace,
 		JsonPatch: patch,
 	})
-	Expect(res.Error()).To(BeNil(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 func CheckField(resource kc.Resource, name, output, compareValue string) {
 	GinkgoHelper()
@@ -119,6 +119,6 @@ func CheckField(resource kc.Resource, name, output, compareValue string) {
 		Namespace: conf.Namespace,
 		Output:    output,
 	})
-	Expect(res.Error()).To(BeNil(), "get failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "get failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 	Expect(res.StdOut()).To(Equal(compareValue))
 }
