@@ -41,20 +41,11 @@ spec:
               properties:
                 storage:
                   type: string
-                  enum: ["Kubernetes", "ContainerRegistry"]
+                  enum: ["ContainerRegistry"]
                   description: |
                     Storage type to store the image for current virtualization setup.
 
-                    * `Kubernetes` — use a PersistentVolumeClaim in current k8s cluster. In this case, image will be downloaded and copied to a PV as is.
                     * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-                persistentVolumeClaim:
-                  type: object
-                  description: Settings for creating PVCs to store the image.
-                  properties:
-                    storageClassName:
-                      type: string
-                      description: |
-                        The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
                 dataSource:
                   type: object
                   description: |
@@ -211,11 +202,6 @@ spec:
               oneOf:
                 - properties:
                     storage:
-                      enum: ["Kubernetes"]
-                    persistentVolumeClaim: {}
-                  required: ["persistentVolumeClaim"]
-                - properties:
-                    storage:
                       enum: ["ContainerRegistry"]
             status:
               type: object
@@ -296,11 +282,6 @@ spec:
                       example: dvcr.svc.<dvcr-namespace>/cvmi/<image-name>:latest
                       description: |
                         Created image in DVCR.
-                    persistentVolumeClaimName:
-                      type: string
-                      example: vmi-some-name-6a6b6899-022c-4412-9b24-7989b2100569
-                      description: |
-                        Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
                   type: string
                   description: |
