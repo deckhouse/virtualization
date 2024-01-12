@@ -107,6 +107,7 @@ spec:
                             * xz
                         caBundle:
                           type: string
+                          format: byte
                           description: The CA chain in base64 format to verify the url.
                           example: |
                             YWFhCg==
@@ -158,6 +159,7 @@ spec:
                                 A name of the secret containing registry credentials which must be located in the same namespace.
                         caBundle:
                           type: string
+                          format: byte
                           description: |
                             The CA chain in base64 format to verify the container registry.
                           example: |
