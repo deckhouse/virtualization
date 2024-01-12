@@ -49,7 +49,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		if state.VM != nil && isAttached(state) {
 			opts.Log.Info("Start volume detaching", "vmbda.name", state.VMBDA.Current().Name)
 
-			err := r.unhotplugVolume(ctx, state)
+			err := r.unplugVolume(ctx, state)
 			if err != nil {
 				return err
 			}
@@ -96,6 +96,14 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		return nil
 	}
 
+	// Do nothing if KVVMI is not running.
+	if state.KVVMI.Status.Phase != virtv1.Running {
+		opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VMName))
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is not Running")
+		return nil
+	}
+
 	// Do nothing if VMD not found or not running.
 	if state.VMD == nil || state.VMD.Status.Phase != virtv2.DiskReady {
 		opts.Log.V(1).Info("VMD is not ready yet, do nothing")
@@ -117,14 +125,6 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	// VM is running and disk is valid. Attach volume if not attached yet.
 	if !isAttached(state) && blockDeviceIndex == -1 {
 		opts.Log.Info("Start volume attaching")
-
-		// Do nothing if KVVMI is not running.
-		if state.KVVMI.Status.Phase != virtv1.Running {
-			opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VMName))
-			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-			state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is not Running")
-			return nil
-		}
 
 		// Wait for hotplug possibility.
 		hotplugMessage := r.checkHotplugSanity(state)
@@ -236,7 +236,7 @@ func isFailed(state *VMBDAReconcilerState) (string, string) {
 }
 
 func isAttached(state *VMBDAReconcilerState) bool {
-	if state.KVVMI == nil {
+	if state.KVVMI == nil || state.VMD == nil {
 		return false
 	}
 
@@ -249,8 +249,7 @@ func isAttached(state *VMBDAReconcilerState) bool {
 	return false
 }
 
-// hotplugVolume requests kubevirt subresources APIService to attach volume
-// to KVVMI.
+// hotplugVolume requests kubevirt subresources APIService to attach volume to KVVMI.
 func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconcilerState) error {
 	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
 		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
@@ -285,15 +284,16 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 	return nil
 }
 
-func (r *VMBDAReconciler) unhotplugVolume(ctx context.Context, state *VMBDAReconcilerState) error {
+// unplugVolume requests kubevirt subresources APIService to detach volume from KVVMI.
+func (r *VMBDAReconciler) unplugVolume(ctx context.Context, state *VMBDAReconcilerState) error {
 	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
 		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
 	}
-	unhotplugRequest := virtv1.RemoveVolumeOptions{
+	unplugRequest := virtv1.RemoveVolumeOptions{
 		Name: kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name),
 	}
 
-	err := r.kubevirt.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unhotplugRequest)
+	err := r.kubevirt.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unplugRequest)
 	if err != nil {
 		return fmt.Errorf("error removing volume, %w", err)
 	}
