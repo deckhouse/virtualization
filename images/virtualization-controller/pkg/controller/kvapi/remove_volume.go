@@ -8,6 +8,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
+const vmSubresourceURLFmt = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
+
 func (c *Client) RemoveVolume(ctx context.Context, namespace, name string, removeVolumeOptions *virtv1.RemoveVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, virtv1.ApiStorageVersion, namespace, name, "removevolume")
 

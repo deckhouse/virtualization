@@ -8,9 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
@@ -52,6 +54,13 @@ func NewVMBDAController(
 		return nil, err
 	}
 	if err = reconciler.SetupController(ctx, mgr, cvmiController); err != nil {
+		return nil, err
+	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&v2alpha1.VirtualMachineBlockDeviceAttachment{}).
+		WithValidator(NewVMBDAValidator(log)).
+		Complete(); err != nil {
 		return nil, err
 	}
 
