@@ -87,6 +87,7 @@ spec:
                             * xz
                         caBundle:
                           type: string
+                          format: byte
                           description: |
                             The CA chain in base64 format to verify the url.
                           example: |
@@ -143,6 +144,7 @@ spec:
                                 A namespace where imagePullSecret is located.
                         caBundle:
                           type: string
+                          format: byte
                           description: |
                             The CA chain in base64 format to verify the container registry.
                           example: |
