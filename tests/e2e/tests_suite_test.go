@@ -15,6 +15,8 @@ const (
 	ShortWaitDuration      = 60 * time.Second
 	LongWaitDuration       = 300 * time.Second
 	PhaseReady             = "Ready"
+	PhaseBound             = "Bound"
+	PhaseReleased          = "Released"
 	PhaseSucceeded         = "Succeeded"
 	PhaseWaitForUserUpload = "WaitForUserUpload"
 )
