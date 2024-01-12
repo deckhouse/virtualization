@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineIPAddressClaim
+metadata:
+  name: test-imap-reclaimpolicy-delete
+  namespace: test-d8-virtualization
+spec:
+  reclaimPolicy: Delete

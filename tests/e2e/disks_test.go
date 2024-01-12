@@ -40,23 +40,13 @@ var _ = Describe("Disks", func() {
 			res := kubectl.Get(filepath, kc.GetOptions{
 				Output: "jsonpath={.status.uploadCommand}",
 			})
-			Expect(res.Error()).To(BeNil(), "get failed upload.\n%s", res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), "get failed upload.\n%s", res.StdErr())
 			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s --image=%s -- %s", conf.Namespace, UploadHelpPod, conf.Disks.UploadHelperImage, res.StdOut())
 			res = kubectl.RawCommand(subCMD, LongWaitDuration)
-			Expect(res.Error()).To(BeNil(), "craete pod upload helper failed.\n%s", res.StdErr())
-			forF := "jsonpath={.status.phase}=" + PhaseSucceeded
-			res = kubectl.WaitResource(kc.ResourcePod, UploadHelpPod, kc.WaitOptions{
-				For:     forF,
-				Timeout: LongWaitDuration,
-			})
-			Expect(res.Error()).To(BeNil(), "wait failed pod %s/%s.\n%s", conf.Namespace, UploadHelpPod, res.StdErr())
-			res = kubectl.GetResource(kc.ResourcePod, UploadHelpPod,
-				kc.GetOptions{
-					Namespace: conf.Namespace,
-					Output:    "jsonpath={.status.phase}",
-				})
-			Expect(res.Error()).To(BeNil(), "get failed pod %s/%s.\n%s", conf.Namespace, UploadHelpPod, res.StdErr())
-			Expect(res.StdOut()).To(Equal(PhaseSucceeded))
+			Expect(res.Error()).NotTo(HaveOccurred(), "craete pod upload helper failed.\n%s", res.StdErr())
+			For := "jsonpath={.status.phase}=" + PhaseSucceeded
+			WaitResource(kc.ResourcePod, UploadHelpPod, For, LongWaitDuration)
+			CheckField(kc.ResourcePod, UploadHelpPod, "jsonpath={.status.phase}", PhaseSucceeded)
 		})
 		ItWaitFromFile(filepath, PhaseReady, ShortWaitDuration)
 		ItChekStatusPhaseFromFile(filepath, PhaseReady)
