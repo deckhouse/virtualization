@@ -179,14 +179,21 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case state.vmIsStarting():
 		state.VM.Changed().Status.Phase = virtv2.MachineStarting
 	case state.vmIsRunning():
+		// TODO We need to rerun this block because KVVMI status fields may be updated with a delay.
 		state.VM.Changed().Status.Phase = virtv2.MachineRunning
 		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
 		state.VM.Changed().Status.NodeName = state.KVVMI.Status.NodeName
-		for _, i := range state.KVVMI.Status.Interfaces {
-			if i.Name == "default" {
-				if state.IPAddressClaim.Spec.Address != i.IP {
-					err := fmt.Errorf("allocated ip address (%s) is not equeal to assigned (%s)", state.IPAddressClaim.Spec.Address, i.IP)
-					opts.Log.Error(err, "Unexpected kubevirt virtual machine ip address for default network interface, please report a bug", "kvvm", state.KVVM.Name)
+		for _, iface := range state.KVVMI.Status.Interfaces {
+			if iface.Name == kvbuilder.NetworkInterfaceName {
+				hasClaimedIP := false
+				for _, ip := range iface.IPs {
+					if ip == state.IPAddressClaim.Spec.Address {
+						hasClaimedIP = true
+					}
+				}
+				if !hasClaimedIP {
+					msg := fmt.Sprintf("Claimed IP address (%s) is not among addresses assigned to '%s' network interface (%s)", state.IPAddressClaim.Spec.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
+					opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonClaimNotAssigned, msg)
 				}
 				break
 			}
