@@ -157,9 +157,9 @@ func isEqualPtrInt64(a, b *int64) bool {
 }
 
 func NewBoolValue(value, defaultValue bool) Value {
-	isEmpty := !value
+	// Consider bool value is not empty.
 	isDefault := value == defaultValue
-	return NewValue(value, isEmpty, isDefault)
+	return NewValue(value, false, isDefault)
 }
 
 func NewPtrBoolValue(value *bool, defaultValue bool) Value {

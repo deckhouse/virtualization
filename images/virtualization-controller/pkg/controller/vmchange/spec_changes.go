@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/yaml"
-
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
 )
 
 const NoChanges = "NoChanges"
@@ -204,12 +203,17 @@ func (s *SpecChanges) GetAll() []FieldChange {
 	return s.changes
 }
 
-func (s *SpecChanges) GetPendingChanges() []virtv2.FieldChangeOperation {
-	res := make([]virtv2.FieldChangeOperation, 0, len(s.changes))
+func (s *SpecChanges) ConvertPendingChanges() ([]apiextensionsv1.JSON, error) {
+	res := make([]apiextensionsv1.JSON, 0, len(s.changes))
 	for i := range s.changes {
-		res = append(res, s.changes[i])
+		b, err := json.Marshal(s.changes[i])
+		if err != nil {
+			return nil, fmt.Errorf("change[%d]: %w", i, err)
+		}
+
+		res = append(res, apiextensionsv1.JSON{Raw: b})
 	}
-	return res
+	return res, nil
 }
 
 func (s *SpecChanges) Add(changes ...FieldChange) {

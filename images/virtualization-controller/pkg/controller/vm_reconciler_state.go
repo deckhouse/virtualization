@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +22,7 @@ import (
 	merger "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -40,7 +42,7 @@ type VMReconcilerState struct {
 	Result         *reconcile.Result
 	StatusMessage  string
 	ChangeID       string
-	PendingChanges []virtv2.FieldChangeOperation
+	PendingChanges []apiextensionsv1.JSON
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -71,14 +73,6 @@ func (state *VMReconcilerState) SetReconcilerResult(result *reconcile.Result) {
 
 func (state *VMReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
-}
-
-func (state *VMReconcilerState) SetChangeID(changeID string) {
-	state.ChangeID = changeID
-}
-
-func (state *VMReconcilerState) SetPendingChanges(changes []virtv2.FieldChangeOperation) {
-	state.PendingChanges = changes
 }
 
 func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, _ client.Client) error {
@@ -214,6 +208,32 @@ func (state *VMReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 
 func (state *VMReconcilerState) SetStatusMessage(msg string) {
 	state.StatusMessage = msg
+}
+
+func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) error {
+	statusChanges, err := changes.ConvertPendingChanges()
+	if err != nil {
+		return fmt.Errorf("convert pending changes for status: %w", err)
+	}
+	state.PendingChanges = statusChanges
+
+	state.ChangeID = changes.ChangeID()
+
+	statusMessage := ""
+	if changes.ActionType() == vmchange.ActionRestart {
+		statusMessage = "VM restart required to apply changes. Check status.changeID and add spec.approvedChangeID to restart VM."
+	} else {
+		// Non restart changes, e.g. subresource signaling.
+		statusMessage = "Approval required to apply changes. Check status.changeID and add spec.approvedChangeID to change VM."
+	}
+	state.StatusMessage = statusMessage
+	return nil
+}
+
+func (state *VMReconcilerState) ResetChangesInfo() {
+	state.ChangeID = ""
+	state.PendingChanges = nil
+	state.StatusMessage = ""
 }
 
 func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
