@@ -23,6 +23,7 @@ package v2alpha1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -1478,6 +1479,13 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 		}
 	}
 	out.GuestOSInfo = in.GuestOSInfo
+	if in.PendingChanges != nil {
+		in, out := &in.PendingChanges, &out.PendingChanges
+		*out = make([]apiextensionsv1.JSON, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 

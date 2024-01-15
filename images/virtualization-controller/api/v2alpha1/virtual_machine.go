@@ -2,6 +2,7 @@ package v2alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 )
@@ -11,7 +12,7 @@ const (
 	VMResource = "virtualmachines"
 )
 
-// VirtualMachine is a disk ready to be bound by a VM
+// VirtualMachine specifies configuration of the virtual machine.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachine struct {
@@ -25,32 +26,48 @@ type VirtualMachine struct {
 type VirtualMachineSpec struct {
 	// RunPolicy is a power-on behaviour of the VM.
 	RunPolicy RunPolicy `json:"runPolicy"`
+
 	// VirtualMachineIPAddressClaimName specifies a name for the associated
 	// `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.
 	VirtualMachineIPAddressClaimName string `json:"virtualMachineIPAddressClaimName,omitempty"`
+
 	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+
 	// Affinity is a group of affinity scheduling rules.
 	Affinity *VMAffinity `json:"affinity,omitempty"`
-	// A selector which must be true for the vm to fit on a node.
-	// Selector which must match a node's labels for the VM to be scheduled on that node.
+
+	// NodeSelector must match a node's labels for the VM to be scheduled on that node.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
 	// PriorityClassName
 	PriorityClassName string `json:"priorityClassName"`
+
 	// Tolerations define rules to tolerate node taints.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
 	// Disruptions define an approval mode to apply disruptive (dangerous) changes.
-	Disruptions                   *Disruptions      `json:"disruptions"`
-	TerminationGracePeriodSeconds *int64            `json:"terminationGracePeriodSeconds,omitempty"`
-	EnableParavirtualization      bool              `json:"enableParavirtualization,omitempty"`
-	OsType                        OsType            `json:"osType,omitempty"`
-	Bootloader                    BootloaderType    `json:"bootloader,omitempty"`
-	CPU                           CPUSpec           `json:"cpu"`
-	Memory                        MemorySpec        `json:"memory"`
-	BlockDevices                  []BlockDeviceSpec `json:"blockDevices"`
-	Provisioning                  *Provisioning     `json:"provisioning"`
-	ApprovedChangeID              string            `json:"approvedChangeID,omitempty"`
+	Disruptions *Disruptions `json:"disruptions"`
+
+	// TerminationGracePeriodSeconds
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+
+	// EnableParavirtualization flag disables virtio for virtual machine.
+	// Default value is true, so omitempty is not specified.
+	EnableParavirtualization bool `json:"enableParavirtualization"`
+
+	OsType       OsType            `json:"osType,omitempty"`
+	Bootloader   BootloaderType    `json:"bootloader,omitempty"`
+	CPU          CPUSpec           `json:"cpu"`
+	Memory       MemorySpec        `json:"memory"`
+	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
+	Provisioning *Provisioning     `json:"provisioning"`
+
+	// ApprovedChangeID is a field for manual approval of disruptive changes.
+	// TODO Implement APIService and remove this field.
+	// +optional
+	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
 }
 
 type RunPolicy string
@@ -114,7 +131,21 @@ type VirtualMachineStatus struct {
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 	Message              string                                   `json:"message"`
 	ChangeID             string                                   `json:"changeID"`
-	PendingChanges       []FieldChangeOperation                   `json:"pendingChanges,omitempty"`
+
+	// PendingChanges holds operations to be manually approved
+	// before applying to the virtual machine spec.
+	//
+	// Change operation has these fields:
+	//
+	//	operation enum(add|remove|replace)
+	//	path string
+	//	currentValue any (bool|int|string|struct|array of structs)
+	//	desiredValue any (bool|int|string|struct|array of structs)
+	//
+	// Such 'any' type can't be described using the OpenAPI v3 schema.
+	// The workaround is to declare a whole change operation structure
+	// using 'type: object' and 'x-kubernetes-preserve-fields: true'.
+	PendingChanges []apiextensionsv1.JSON `json:"pendingChanges,omitempty"`
 }
 
 type MachinePhase string
@@ -131,19 +162,6 @@ const (
 	MachineMigrating   MachinePhase = "Migrating"
 	MachinePause       MachinePhase = "Pause"
 )
-
-// FieldChangeOperation holds one operation to be applied on the spec field.
-//
-// The structure of the field change operation has these fields:
-//
-//	operation enum(add|remove|replace)
-//	path string
-//	currentValue any
-//	desiredValue any
-//
-// An 'any' type can't be described using the OpenAPI v3 schema.
-// The workaround is to declare items of pendingChanges as objects with preserved fields.
-type FieldChangeOperation interface{}
 
 // VirtualMachineList contains a list of VirtualMachine
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

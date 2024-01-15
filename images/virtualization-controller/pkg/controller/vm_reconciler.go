@@ -107,6 +107,11 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 
 	// Delay changes propagation to KVVM until user approves them.
 	if r.shouldWaitForChangesApproval(state, opts, changes) {
+		err := state.SetChangesInfo(changes)
+		if err != nil {
+			err = fmt.Errorf("prepare changes info for approval: %w", err)
+			opts.Log.Error(err, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
+		}
 		// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
 		return r.syncMetadata(ctx, state, opts)
 	}
@@ -161,6 +166,8 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	switch {
+	case state.KVVM == nil:
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
 	case state.vmIsPending():
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 	case state.vmIsStopping():
@@ -202,10 +209,12 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		state.VM.Changed().Status.Phase = virtv2.MachineFailed
 		opts.Log.Error(errors.New(string(state.KVVM.Status.PrintableStatus)), "KVVM failure", "kvvm", state.KVVM.Name)
 	default:
-		opts.Log.Error(fmt.Errorf("unexpected VM status phase %q, fallback to Pending", state.VM.Changed().Status.Phase), "")
+		// Unexpected state, fallback to Pending phase.
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		opts.Log.Error(fmt.Errorf("unexpected KVVM state: status %q, fallback VM phase to %q", state.KVVM.Status.PrintableStatus, state.VM.Changed().Status.Phase), "")
 	}
 
+	// Update ChangeID related fields.
 	state.VM.Changed().Status.Message = state.StatusMessage
 	state.VM.Changed().Status.ChangeID = state.ChangeID
 	state.VM.Changed().Status.PendingChanges = state.PendingChanges
@@ -442,6 +451,9 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 	// with the current VM spec (maybe edited by the user).
 	specChanges := vmchange.CompareSpecs(lastSpec, &state.VM.Current().Spec)
 
+	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v, change id %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType(), specChanges.ChangeID()))
+	opts.Log.V(2).Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
+
 	return &specChanges
 }
 
@@ -452,51 +464,41 @@ func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, op
 		return false
 	}
 
-	// Should not wait if no changes detected or if changes are non-disruptive.
+	// Should not wait in Manual mode if no changes detected or if changes are non-disruptive.
+	// Returning 'false' value leads to apply changes to the KVVM and resets changes related fields in the VM status.
 	if changes.IsEmpty() || !changes.IsDisruptive() {
-		state.SetChangeID("")
 		return false
 	}
-	// Wait for Manual approval.
-	// Always set status message when in approval wait mode.
-	statusMessage := ""
-	if changes.ActionType() == vmchange.ActionRestart {
-		statusMessage = "VM restart required to apply changes. Check status.changeID and add spec.approvedChangeID to restart VM."
-	} else {
-		// Non restart changes, e.g. subresource signaling.
-		statusMessage = "Approval required to apply changes. Check status.changeID and add spec.approvedChangeID to change VM."
-	}
-	state.SetStatusMessage(statusMessage)
 
 	changeID := changes.ChangeID()
 	currChangeID := state.VM.Current().Status.ChangeID
-	// Save or update Change ID into annotation and wait for approval.
-	if currChangeID == "" || currChangeID != changeID {
-		state.SetChangeID(changeID)
-		state.SetPendingChanges(changes.GetPendingChanges())
 
-		opts.Log.V(2).Info("Change ID updated", "changes", changes)
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+	// Wait for approval when approval process starts or user made more changes and change ID is expired.
+	if currChangeID == "" {
+		opts.Log.V(2).Info("Wait for approval: status.changeID is inited", "changes", changes)
+		return true
+	}
+	if currChangeID != changeID {
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDExpired, "Previously set Change ID is expired, ChangeID is refreshed.")
+		opts.Log.V(2).Info("Wait for approval: status.changeID is refreshed", "changes", changes)
 		return true
 	}
 
-	// Change ID is matched to changes, check approval.
 	approveChangeID := state.VM.Current().Spec.ApprovedChangeID
+	// Approved change not set yet, do nothing.
 	if approveChangeID == "" {
-		// Change not approved yet, do nothing, wait for the next update.
+		opts.Log.V(2).Info("Wait for approval: spec.approvedChangeID is empty", "changes", changes)
 		return true
 	}
 	// Change IDs are not equal: approved Change ID was expired. Record event and wait for the next update.
 	if currChangeID != approveChangeID {
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Approved Change ID is expired, check VM spec and update approve annotation with the latest Change ID.")
-		opts.Log.Info("Got Change ID approve with expired Change ID", "vm.name", state.VM.Name(), "curr-id", currChangeID, "approved-id", approveChangeID)
+		opts.Log.V(2).Info("Wait for approval: spec.approvedChangeID is expired", "vm.name", state.VM.Name(), "status.changeID", currChangeID, "spec.approvedChangeID", approveChangeID)
 		return true
 	}
 
 	// Changes approved: change IDs become equal. Stop waiting.
 	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDApproveAccepted, "Approved Change ID accepted, apply changes.")
-	// Reset status message.
-	state.SetStatusMessage("")
 	return false
 }
 
@@ -544,8 +546,7 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 	}
 
 	// Cleanup: remove change ID and pending changes after applying changes.
-	state.SetChangeID("")
-	state.SetPendingChanges(nil)
+	state.ResetChangesInfo()
 	return nil
 }
 
