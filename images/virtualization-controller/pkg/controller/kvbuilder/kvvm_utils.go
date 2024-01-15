@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	VMDDiskPrefix  = "vmd-"
-	VMIDiskPrefix  = "vmi-"
-	CVMIDiskPrefix = "cvmi-"
+	VMDDiskPrefix        = "vmd-"
+	VMIDiskPrefix        = "vmi-"
+	CVMIDiskPrefix       = "cvmi-"
+	NetworkInterfaceName = "default"
 )
 
 func GenerateVMDDiskName(name string) string {
@@ -49,7 +50,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetOsType(vm.Spec.OsType)
 	kvvm.SetBootloader(vm.Spec.Bootloader)
 	kvvm.SetCPUModel("Nehalem")
-	kvvm.SetNetworkInterface("default")
+	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector)
 	kvvm.SetTolerations(vm.Spec.Tolerations)

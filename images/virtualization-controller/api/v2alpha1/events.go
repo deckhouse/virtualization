@@ -16,6 +16,9 @@ const (
 	// ReasonClaimNotAvailable is event reason that VM cannot use defined claim.
 	ReasonClaimNotAvailable = "ClaimNotAvailable"
 
+	// ReasonClaimNotAssigned is event reason that claimed IP is not assigned in the guest VM.
+	ReasonClaimNotAssigned = "ClaimNotAssigned"
+
 	// ReasonImportSucceeded is event reason that the import is successfully completed
 	ReasonImportSucceeded = "ImportSucceeded"
 
