@@ -392,17 +392,17 @@ func (b *KVVM) SetNetworkInterface(name string) {
 		}, true,
 	)
 
-	i := virtv1.Interface{
+	iface := virtv1.Interface{
 		Name:  name,
 		Model: devPreset.InterfaceModel,
 	}
 	if b.opts.ForceBridgeNetworkBinding {
-		i.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
+		iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
 	} else {
-		i.InterfaceBindingMethod.Macvtap = &virtv1.InterfaceMacvtap{}
+		iface.InterfaceBindingMethod.Macvtap = &virtv1.InterfaceMacvtap{}
 	}
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = util.SetArrayElem(
-		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, i,
+		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
 		func(v1, v2 virtv1.Interface) bool {
 			return v1.Name == v2.Name
 		}, true,
