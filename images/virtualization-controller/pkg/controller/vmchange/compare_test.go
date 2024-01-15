@@ -324,6 +324,32 @@ provisioning:
 				requirePathOperation("provisioning.userDataSecretRef.name", ChangeReplace),
 			),
 		},
+		{
+			"restart on enableParavirtualization change true to false",
+			`
+enableParavirtualization: true
+`,
+			`
+enableParavirtualization: false
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("enableParavirtualization", ChangeReplace),
+			),
+		},
+		{
+			"restart on enableParavirtualization change false to true",
+			`
+enableParavirtualization: false
+`,
+			`
+enableParavirtualization: true
+`,
+			assertChanges(
+				actionRequired(ActionRestart),
+				requirePathOperation("enableParavirtualization", ChangeReplace),
+			),
+		},
 	}
 
 	for _, tt := range tests {

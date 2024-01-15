@@ -2,6 +2,7 @@ package controller_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -633,7 +634,17 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			id := func(elem interface{}) string {
 				return elem.(map[string]interface{})["path"].(string)
 			}
-			Expect(vm.Status.PendingChanges).To(MatchAllElements(id, Elements{
+
+			// Pending changes are Raw bytes, conversion to map[string]interface{} is needed to work with gstruct matchers.
+			pendingChanges := make([]map[string]interface{}, 0, len(vm.Status.PendingChanges))
+			for _, change := range vm.Status.PendingChanges {
+				var changeMap map[string]interface{}
+				err := json.Unmarshal(change.Raw, &changeMap)
+				Expect(err).ShouldNot(HaveOccurred(), "should not fail unmarshaling for '%s'", string(change.Raw))
+				pendingChanges = append(pendingChanges, changeMap)
+			}
+
+			Expect(pendingChanges).To(MatchAllElements(id, Elements{
 				"cpu": MatchAllKeys(Keys{
 					"path":      Equal("cpu"),
 					"operation": Equal(string(vmchange.ChangeReplace)),
