@@ -169,6 +169,8 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 				return err
 			}
 		}
+
+		return nil
 	// First phase: import to DVCR.
 	case state.ShouldTrackPod() && !state.IsPodComplete():
 		// Start and track importer/uploader Pod.
@@ -375,6 +377,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 				vmdStatus.Phase = virtv2.DiskFailed
 				vmdStatus.FailureReason = virtv2.ReasonErrImportFailed
 				vmdStatus.FailureMessage = finalReport.ErrMessage
+				opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, finalReport.ErrMessage)
 				break
 			}
 
