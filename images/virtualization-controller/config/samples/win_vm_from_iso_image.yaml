@@ -1,4 +1,4 @@
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-iso
@@ -10,7 +10,7 @@ spec:
     http:
       url: "http://caddy.caddy.svc.cluster.local/images/win10.iso"
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-virtio-iso
@@ -22,7 +22,7 @@ spec:
     http:
       url: "http://caddy.caddy.svc.cluster.local/images/virtio-win-0.1.229.iso"
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: win-disk
@@ -31,7 +31,7 @@ spec:
     size: 100Gi
     storageClassName: local-path
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: win-vm

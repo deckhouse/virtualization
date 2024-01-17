@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"

@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -32,7 +32,7 @@ func NewVMValidator(ipam IPAM, client client.Client, log logr.Logger) *VMValidat
 }
 
 func (v *VMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vm, ok := obj.(*v2alpha1.VirtualMachine)
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
@@ -53,12 +53,12 @@ func (v *VMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (a
 }
 
 func (v *VMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVM, ok := oldObj.(*v2alpha1.VirtualMachine)
+	oldVM, ok := oldObj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachine but got a %T", oldObj)
 	}
 
-	newVM, ok := newObj.(*v2alpha1.VirtualMachine)
+	newVM, ok := newObj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", newObj)
 	}
@@ -88,8 +88,8 @@ func (v *VMValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admis
 }
 
 type vmValidator interface {
-	validateCreate(ctx context.Context, vm *v2alpha1.VirtualMachine) (admission.Warnings, error)
-	validateUpdate(ctx context.Context, oldVM, newVM *v2alpha1.VirtualMachine) (admission.Warnings, error)
+	validateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error)
+	validateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error)
 }
 
 type metaVMValidator struct {
@@ -100,7 +100,7 @@ func newMetaVMValidator(client client.Client) *metaVMValidator {
 	return &metaVMValidator{client: client}
 }
 
-func (v *metaVMValidator) validateCreate(_ context.Context, vm *v2alpha1.VirtualMachine) (admission.Warnings, error) {
+func (v *metaVMValidator) validateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	for key := range vm.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)
@@ -116,7 +116,7 @@ func (v *metaVMValidator) validateCreate(_ context.Context, vm *v2alpha1.Virtual
 	return nil, nil
 }
 
-func (v *metaVMValidator) validateUpdate(_ context.Context, _, newVM *v2alpha1.VirtualMachine) (admission.Warnings, error) {
+func (v *metaVMValidator) validateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	for key := range newVM.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)
@@ -141,14 +141,14 @@ func newIPAMVMValidator(ipam IPAM, client client.Client) *ipamVMValidator {
 	return &ipamVMValidator{ipam: ipam, client: client}
 }
 
-func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v2alpha1.VirtualMachine) (admission.Warnings, error) {
+func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	claimName := vm.Spec.VirtualMachineIPAddressClaimName
 	if claimName == "" {
 		claimName = vm.Name
 	}
 
 	claimKey := types.NamespacedName{Name: claimName, Namespace: vm.Namespace}
-	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v2alpha1.VirtualMachineIPAddressClaim{})
+	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v1alpha2.VirtualMachineIPAddressClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
 	}
@@ -166,7 +166,7 @@ func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v2alpha1.Virtu
 	return nil, v.ipam.CheckClaimAvailableForBinding(vm.Name, claim)
 }
 
-func (v *ipamVMValidator) validateUpdate(ctx context.Context, oldVM, newVM *v2alpha1.VirtualMachine) (admission.Warnings, error) {
+func (v *ipamVMValidator) validateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	if oldVM.Spec.VirtualMachineIPAddressClaimName == newVM.Spec.VirtualMachineIPAddressClaimName {
 		return nil, nil
 	}
@@ -176,7 +176,7 @@ func (v *ipamVMValidator) validateUpdate(ctx context.Context, oldVM, newVM *v2al
 	}
 
 	claimKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddressClaimName, Namespace: newVM.Namespace}
-	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v2alpha1.VirtualMachineIPAddressClaim{})
+	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v1alpha2.VirtualMachineIPAddressClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get VirtualMachineIPAddressClaim %s: %w", claimKey, err)
 	}

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 const BlockDevicesPath = "blockDevices"
 
 // compareBlockDevices returns changes between current and desired blockDevices lists.
-func compareBlockDevices(current, desired *v2alpha1.VirtualMachineSpec) []FieldChange {
+func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	if len(current.BlockDevices) == 0 && len(desired.BlockDevices) == 0 {
 		return nil
 	}
@@ -30,7 +30,7 @@ func compareBlockDevices(current, desired *v2alpha1.VirtualMachineSpec) []FieldC
 	added := make(map[int]struct{})
 	removed := make(map[int]struct{})
 
-	deviceAccessors := []func(vm *v2alpha1.VirtualMachineSpec) map[string]int{
+	deviceAccessors := []func(vm *v1alpha2.VirtualMachineSpec) map[string]int{
 		cvmiIndexedNames,
 		vmiIndexedNames,
 		vmdIndexedNames,
@@ -100,7 +100,7 @@ func compareBlockDevices(current, desired *v2alpha1.VirtualMachineSpec) []FieldC
 	return changes
 }
 
-func cvmiIndexedNames(vm *v2alpha1.VirtualMachineSpec) map[string]int {
+func cvmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDevices {
 		if dev.ClusterVirtualMachineImage != nil {
@@ -110,7 +110,7 @@ func cvmiIndexedNames(vm *v2alpha1.VirtualMachineSpec) map[string]int {
 	return res
 }
 
-func vmiIndexedNames(vm *v2alpha1.VirtualMachineSpec) map[string]int {
+func vmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDevices {
 		if dev.VirtualMachineImage != nil {
@@ -120,7 +120,7 @@ func vmiIndexedNames(vm *v2alpha1.VirtualMachineSpec) map[string]int {
 	return res
 }
 
-func vmdIndexedNames(vm *v2alpha1.VirtualMachineSpec) map[string]int {
+func vmdIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDevices {
 		if dev.VirtualMachineDisk != nil {

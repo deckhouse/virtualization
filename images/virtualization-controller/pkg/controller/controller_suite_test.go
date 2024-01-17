@@ -18,7 +18,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -45,7 +45,7 @@ func NewTestVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Reco
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
-	_ = v2alpha1.AddToScheme(s)
+	_ = v1alpha2.AddToScheme(s)
 	_ = virtv1.AddToScheme(s)
 
 	builder := fake.NewClientBuilder().
@@ -71,7 +71,7 @@ func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Recon
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
-	_ = v2alpha1.AddToScheme(s)
+	_ = v1alpha2.AddToScheme(s)
 	_ = virtv1.AddToScheme(s)
 
 	builder := fake.NewClientBuilder().
@@ -98,18 +98,18 @@ func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.Recon
 // TODO add auto generated mock.
 type MockIPAM struct{}
 
-func (m *MockIPAM) IsBound(_ string, _ *v2alpha1.VirtualMachineIPAddressClaim) bool {
+func (m *MockIPAM) IsBound(_ string, _ *v1alpha2.VirtualMachineIPAddressClaim) bool {
 	return true
 }
 
-func (m *MockIPAM) CheckClaimAvailableForBinding(_ string, _ *v2alpha1.VirtualMachineIPAddressClaim) error {
+func (m *MockIPAM) CheckClaimAvailableForBinding(_ string, _ *v1alpha2.VirtualMachineIPAddressClaim) error {
 	return nil
 }
 
-func (m *MockIPAM) CreateIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachine, _ client.Client) error {
+func (m *MockIPAM) CreateIPAddressClaim(_ context.Context, _ *v1alpha2.VirtualMachine, _ client.Client) error {
 	return nil
 }
 
-func (m *MockIPAM) DeleteIPAddressClaim(_ context.Context, _ *v2alpha1.VirtualMachineIPAddressClaim, _ client.Client) error {
+func (m *MockIPAM) DeleteIPAddressClaim(_ context.Context, _ *v1alpha2.VirtualMachineIPAddressClaim, _ client.Client) error {
 	return nil
 }

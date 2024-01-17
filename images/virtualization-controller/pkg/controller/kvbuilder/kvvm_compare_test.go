@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 func Test_kvvm_compare_resources(t *testing.T) {

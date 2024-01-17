@@ -15,7 +15,7 @@ kubectl create ns vms
 Создадим диск виртуальной машины из внешнего источника:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: linux-disk
@@ -45,7 +45,7 @@ kubectl -n vms get virtualmachinedisk
 Далее создадим виртуальную машину из следующей спецификации:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
@@ -131,7 +131,7 @@ virtctl -n vms vnc linux-vm
 Создадим `VirtualMachineImage` и в качестве хранилища образов будем использовать `DVCR`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineImage
 metadata:
   name: ubuntu-img
@@ -180,7 +180,7 @@ kubectl get storageclass
 Ресурс `ClusterVirtualMachineImage` создается по аналогии, но не требует указания настроек `storage`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: ubuntu-img
@@ -238,7 +238,7 @@ docker push docker.io/username/ubuntu2204:latest
 Чтобы использовать этот образ, создадим в качестве примера ресурс `ClusterVirtualMachineImage`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: ubuntu-2204
@@ -260,7 +260,7 @@ kubectl get clustervirtalmachineimage
 Чтобы загрузить образ из командной строки, нам предварительно нужно создать следующий ресурс, рассмотрим на примере `ClusterVirtualMachineImage`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: some-image
@@ -314,7 +314,7 @@ kubectl get storageclass
 Первое, что стоит отметить, — это то, что диски мы можем создавать пустыми!
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: vmd-blank
@@ -345,7 +345,7 @@ kubectl get virtualmachinedisk
 В качестве примера используем ранее созданный `ClusterVirtualMachineImage` с именем `ubuntu-2204`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: ubuntu-root
@@ -372,7 +372,7 @@ kubectl patch ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"si
 Диски можно подключать «на живую», к уже запущенной виртуальной машине, для этого используется ресурс `VirtualMachineBlockDeviceAttachment`, например:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
@@ -414,7 +414,7 @@ Cоздадим виртуальную машину и настроим ее п�
 Создадим диск для виртуальной машины:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: ubuntu-2204-root
@@ -432,7 +432,7 @@ spec:
 Ниже представлен пример простейшей конфигурации виртуальной машины, запускающей ОС Ubuntu 22.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает пакет nginx и создает пользователя `cloud` с паролем `cloud`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
@@ -513,7 +513,7 @@ kubectl get virtualmachine
 1. Создать ресурс `VirtualMachineIPAddressClaim`, в котором зафиксировать желаемый IP-адрес виртуальной машины:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddressClaim
 metadata:
   name: <claim-name>
