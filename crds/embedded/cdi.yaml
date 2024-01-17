@@ -11,8 +11,8 @@ spec:
     listKind: CDIList
     plural: cdis
     shortNames:
-      - cdi
-      - cdis
+      - xcdi
+      - xcdis
     singular: cdi
   scope: Cluster
   versions:
@@ -221,6 +221,46 @@ spec:
                     uploadProxyURLOverride:
                       description: Override the URL used when uploading to a DataVolume
                       type: string
+                  type: object
+                customizeComponents:
+                  properties:
+                    flags:
+                      description: Configure the value used for deployment and daemonset resources
+                      properties:
+                        api:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        controller:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        uploadProxy:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
+                    patches:
+                      items:
+                        properties:
+                          patch:
+                            type: string
+                          resourceName:
+                            minLength: 1
+                            type: string
+                          resourceType:
+                            minLength: 1
+                            type: string
+                          type:
+                            type: string
+                        required:
+                          - patch
+                          - resourceName
+                          - resourceType
+                          - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                   type: object
                 imagePullPolicy:
                   description: PullPolicy describes a policy for if/when to pull a container image
@@ -709,10 +749,6 @@ spec:
                         type: string
                       description: 'nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
                       type: object
-                    replicas:
-                      description: replicas indicates how many replicas should be created for each CDI infrastructure component (like cdi-api or cdi-deployment, cdi-uploadserver). Defaults to 1.
-                      format: int32
-                      type: integer
                     tolerations:
                       description: tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.
                       items:
@@ -1504,6 +1540,46 @@ spec:
                       description: Override the URL used when uploading to a DataVolume
                       type: string
                   type: object
+                customizeComponents:
+                  properties:
+                    flags:
+                      description: Configure the value used for deployment and daemonset resources
+                      properties:
+                        api:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        controller:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        uploadProxy:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
+                    patches:
+                      items:
+                        properties:
+                          patch:
+                            type: string
+                          resourceName:
+                            minLength: 1
+                            type: string
+                          resourceType:
+                            minLength: 1
+                            type: string
+                          type:
+                            type: string
+                        required:
+                          - patch
+                          - resourceName
+                          - resourceType
+                          - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                  type: object
                 imagePullPolicy:
                   description: PullPolicy describes a policy for if/when to pull a container image
                   enum:
@@ -1991,10 +2067,6 @@ spec:
                         type: string
                       description: 'nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
                       type: object
-                    replicas:
-                      description: replicas indicates how many replicas should be created for each CDI infrastructure component (like cdi-api or cdi-deployment, cdi-uploadserver). Defaults to 1.
-                      format: int32
-                      type: integer
                     tolerations:
                       description: tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.
                       items:
