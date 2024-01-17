@@ -1,0 +1,1346 @@
+diff --git a/api/openapi-spec/swagger.json b/api/openapi-spec/swagger.json
+index 844c1774a..e48726f24 100644
+--- a/api/openapi-spec/swagger.json
++++ b/api/openapi-spec/swagger.json
+@@ -5046,6 +5046,10 @@
+       "description": "CDIConfig at CDI level",
+       "$ref": "#/definitions/v1beta1.CDIConfigSpec"
+      },
++     "customizeComponents": {
++      "default": {},
++      "$ref": "#/definitions/v1beta1.CustomizeComponents"
++     },
+      "imagePullPolicy": {
+       "description": "PullPolicy describes a policy for if/when to pull a container image\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
+       "type": "string",
+@@ -5118,6 +5122,50 @@
+      }
+     }
+    },
++   "v1beta1.CustomizeComponents": {
++    "type": "object",
++    "properties": {
++     "flags": {
++      "description": "Configure the value used for deployment and daemonset resources",
++      "$ref": "#/definitions/v1beta1.Flags"
++     },
++     "patches": {
++      "type": "array",
++      "items": {
++       "default": {},
++       "$ref": "#/definitions/v1beta1.CustomizeComponentsPatch"
++      },
++      "x-kubernetes-list-type": "atomic"
++     }
++    }
++   },
++   "v1beta1.CustomizeComponentsPatch": {
++    "type": "object",
++    "required": [
++     "resourceName",
++     "resourceType",
++     "patch",
++     "type"
++    ],
++    "properties": {
++     "patch": {
++      "type": "string",
++      "default": ""
++     },
++     "resourceName": {
++      "type": "string",
++      "default": ""
++     },
++     "resourceType": {
++      "type": "string",
++      "default": ""
++     },
++     "type": {
++      "type": "string",
++      "default": ""
++     }
++    }
++   },
+    "v1beta1.DataImportCron": {
+     "description": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace",
+     "type": "object",
+@@ -5894,6 +5942,33 @@
+      }
+     }
+    },
++   "v1beta1.Flags": {
++    "description": "Flags will create a patch that will replace all flags for the container's command field. The only flags that will be used are those define. There are no guarantees around forward/backward compatibility.  If set incorrectly this will cause the resource when rolled out to error until flags are updated.",
++    "type": "object",
++    "properties": {
++     "api": {
++      "type": "object",
++      "additionalProperties": {
++       "type": "string",
++       "default": ""
++      }
++     },
++     "controller": {
++      "type": "object",
++      "additionalProperties": {
++       "type": "string",
++       "default": ""
++      }
++     },
++     "uploadProxy": {
++      "type": "object",
++      "additionalProperties": {
++       "type": "string",
++       "default": ""
++      }
++     }
++    }
++   },
+    "v1beta1.ImportProxy": {
+     "description": "ImportProxy provides the information on how to configure the importer pod proxy.",
+     "type": "object",
+diff --git a/go.mod b/go.mod
+index 9a7d847e0..8923d3950 100644
+--- a/go.mod
++++ b/go.mod
+@@ -10,6 +10,7 @@ require (
+ 	github.com/coreos/go-semver v0.3.1
+ 	github.com/docker/go-units v0.5.0
+ 	github.com/emicklei/go-restful/v3 v3.10.2
++	github.com/evanphx/json-patch v5.6.0+incompatible
+ 	github.com/ghodss/yaml v1.0.0
+ 	github.com/go-logr/logr v1.2.4
+ 	github.com/golang/snappy v0.0.4
+@@ -80,7 +81,6 @@ require (
+ 	github.com/docker/docker v23.0.2+incompatible // indirect
+ 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
+ 	github.com/docker/go-connections v0.4.0 // indirect
+-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
+ 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+ 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+ 	github.com/go-logr/zapr v1.2.4 // indirect
+diff --git a/pkg/apis/core/v1beta1/openapi_generated.go b/pkg/apis/core/v1beta1/openapi_generated.go
+index 24f15d3f4..442015cb6 100644
+--- a/pkg/apis/core/v1beta1/openapi_generated.go
++++ b/pkg/apis/core/v1beta1/openapi_generated.go
+@@ -535,6 +535,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CertConfig":               schema_pkg_apis_core_v1beta1_CertConfig(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ClaimPropertySet":         schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ConditionState":           schema_pkg_apis_core_v1beta1_ConditionState(ref),
++		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents":      schema_pkg_apis_core_v1beta1_CustomizeComponents(ref),
++		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch": schema_pkg_apis_core_v1beta1_CustomizeComponentsPatch(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCron":           schema_pkg_apis_core_v1beta1_DataImportCron(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronCondition":  schema_pkg_apis_core_v1beta1_DataImportCronCondition(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronList":       schema_pkg_apis_core_v1beta1_DataImportCronList(ref),
+@@ -565,6 +567,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec":           schema_pkg_apis_core_v1beta1_DataVolumeSpec(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeStatus":         schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead":       schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref),
++		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags":                    schema_pkg_apis_core_v1beta1_Flags(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy":              schema_pkg_apis_core_v1beta1_ImportProxy(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType":         schema_pkg_apis_core_v1beta1_ImportSourceType(ref),
+ 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus":             schema_pkg_apis_core_v1beta1_ImportStatus(ref),
+@@ -25255,6 +25258,12 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
+ 							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"),
+ 						},
+ 					},
++					"customizeComponents": {
++						SchemaProps: spec.SchemaProps{
++							Default: map[string]interface{}{},
++							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents"),
++						},
++					},
+ 					"cloneStrategyOverride": {
+ 						SchemaProps: spec.SchemaProps{
+ 							Description: "Clone strategy override: should we use a host-assisted copy even if snapshots are available?",
+@@ -25285,7 +25294,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
+ 			},
+ 		},
+ 		Dependencies: []string{
+-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"},
++			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents", "kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"},
+ 	}
+ }
+ 
+@@ -25455,6 +25464,85 @@ func schema_pkg_apis_core_v1beta1_ConditionState(ref common.ReferenceCallback) c
+ 	}
+ }
+ 
++func schema_pkg_apis_core_v1beta1_CustomizeComponents(ref common.ReferenceCallback) common.OpenAPIDefinition {
++	return common.OpenAPIDefinition{
++		Schema: spec.Schema{
++			SchemaProps: spec.SchemaProps{
++				Type: []string{"object"},
++				Properties: map[string]spec.Schema{
++					"patches": {
++						VendorExtensible: spec.VendorExtensible{
++							Extensions: spec.Extensions{
++								"x-kubernetes-list-type": "atomic",
++							},
++						},
++						SchemaProps: spec.SchemaProps{
++							Type: []string{"array"},
++							Items: &spec.SchemaOrArray{
++								Schema: &spec.Schema{
++									SchemaProps: spec.SchemaProps{
++										Default: map[string]interface{}{},
++										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch"),
++									},
++								},
++							},
++						},
++					},
++					"flags": {
++						SchemaProps: spec.SchemaProps{
++							Description: "Configure the value used for deployment and daemonset resources",
++							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags"),
++						},
++					},
++				},
++			},
++		},
++		Dependencies: []string{
++			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags"},
++	}
++}
++
++func schema_pkg_apis_core_v1beta1_CustomizeComponentsPatch(ref common.ReferenceCallback) common.OpenAPIDefinition {
++	return common.OpenAPIDefinition{
++		Schema: spec.Schema{
++			SchemaProps: spec.SchemaProps{
++				Type: []string{"object"},
++				Properties: map[string]spec.Schema{
++					"resourceName": {
++						SchemaProps: spec.SchemaProps{
++							Default: "",
++							Type:    []string{"string"},
++							Format:  "",
++						},
++					},
++					"resourceType": {
++						SchemaProps: spec.SchemaProps{
++							Default: "",
++							Type:    []string{"string"},
++							Format:  "",
++						},
++					},
++					"patch": {
++						SchemaProps: spec.SchemaProps{
++							Default: "",
++							Type:    []string{"string"},
++							Format:  "",
++						},
++					},
++					"type": {
++						SchemaProps: spec.SchemaProps{
++							Default: "",
++							Type:    []string{"string"},
++							Format:  "",
++						},
++					},
++				},
++				Required: []string{"resourceName", "resourceType", "patch", "type"},
++			},
++		},
++	}
++}
++
+ func schema_pkg_apis_core_v1beta1_DataImportCron(ref common.ReferenceCallback) common.OpenAPIDefinition {
+ 	return common.OpenAPIDefinition{
+ 		Schema: spec.Schema{
+@@ -26785,6 +26873,64 @@ func schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref common.ReferenceCallbac
+ 	}
+ }
+ 
++func schema_pkg_apis_core_v1beta1_Flags(ref common.ReferenceCallback) common.OpenAPIDefinition {
++	return common.OpenAPIDefinition{
++		Schema: spec.Schema{
++			SchemaProps: spec.SchemaProps{
++				Description: "Flags will create a patch that will replace all flags for the container's command field. The only flags that will be used are those define. There are no guarantees around forward/backward compatibility.  If set incorrectly this will cause the resource when rolled out to error until flags are updated.",
++				Type:        []string{"object"},
++				Properties: map[string]spec.Schema{
++					"api": {
++						SchemaProps: spec.SchemaProps{
++							Type: []string{"object"},
++							AdditionalProperties: &spec.SchemaOrBool{
++								Allows: true,
++								Schema: &spec.Schema{
++									SchemaProps: spec.SchemaProps{
++										Default: "",
++										Type:    []string{"string"},
++										Format:  "",
++									},
++								},
++							},
++						},
++					},
++					"controller": {
++						SchemaProps: spec.SchemaProps{
++							Type: []string{"object"},
++							AdditionalProperties: &spec.SchemaOrBool{
++								Allows: true,
++								Schema: &spec.Schema{
++									SchemaProps: spec.SchemaProps{
++										Default: "",
++										Type:    []string{"string"},
++										Format:  "",
++									},
++								},
++							},
++						},
++					},
++					"uploadProxy": {
++						SchemaProps: spec.SchemaProps{
++							Type: []string{"object"},
++							AdditionalProperties: &spec.SchemaOrBool{
++								Allows: true,
++								Schema: &spec.Schema{
++									SchemaProps: spec.SchemaProps{
++										Default: "",
++										Type:    []string{"string"},
++										Format:  "",
++									},
++								},
++							},
++						},
++					},
++				},
++			},
++		},
++	}
++}
++
+ func schema_pkg_apis_core_v1beta1_ImportProxy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+ 	return common.OpenAPIDefinition{
+ 		Schema: spec.Schema{
+diff --git a/pkg/common/common.go b/pkg/common/common.go
+index 514c11af0..7edc88040 100644
+--- a/pkg/common/common.go
++++ b/pkg/common/common.go
+@@ -22,6 +22,15 @@ const (
+ 	// CDIControllerName is the CDI controller name
+ 	CDIControllerName = "cdi-controller"
+ 
++	// CDIControllerResourceName is the CDI controller resource name
++	CDIControllerResourceName = "cdi-deployment"
++	// CDIApiServerResourceName is the CDI apiserver resource name
++	CDIApiServerResourceName = "cdi-apiserver"
++	// CDIUploadProxyResourceName is the CDI uploadproxy resource name
++	CDIUploadProxyResourceName = "cdi-uploadproxy"
++	// CDICronJobResourceName is the CDI cronjob resource name
++	CDICronJobResourceName = "cdi-cronjob"
++
+ 	// AppKubernetesPartOfLabel is the Kubernetes recommended part-of label
+ 	AppKubernetesPartOfLabel = "app.kubernetes.io/part-of"
+ 	// AppKubernetesVersionLabel is the Kubernetes recommended version label
+diff --git a/pkg/controller/common/util.go b/pkg/controller/common/util.go
+index 278c66453..0e444a242 100644
+--- a/pkg/controller/common/util.go
++++ b/pkg/controller/common/util.go
+@@ -192,7 +192,7 @@ const (
+ 	// AnnCloneType is the comuuted/requested clone type
+ 	AnnCloneType = AnnAPIGroup + "/cloneType"
+ 	// AnnCloneSourcePod name of the source clone pod
+-	AnnCloneSourcePod = "cdi.kubevirt.io/storage.sourceClonePodName"
++	AnnCloneSourcePod = AnnAPIGroup + "/storage.sourceClonePodName"
+ 
+ 	// AnnUploadRequest marks that a PVC should be made available for upload
+ 	AnnUploadRequest = AnnAPIGroup + "/storage.upload.target"
+@@ -313,9 +313,12 @@ const (
+ 	ProgressDone = "100.0%"
+ 
+ 	// AnnEventSourceKind is the source kind that should be related to events
+-	AnnEventSourceKind = "cdi.kubevirt.io/events.source.kind"
++	AnnEventSourceKind = AnnAPIGroup + "/events.source.kind"
+ 	// AnnEventSource is the source that should be related to events (namespace/name)
+-	AnnEventSource = "cdi.kubevirt.io/events.source"
++	AnnEventSource = AnnAPIGroup + "/events.source"
++
++	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
++	AnnCdiCustomizeComponentHash = AnnAPIGroup + "/customizer-identifier"
+ )
+ 
+ // Size-detection pod error codes
+diff --git a/pkg/operator/controller/BUILD.bazel b/pkg/operator/controller/BUILD.bazel
+index dbfe964ba..731198a0c 100644
+--- a/pkg/operator/controller/BUILD.bazel
++++ b/pkg/operator/controller/BUILD.bazel
+@@ -9,6 +9,7 @@ go_library(
+         "cr-manager.go",
+         "cruft.go",
+         "handler.go",
++        "patches.go",
+         "prometheus.go",
+         "reconciler-hooks.go",
+         "route.go",
+@@ -30,6 +31,7 @@ go_library(
+         "//pkg/operator/resources/utils:go_default_library",
+         "//pkg/util:go_default_library",
+         "//staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
++        "//vendor/github.com/evanphx/json-patch:go_default_library",
+         "//vendor/github.com/go-logr/logr:go_default_library",
+         "//vendor/github.com/kelseyhightower/envconfig:go_default_library",
+         "//vendor/github.com/openshift/api/route/v1:go_default_library",
+@@ -57,6 +59,7 @@ go_library(
+         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
++        "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
+         "//vendor/k8s.io/apiserver/pkg/authentication/user:go_default_library",
+         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+         "//vendor/k8s.io/client-go/listers/core/v1:go_default_library",
+@@ -85,6 +88,7 @@ go_test(
+         "certrotation_test.go",
+         "controller_suite_test.go",
+         "controller_test.go",
++        "patches_test.go",
+     ],
+     embed = [":go_default_library"],
+     deps = [
+diff --git a/pkg/operator/controller/cr-manager.go b/pkg/operator/controller/cr-manager.go
+index 9285f5ccc..6d59f008f 100644
+--- a/pkg/operator/controller/cr-manager.go
++++ b/pkg/operator/controller/cr-manager.go
+@@ -156,5 +156,13 @@ func (r *ReconcileCDI) GetAllResources(crObject client.Object) ([]client.Object,
+ 		}
+ 	}
+ 
++	customizer, err := NewCustomizer(cr.Spec.CustomizeComponents)
++	if err != nil {
++		return nil, err
++	}
++	if err := customizer.Apply(resources); err != nil {
++		return nil, err
++	}
++
+ 	return resources, nil
+ }
+diff --git a/pkg/operator/controller/patches.go b/pkg/operator/controller/patches.go
+new file mode 100644
+index 000000000..a670e2224
+--- /dev/null
++++ b/pkg/operator/controller/patches.go
+@@ -0,0 +1,277 @@
++package controller
++
++import (
++	"crypto/sha1"
++	"encoding/hex"
++	"encoding/json"
++	"errors"
++	"fmt"
++	jsonpatch "github.com/evanphx/json-patch"
++	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
++	appsv1 "k8s.io/api/apps/v1"
++	corev1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/runtime"
++	"k8s.io/apimachinery/pkg/util/strategicpatch"
++	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
++	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++	"kubevirt.io/containerized-data-importer/pkg/common"
++	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
++	"reflect"
++	"sigs.k8s.io/controller-runtime/pkg/client"
++	"sort"
++	"strings"
++)
++
++type Customizer struct {
++	Patches []v1beta1.CustomizeComponentsPatch
++	hash    string
++}
++
++func (c *Customizer) Hash() string {
++	return c.hash
++}
++
++func (c *Customizer) GetPatches() []v1beta1.CustomizeComponentsPatch {
++	return c.Patches
++}
++
++func (c *Customizer) GetPatchesForResource(resourceType, name string) []v1beta1.CustomizeComponentsPatch {
++	allPatches := c.Patches
++	patches := make([]v1beta1.CustomizeComponentsPatch, 0)
++
++	for _, p := range allPatches {
++		if valueMatchesKey(p.ResourceType, resourceType) && valueMatchesKey(p.ResourceName, name) {
++			patches = append(patches, p)
++		}
++	}
++
++	return patches
++}
++
++func valueMatchesKey(value, key string) bool {
++	if value == "*" {
++		return true
++	}
++
++	return strings.EqualFold(key, value)
++}
++
++func (c *Customizer) Apply(objects []client.Object) error {
++	var deployments []*appsv1.Deployment
++	var services []*corev1.Service
++	var validatingWebhooks []*admissionregistrationv1.ValidatingWebhookConfiguration
++	var mutatingWebhooks []*admissionregistrationv1.MutatingWebhookConfiguration
++	var apiServices []*apiregistrationv1.APIService
++
++	for _, obj := range objects {
++		kind := obj.GetObjectKind().GroupVersionKind().Kind
++		switch kind {
++		case "Deployment":
++			deployments = append(deployments, obj.(*appsv1.Deployment))
++		case "Service":
++			services = append(services, obj.(*corev1.Service))
++		case "ValidatingWebhookConfiguration":
++			validatingWebhooks = append(validatingWebhooks, obj.(*admissionregistrationv1.ValidatingWebhookConfiguration))
++		case "MutatingWebhookConfiguration":
++			mutatingWebhooks = append(mutatingWebhooks, obj.(*admissionregistrationv1.MutatingWebhookConfiguration))
++		case "APIService":
++			apiServices = append(apiServices, obj.(*apiregistrationv1.APIService))
++		}
++	}
++
++	err := c.GenericApplyPatches(deployments)
++	if err != nil {
++		return err
++	}
++	err = c.GenericApplyPatches(services)
++	if err != nil {
++		return err
++	}
++	err = c.GenericApplyPatches(validatingWebhooks)
++	if err != nil {
++		return err
++	}
++	err = c.GenericApplyPatches(mutatingWebhooks)
++	if err != nil {
++		return err
++	}
++	err = c.GenericApplyPatches(apiServices)
++	if err != nil {
++		return err
++	}
++	return nil
++}
++
++func (c *Customizer) GenericApplyPatches(objects interface{}) error {
++	switch reflect.TypeOf(objects).Kind() {
++	case reflect.Slice:
++		s := reflect.ValueOf(objects)
++		for i := 0; i < s.Len(); i++ {
++			o := s.Index(i)
++			obj, ok := o.Interface().(runtime.Object)
++			if !ok {
++				return errors.New("Slice must contain objects of type 'runtime.Object'")
++			}
++
++			kind := obj.GetObjectKind().GroupVersionKind().Kind
++
++			v := reflect.Indirect(o).FieldByName("ObjectMeta").FieldByName("Name")
++			name := v.String()
++
++			patches := c.GetPatchesForResource(kind, name)
++
++			patches = append(patches, v1beta1.CustomizeComponentsPatch{
++				Patch: fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`, cc.AnnCdiCustomizeComponentHash, c.hash),
++				Type:  v1beta1.StrategicMergePatchType,
++			})
++
++			err := applyPatches(obj, patches)
++			if err != nil {
++				return err
++			}
++		}
++	}
++
++	return nil
++}
++
++func applyPatches(obj runtime.Object, patches []v1beta1.CustomizeComponentsPatch) error {
++	if len(patches) == 0 {
++		return nil
++	}
++
++	for _, p := range patches {
++		err := applyPatch(obj, p)
++		if err != nil {
++			return err
++		}
++	}
++
++	return nil
++}
++
++func applyPatch(obj runtime.Object, patch v1beta1.CustomizeComponentsPatch) error {
++	if obj == nil {
++		return nil
++	}
++
++	old, err := json.Marshal(obj)
++	if err != nil {
++		return err
++	}
++
++	// reset the object in preparation to unmarshal, since unmarshal does not guarantee that fields
++	// in obj that are removed by patch are cleared
++	value := reflect.ValueOf(obj)
++	value.Elem().Set(reflect.New(value.Type().Elem()).Elem())
++
++	switch patch.Type {
++	case v1beta1.JSONPatchType:
++		patch, err := jsonpatch.DecodePatch([]byte(patch.Patch))
++		if err != nil {
++			return err
++		}
++		modified, err := patch.Apply(old)
++		if err != nil {
++			return err
++		}
++
++		if err = json.Unmarshal(modified, obj); err != nil {
++			return err
++		}
++	case v1beta1.MergePatchType:
++		modified, err := jsonpatch.MergePatch(old, []byte(patch.Patch))
++		if err != nil {
++			return err
++		}
++
++		if err := json.Unmarshal(modified, obj); err != nil {
++			return err
++		}
++	case v1beta1.StrategicMergePatchType:
++		mergedByte, err := strategicpatch.StrategicMergePatch(old, []byte(patch.Patch), obj)
++		if err != nil {
++			return err
++		}
++
++		if err = json.Unmarshal(mergedByte, obj); err != nil {
++			return err
++		}
++	default:
++		return fmt.Errorf("PatchType is not supported")
++	}
++
++	return nil
++}
++
++func NewCustomizer(customizations v1beta1.CustomizeComponents) (*Customizer, error) {
++	hash, err := getHash(customizations)
++	if err != nil {
++		return &Customizer{}, err
++	}
++
++	patches := customizations.Patches
++	flagPatches := flagsToPatches(customizations.Flags)
++	patches = append(patches, flagPatches...)
++
++	return &Customizer{
++		Patches: patches,
++		hash:    hash,
++	}, nil
++}
++
++func flagsToPatches(flags *v1beta1.Flags) []v1beta1.CustomizeComponentsPatch {
++	patches := []v1beta1.CustomizeComponentsPatch{}
++	if flags == nil {
++		return patches
++	}
++	patches = addFlagsPatch(common.CDIApiServerResourceName, "Deployment", flags.API, patches)
++	patches = addFlagsPatch(common.CDIControllerResourceName, "Deployment", flags.Controller, patches)
++	patches = addFlagsPatch(common.CDIUploadProxyResourceName, "Deployment", flags.UploadProxy, patches)
++
++	return patches
++}
++
++func addFlagsPatch(name, resource string, flags map[string]string, patches []v1beta1.CustomizeComponentsPatch) []v1beta1.CustomizeComponentsPatch {
++	if len(flags) == 0 {
++		return patches
++	}
++
++	return append(patches, v1beta1.CustomizeComponentsPatch{
++		ResourceName: name,
++		ResourceType: resource,
++		Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
++		Type:         v1beta1.StrategicMergePatchType,
++	})
++}
++
++func flagsToArray(flags map[string]string) []string {
++	farr := make([]string, 0)
++
++	for flag, v := range flags {
++		farr = append(farr, fmt.Sprintf("--%s", strings.ToLower(flag)))
++		if v != "" {
++			farr = append(farr, v)
++		}
++	}
++
++	return farr
++}
++
++func getHash(customizations v1beta1.CustomizeComponents) (string, error) {
++	// #nosec CWE: 326 - Use of weak cryptographic primitive (http://cwe.mitre.org/data/definitions/326.html)
++	// reason: sha1 is not used for encryption but for creating a hash value
++	hasher := sha1.New()
++
++	sort.SliceStable(customizations.Patches, func(i, j int) bool {
++		return len(customizations.Patches[i].Patch) < len(customizations.Patches[j].Patch)
++	})
++
++	values, err := json.Marshal(customizations)
++	if err != nil {
++		return "", err
++	}
++	hasher.Write(values)
++
++	return hex.EncodeToString(hasher.Sum(nil)), nil
++}
+diff --git a/pkg/operator/controller/patches_test.go b/pkg/operator/controller/patches_test.go
+new file mode 100644
+index 000000000..1b948186a
+--- /dev/null
++++ b/pkg/operator/controller/patches_test.go
+@@ -0,0 +1,204 @@
++package controller
++
++import (
++	. "github.com/onsi/ginkgo/v2"
++	. "github.com/onsi/gomega"
++	appsv1 "k8s.io/api/apps/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++	"kubevirt.io/containerized-data-importer/pkg/common"
++	"strings"
++)
++
++var _ = Describe("Patches", func() {
++	namespace := "fake-namespace"
++
++	getControllerDeployment := func() *appsv1.Deployment {
++		return &appsv1.Deployment{
++			TypeMeta: metav1.TypeMeta{
++				APIVersion: appsv1.SchemeGroupVersion.String(),
++				Kind:       "Deployment",
++			},
++			ObjectMeta: metav1.ObjectMeta{
++				Namespace: namespace,
++				Name:      common.CDIControllerResourceName,
++			},
++			Spec: appsv1.DeploymentSpec{},
++		}
++	}
++
++	Context("generically apply patches", func() {
++
++		flags := &cdiv1.Flags{
++			Controller: map[string]string{
++				"v": "4",
++			},
++		}
++
++		customizer, _ := NewCustomizer(cdiv1.CustomizeComponents{
++			Patches: []cdiv1.CustomizeComponentsPatch{
++				{
++					ResourceName: common.CDIControllerResourceName,
++					ResourceType: "Deployment",
++					Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
++					Type:         cdiv1.StrategicMergePatchType,
++				},
++				{
++					ResourceName: "*",
++					ResourceType: "Deployment",
++					Patch:        `{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"image-pull"}]}}}}`,
++					Type:         cdiv1.StrategicMergePatchType,
++				},
++			},
++			Flags: flags,
++		})
++
++		deployment := getControllerDeployment()
++
++		It("should apply to deployments", func() {
++			deployments := []*appsv1.Deployment{
++				deployment,
++			}
++
++			err := customizer.GenericApplyPatches(deployments)
++			Expect(err).ToNot(HaveOccurred())
++			Expect(deployment.ObjectMeta.Labels["new-key"]).To(Equal("added-this-label"))
++			Expect(deployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal("image-pull"))
++			// check flags are applied
++			expectedFlags := []string{common.CDIControllerResourceName}
++			expectedFlags = append(expectedFlags, flagsToArray(flags.Controller)...)
++			Expect(deployment.Spec.Template.Spec.Containers[0].Command).To(Equal(expectedFlags))
++
++			// check objects implement runtime.Object
++			err = customizer.GenericApplyPatches([]string{"string"})
++			Expect(err).To(HaveOccurred())
++		})
++	})
++
++	Context("apply patch", func() {
++
++		It("should not error on empty patch", func() {
++			err := applyPatch(nil, cdiv1.CustomizeComponentsPatch{})
++			Expect(err).ToNot(HaveOccurred())
++		})
++	})
++
++	Context("get hash", func() {
++		patch1 := cdiv1.CustomizeComponentsPatch{
++			ResourceName: common.CDIControllerResourceName,
++			ResourceType: "Deployment",
++			Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
++			Type:         cdiv1.StrategicMergePatchType,
++		}
++		patch2 := cdiv1.CustomizeComponentsPatch{
++			ResourceName: common.CDIApiServerResourceName,
++			ResourceType: "Deployment",
++			Patch:        `{"metadata":{"labels":{"my-custom-label":"custom-label"}}}`,
++			Type:         cdiv1.StrategicMergePatchType,
++		}
++		patch3 := cdiv1.CustomizeComponentsPatch{
++			ResourceName: common.CDIControllerResourceName,
++			ResourceType: "Deployment",
++			Patch:        `{"metadata":{"annotation":{"key":"value"}}}`,
++			Type:         cdiv1.StrategicMergePatchType,
++		}
++		c1 := cdiv1.CustomizeComponents{
++			Patches: []cdiv1.CustomizeComponentsPatch{patch1, patch2, patch3},
++		}
++
++		c2 := cdiv1.CustomizeComponents{
++			Patches: []cdiv1.CustomizeComponentsPatch{patch2, patch1, patch3},
++		}
++
++		flags1 := &cdiv1.Flags{
++			API: map[string]string{
++				"v": "4",
++			},
++		}
++
++		flags2 := &cdiv1.Flags{
++			API: map[string]string{
++				"v": "1",
++			},
++		}
++
++		It("should be equal", func() {
++			h1, err := getHash(c1)
++			Expect(err).ToNot(HaveOccurred())
++			h2, err := getHash(c2)
++			Expect(err).ToNot(HaveOccurred())
++
++			Expect(h1).To(Equal(h2))
++		})
++
++		It("should not be equal", func() {
++			c1.Flags = flags1
++			c2.Flags = flags2
++
++			h1, err := getHash(c1)
++			Expect(err).ToNot(HaveOccurred())
++			h2, err := getHash(c2)
++			Expect(err).ToNot(HaveOccurred())
++
++			Expect(h1).ToNot(Equal(h2))
++		})
++	})
++
++	DescribeTable("valueMatchesKey", func(value, key string, expected bool) {
++		matches := valueMatchesKey(value, key)
++		Expect(matches).To(Equal(expected))
++	},
++		Entry("should match wildcard", "*", "Deployment", true),
++		Entry("should match with different cases", "deployment", "Deployment", true),
++		Entry("should not match", "Service", "Deployment", false),
++	)
++
++	Describe("Config controller flags", func() {
++		flags := map[string]string{
++			"flag-one":  "1",
++			"flag":      "3",
++			"bool-flag": "",
++		}
++		resource := "Deployment"
++
++		It("should return flags in the proper format", func() {
++			fa := flagsToArray(flags)
++			Expect(fa).To(HaveLen(5))
++
++			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag-one 1"))
++			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag 3"))
++			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag"))
++		})
++
++		It("should add flag patch", func() {
++			patches := addFlagsPatch(common.CDIApiServerResourceName, resource, flags, []cdiv1.CustomizeComponentsPatch{})
++			Expect(patches).To(HaveLen(1))
++			patch := patches[0]
++
++			Expect(patch.ResourceName).To(Equal(common.CDIApiServerResourceName))
++			Expect(patch.ResourceType).To(Equal(resource))
++		})
++
++		It("should return empty patch", func() {
++			patches := addFlagsPatch(common.CDIApiServerResourceName, resource, map[string]string{}, []cdiv1.CustomizeComponentsPatch{})
++			Expect(patches).To(BeEmpty())
++		})
++
++		It("should chain patches", func() {
++			patches := addFlagsPatch(common.CDIApiServerResourceName, resource, flags, []cdiv1.CustomizeComponentsPatch{})
++			Expect(patches).To(HaveLen(1))
++
++			patches = addFlagsPatch(common.CDIControllerResourceName, resource, flags, patches)
++			Expect(patches).To(HaveLen(2))
++		})
++
++		It("should return all flag patches", func() {
++			f := &cdiv1.Flags{
++				API: flags,
++			}
++
++			patches := flagsToPatches(f)
++			Expect(patches).To(HaveLen(1))
++		})
++	})
++})
+diff --git a/pkg/operator/resources/cluster/BUILD.bazel b/pkg/operator/resources/cluster/BUILD.bazel
+index ba256c892..65819b6d0 100644
+--- a/pkg/operator/resources/cluster/BUILD.bazel
++++ b/pkg/operator/resources/cluster/BUILD.bazel
+@@ -19,6 +19,7 @@ go_library(
+     importpath = "kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster",
+     visibility = ["//visibility:public"],
+     deps = [
++        "//pkg/common:go_default_library",
+         "//pkg/operator/resources:go_default_library",
+         "//pkg/operator/resources/utils:go_default_library",
+         "//staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
+diff --git a/pkg/operator/resources/cluster/apiserver.go b/pkg/operator/resources/cluster/apiserver.go
+index d6e14f339..5e8432713 100644
+--- a/pkg/operator/resources/cluster/apiserver.go
++++ b/pkg/operator/resources/cluster/apiserver.go
+@@ -19,6 +19,7 @@ package cluster
+ import (
+ 	"context"
+ 	"fmt"
++	"kubevirt.io/containerized-data-importer/pkg/common"
+ 
+ 	"github.com/go-logr/logr"
+ 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+@@ -34,7 +35,7 @@ import (
+ )
+ 
+ const (
+-	apiServerResourceName = "cdi-apiserver"
++	apiServerResourceName = common.CDIApiServerResourceName
+ 	apiServerServiceName  = "cdi-api"
+ )
+ 
+diff --git a/pkg/operator/resources/cluster/cronjob.go b/pkg/operator/resources/cluster/cronjob.go
+index c21285c4a..71b2fa0f7 100644
+--- a/pkg/operator/resources/cluster/cronjob.go
++++ b/pkg/operator/resources/cluster/cronjob.go
+@@ -18,13 +18,14 @@ package cluster
+ 
+ import (
+ 	rbacv1 "k8s.io/api/rbac/v1"
++	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	"sigs.k8s.io/controller-runtime/pkg/client"
+ 
+ 	"kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
+ )
+ 
+ const (
+-	cronJobResourceName = "cdi-cronjob"
++	cronJobResourceName = common.CDICronJobResourceName
+ )
+ 
+ func createCronJobResources(args *FactoryArgs) []client.Object {
+diff --git a/pkg/operator/resources/cluster/uploadproxy.go b/pkg/operator/resources/cluster/uploadproxy.go
+index f1df75aaf..a9ac62765 100644
+--- a/pkg/operator/resources/cluster/uploadproxy.go
++++ b/pkg/operator/resources/cluster/uploadproxy.go
+@@ -18,13 +18,14 @@ package cluster
+ 
+ import (
+ 	rbacv1 "k8s.io/api/rbac/v1"
++	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	"sigs.k8s.io/controller-runtime/pkg/client"
+ 
+ 	"kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
+ )
+ 
+ const (
+-	uploadProxyResourceName = "cdi-uploadproxy"
++	uploadProxyResourceName = common.CDIUploadProxyResourceName
+ )
+ 
+ func createUploadProxyResources(args *FactoryArgs) []client.Object {
+diff --git a/pkg/operator/resources/crds_generated.go b/pkg/operator/resources/crds_generated.go
+index dc4ba2ced..29e28ca67 100644
+--- a/pkg/operator/resources/crds_generated.go
++++ b/pkg/operator/resources/crds_generated.go
+@@ -336,6 +336,47 @@ spec:
+                     description: Override the URL used when uploading to a DataVolume
+                     type: string
+                 type: object
++              customizeComponents:
++                properties:
++                  flags:
++                    description: Configure the value used for deployment and daemonset
++                      resources
++                    properties:
++                      api:
++                        additionalProperties:
++                          type: string
++                        type: object
++                      controller:
++                        additionalProperties:
++                          type: string
++                        type: object
++                      uploadProxy:
++                        additionalProperties:
++                          type: string
++                        type: object
++                    type: object
++                  patches:
++                    items:
++                      properties:
++                        patch:
++                          type: string
++                        resourceName:
++                          minLength: 1
++                          type: string
++                        resourceType:
++                          minLength: 1
++                          type: string
++                        type:
++                          type: string
++                      required:
++                      - patch
++                      - resourceName
++                      - resourceType
++                      - type
++                      type: object
++                    type: array
++                    x-kubernetes-list-type: atomic
++                type: object
+               imagePullPolicy:
+                 description: PullPolicy describes a policy for if/when to pull a container
+                   image
+@@ -2576,6 +2617,47 @@ spec:
+                     description: Override the URL used when uploading to a DataVolume
+                     type: string
+                 type: object
++              customizeComponents:
++                properties:
++                  flags:
++                    description: Configure the value used for deployment and daemonset
++                      resources
++                    properties:
++                      api:
++                        additionalProperties:
++                          type: string
++                        type: object
++                      controller:
++                        additionalProperties:
++                          type: string
++                        type: object
++                      uploadProxy:
++                        additionalProperties:
++                          type: string
++                        type: object
++                    type: object
++                  patches:
++                    items:
++                      properties:
++                        patch:
++                          type: string
++                        resourceName:
++                          minLength: 1
++                          type: string
++                        resourceType:
++                          minLength: 1
++                          type: string
++                        type:
++                          type: string
++                      required:
++                      - patch
++                      - resourceName
++                      - resourceType
++                      - type
++                      type: object
++                    type: array
++                    x-kubernetes-list-type: atomic
++                type: object
+               imagePullPolicy:
+                 description: PullPolicy describes a policy for if/when to pull a container
+                   image
+diff --git a/pkg/operator/resources/namespaced/apiserver.go b/pkg/operator/resources/namespaced/apiserver.go
+index d05bab470..576560d43 100644
+--- a/pkg/operator/resources/namespaced/apiserver.go
++++ b/pkg/operator/resources/namespaced/apiserver.go
+@@ -34,11 +34,8 @@ import (
+ )
+ 
+ const (
+-	apiServerRessouceName = "cdi-apiserver"
+-)
+-
+-const (
+-	cdiLabel = common.CDIComponentLabel
++	cdiLabel              = common.CDIComponentLabel
++	apiServerRessouceName = common.CDIApiServerResourceName
+ )
+ 
+ func createAPIServerResources(args *FactoryArgs) []client.Object {
+diff --git a/pkg/operator/resources/namespaced/controller.go b/pkg/operator/resources/namespaced/controller.go
+index 3283ebaa2..e29afac2c 100644
+--- a/pkg/operator/resources/namespaced/controller.go
++++ b/pkg/operator/resources/namespaced/controller.go
+@@ -35,7 +35,7 @@ import (
+ )
+ 
+ const (
+-	controllerResourceName = "cdi-deployment"
++	controllerResourceName = common.CDIControllerResourceName
+ )
+ 
+ func createControllerResources(args *FactoryArgs) []client.Object {
+diff --git a/pkg/operator/resources/namespaced/cronjob.go b/pkg/operator/resources/namespaced/cronjob.go
+index 80e5069be..7005abe0e 100644
+--- a/pkg/operator/resources/namespaced/cronjob.go
++++ b/pkg/operator/resources/namespaced/cronjob.go
+@@ -18,13 +18,14 @@ package namespaced
+ 
+ import (
+ 	corev1 "k8s.io/api/core/v1"
++	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	"sigs.k8s.io/controller-runtime/pkg/client"
+ 
+ 	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
+ )
+ 
+ const (
+-	cronJobResourceName = "cdi-cronjob"
++	cronJobResourceName = common.CDICronJobResourceName
+ )
+ 
+ func createCronJobResources(args *FactoryArgs) []client.Object {
+diff --git a/pkg/operator/resources/namespaced/uploadproxy.go b/pkg/operator/resources/namespaced/uploadproxy.go
+index e455fe0f8..caa96859f 100644
+--- a/pkg/operator/resources/namespaced/uploadproxy.go
++++ b/pkg/operator/resources/namespaced/uploadproxy.go
+@@ -22,6 +22,7 @@ import (
+ 	rbacv1 "k8s.io/api/rbac/v1"
+ 	"k8s.io/apimachinery/pkg/api/resource"
+ 	"k8s.io/apimachinery/pkg/util/intstr"
++	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	"sigs.k8s.io/controller-runtime/pkg/client"
+ 
+ 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+@@ -30,7 +31,7 @@ import (
+ )
+ 
+ const (
+-	uploadProxyResourceName = "cdi-uploadproxy"
++	uploadProxyResourceName = common.CDIUploadProxyResourceName
+ )
+ 
+ func createUploadProxyResources(args *FactoryArgs) []client.Object {
+diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
+index a6f974d64..402969e5c 100644
+--- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
++++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types.go
+@@ -827,7 +827,8 @@ type CDISpec struct {
+ 	// Rules on which nodes CDI infrastructure pods will be scheduled
+ 	Infra sdkapi.NodePlacement `json:"infra,omitempty"`
+ 	// Restrict on which nodes CDI workload pods will be scheduled
+-	Workloads sdkapi.NodePlacement `json:"workload,omitempty"`
++	Workloads           sdkapi.NodePlacement `json:"workload,omitempty"`
++	CustomizeComponents CustomizeComponents  `json:"customizeComponents,omitempty"`
+ 	// Clone strategy override: should we use a host-assisted copy even if snapshots are available?
+ 	// +kubebuilder:validation:Enum="copy";"snapshot";"csi-clone"
+ 	CloneStrategyOverride *CDICloneStrategy `json:"cloneStrategyOverride,omitempty"`
+@@ -856,6 +857,41 @@ const (
+ 	CloneStrategyCsiClone CDICloneStrategy = "csi-clone"
+ )
+ 
++type CustomizeComponents struct {
++	// +listType=atomic
++	Patches []CustomizeComponentsPatch `json:"patches,omitempty"`
++
++	// Configure the value used for deployment and daemonset resources
++	Flags *Flags `json:"flags,omitempty"`
++}
++
++// Flags will create a patch that will replace all flags for the container's
++// command field. The only flags that will be used are those define. There are no
++// guarantees around forward/backward compatibility.  If set incorrectly this will
++// cause the resource when rolled out to error until flags are updated.
++type Flags struct {
++	API         map[string]string `json:"api,omitempty"`
++	Controller  map[string]string `json:"controller,omitempty"`
++	UploadProxy map[string]string `json:"uploadProxy,omitempty"`
++}
++
++type CustomizeComponentsPatch struct {
++	// +kubebuilder:validation:MinLength=1
++	ResourceName string `json:"resourceName"`
++	// +kubebuilder:validation:MinLength=1
++	ResourceType string    `json:"resourceType"`
++	Patch        string    `json:"patch"`
++	Type         PatchType `json:"type"`
++}
++
++type PatchType string
++
++const (
++	JSONPatchType           PatchType = "json"
++	MergePatchType          PatchType = "merge"
++	StrategicMergePatchType PatchType = "strategic"
++)
++
+ // DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
+ type DataImportCronSourceFormat string
+ 
+diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
+index c95c63c7d..d21b89761 100644
+--- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
++++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/types_swagger_generated.go
+@@ -437,6 +437,26 @@ func (CDISpec) SwaggerDoc() map[string]string {
+ 	}
+ }
+ 
++func (CustomizeComponents) SwaggerDoc() map[string]string {
++	return map[string]string{
++		"patches": "+listType=atomic",
++		"flags":   "Configure the value used for deployment and daemonset resources",
++	}
++}
++
++func (Flags) SwaggerDoc() map[string]string {
++	return map[string]string{
++		"": "Flags will create a patch that will replace all flags for the container's\ncommand field. The only flags that will be used are those define. There are no\nguarantees around forward/backward compatibility.  If set incorrectly this will\ncause the resource when rolled out to error until flags are updated.",
++	}
++}
++
++func (CustomizeComponentsPatch) SwaggerDoc() map[string]string {
++	return map[string]string{
++		"resourceName": "+kubebuilder:validation:MinLength=1",
++		"resourceType": "+kubebuilder:validation:MinLength=1",
++	}
++}
++
+ func (CDIStatus) SwaggerDoc() map[string]string {
+ 	return map[string]string{
+ 		"": "CDIStatus defines the status of the installation",
+diff --git a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
+index 39d84a69e..499ee57d9 100644
+--- a/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
++++ b/staging/src/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/zz_generated.deepcopy.go
+@@ -303,6 +303,7 @@ func (in *CDISpec) DeepCopyInto(out *CDISpec) {
+ 	}
+ 	in.Infra.DeepCopyInto(&out.Infra)
+ 	in.Workloads.DeepCopyInto(&out.Workloads)
++	in.CustomizeComponents.DeepCopyInto(&out.CustomizeComponents)
+ 	if in.CloneStrategyOverride != nil {
+ 		in, out := &in.CloneStrategyOverride, &out.CloneStrategyOverride
+ 		*out = new(CDICloneStrategy)
+@@ -423,6 +424,48 @@ func (in *ConditionState) DeepCopy() *ConditionState {
+ 	return out
+ }
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *CustomizeComponents) DeepCopyInto(out *CustomizeComponents) {
++	*out = *in
++	if in.Patches != nil {
++		in, out := &in.Patches, &out.Patches
++		*out = make([]CustomizeComponentsPatch, len(*in))
++		copy(*out, *in)
++	}
++	if in.Flags != nil {
++		in, out := &in.Flags, &out.Flags
++		*out = new(Flags)
++		(*in).DeepCopyInto(*out)
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new CustomizeComponents.
++func (in *CustomizeComponents) DeepCopy() *CustomizeComponents {
++	if in == nil {
++		return nil
++	}
++	out := new(CustomizeComponents)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *CustomizeComponentsPatch) DeepCopyInto(out *CustomizeComponentsPatch) {
++	*out = *in
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new CustomizeComponentsPatch.
++func (in *CustomizeComponentsPatch) DeepCopy() *CustomizeComponentsPatch {
++	if in == nil {
++		return nil
++	}
++	out := new(CustomizeComponentsPatch)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *DataImportCron) DeepCopyInto(out *DataImportCron) {
+ 	*out = *in
+@@ -1193,6 +1236,43 @@ func (in *FilesystemOverhead) DeepCopy() *FilesystemOverhead {
+ 	return out
+ }
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *Flags) DeepCopyInto(out *Flags) {
++	*out = *in
++	if in.API != nil {
++		in, out := &in.API, &out.API
++		*out = make(map[string]string, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val
++		}
++	}
++	if in.Controller != nil {
++		in, out := &in.Controller, &out.Controller
++		*out = make(map[string]string, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val
++		}
++	}
++	if in.UploadProxy != nil {
++		in, out := &in.UploadProxy, &out.UploadProxy
++		*out = make(map[string]string, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val
++		}
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Flags.
++func (in *Flags) DeepCopy() *Flags {
++	if in == nil {
++		return nil
++	}
++	out := new(Flags)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *ImportProxy) DeepCopyInto(out *ImportProxy) {
+ 	*out = *in
