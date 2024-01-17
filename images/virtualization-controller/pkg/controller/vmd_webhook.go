@@ -9,7 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 func NewVMDValidator(log logr.Logger) *VMDValidator {
@@ -21,7 +21,7 @@ type VMDValidator struct {
 }
 
 func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmd, ok := obj.(*v2alpha1.VirtualMachineDisk)
+	vmd, ok := obj.(*v1alpha2.VirtualMachineDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineDisk but got a %T", obj)
 	}
@@ -40,12 +40,12 @@ func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (ad
 }
 
 func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newVMD, ok := newObj.(*v2alpha1.VirtualMachineDisk)
+	newVMD, ok := newObj.(*v1alpha2.VirtualMachineDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineDisk but got a %T", newObj)
 	}
 
-	oldVMD, ok := oldObj.(*v2alpha1.VirtualMachineDisk)
+	oldVMD, ok := oldObj.(*v1alpha2.VirtualMachineDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineDisk but got a %T", oldObj)
 	}

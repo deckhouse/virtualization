@@ -18,7 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 )
 

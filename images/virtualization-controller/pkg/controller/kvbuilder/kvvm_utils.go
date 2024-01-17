@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"

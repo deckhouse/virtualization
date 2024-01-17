@@ -558,12 +558,12 @@ tasks:
       - _ensure:k8s-codegen-mod
     cmds:
       - |
-        # Use only deepcopy generator. Use . for output-base to update files in api/v2alpha1 directory.
+        # Use only deepcopy generator. Use . for output-base to update files in api/v1alpha2 directory.
         $K8S_CODEGEN/generate-groups.sh \
           deepcopy \
           github.com/deckhouse/virtualization-controller \
           . \
-          "api:v2alpha1" \
+          "api:v1alpha2" \
           --go-header-file "./scripts/boilerplate.go.txt" \
           --output-base .
 

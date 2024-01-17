@@ -1,10 +1,10 @@
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
-type SpecFieldsComparator func(prev, next *v2alpha1.VirtualMachineSpec) []FieldChange
+type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
 
 var specComparators = []SpecFieldsComparator{
 	compareRunPolicy,
@@ -25,7 +25,7 @@ var specComparators = []SpecFieldsComparator{
 	compareProvisioning,
 }
 
-func CompareSpecs(prev, next *v2alpha1.VirtualMachineSpec) SpecChanges {
+func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
 	specChanges := SpecChanges{}
 
 	for _, comparator := range specComparators {

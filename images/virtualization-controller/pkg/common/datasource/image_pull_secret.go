@@ -1,6 +1,6 @@
 package datasource
 
-import virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+import virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 
 func ShouldCopyImagePullSecret(ctrImg *virtv2alpha1.DataSourceContainerRegistry, targetNS string) bool {
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
