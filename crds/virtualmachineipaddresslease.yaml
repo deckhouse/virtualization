@@ -18,7 +18,7 @@ spec:
       - vmipl
       - vmipls
   versions:
-    - name: v2alpha1
+    - name: v1alpha2
       schema:
         openAPIV3Schema:
           description:  |

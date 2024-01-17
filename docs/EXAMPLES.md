@@ -15,7 +15,7 @@ kubectl create ns vms
 Let's create a virtual machine disk from an external source:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: linux-disk
@@ -45,7 +45,7 @@ kubectl -n vms get virtualmachinedisk
 Next, let's create a virtual machine from the following specification:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
@@ -127,7 +127,7 @@ Depending on the configuration, the `VirtualMachineImage` resource can store dat
 Let's look at the creation of these resources with examples:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineImage
 metadata:
   name: ubuntu-img
@@ -176,7 +176,7 @@ kubectl get storageclass
 The `ClusterVirtualMachineImage` resource is created similarly, but does not require the `storage` settings to be specified:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: ubuntu-img
@@ -234,7 +234,7 @@ docker push docker.io/username/ubuntu2204:latest
 To use this image, let's create the `ClusterVirtualMachineImage` resource as an example:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: ubuntu-2204
@@ -256,7 +256,7 @@ kubectl get clustervirtalmachineimage
 To upload an image from the command line, we first need to create the following resource, consider `ClusterVirtualMachineImage` as an example:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: some-image
@@ -310,7 +310,7 @@ Let's look at the options of what disks we can create:
 The first thing to note is that we can create empty disks!
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: vmd-blank
@@ -341,7 +341,7 @@ When creating a disk resource, we can specify the desired size. If no size is sp
 As an example, we will use a previously created `ClusterVirtualMachineImage` named `ubuntu-2204`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: ubuntu-root
@@ -368,7 +368,7 @@ kubectl patch ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"si
 Disks can be attached "live" to an already running virtual machine by using the `VirtualMachineBlockDeviceAttachment` resource, for example:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
@@ -411,7 +411,7 @@ The first thing we need to do before creating a virtual machine resource is to c
 Let's create a disk for the virtual machine:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: ubuntu-2204-root
@@ -429,7 +429,7 @@ spec:
 Below is an example of a simple virtual machine configuration running Ubuntu 22.04. The example uses the cloud-init script, which installs the nginx package and creates the user `cloud`, with the password `cloud`:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
@@ -510,7 +510,7 @@ If we want to bind a specific IP address for the machine before it is started, t
 1. Create a `VirtualMachineIPAddressClaim` resource in which to bind the desired ip address of the virtual machine:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddressClaim
 metadata:
   name: <claim-name>

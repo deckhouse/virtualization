@@ -4,7 +4,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 // MakeOwnerReference makes owner reference from a ClusterVirtualMachineImage.

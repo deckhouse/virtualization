@@ -11,7 +11,7 @@ To install the OS we will need an iso-image of Windows OS. We need to download i
 Let's create an empty disk for OS installation:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: win-disk
@@ -25,7 +25,7 @@ spec:
 Let's create resources with iso-images of Windows OS and virtio drivers:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-11-iso
@@ -37,7 +37,7 @@ spec:
 ```
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-virtio-iso
@@ -51,7 +51,7 @@ spec:
 Create a virtual machine:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: win-vm
@@ -130,7 +130,7 @@ To do this, you just need to create a service with the required settings.
 Suppose we have a virtual machine with http service published on port 80 and the following set of labels:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: web

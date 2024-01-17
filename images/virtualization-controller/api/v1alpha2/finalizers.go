@@ -1,4 +1,4 @@
-package v2alpha1
+package v1alpha2
 
 const (
 	FinalizerPodProtection     = "virtualization.deckhouse.io/pod-protection"

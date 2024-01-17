@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 func NewClaimValidator(log logr.Logger, client client.Client) *ClaimValidator {
@@ -23,7 +23,7 @@ type ClaimValidator struct {
 }
 
 func (v *ClaimValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	claim, ok := obj.(*v2alpha1.VirtualMachineIPAddressClaim)
+	claim, ok := obj.(*v1alpha2.VirtualMachineIPAddressClaim)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressClaim but got a %T", obj)
 	}
@@ -56,12 +56,12 @@ func (v *ClaimValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 }
 
 func (v *ClaimValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldClaim, ok := oldObj.(*v2alpha1.VirtualMachineIPAddressClaim)
+	oldClaim, ok := oldObj.(*v1alpha2.VirtualMachineIPAddressClaim)
 	if !ok {
 		return nil, fmt.Errorf("expected a old VirtualMachineIPAddressClaim but got a %T", oldObj)
 	}
 
-	newClaim, ok := newObj.(*v2alpha1.VirtualMachineIPAddressClaim)
+	newClaim, ok := newObj.(*v1alpha2.VirtualMachineIPAddressClaim)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressClaim but got a %T", newObj)
 	}
@@ -93,7 +93,7 @@ func (v *ClaimValidator) ValidateDelete(_ context.Context, _ runtime.Object) (ad
 	return nil, nil
 }
 
-func (v *ClaimValidator) validateSpecFields(spec v2alpha1.VirtualMachineIPAddressClaimSpec) error {
+func (v *ClaimValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddressClaimSpec) error {
 	if spec.LeaseName != "" && !isValidAddressFormat(leaseNameToIP(spec.LeaseName)) {
 		return errors.New("the lease name is not created from a valid IP address or ip prefix is missing")
 	}
