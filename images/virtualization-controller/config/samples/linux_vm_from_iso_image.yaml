@@ -1,4 +1,4 @@
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: linux-iso
@@ -10,7 +10,7 @@ spec:
     http:
       url: "http://caddy.caddy.svc.cluster.local/images/alpine-standard-3.18.2-x86_64.iso"
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: linux-disk
@@ -19,7 +19,7 @@ spec:
     size: 10Gi
     storageClassName: linstor-thin-data-r1
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm

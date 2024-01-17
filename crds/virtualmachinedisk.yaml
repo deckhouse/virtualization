@@ -20,7 +20,7 @@ spec:
       - vmds
   preserveUnknownFields: false
   versions:
-    - name: v2alpha1
+    - name: v1alpha2
       served: true
       storage: true
       schema:

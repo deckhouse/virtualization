@@ -6,7 +6,7 @@ value: 1000000
 globalDefault: false
 description: "test high priority"
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: test-vm-priorityclassname

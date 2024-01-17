@@ -1,4 +1,4 @@
-package v2alpha1
+package v1alpha2
 
 const (
 	// ReasonErrUnknownState is event reason that VMI has unexpected state

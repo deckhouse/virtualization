@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -48,7 +48,7 @@ func NewLeaseController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v2alpha1.VirtualMachineIPAddressLease{}).
+		For(&v1alpha2.VirtualMachineIPAddressLease{}).
 		WithValidator(NewLeaseValidator(log)).
 		Complete(); err != nil {
 		return nil, err

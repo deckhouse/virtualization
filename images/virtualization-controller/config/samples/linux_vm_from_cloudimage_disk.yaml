@@ -1,4 +1,4 @@
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: linux-disk
@@ -15,7 +15,7 @@ spec:
       # Or locally deployed caddy fileserver with an image
       url: "http://caddy.caddy.svc.cluster.local/images/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ---
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm

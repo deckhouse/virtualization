@@ -1,5 +1,5 @@
 
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: test-vmd-containerimage

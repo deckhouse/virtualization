@@ -11,7 +11,7 @@ title: "FAQ"
 Создадим пустой диск для установки ОС:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
   name: win-disk
@@ -25,7 +25,7 @@ spec:
 Создадим ресурсы с ISO-образами ОС Windows и драйверами virtio:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-11-iso
@@ -37,7 +37,7 @@ spec:
 ```
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:
   name: win-virtio-iso
@@ -51,7 +51,7 @@ spec:
 Создадим виртуальную машину:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: win-vm
@@ -130,7 +130,7 @@ docker push docker.io/username/image:latest
 Допустим, у нас есть виртуальная машина с HTTP-сервисом, опубликованным на порте 80, и следующим набором меток:
 
 ```yaml
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: web

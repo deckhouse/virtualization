@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )

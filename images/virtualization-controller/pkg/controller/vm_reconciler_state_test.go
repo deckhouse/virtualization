@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/api/v2alpha1"
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 )
 
@@ -23,28 +23,28 @@ func TestUnmarshalVMStatus(t *testing.T) {
 		Namespace: "test-ns",
 		Name:      "test-vm",
 	}
-	vm := &v2alpha1.VirtualMachine{
+	vm := &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vmName.Namespace,
 			Name:      vmName.Name,
 		},
-		Spec: v2alpha1.VirtualMachineSpec{
-			CPU: v2alpha1.CPUSpec{
+		Spec: v1alpha2.VirtualMachineSpec{
+			CPU: v1alpha2.CPUSpec{
 				Cores: 2,
 			},
-			Memory: v2alpha1.MemorySpec{
+			Memory: v1alpha2.MemorySpec{
 				Size: "2Gi",
 			},
-			BlockDevices: []v2alpha1.BlockDeviceSpec{
+			BlockDevices: []v1alpha2.BlockDeviceSpec{
 				{
-					Type:               v2alpha1.DiskDevice,
-					VirtualMachineDisk: &v2alpha1.DiskDeviceSpec{Name: "test-vmd"},
+					Type:               v1alpha2.DiskDevice,
+					VirtualMachineDisk: &v1alpha2.DiskDeviceSpec{Name: "test-vmd"},
 				},
 			},
-			Disruptions: &v2alpha1.Disruptions{ApprovalMode: v2alpha1.Automatic},
+			Disruptions: &v1alpha2.Disruptions{ApprovalMode: v1alpha2.Automatic},
 		},
-		Status: v2alpha1.VirtualMachineStatus{
-			Phase:          v2alpha1.MachineRunning,
+		Status: v1alpha2.VirtualMachineStatus{
+			Phase:          v1alpha2.MachineRunning,
 			Message:        "",
 			ChangeID:       "",
 			PendingChanges: nil,
@@ -54,7 +54,7 @@ func TestUnmarshalVMStatus(t *testing.T) {
 	s := scheme.Scheme
 	_ = cdiv1.AddToScheme(s)
 	_ = metav1.AddMetaToScheme(s)
-	_ = v2alpha1.AddToScheme(s)
+	_ = v1alpha2.AddToScheme(s)
 	_ = virtv1.AddToScheme(s)
 
 	builder := fake.NewClientBuilder().
