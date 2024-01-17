@@ -1,3 +1,7 @@
+{{- $nodeSelectorSystem := index (include "helm_lib_node_selector" (tuple . "system") | fromYaml) "nodeSelector" | default (dict) | toJson }}
+{{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
+{{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
 ---
 apiVersion: x.virtualization.deckhouse.io/v1beta1
 kind: CDI
@@ -8,7 +12,6 @@ metadata:
 spec:
   imagePullPolicy: IfNotPresent
   infra:
-    replicas: {{ include "helm_lib_is_ha_to_value" (list . 2 1) }}
     {{- include "helm_lib_node_selector" (tuple . "system") | nindent 4 }}
     {{- include "helm_lib_tolerations" (tuple . "system") | nindent 4 }}
   config:
@@ -19,6 +22,60 @@ spec:
     featureGates:
     - HonorWaitForFirstConsumer
   {{- end }}
+  customizeComponents:
+    patches:
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorMaster }}}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
+        type: json
+
+    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-uploadproxy
+        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
+        type: json
+    {{- end }}
+
+    {{- if (include "helm_lib_ha_enabled" .) }}
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"cdi.kubevirt.io","operator":"In","values":["cdi-apiserver"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
+        type: json
+
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["containerized-data-importer"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
+        type: json
+
+      - resourceType: Deployment
+        resourceName: cdi-uploadproxy
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-uploadproxy
+        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"cdi.kubevirt.io","operator":"In","values":["cdi-uploadproxy"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
+        type: json
+    {{- end }}
   workload:
     nodeSelector:
       kubernetes.io/os: linux
