@@ -99,6 +99,7 @@ rules:
   - get
   - watch
   - create
+  - patch
   - update
   - list
   - delete
