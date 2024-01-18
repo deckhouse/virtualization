@@ -20,6 +20,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	merger "github.com/deckhouse/virtualization-controller/pkg/common"
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
@@ -411,6 +412,21 @@ func (state *VMReconcilerState) GetKVVMErrors() (res []error) {
 		res = append(res, fmt.Errorf("%s", virtv1.VirtualMachineStatusUnschedulable))
 	}
 	return
+}
+
+func (state *VMReconcilerState) EnsureRunStrategy(ctx context.Context, desiredRunStrategy virtv1.VirtualMachineRunStrategy) error {
+	kvvmRunStrategy := kvvmutil.GetRunStrategy(state.KVVM)
+
+	if kvvmRunStrategy == desiredRunStrategy {
+		return nil
+	}
+	patch := kvvmutil.PatchRunStrategy(desiredRunStrategy)
+	err := state.Client.Patch(ctx, state.KVVM, patch)
+	if err != nil {
+		return fmt.Errorf("patch KVVM with runStrategy %s: %w", desiredRunStrategy, err)
+	}
+
+	return nil
 }
 
 func (state *VMReconcilerState) isDeletion() bool {
