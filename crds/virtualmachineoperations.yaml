@@ -38,7 +38,7 @@ spec:
                   type: string
                   enum: ["Start", "Stop", "Restart"]
                   description: |
-                    Operation over the virtualmachine type:
+                    Operation over the virtualmachine:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
@@ -54,10 +54,6 @@ spec:
             status:
               type: object
               properties:
-                vmName:
-                  type: string
-                  description: |
-                    The name of the VM for which the operation is performed.
                 phase:
                   type: string
                   description: |
