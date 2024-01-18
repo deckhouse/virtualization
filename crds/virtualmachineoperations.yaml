@@ -1,0 +1,94 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachineoperations.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Namespaced
+  names:
+    plural: virtualmachineoperations
+    singular: virtualmachineoperation
+    listKind: VirtualMachineOperationList
+    kind: VirtualMachineOperation
+    shortNames:
+      - vmop
+      - vmops
+  preserveUnknownFields: false
+  versions:
+    - name: v1alpha2
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            This resource provides the ability to manage the state of the virtual machine in a declarative way.
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - vmName
+              properties:
+                type:
+                  type: string
+                  enum: ["Start", "Stop", "Restart"]
+                  description: |
+                    Operation over the virtualmachine type:
+                    * Start - start the virtualmachine.
+                    * Stop - stop the virtualmachine.
+                    * Restart - restart the virtualmachine.
+                vmName:
+                  type: string
+                  description: |
+                    The name of the virtual machine for which the operation is performed.
+                force:
+                  type: boolean
+                  default: false
+                  description: |
+                    Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
+            status:
+              type: object
+              properties:
+                vmName:
+                  type: string
+                  description: |
+                    The name of the VM for which the operation is performed.
+                phase:
+                  type: string
+                  description: |
+                    Represents the current phase of resource:
+
+                    * Pending - the operation is queued for execution.
+                    * InProgress - operation in progress.
+                    * Completed - the operation was successful.
+                    * Failed - the operation failed. See `.status.failureReason`.
+                  enum:
+                    - "Pending"
+                    - "InProgress"
+                    - "Completed"
+                    - "Failed"
+                failureReason:
+                  type: string
+                  description: |
+                    A brief description of the cause of the error.
+                failureMessage:
+                  type: string
+                  description: |
+                    Detailed description of the error.
+      additionalPrinterColumns:
+      - name: Phase
+        type: string
+        jsonPath: .status.phase
+      - name: vmName
+        jsonPath: .spec.vmName
+        type: string
+      - name: Age
+        type: date
+        jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
