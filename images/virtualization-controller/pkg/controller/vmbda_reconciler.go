@@ -127,8 +127,8 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		opts.Log.Info("Start volume attaching")
 
 		// Wait for hotplug possibility.
-		hotplugMessage := r.checkHotplugSanity(state)
-		if hotplugMessage != "" {
+		hotplugMessage, ok := r.checkHotplugSanity(state)
+		if !ok {
 			opts.Log.Error(fmt.Errorf("hotplug not possible: %s", hotplugMessage), "")
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			state.SetStatusFailure(virtv2.ReasonHotplugPostponed, hotplugMessage)
@@ -140,22 +140,15 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			return err
 		}
 
-		opts.Log.Info("Volume attached")
-
 		// Add attached device to the VM status.
-		state.VM.Status.BlockDevicesAttached = append(state.VM.Status.BlockDevicesAttached, virtv2.BlockDeviceStatus{
-			Type: virtv2.DiskDevice,
-			VirtualMachineDisk: &virtv2.DiskDeviceSpec{
-				Name: state.VMD.Name,
-			},
-			Target:       "",
-			Size:         state.VMD.Status.Capacity,
-			Hotpluggable: true,
-		})
-
-		if err = opts.Client.Status().Update(ctx, state.VM); err != nil {
-			return fmt.Errorf("failed to add new attached block device %s: %w", state.VMD.Name, err)
+		if r.setVMStatusBlockDevicesAttached(blockDeviceIndex, state) {
+			err = opts.Client.Status().Update(ctx, state.VM)
+			if err != nil {
+				return fmt.Errorf("failed to update VM status with hotplugged block device %s: %w", state.VMD.Name, err)
+			}
 		}
+
+		opts.Log.Info("Volume attached")
 	}
 
 	if !isAttached(state) {
@@ -187,52 +180,30 @@ func (r *VMBDAReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 		return nil
 	}
 
-	vmBdaStatus := state.VMBDA.Current().Status.DeepCopy()
+	state.VMBDA.Changed().Status.FailureReason = state.FailureReason
+	state.VMBDA.Changed().Status.FailureMessage = state.FailureMessage
 
-	// TODO isFailed returns false-positive condition that is not related to VMBDA disk.
-	// TODO Filter this condition and move 'case isAttached' before 'case reason'.
-	reason, message := isFailed(state)
-	vmBdaStatus.FailureReason = reason
-	vmBdaStatus.FailureMessage = message
-	vmBdaStatus.VMName = state.VMBDA.Current().Spec.VMName
-
-	switch {
-	case isAttached(state):
-		vmBdaStatus.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
-	case reason != "":
-		vmBdaStatus.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
-	default:
-		vmBdaStatus.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+	if state.KVVMI == nil || state.VMD == nil {
+		state.VMBDA.Changed().Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		return nil
 	}
 
-	state.VMBDA.Changed().Status = *vmBdaStatus
+	for _, volumeStatus := range state.KVVMI.Status.VolumeStatus {
+		if volumeStatus.Name != kvbuilder.GenerateVMDDiskName(state.VMD.Name) {
+			continue
+		}
+
+		switch volumeStatus.Phase {
+		case virtv1.VolumeReady:
+			state.VMBDA.Changed().Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
+		default:
+			state.VMBDA.Changed().Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		}
+
+		break
+	}
 
 	return nil
-}
-
-// isFailed return reason and message either from SetFailure or from
-// DisksNotLiveMigratable condition in the underlying kubevirt VMI.
-func isFailed(state *VMBDAReconcilerState) (string, string) {
-	reason := state.FailureReason
-	message := state.FailureMessage
-
-	if reason != "" && message != "" {
-		return reason, message
-	}
-
-	if state.KVVMI == nil {
-		return "", ""
-	}
-
-	for _, condition := range state.KVVMI.Status.Conditions {
-		if condition.Type == virtv1.VirtualMachineInstanceIsMigratable &&
-			condition.Status == corev1.ConditionFalse &&
-			condition.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
-			return condition.Reason, condition.Message
-		}
-	}
-
-	return "", ""
 }
 
 func isAttached(state *VMBDAReconcilerState) bool {
@@ -345,14 +316,14 @@ func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, 
 // checkHotplugSanity detects if it is possible to hotplug disk to the VM.
 // 1. It searches for disk in VM spec and returns false if disk is already attached to VM.
 // 2. It returns false if VM is in the "Manual approve" mode.
-func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) string {
+func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) (string, bool) {
 	if state.VM == nil {
-		return ""
+		return "", true
 	}
 
-	messages := make([]string, 0)
+	var messages []string
 
-	// Check if disk is already in the VM.
+	// Check if disk is already in the spec of VM.
 	diskName := state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name
 
 	for _, bd := range state.VM.Spec.BlockDevices {
@@ -367,8 +338,8 @@ func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) string
 	}
 
 	if len(messages) == 0 {
-		return ""
+		return "", true
 	}
 
-	return strings.Join(messages, ", ")
+	return strings.Join(messages, ", "), false
 }
