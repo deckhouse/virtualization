@@ -343,6 +343,8 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 				vmiStatus.Phase = virtv2.ImageFailed
 				vmiStatus.FailureReason = virtv2.ReasonErrImportFailed
 				vmiStatus.FailureMessage = finalReport.ErrMessage
+				opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, finalReport.ErrMessage)
+
 				break
 			}
 
@@ -369,6 +371,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 			vmiStatus.Phase = virtv2.ImageFailed
 			vmiStatus.FailureReason = virtv2.ReasonErrImportFailed
 			vmiStatus.FailureMessage = finalReport.ErrMessage
+			opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, finalReport.ErrMessage)
 		}
 
 		vmiStatus.DownloadSpeed.Current = ""
