@@ -48,20 +48,21 @@ spec:
                     The name of the virtual machine for which the operation is performed.
                 force:
                   type: boolean
-                  default: false
                   description: |
-                    Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
-            oneOf:
-            - properties:
-                type:
-                  enum: ['Start']
-              required: ['vmName']
-              not:
-                required: ['force']
-            - properties:
-                type:
-                  enum: ['Restart', 'Stop']
-              required: ['vmName']
+                      Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
+              oneOf:
+                - properties:
+                    type:
+                      enum: ["Start"]
+                  required: ["vmName"]
+                  not:
+                    anyOf:
+                    - required:
+                      - force
+                - properties:
+                    type:
+                      enum: ["Restart", "Stop"]
+                  required: ["vmName"]
             status:
               type: object
               properties:
@@ -88,14 +89,14 @@ spec:
                   description: |
                     Detailed description of the error.
       additionalPrinterColumns:
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: vmName
-        jsonPath: .spec.vmName
-        type: string
-      - name: Age
-        type: date
-        jsonPath: .metadata.creationTimestamp
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: vmName
+          jsonPath: .spec.vmName
+          type: string
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
