@@ -25,7 +25,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            This resource provides the ability to manage the state of the virtual machine in a declarative way.
+            This resource provides the ability to declaratively manage state changes of virtual machines.
           required:
             - spec
           properties:
@@ -51,6 +51,17 @@ spec:
                   default: false
                   description: |
                     Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
+            oneOf:
+            - properties:
+                type:
+                  enum: ['Start']
+              required: ['vmName']
+              not:
+                required: ['force']
+            - properties:
+                type:
+                  enum: ['Restart', 'Stop']
+              required: ['vmName']
             status:
               type: object
               properties:
