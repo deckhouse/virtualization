@@ -244,6 +244,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 				cvmiStatus.Phase = virtv2.ImageFailed
 				cvmiStatus.FailureReason = virtv2.ReasonErrImportFailed
 				cvmiStatus.FailureMessage = finalReport.ErrMessage
+				opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrImportFailed, finalReport.ErrMessage)
 				break
 			}
 
