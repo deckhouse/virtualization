@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
@@ -77,21 +78,59 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		return nil
 	}
 
+	// Wait for IP Claim and block devices.
+	depsReady, depsErr := r.syncKVVMDependencies(ctx, state, opts)
+	if depsErr != nil {
+		opts.Log.Error(depsErr, "sync kvvm dependencies")
+	}
+
+	// Sync KVVM if dependencies are ready.
+	var syncErr error
+	if depsReady {
+		// Sync KVVM changes and a power state.
+		syncErr = r.syncKVVM(ctx, state, opts)
+		if syncErr != nil {
+			opts.Log.Error(syncErr, "sync kvvm")
+		}
+	}
+
+	// Always update metadata for all underlying resources: set finalizers and propagate labels and annotations.
+	metaErr := r.syncMetadata(ctx, state, opts)
+	if metaErr != nil {
+		opts.Log.Error(metaErr, "sync metadata")
+	}
+
+	// Return the first occurred error, others are logged already.
+	switch {
+	case depsErr != nil:
+		return depsErr
+	case syncErr != nil:
+		return syncErr
+	case metaErr != nil:
+		return metaErr
+	}
+
+	return nil
+}
+
+// syncDependencies ensures IP Claim and block devices are ready and updates KVVM according to changes in VM spec.
+func (r *VMReconciler) syncKVVMDependencies(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (ready bool, err error) {
 	// Ensure IP address claim.
 	claimed, err := r.ensureIPAddressClaim(ctx, state, opts)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !claimed {
-		return nil
+		return false, nil
 	}
 
 	disksMessage := r.checkBlockDevicesSanity(state)
 	if disksMessage != "" {
 		state.SetStatusMessage(disksMessage)
+		// TODO convert to condition.
 		opts.Log.Error(fmt.Errorf("invalid disks: %s", disksMessage), "disks mismatch")
-		return r.syncMetadata(ctx, state, opts)
+		return false, nil
 	}
 
 	if !state.BlockDevicesReady() {
@@ -99,42 +138,55 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		opts.Log.Info("Waiting for block devices to become available")
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMWaitForBlockDevices, "Waiting for block devices to become available")
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-		// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
-		return r.syncMetadata(ctx, state, opts)
-	}
-
-	changes := r.detectSpecChanges(state, opts)
-
-	// Delay changes propagation to KVVM until user approves them.
-	if r.shouldWaitForChangesApproval(state, opts, changes) {
-		err := state.SetChangesInfo(changes)
-		if err != nil {
-			err = fmt.Errorf("prepare changes info for approval: %w", err)
-			opts.Log.Error(err, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
-		}
-		// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
-		return r.syncMetadata(ctx, state, opts)
+		return false, nil
 	}
 
 	// Next set finalizers on attached devices.
 	if err = state.SetFinalizersOnBlockDevices(ctx); err != nil {
-		return fmt.Errorf("unable to add block devices finalizers: %w", err)
+		return false, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
+	return true, nil
+}
+
+func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.KVVM == nil {
-		err = r.createKVVM(ctx, state, opts)
-		if err != nil {
-			return err
+		return r.createKVVM(ctx, state, opts)
+	}
+
+	lastAppliedSpec := r.loadLastAppliedSpec(state, opts)
+
+	changes := r.detectSpecChanges(state, opts, lastAppliedSpec)
+
+	var syncErr error
+	// Delay changes propagation to KVVM until user approves them.
+	if r.shouldWaitForChangesApproval(state, opts, changes) {
+		syncErr = state.SetChangesInfo(changes)
+		if syncErr != nil {
+			syncErr = fmt.Errorf("prepare changes info for approval: %w", syncErr)
+			opts.Log.Error(syncErr, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
 		}
 	} else {
-		err = r.applyVMChangesToKVVM(ctx, state, opts, changes)
-		if err != nil {
-			return err
-		}
+		// No need to wait, apply changes immediately.
+		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
+		// Changes are applied, consider current spec as last applied.
+		lastAppliedSpec = &state.VM.Current().Spec
 	}
 
-	// Always update metadata for underlying kubevirt resources: set finalizers and propagate labels and annotations.
-	return r.syncMetadata(ctx, state, opts)
+	// Ensure power state according to the runPolicy if KVVM was changed.
+	powerErr := r.syncPowerState(ctx, state, lastAppliedSpec)
+	if powerErr != nil {
+		opts.Log.Error(powerErr, "sync power state")
+	}
+
+	switch {
+	case syncErr != nil:
+		return syncErr
+	case powerErr != nil:
+		return powerErr
+	}
+
+	return nil
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
@@ -398,8 +450,8 @@ func (r *VMReconciler) updateKVVM(ctx context.Context, state *VMReconcilerState,
 	return nil
 }
 
-// updateKVVMLastUsedSpec updates last-applied-spec annotation on KubeVirt VirtualMachine.
-func (r *VMReconciler) updateKVVMLastUsedSpec(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+// updateKVVMLastAppliedSpec updates last-applied-spec annotation on KubeVirt VirtualMachine.
+func (r *VMReconciler) updateKVVMLastAppliedSpec(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.KVVM == nil {
 		return nil
 	}
@@ -418,10 +470,7 @@ func (r *VMReconciler) updateKVVMLastUsedSpec(ctx context.Context, state *VMReco
 	return nil
 }
 
-// detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
-// to calculate changes and action needed to apply these changes.
-func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) *vmchange.SpecChanges {
-	// Not applicable if KVVM is absent.
+func (r *VMReconciler) loadLastAppliedSpec(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) *virtv2.VirtualMachineSpec {
 	if state.KVVM == nil {
 		return nil
 	}
@@ -452,6 +501,17 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 			// TODO(future): Implement variant 3: restore some fields from KVVM.
 			lastSpec = &virtv2.VirtualMachineSpec{}
 		}
+	}
+
+	return lastSpec
+}
+
+// detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
+// to calculate changes and action needed to apply these changes.
+func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, lastSpec *virtv2.VirtualMachineSpec) *vmchange.SpecChanges {
+	// Not applicable if KVVM is absent.
+	if state.KVVM == nil || lastSpec == nil {
+		return nil
 	}
 
 	// Compare VM spec applied to the underlying KVVM
@@ -532,8 +592,12 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		}
 
 	case vmchange.ActionSubresourceSignal:
-		// TODO(future): Implement APIService and its client.
 		opts.Log.Info("Apply changes using subresource signal", "vm.name", state.VM.Current().GetName(), "action", changes)
+
+		if err := r.updateKVVMLastAppliedSpec(ctx, state, opts); err != nil {
+			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
+		}
+		// TODO(future): Implement APIService and its client.
 		opts.Log.Error(fmt.Errorf("unexpected action: subresource signal, do nothing"), "vm.name", state.VM.Current().GetName(), "action", changes)
 	case vmchange.ActionApplyImmediate:
 		opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", changes)
@@ -545,9 +609,9 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		}
 
 	case vmchange.ActionNone:
-		opts.Log.V(2).Info("No changes to underlying KVVM, update last-applied-spec", "vm.name", state.VM.Current().GetName())
+		opts.Log.V(2).Info("No changes to underlying KVVM, update last-applied-spec annotation", "vm.name", state.VM.Current().GetName())
 
-		if err := r.updateKVVMLastUsedSpec(ctx, state, opts); err != nil {
+		if err := r.updateKVVMLastAppliedSpec(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
 		}
 	}
@@ -565,6 +629,37 @@ func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState
 	state.KVVMI = nil
 	// Also reset kubevirt Pods to prevent mismatch version errors on metadata update.
 	state.KVPods = nil
+
+	return nil
+}
+
+// syncPowerState enforces runPolicy on underlying KVVM.
+// Method ensures desired runStrategy and sets a 'running' field to null.
+func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerState, effectiveSpec *virtv2.VirtualMachineSpec) error {
+	if state.KVVM == nil {
+		return nil
+	}
+
+	vmRunPolicy := effectiveSpec.RunPolicy
+
+	var err error
+	switch vmRunPolicy {
+	case virtv2.ManualPolicy:
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyManual)
+	case virtv2.AlwaysOffPolicy:
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyHalted)
+	case virtv2.AlwaysOnPolicy:
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
+	case virtv2.AlwaysOnUnlessStoppedManualy:
+		if kvvmutil.GetRunStrategy(state.KVVM) == virtv1.RunStrategyHalted {
+			return nil
+		}
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
+	}
+
+	if err != nil {
+		return fmt.Errorf("enforce runPolicy %s: %w", vmRunPolicy, err)
+	}
 
 	return nil
 }
