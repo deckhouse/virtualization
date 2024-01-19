@@ -128,7 +128,7 @@ func (state *VMBDAReconcilerState) isDeletion() bool {
 }
 
 func (state *VMBDAReconcilerState) IndexVMStatusBDA() int {
-	if state.VM == nil {
+	if state.VM == nil || state.VMD == nil {
 		return -1
 	}
 
@@ -140,13 +140,9 @@ func (state *VMBDAReconcilerState) IndexVMStatusBDA() int {
 	return -1
 }
 
-// RemoveVMStatusBDA removes device from VM.Status.BlockDevicesAttached
-// by its name.
+// RemoveVMStatusBDA removes device from VM.Status.BlockDevicesAttached by its name.
 func (state *VMBDAReconcilerState) RemoveVMStatusBDA() bool {
 	if state.VM == nil {
-		return false
-	}
-	if state.VMD == nil {
 		return false
 	}
 
@@ -159,5 +155,6 @@ func (state *VMBDAReconcilerState) RemoveVMStatusBDA() bool {
 		state.VM.Status.BlockDevicesAttached[:blockDeviceIndex],
 		state.VM.Status.BlockDevicesAttached[blockDeviceIndex+1:]...,
 	)
+
 	return true
 }
