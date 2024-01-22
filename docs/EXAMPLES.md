@@ -93,25 +93,14 @@ kubectl -n default get virtualmachine
 Let's connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
 
 ```bash
-virtctl -n vms console linux-vm
-
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password:
-#
-# cloud@linux-vm:~$
-
+./dvp-connect -n vms --vm linux-vm
 ```
+
 
 Let's connect to the machine using VNC:
 
 ```bash
-virtctl -n vms vnc linux-vm
-
-# {"component":"","level":"info","msg":"--proxy-only is set to false, listening on 127.0.0.1\n","pos":"vnc.go:116","timestamp":"2023-11-29T12:32:35.928518Z"}
-# {"component":"","level":"info","msg":"connection timeout: 1m0s","pos":"vnc.go:157","timestamp":"2023-11-29T12:32:35.928903Z"}
-# {"component":"","level":"info","msg":"VNC Client connected in 383.660463ms","pos":"vnc.go:170","timestamp":"2023-11-29T12:32:36.312566Z"}
+./dvp-connect -n vms --vm linux-vm -c vnc
 ```
 
 After running the command, the default VNC client will start. An alternative way to connect is to use the `--proxy-only` parameter to forward the VNC port to a local machine:
@@ -544,28 +533,41 @@ Make changes to the previously created virtual machine specification.
 
 ### 3. Customize how the changes are applied
 
-After making changes to the machine configuration - nothing will happen. Because by default the `Manual` change application policy is applied, which means that the changes need to be validated.
+After making changes to the machine configuration, nothing will happen because the `Manual` change application policy is applied by default, which means that the changes need to be validated.
 
-How can we figure this out? For this purpose, in the status of the virtual machine resource, we can see the changeID parameter, which contains the hash of the change.
+How can we figure this out?
 
-To validate the changes, we need to get the changeID:
+Let's look at the status of the VM:
 
 ```bash
-kubectl get virtualmachine linux-vm -o jsonpath='{.status.changeID}'
-
-# s0MeH4sh
+kubectl get linux-vm -o jsonpath='{.status}'
 ```
 
-Next, let's edit the virtual machine specification:
+In the `.status.pendingChanges` field, we will see the changes that need to be applied. In the `.status.message` field, we will see a message that a restart of the virtual machine is required to apply the required changes.
 
-```yaml
+Let's create and apply the following resource, which is responsible for the declarative way of managing the state of the virtual machine:
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: restart
 spec:
-  approvedChangeID: s0MeH4sh
+  vmName: linux-vm
+  type: Restart
+EOF
 ```
 
-After making the changes, the virtual machine will reboot and the new virtual machine configuration parameters will be applied.
+Let's look at the status of the resource that has been created:
 
-What if we want the changes to be applied automatically? To do this, configure the change application policy as follows:
+```bash
+kubectl get vmops restart
+```
+
+Once it goes to the `Completed` state, the virtual machine reboot is complete and the new virtual machine configuration settings are applied.
+
+What if we want the changes required to reboot the virtual machine to be applied automatically? To do this, we need to configure the change application policy as follows:
 
 ```yaml
 spec:
@@ -578,7 +580,7 @@ spec:
 Let's connect to the virtual machine using the serial console:
 
 ```bash
-virtctl -n default console linux-vm
+./dvp-connect -n default --vm linux-vm
 ```
 
 terminate the virtual machine:

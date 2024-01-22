@@ -24,8 +24,6 @@ The following conditions are required to run the module:
 - The [CNI Cilium](/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for virtual machines.
 - Modules SDS-DRBD or [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
 
-To connect to a virtual machine via Serial Console or VNC protocol, install the virtctl client.
-
 ## Architecture
 
 The module includes the following components:
