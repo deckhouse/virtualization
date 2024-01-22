@@ -35,11 +35,10 @@ spec:
 Посмотрим на текущий статус ресурса:
 
 ```bash
-kubectl -n vms get virtualmachinedisk
+kubectl -n vms get virtualmachinedisk -o wide
 
-# NAME         CAPACITY   PHASE   PROGRESS
-# linux-disk   10Gi       Ready   100%
-
+# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
+# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
 ```
 
 Далее создадим виртуальную машину из следующей спецификации:
@@ -86,8 +85,8 @@ spec:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       AGE   STATUS    READY
-# linux-vm   14s   Running   True
+# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
 Подключимся к виртуальной машине с использованием консоли (для выхода из консоли необходимо нажать `Ctrl+]`):
@@ -137,9 +136,8 @@ spec:
 ```bash
 kubectl -n vms get virtualmachineimage
 
-# NAME         PROGRESS   CDROM   PHASE
-# ubuntu-img   100.0%     false   Ready
-
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       10m
 ```
 
 Для хранения образа в дисковом хранилище, предоставляемом платформой, настройки `storage` будут выглядеть следующим образом:
@@ -184,8 +182,8 @@ spec:
 ```bash
 kubectl get clustervirtualmachineimage
 
-# NAME         CDROM   PHASE     PROGRESS
-# ubuntu-img   false   Ready          100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       11m
 ```
 
 Образы могут быть созданы из различных внешних источников, таких как HTTP-сервер, где размещены файлы образов или контейнерный реестр (container registry), где образы хранятся и доступны для загрузки. Кроме того, возможно загрузить образы напрямую из командной строки, используя утилиту curl. Давайте рассмотрим каждый из этих вариантов более подробно.
@@ -281,8 +279,8 @@ $ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
 ```bash
 kubectl get clustervirtualmachineimages
 
-# NAME         CDROM   PHASE               PROGRESS
-# some-image   false  Ready               100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# some-image   Ready   false   100%       10m
 ```
 
 ## Диски
@@ -319,9 +317,8 @@ spec:
 ```bash
 kubectl get virtualmachinedisk
 
-# kubectl get virtualmachinedisks
-# NAME        CAPACITY   PHASE          PROGRESS
-# vmd-blank   100Mi      Ready          100%
+# NAME        PHASE  CAPACITY   AGE
+# vmd-blank   Ready  100Mi      1m
 ```
 
 ### Создание диска из образа
@@ -490,8 +487,8 @@ spec:
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
 После создания виртуальная машина автоматически получит IP-адрес из диапазона, указанного в настройках модуля (блок `vmCIDRs`).
@@ -565,6 +562,9 @@ EOF
 
 ```bash
 kubectl get vmops restart
+
+# NAME       PHASE       VMNAME     AGE
+# restart    Completed   linux-vm   1m
 ```
 
 Как только он перейдет в состояние `Completed` - перезагрузка виртуальной машины завершилась, и новые параметры конфигурации виртуальной машины - применены.
@@ -596,8 +596,8 @@ cloud@linux-vm$ sudo poweroff
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
 Виртуальная машина снова запущена! Но почему так произошло?

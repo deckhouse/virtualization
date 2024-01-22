@@ -35,11 +35,10 @@ After creating `VirtualMachineDiks` in the namespace vms, the pod `importer-*` w
 Let's look at the current status of the resource:
 
 ```bash
-kubectl -n vms get virtualmachinedisk
+kubectl -n vms get virtualmachinedisk -o wide
 
-# NAME         CAPACITY   PHASE   PROGRESS
-# linux-disk   10Gi       Ready   100%
-
+# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
+# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
 ```
 
 Next, let's create a virtual machine from the following specification:
@@ -86,8 +85,8 @@ Let's check that the virtual machine is created and running:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       AGE   STATUS    READY
-# linux-vm   14s   Running   True
+# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
 Let's connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
@@ -95,7 +94,6 @@ Let's connect to the virtual machine using the console (press `Ctrl+]` to exit t
 ```bash
 ./dvp-connect -n vms --vm linux-vm
 ```
-
 
 Let's connect to the machine using VNC:
 
@@ -134,9 +132,8 @@ Let's see what happens:
 ```bash
 kubectl -n vms get virtualmachineimage
 
-# NAME         PROGRESS   CDROM   PHASE
-# ubuntu-img   100.0%     false   Ready
-
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       10m
 ```
 
 to store the image in disk storage provided by the platform, the `storage` settings will be as follows:
@@ -181,8 +178,8 @@ Let's look at the status of `ClusterVirtualMachineImage`:
 ```bash
 kubectl get clustervirtualmachineimage
 
-# NAME         CDROM   PHASE     PROGRESS
-# ubuntu-img   false   Ready          100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       11m
 ```
 
 Images can be created from a variety of external sources, such as an HTTP server where the image files are hosted or a container registry where images are stored and available for download. It is also possible to download images directly from the command line using the curl utility. Let's take a closer look at each of these options.
@@ -278,8 +275,8 @@ You can verify that everything was successful by checking the status of the crea
 ```bash
 kubectl get clustervirtualmachineimages
 
-# NAME         CDROM   PHASE               PROGRESS
-# some-image   false  Ready               100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# some-image   Ready   false   100%       10m
 ```
 
 ## Disks
@@ -316,9 +313,8 @@ You can view the status of the created resource with the command:
 ```bash
 kubectl get virtualmachinedisk
 
-# kubectl get virtualmachinedisks
-# NAME        CAPACITY   PHASE          PROGRESS
-# vmd-blank   100Mi      Ready          100%
+# NAME        PHASE  CAPACITY   AGE
+# vmd-blank   Ready  100Mi      1m
 ```
 
 ### Creating a disk from an image
@@ -488,8 +484,8 @@ After startup, the virtual machine must be in `Ready` status.
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
 After creation, the virtual machine will automatically obtain an IP address from the range specified in the module settings (`vmCIDRs` block).
@@ -563,6 +559,9 @@ Let's look at the status of the resource that has been created:
 
 ```bash
 kubectl get vmops restart
+
+# NAME       PHASE       VMNAME     AGE
+# restart    Completed   linux-vm   1m
 ```
 
 Once it goes to the `Completed` state, the virtual machine reboot is complete and the new virtual machine configuration settings are applied.
@@ -594,8 +593,8 @@ then look at the status of the virtual machine
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
 the virtual machine is up and running again! But why did this happen?
