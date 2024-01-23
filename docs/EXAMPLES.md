@@ -256,16 +256,17 @@ Once the resource is created, let's look at its status:
 ```bash
 kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
 
-> curl -X POST -T example.iso http://10.222.78.79:443/v1beta1/upload
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
+    -T example.iso
 ```
 
-Connect via ssh to an random cluster node and run the command, first changing `example.iso` to the file name of the existing image:
+> It is worth noting that CVMI with the Upload type waits 15 minutes after the image is created for the upload to begin. After this timeout expires, the resource will enter the Failed state.
+
+Let's download the Cirros image for an example and boot it:
 
 ```bash
-ssh username@node-ip-address
-
-$ curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-$ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 After the `curl` command completes, the image should be created.

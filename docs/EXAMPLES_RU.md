@@ -30,7 +30,7 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-После создания `VirtualMachineDiks` в namespace vms, запустится под `importer-*`, который осуществит загрузку заданного образа.
+После создания `VirtualMachineDiks` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
 
 Посмотрим на текущий статус ресурса:
 
@@ -260,16 +260,15 @@ spec:
 ```bash
 kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
 
-> curl -X POST -T example.iso http://10.222.78.79:443/v1beta1/upload
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
+    -T example.iso
 ```
 
-Подключимся по SSH к произвольному узлу кластера и выполним команду, предварительно поменяв `example.iso` на имя файла существующего образа:
+> Стоит отметить, что CVMI с типом Upload ожидает начала загрузки образа 15 минут после создания. По истечении данного таймаута ресурс перейдет в состояние Failed.
 
 ```bash
-ssh username@node-ip-address
-
 $ curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-$ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
+$ https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 После завершения работы команды `curl` образ должен быть создан.
