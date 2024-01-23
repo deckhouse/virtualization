@@ -35,8 +35,9 @@ The module includes the following components:
 The API provides capabilities for creating and managing the following resources:
 
 - Images
-- Virtual machine disks
+- Disks
 - Virtual machines
+- Operations
 
 ## How to enable module
 

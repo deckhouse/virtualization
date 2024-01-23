@@ -34,9 +34,10 @@ The module includes the following components:
 
 The API provides capabilities for creating and managing the following resources:
 
-- Images
-- Virtual machine disks
+- Virtual Machine Images
+- Virtual Machine Disks
 - Virtual machines
+- Virtual Machine Operations
 
 ### Virtual Machine Images
 
@@ -69,3 +70,7 @@ A virtual machine's startup policy defines its state. It can be enabled, disable
 The virtual machine runs inside the Pod, which allows you to manage virtual machines as normal Kubernetes resources and use all the features of the platform, including load balancers, network policies, automation tools, etc.
 
 ![](images/vm.png)
+
+### Virtual Machine Operations
+
+The `VirtualMachineOperations` resource is intended for declarative control of virtual machine state changes. The resource allows you to perform the following actions on virtual machines: Start, Stop, Restart.

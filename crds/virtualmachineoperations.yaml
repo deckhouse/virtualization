@@ -32,7 +32,7 @@ spec:
             spec:
               type: object
               required:
-                - vmName
+                - virtualMachineName
               properties:
                 type:
                   type: string
@@ -42,7 +42,7 @@ spec:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
-                vmName:
+                virtualMachineName:
                   type: string
                   description: |
                     The name of the virtual machine for which the operation is performed.
@@ -54,7 +54,7 @@ spec:
                 - properties:
                     type:
                       enum: ["Start"]
-                  required: ["vmName"]
+                  required: ["virtualMachineName"]
                   not:
                     anyOf:
                     - required:
@@ -62,7 +62,7 @@ spec:
                 - properties:
                     type:
                       enum: ["Restart", "Stop"]
-                  required: ["vmName"]
+                  required: ["virtualMachineName"]
             status:
               type: object
               properties:
@@ -92,8 +92,8 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
-        - name: vmName
-          jsonPath: .spec.vmName
+        - name: VMName
+          jsonPath: .spec.virtualMachineName
           type: string
         - name: Age
           type: date
