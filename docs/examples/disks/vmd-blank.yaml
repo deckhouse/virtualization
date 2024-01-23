@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: vmd-blank
+  namespace: vms
+spec:
+  persistentVolumeClaim:
+    storageClassName:  linstor-thin-r2
+    size: 100Mi

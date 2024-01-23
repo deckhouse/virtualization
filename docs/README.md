@@ -22,7 +22,16 @@ The following conditions are required to run the module:
 - A processor with x86_64 architecture and support for Intel-VT or AMD-V instructions.
 - The Linux kernel on the cluster nodes must be version 5.7 or newer.
 - The [CNI Cilium](/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for virtual machines.
-- Modules SDS-DRBD or [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
+- Modules [SDS-DRBD](https://deckhouse.io/modules/sds-drbd/stable/) or [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
+
+## What do I need to enable the module?
+
+Procedure for enabling the module
+
+1. Configure the deckhouse cluster
+2. Enable the CNI Cilium module
+3. Install and configure SDS-DRBD/CEPH/etc storage
+4. Enable the virtualization module
 
 ## Architecture
 

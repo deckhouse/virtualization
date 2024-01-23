@@ -1,0 +1,12 @@
+---
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: ubuntu-img-from-cvmi
+  namespace: vms
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ClusterVirtualMachineImage
+    clusterVirtualMachineImage:
+      name: ubuntu-img

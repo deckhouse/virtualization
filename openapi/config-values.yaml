@@ -12,8 +12,10 @@ properties:
     type: array
     description: |
       List of CIDRs used to allocate static IP addresses for Virtual Machines.
+
+      It is important to note that the subnet for virtual machines should not be the same as the subnet used for pods and the subnet used for services. Address conflicts can lead to unpredictable behavior and networking problems.
     x-examples:
-    - ["10.10.10.0/24", "10.10.20.0/24"]
+    - ["10.10.10.0/24", "10.10.20.0/24", "10.11.11.11/32"]
     items:
       type: string
   ingressClass:
@@ -76,13 +78,13 @@ properties:
 
               This secret must have the [kubernetes.io/tls](https://kubernetes.github.io/ingress-nginx/user-guide/tls/#tls-secrets) format.
   dvcr:
-    type: object 
+    type: object
     description: |
-      Options for settings up Deckhouse virtualization container registry. 
+      Options for settings up Deckhouse virtualization container registry.
       Internal service for storing all vms images.
     required: [storage]
     properties:
-      storage: 
+      storage:
         type: object
         description: |
           Options for setting up storage.
@@ -103,10 +105,10 @@ properties:
             required: [size]
             properties:
               storageClassName:
-                type: string 
+                type: string
                 x-examples: ["linstor", "nfs"]
                 description: |
-                  What StorageClass to use for creating persistentvolumeclaim. 
+                  What StorageClass to use for creating persistentvolumeclaim.
               size:
                 type: string
                 x-examples: ["10Gi"]
@@ -117,7 +119,7 @@ properties:
             description: |
               Parameters for objectStorage.
             properties:
-              type: 
+              type:
                 type: string
                 description: |
                   What ObjectStorage to use as store for dvcr.
@@ -125,7 +127,7 @@ properties:
                   - "S3"
               s3:
                 type: object
-                description: | 
+                description: |
                   Parameters for S3.
                 required: [accessKey, secretKey, region, regionEndpoint, bucket]
                 properties:
@@ -137,17 +139,17 @@ properties:
                       accessKey is a unique identifier that identifies you as a user with access to S3.
                     pattern: "^[A-Za-z0-9+/]*={0,2}$"
                   secretKey:
-                    type: string  
+                    type: string
                     x-examples: ["c2VjcmV0S2V5Cg=="]
                     description: |
                       secretKey must be base64 encoded.
-                      secretKey is a confidential secret key associated with your Access Key ID. 
+                      secretKey is a confidential secret key associated with your Access Key ID.
                       Secret Access Key is used to sign HTTP requests to Amazon S3 to verify the authenticity of the request and ensure the security of your data.
                     pattern: "^[A-Za-z0-9+/]*={0,2}$"
-                  region: 
+                  region:
                     type: string
                     x-examples: ["us-east-2", "us-west-1"]
-                    description: | 
+                    description: |
                       Geographical area.
                   regionEndpoint:
                     type: string

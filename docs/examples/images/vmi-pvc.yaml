@@ -1,0 +1,13 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineImage
+metadata:
+  name: ubuntu-img-pvc
+  namespace: vms
+spec:
+  storage: Kubernetes
+  persistentVolumeClaim:
+    storageClassName: linstor-thin-r2
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"

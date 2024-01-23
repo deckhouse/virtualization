@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v2alpha1
+kind: VirtualMachineDisk
+metadata:
+  name: ubuntu-root
+  namespace: vms
+spec:
+  persistentVolumeClaim:
+    storageClassName:  linstor-thin-r2
+  dataSource:
+    type: ClusterVirtualMachineImage
+    clusterVirtualMachineImage:
+      name: ubuntu-img
