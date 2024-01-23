@@ -8,8 +8,8 @@ const (
 	ImageProvisioning      ImagePhase = "Provisioning"
 	ImageReady             ImagePhase = "Ready"
 	ImageFailed            ImagePhase = "Failed"
-	ImageNotReady          ImagePhase = "NotReady"
 	ImagePVCLost           ImagePhase = "PVCLost"
+	ImageUnknown           ImagePhase = "Unknown"
 )
 
 type ImageStatus struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -218,7 +219,6 @@ const (
 	LabelImplicitIPAddressClaimValue = "true"
 
 	UploaderServiceLabel = "service"
-
 	// ProgressDone this means we are DONE
 	ProgressDone = "100.0%"
 	// UploaderWaitDuration is upload waiting timeout
@@ -228,6 +228,11 @@ const (
 var (
 	apiServerKeyOnce sync.Once
 	apiServerKey     *rsa.PrivateKey
+
+	// ErrUnknownValue is a variable of type `error` that represents an error message indicating an unknown value.
+	ErrUnknownValue = errors.New("unknown value")
+	// ErrUnknownType is a variable of type `error` that represents an error message indicating an unknown type.
+	ErrUnknownType = errors.New("unknown type")
 )
 
 // GetPriorityClass gets PVC priority class

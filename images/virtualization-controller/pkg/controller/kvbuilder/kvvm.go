@@ -11,6 +11,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
@@ -80,7 +81,7 @@ func (b *KVVM) SetCPUModel(model string) {
 	}
 }
 
-func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) {
+func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 	switch runPolicy {
 	case virtv2.AlwaysOnPolicy:
 		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
@@ -97,8 +98,9 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) {
 			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
 		}
 	default:
-		panic(fmt.Sprintf("unexpected runPolicy %q", runPolicy))
+		return fmt.Errorf("unexpected runPolicy %s. %w", runPolicy, common.ErrUnknownValue)
 	}
+	return nil
 }
 
 func (b *KVVM) SetNodeSelector(nodeSelector map[string]string) {
@@ -125,10 +127,14 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 	b.Resource.Spec.Template.Spec.TopologySpreadConstraints = topology
 }
 
-func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) {
+func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) error {
+	cpuRequest, err := b.getCPURequest(cores, coreFraction)
+	if err != nil {
+		return err
+	}
 	b.Resource.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    *b.mustGetCPURequest(cores, coreFraction),
+			corev1.ResourceCPU:    *cpuRequest,
 			corev1.ResourceMemory: resource.MustParse(memorySize),
 		},
 		Limits: corev1.ResourceList{
@@ -136,21 +142,22 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 			corev1.ResourceMemory: resource.MustParse(memorySize),
 		},
 	}
+	return nil
 }
 
-func (b *KVVM) mustGetCPURequest(cores int, coreFraction string) *resource.Quantity {
+func (b *KVVM) getCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
 	if coreFraction == "" {
-		return b.getCPULimit(cores)
+		return b.getCPULimit(cores), nil
 	}
 	fraction := intstr.FromString(coreFraction)
 	req, err := intstr.GetScaledValueFromIntOrPercent(&fraction, cores*1000, true)
 	if err != nil {
-		panic(fmt.Errorf("failed to calculate coreFraction. %w", err))
+		return nil, fmt.Errorf("failed to calculate coreFraction. %w", err)
 	}
 	if req == 0 {
-		return b.getCPULimit(cores)
+		return b.getCPULimit(cores), nil
 	}
-	return resource.NewMilliQuantity(int64(req), resource.DecimalSI)
+	return resource.NewMilliQuantity(int64(req), resource.DecimalSI), nil
 }
 
 func (b *KVVM) getCPULimit(cores int) *resource.Quantity {
@@ -175,7 +182,7 @@ func (b *KVVM) ClearDisks() {
 	b.Resource.Spec.Template.Spec.Volumes = nil
 }
 
-func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
+func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
 	var dd virtv1.DiskDevice
@@ -234,11 +241,11 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 				UserDataSecretRef: opts.Provisioning.UserDataSecretRef,
 			}
 		default:
-			panic("expected either Provisioning.UserData or Provisioning.UserDataSecretRef to be set, please report a bug")
+			return fmt.Errorf("unexpected provisioning type %s. %w", opts.Provisioning.Type, common.ErrUnknownType)
 		}
 
 	default:
-		panic("expected either opts.PersistentVolumeClaim or opts.ContainerDisk to be set, please report a bug")
+		return fmt.Errorf("expected either opts.PersistentVolumeClaim or opts.ContainerDisk to be set, please report a bug")
 	}
 
 	volume := virtv1.Volume{
@@ -251,6 +258,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) {
 			return v1.Name == v2.Name
 		}, true,
 	)
+	return nil
 }
 
 func (b *KVVM) SetTablet(name string) {
@@ -278,10 +286,11 @@ func (b *KVVM) HasTablet(name string) bool {
 	return false
 }
 
-func (b *KVVM) SetCloudInit(p *virtv2.Provisioning) {
+func (b *KVVM) SetCloudInit(p *virtv2.Provisioning) error {
 	if p != nil {
-		b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
+		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
 	}
+	return nil
 }
 
 func (b *KVVM) GetCloudInitSettings() map[string]interface{} {
@@ -305,7 +314,7 @@ func (b *KVVM) GetCloudInitSettings() map[string]interface{} {
 	}
 }
 
-func (b *KVVM) SetOsType(osType virtv2.OsType) {
+func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 	switch osType {
 	case virtv2.Windows:
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
@@ -352,10 +361,10 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) {
 			ACPI: virtv1.FeatureState{Enabled: util.GetPointer(true)},
 			SMM:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
 		}
-
-	case virtv2.LegacyWindows:
-		panic("not implemented")
+	default:
+		return fmt.Errorf("unexpected os type %q. %w", osType, common.ErrUnknownType)
 	}
+	return nil
 }
 
 // GetOSSettings returns a portion of devices and features related to d8 VM osType.
@@ -409,7 +418,7 @@ func (b *KVVM) SetNetworkInterface(name string) {
 	)
 }
 
-func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) {
+func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
 	if b.Resource.Spec.Template.Spec.Domain.Firmware == nil {
 		b.Resource.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
 	}
@@ -434,8 +443,9 @@ func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) {
 			EFI: &virtv1.EFI{SecureBoot: util.GetPointer(true)},
 		}
 	default:
-		panic(fmt.Sprintf("unknown bootloader type %q, please report a bug", bootloader))
+		return fmt.Errorf("unexpected bootloader type %q. %w", bootloader, common.ErrUnknownType)
 	}
+	return nil
 }
 
 // GetBootloaderSettings returns a portion of features related to d8 VM bootloader.
