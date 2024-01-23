@@ -285,7 +285,16 @@ spec:
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
                     * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
                     * ImageLost - The child image of the resource is missing. The resource cannot be used.
-                  enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'NotReady', 'ImageLost']
+                  enum:
+                    [
+                      "Pending",
+                      "Provisioning",
+                      "WaitForUserUpload",
+                      "Ready",
+                      "Failed",
+                      "ImageLost",
+                      "Unknown"
+                    ]
                 progress:
                   type: string
                   description: |
