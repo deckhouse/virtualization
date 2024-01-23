@@ -464,7 +464,7 @@ func MapDataVolumePhaseToVMDPhase(phase cdiv1.DataVolumePhase) virtv2.DiskPhase 
 	case cdiv1.Failed:
 		return virtv2.DiskFailed
 	default:
-		panic(fmt.Sprintf("unexpected DataVolume phase %q, please report a bug", phase))
+		return virtv2.DiskUnknown
 	}
 }
 

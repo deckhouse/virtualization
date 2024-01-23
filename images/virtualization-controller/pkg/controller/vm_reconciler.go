@@ -91,6 +91,7 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 		syncErr = r.syncKVVM(ctx, state, opts)
 		if syncErr != nil {
 			opts.Log.Error(syncErr, "sync kvvm")
+			opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, syncErr.Error())
 		}
 	}
 
@@ -400,11 +401,13 @@ func (r *VMReconciler) makeKVVMFromVMSpec(state *VMReconcilerState) (*virtv1.Vir
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
-
+	err := kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
+	if err != nil {
+		return nil, err
+	}
 	kvvm := kvvmBuilder.GetResource()
 
-	err := kvbuilder.SetLastAppliedSpec(kvvm, state.VM.Current())
+	err = kvbuilder.SetLastAppliedSpec(kvvm, state.VM.Current())
 	if err != nil {
 		return nil, fmt.Errorf("set last applied spec on KubeVirt VM '%s': %w", state.KVVM.GetName(), err)
 	}

@@ -48,4 +48,7 @@ const (
 
 	// ReasonErrUploaderWaitDurationExpired is event reason that uploading time expired.
 	ReasonErrUploaderWaitDurationExpired = "UploaderWaitDurationExpired"
+
+	// ReasonErrVmNotSynced is event reason that vm is not synced.
+	ReasonErrVmNotSynced = "VirtualMachineNotSynced "
 )

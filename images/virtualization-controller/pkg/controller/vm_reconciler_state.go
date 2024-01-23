@@ -189,7 +189,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 			vmdByName[bd.VirtualMachineDisk.Name] = vmd
 
 		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+			return fmt.Errorf("unexpected block device type %q. %w", bd.Type, common.ErrUnknownType)
 		}
 	}
 
@@ -255,12 +255,8 @@ func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceS
 			if bda.Type == spec.Type && bda.ClusterVirtualMachineImage.Name == spec.ClusterVirtualMachineImage.Name {
 				return bda
 			}
-
-		default:
-			panic(fmt.Sprintf("unexpected block device type %q", spec.Type))
 		}
 	}
-
 	return nil
 }
 
@@ -316,10 +312,8 @@ func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDevic
 			Target:                     vs.Target,
 			Size:                       cvmi.Status.Size.Unpacked,
 		}
-
-	default:
-		panic(fmt.Sprintf("unexpected block device type %q", spec.Type))
 	}
+	return nil
 }
 
 func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.VolumeStatus {
@@ -361,7 +355,7 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 				}
 			}
 		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+			return fmt.Errorf("unexpected block device type %q. %w", bd.Type, common.ErrUnknownType)
 		}
 	}
 
@@ -398,9 +392,6 @@ func (state *VMReconcilerState) BlockDevicesReady() bool {
 			} else {
 				return false
 			}
-
-		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
 		}
 	}
 
