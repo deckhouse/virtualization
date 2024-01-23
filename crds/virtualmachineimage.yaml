@@ -303,9 +303,9 @@ spec:
                       "WaitForUserUpload",
                       "Ready",
                       "Failed",
-                      "NotReady",
                       "ImageLost",
                       "PVCLost",
+                      "Unknown"
                     ]
                 progress:
                   type: string

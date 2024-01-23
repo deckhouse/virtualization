@@ -79,4 +79,5 @@ const (
 	DiskReady             DiskPhase = "Ready"
 	DiskFailed            DiskPhase = "Failed"
 	DiskPVCLost           DiskPhase = "PVCLost"
+	DiskUnknown           DiskPhase = "Unknown"
 )

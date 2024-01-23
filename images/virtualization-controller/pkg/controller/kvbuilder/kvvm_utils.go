@@ -7,6 +7,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
@@ -45,10 +46,16 @@ func ApplyVirtualMachineSpec(
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 	dvcrSettings *dvcr.Settings,
 	ipAddress string,
-) {
-	kvvm.SetRunPolicy(vm.Spec.RunPolicy)
-	kvvm.SetOsType(vm.Spec.OsType)
-	kvvm.SetBootloader(vm.Spec.Bootloader)
+) error {
+	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
+		return err
+	}
+	if err := kvvm.SetOsType(vm.Spec.OsType); err != nil {
+		return err
+	}
+	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
+		return err
+	}
 	kvvm.SetCPUModel("Nehalem")
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
@@ -58,7 +65,9 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
-	kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size)
+	if err := kvvm.SetResourceRequirements(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction, vm.Spec.Memory.Size); err != nil {
+		return err
+	}
 
 	hotpluggedDevices := make([]HotPlugDeviceSettings, 0)
 	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
@@ -90,20 +99,24 @@ func ApplyVirtualMachineSpec(
 			switch vmi.Spec.Storage {
 			case virtv2.StorageKubernetes:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
-				kvvm.SetDisk(name, SetDiskOptions{
+				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
 					IsEphemeral:           true,
 					Serial:                name,
-				})
+				}); err != nil {
+					return err
+				}
 			case virtv2.StorageContainerRegistry:
 				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
-				kvvm.SetDisk(name, SetDiskOptions{
+				if err := kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: util.GetPointer(dvcrImage),
 					IsCdrom:       imageformat.IsISO(vmi.Status.Format),
 					Serial:        name,
-				})
+				}); err != nil {
+					return err
+				}
 			default:
-				panic(fmt.Sprintf("unexpected VMI %s spec.storage: %s", vmi.Name, vmi.Spec.Storage))
+				return fmt.Errorf("unexpected storage type %q for vmi %s. %w", vmi.Spec.Storage, vmi.Name, common.ErrUnknownType)
 			}
 
 		case virtv2.ClusterImageDevice:
@@ -113,11 +126,13 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateCVMIDiskName(bd.ClusterVirtualMachineImage.Name)
 			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
-			kvvm.SetDisk(name, SetDiskOptions{
+			if err := kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       imageformat.IsISO(cvmi.Status.Format),
 				Serial:        name,
-			})
+			}); err != nil {
+				return err
+			}
 
 		case virtv2.DiskDevice:
 			// VirtualMachineDisk is attached as regular disk.
@@ -125,28 +140,34 @@ func ApplyVirtualMachineSpec(
 			vmd := vmdByName[bd.VirtualMachineDisk.Name]
 
 			name := GenerateVMDDiskName(bd.VirtualMachineDisk.Name)
-			kvvm.SetDisk(name, SetDiskOptions{
+			if err := kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),
 				Serial:                name,
-			})
+			}); err != nil {
+				return err
+			}
 
 		default:
-			panic(fmt.Sprintf("unknown block device type %q", bd.Type))
+			return fmt.Errorf("unknown block device type %q. %w", bd.Type, common.ErrUnknownType)
 		}
 	}
 
 	for _, device := range hotpluggedDevices {
 		switch {
 		case device.PVCName != "":
-			kvvm.SetDisk(device.VolumeName, SetDiskOptions{
+			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(device.PVCName),
 				IsHotplugged:          true,
-			})
+			}); err != nil {
+				return err
+			}
 			// FIXME(VM): not used, now only supports PVC
 		case device.DataVolumeName != "":
 		}
 	}
-	kvvm.SetCloudInit(vm.Spec.Provisioning)
+	if err := kvvm.SetCloudInit(vm.Spec.Provisioning); err != nil {
+		return err
+	}
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
 		Group:   virtv2.SchemeGroupVersion.Group,
@@ -159,4 +180,6 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetKVVMIAnnotation(ipam.AnnoIPAddressCNIRequest, ipAddress)
 	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
+
+	return nil
 }

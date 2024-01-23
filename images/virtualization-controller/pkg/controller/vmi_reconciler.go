@@ -451,7 +451,7 @@ func MapDataVolumePhaseToVMIPhase(phase cdiv1.DataVolumePhase) virtv2.ImagePhase
 	case cdiv1.Failed:
 		return virtv2.ImageFailed
 	default:
-		panic(fmt.Sprintf("unexpected DataVolume phase %q, please report a bug", phase))
+		return virtv2.ImageUnknown
 	}
 }
 

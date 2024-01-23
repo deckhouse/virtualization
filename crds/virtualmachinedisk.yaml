@@ -260,7 +260,16 @@ spec:
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
                     * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
-                  enum: ['Pending', 'Provisioning', 'WaitForUserUpload', 'Ready', 'Failed', 'PVCLost']
+                  enum:
+                    [
+                      'Pending',
+                      'Provisioning',
+                      'WaitForUserUpload',
+                      'Ready',
+                      'Failed',
+                      'PVCLost',
+                      'Unknown'
+                    ]
                 progress:
                   type: string
                   description: |
