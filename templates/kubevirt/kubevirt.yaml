@@ -48,6 +48,10 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+    - resourceType: Deployment
+      resourceName: virt-exportproxy
+      patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
+      type: json
     {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
     - resourceType: Deployment
       resourceName: virt-api
@@ -60,6 +64,16 @@ spec:
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
+      type: json
+    {{- end }}
+    {{- if (include "helm_lib_ha_enabled" .) }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"kubevirt.io","operator":"In","values":["virt-api"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"kubevirt.io","operator":"In","values":["virt-controller"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
       type: json
     {{- end }}
   imagePullPolicy: IfNotPresent
