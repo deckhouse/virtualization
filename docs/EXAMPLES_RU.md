@@ -266,9 +266,11 @@ kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCo
 
 > Стоит отметить, что CVMI с типом Upload ожидает начала загрузки образа 15 минут после создания. По истечении данного таймаута ресурс перейдет в состояние Failed.
 
+Загрузим для примера образ Cirros и загрузим его:
+
 ```bash
-$ curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-$ https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 После завершения работы команды `curl` образ должен быть создан.
@@ -552,7 +554,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart
 spec:
-  vmName: linux-vm
+  virtualMachineName: linux-vm
   type: Restart
 EOF
 ```
