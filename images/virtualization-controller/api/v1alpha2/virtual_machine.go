@@ -64,10 +64,10 @@ type VirtualMachineSpec struct {
 	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
 	Provisioning *Provisioning     `json:"provisioning"`
 
-	// ApprovedChangeID is a field for manual approval of disruptive changes.
+	// RestartApprovalID is a field for manual approval of disruptive changes.
 	// TODO Implement APIService and remove this field.
 	// +optional
-	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
+	RestartApprovalID string `json:"restartApprovalID,omitempty"`
 }
 
 type RunPolicy string
@@ -104,16 +104,16 @@ type MemorySpec struct {
 	Size string `json:"size"`
 }
 
-type ApprovalMode string
+type RestartApprovalMode string
 
 const (
-	Automatic ApprovalMode = "Automatic"
-	Manual    ApprovalMode = "Manual"
+	Automatic RestartApprovalMode = "Automatic"
+	Manual    RestartApprovalMode = "Manual"
 )
 
 type Disruptions struct {
-	// Allow disruptive update mode: Manual or Automatic.
-	ApprovalMode ApprovalMode `json:"approvalMode"`
+	// RestartApprovalMode defines a restart approving mode: Manual or Automatic.
+	RestartApprovalMode RestartApprovalMode `json:"restartApprovalMode"`
 }
 
 type Provisioning struct {
@@ -130,9 +130,9 @@ type VirtualMachineStatus struct {
 	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 	Message              string                                   `json:"message"`
-	ChangeID             string                                   `json:"changeID"`
+	RestartID            string                                   `json:"restartID"`
 
-	// PendingChanges holds operations to be manually approved
+	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
 	//
 	// Change operation has these fields:
@@ -145,7 +145,7 @@ type VirtualMachineStatus struct {
 	// Such 'any' type can't be described using the OpenAPI v3 schema.
 	// The workaround is to declare a whole change operation structure
 	// using 'type: object' and 'x-kubernetes-preserve-fields: true'.
-	PendingChanges []apiextensionsv1.JSON `json:"pendingChanges,omitempty"`
+	RestartAwaitingChanges []apiextensionsv1.JSON `json:"restartAwaitingChanges,omitempty"`
 }
 
 type MachinePhase string

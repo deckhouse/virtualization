@@ -274,10 +274,10 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		opts.Log.Error(fmt.Errorf("unexpected KVVM state: status %q, fallback VM phase to %q", state.KVVM.Status.PrintableStatus, state.VM.Changed().Status.Phase), "")
 	}
 
-	// Update ChangeID related fields.
+	// Update RestartID related fields.
 	state.VM.Changed().Status.Message = state.StatusMessage
-	state.VM.Changed().Status.ChangeID = state.ChangeID
-	state.VM.Changed().Status.PendingChanges = state.PendingChanges
+	state.VM.Changed().Status.RestartID = state.RestartID
+	state.VM.Changed().Status.RestartAwaitingChanges = state.RestartAwaitingChanges
 	return nil
 }
 
@@ -541,7 +541,7 @@ func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, op
 	}
 
 	changeID := changes.ChangeID()
-	currChangeID := state.VM.Current().Status.ChangeID
+	currChangeID := state.VM.Current().Status.RestartID
 
 	// Wait for approval when approval process starts or user made more changes and change ID is expired.
 	if currChangeID == "" {
@@ -549,12 +549,12 @@ func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, op
 		return true
 	}
 	if currChangeID != changeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDExpired, "Previously set Change ID is expired, ChangeID is refreshed.")
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDExpired, "Previously set Change ID is expired, RestartID is refreshed.")
 		opts.Log.V(2).Info("Wait for approval: status.changeID is refreshed", "changes", changes)
 		return true
 	}
 
-	approveChangeID := state.VM.Current().Spec.ApprovedChangeID
+	approveChangeID := state.VM.Current().Spec.RestartApprovalID
 	// Approved change not set yet, do nothing.
 	if approveChangeID == "" {
 		opts.Log.V(2).Info("Wait for approval: spec.approvedChangeID is empty", "changes", changes)

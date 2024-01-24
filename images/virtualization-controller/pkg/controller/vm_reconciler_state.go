@@ -40,10 +40,10 @@ type VMReconcilerState struct {
 
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
 
-	Result         *reconcile.Result
-	StatusMessage  string
-	ChangeID       string
-	PendingChanges []apiextensionsv1.JSON
+	Result                 *reconcile.Result
+	StatusMessage          string
+	RestartID              string
+	RestartAwaitingChanges []apiextensionsv1.JSON
 }
 
 func NewVMReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMReconcilerState {
@@ -196,9 +196,9 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.VMDByName = vmdByName
 	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
-	state.ChangeID = state.VM.Current().Status.ChangeID
+	state.RestartID = state.VM.Current().Status.RestartID
 	state.StatusMessage = state.VM.Current().Status.Message
-	state.PendingChanges = state.VM.Current().Status.PendingChanges
+	state.RestartAwaitingChanges = state.VM.Current().Status.RestartAwaitingChanges
 
 	return nil
 }
@@ -216,9 +216,9 @@ func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) er
 	if err != nil {
 		return fmt.Errorf("convert pending changes for status: %w", err)
 	}
-	state.PendingChanges = statusChanges
+	state.RestartAwaitingChanges = statusChanges
 
-	state.ChangeID = changes.ChangeID()
+	state.RestartID = changes.ChangeID()
 
 	statusMessage := ""
 	if changes.ActionType() == vmchange.ActionRestart {
@@ -232,8 +232,8 @@ func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) er
 }
 
 func (state *VMReconcilerState) ResetChangesInfo() {
-	state.ChangeID = ""
-	state.PendingChanges = nil
+	state.RestartID = ""
+	state.RestartAwaitingChanges = nil
 	state.StatusMessage = ""
 }
 

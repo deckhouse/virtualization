@@ -41,13 +41,13 @@ func TestUnmarshalVMStatus(t *testing.T) {
 					VirtualMachineDisk: &v1alpha2.DiskDeviceSpec{Name: "test-vmd"},
 				},
 			},
-			Disruptions: &v1alpha2.Disruptions{ApprovalMode: v1alpha2.Automatic},
+			Disruptions: &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Automatic},
 		},
 		Status: v1alpha2.VirtualMachineStatus{
-			Phase:          v1alpha2.MachineRunning,
-			Message:        "",
-			ChangeID:       "",
-			PendingChanges: nil,
+			Phase:                  v1alpha2.MachineRunning,
+			Message:                "",
+			RestartID:              "",
+			RestartAwaitingChanges: nil,
 		},
 	}
 
@@ -92,7 +92,7 @@ func TestUnmarshalVMStatus(t *testing.T) {
 
 	statusChanges, err := changes.ConvertPendingChanges()
 	require.NoError(t, err, "should convert pending changes")
-	state.VM.Changed().Status.PendingChanges = statusChanges
+	state.VM.Changed().Status.RestartAwaitingChanges = statusChanges
 
 	err = cl.Status().Update(ctx, state.VM.Changed())
 	require.NoError(t, err, "should update status from changed VM")

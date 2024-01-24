@@ -1479,8 +1479,8 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 		}
 	}
 	out.GuestOSInfo = in.GuestOSInfo
-	if in.PendingChanges != nil {
-		in, out := &in.PendingChanges, &out.PendingChanges
+	if in.RestartAwaitingChanges != nil {
+		in, out := &in.RestartAwaitingChanges, &out.RestartAwaitingChanges
 		*out = make([]apiextensionsv1.JSON, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
