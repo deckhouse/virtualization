@@ -333,8 +333,8 @@ func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) (strin
 			break
 		}
 	}
-	if state.VM.Status.ChangeID != "" {
-		messages = append(messages, "vm waits for changes approval")
+	if len(state.VM.Status.RestartAwaitingChanges) > 0 {
+		messages = append(messages, "vm waits for restart approval")
 	}
 
 	if len(messages) == 0 {

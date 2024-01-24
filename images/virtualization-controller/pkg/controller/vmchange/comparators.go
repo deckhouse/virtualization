@@ -49,8 +49,8 @@ func compareDisruptions(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 	// Disruptions are not nils, compare approvalMode fields using "Manual" as default.
 	return compareStrings(
 		"disruptions.approvalMode",
-		string(current.Disruptions.ApprovalMode),
-		string(desired.Disruptions.ApprovalMode),
+		string(current.Disruptions.RestartApprovalMode),
+		string(desired.Disruptions.RestartApprovalMode),
 		string(DefaultDisruptionsApprovalMode),
 		ActionNone,
 	)

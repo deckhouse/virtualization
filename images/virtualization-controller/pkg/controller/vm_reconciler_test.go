@@ -79,7 +79,7 @@ var _ = Describe("VM", func() {
 							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: "test-vmd"},
 						},
 					},
-					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Automatic},
+					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Automatic},
 				},
 				Status: virtv2.VirtualMachineStatus{},
 			}
@@ -400,7 +400,7 @@ var _ = Describe("Apply VM changes", func() {
 							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
 						},
 					},
-					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Automatic},
+					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Automatic},
 				},
 				Status: virtv2.VirtualMachineStatus{},
 			}
@@ -537,7 +537,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
 						},
 					},
-					Disruptions: &virtv2.Disruptions{ApprovalMode: virtv2.Manual},
+					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Manual},
 				},
 				Status: virtv2.VirtualMachineStatus{},
 			}
@@ -629,15 +629,15 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vm).ShouldNot(BeNil())
 
-			Expect(vm.Status.ChangeID).ShouldNot(BeEmpty(), "Should put changeID to the status")
+			Expect(vm.Status.RestartID).ShouldNot(BeEmpty(), "Should put changeID to the status")
 
 			id := func(elem interface{}) string {
 				return elem.(map[string]interface{})["path"].(string)
 			}
 
 			// Pending changes are Raw bytes, conversion to map[string]interface{} is needed to work with gstruct matchers.
-			pendingChanges := make([]map[string]interface{}, 0, len(vm.Status.PendingChanges))
-			for _, change := range vm.Status.PendingChanges {
+			pendingChanges := make([]map[string]interface{}, 0, len(vm.Status.RestartAwaitingChanges))
+			for _, change := range vm.Status.RestartAwaitingChanges {
 				var changeMap map[string]interface{}
 				err := json.Unmarshal(change.Raw, &changeMap)
 				Expect(err).ShouldNot(HaveOccurred(), "should not fail unmarshaling for '%s'", string(change.Raw))
@@ -666,7 +666,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			}))
 
 			By("Approving pending changes")
-			vm.Spec.ApprovedChangeID = vm.Status.ChangeID
+			vm.Spec.RestartApprovalID = vm.Status.RestartID
 			// Update vm and reconcile approval.
 			err = reconciler.Client.Update(ctx, vm)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -685,8 +685,8 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vm).ShouldNot(BeNil())
 
-			Expect(vm.Status.ChangeID).Should(BeEmpty(), "Should clear changeID after manual approval")
-			Expect(vm.Status.PendingChanges).Should(BeEmpty(), "Should clear pendingChanges after manual approval")
+			Expect(vm.Status.RestartID).Should(BeEmpty(), "Should clear changeID after manual approval")
+			Expect(vm.Status.RestartAwaitingChanges).Should(BeEmpty(), "Should clear pendingChanges after manual approval")
 		}
 	})
 })
