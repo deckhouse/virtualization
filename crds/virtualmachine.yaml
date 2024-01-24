@@ -703,17 +703,17 @@ spec:
                 disruptions:
                   type: object
                   default:
-                    approvalMode: Manual
+                    restartApprovalMode: Manual
                   description: |
                     Disruptions settings for VM.
 
                     Some VM settings require a reboot of the VM when changing the configuration. To reboot, it is necessary to approve the changes. The `approvalMode` parameter is used for this purpose.
                   properties:
-                    approvalMode:
+                    restartApprovalMode:
                       type: string
                       description: |
                         The approval mode for disruptive updates:
-                        - `Manual` — to approve changes, you must do this manually by copying the change ID from `.status.changeID` to `.spec.approvedChangeID`.
+                        - `Manual` — to approve restart, you must do this manually by copying the restart ID from `.status.restartID` to `.spec.restartApprovalID`.
                         - `Automatic` —  automatically approve disruption-involving updates.
                       enum:
                         - Manual
@@ -870,11 +870,11 @@ spec:
                           anyOf:
                             - required: ["virtualMachineImage"]
                             - required: ["clusterVirtualMachineImage"]
-                approvedChangeID:
+                restartApprovalID:
                   type: string
                   description: |
-                    Hash of virtual machine changes from .status.changeID
-                    Required to approve disruptive VM changes (e.g. restart).
+                    Hash of virtual machine changes from .status.restartID.
+                    Required to approve restart for applying disruptive changes.
             status:
               type: object
               properties:
@@ -1034,13 +1034,13 @@ spec:
                   type: string
                   description: |
                     Detailed description of the VM state.
-                changeID:
+                restartID:
                   type: string
                   description: |
                     Hash of virtual machine changes. Use spec.approvedChangeID to approve disruptive changes, e.g. restart.
-                pendingChanges:
+                restartAwaitingChanges:
                   description: |
-                    A list of changes waiting for manual approve. These changes needs a disruptive action to apply.
+                    A list of changes require restart for applying.
                   type: array
                   items:
                     type: object
