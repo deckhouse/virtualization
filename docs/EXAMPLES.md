@@ -503,7 +503,7 @@ kubectl get virtualmachine
 # linux-vm   Running   node-name-x   10.111.1.23
 ```
 
-After creation, the virtual machine will automatically obtain an IP address from the range specified in the module settings (`vmCIDRs` block).
+After creation, the virtual machine will automatically obtain an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
 
 If we want to bind a specific IP address for the machine before it is started, the following steps must be performed:
 

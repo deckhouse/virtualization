@@ -60,7 +60,7 @@ spec:
         - name: DVCR_INSECURE_TLS
           value: {{ .Values.dvcr.insecureTLS | quote }}
         - name: VIRTUAL_MACHINE_CIDRS
-          value: {{ .Values.network.vmCIDRs | quote }}
+          value: {{ .Values.network.virtualMachineCIDRs | quote }}
 
       dnsPolicy: Default
       serviceAccountName: {{ .Release.Name }}
