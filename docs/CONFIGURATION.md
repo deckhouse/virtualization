@@ -5,7 +5,7 @@ title: "Configuration"
 To configure the module, you must specify one or more desired subnets from which IP addresses for virtual machines will be allocated. For example, you can specify the following configuration in YAML format:
 
 ```yaml
-vmCIDRs:
+virtualMachineCIDRs:
   - 10.10.10.0/24
   - 10.20.10.0/24
   - 10.30.10.0/24

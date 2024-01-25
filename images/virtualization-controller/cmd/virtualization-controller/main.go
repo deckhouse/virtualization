@@ -197,10 +197,10 @@ func main() {
 
 	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)
 	if vmCIDRsRaw == "" {
-		log.Error(errors.New("vmCIDRs not found, but required"), "Failed to get vmCIDRs")
+		log.Error(errors.New("virtualMachineCIDRs not found, but required"), "Failed to get virtualMachineCIDRs")
 		os.Exit(1)
 	}
-	vmCIDRs := strings.Split(vmCIDRsRaw, ",")
+	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
 
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
@@ -239,7 +239,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := ipam.NewClaimController(ctx, mgr, log, vmCIDRs); err != nil {
+	if _, err := ipam.NewClaimController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
