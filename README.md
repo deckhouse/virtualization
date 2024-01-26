@@ -57,7 +57,7 @@ spec:
         persistentVolumeClaim:
           size: 50G # size of DVCR storage
         type: PersistentVolumeClaim
-    vmCIDRs:
+    virtualMachineCIDRs:
     - 10.66.10.0/24
     - 10.66.20.0/24
     - 10.66.30.0/24

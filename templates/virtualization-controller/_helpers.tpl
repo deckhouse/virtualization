@@ -23,7 +23,7 @@
 - name: DVCR_INSECURE_TLS
   value: "true"
 - name: VIRTUAL_MACHINE_CIDRS
-  value: {{ join "," .Values.virtualization.vmCIDRs | quote }}
+  value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
 - name: UPLOADER_INGRESS_HOST
   value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
 - name: UPLOADER_INGRESS_TLS_SECRET

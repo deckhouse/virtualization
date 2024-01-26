@@ -1,8 +1,8 @@
 positive:
   configValues:
-  - vmCIDRs: ["10.10.10.0/24"]
+  - virtualMachineCIDRs: ["10.10.10.0/24"]
   values:
-  - vmCIDRs: ["10.10.10.0/24"]
+  - virtualMachineCIDRs: ["10.10.10.0/24"]
     internal: {}
   - https:
       mode: CustomCertificate
