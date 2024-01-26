@@ -22,9 +22,9 @@ func NewClaimController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
-	vmCIDRs []string,
+	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	reconciler, err := NewClaimReconciler(vmCIDRs)
+	reconciler, err := NewClaimReconciler(virtualMachineCIDRs)
 	if err != nil {
 		return nil, err
 	}

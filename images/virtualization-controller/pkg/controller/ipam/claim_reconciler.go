@@ -30,10 +30,10 @@ type ClaimReconciler struct {
 	ParsedCIDRs []*net.IPNet
 }
 
-func NewClaimReconciler(vmCIDRs []string) (*ClaimReconciler, error) {
-	parsedCIDRs := make([]*net.IPNet, len(vmCIDRs))
+func NewClaimReconciler(virtualMachineCIDRs []string) (*ClaimReconciler, error) {
+	parsedCIDRs := make([]*net.IPNet, len(virtualMachineCIDRs))
 
-	for i, cidr := range vmCIDRs {
+	for i, cidr := range virtualMachineCIDRs {
 		_, parsedCIDR, err := net.ParseCIDR(cidr)
 		if err != nil || parsedCIDR == nil {
 			return nil, fmt.Errorf("failed to parse virtual cide %s: %w", cidr, err)

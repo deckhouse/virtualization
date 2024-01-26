@@ -9,4 +9,4 @@ dvcr:
   certsSecret: "registry-nginx-certs"
   insecureTLS: "true"
 network:
-  vmCIDRs: "10.10.10.0/24"
+  virtualMachineCIDRs: "10.10.10.0/24"
