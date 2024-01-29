@@ -557,13 +557,13 @@ func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, op
 	approveChangeID := state.VM.Current().Spec.RestartApprovalID
 	// Approved change not set yet, do nothing.
 	if approveChangeID == "" {
-		opts.Log.V(2).Info("Wait for approval: spec.approvedChangeID is empty", "changes", changes)
+		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is empty", "changes", changes)
 		return true
 	}
 	// Change IDs are not equal: approved Change ID was expired. Record event and wait for the next update.
 	if currChangeID != approveChangeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Approved Change ID is expired, check VM spec and update approve annotation with the latest Change ID.")
-		opts.Log.V(2).Info("Wait for approval: spec.approvedChangeID is expired", "vm.name", state.VM.Name(), "status.changeID", currChangeID, "spec.approvedChangeID", approveChangeID)
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Restart approval ID is expired, check VM spec and update spec. restartApprovalID according to status.restartID.")
+		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is expired", "vm.name", state.VM.Name(), "status.restartID", currChangeID, "spec.restartApprovalID", approveChangeID)
 		return true
 	}
 
