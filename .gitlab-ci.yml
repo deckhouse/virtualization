@@ -62,35 +62,43 @@ default:
 .info:
   script:
   - |
-    cat << EOF
-      ---
-      apiVersion: deckhouse.io/v1alpha1
-      kind: ModulePullOverride
-      metadata:
-        name: virtualization
-      spec:
-        imageTag: ${MODULES_MODULE_TAG}
-        source: deckhouse
+    cat << OUTER
+    Create ModuleConfig and ModulePullOverride resources to test this MR:
+    cat <<EOF | kubectl apply -f -
+    ---
+    apiVersion: deckhouse.io/v1alpha1
+    kind: ModulePullOverride
+    metadata:
+      name: virtualization
+    spec:
+      imageTag: ${MODULES_MODULE_TAG}
+      source: deckhouse
 
-      ---
-      apiVersion: deckhouse.io/v1alpha1
-      kind: ModuleConfig
-      metadata:
-        name: ${MODULE_NAME}
-      spec:
-        enabled: true
-        settings:
-          dvcr:
-            storage:
-              type: PersistentVolumeClaim
-              persistentVolumeClaim:
-                size: 50G
-          virtualMachineCIDRs:
-            - 10.66.10.0/24
-            - 10.66.20.0/24
-            - 10.66.30.0/24
-        version: 1
+    ---
+    apiVersion: deckhouse.io/v1alpha1
+    kind: ModuleConfig
+    metadata:
+      name: ${MODULE_NAME}
+    spec:
+      enabled: true
+      settings:
+        dvcr:
+          storage:
+            type: PersistentVolumeClaim
+            persistentVolumeClaim:
+              size: 50G
+        virtualMachineCIDRs:
+          - 10.66.10.0/24
+          - 10.66.20.0/24
+          - 10.66.30.0/24
+      version: 1
     EOF
+
+    Or patch an existing ModulePullOverride:
+
+    kubectl patch mpo ${MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
+
+    OUTER
 
 before_script:
   # Setup werf
