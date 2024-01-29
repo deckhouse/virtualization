@@ -884,10 +884,6 @@ spec:
                     Guest OS information obtained from the QEMU Guest Agent. The agent must be pre-installed.
 
                     More information about the agent, you can read here: https://www.qemu.org/docs/master/interop/qemu-ga.html
-                effectiveSpec:
-                  type: object
-                  description: |
-                    The current current configuration of the virtual machine. When making changes that require a reboot of the VM, this block will display the configuration before the changes were made.
                 phase:
                   type: string
                   description: |
