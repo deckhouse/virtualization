@@ -222,10 +222,10 @@ func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) er
 
 	statusMessage := ""
 	if changes.ActionType() == vmchange.ActionRestart {
-		statusMessage = "VM restart required to apply changes. Check status.changeID and add spec.approvedChangeID to restart VM."
+		statusMessage = "VM restart required to apply changes. Check status.restartID and add spec.restartApprovalID to restart VM."
 	} else {
 		// Non restart changes, e.g. subresource signaling.
-		statusMessage = "Approval required to apply changes. Check status.changeID and add spec.approvedChangeID to change VM."
+		statusMessage = "Approval required to apply changes. Check status.restartID and add spec.restartApprovalID to change VM."
 	}
 	state.StatusMessage = statusMessage
 	return nil

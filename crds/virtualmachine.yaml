@@ -1033,7 +1033,7 @@ spec:
                 restartID:
                   type: string
                   description: |
-                    Hash of virtual machine changes. Use spec.approvedChangeID to approve disruptive changes, e.g. restart.
+                    Hash of virtual machine changes. Use spec.restartApprovalID to approve disruptive changes, e.g. restart.
                 restartAwaitingChanges:
                   description: |
                     A list of changes require restart for applying.
