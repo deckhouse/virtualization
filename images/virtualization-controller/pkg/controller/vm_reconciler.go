@@ -9,6 +9,8 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -21,9 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -61,8 +63,50 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			&virtv2.VirtualMachine{},
 			handler.OnlyControllerOwner(),
 		),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
+				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
+				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
+					oldVM.Status.Ready != newVM.Status.Ready
+			},
+		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+
+	// Watch for Pods created on behalf of VMs. Handle only changes in status.phase.
+	// Pod tracking is required to detect when Pod becomes Completed after guest initiated reset or shutdown.
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Pod{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, pod client.Object) []reconcile.Request {
+			vmName, hasLabel := pod.GetLabels()["vm.kubevirt.io/name"]
+			if !hasLabel {
+				return nil
+			}
+
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      vmName,
+						Namespace: pod.GetNamespace(),
+					},
+				},
+			}
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldPod := e.ObjectOld.(*corev1.Pod)
+				newPod := e.ObjectNew.(*corev1.Pod)
+				return oldPod.Status.Phase != newPod.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
 
 	return nil
@@ -174,8 +218,8 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 		lastAppliedSpec = &state.VM.Current().Spec
 	}
 
-	// Ensure power state according to the runPolicy if KVVM was changed.
-	powerErr := r.syncPowerState(ctx, state, lastAppliedSpec)
+	// Ensure power state according to the runPolicy.
+	powerErr := r.syncPowerState(ctx, state, opts, lastAppliedSpec)
 	if powerErr != nil {
 		opts.Log.Error(powerErr, "sync power state")
 	}
@@ -191,7 +235,6 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(2).Info("VMReconciler.UpdateStatus")
 	if state.isDeletion() {
 		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
 		return nil
@@ -636,28 +679,85 @@ func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState
 	return nil
 }
 
-// syncPowerState enforces runPolicy on underlying KVVM.
-// Method ensures desired runStrategy and sets a 'running' field to null.
-func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerState, effectiveSpec *virtv2.VirtualMachineSpec) error {
+// syncPowerState enforces runPolicy on the underlying KVVM.
+func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, effectiveSpec *virtv2.VirtualMachineSpec) error {
 	if state.KVVM == nil {
 		return nil
 	}
 
 	vmRunPolicy := effectiveSpec.RunPolicy
 
+	isPodCompleted, vmShutdownReason := powerstate.ShutdownReason(state.KVVMI, state.KVPods)
+
 	var err error
 	switch vmRunPolicy {
-	case virtv2.ManualPolicy:
-		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyManual)
 	case virtv2.AlwaysOffPolicy:
+		if state.KVVMI != nil {
+			// Ensure KVVMI is absent.
+			err = opts.Client.Delete(ctx, state.KVVMI)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("force AlwaysOff: delete KVVMI: %w", err)
+			}
+		}
 		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyHalted)
 	case virtv2.AlwaysOnPolicy:
+		// Power state change reason is not significant for AlwaysOn:
+		// kubevirt restarts VM via re-creation of KVVMI.
 		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
 	case virtv2.AlwaysOnUnlessStoppedManualy:
-		if kvvmutil.GetRunStrategy(state.KVVM) == virtv1.RunStrategyHalted {
-			return nil
+		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
+			if state.KVVMI.Status.Phase == virtv1.Succeeded {
+				if isPodCompleted {
+					// Request to start new KVVMI if guest was restarted.
+					// Cleanup KVVMI is enough if VM was stopped from inside.
+					if vmShutdownReason == "guest-reset" {
+						opts.Log.Info("Restart for guest initiated reset")
+						err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
+						if err != nil {
+							return fmt.Errorf("restart VM on guest-reset: %w", err)
+						}
+					} else {
+						opts.Log.Info("Cleanup Succeeded KVVMI")
+						err = opts.Client.Delete(ctx, state.KVVMI)
+						if err != nil && !k8serrors.IsNotFound(err) {
+							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
+						}
+					}
+				}
+			}
+			if state.KVVMI.Status.Phase == virtv1.Failed {
+				opts.Log.Info("Restart on Failed KVVMI", "obj", state.KVVMI.GetName())
+				err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
+				if err != nil {
+					return fmt.Errorf("restart VM on failed: %w", err)
+				}
+			}
 		}
-		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
+
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyManual)
+	case virtv2.ManualPolicy:
+		// Manual policy requires to handle only guest-reset event.
+		// All types of shutdown are a final state.
+		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
+			if state.KVVMI.Status.Phase == virtv1.Succeeded && isPodCompleted {
+				// Request to start new KVVMI (with updated settings).
+				if vmShutdownReason == "guest-reset" {
+					err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
+					if err != nil {
+						return fmt.Errorf("restart VM on guest-reset: %w", err)
+					}
+				} else {
+					// Cleanup old version of KVVMI.
+					opts.Log.Info("Cleanup Succeeded KVVMI")
+					err = opts.Client.Delete(ctx, state.KVVMI)
+					if err != nil && !k8serrors.IsNotFound(err) {
+						return fmt.Errorf("delete Succeeded KVVMI: %w", err)
+					}
+				}
+			}
+		}
+
+		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyManual)
 	}
 
 	if err != nil {

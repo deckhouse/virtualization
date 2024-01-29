@@ -60,6 +60,7 @@ shell:
           )
         )
       ' > /images_digests.json
+      cat images_digests.json
 ---
 image: python-dependencies
 from: alpine:3.17
