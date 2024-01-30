@@ -3,11 +3,11 @@
 
 name: Tests for pull requests
 on:
-  pull_request_target:
-    types:
-      - opened
-      - synchronize
-      - reopened
+  # pull_request_target:
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - reopened
   workflow_dispatch:
 
 # Cancel in-progress jobs for the same PR (pull_request event) or for the same branch (push event).
