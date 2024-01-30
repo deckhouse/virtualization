@@ -1,0 +1,60 @@
+name: Deploy Dev
+
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+  RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
+  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Select release channel"
+        type: choice
+        default: alpha
+        options:
+          - "alpha"
+          - "beta"
+          - "early-access"
+          - "stable"
+          - "rock-solid"
+
+      tag:
+        description: "The module's tag, which must include the -dev postfix. For example: v1.21.1-dev"
+        type: string
+        required: true
+      
+      enableBuild:
+        type: boolean
+        default: true
+        description: 'Set to true if build is required'
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    name: Deploy dev
+    steps:
+      - name: PRINT VARS
+        run: |
+          echo MODULES_REGISTRY=$MODULES_REGISTRY
+          echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
+          echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
+          echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
+          echo RELEASE_CHANNEL=$RELEASE_CHANNEL
+          echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+        shell: bash
+      - name: Validation for tag
+        run: |
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+-dev.*$'
+        shell: bash
+
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/deploy@v1
