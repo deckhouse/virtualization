@@ -1,0 +1,26 @@
+name: Show pull_request number
+
+on:
+  pull_request:
+    types: [ opened, edited, synchronize ]
+
+env:
+  GITHUB_PR_NUMBER: ${{github.event.pull_request.number}}
+
+jobs:
+  prJob:    
+    name: Print event
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo pr name via var
+        run: |
+          echo "$GITHUB_PR_NUMBER"
+      
+      - name: Echo pr name via github.event.pull_request.number
+        run: |
+          echo ${{github.event.pull_request.number}}
+      
+      - name: echo pr name via github.event.pull_request.number
+        run: |
+          echo ${{github.event.pull_request.number}}
+      
