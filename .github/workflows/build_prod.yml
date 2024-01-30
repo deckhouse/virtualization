@@ -1,0 +1,74 @@
+name: Build and push for prod
+
+env:
+  MODULES_REGISTRY: ${{ vars.PROD_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULE_SOURCE_NAME: ${{ vars.PROD_MODULE_SOURCE_NAME }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+  MODULES_MODULE_TAG: ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+  # push:
+  #   tags:
+  #     - '**'
+
+jobs:
+  prod_ce_setup_build:
+    runs-on: ubuntu-latest
+    name: Build and Push CE
+    steps:
+      - name: SET VAR
+        run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
+      - run: |
+          echo $MODULES_REGISTRY
+          echo $MODULES_MODULE_NAME
+          echo $MODULES_MODULE_SOURCE
+          echo $MODULES_MODULE_TAG
+        shell: bash
+        name: Show vars
+
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/build@v1
+
+  prod_ee_setup_build:
+    runs-on: ubuntu-latest
+    name: Build and Push EE
+    steps:
+      - name: SET VAR
+        run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
+      - run: |
+          echo $MODULES_REGISTRY
+          echo $MODULES_MODULE_NAME
+          echo $MODULES_MODULE_SOURCE
+          echo $MODULES_MODULE_TAG
+        shell: bash
+        name: Show vars
+
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/build@v1
+
+  prod_fe_setup_build:
+    runs-on: ubuntu-latest
+    name: Build and Push FE
+    steps:
+      - name: SET VAR
+        run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
+      - run: |
+          echo $MODULES_REGISTRY
+          echo $MODULES_MODULE_NAME
+          echo $MODULES_MODULE_SOURCE
+          echo $MODULES_MODULE_TAG
+        shell: bash
+        name: Show vars
+
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/build@v1
