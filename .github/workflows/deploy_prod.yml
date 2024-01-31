@@ -1,0 +1,103 @@
+name: Deploy Prod
+
+env:
+  MODULES_REGISTRY: ${{ vars.PROD_REGISTRY }}
+  MODULE_SOURCE_NAME: ${{ vars.PROD_MODULE_SOURCE_NAME }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  RELEASE_CHANNEL: ${{ github.event.inputs.version }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
+
+on:
+  workflow_dispatch:
+   inputs:
+      version:
+        description: "Select version"
+        type: choice
+        default: alpha
+        options:
+          - "alpha"
+          - "beta"
+          - "early-access"
+          - "stable"
+          - "rock-solid"
+
+      ce:
+        type: boolean
+        description: CE
+      ee:
+        type: boolean
+        description: EE
+      fe:
+        type: boolean
+        description: FE
+
+      tag:
+        description: "Tag of the module, example v1.21.1"
+        type: string
+        required: true
+
+jobs:
+  print-vars:
+    runs-on: ubuntu-latest
+    name: Print vars
+    steps:
+      - name: PRINT VARS
+        run: |
+          echo $MODULES_REGISTRY
+          echo $MODULE_SOURCE_NAME
+          echo $CI_COMMIT_REF_NAME
+          echo $MODULES_MODULE_NAME
+          echo $RELEASE_CHANNEL
+          echo $MODULES_MODULE_TAG
+        shell: bash
+        
+  job-CE:
+     name: Edition CE
+     runs-on: ubuntu-latest
+     if: github.event.inputs.ce == 'true'
+     steps:
+       - run: echo "CE"
+       - name: SET VAR
+         run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
+       - name: ECHO VAR
+         run: |
+           echo $MODULES_MODULE_SOURCE
+       - uses: actions/checkout@v4
+       - uses: deckhouse/modules-actions/setup@v1
+       - uses: deckhouse/modules-actions/deploy@v1
+  
+  job-EE:
+    name: Edition EE
+    runs-on: ubuntu-latest
+    if: github.event.inputs.ee == 'true'
+    steps:
+      - run: echo "EE"
+      - name: SET VAR
+        run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
+      - name: ECHO VAR
+        run: |
+           echo $MODULES_MODULE_SOURCE
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/deploy@v1
+      
+  job-FE:
+    name: Edition FE
+    runs-on: ubuntu-latest
+    if: github.event.inputs.fe == 'true'
+    steps:
+      - run: echo "FE"
+      - name: SET VAR
+        run: |
+           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
+      - name: ECHO VAR
+        run: |
+           echo $MODULES_MODULE_SOURCE
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/deploy@v1
