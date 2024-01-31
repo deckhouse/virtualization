@@ -1,6 +1,6 @@
 name: Tags
 on:
- workflow_dispatch:
+  workflow_dispatch:
     # inputs:
     #   tag:
     #     description: 'Tag to deploy'
@@ -24,4 +24,5 @@ jobs:
       - name: Show tags
         run: |
           echo $GIT_TAG
+      - run: ${{ github.ref }}
 
