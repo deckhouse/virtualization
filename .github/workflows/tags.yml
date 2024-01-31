@@ -1,4 +1,4 @@
-name: Deploy
+name: Tags
 on:
  workflow_dispatch:
     inputs:
