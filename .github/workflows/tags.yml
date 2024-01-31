@@ -1,12 +1,12 @@
 name: Tags
 on:
  workflow_dispatch:
-    # inputs:
-    #   tag:
-    #     description: 'Tag to deploy'
-    #     required: true
-    #     type: choice
-    #     options: ${{ jobs.fetch-tags.outputs.tags }}
+    inputs:
+      tag:
+        description: 'Tag to deploy'
+        required: true
+        type: choice
+        options: ${{ jobs.fetch-tags.outputs.tags }}
 jobs:
  fetch-tags:
     runs-on: ubuntu-latest
