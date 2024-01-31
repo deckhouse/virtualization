@@ -1,3 +1,12 @@
+name: Tags
+on:
+ workflow_dispatch:
+    # inputs:
+    #   tag:
+    #     description: 'Tag to deploy'
+    #     required: true
+    #     type: choice
+    #     options: ${{ jobs.fetch-tags.outputs.tags }}
 jobs:
  fetch-tags:
     runs-on: ubuntu-latest
@@ -9,18 +18,8 @@ jobs:
       - name: Fetch all tags
         id: fetch-tags
         run: |
-          TAGS=$(git tag | sort -r | head)
-          echo ::set-output name=tags::$TAGS
-      # - name: Print tags
-      #   run: |
-      #    echo $TAGS
+          echo "TAGS=$(git tag | sort -r | head)" >> $GITHUB_OUTPUT
+      - name: Show tags
+        run: |
+          echo $TAGS
 
-name: Tags
-on:
- workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to deploy'
-        required: true
-        type: choice
-        options: ${{ jobs.fetch-tags.outputs.tags }}
