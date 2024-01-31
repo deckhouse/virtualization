@@ -60,6 +60,7 @@ func init() {
 }
 
 func setupLogger() {
+	// verbosity
 	verbose := defaultVerbosity
 	if verboseEnvVarVal := os.Getenv("VERBOSITY"); verboseEnvVarVal != "" {
 		verbose = verboseEnvVarVal
@@ -68,6 +69,7 @@ func setupLogger() {
 	if fv := flag.Lookup("v"); fv != nil {
 		verbose = fv.Value.String()
 	}
+	// default?
 	if verbose == defaultVerbosity {
 		log.V(1).Info(fmt.Sprintf("Note: increase the -v level in the controller deployment for more detailed logging, eg. -v=%d or -v=%d\n", 2, 3))
 	}
