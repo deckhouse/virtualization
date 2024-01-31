@@ -14,12 +14,12 @@ jobs:
       tags: ${{ steps.set-output.outputs.tags }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Fetch all tags
         id: fetch-tags
         run: |
           TAGS=$(git describe --tags)
           echo ::set-output name=tags::$TAGS
-      - name: Print tags
-        run: |
-         echo $TAGS
+      # - name: Print tags
+      #   run: |
+      #    echo $TAGS
