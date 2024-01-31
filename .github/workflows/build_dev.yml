@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
   pull_request:
     types: [ opened, edited, synchronize ]
-  # push:
-  #   branches:
-  #     - main
+  push:
+    branches:
+      - main
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
