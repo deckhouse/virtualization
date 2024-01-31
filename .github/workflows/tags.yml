@@ -24,5 +24,6 @@ jobs:
       - name: Show tags
         run: |
           echo $GIT_TAG
-      - run: ${{ github.ref }}
+      - run: echo ${{ github.ref }}
+      - run: env
 
