@@ -1,0 +1,37 @@
+name: Tags
+
+env:
+  PR: ${{github.event.pull_request.number}}
+
+on:
+  workflow_dispatch:
+  pull_request:
+    # inputs:
+    #   tag:
+    #     description: 'Tag to deploy'
+    #     required: true
+    #     type: choice
+    #     options: ${{ jobs.fetch-tags.outputs.tags }}
+jobs:
+ fetch-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.set-output.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Get tags
+        run: git fetch --tags origin
+      - name: Fetch all tags
+        # id: fetch-tags
+        run: |
+          echo "GIT_TAG=`echo $(git describe --tags --abbrev=0 origin)`" >> $GITHUB_ENV
+        # run: |
+        #   echo "TAGS=$(git tag | sort -r | head)" >> $GITHUB_ENV
+      - name: Show tags
+        run: |
+          echo $GIT_TAG
+      - run: echo ${{ github.ref }}
+      - run: echo $PR
+      - run: env
+
