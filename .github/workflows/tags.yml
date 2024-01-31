@@ -1,0 +1,22 @@
+name: Deploy
+on:
+ workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to deploy'
+        required: true
+        type: choice
+        options: ${{ jobs.fetch-tags.outputs.tags }}
+jobs:
+ fetch-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.set-output.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Fetch all tags
+        id: fetch-tags
+        run: |
+          TAGS=$(git describe --tags)
+          echo ::set-output name=tags::$TAGS
