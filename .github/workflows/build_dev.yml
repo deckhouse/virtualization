@@ -70,7 +70,7 @@ jobs:
       - name: Set vars for manually run job
         if: ${{ github.event.pull_request.number == null && github.ref_name != 'main' }}
         run: |
-          MODULES_MODULE_TAG="$(echo pr${{github.ref_name}} | sed 's/\/.*//g')"
+          MODULES_MODULE_TAG="$(echo pr${{ github.ref_name}} | sed 's/\/.*//g')"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
         shell: bash
       
