@@ -18,7 +18,7 @@ jobs:
       - name: Fetch all tags
         id: fetch-tags
         run: |
-          TAGS=$(git describe --tags)
+          TAGS=$(git tag | sort -r | head)
           echo ::set-output name=tags::$TAGS
       # - name: Print tags
       #   run: |
