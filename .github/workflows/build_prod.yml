@@ -10,10 +10,9 @@ env:
   MODULES_MODULE_TAG: ${{ github.ref_name }}
 
 on:
-  workflow_dispatch:
-  # push:
-  #   tags:
-  #     - '**'
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   prod_ce_setup_build:
@@ -72,3 +71,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
+      
+      - name: Register the module 
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
