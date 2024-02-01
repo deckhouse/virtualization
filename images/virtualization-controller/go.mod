@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization-controller
 
-go 1.19
+go 1.21
 
 require (
 	github.com/distribution/reference v0.5.0

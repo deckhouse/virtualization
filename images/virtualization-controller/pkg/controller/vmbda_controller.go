@@ -4,16 +4,11 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/rest"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -23,20 +18,9 @@ func NewVMBDAController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
+	controllerNamespace string,
 ) (controller.Controller, error) {
-	config := *mgr.GetConfig()
-
-	config.GroupVersion = &virtv1.StorageGroupVersion
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(runtime.NewScheme())}
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-
-	restClient, err := rest.RESTClientFor(&config)
-	if err != nil {
-		return nil, err
-	}
-
-	reconciler := NewVMBDAReconciler(kvapi.NewClient(restClient))
+	reconciler := NewVMBDAReconciler(controllerNamespace)
 
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMBDAReconcilerState](
 		reconciler,
