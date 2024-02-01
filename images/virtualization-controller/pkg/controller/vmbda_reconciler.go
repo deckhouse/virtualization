@@ -18,18 +18,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kubevirt"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 type VMBDAReconciler struct {
-	kubevirt *kvapi.Client
+	controllerNamespace string
 }
 
-func NewVMBDAReconciler(kv *kvapi.Client) *VMBDAReconciler {
+func NewVMBDAReconciler(controllerNamespace string) *VMBDAReconciler {
 	return &VMBDAReconciler{
-		kubevirt: kv,
+		controllerNamespace: controllerNamespace,
 	}
 }
 
@@ -246,8 +247,12 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 			},
 		},
 	}
-
-	err := r.kubevirt.AddVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, hotplugRequest)
+	kv, err := kubevirt.New(ctx, state.Client, r.controllerNamespace)
+	if err != nil {
+		return err
+	}
+	kvApi := kvapi.New(state.Client, kv)
+	err = kvApi.AddVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &hotplugRequest)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %w", err)
 	}
@@ -264,7 +269,12 @@ func (r *VMBDAReconciler) unplugVolume(ctx context.Context, state *VMBDAReconcil
 		Name: kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name),
 	}
 
-	err := r.kubevirt.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unplugRequest)
+	kv, err := kubevirt.New(ctx, state.Client, r.controllerNamespace)
+	if err != nil {
+		return err
+	}
+	kvApi := kvapi.New(state.Client, kv)
+	err = kvApi.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unplugRequest)
 	if err != nil {
 		return fmt.Errorf("error removing volume, %w", err)
 	}
