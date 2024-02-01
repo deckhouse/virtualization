@@ -104,6 +104,14 @@ rules:
   - list
   - delete
 - apiGroups:
+    - x.virtualization.deckhouse.io
+  resources:
+    - kubevirts
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - '*'
