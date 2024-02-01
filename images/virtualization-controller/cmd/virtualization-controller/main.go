@@ -234,7 +234,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := controller.NewVMBDAController(ctx, mgr, log); err != nil {
+	if _, err := controller.NewVMBDAController(ctx, mgr, log, controllerNamespace); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
