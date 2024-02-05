@@ -33,7 +33,8 @@ jobs:
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
-          echo "MODULES_MODULE_TAG=v0.0.0-${{ github.ref_name }}" >> "$GITHUB_ENV"
+          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Show dev config
