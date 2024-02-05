@@ -48,7 +48,7 @@ jobs:
           metadata:
             name: virtualization
           spec:
-            imageTag: pr${MODULES_MODULE_TAG}
+            imageTag: ${MODULES_MODULE_TAG}
             source: deckhouse
 
           ---
@@ -73,7 +73,7 @@ jobs:
 
           Or patch an existing ModulePullOverride:
 
-          kubectl patch mpo ${MODULE_NAME} --type merge -p '{"spec":{"imageTag":"pr${MODULES_MODULE_TAG}"}}'
+          kubectl patch mpo ${MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
 
           OUTER
 
