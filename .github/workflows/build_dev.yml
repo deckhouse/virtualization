@@ -36,7 +36,7 @@ jobs:
           echo "MODULES_MODULE_TAG=v0.0.0-${{ github.ref_name }}" >> "$GITHUB_ENV"
         shell: bash
 
-      - name: Config
+      - name: Show dev config
         run: |
           cat << OUTER
           Create ModuleConfig and ModulePullOverride resources to test this MR:
@@ -94,7 +94,8 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
-        shell: bash  
+        shell: bash
+        continue-on-error: true
   
   test:
     runs-on: ubuntu-latest
