@@ -55,7 +55,7 @@ jobs:
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleConfig
           metadata:
-            name: ${MODULE_NAME}
+            name: ${MODULES_MODULE_NAME}
           spec:
             enabled: true
             settings:
@@ -73,9 +73,10 @@ jobs:
 
           Or patch an existing ModulePullOverride:
 
-          kubectl patch mpo ${MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
+          kubectl patch mpo ${MODULES_MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
 
           OUTER
+        shell: bash
 
   lint:
     runs-on: ubuntu-latest
@@ -130,18 +131,19 @@ jobs:
       - lint
       - test
     steps:      
-      # - name: Set vars for PR
-      #   if: ${{ github.ref_name != 'main' }}
-      #   run: |
-      #     MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
-      #     echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      #   shell: bash
+      - name: Set vars for PR
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+        shell: bash
       
-      # - name: Set vars for main
-      #   if: ${{ github.ref_name == 'main' }}
-      #   run: |
-      #     echo "MODULES_MODULE_TAG=v0.0.0-${{ github.ref_name }}" >> "$GITHUB_ENV"
-      #   shell: bash
+      - name: Set vars for main
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+        shell: bash
       
       - name: Print vars
         run: |
