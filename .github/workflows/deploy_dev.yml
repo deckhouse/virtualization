@@ -58,8 +58,8 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v1
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
-      - name: Register the module 
+      - name: Register the module if enableBuild
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
         run: |
           echo "✨ Register the module ${MODULES_MODULE_NAME}"
           crane append \
