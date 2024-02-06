@@ -35,11 +35,10 @@ After creating `VirtualMachineDiks` in the namespace vms, the pod `importer-*` w
 Let's look at the current status of the resource:
 
 ```bash
-kubectl -n vms get virtualmachinedisk
+kubectl -n vms get virtualmachinedisk -o wide
 
-# NAME         CAPACITY   PHASE   PROGRESS
-# linux-disk   10Gi       Ready   100%
-
+# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
+# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
 ```
 
 Next, let's create a virtual machine from the following specification:
@@ -86,32 +85,20 @@ Let's check that the virtual machine is created and running:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       AGE   STATUS    READY
-# linux-vm   14s   Running   True
+# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
 Let's connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
 
 ```bash
-virtctl -n vms console linux-vm
-
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password:
-#
-# cloud@linux-vm:~$
-
+./dvp-connect -n vms --vm linux-vm
 ```
 
 Let's connect to the machine using VNC:
 
 ```bash
-virtctl -n vms vnc linux-vm
-
-# {"component":"","level":"info","msg":"--proxy-only is set to false, listening on 127.0.0.1\n","pos":"vnc.go:116","timestamp":"2023-11-29T12:32:35.928518Z"}
-# {"component":"","level":"info","msg":"connection timeout: 1m0s","pos":"vnc.go:157","timestamp":"2023-11-29T12:32:35.928903Z"}
-# {"component":"","level":"info","msg":"VNC Client connected in 383.660463ms","pos":"vnc.go:170","timestamp":"2023-11-29T12:32:36.312566Z"}
+./dvp-connect -n vms --vm linux-vm -c vnc
 ```
 
 After running the command, the default VNC client will start. An alternative way to connect is to use the `--proxy-only` parameter to forward the VNC port to a local machine:
@@ -145,9 +132,8 @@ Let's see what happens:
 ```bash
 kubectl -n vms get virtualmachineimage
 
-# NAME         PROGRESS   CDROM   PHASE
-# ubuntu-img   100.0%     false   Ready
-
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       10m
 ```
 
 to store the image in disk storage provided by the platform, the `storage` settings will be as follows:
@@ -192,8 +178,8 @@ Let's look at the status of `ClusterVirtualMachineImage`:
 ```bash
 kubectl get clustervirtualmachineimage
 
-# NAME         CDROM   PHASE     PROGRESS
-# ubuntu-img   false   Ready          100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       11m
 ```
 
 Images can be created from a variety of external sources, such as an HTTP server where the image files are hosted or a container registry where images are stored and available for download. It is also possible to download images directly from the command line using the curl utility. Let's take a closer look at each of these options.
@@ -270,16 +256,17 @@ Once the resource is created, let's look at its status:
 ```bash
 kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
 
-> curl -X POST -T example.iso http://10.222.78.79:443/v1beta1/upload
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
+    -T example.iso
 ```
 
-Connect via ssh to an random cluster node and run the command, first changing `example.iso` to the file name of the existing image:
+> It is worth noting that CVMI with the Upload type waits 15 minutes after the image is created for the upload to begin. After this timeout expires, the resource will enter the Failed state.
+
+Let's download the Cirros image for an example and boot it:
 
 ```bash
-ssh username@node-ip-address
-
-$ curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-$ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 After the `curl` command completes, the image should be created.
@@ -289,8 +276,8 @@ You can verify that everything was successful by checking the status of the crea
 ```bash
 kubectl get clustervirtualmachineimages
 
-# NAME         CDROM   PHASE               PROGRESS
-# some-image   false  Ready               100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# some-image   Ready   false   100%       10m
 ```
 
 ## Disks
@@ -327,9 +314,8 @@ You can view the status of the created resource with the command:
 ```bash
 kubectl get virtualmachinedisk
 
-# kubectl get virtualmachinedisks
-# NAME        CAPACITY   PHASE          PROGRESS
-# vmd-blank   100Mi      Ready          100%
+# NAME        PHASE  CAPACITY   AGE
+# vmd-blank   Ready  100Mi      1m
 ```
 
 ### Creating a disk from an image
@@ -499,8 +485,8 @@ After startup, the virtual machine must be in `Ready` status.
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
 After creation, the virtual machine will automatically obtain an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
@@ -544,28 +530,44 @@ Make changes to the previously created virtual machine specification.
 
 ### 3. Customize how the changes are applied
 
-After making changes to the machine configuration - nothing will happen. Because by default the `Manual` change application policy is applied, which means that the changes need to be validated.
+After making changes to the machine configuration, nothing will happen because the `Manual` change application policy is applied by default, which means that the changes need to be validated.
 
-How can we figure this out? For this purpose, in the status of the virtual machine resource, we can see the changeID parameter, which contains the hash of the change.
+How can we figure this out?
 
-To validate the changes, we need to get the changeID:
+Let's look at the status of the VM:
 
 ```bash
-kubectl get virtualmachine linux-vm -o jsonpath='{.status.changeID}'
-
-# s0MeH4sh
+kubectl get linux-vm -o jsonpath='{.status}'
 ```
 
-Next, let's edit the virtual machine specification:
+In the `.status.pendingChanges` field, we will see the changes that need to be applied. In the `.status.message` field, we will see a message that a restart of the virtual machine is required to apply the required changes.
 
-```yaml
+Let's create and apply the following resource, which is responsible for the declarative way of managing the state of the virtual machine:
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: restart
 spec:
-  approvedChangeID: s0MeH4sh
+  virtualMachineName: linux-vm
+  type: Restart
+EOF
 ```
 
-After making the changes, the virtual machine will reboot and the new virtual machine configuration parameters will be applied.
+Let's look at the status of the resource that has been created:
 
-What if we want the changes to be applied automatically? To do this, configure the change application policy as follows:
+```bash
+kubectl get vmops restart
+
+# NAME       PHASE       VMNAME     AGE
+# restart    Completed   linux-vm   1m
+```
+
+Once it goes to the `Completed` state, the virtual machine reboot is complete and the new virtual machine configuration settings are applied.
+
+What if we want the changes required to reboot the virtual machine to be applied automatically? To do this, we need to configure the change application policy as follows:
 
 ```yaml
 spec:
@@ -578,7 +580,7 @@ spec:
 Let's connect to the virtual machine using the serial console:
 
 ```bash
-virtctl -n default console linux-vm
+./dvp-connect -n default --vm linux-vm
 ```
 
 terminate the virtual machine:
@@ -592,8 +594,8 @@ then look at the status of the virtual machine
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
 the virtual machine is up and running again! But why did this happen?

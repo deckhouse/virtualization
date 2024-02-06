@@ -83,7 +83,7 @@ spec:
 Once the resource is created, the virtual machine will be started. You need to connect to it and use the graphical wizard to add the `virtio` drivers and perform the OS installation.
 
 ```bash
-virtctl -n default vnc win-vm
+dvp vnc -n default win-vm
 ```
 
 After the installation is complete, shut down the virtual machine.
