@@ -250,7 +250,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := vmop.NewVMOPController(ctx, mgr, log); err != nil {
+	if _, err := vmop.NewController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

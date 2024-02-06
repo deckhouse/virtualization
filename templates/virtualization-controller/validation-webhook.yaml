@@ -92,7 +92,7 @@ webhooks:
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v2alpha1"]
-        operations:  ["CREATE"]
+        operations:  ["UPDATE"]
         resources:   ["virtualmachineoperations"]
         scope:       "Cluster"
     clientConfig:

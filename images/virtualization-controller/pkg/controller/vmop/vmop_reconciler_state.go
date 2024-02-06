@@ -16,7 +16,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
-type VMOPReconcilerState struct {
+type ReconcilerState struct {
 	Client client.Client
 	Result *reconcile.Result
 
@@ -40,8 +40,8 @@ func (op *OperationResult) Message() string {
 	return op.message
 }
 
-func NewVMOPReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *VMOPReconcilerState {
-	state := &VMOPReconcilerState{
+func NewReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *ReconcilerState {
+	state := &ReconcilerState{
 		Client: client,
 		VMOP: helper.NewResource(
 			name, log, client, cache,
@@ -52,7 +52,7 @@ func NewVMOPReconcilerState(name types.NamespacedName, log logr.Logger, client c
 	return state
 }
 
-func (state *VMOPReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
+func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
 	err := state.VMOP.Fetch(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
@@ -75,66 +75,66 @@ func (state *VMOPReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 	return nil
 }
 
-func (state *VMOPReconcilerState) ShouldReconcile(_ logr.Logger) bool {
+func (state *ReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 	return !state.VMOP.IsEmpty()
 }
 
-func (state *VMOPReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
+func (state *ReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
 	if err := state.VMOP.UpdateMeta(ctx); err != nil {
 		return fmt.Errorf("unable to update VMOP %q meta: %w", state.VMOP.Name(), err)
 	}
 	return nil
 }
 
-func (state *VMOPReconcilerState) ApplyUpdateStatus(ctx context.Context, _ logr.Logger) error {
+func (state *ReconcilerState) ApplyUpdateStatus(ctx context.Context, _ logr.Logger) error {
 	return state.VMOP.UpdateStatus(ctx)
 }
 
-func (state *VMOPReconcilerState) SetReconcilerResult(result *reconcile.Result) {
+func (state *ReconcilerState) SetReconcilerResult(result *reconcile.Result) {
 	state.Result = result
 }
 
-func (state *VMOPReconcilerState) GetReconcilerResult() *reconcile.Result {
+func (state *ReconcilerState) GetReconcilerResult() *reconcile.Result {
 	return state.Result
 }
 
-func (state *VMOPReconcilerState) IsDeletion() bool {
+func (state *ReconcilerState) IsDeletion() bool {
 	if state.VMOP.IsEmpty() {
 		return false
 	}
 	return state.VMOP.Current().DeletionTimestamp != nil
 }
 
-func (state *VMOPReconcilerState) IsProtected() bool {
+func (state *ReconcilerState) IsProtected() bool {
 	return controllerutil.ContainsFinalizer(state.VMOP.Current(), virtv2.FinalizerVMOPCleanup)
 }
 
-func (state *VMOPReconcilerState) IsCompleted() bool {
+func (state *ReconcilerState) IsCompleted() bool {
 	if state.VMOP.IsEmpty() {
 		return false
 	}
 	return state.VMOP.Current().Status.Phase == virtv2.VMOPPhaseCompleted
 }
 
-func (state *VMOPReconcilerState) IsFailed() bool {
+func (state *ReconcilerState) IsFailed() bool {
 	if state.VMOP.IsEmpty() {
 		return false
 	}
 	return state.VMOP.Current().Status.Phase == virtv2.VMOPPhaseFailed
 }
 
-func (state *VMOPReconcilerState) IsInProgress() bool {
+func (state *ReconcilerState) IsInProgress() bool {
 	if state.VMOP.IsEmpty() {
 		return false
 	}
 	return state.VMOP.Current().Status.Phase == virtv2.VMOPPhaseInProgress
 }
 
-func (state *VMOPReconcilerState) VmIsEmpty() bool {
+func (state *ReconcilerState) VmIsEmpty() bool {
 	return state.VM == nil
 }
 
-func (state *VMOPReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool, error) {
+func (state *ReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool, error) {
 	vmops := virtv2.VirtualMachineOperationList{}
 	err := state.Client.List(ctx, &vmops, &client.ListOptions{Namespace: state.VMOP.Current().Namespace})
 	if err != nil {
@@ -153,38 +153,38 @@ func (state *VMOPReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool
 	return false, nil
 }
 
-func (state *VMOPReconcilerState) SetOperationResult(result bool, msg string) {
+func (state *ReconcilerState) SetOperationResult(result bool, msg string) {
 	state.operationResult = &OperationResult{message: msg, success: result}
 }
 
-func (state *VMOPReconcilerState) GetOperationResult() *OperationResult {
+func (state *ReconcilerState) GetOperationResult() *OperationResult {
 	return state.operationResult
 }
 
-func (state *VMOPReconcilerState) SetInProgress() {
+func (state *ReconcilerState) SetInProgress() {
 	state.inProgress = true
 }
 
-func (state *VMOPReconcilerState) GetInProgress() bool {
+func (state *ReconcilerState) GetInProgress() bool {
 	return state.inProgress
 }
 
-func (state *VMOPReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
+func (state *ReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
 	if state.VmIsEmpty() {
 		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachineName)
 	}
 	kvvm := &virtv1.VirtualMachine{}
-	err := state.Client.Get(ctx, types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}, kvvm)
+	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}
+	err := state.Client.Get(ctx, key, kvvm)
 	return kvvm, err
 }
 
-func (state *VMOPReconcilerState) GetKVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error) {
+func (state *ReconcilerState) GetKVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error) {
 	if state.VmIsEmpty() {
 		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachineName)
 	}
 	kvvmi := &virtv1.VirtualMachineInstance{}
-	err := state.Client.Get(ctx,
-		types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()},
-		kvvmi)
+	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}
+	err := state.Client.Get(ctx, key, kvvmi)
 	return kvvmi, err
 }

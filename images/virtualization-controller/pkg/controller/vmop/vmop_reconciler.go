@@ -25,17 +25,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
-type VMOPReconciler struct{}
+type Reconciler struct{}
 
-func NewVMOPReconciler() *VMOPReconciler {
-	return &VMOPReconciler{}
+func NewReconciler() *Reconciler {
+	return &Reconciler{}
 }
 
-func (r *VMOPReconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineOperation{}), &handler.EnqueueRequestForObject{})
 }
 
-func (r *VMOPReconciler) Sync(ctx context.Context, req reconcile.Request, state *VMOPReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
 
 	switch {
@@ -91,7 +91,7 @@ func (r *VMOPReconciler) Sync(ctx context.Context, req reconcile.Request, state 
 	return nil
 }
 
-func (r *VMOPReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMOPReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
 	log.V(2).Info("Update VMOP status", "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
 
@@ -135,11 +135,11 @@ func (r *VMOPReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, st
 	return nil
 }
 
-func (r *VMOPReconciler) IsProtected(obj client.Object) bool {
+func (r *Reconciler) IsProtected(obj client.Object) bool {
 	return controllerutil.ContainsFinalizer(obj, virtv2.FinalizerVMOPProtection)
 }
 
-func (r *VMOPReconciler) ensureVMFinalizers(ctx context.Context, state *VMOPReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) ensureVMFinalizers(ctx context.Context, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.VM != nil && controllerutil.AddFinalizer(state.VM, virtv2.FinalizerVMOPProtection) {
 		if err := opts.Client.Update(ctx, state.VM); err != nil {
 			return fmt.Errorf("error setting finalizer on a VM %q: %w", state.VM.Name, err)
@@ -148,7 +148,7 @@ func (r *VMOPReconciler) ensureVMFinalizers(ctx context.Context, state *VMOPReco
 	return nil
 }
 
-func (r *VMOPReconciler) removeVMFinalizers(ctx context.Context, state *VMOPReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) removeVMFinalizers(ctx context.Context, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.VM != nil && controllerutil.RemoveFinalizer(state.VM, virtv2.FinalizerVMOPProtection) {
 		if err := opts.Client.Update(ctx, state.VM); err != nil {
 			return fmt.Errorf("unable to remove VM %q finalizer %q: %w", state.VM.Name, virtv2.FinalizerVMOPProtection, err)
@@ -157,7 +157,7 @@ func (r *VMOPReconciler) removeVMFinalizers(ctx context.Context, state *VMOPReco
 	return nil
 }
 
-func (r *VMOPReconciler) cleanupOnDeletion(ctx context.Context, state *VMOPReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) cleanupOnDeletion(ctx context.Context, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if err := r.removeVMFinalizers(ctx, state, opts); err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (r *VMOPReconciler) cleanupOnDeletion(ctx context.Context, state *VMOPRecon
 	return nil
 }
 
-func (r *VMOPReconciler) doOperation(ctx context.Context, operationSpec virtv2.VirtualMachineOperationSpec, state *VMOPReconcilerState) error {
+func (r *Reconciler) doOperation(ctx context.Context, operationSpec virtv2.VirtualMachineOperationSpec, state *ReconcilerState) error {
 	switch operationSpec.Type {
 	case virtv2.VMOPOperationTypeStart:
 		return r.doOperationStart(ctx, state)
@@ -178,7 +178,7 @@ func (r *VMOPReconciler) doOperation(ctx context.Context, operationSpec virtv2.V
 	}
 }
 
-func (r *VMOPReconciler) doOperationStart(ctx context.Context, state *VMOPReconcilerState) error {
+func (r *Reconciler) doOperationStart(ctx context.Context, state *ReconcilerState) error {
 	kvvm, err := state.GetKVVM(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get kvvm %q. %w", state.VM.Name, err)
@@ -192,7 +192,7 @@ func (r *VMOPReconciler) doOperationStart(ctx context.Context, state *VMOPReconc
 	return state.Client.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
 }
 
-func (r *VMOPReconciler) doOperationStop(ctx context.Context, force bool, state *VMOPReconcilerState) error {
+func (r *Reconciler) doOperationStop(ctx context.Context, force bool, state *ReconcilerState) error {
 	kvvmi, err := state.GetKVVMI(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get kvvmi %q. %w", state.VM.Name, err)
@@ -206,7 +206,7 @@ func (r *VMOPReconciler) doOperationStop(ctx context.Context, force bool, state 
 	return nil
 }
 
-func (r *VMOPReconciler) doOperationRestart(ctx context.Context, force bool, state *VMOPReconcilerState) error {
+func (r *Reconciler) doOperationRestart(ctx context.Context, force bool, state *ReconcilerState) error {
 	kvvm, err := state.GetKVVM(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot get kvvm %q. %w", state.VM.Name, err)
@@ -232,7 +232,7 @@ func (r *VMOPReconciler) doOperationRestart(ctx context.Context, force bool, sta
 	return nil
 }
 
-func (r *VMOPReconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineStateChangeRequest) ([]byte, error) {
+func (r *Reconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineStateChangeRequest) ([]byte, error) {
 	jp := patch.NewJsonPatch()
 	verb := patch.PatchAddOp
 	// Special case: if there's no status field at all, add one.
@@ -261,14 +261,14 @@ func (r *VMOPReconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...
 	return jp.Bytes()
 }
 
-func (r *VMOPReconciler) isOperationAllowed(op virtv2.VMOPOperation, state *VMOPReconcilerState) bool {
+func (r *Reconciler) isOperationAllowed(op virtv2.VMOPOperation, state *ReconcilerState) bool {
 	if state.VmIsEmpty() {
 		return false
 	}
 	return r.isOperationAllowedForRunPolicy(op, state.VM.Spec.RunPolicy) && r.isOperationAllowedForVmPhase(op, state.VM.Status.Phase)
 }
 
-func (r *VMOPReconciler) isOperationAllowedForRunPolicy(op virtv2.VMOPOperation, runPolicy virtv2.RunPolicy) bool {
+func (r *Reconciler) isOperationAllowedForRunPolicy(op virtv2.VMOPOperation, runPolicy virtv2.RunPolicy) bool {
 	switch runPolicy {
 	case virtv2.AlwaysOnPolicy:
 		return op == virtv2.VMOPOperationTypeRestart
@@ -281,7 +281,7 @@ func (r *VMOPReconciler) isOperationAllowedForRunPolicy(op virtv2.VMOPOperation,
 	}
 }
 
-func (r *VMOPReconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase virtv2.MachinePhase) bool {
+func (r *Reconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase virtv2.MachinePhase) bool {
 	if phase == virtv2.MachineTerminating ||
 		phase == virtv2.MachinePending ||
 		phase == virtv2.MachineScheduling ||

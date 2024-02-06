@@ -18,16 +18,16 @@ const (
 	controllerName = "vmop-controller"
 )
 
-func NewVMOPController(
+func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
 ) (controller.Controller, error) {
-	reconciler := NewVMOPReconciler()
+	reconciler := NewReconciler()
 
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMOPReconcilerState](
+	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*ReconcilerState](
 		reconciler,
-		NewVMOPReconcilerState,
+		NewReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
 			Cache:    mgr.GetCache(),
@@ -50,7 +50,7 @@ func NewVMOPController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewVMOPValidator(log)).
+		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return nil, err
 	}

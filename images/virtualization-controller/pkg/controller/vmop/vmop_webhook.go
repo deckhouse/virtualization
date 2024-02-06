@@ -12,24 +12,26 @@ import (
 	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
-func NewVMOPValidator(log logr.Logger) *VMOPValidator {
-	return &VMOPValidator{
+func NewValidator(log logr.Logger) *Validator {
+	return &Validator{
 		log: log.WithName(controllerName).WithValues("webhook", "validation"),
 	}
 }
 
-type VMOPValidator struct {
+type Validator struct {
 	log logr.Logger
 }
 
-func (v *VMOPValidator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	err := fmt.Errorf("misconfigured webhook rools: delete operation not implemented")
+	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }
 
-func (v *VMOPValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldVmop, ok := oldObj.(*v1alpha2.VirtualMachineOperation)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineOperation but got a %T", oldObj)
+		return nil, fmt.Errorf("expected an old VirtualMachineOperation but got a %T", oldObj)
 	}
 	newVmop, ok := newObj.(*v1alpha2.VirtualMachineOperation)
 	if !ok {
@@ -46,6 +48,8 @@ func (v *VMOPValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime
 	return nil, err
 }
 
-func (v *VMOPValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	err := fmt.Errorf("misconfigured webhook rools: delete operation not implemented")
+	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }
