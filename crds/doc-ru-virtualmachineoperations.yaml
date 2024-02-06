@@ -1,0 +1,40 @@
+
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Этот ресурс предоставляет возможность декларативно управлять изменением состояний виртуальных машины.
+          properties:
+            spec:
+              properties:
+                type:
+                  description: |
+                    Операции над виртуальной машиной:
+
+                    * Start - запустить виртуальную машину.
+                    * Stop - остановить виртуальную машину.
+                    * Restart - перезапустить виртуальную машину.
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, для которой выполняется операция.
+                force:
+                  description: |
+                    Форсирует выполнение операции. Применяется только для операций Restart и Stop. В этом случае действие над виртуальной машиной выполняется немедленно.
+            status:
+              properties:
+                phase:
+                  description: |
+                    Представляет текущую фазу ресурса:
+
+                    * Pending - операция поставлена в очередь на выполнение.
+                    * InProgress - операция в процессе выполнения.
+                    * Completed - операция прошла успешно.
+                    * Failed - операция завершилась неудачно. См. `.status.failureReason`.
+                failureReason:
+                  description: |
+                    Краткое описание причины ошибки.
+                failureMessage:
+                  description: |
+                    Подробное описание ошибки.

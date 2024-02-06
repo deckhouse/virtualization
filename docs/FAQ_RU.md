@@ -83,7 +83,7 @@ spec:
 После создания ресурса виртуальная машина будет запущена. К ней необходимо подключиться, с помощью графического установщика добавить драйверы `virtio` и выполнить установку ОС.
 
 ```bash
-virtctl -n default vnc win-vm
+dvp vnc -n default win-vm
 ```
 
 После окончания установки завершить работу виртуальной машины.
@@ -185,24 +185,24 @@ metadata:
 
 # Как увеличить размер DVCR
 
-Для увеличения размера нужно задать размер в конфигурации `moduleconfig` `virtualization` размер больший чем есть  
+Для увеличения размера нужно задать размер в конфигурации `moduleconfig` `virtualization` размер больший чем есть
 
-Посмотреть текущий размер dvcr  
+Посмотреть текущий размер dvcr
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
 {"size":"58G","storageClassName":"linstor-thick-data-r1"}
 ```
 
-Задать размер  
+Задать размер
 ```shell
 kubectl patch mc virtualization \
   --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
-  
+
 #Output
 moduleconfig.deckhouse.io/virtualization patched
 ```
-Проверить изменение размера  
+Проверить изменение размера
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
