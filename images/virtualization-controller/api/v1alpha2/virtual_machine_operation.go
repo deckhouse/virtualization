@@ -19,9 +19,9 @@ type VirtualMachineOperation struct {
 }
 
 type VirtualMachineOperationSpec struct {
-	Type               string `json:"type"`
-	VirtualMachineName string `json:"virtualMachineName"`
-	Force              bool   `json:"force,omitempty"`
+	Type               VMOPOperation `json:"type"`
+	VirtualMachineName string        `json:"virtualMachineName"`
+	Force              bool          `json:"force,omitempty"`
 }
 
 type VirtualMachineOperationStatus struct {
@@ -41,14 +41,16 @@ type VirtualMachineOperationList struct {
 type VMOPPhase string
 
 const (
-	VMOPPhasePending    = "Pending"
-	VMOPPhaseInProgress = "InProgress"
-	VMOPPhaseCompleted  = "Completed"
-	VMOPPhaseFailed     = "Failed"
+	VMOPPhasePending    VMOPPhase = "Pending"
+	VMOPPhaseInProgress VMOPPhase = "InProgress"
+	VMOPPhaseCompleted  VMOPPhase = "Completed"
+	VMOPPhaseFailed     VMOPPhase = "Failed"
 )
 
+type VMOPOperation string
+
 const (
-	VMOPOperationTypeRestart = "Restart"
-	VMOPOperationTypeStart   = "Start"
-	VMOPOperationTypeStop    = "Stop"
+	VMOPOperationTypeRestart VMOPOperation = "Restart"
+	VMOPOperationTypeStart   VMOPOperation = "Start"
+	VMOPOperationTypeStop    VMOPOperation = "Stop"
 )

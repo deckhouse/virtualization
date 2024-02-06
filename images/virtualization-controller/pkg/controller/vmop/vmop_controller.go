@@ -2,17 +2,20 @@ package vmop
 
 import (
 	"context"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"time"
+
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"time"
+
+	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
 const (
-	vmopControllerName = "vmop-controller"
-	vmopShortName      = "vmop"
+	controllerName = "vmop-controller"
 )
 
 func NewVMOPController(
@@ -28,21 +31,30 @@ func NewVMOPController(
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
 			Cache:    mgr.GetCache(),
-			Recorder: mgr.GetEventRecorderFor(vmopControllerName),
+			Recorder: mgr.GetEventRecorderFor(controllerName),
 			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(vmopControllerName),
+			Log:      log.WithName(controllerName),
 		})
 
-	c, err := controller.New(vmopControllerName, mgr, controller.Options{
+	c, err := controller.New(controllerName, mgr, controller.Options{
 		Reconciler:  reconcilerCore,
 		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&v1alpha2.VirtualMachineIPAddressLease{}).
+		WithValidator(NewVMOPValidator(log)).
+		Complete(); err != nil {
+		return nil, err
+	}
+
 	log.Info("Initialized VirtualMachineOperation controller")
 	return c, nil
 }

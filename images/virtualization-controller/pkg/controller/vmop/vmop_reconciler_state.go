@@ -3,9 +3,7 @@ package vmop
 import (
 	"context"
 	"fmt"
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -13,6 +11,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type VMOPReconcilerState struct {
@@ -78,6 +80,25 @@ func (state *VMOPReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 
 func (state *VMOPReconcilerState) ShouldReconcile(_ logr.Logger) bool {
 	return !state.VMOP.IsEmpty()
+}
+
+func (state *VMOPReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
+	if err := state.VMOP.UpdateMeta(ctx); err != nil {
+		return fmt.Errorf("unable to update VMOP %q meta: %w", state.VMOP.Name(), err)
+	}
+	return nil
+}
+
+func (state *VMOPReconcilerState) ApplyUpdateStatus(ctx context.Context, _ logr.Logger) error {
+	return state.VMOP.UpdateStatus(ctx)
+}
+
+func (state *VMOPReconcilerState) SetReconcilerResult(result *reconcile.Result) {
+	state.Result = result
+}
+
+func (state *VMOPReconcilerState) GetReconcilerResult() *reconcile.Result {
+	return state.Result
 }
 
 func (state *VMOPReconcilerState) IsDeletion() bool {

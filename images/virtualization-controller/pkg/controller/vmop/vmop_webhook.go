@@ -3,9 +3,10 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
@@ -13,7 +14,7 @@ import (
 
 func NewVMOPValidator(log logr.Logger) *VMOPValidator {
 	return &VMOPValidator{
-		log: log.WithName(vmopControllerName).WithValues("webhook", "validation"),
+		log: log.WithName(controllerName).WithValues("webhook", "validation"),
 	}
 }
 
