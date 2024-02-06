@@ -45,11 +45,11 @@ properties:
   dvcr:
     description: |
       Параметры, для настройки deckhouse virtualization container registry.
-      Внутренний сервис для хранения и кеширования образов виртуальных машин. 
+      Внутренний сервис для хранения и кеширования образов виртуальных машин.
     properties:
-      storage: 
+      storage:
         description: |
-          Параметры для настройки хранилища. 
+          Параметры для настройки хранилища.
         properties:
           type:
             description: |
@@ -62,16 +62,16 @@ properties:
             properties:
               storageClassName:
                 description: |
-                  Имя StorageClass, используемого для создания persistentvolumeclaim. 
+                  Имя StorageClass, используемого для создания persistentvolumeclaim.
               size:
                 description: |
                   Размер pvc.
           objectStorage:
             description: |
-              Параметры для настройки объектного хранилища. 
+              Параметры для настройки объектного хранилища.
             properties:
               s3:
-                description: | 
+                description: |
                   Параметры для использования s3.
                 properties:
                   accessKey:
@@ -82,8 +82,8 @@ properties:
                     description: |
                       secretKey должен быть закодирован в base64.
                       secretKey — это конфиденциальный секретный ключ, связанный с вашим идентификатором ключа доступа.
-                  region: 
-                    description: | 
+                  region:
+                    description: |
                       Географическая зона.
                   regionEndpoint:
                     description: |
