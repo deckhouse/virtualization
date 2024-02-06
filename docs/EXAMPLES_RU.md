@@ -30,16 +30,15 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-После создания `VirtualMachineDiks` в namespace vms, запустится под `importer-*`, который осуществит загрузку заданного образа.
+После создания `VirtualMachineDiks` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
 
 Посмотрим на текущий статус ресурса:
 
 ```bash
-kubectl -n vms get virtualmachinedisk
+kubectl -n vms get virtualmachinedisk -o wide
 
-# NAME         CAPACITY   PHASE   PROGRESS
-# linux-disk   10Gi       Ready   100%
-
+# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
+# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
 ```
 
 Далее создадим виртуальную машину из следующей спецификации:
@@ -86,32 +85,20 @@ spec:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       AGE   STATUS    READY
-# linux-vm   14s   Running   True
+# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
 Подключимся к виртуальной машине с использованием консоли (для выхода из консоли необходимо нажать `Ctrl+]`):
 
 ```bash
-virtctl -n vms console linux-vm
-
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password:
-#
-# cloud@linux-vm:~$
-
+dvp console -n vms linux-vm
 ```
 
 Подключимся к машине с использованием VNC:
 
 ```bash
-virtctl -n vms vnc linux-vm
-
-# {"component":"","level":"info","msg":"--proxy-only is set to false, listening on 127.0.0.1\n","pos":"vnc.go:116","timestamp":"2023-11-29T12:32:35.928518Z"}
-# {"component":"","level":"info","msg":"connection timeout: 1m0s","pos":"vnc.go:157","timestamp":"2023-11-29T12:32:35.928903Z"}
-# {"component":"","level":"info","msg":"VNC Client connected in 383.660463ms","pos":"vnc.go:170","timestamp":"2023-11-29T12:32:36.312566Z"}
+dvp vnc -n vms linux-vm
 ```
 
 После выполнения команды запустится VNC-клиент, используемый в системе по умолчанию. Альтернативный способ подключения — с помощью параметра `--proxy-only` пробросить VNC-порт на локальную машину.
@@ -149,9 +136,8 @@ spec:
 ```bash
 kubectl -n vms get virtualmachineimage
 
-# NAME         PROGRESS   CDROM   PHASE
-# ubuntu-img   100.0%     false   Ready
-
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       10m
 ```
 
 Для хранения образа в дисковом хранилище, предоставляемом платформой, настройки `storage` будут выглядеть следующим образом:
@@ -196,8 +182,8 @@ spec:
 ```bash
 kubectl get clustervirtualmachineimage
 
-# NAME         CDROM   PHASE     PROGRESS
-# ubuntu-img   false   Ready          100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# ubuntu-img   Ready   false   100%       11m
 ```
 
 Образы могут быть созданы из различных внешних источников, таких как HTTP-сервер, где размещены файлы образов или контейнерный реестр (container registry), где образы хранятся и доступны для загрузки. Кроме того, возможно загрузить образы напрямую из командной строки, используя утилиту curl. Давайте рассмотрим каждый из этих вариантов более подробно.
@@ -274,16 +260,17 @@ spec:
 ```bash
 kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
 
-> curl -X POST -T example.iso http://10.222.78.79:443/v1beta1/upload
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
+    -T example.iso
 ```
 
-Подключимся по SSH к произвольному узлу кластера и выполним команду, предварительно поменяв `example.iso` на имя файла существующего образа:
+> Стоит отметить, что CVMI с типом Upload ожидает начала загрузки образа 15 минут после создания. По истечении данного таймаута ресурс перейдет в состояние Failed.
+
+Загрузим для примера образ Cirros и загрузим его:
 
 ```bash
-ssh username@node-ip-address
-
-$ curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-$ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 После завершения работы команды `curl` образ должен быть создан.
@@ -293,8 +280,8 @@ $ curl -X POST -T cirros.img http://10.222.78.79:443/v1beta1/upload
 ```bash
 kubectl get clustervirtualmachineimages
 
-# NAME         CDROM   PHASE               PROGRESS
-# some-image   false  Ready               100%
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# some-image   Ready   false   100%       10m
 ```
 
 ## Диски
@@ -331,9 +318,8 @@ spec:
 ```bash
 kubectl get virtualmachinedisk
 
-# kubectl get virtualmachinedisks
-# NAME        CAPACITY   PHASE          PROGRESS
-# vmd-blank   100Mi      Ready          100%
+# NAME        PHASE  CAPACITY   AGE
+# vmd-blank   Ready  100Mi      1m
 ```
 
 ### Создание диска из образа
@@ -502,8 +488,8 @@ spec:
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
 После создания виртуальная машина автоматически получит IP-адрес из диапазона, указанного в настройках модуля (блок `virtualMachineCIDRs`).
@@ -549,26 +535,42 @@ spec:
 
 После внесения изменений в конфигурацию машины ничего не произойдет, так как по умолчанию применяется политика применения изменений `Manual`, а это значит, что изменения нужно подтвердить.
 
-Как мы можем это понять? Для этого в статусе ресурса виртуальной машины мы можем увидеть параметр changeID, который содержит хэш изменений.
+Как мы можем это понять?
 
-Для подтверждения изменений необходимо получить идентификатор изменений:
+Посмотрим на статус VM:
 
 ```bash
-kubectl get virtualmachine linux-vm -o jsonpath='{.status.changeID}'
-
-# s0MeH4sh
+kubectl get linux-vm -o jsonpath='{.status}'
 ```
 
-Далее отредактируем спецификацию виртуальной машины:
+В поле `.status.pendingChanges` мы увидим изменения, которые требуют применения. В поле `.status.message` сообщение, о том что для применения требуемых изменений необходим рестарт виртуальной машины.
 
-```yaml
+Создадим и применим следующий ресурс, от отвечает за декларативный способ управления состоянием виртуальной машины:
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: restart
 spec:
-  approvedChangeID: s0MeH4sh
+  virtualMachineName: linux-vm
+  type: Restart
+EOF
 ```
 
-После внесения изменений виртуальная машина перезагрузится и новые параметры конфигурации виртуальной машины будут применены.
+Посмотрим за состоянием созданного ресурса:
 
-Что делать, если мы хотим, чтобы изменения применялись автоматически? Для этого необходимо сконфигурировать политику применения изменений следующим образом:
+```bash
+kubectl get vmops restart
+
+# NAME       PHASE       VMNAME     AGE
+# restart    Completed   linux-vm   1m
+```
+
+Как только он перейдет в состояние `Completed` - перезагрузка виртуальной машины завершилась, и новые параметры конфигурации виртуальной машины - применены.
+
+Что делать, если мы хотим, чтобы изменения требуемые перезагрузки виртуальной машины применялись автоматически? Для этого необходимо сконфигурировать политику применения изменений следующим образом:
 
 ```yaml
 spec:
@@ -581,7 +583,7 @@ spec:
 Подключимся к виртуальной машине с использованием серийной консоли:
 
 ```bash
-virtctl -n default console linux-vm
+dvp console -n default linux-vm
 ```
 
 Завершим работу виртуальной машины:
@@ -595,8 +597,8 @@ cloud@linux-vm$ sudo poweroff
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS
-# linux-vm   Running   node-name-x   10.111.1.23
+# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
 Виртуальная машина снова запущена! Но почему так произошло?
