@@ -39,6 +39,11 @@ on:
         type: string
         required: true
 
+      enableBuild:
+        type: boolean
+        default: true
+        description: 'Set to true if build is required'
+
 jobs:
   print-vars:
     runs-on: ubuntu-latest
@@ -68,6 +73,28 @@ jobs:
            echo $MODULES_MODULE_SOURCE
        - uses: actions/checkout@v4
        - uses: deckhouse/modules-actions/setup@v1
+
+       - if: ${{ github.event.inputs.enableBuild == 'true' }}
+         uses: deckhouse/modules-actions/build@v1
+       - name: Register the module if enableBuild
+         if: ${{ github.event.inputs.enableBuild == 'true' }}
+         run: |
+           echo "✨ Register the module ${MODULES_MODULE_NAME}"
+           crane append \
+             --oci-empty-base \
+             --new_layer "" \
+             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+         shell: bash
+       - name: Register the module
+         if: ${{ github.event.inputs.enableBuild == 'true' }}
+         run: |
+           echo "✨ Register the module ${MODULES_MODULE_NAME}"
+           crane append \
+             --oci-empty-base \
+             --new_layer "" \
+             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+         shell: bash
+        
        - uses: deckhouse/modules-actions/deploy@v1
   
   job-EE:
@@ -84,6 +111,28 @@ jobs:
            echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
+
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v1
+      - name: Register the module if enableBuild
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+      - name: Register the module
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+      
       - uses: deckhouse/modules-actions/deploy@v1
       
   job-FE:
@@ -98,6 +147,32 @@ jobs:
       - name: ECHO VAR
         run: |
            echo $MODULES_MODULE_SOURCE
+      - name: Validation for tag
+        run: |
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+'
+        shell: bash
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
+      
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v1
+      - name: Register the module if enableBuild
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+      - name: Register the module
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+        
       - uses: deckhouse/modules-actions/deploy@v1
