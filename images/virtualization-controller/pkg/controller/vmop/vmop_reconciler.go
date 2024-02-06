@@ -6,9 +6,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -19,10 +16,8 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 type Reconciler struct{}
@@ -183,13 +178,7 @@ func (r *Reconciler) doOperationStart(ctx context.Context, state *ReconcilerStat
 	if err != nil {
 		return fmt.Errorf("cannot get kvvm %q. %w", state.VM.Name, err)
 	}
-
-	jp, err := r.getChangeRequest(kvvm,
-		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
-	if err != nil {
-		return err
-	}
-	return state.Client.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
+	return kvvmutil.StartKVVM(ctx, state.Client, kvvm)
 }
 
 func (r *Reconciler) doOperationStop(ctx context.Context, force bool, state *ReconcilerState) error {
@@ -197,13 +186,7 @@ func (r *Reconciler) doOperationStop(ctx context.Context, force bool, state *Rec
 	if err != nil {
 		return fmt.Errorf("cannot get kvvmi %q. %w", state.VM.Name, err)
 	}
-	if err := state.Client.Delete(ctx, kvvmi, &client.DeleteOptions{}); err != nil {
-		return err
-	}
-	if force {
-		return kvvmutil.DeletePodByKVVMI(ctx, state.Client, kvvmi, &client.DeleteOptions{GracePeriodSeconds: util.GetPointer(int64(0))})
-	}
-	return nil
+	return kvvmutil.StopKVVM(ctx, state.Client, kvvmi, force)
 }
 
 func (r *Reconciler) doOperationRestart(ctx context.Context, force bool, state *ReconcilerState) error {
@@ -215,50 +198,7 @@ func (r *Reconciler) doOperationRestart(ctx context.Context, force bool, state *
 	if err != nil {
 		return fmt.Errorf("cannot get kvvmi %q. %w", state.VM.Name, err)
 	}
-	jp, err := r.getChangeRequest(kvvm,
-		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StopRequest, UID: &kvvmi.UID},
-		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
-	if err != nil {
-		return err
-	}
-
-	err = state.Client.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
-	if err != nil {
-		return err
-	}
-	if force {
-		return kvvmutil.DeletePodByKVVMI(ctx, state.Client, kvvmi, &client.DeleteOptions{GracePeriodSeconds: util.GetPointer(int64(0))})
-	}
-	return nil
-}
-
-func (r *Reconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineStateChangeRequest) ([]byte, error) {
-	jp := patch.NewJsonPatch()
-	verb := patch.PatchAddOp
-	// Special case: if there's no status field at all, add one.
-	newStatus := virtv1.VirtualMachineStatus{}
-	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
-		newStatus.StateChangeRequests = changes
-		jp.Append(patch.NewJsonPatchOperation(verb, "/status", newStatus))
-	} else {
-		failOnConflict := true
-		if len(changes) == 1 && changes[0].Action == virtv1.StopRequest {
-			// If this is a stopRequest, replace all existing StateChangeRequests.
-			failOnConflict = false
-		}
-		if len(vm.Status.StateChangeRequests) != 0 {
-			if failOnConflict {
-				return nil, fmt.Errorf("unable to complete request: stop/start already underway")
-			} else {
-				verb = patch.PatchReplaceOp
-			}
-		}
-		jp.Append(patch.NewJsonPatchOperation(verb, "/status/stateChangeRequests", changes))
-	}
-	if vm.Status.StartFailure != nil {
-		jp.Append(patch.NewJsonPatchOperation(patch.PatchRemoveOp, "/status/startFailure", nil))
-	}
-	return jp.Bytes()
+	return kvvmutil.RestartKVVM(ctx, state.Client, kvvm, kvvmi, force)
 }
 
 func (r *Reconciler) isOperationAllowed(op virtv2.VMOPOperation, state *ReconcilerState) bool {
