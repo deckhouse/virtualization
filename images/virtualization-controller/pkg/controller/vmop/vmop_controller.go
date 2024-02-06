@@ -49,7 +49,7 @@ func NewVMOPController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachineIPAddressLease{}).
+		For(&v1alpha2.VirtualMachineOperation{}).
 		WithValidator(NewVMOPValidator(log)).
 		Complete(); err != nil {
 		return nil, err

@@ -26,11 +26,12 @@ func GetRunStrategy(kvvm *virtv1.VirtualMachine) virtv1.VirtualMachineRunStrateg
 	return *kvvm.Spec.RunStrategy
 }
 
+// FindPodByKVVMI returns pod by kvvmi.
 func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.VirtualMachineInstance) (*corev1.Pod, error) {
 	if kvvmi == nil {
 		return nil, fmt.Errorf("kvvmi must not be empty")
 	}
-	labelSelector, err := labels.Parse(fmt.Sprintf(virtv1.AppLabel + "=virt-launcher," + virtv1.CreatedByLabel + "=" + string(kvvmi.UID)))
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", virtv1.AppLabel, virtv1.CreatedByLabel, string(kvvmi.UID)))
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +43,8 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 	if len(podList.Items) == 1 {
 		return &podList.Items[0], nil
 	}
+	// Next, if pods are > 0
+	// If migration is completed - return the target pod.
 	if kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.Completed {
 		for _, pod := range podList.Items {
 			if pod.Name == kvvmi.Status.MigrationState.TargetPod {
@@ -49,6 +52,7 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 			}
 		}
 	}
+	// return the first running pod
 	for _, pod := range podList.Items {
 		if pod.Status.Phase == corev1.PodRunning {
 			return &pod, nil
@@ -57,6 +61,7 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 	return &podList.Items[0], nil
 }
 
+// DeletePodByKVVMI deletes pod by kvvmi.
 func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.VirtualMachineInstance, opts client.DeleteOption) error {
 	pod, err := FindPodByKVVMI(ctx, cli, kvvmi)
 	if err != nil {

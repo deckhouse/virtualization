@@ -52,12 +52,12 @@ const (
 	// ReasonErrVmNotSynced is event reason that vm is not synced.
 	ReasonErrVmNotSynced = "VirtualMachineNotSynced "
 
-	// ReasonErrVmopOperationNotPermitted is event reason that vmop is not permitted.
+	// ReasonErrVMOPNotPermitted is event reason that vmop is not permitted.
 	ReasonErrVMOPNotPermitted = "VirtualMachineOperationNotPermitted"
 
 	// ReasonErrVMOPFailed is event reason that operation is failed
-	ReasonErrVMOPFailed = "OperationFailed"
+	ReasonErrVMOPFailed = "VirtualMachineOperationFailed"
 
 	// ReasonVMOPSucceeded is event reason that the operation is successfully completed
-	ReasonVMOPSucceeded = "OperationSucceeded"
+	ReasonVMOPSucceeded = "VirtualMachineOperationSucceeded"
 )

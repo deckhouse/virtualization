@@ -13,13 +13,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type VMOPReconcilerState struct {
-	*vmattachee.AttacheeState[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
-
 	Client client.Client
 	Result *reconcile.Result
 
@@ -143,10 +140,10 @@ func (state *VMOPReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool
 	if err != nil {
 		return false, err
 	}
-	vm := state.VMOP.Current().Spec.VirtualMachineName
+	vmName := state.VMOP.Current().Spec.VirtualMachineName
 
 	for _, vmop := range vmops.Items {
-		if vmop.GetName() == state.VMOP.Current().GetName() || vmop.Spec.VirtualMachineName != vm {
+		if vmop.GetName() == state.VMOP.Current().GetName() || vmop.Spec.VirtualMachineName != vmName {
 			continue
 		}
 		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
@@ -177,9 +174,7 @@ func (state *VMOPReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualM
 		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachineName)
 	}
 	kvvm := &virtv1.VirtualMachine{}
-	err := state.Client.Get(ctx,
-		types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()},
-		kvvm)
+	err := state.Client.Get(ctx, types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}, kvvm)
 	return kvvm, err
 }
 

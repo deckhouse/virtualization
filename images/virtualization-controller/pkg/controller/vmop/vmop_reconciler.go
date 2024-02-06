@@ -238,7 +238,7 @@ func (r *VMOPReconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...
 	// Special case: if there's no status field at all, add one.
 	newStatus := virtv1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
-		newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, changes...)
+		newStatus.StateChangeRequests = changes
 		jp.Append(patch.NewJsonPatchOperation(verb, "/status", newStatus))
 	} else {
 		failOnConflict := true
@@ -250,13 +250,10 @@ func (r *VMOPReconciler) getChangeRequest(vm *virtv1.VirtualMachine, changes ...
 			if failOnConflict {
 				return nil, fmt.Errorf("unable to complete request: stop/start already underway")
 			} else {
-				verb = "replace"
+				verb = patch.PatchReplaceOp
 			}
 		}
-		var changeRequests []virtv1.VirtualMachineStateChangeRequest
-		changeRequests = append(changeRequests, changes...)
-
-		jp.Append(patch.NewJsonPatchOperation(verb, "/status/stateChangeRequests", changeRequests))
+		jp.Append(patch.NewJsonPatchOperation(verb, "/status/stateChangeRequests", changes))
 	}
 	if vm.Status.StartFailure != nil {
 		jp.Append(patch.NewJsonPatchOperation(patch.PatchRemoveOp, "/status/startFailure", nil))
