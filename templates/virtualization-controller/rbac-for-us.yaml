@@ -112,6 +112,13 @@ rules:
     - list
     - watch
 - apiGroups:
+    - x.virtualization.deckhouse.io
+  resources:
+    - virtualmachines/status
+  verbs:
+    - patch
+    - update
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - '*'
