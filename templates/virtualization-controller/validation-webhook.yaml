@@ -6,7 +6,7 @@ webhooks:
   - name: "vm.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachines"]
         scope:       "Namespaced"
@@ -14,7 +14,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachine
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachine
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
@@ -23,7 +23,7 @@ webhooks:
   - name: "vmd.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachinedisks"]
         scope:       "Namespaced"
@@ -31,7 +31,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachinedisk
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinedisk
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
@@ -40,7 +40,7 @@ webhooks:
   - name: "vmbda.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachineblockdeviceattachments"]
         scope:       "Namespaced"
@@ -48,7 +48,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineblockdeviceattachment
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineblockdeviceattachment
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
@@ -57,7 +57,7 @@ webhooks:
   - name: "vmip.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachineipaddressclaims"]
         scope:       "Namespaced"
@@ -65,7 +65,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineipaddressclaim
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddressclaim
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
@@ -74,7 +74,7 @@ webhooks:
   - name: "vmipl.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE"]
         resources:   ["virtualmachineipaddressleases"]
         scope:       "Cluster"
@@ -82,7 +82,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineipaddresslease
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddresslease
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
@@ -91,7 +91,7 @@ webhooks:
   - name: "vmop.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["UPDATE"]
         resources:   ["virtualmachineoperations"]
         scope:       "Cluster"
@@ -99,7 +99,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller-admission-webhook
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineoperation
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineoperation
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
