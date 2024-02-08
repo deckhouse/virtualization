@@ -43,24 +43,23 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	}
 
 	Context("Label", func() {
-		manifest := manifestVM
 		var name string
 
 		label := "os=ubuntu"
-		vm, err := GetVMFromManifest(manifest)
+		vm, err := GetVMFromManifest(manifestVM)
 
 		BeforeAll(func() {
 			By("Apply manifest")
-			vm, err := GetVMFromManifest(manifest)
+			vm, err := GetVMFromManifest(manifestVM)
 			Expect(err).To(BeNil())
 			name = vm.Name
-			ApplyFromFile(manifest)
+			ApplyFromFile(manifestVM)
 			WaitVmStatus(name, VMStatusRunning)
 		})
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifest, kc.DeleteOptions{})
+			kubectl.Delete(manifestVM, kc.DeleteOptions{})
 		})
 
 		Describe("Add label os=ubuntu", func() {
@@ -142,24 +141,23 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Annotation", func() {
-		manifest := vmPath("vm_label_annotation.yaml")
 		var name string
 
 		annotation := "test-annotation=true"
-		vm, err := GetVMFromManifest(manifest)
+		vm, err := GetVMFromManifest(manifestVM)
 
 		BeforeAll(func() {
 			By("Apply manifest")
-			vm, err := GetVMFromManifest(manifest)
+			vm, err := GetVMFromManifest(manifestVM)
 			Expect(err).To(BeNil())
 			name = vm.Name
-			ApplyFromFile(manifest)
+			ApplyFromFile(manifestVM)
 			WaitVmStatus(name, VMStatusRunning)
 		})
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifest, kc.DeleteOptions{})
+			kubectl.Delete(manifestVM, kc.DeleteOptions{})
 		})
 
 		Describe("Add annotation test-annotation=true", func() {
@@ -235,6 +233,4 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 			})
 		})
 	})
-
-	//Context("Some")
 })

@@ -60,7 +60,7 @@ tasks:
           ginkgo --focus "{{ .TEST }}" -v
         {{else}}
           echo "Test not passed"
-          echo 'Example: TEST="Label and Annotation" task ginkgo_test'
+          echo 'Example: TEST="Label and Annotation" task run_one'
         {{end}}
     vars:
       KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
