@@ -12,6 +12,7 @@ import (
 
 var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	imageManifest := vmPath("image.yaml")
+	manifestVM := vmPath("vm_label_annotation.yaml")
 	BeforeAll(func() {
 		By("Apply image for vms")
 		ApplyFromFile(imageManifest)
@@ -42,7 +43,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	}
 
 	Context("Label", func() {
-		manifest := vmPath("vm_label.yaml")
+		manifest := manifestVM
 		var name string
 
 		label := "os=ubuntu"
@@ -141,7 +142,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Annotation", func() {
-		manifest := vmPath("vm_label.yaml")
+		manifest := vmPath("vm_label_annotation.yaml")
 		var name string
 
 		annotation := "test-annotation=true"
@@ -235,5 +236,5 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
-	Context("Some")
+	//Context("Some")
 })

@@ -33,24 +33,35 @@ tasks:
     cmds:
       - ginkgo
 
-  set_local_env:
-    cmds:
-      - |
-        if [ -z "$KUBECONFIG" ]; then export KUBECONFIG=$HOME/.kube/config;else echo $KUBECONFIG - KUBECONFIG;fi;
-        if [ -z "$E2E_CLUSTERTRANSPORT_KUBECONFIG" ]; then 
-          export E2E_CLUSTERTRANSPORT_KUBECONFIG=$KUBECONFIG
-        else 
-          echo $E2E_CLUSTERTRANSPORT_KUBECONFIG - E2E_CLUSTERTRANSPORT_KUBECONFIG
-        fi
-
   run_local:
     desc: "Run localy e2e tests"
     deps:
-      - set_local_env
       - virtctl
       - ginkgo
     cmds:
-      - ginkgo
+      - |
+        export KUBECONFIG={{.KUBECONFIG}}
+        export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+        ginkgo
+    vars:
+      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
+      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
 
-# ginkgo --focus
-# ginkgo --focus "Disks"
+  run_one:
+    desc: "Run one test or group"
+    deps:
+      - virtctl
+      - ginkgo
+    cmds:
+      - |
+        {{if .TEST }}
+          export KUBECONFIG={{.KUBECONFIG}}
+          export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+          ginkgo --focus "{{ .TEST }}" -v
+        {{else}}
+          echo "Test not passed"
+          echo 'Example: TEST="Label and Annotation" task ginkgo_test'
+        {{end}}
+    vars:
+      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
+      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
