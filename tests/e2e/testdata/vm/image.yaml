@@ -9,4 +9,4 @@ spec:
     type: "HTTP"
     http:
       insecureSkipVerify: true
-      url: "https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img"
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"

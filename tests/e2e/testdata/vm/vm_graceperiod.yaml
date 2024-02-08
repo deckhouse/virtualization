@@ -5,7 +5,7 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   disruptions:
-    approvalMode: Automatic
+    restartApprovalMode: Automatic
   runPolicy: AlwaysOn
   osType: Generic
   bootloader: BIOS

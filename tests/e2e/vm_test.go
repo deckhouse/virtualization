@@ -64,6 +64,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		WaitResource(kc.ResourceKubevirtVM, name, "jsonpath={.status.printableStatus}="+printableStatus, LongWaitDuration)
 	}
+
 	WaitVmStatus := func(name, phase string) {
 		GinkgoHelper()
 		WaitResource(kc.ResourceVM, name, "jsonpath={.status.phase}="+phase, LongWaitDuration)
@@ -73,6 +74,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 		GinkgoHelper()
 		CheckField(kc.ResourceVM, name, "jsonpath={.status.phase}", phase)
 	}
+
 	Context("Boot", func() {
 		AfterAll(func() {
 			kubectl.Delete(vmPath("boot/"), kc.DeleteOptions{})
@@ -106,6 +108,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			Test(manifest)
 		})
 	})
+
 	Context("RunPolicy", func() {
 		manifest := vmPath("vm_runpolicy.yaml")
 		var name string
@@ -179,6 +182,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 		})
 
 	})
+
 	Context("Provisioning", func() {
 		CheckSsh := func(vmName string) {
 			GinkgoHelper()
@@ -220,9 +224,11 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			Test(manifest)
 		})
 	})
+
 	Context("Network", func() {
 
 	})
+
 	Context("Resources", func() {
 		GetKubevirtResources := func(name string) (*corev1.ResourceRequirements, error) {
 			GinkgoHelper()
@@ -287,9 +293,11 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			Test(manifest, "250m", "1Gi")
 		})
 	})
+
 	Context("NodePlacement", func() {
 
 	})
+
 	Context("PriorityClassName", func() {
 		manifest := vmPath("vm_priorityclassname.yaml")
 		var name string
@@ -321,6 +329,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			})
 		})
 	})
+
 	Context("TerminationGracePeriod", func() {
 		manifest := vmPath("vm_graceperiod.yaml")
 		jsonpath := "jsonpath={.spec.template.spec.terminationGracePeriodSeconds}"

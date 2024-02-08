@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: test-vm-resources100
+  name: test-vm-label
   namespace: test-d8-virtualization
 spec:
   disruptions:
@@ -10,7 +10,6 @@ spec:
   osType: Generic
   bootloader: BIOS
   cpu:
-    coreFraction: 100%
     cores: 1
   memory:
     size: 1Gi
