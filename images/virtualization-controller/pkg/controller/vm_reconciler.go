@@ -673,24 +673,9 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 		return nil
 	}
 
-	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
-	metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVM)
-	if err != nil {
-		return err
-	}
-
-	// Ensure kubevirt VM has finalizer in case d8 VM was created manually (use case: take ownership of already existing object).
-	finalizerUpdated := controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
-
-	if metaUpdated || finalizerUpdated {
-		if err = opts.Client.Update(ctx, state.KVVM); err != nil {
-			return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
-		}
-	}
-
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
 	if state.KVVMI != nil {
-		metaUpdated, err = PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVMI)
+		metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVMI)
 		if err != nil {
 			return err
 		}
@@ -709,7 +694,7 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
-			metaUpdated, err = PropagateVMMetadata(state.VM.Current(), state.KVVM, &pod)
+			metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM, &pod)
 			if err != nil {
 				return err
 			}
@@ -722,14 +707,29 @@ func (r *VMReconciler) syncMetadata(ctx context.Context, state *VMReconcilerStat
 		}
 	}
 
-	err = SetLastPropagatedLabels(state.KVVM, state.VM.Current())
+	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
+	metaUpdated, err := PropagateVMMetadata(state.VM.Current(), state.KVVM, state.KVVM)
+	if err != nil {
+		return err
+	}
+
+	// Ensure kubevirt VM has finalizer in case d8 VM was created manually (use case: take ownership of already existing object).
+	finalizerUpdated := controllerutil.AddFinalizer(state.KVVM, virtv2.FinalizerKVVMProtection)
+
+	labelsChanged, err := SetLastPropagatedLabels(state.KVVM, state.VM.Current())
 	if err != nil {
 		return fmt.Errorf("failed to set last propagated labels: %w", err)
 	}
 
-	err = SetLastPropagatedAnnotations(state.KVVM, state.VM.Current())
+	annosChanged, err := SetLastPropagatedAnnotations(state.KVVM, state.VM.Current())
 	if err != nil {
 		return fmt.Errorf("failed to set last propagated annotations: %w", err)
+	}
+
+	if labelsChanged || annosChanged || metaUpdated || finalizerUpdated {
+		if err = opts.Client.Update(ctx, state.KVVM); err != nil {
+			return fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", state.KVVM.Name, err)
+		}
 	}
 
 	return nil
