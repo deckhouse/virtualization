@@ -6,7 +6,7 @@ webhooks:
   - name: "vm.validation.webhook.virtualization.deckhouse.io"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachines"]
         scope:       "Namespaced"
@@ -14,7 +14,7 @@ webhooks:
       service:
         namespace: virtualization-controller
         name: admission-webhook-service
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachine
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachine
         port: 443
       caBundle: |
         {{ .Files.Get "admission-webhook-certs/ca.pem" | b64enc }}
@@ -23,7 +23,7 @@ webhooks:
   - name: "vmd.validation.webhook.virtualization.deckhouse.io"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachinedisks"]
         scope:       "Namespaced"
@@ -31,7 +31,7 @@ webhooks:
       service:
         namespace: virtualization-controller
         name: admission-webhook-service
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachinedisk
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinedisk
         port: 443
       caBundle: |
         {{ .Files.Get "admission-webhook-certs/ca.pem" | b64enc }}
@@ -40,7 +40,7 @@ webhooks:
   - name: "vmip.validation.webhook.virtualization.deckhouse.io"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachineipaddressclaims"]
         scope:       "Namespaced"
@@ -48,7 +48,7 @@ webhooks:
       service:
         namespace: virtualization-controller
         name: admission-webhook-service
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineipaddressclaim
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddressclaim
         port: 443
       caBundle: |
         {{ .Files.Get "admission-webhook-certs/ca.pem" | b64enc }}
@@ -57,7 +57,7 @@ webhooks:
   - name: "vmipl.validation.webhook.virtualization.deckhouse.io"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v2alpha1"]
+        apiVersions: ["v1alpha2"]
         operations:  ["CREATE"]
         resources:   ["virtualmachineipaddressleases"]
         scope:       "Cluster"
@@ -65,7 +65,7 @@ webhooks:
       service:
         namespace: virtualization-controller
         name: admission-webhook-service
-        path: /validate-virtualization-deckhouse-io-v2alpha1-virtualmachineipaddresslease
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddresslease
         port: 443
       caBundle: |
         {{ .Files.Get "admission-webhook-certs/ca.pem" | b64enc }}

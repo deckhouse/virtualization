@@ -25,7 +25,7 @@ fi
 
 
 cat <<EOF | kubectl -n $NS apply -f -
-apiVersion: virtualization.deckhouse.io/v2alpha1
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineImage
 metadata:
   name: $NAME

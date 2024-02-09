@@ -18,7 +18,7 @@ type JsonPatch struct {
 type JsonPatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
+	Value interface{} `json:"value,omitempty"`
 }
 
 func NewJsonPatch(patches ...JsonPatchOperation) *JsonPatch {

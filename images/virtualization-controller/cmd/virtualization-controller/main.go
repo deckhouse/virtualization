@@ -28,6 +28,7 @@ import (
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 )
 
 var (
@@ -245,6 +246,11 @@ func main() {
 	}
 
 	if _, err := ipam.NewLeaseController(ctx, mgr, log); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if _, err := vmop.NewController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

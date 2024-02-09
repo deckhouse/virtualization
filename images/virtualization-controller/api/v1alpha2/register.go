@@ -57,6 +57,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineIPAddressClaimList{},
 		&VirtualMachineIPAddressLease{},
 		&VirtualMachineIPAddressLeaseList{},
+		&VirtualMachineOperation{},
+		&VirtualMachineOperationList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
