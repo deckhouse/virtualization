@@ -617,6 +617,17 @@ tasks:
       - |
         golangci-lint run --sort-results
 
+  mirrord:run:
+    desc: "Run local virtualization-controller in cluster using a mirrord"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh run
+  mirrord:wipe:
+    desc: "wipe up Mirrord's trash"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh wipe
+
   _copy_d8_registry_secret:
     internal: true
     vars:
@@ -752,3 +763,12 @@ tasks:
       - exit 1
     status:
       - which virtctl >/dev/null
+  _ensure:mirrord:
+    desc: "Ensure mirrord tool is installed"
+    internal: true
+    cmds:
+      - echo -e >&2 "Please install mirrord https://mirrord.dev/docs/overview/quick-start/#cli-tool"
+      - exit 1
+    status:
+      - which mirrord >/dev/null
+

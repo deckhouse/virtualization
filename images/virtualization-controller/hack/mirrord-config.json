@@ -1,0 +1,12 @@
+{
+  "feature": {
+    "fs": {
+      "mode": "write",
+      "read_write": ".*"
+    },
+    "network": {
+      "incoming": "steal"
+    }
+  }
+}
+
