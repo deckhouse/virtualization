@@ -169,7 +169,7 @@ func (r *Reconciler) doOperation(ctx context.Context, operationSpec virtv2.Virtu
 	case virtv2.VMOPOperationTypeRestart:
 		return r.doOperationRestart(ctx, operationSpec.Force, state)
 	default:
-		return fmt.Errorf("unexpected opearation %q. %w", operationSpec.Type, common.ErrUnknownValue)
+		return fmt.Errorf("unexpected operation %q. %w", operationSpec.Type, common.ErrUnknownValue)
 	}
 }
 
