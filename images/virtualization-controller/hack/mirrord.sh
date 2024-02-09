@@ -45,6 +45,6 @@ if ! kubectl -n "${NAMESPACE}" get deployment/"${NEW_NAME}" &>/dev/null; then
   kubectl create -f -
 fi
 
-kubectl wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
+kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
 kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 0
 mirrord exec --config-file "${CONFIG_MIRRORD}"  --target "deployment/${NEW_NAME}" --target-namespace "${NAMESPACE}" "${BIN_DIR}/${BINARY}"
