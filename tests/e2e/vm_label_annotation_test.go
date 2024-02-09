@@ -13,6 +13,31 @@ import (
 var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	imageManifest := vmPath("image.yaml")
 	manifestVM := vmPath("vm_label_annotation.yaml")
+
+	type jsonPathCMD struct {
+		label      string
+		annotation string
+	}
+
+	type resourceCMD struct {
+		getVM       string
+		getKVVM     string
+		getKVVMi    string
+		getPOD      string
+		getJsonPath jsonPathCMD
+	}
+
+	kctlCMD := resourceCMD{
+		getPOD:   "get pod --no-headers -o custom-columns=':metadata.name'",
+		getVM:    "get vm",
+		getKVVM:  "get virtualmachines.x.virtualization.deckhouse.io",
+		getKVVMi: "get virtualmachineinstances.x.virtualization.deckhouse.io",
+		getJsonPath: jsonPathCMD{
+			label:      "-o jsonpath='{.metadata.labels.os}'",
+			annotation: "-o jsonpath='{.metadata.annotations.test-annotation}'",
+		},
+	}
+
 	BeforeAll(func() {
 		By("Apply image for vms")
 		ApplyFromFile(imageManifest)
@@ -74,29 +99,28 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 		Describe("Check label on resource", func() {
 			It("VM", func() {
-				subCMD := fmt.Sprintf("-n %s get vm %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
+				subCMD := fmt.Sprintf("-n %s %s %s %s", conf.Namespace, kctlCMD.getVM, vm.Name, kctlCMD.getJsonPath.label)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.StdOut()).To(Equal("ubuntu"))
 			})
 			It("KVVM", func() {
-				subCMD := fmt.Sprintf("-n %s get virtualmachines.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
+				subCMD := fmt.Sprintf("-n %s %s %s %s", conf.Namespace, kctlCMD.getKVVM, vm.Name, kctlCMD.getJsonPath.label)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.StdOut()).To(Equal("ubuntu"))
 			})
 			It("KVVMI", func() {
-				subCMD := fmt.Sprintf("-n %s get virtualmachineinstances.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
+				subCMD := fmt.Sprintf("-n %s %s %s %s", conf.Namespace, kctlCMD.getKVVMi, vm.Name, kctlCMD.getJsonPath.label)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.StdOut()).To(Equal("ubuntu"))
 			})
 			It("POD virtlauncher", func() {
-				subCMD := fmt.Sprintf("-n %s get pod --no-headers -o custom-columns=':metadata.name' | grep %s", conf.Namespace, vm.Name)
+				subCMD := fmt.Sprintf("-n %s %s | grep %s", conf.Namespace, kctlCMD.getPOD, vm.Name)
 				podCMD := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				pod := strings.TrimSuffix(podCMD.StdOut(), "\n")
 
-				subCMDPod := fmt.Sprintf("-n %s get po %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, pod)
+				subCMDPod := fmt.Sprintf("-n %s get po %s %s", conf.Namespace, pod, kctlCMD.getJsonPath.label)
 				res := kubectl.RawCommand(subCMDPod, ShortWaitDuration)
 				Expect(res.StdOut()).To(Equal("ubuntu"))
-				//Expect(pod.StdOut()).To(Equal("ubuntu"))
 			})
 		})
 		Describe("Remove label os=ubuntu", func() {
@@ -110,22 +134,21 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 			})
 		})
 		Describe("Label must be removed from resource", func() {
+
 			It("VM", func() {
 				subCMD := fmt.Sprintf("-n %s get vm %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("KVVM", func() {
 				subCMD := fmt.Sprintf("-n %s get virtualmachines.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				//Expect(res.StdOut()).To(Equal(""))
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("KVVMI", func() {
 				subCMD := fmt.Sprintf("-n %s get virtualmachineinstances.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.StdOut()).To(Equal(""))
-				//Expect(res.StdOut()).To(BeNil())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("POD virtlauncher", func() {
 				subCMD := fmt.Sprintf("-n %s get pod --no-headers -o custom-columns=':metadata.name' | grep %s", conf.Namespace, vm.Name)
@@ -134,8 +157,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 
 				subCMDPod := fmt.Sprintf("-n %s get po %s -o jsonpath='{.metadata.labels.os}'", conf.Namespace, pod)
 				res := kubectl.RawCommand(subCMDPod, ShortWaitDuration)
-				Expect(res.StdOut()).To(Equal(""))
-				//Expect(res.StdOut()).To(BeNil())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 		})
 	})
@@ -210,17 +232,17 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 			It("VM", func() {
 				subCMD := fmt.Sprintf("-n %s get vm %s -o jsonpath='{.metadata.annotations.test-annotation}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("KVVM", func() {
 				subCMD := fmt.Sprintf("-n %s get virtualmachines.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.annotations.test-annotation}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("KVVMI", func() {
 				subCMD := fmt.Sprintf("-n %s get virtualmachineinstances.x.virtualization.deckhouse.io %s -o jsonpath='{.metadata.annotations.test-annotation}'", conf.Namespace, vm.Name)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("POD virtlauncher", func() {
 				subCMD := fmt.Sprintf("-n %s get pod --no-headers -o custom-columns=':metadata.name' | grep %s", conf.Namespace, vm.Name)
@@ -229,7 +251,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 
 				subCMDPod := fmt.Sprintf("-n %s get po %s -o jsonpath='{.metadata.annotations.test-annotation}'", conf.Namespace, pod)
 				res := kubectl.RawCommand(subCMDPod, ShortWaitDuration)
-				Expect(res.StdOut()).To(BeZero())
+				Expect(res.StdOut()).To(BeEmpty())
 			})
 		})
 	})
