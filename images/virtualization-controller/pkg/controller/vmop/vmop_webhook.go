@@ -23,7 +23,7 @@ type Validator struct {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rools: delete operation not implemented")
+	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }
