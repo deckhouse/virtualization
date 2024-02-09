@@ -123,7 +123,7 @@ func StartKVVM(ctx context.Context, cli client.Client, kvvm *virtv1.VirtualMachi
 // StopKVVM stops kvvm.
 func StopKVVM(ctx context.Context, cli client.Client, kvvmi *virtv1.VirtualMachineInstance, force bool) error {
 	if kvvmi == nil {
-		return fmt.Errorf("kvvm must not be empty")
+		return fmt.Errorf("kvvmi must not be empty")
 	}
 	if err := cli.Delete(ctx, kvvmi, &client.DeleteOptions{}); err != nil {
 		return err
@@ -140,7 +140,7 @@ func RestartKVVM(ctx context.Context, cli client.Client, kvvm *virtv1.VirtualMac
 		return fmt.Errorf("kvvm must not be empty")
 	}
 	if kvvmi == nil {
-		return fmt.Errorf("kvvm must not be empty")
+		return fmt.Errorf("kvvmi must not be empty")
 	}
 
 	jp, err := GetChangeRequest(kvvm,
