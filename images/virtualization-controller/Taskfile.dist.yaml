@@ -548,6 +548,11 @@ tasks:
     cmds:
       - kubectl apply -f api/crds/virtualmachineipaddresslease.yaml
 
+  dev:update:vmop:
+    desc: "Update VirtualMachineOperation CRD"
+    cmds:
+      - kubectl apply -f api/crds/virtualmachineoperations.yaml
+
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
