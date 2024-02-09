@@ -44,7 +44,6 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, nil
 	}
 	err := fmt.Errorf("vmop %q is invalid. vmop.spec is immutable", oldVmop.GetName())
-	v.log.Error(err, "Validate VMOP updating", "name", oldVmop.GetName())
 	return nil, err
 }
 

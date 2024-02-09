@@ -94,7 +94,7 @@ webhooks:
         apiVersions: ["v1alpha2"]
         operations:  ["UPDATE"]
         resources:   ["virtualmachineoperations"]
-        scope:       "Cluster"
+        scope:       "Namespaced"
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
