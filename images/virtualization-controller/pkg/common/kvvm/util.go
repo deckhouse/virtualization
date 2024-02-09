@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
@@ -74,7 +75,7 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 	if pod == nil {
 		return nil
 	}
-	return cli.Delete(ctx, pod, opts)
+	return helper.DeleteObject(ctx, cli, pod, opts)
 }
 
 // GetChangeRequest returns the stop/start patch.
