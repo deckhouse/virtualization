@@ -96,20 +96,19 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 		return nil
 	}
 
-	r.log.Info("UpdateMeta obj before update", "currentObj", r.currentObj.GetObjectMeta(), "changedObj", r.changedObj.GetObjectMeta())
+	r.log.V(4).Info("UpdateMeta obj meta before update", "currentObj", r.currentObj.GetObjectMeta(), "changedObj", r.changedObj.GetObjectMeta())
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
 		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
-	r.log.V(4).Info("UpdateMeta obj meta before update", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta(), "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
 		r.currentObj = r.changedObj.DeepCopy()
-		r.log.V(1).Info("UpdateStatus applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
+		r.log.V(1).Info("UpdateMeta applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
 		r.log.V(4).Info("UpdateMeta obj meta after update", "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
 	} else {
-		r.log.V(4).Info("UpdateMeta skipped: no changes", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta())
+		r.log.V(2).Info("UpdateMeta skipped: no changes", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta())
 	}
 	return nil
 }
