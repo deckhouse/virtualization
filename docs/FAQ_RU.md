@@ -80,9 +80,9 @@ spec:
         name: win-disk
 ```
 
-После создания ресурса виртуальная машина будет запущена. К ней необходимо подключиться с помощью графического установщика. 
+После создания ресурса виртуальная машина будет запущена. К ней необходимо подключиться, и с помощью графического установщика выполнить установку ОС и драйверов `virtio`.
 
-4. Добавьте драйверы `virtio` и выполните установку ОС:
+Команда для подключения:
 
 ```bash
 dvp vnc -n default win-vm
@@ -102,6 +102,12 @@ spec:
     - type: VirtualMachineDisk
       virtualMachineDisk:
         name: win-disk
+```
+
+8. После внесенных изменений виртуальная машина запустится, для продолжения работы с ней используйте команду:
+
+```bash
+dvp vnc -n default win-vm
 ```
 
 ## Как создать образ виртуальной машины для container registry
@@ -176,7 +182,7 @@ spec:
     app: new
 ```
 
-Изменив метки на виртуальной машине, перенаправьте на нее сетевой трафик с сервиса `svc-2`:
+При изменении метки на виртуальной машине, трафик с сервиса `svc-2` будет перенаправлен на виртуальную машину:
 
 ```yaml
 metadata:
@@ -186,10 +192,10 @@ metadata:
 
 # Как увеличить размер DVCR
 
-Чтобы увеличить размер, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
+Чтобы увеличить размер диска для DVCR, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
 
 1. Проверьте текущий размер dvcr:
-   
+
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
@@ -197,7 +203,7 @@ kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persiste
 ```
 
 2. Задайте размер:
-   
+
 ```shell
 kubectl patch mc virtualization \
   --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
@@ -207,7 +213,7 @@ moduleconfig.deckhouse.io/virtualization patched
 ```
 
 3. Проверьте изменение размера:
-   
+
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
