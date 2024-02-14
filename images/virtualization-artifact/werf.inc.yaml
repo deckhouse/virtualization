@@ -24,3 +24,7 @@ shell:
   - export CGO_ENABLED=0
   - export GOARCH=amd64
   - go build -v -a -o virtualization-controller ./cmd/virtualization-controller
+  - go build -v -a -o virtualization-controller ./cmd/virtualization-api
+
+
+

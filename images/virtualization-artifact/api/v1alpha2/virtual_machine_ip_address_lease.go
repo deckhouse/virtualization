@@ -13,6 +13,10 @@ type VirtualMachineIPAddressLease struct {
 	Status VirtualMachineIPAddressLeaseStatus `json:"status,omitempty"`
 }
 
+func (in *VirtualMachineIPAddressLease) GetObjectMetaInterface() metav1.Object {
+	return in.ObjectMeta.GetObjectMeta()
+}
+
 // VirtualMachineIPAddressLeaseList contains a list of VirtualMachineIPAddressLease
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineIPAddressLeaseList struct {

@@ -18,6 +18,10 @@ type VirtualMachineOperation struct {
 	Status VirtualMachineOperationStatus `json:"status,omitempty"`
 }
 
+func (in *VirtualMachineOperation) GetObjectMetaInterface() metav1.Object {
+	return in.ObjectMeta.GetObjectMeta()
+}
+
 type VirtualMachineOperationSpec struct {
 	Type               VMOPOperation `json:"type"`
 	VirtualMachineName string        `json:"virtualMachineName"`

@@ -163,4 +163,8 @@ const (
 	VirtualMachineCIDRs = "VIRTUAL_MACHINE_CIDRS"
 
 	DockerRegistrySchemePrefix = "docker://"
+
+	KubevirtAPIServerEndpointVar  = "KUBEVIRT_APISERVER_ENDPOINT"
+	KubevirtAPIServerCertsPathVar = "KUBEVIRT_APISERVER_CERTS_PATH"
+	VirtualizationApiCertsPathVar = "VIRTUALIZATION_API_CERTS_PATH"
 )

@@ -4,7 +4,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/apiserver-runtime/pkg/builder/resource"
 )
 
 const (
@@ -22,6 +25,43 @@ type VirtualMachine struct {
 	Spec   VirtualMachineSpec   `json:"spec"`
 	Status VirtualMachineStatus `json:"status,omitempty"`
 }
+
+func (in *VirtualMachine) GetArbitrarySubResources() []resource.ArbitrarySubResource {
+	return []resource.ArbitrarySubResource{
+		&VirtualMachineConsole{},
+	}
+}
+
+func (in *VirtualMachine) GetObjectMetaInterface() metav1.Object {
+	return in.ObjectMeta.GetObjectMeta()
+}
+
+func (in *VirtualMachine) GetObjectMeta() *metav1.ObjectMeta {
+	return &in.ObjectMeta
+}
+
+func (in *VirtualMachine) NamespaceScoped() bool {
+	return true
+}
+
+func (in *VirtualMachine) New() runtime.Object {
+	return &VirtualMachine{}
+}
+
+func (in *VirtualMachine) NewList() runtime.Object {
+	return &VirtualMachineList{}
+}
+
+func (in *VirtualMachine) GetGroupVersionResource() schema.GroupVersionResource {
+	return GroupVersionResource(VMKind)
+}
+
+func (in *VirtualMachine) IsStorageVersion() bool {
+	return true
+}
+
+var _ resource.Object = &VirtualMachine{}
+var _ resource.ObjectWithArbitrarySubResource = &VirtualMachine{}
 
 type VirtualMachineSpec struct {
 	// RunPolicy is a power-on behaviour of the VM.

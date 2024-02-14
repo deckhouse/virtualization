@@ -33,6 +33,10 @@ func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
 
+func GroupVersionResource(resource string) schema.GroupVersionResource {
+	return SchemeGroupVersion.WithResource(resource)
+}
+
 var (
 	// SchemeBuilder tbd
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)

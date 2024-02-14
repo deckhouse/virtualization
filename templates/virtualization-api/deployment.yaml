@@ -1,0 +1,107 @@
+{{- define "virtualization_api_resources" }}
+cpu: 10m
+memory: 150Mi
+{{- end }}
+{{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: virtualization-api
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api" "workload-resource-policy.deckhouse.io" "master")) | nindent 2 }}
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: virtualization-api
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: virtualization-api
+        minAllowed:
+        {{- include "virtualization_api_resources" . | nindent 8 }}
+        maxAllowed:
+          cpu: 20m
+          memory: 250Mi
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: virtualization-api
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api" )) | nindent 2 }}
+spec:
+  minAvailable: {{ include "helm_lib_is_ha_to_value" (list . 1 0) }}
+  selector:
+    matchLabels:
+      app: virtualization-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: virtualization-api
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
+spec:
+  {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: virtualization-api
+  template:
+    metadata:
+      labels:
+        app: virtualization-api
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-api/virtualziation-api-cert.yaml") . | sha256sum }}
+    spec:
+      {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
+      containers:
+        - name: virtualization-api
+          image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /etc/virtualziation-api/certificates
+              name:  virtualziation-api-cert
+              readOnly: true
+            - mountPath: /etc/virt-api/certificates
+              name:  kubevirt-virt-api-certs
+              readOnly: true
+          ports:
+            - containerPort: 8443
+              name: virtualization-api
+              protocol: TCP
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "virtualization_api_resources" . | nindent 12 }}
+              {{- end }}
+          env:
+            - name: VERBOSITY
+              value: "3"
+            - name: KUBEVIRT_APISERVER_ENDPOINT
+              value: virt-api.d8-{{ .Chart.Name}}.svc
+            - name: KUBEVIRT_APISERVER_CERTS_PATH
+              value: /etc/virt-api/certificates
+            - name: VIRTUALIZATION_API_CERTS_PATH
+              value: virtualziation-api-cert
+      dnsPolicy: Default
+      serviceAccountName: virtualization-api
+      {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
+      {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
+      {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      volumes:
+        - name: virtualziation-api-cert
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: virtualziation-api-cert
+        - name: kubevirt-virt-api-certs
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: kubevirt-virt-api-certs
