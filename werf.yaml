@@ -63,26 +63,24 @@ shell:
 ---
 image: python-dependencies
 from: python:3.9-slim
-fromCacheVersion: "2024-02-15.0"
+fromCacheVersion: "2024-02-15.1"
 git:
-  - add: /
-    to: /
-    includePaths:
-      - lib/python
+  - add: /lib/python/requirements.txt
+    to: /requirements.txt
 shell:
   setup:
-    - pip3 install -r /lib/python/requirements.txt -t /lib/python/dist
+    - pip3 install -r /requirements.txt -t /dist
 ---
 image: bundle
 from: spotify/scratch
-fromCacheVersion: "2024-02-15.0"
+fromCacheVersion: "2024-02-15.1"
 import:
   - image: images-digests
     add: /images_digests.json
     to: /images_digests.json
     after: setup
   - image: python-dependencies
-    add: /lib/python/dist
+    add: /dist
     to: /lib/python/dist
     after: setup
 git:
