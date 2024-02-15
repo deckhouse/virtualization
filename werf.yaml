@@ -62,16 +62,14 @@ shell:
       ' > /images_digests.json
 ---
 image: python-dependencies
-from: alpine:3.17
-fromCacheVersion: "2023-12-11.0"
+from: python:3.9-slim
+fromCacheVersion: "2024-02-15.0"
 git:
   - add: /
     to: /
     includePaths:
       - lib/python
 shell:
-  beforeInstall:
-    - apk add --no-cache python3 py3-pip
   setup:
     - pip3 install -r /lib/python/requirements.txt -t /lib/python/dist
 ---
