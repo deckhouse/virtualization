@@ -32,7 +32,7 @@ spec:
 
 После создания `VirtualMachineDiks` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
 
-3. Посмотрите текущий статус ресурса с помощью комнады:
+3. Посмотрите текущий статус ресурса с помощью команды:
 
 ```bash
 kubectl -n vms get virtualmachinedisk -o wide
@@ -95,28 +95,22 @@ kubectl -n default get virtualmachine
 dvp console -n vms linux-vm
 ```
 
-7. Подключитесь к машине с использованием VNC:
-
-```bash
-dvp vnc -n vms linux-vm
-```
-
-После выполнения команды запустится VNC-клиент, используемый в системе по умолчанию. Альтернативный способ подключения — с помощью параметра `--proxy-only` пробросить VNC-порт на локальную машину.
-
 ## Образы
 
 `VirtualMachineImage` и `ClusterVirtualMachineImage` используются для хранения образов виртуальных машин.
+
 Образы могут быть следующих видов:
+
 - Образ диска виртуальной машины, который предназначен для тиражирования идентичных дисков виртуальных машин.
 - ISO-образ, содержащий файлы для установки ОС. Этот тип образа подключается к виртуальной машине как cdrom.
 
-Ресурс `VirtualMachineImage` доступен только в том пространстве имен, в котором был создан, а `ClusterVirtualMachineImage` доступен для всех пространств имен внутри кластера.
+Ресурс `VirtualMachineImage` доступен только в том пространстве имен, в котором был создан, а `ClusterVirtualMachineImage` доступен для всех пространств имен внутри кластера. Оба этих ресурсов хранят свои данные в `DVCR`.
 
-В зависимости от конфигурации, ресурс `VirtualMachineImage` может хранить данные в `DVCR` или использовать дисковое хранилище, предоставляемое платформой (PV). `ClusterVirtualMachineImage` хранит данные только в `DVCR`, обеспечивая единый доступ ко всем образам для всех пространств имен в кластере.
+Образы могут быть получены из различных источников, таких как HTTP-серверы, на которых расположены файлы образов, или контейнерные реестры (container registries), где образы сохраняются и становятся доступны для скачивания. Также существует возможность загрузить образы напрямую из командной строки, используя утилиту `curl`.
 
 ### Создание и использование образа c HTTP-ресурса
 
-1. Создадайте `VirtualMachineImage` и в качестве хранилища образов используйте `DVCR`:
+1. Создайте `VirtualMachineImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -141,30 +135,7 @@ kubectl -n vms get virtualmachineimage
 # ubuntu-img   Ready   false   100%       10m
 ```
 
-Для хранения образа в дисковом хранилище, предоставляемом платформой, настройки `storage` будут выглядеть следующим образом:
-
-```yaml
-spec:
-  storage: Kubernetes
-  persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
-```
-
-где `your-storage-class-name` — это название StorageClass, который будет использоваться.
-
-3. Для просмотра списка доступных StorageClass'ов выполните следующую команду:
-
-```bash
-kubectl get storageclass
-
-# Пример вывода команды:
-# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-```
-
-Ресурс `ClusterVirtualMachineImage` создается по аналогии, но не требует указания настроек `storage`:
+3. Ресурс `ClusterVirtualMachineImage` создается по аналогии, но не требует указания настроек `storage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -187,28 +158,26 @@ kubectl get clustervirtualmachineimage
 # ubuntu-img   Ready   false   100%       11m
 ```
 
-Образы могут быть получены из различных источников, таких как HTTP-серверы, на которых расположены файлы образов, или контейнерные реестры (container registries), где образы сохраняются и становятся доступны для скачивания. Также существует возможность загрузить образы напрямую из командной строки, используя утилиту `curl`.
-
 ### Создание и использование образа из container registry
 
 1. Cформируйте образ для хранения в `container registry`.
 
-Ниже представлен пример создания docker-образа c диском Ubuntu 22.04.
+Ниже представлен пример создания образа c диском Ubuntu 22.04.
 
-* Загрузите образ локально:
+- Загрузите образ локально:
 
 ```bash
 curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
 ```
 
-* Создайте Dockerfile со следующим содержимым:
+- Создайте Dockerfile со следующим содержимым:
 
 ```Dockerfile
 FROM scratch
 COPY ubuntu2204.img /disk/ubuntu2204.img
 ```
 
-* Соберите образ и загрузите его в `container registry`. В качестве `container registry` в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
+- Соберите образ и загрузите его в `container registry`. В качестве `container registry` в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
 
 ```bash
 docker build -t docker.io/username/ubuntu2204:latest
@@ -216,13 +185,13 @@ docker build -t docker.io/username/ubuntu2204:latest
 
 где `username` — имя пользователя, указанное при регистрации в docker.io.
 
-* Загрузите созданный образ в `container registry` с помощью команды:
+- Загрузите созданный образ в `container registry` с помощью команды:
 
 ```bash
 docker push docker.io/username/ubuntu2204:latest
 ```
 
-* Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualMachineImage`:
+- Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualMachineImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -236,7 +205,7 @@ spec:
       image: docker.io/username/ubuntu2204:latest
 ```
 
-* Чтобы посмотреть ресурс и его статус, выполните команду:
+- Чтобы посмотреть ресурс и его статус, выполните команду:
 
 ```bash
 kubectl get clustervirtalmachineimage
@@ -271,7 +240,12 @@ kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCo
 
 ```bash
 curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
+```
+
+4. Выполните загрузку образа:
+
+```bash
+curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 После завершения работы команды `curl` образ должен быть создан.
@@ -293,6 +267,11 @@ kubectl get clustervirtualmachineimages
 
 ```bash
 kubectl get storageclass
+
+# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
 ```
 
 ### Создание пустого диска
@@ -371,13 +350,15 @@ spec:
       name: vmd-blank # Имя подключаемого диска.
 ```
 
-Если в указанном ресурсе изменить имя виртуальной машины на имя другой виртуальной машины, диск будет перенаправлен от одной виртуальной машины к другой.
 При удалении ресурса `VirtualMachineBlockDeviceAttachment` диск от виртуальной машины будет отключен.
 
 Чтобы посмотреть список подключенных дисков в работающей виртуальной машине, выполните команду:
 
 ```bash
 kubectl get virtualmachineblockdeviceattachments
+
+# NAME                       PHASE
+# vmd-blank-attachment       Attached
 ```
 
 ## Виртуальные машины
@@ -392,7 +373,7 @@ kubectl get virtualmachineblockdeviceattachments
 
 ### Создание диска для виртуальной машины
 
-Создайте диск с установыленной ОС для виртуальной машины:
+Создайте диск с установленной ОС для виртуальной машины:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -489,7 +470,7 @@ kubectl get virtualmachine
 
 2. Чтобы зафиксировать IP-адрес виртуальной машины перед ее запуском, выполните следующие шаги:
 
-* Создайте ресурс `VirtualMachineIPAddressClaim`, в котором зафиксирован желаемый IP-адрес виртуальной машины:
+- Создайте ресурс `VirtualMachineIPAddressClaim`, в котором зафиксирован желаемый IP-адрес виртуальной машины:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -501,7 +482,7 @@ spec:
   address: "W.X.Y.Z"
 ```
 
-* Зафиксируйте изменения в спецификации виртуальной машины:
+- Зафиксируйте изменения в спецификации виртуальной машины:
 
 ```yaml
 spec:
@@ -545,7 +526,7 @@ cat <<EOF | kubectl apply -f -
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: restart
+  name: restart-linux-vm
 spec:
   virtualMachineName: linux-vm
   type: Restart
@@ -555,10 +536,10 @@ EOF
 3. Проверьте состояние созданного ресурса:
 
 ```bash
-kubectl get vmops restart
+kubectl get vmops restart-linux-vm
 
-# NAME       PHASE       VMNAME     AGE
-# restart    Completed   linux-vm   1m
+# NAME                PHASE       VMNAME     AGE
+# restart-linux-vm    Completed   linux-vm   1m
 ```
 
 Если созданный ресурс находится в состоянии `Completed` - перезагрузка виртуальной машины завершилась и новые параметры конфигурации виртуальной машины применены.
@@ -594,7 +575,7 @@ kubectl get virtualmachine
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
-Виртуальная машина была перезапущена. Причина перезапуска:
+Даже несмотря на то, что виртуальная машина была выключена, она снова запустилась. Причина перезапуска:
 
 > В отличие от традиционных систем виртуализации, мы используем политику запуска для определения состояния виртуальной машины, которая определяет требуемое состояние виртуальной машины в любое время.
 
