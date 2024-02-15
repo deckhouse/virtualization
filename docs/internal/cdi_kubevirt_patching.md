@@ -1,6 +1,11 @@
-# CDI
+# Patching CDI or Kubevirt
+
+Kubevirt instructions are the same, just use repository `https://github.com/kubevirt/kubevirt.git`.
 
 ### Generate CRD
+
+Clone CDI sources using `$version` from cdi-artifact/werf.inc.yaml, apply patches and call `make manifests`.
+
 ```bash
 mkdir tmp
 export VERSION="1.58.0"
@@ -13,16 +18,21 @@ cd ../../
 rm -rf tmp/cdi
 ```
 
-### Generate new patches from old
+
+### Porting patches to newer version of CDI
+
+We will bump CDI version in the future and patches will require porting. Apply existing patches using --ignore-space-change and --ignore-whitespace to ignore trivial conflicts and create patches again.
+
 #### Prepare
 ```bash
 mkdir tmp
-export VERSION="1.58.0"
+export VERSION="1.58.1"
 git clone --depth 1 --branch v${VERSION} https://github.com/kubevirt/containerized-data-importer.git tmp/cdi
 cd tmp/cdi
 git checkout -b update-patches
 ```
-#### Generate patches
+
+#### Generate updated patches
 ```bash
 git apply --ignore-space-change --ignore-whitespace ../../images/cdi-artifact/patches/000-bundle-images.patch ## if patch failed - use --reject
 git add . && git commit -m "patch1"
@@ -45,6 +55,9 @@ rm -rf tmp/cdi
 ```
 
 ### Generate new patch from PR
+
+Incorporate PR from upstream as a patch.
+
 #### Prepare
 ```bash
 mkdir tmp
@@ -65,6 +78,7 @@ git diff --patch "<TAG COMMIT>" HEAD > 004-replicas.patch
 #### Copy new patches
 ```bash
 cp 004-replicas.patch ../../images/cdi-artifact/patches/004-replicas.patch
+git add ../../images/cdi-artifact/patches/004-replicas.patch
 ```
 #### Сlean
 ```bash
