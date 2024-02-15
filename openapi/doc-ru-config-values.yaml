@@ -29,7 +29,7 @@ properties:
           - `Disabled` — доступ только по HTTP.
           - `OnlyInURI` — доступ по HTTP, подразумевая, что перед web-интерфейсом стоит внешний HTTPS-балансер, который терминирует HTTPS и все ссылки в `user-authn` будут генерироваться с HTTPS-схемой.
       certManager:
-        description: "Настройки для certmanager."
+        description: Настройки для certmanager.
         properties:
           clusterIssuerName:
             description: |
