@@ -75,7 +75,7 @@ shell:
 ---
 image: bundle
 from: spotify/scratch
-fromCacheVersion: "2023-12-20"
+fromCacheVersion: "2024-02-15.0"
 import:
   - image: images-digests
     add: /images_digests.json
