@@ -80,8 +80,8 @@ class Certificate:
     def add_extension(self, type_name: str,
                       critical: bool,
                       value: str,
-                      subject: crypto.Optional["X509"] = None,
-                      issuer: crypto.Optional["X509"] = None):
+                      subject: crypto.X509 = None,
+                      issuer: crypto.X509 = None):
         """
         Adds extensions to certificate.
         :param type_name: The name of the type of extension_ to create.
@@ -96,10 +96,10 @@ class Certificate:
         :type value: :py:class:`str`
 
         :param subject: Optional X509 certificate to use as subject.
-        :type subject: :py:class:`crypto.Optional["X509"]`
+        :type subject: :py:class:`crypto.X509`
 
         :param issuer: Optional X509 certificate to use as issuer.
-        :type issuer: :py:class:`crypto.Optional["X509"]`
+        :type issuer: :py:class:`crypto.X509`
         """ 
         ext = crypto.X509Extension(type_name=str.encode(type_name),
                                    critical=critical,
