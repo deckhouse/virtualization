@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from deckhouse import hook
-from lib.certificate.сertificate import CACertificateGenerator, CertificateGenerator
+from lib.certificate.certificate import CACertificateGenerator, CertificateGenerator
 from lib.certificate.parse import parse_certificate, get_certificate_san
 from datetime import datetime, timedelta
 from OpenSSL import crypto
