@@ -147,7 +147,7 @@ class TestReGenerateCertificate(TestCertificate):
         ca = self.parse_certificate(self.secret_data["ca"])
         crt = self.parse_certificate(self.secret_data["crt"])
         if self.verify_certificate(ca, crt) is None:
-            self.fail(f"Сertificate has not expired")
+            self.fail(f"Certificate has not expired")
         self.hook_run()
         self.check_data()
         ca = self.parse_certificate(self.secret_data["ca"])
