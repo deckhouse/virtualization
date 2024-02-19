@@ -61,6 +61,12 @@ spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
       containers:
         - name: virtualization-api
+          args:
+            - --kubevirt-certs="/etc/virt-api/certificates"
+            - --kubevirt-endpoint="virt-api.d8-{{ .Chart.Name}}.svc"
+            - --secure-port=8443
+            - --v=3
+            - --cert-dir="/etc/virtualziation-api/certificates"
           image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
           imagePullPolicy: Always
           volumeMounts:
@@ -81,14 +87,8 @@ spec:
               {{- include "virtualization_api_resources" . | nindent 12 }}
               {{- end }}
           env:
-            - name: VERBOSITY
-              value: "3"
-            - name: KUBEVIRT_APISERVER_ENDPOINT
-              value: virt-api.d8-{{ .Chart.Name}}.svc
-            - name: KUBEVIRT_APISERVER_CERTS_PATH
-              value: /etc/virt-api/certificates
             - name: VIRTUALIZATION_API_CERTS_PATH
-              value: virtualziation-api-cert
+              value: "/etc/virtualziation-api/certificates"
       dnsPolicy: Default
       serviceAccountName: virtualization-api
       {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
