@@ -56,7 +56,7 @@ spec:
       labels:
         app: virtualization-api
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-api/virtualziation-api-cert.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-api/cert-secret.yaml") . | sha256sum }}
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
       containers:
@@ -86,9 +86,6 @@ spec:
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
               {{- include "virtualization_api_resources" . | nindent 12 }}
               {{- end }}
-          env:
-            - name: VIRTUALIZATION_API_CERTS_PATH
-              value: "/etc/virtualziation-api/certificates"
       dnsPolicy: Default
       serviceAccountName: virtualization-api
       {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
