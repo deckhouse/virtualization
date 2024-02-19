@@ -1,7 +1,6 @@
 package api
 
 import (
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -9,6 +8,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
 
 type KubevirtApiServerConfig struct {

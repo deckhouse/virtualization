@@ -2,10 +2,9 @@ package options
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
-	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
-	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
+	"net"
+	"strings"
+
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -14,9 +13,12 @@ import (
 	"k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
-	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"strings"
+
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
+	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
 type Options struct {
@@ -101,7 +103,7 @@ func (o Options) ServerConfig() (*server.Config, error) {
 
 func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
 	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{net.ParseIP("127.0.0.1")}); err != nil {
-		return nil, fmt.Errorf("error creating self-signed certificates: %v", err)
+		return nil, fmt.Errorf("error creating self-signed certificates: %w", err)
 	}
 
 	serverConfig := genericapiserver.NewConfig(api.Codecs)

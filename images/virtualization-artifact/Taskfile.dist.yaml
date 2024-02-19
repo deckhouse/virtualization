@@ -63,12 +63,6 @@ env:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
-  GIT_COMMIT:
-    sh: git rev-parse "HEAD^{commit}" 2>/dev/null
-  GIT_TAG:
-    sh: git describe --abbrev=0 --tags 2>/dev/null
-  BUILD_DATE:
-    sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
 tasks:
   dev:converge:
     desc: "Rebuild and deploy all components into detected cluster"
@@ -457,6 +451,12 @@ tasks:
       CGO_ENABLED: "0"
       GOOS: "linux"
       GOARCH: "amd64"
+      GIT_COMMIT:
+        sh: git rev-parse "HEAD^{commit}" 2>/dev/null
+      GIT_TAG:
+        sh: git describe --abbrev=0 --tags 2>/dev/null
+      BUILD_DATE:
+        sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
     cmds:
       - |
         go build -mod=readonly -trimpath \

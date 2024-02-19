@@ -3,15 +3,15 @@ package app
 import (
 	"flag"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/cmd/virtualization-api/app/options"
 	"os"
 
 	"github.com/spf13/cobra"
-
 	"k8s.io/client-go/pkg/version"
 	cliflag "k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
 	"k8s.io/component-base/term"
+
+	"github.com/deckhouse/virtualization-controller/cmd/virtualization-api/app/options"
 )
 
 func NewAPIServerCommand(stopCh <-chan struct{}) *cobra.Command {
@@ -62,13 +62,11 @@ func runCommand(o *options.Options, stopCh <-chan struct{}) error {
 	}
 
 	config, err := o.ServerConfig()
-
 	if err != nil {
 		return err
 	}
 
 	s, err := config.Complete()
-
 	if err != nil {
 		return err
 	}

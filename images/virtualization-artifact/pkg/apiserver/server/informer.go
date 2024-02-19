@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -17,7 +18,7 @@ const (
 func informerFactory(rest *rest.Config) (informers.SharedInformerFactory, error) {
 	client, err := kubernetes.NewForConfig(rest)
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct lister client: %v", err)
+		return nil, fmt.Errorf("unable to construct lister client: %w", err)
 	}
 	return informers.NewSharedInformerFactory(client, defaultResync), nil
 }

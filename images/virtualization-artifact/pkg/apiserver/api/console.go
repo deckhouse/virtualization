@@ -5,7 +5,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"net/http"
+	"net/url"
+	"os"
+	"path"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,12 +17,11 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
-	//"k8s.io/kubernetes/pkg/capabilities"
-	"net/http"
-	"net/url"
-	"os"
-	"path"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
 )
+
+// "k8s.io/kubernetes/pkg/capabilities"
 
 type console struct {
 	groupResource schema.GroupResource
@@ -26,10 +29,12 @@ type console struct {
 	kubevirt      KubevirtApiServerConfig
 }
 
-var _ rest.KindProvider = &console{}
-var _ rest.Storage = &console{}
-var _ rest.Connecter = &console{}
-var _ rest.Scoper = &console{}
+var (
+	_ rest.KindProvider = &console{}
+	_ rest.Storage      = &console{}
+	_ rest.Connecter    = &console{}
+	_ rest.Scoper       = &console{}
+)
 
 func newConsole(groupResource schema.GroupResource, vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig) *console {
 	return &console{
@@ -157,11 +162,10 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 	default:
 		return fmt.Errorf("Unknown object for streaming: %v", opts)
 	}
-	return nil
 }
 
 func newThrottledUpgradeAwareProxyHandler(location *url.URL, transport http.RoundTripper, wrapTransport, upgradeRequired bool, responder rest.Responder) http.Handler {
 	handler := proxy.NewUpgradeAwareHandler(location, transport, wrapTransport, upgradeRequired, proxy.NewErrorResponder(responder))
-	//handler.MaxBytesPerSec = capabilities.Get().PerConnectionBandwidthLimitBytesPerSec
+
 	return handler
 }

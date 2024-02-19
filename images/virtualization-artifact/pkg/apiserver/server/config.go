@@ -3,10 +3,12 @@ package server
 import (
 	"errors"
 	"fmt"
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -36,7 +38,6 @@ func (c Config) Validate() []error {
 
 func (c Config) Complete() (*server, error) {
 	informer, err := informerFactory(c.Rest)
-
 	if err != nil {
 		return nil, err
 	}

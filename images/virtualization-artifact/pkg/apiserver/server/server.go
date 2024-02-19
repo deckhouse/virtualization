@@ -7,7 +7,8 @@ import (
 
 func NewServer(
 	virtualMachines cache.Controller,
-	apiserver *genericapiserver.GenericAPIServer) *server {
+	apiserver *genericapiserver.GenericAPIServer,
+) *server {
 	return &server{
 		virtualMachines:  virtualMachines,
 		GenericAPIServer: apiserver,

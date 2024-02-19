@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/deckhouse/virtualization-controller/cmd/virtualization-api/app"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/logs"
+
+	"github.com/deckhouse/virtualization-controller/cmd/virtualization-api/app"
 )
 
 func main() {

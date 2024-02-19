@@ -1,9 +1,10 @@
 package config
 
 import (
+	"os"
+
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"os"
 )
 
 func LoadKubevirtAPIServerFromEnv() api.KubevirtApiServerConfig {
