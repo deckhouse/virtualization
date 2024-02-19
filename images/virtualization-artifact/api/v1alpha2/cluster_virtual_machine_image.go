@@ -24,10 +24,6 @@ type ClusterVirtualMachineImage struct {
 	Status ClusterVirtualMachineImageStatus `json:"status,omitempty"`
 }
 
-func (in *ClusterVirtualMachineImage) GetObjectMetaInterface() metav1.Object {
-	return in.ObjectMeta.GetObjectMeta()
-}
-
 // ClusterVirtualMachineImageList provides the needed parameters
 // to do request a list of ClusterVirtualMachineImages from the system.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

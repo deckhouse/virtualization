@@ -16,7 +16,7 @@ type Object[T, ST any] interface {
 	comparable
 	client.Object
 	DeepCopy() T
-	GetObjectMeta() metav1.Object
+	GetObjectMetaInterface() metav1.Object
 }
 
 type ObjectStatusGetter[T, ST any] func(obj T) ST

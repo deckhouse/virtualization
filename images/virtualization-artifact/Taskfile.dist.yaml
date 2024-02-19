@@ -55,13 +55,20 @@ vars:
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
+  REPO_DIR:
+    sh: pwd
   CONTROLLER_IMAGE:
     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
   CONTROLLER_BUILDER_IMAGE:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
-
+  GIT_COMMIT:
+    sh: git rev-parse "HEAD^{commit}" 2>/dev/null
+  GIT_TAG:
+    sh: git describe --abbrev=0 --tags 2>/dev/null
+  BUILD_DATE:
+    sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
 tasks:
   dev:converge:
     desc: "Rebuild and deploy all components into detected cluster"
@@ -443,6 +450,19 @@ tasks:
         docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
         docker rmi -f $(docker image ls | grep {{ .DevRegistry }}/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
 
+  build:go:apiserver:
+    env:
+      PKG: "k8s.io/client-go/pkg"
+      BINARY_NAME: "virtualization-api"
+      CGO_ENABLED: "0"
+      GOOS: "linux"
+      GOARCH: "amd64"
+    cmds:
+      - |
+        go build -mod=readonly -trimpath \
+        -ldflags "-w -X $PKG/version.gitVersion=$GIT_TAG -X $PKG/version.gitCommit=$GIT_COMMIT -X $PKG/version.buildDate=$BUILD_DATE" \
+        -o "$REPO_DIR/bin/$BINARY_NAME" $REPO_DIR/cmd/virtualization-api
+
   dev:run:
     desc: "Install virtualization-controller into the cluster using helm"
     deps:
@@ -571,7 +591,18 @@ tasks:
           "api:v1alpha2" \
           --go-header-file "./scripts/boilerplate.go.txt" \
           --output-base .
-
+  gen:openapi:
+    desc: "Regenerate openapi code for apiserver"
+    deps:
+      - _ensure:k8s-kube-openapi
+    cmds:
+      - |
+        $GOPATH/bin/openapi-gen \
+        -i k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version \
+        -p pkg/apiserver/api/generated/openapi/ \
+        -O zz_generated.openapi                 \
+        -o $REPO_DIR                            \
+        -h $REPO_DIR/scripts/boilerplate.go.txt -r /dev/null
   ci:generate:
     desc: "Run generations and check git diff to ensure all files are committed"
     cmds:
@@ -622,16 +653,26 @@ tasks:
       - |
         golangci-lint run --sort-results
 
-  mirrord:run:
+  mirrord:run:controller:
     desc: "Run local virtualization-controller in cluster using a mirrord"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh run
-  mirrord:wipe:
+    cmd: ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go --deployment=virtualization-controller --namespace=d8-virtualization
+  mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh wipe
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-controller --namespace=d8-virtualization
+  mirrord:run:apiserver:
+    desc: "Run local virtualization-api in cluster using a mirrord"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-api/main.go --deployment=virtualization-api --namespace=d8-virtualization
+  mirrord:wipe:apiserver:
+    desc: "wipe up Mirrord's trash"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-api --namespace=d8-virtualization
 
   _copy_d8_registry_secret:
     internal: true
@@ -657,6 +698,14 @@ tasks:
       - |
         ls $K8S_CODEGEN && find $K8S_CODEGEN -name \*.sh -exec chmod +x {} \;
 
+  _ensure:k8s-kube-openapi:
+    desc: "Ensure k8s.io/kube-openapi"
+    internal: true
+    cmds:
+      - go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
+    status:
+      - |
+        ls $GOPATH/bin/openapi-gen
   _ensure:helm:
     desc: "Ensure helm is installed"
     internal: true

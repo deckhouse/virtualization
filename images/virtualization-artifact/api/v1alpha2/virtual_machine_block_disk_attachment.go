@@ -13,10 +13,6 @@ type VirtualMachineBlockDeviceAttachment struct {
 	Status VirtualMachineBlockDeviceAttachmentStatus `json:"status"`
 }
 
-func (in *VirtualMachineBlockDeviceAttachment) GetObjectMetaInterface() metav1.Object {
-	return in.ObjectMeta.GetObjectMeta()
-}
-
 // VirtualMachineBlockDeviceAttachmentList contains a list of VirtualMachineBlockDeviceAttachment
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineBlockDeviceAttachmentList struct {

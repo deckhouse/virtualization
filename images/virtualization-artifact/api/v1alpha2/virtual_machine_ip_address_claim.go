@@ -15,10 +15,6 @@ type VirtualMachineIPAddressClaim struct {
 	Status VirtualMachineIPAddressClaimStatus `json:"status,omitempty"`
 }
 
-func (in *VirtualMachineIPAddressClaim) GetObjectMetaInterface() metav1.Object {
-	return in.ObjectMeta.GetObjectMeta()
-}
-
 // VirtualMachineIPAddressClaimList contains a list of VirtualMachineIPAddressClaim
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineIPAddressClaimList struct {

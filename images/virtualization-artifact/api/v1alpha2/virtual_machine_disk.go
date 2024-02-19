@@ -21,10 +21,6 @@ type VirtualMachineDisk struct {
 	Status VirtualMachineDiskStatus `json:"status,omitempty"`
 }
 
-func (in *VirtualMachineDisk) GetObjectMetaInterface() metav1.Object {
-	return in.ObjectMeta.GetObjectMeta()
-}
-
 type VirtualMachineDiskSpec struct {
 	DataSource            *VMDDataSource           `json:"dataSource,omitempty"`
 	PersistentVolumeClaim VMDPersistentVolumeClaim `json:"persistentVolumeClaim"`
