@@ -15,8 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 )
 
@@ -178,7 +178,7 @@ func (r *Reconciler) doOperationStart(ctx context.Context, state *ReconcilerStat
 	if err != nil {
 		return fmt.Errorf("cannot get kvvm %q. %w", state.VM.Name, err)
 	}
-	return kvvmutil.StartKVVM(ctx, state.Client, kvvm)
+	return powerstate.StartVM(ctx, state.Client, kvvm)
 }
 
 func (r *Reconciler) doOperationStop(ctx context.Context, force bool, state *ReconcilerState) error {
@@ -186,7 +186,7 @@ func (r *Reconciler) doOperationStop(ctx context.Context, force bool, state *Rec
 	if err != nil {
 		return fmt.Errorf("cannot get kvvmi %q. %w", state.VM.Name, err)
 	}
-	return kvvmutil.StopKVVM(ctx, state.Client, kvvmi, force)
+	return powerstate.StopVM(ctx, state.Client, kvvmi, force)
 }
 
 func (r *Reconciler) doOperationRestart(ctx context.Context, force bool, state *ReconcilerState) error {
@@ -198,7 +198,7 @@ func (r *Reconciler) doOperationRestart(ctx context.Context, force bool, state *
 	if err != nil {
 		return fmt.Errorf("cannot get kvvmi %q. %w", state.VM.Name, err)
 	}
-	return kvvmutil.RestartKVVM(ctx, state.Client, kvvm, kvvmi, force)
+	return powerstate.RestartVM(ctx, state.Client, kvvm, kvvmi, force)
 }
 
 func (r *Reconciler) isOperationAllowed(op virtv2.VMOPOperation, state *ReconcilerState) bool {

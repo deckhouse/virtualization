@@ -8,6 +8,20 @@ import:
   - 'sys'
   to: /
   before: setup
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+      - '**/*'
+    includePaths:
+    - scripts
+shell:
+  setup:
+  # Replace virt-launcher-monitor with script.
+  - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
+  - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
+  - chmod +x /usr/bin/virt-launcher-monitor
 # Source https://github.com/kubevirt/containerized-data-importer/blob/main/cmd/cdi-apiserver/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-launcher"]
