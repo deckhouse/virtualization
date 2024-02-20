@@ -722,7 +722,7 @@ spec:
                 terminationGracePeriodSeconds:
                   format: int64
                   type: integer
-                  default: 60
+                  default: 3600
                   description: |
                     Grace period observed after signalling a VM to stop after which the VM is force terminated.
 
