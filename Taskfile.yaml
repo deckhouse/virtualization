@@ -9,8 +9,8 @@ includes:
     taskfile: ./images/vmi-router
     dir: ./images/vmi-router
   virtualization-controller:
-    taskfile: ./images/virtualization-controller
-    dir: ./images/virtualization-controller
+    taskfile: ./images/virtualization-artifact
+    dir: ./images/virtualization-artifact
   hooks:
     taskfile: ./hooks
     dir: ./hooks
