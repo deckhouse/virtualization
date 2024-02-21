@@ -10,6 +10,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations/install"
 )
 
 type KubevirtApiServerConfig struct {
@@ -18,27 +20,26 @@ type KubevirtApiServerConfig struct {
 }
 
 var (
-	// Scheme contains the types needed by the resource metrics API.
 	Scheme = runtime.NewScheme()
-	// Codecs is a codec factory for serving the resource metrics API.
 	Codecs = serializer.NewCodecFactory(Scheme)
 )
 
 func init() {
-	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: virtv2.APIVersion})
+	install.Install(Scheme)
+	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
 }
 
 func Build(vm rest.Storage) genericapiserver.APIGroupInfo {
-	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(virtv2.APIGroup, Scheme, metav1.ParameterCodec, Codecs)
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(operations.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
-		virtv2.VMResource: vm,
+		"virtualmachines": vm,
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[virtv2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
 }
 
 func Install(vmLister cache.GenericLister, server *genericapiserver.GenericAPIServer, kubevirt KubevirtApiServerConfig) error {
-	vmConsole := newConsole(virtv2.Resource(virtv2.VirtualMachineConsoleResource), vmLister, kubevirt)
+	vmConsole := newConsole(operations.Resource("virtualmachines"), vmLister, kubevirt)
 	info := Build(vmConsole)
 	return server.InstallAPIGroup(&info)
 }

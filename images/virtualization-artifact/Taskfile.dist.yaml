@@ -576,33 +576,22 @@ tasks:
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
-
   gen:api:
+    desc: "Regenerate all"
+    deps:
+      - _ensure:k8s-codegen-mod
+      - _ensure:k8s-kube-openapi
+    cmd:  ./hack/update-codegen.sh all
+  gen:api:controller:
     desc: "Regenerate deepcopy code for CRDs."
     deps:
       - _ensure:k8s-codegen-mod
-    cmds:
-      - |
-        # Use only deepcopy generator. Use . for output-base to update files in api/v1alpha2 directory.
-        $K8S_CODEGEN/generate-groups.sh \
-          deepcopy \
-          github.com/deckhouse/virtualization-controller \
-          . \
-          "api:v1alpha2" \
-          --go-header-file "./scripts/boilerplate.go.txt" \
-          --output-base .
-  gen:openapi:
+    cmd: ./hack/update-codegen.sh controller
+  gen:api:apiserver:
     desc: "Regenerate openapi code for apiserver"
     deps:
       - _ensure:k8s-kube-openapi
-    cmds:
-      - |
-        $GOPATH/bin/openapi-gen \
-        -i k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version \
-        -p pkg/apiserver/api/generated/openapi/ \
-        -O zz_generated.openapi                 \
-        -o $REPO_DIR                            \
-        -h $REPO_DIR/scripts/boilerplate.go.txt -r /dev/null
+    cmd: ./hack/update-codegen.sh apiserver
   ci:generate:
     desc: "Run generations and check git diff to ensure all files are committed"
     cmds:

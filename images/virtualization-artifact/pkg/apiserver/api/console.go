@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations"
 )
 
 // "k8s.io/kubernetes/pkg/capabilities"
@@ -46,7 +47,7 @@ func newConsole(groupResource schema.GroupResource, vmLister cache.GenericLister
 
 // New implements rest.Storage interface
 func (c console) New() runtime.Object {
-	return &virtv2.VirtualMachineConsole{}
+	return &operations.VirtualMachineConsole{}
 }
 
 // Destroy implements rest.Storage interface
@@ -55,7 +56,7 @@ func (c console) Destroy() {
 
 // Kind implements rest.KindProvider interface
 func (c console) Kind() string {
-	return virtv2.VirtualMachineConsoleKind
+	return operations.VirtualMachineConsoleKind
 }
 
 // NamespaceScoped implements rest.Scoper interface
@@ -65,7 +66,7 @@ func (c console) NamespaceScoped() bool {
 
 // Connect implements rest.Connecter interface
 func (c console) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	consoleOpts, ok := opts.(*virtv2.VirtualMachineConsole)
+	consoleOpts, ok := opts.(*operations.VirtualMachineConsole)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
@@ -79,7 +80,7 @@ func (c console) Connect(ctx context.Context, name string, opts runtime.Object, 
 
 // NewConnectOptions implements rest.Connecter interface
 func (c console) NewConnectOptions() (runtime.Object, bool, string) {
-	return &virtv2.VirtualMachineConsole{}, false, ""
+	return &operations.VirtualMachineConsole{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
@@ -93,7 +94,7 @@ func ConsoleLocation(
 	ctx context.Context,
 	getter cache.GenericLister,
 	name string,
-	opts *virtv2.VirtualMachineConsole,
+	opts *operations.VirtualMachineConsole,
 	kubevirt KubevirtApiServerConfig,
 ) (*url.URL, http.RoundTripper, error) {
 	return streamLocation(ctx, getter, name, opts, "console", kubevirt)
@@ -157,7 +158,7 @@ func getVM(getter cache.GenericLister, key types.NamespacedName) (*virtv2.Virtua
 
 func streamParams(_ url.Values, opts runtime.Object) error {
 	switch opts := opts.(type) {
-	case *virtv2.VirtualMachineConsole:
+	case *operations.VirtualMachineConsole:
 		return nil
 	default:
 		return fmt.Errorf("Unknown object for streaming: %v", opts)

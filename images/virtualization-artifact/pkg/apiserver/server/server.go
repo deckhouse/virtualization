@@ -24,7 +24,7 @@ func (s *server) RunUntil(stopCh <-chan struct{}) error {
 	// Start informers
 	go s.virtualMachines.Run(stopCh)
 
-	// Ensure cache is up to date
+	// Ensure cache is up-to-date
 	ok := cache.WaitForCacheSync(stopCh, s.virtualMachines.HasSynced)
 	if !ok {
 		return nil

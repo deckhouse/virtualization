@@ -2,12 +2,14 @@
 set -eo pipefail
 
 function usage {
-  echo "Usage: $0 [run/wipe] --app=<?> --namespace=<?> --deployment=<?>"
-  echo "Examples:"
-  echo "  # Run"
-  echo "  $0 run --app=\"/path/to/main.go\" --deployment=\"your deployment\" --namespace=\"your namespace\""
-  echo "  # Wipe"
-  echo "  $0 wipe --deployment=\"your deployment\" --namespace=\"your namespace\""
+    cat <<EOF
+  "Usage: $0 [run/wipe] --app=<?> --namespace=<?> --deployment=<?>"
+  "Examples:"
+    # Run"
+      $(basename "$0") run --app="/path/to/main.go" --deployment="your deployment" --namespace="your namespace"
+    # Wipe"
+      $(basename "$0") wipe --deployment="your deployment" --namespace="your namespace"
+EOF
   exit 1
 }
 
