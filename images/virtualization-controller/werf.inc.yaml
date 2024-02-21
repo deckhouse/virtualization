@@ -1,9 +1,8 @@
 ---
 image: {{ $.ImageName }}
 fromImage: base-ubuntu-jammy
-fromCacheVersion: "2024-02-21-0"
 import:
-  - artifact: virtualization-artifact
+  - image: virtualization-artifact
     add: /usr/local/go/src/virtualization-controller/virtualization-controller
     to: /app/virtualization-controller
     after: install

@@ -1,5 +1,5 @@
 ---
-artifact: {{ $.ImageName }}
+image: {{ $.ImageName }}
 fromImage: base-golang-20-bookworm
 git:
 - add: /images/{{ $.ImageName }}
