@@ -536,15 +536,20 @@ func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, er
 	return lastPropagatedLabels, nil
 }
 
-func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
+func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(vm.GetLabels())
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	common.AddLabel(kvvm, common.LastPropagatedVMLabelsAnnotation, string(data))
+	newAnnoValue := string(data)
 
-	return nil
+	if kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
+		return false, nil
+	}
+
+	common.AddAnnotation(kvvm, common.LastPropagatedVMLabelsAnnotation, newAnnoValue)
+	return true, nil
 }
 
 func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
@@ -560,13 +565,18 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 	return lastPropagatedAnno, nil
 }
 
-func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
+func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	common.AddLabel(kvvm, common.LastPropagatedVMAnnotationsAnnotation, string(data))
+	newAnnoValue := string(data)
 
-	return nil
+	if kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
+		return false, nil
+	}
+
+	common.AddAnnotation(kvvm, common.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
+	return true, nil
 }
