@@ -78,7 +78,7 @@ spec:
               readOnly: true
           ports:
             - containerPort: 8443
-              name: virtualization-api
+              name: apiserver
               protocol: TCP
           resources:
             requests:

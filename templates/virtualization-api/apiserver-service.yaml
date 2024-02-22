@@ -7,9 +7,9 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
 spec:
   ports:
-    - name: virtualization-api
+    - name: apiserver
       port: 443
-      targetPort: virtualization-api
+      targetPort: apiserver
       protocol: TCP
   selector:
     app: virtualization-api
