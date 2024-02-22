@@ -71,7 +71,7 @@ spec:
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /etc/virtualziation-api/certificates
-              name:  virtualziation-api-cert
+              name:  virtualziation-api-tls
               readOnly: true
             - mountPath: /etc/virt-api/certificates
               name:  kubevirt-virt-api-certs
@@ -92,11 +92,11 @@ spec:
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
       volumes:
-        - name: virtualziation-api-cert
+        - name: virtualziation-api-tls
           secret:
             defaultMode: 420
             optional: true
-            secretName: virtualziation-api-cert
+            secretName: virtualziation-api-tls
         - name: kubevirt-virt-api-certs
           secret:
             defaultMode: 420

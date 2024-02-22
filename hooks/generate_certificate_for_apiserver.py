@@ -27,7 +27,7 @@ def main():
             f"virtualization-api.{common.NAMESPACE}.svc"
         ]),
         namespace=common.NAMESPACE,
-        tls_secret_name="virtualziation-api-cert",
+        tls_secret_name="virtualziation-api-tls",
         values_path_prefix=f"{common.MODULE_NAME}.internal.apiserverCert")
 
     hook.run()
