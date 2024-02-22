@@ -646,7 +646,10 @@ tasks:
     desc: "Run local virtualization-controller in cluster using a mirrord"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go --deployment=virtualization-controller --namespace=d8-virtualization
+    cmd: |
+        ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
+        --deployment=virtualization-controller                                 \
+        --namespace=d8-virtualization
   mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
     deps:
@@ -656,7 +659,11 @@ tasks:
     desc: "Run local virtualization-api in cluster using a mirrord"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-api/main.go --deployment=virtualization-api --namespace=d8-virtualization
+    cmd: |
+        ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+        --deployment="virtualization-api"                                 \
+        --namespace="d8-virtualization"                                   \
+        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt --v=3"
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"
     deps:

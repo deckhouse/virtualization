@@ -37,9 +37,16 @@ function generate::apiserver {
 }
 
 function generate::controller {
-        bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:v1alpha2" \
+        OUTPUT_BASE=$(mktemp -d)
+        trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
+#        bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" . "api:v1alpha2" \
+#          --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
+#          --output-base "${SCRIPT_ROOT}"
+        echo "${CODEGEN_PKG}/generate-groups.sh"
+        bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/api/client" "${MODULE}" "api:v1alpha2" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-          --output-base "${SCRIPT_ROOT}"
+          --output-base "${OUTPUT_BASE}"
+        cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
 }
 
 

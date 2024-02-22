@@ -35,6 +35,10 @@ while [[ $# -gt 0 ]]; do
         NAMESPACE="${1#*=}"
         shift
         ;;
+    --flags=*)
+        FLAGS="${1#*=}"
+        shift
+        ;;
     *)
         echo "Invalid argument: $1"
         usage
@@ -77,4 +81,8 @@ fi
 
 kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
 kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 0
-mirrord exec --config-file "${CONFIG_MIRRORD}"  --target "deployment/${NEW_NAME}" --target-namespace "${NAMESPACE}" "${BIN_DIR}/${BINARY}"
+
+mirrord exec --config-file "${CONFIG_MIRRORD}"  \
+  --target "deployment/${NEW_NAME}"             \
+  --target-namespace "${NAMESPACE}"             \
+  "${BIN_DIR}/${BINARY}" -- $FLAGS

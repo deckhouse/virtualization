@@ -53,10 +53,11 @@ func (c Config) Complete() (*server, error) {
 	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt); err != nil {
 		return nil, err
 	}
-	s := NewServer(
-		vmInformer.Informer(),
-		genericServer,
-	)
+	//s := NewServer(
+	//	vmInformer.Informer(),
+	//	genericServer,
+	//)
+	s := NewServer(genericServer)
 	if err != nil {
 		return nil, err
 	}
