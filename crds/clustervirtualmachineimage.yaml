@@ -55,10 +55,10 @@ spec:
                       description: |
                         The type of an origin of the image. Options are:
 
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — create a new image from an existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — create a new image from an existing `ClusterVirtualMachineImage`.
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
+                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object

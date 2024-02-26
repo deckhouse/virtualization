@@ -70,8 +70,8 @@ spec:
                       description: |
                         The type of an origin of the disk. Options are:
 
-                        * `HTTP` — fill the disk with data from some external http/https url.
-                        * `ContainerImage` — fill the disk from an image, stored in container registry image.
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
                         * `VirtualMachineImage` — fill the disk from another existing `VirtualMachineImage`.
                         * `ClusterVirtualMachineImage` — fill the disk from another existing `ClusterVirtualMachineImage`.
                         * `Upload` — fill the disk with data, uploaded by user via the special interface.
@@ -139,7 +139,7 @@ spec:
                       required:
                       - image
                       description: |
-                        Use an image stored in external container regitry. Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+                        Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
