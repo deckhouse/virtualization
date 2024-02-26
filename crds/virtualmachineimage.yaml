@@ -27,7 +27,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk image which could be used as data source for new `VirtualMachineDisks` or could be mounted to `VirtualMachines` as is. This resource is immutable, once created, cannot be modified.
+            This resource describes a virtual machine disk image or installation image (iso) that can be used as a data source for new `VirtualMachineDisks` or can be mounted in `VirtualMachines`.
+
+            > This resource cannot be modified once it has been created.
 
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
           required:
@@ -62,13 +64,13 @@ spec:
                         - "ClusterVirtualMachineImage"
                         - "Upload"
                       description: |
-                        The type of an origin of the image. Options are:
+                        Type of origin from which the image will be created:
 
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
+                        * `HTTP` - create an image from a file published on an HTTP/HTTPS server.
+                        * `ContainerImage` - create an image from an image in a container registry.
+                        * `VirtualMachineImage` - create an image from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage` - create an image from another existing `ClusterVirtualMachineImage`.
+                        * `Upload` - upload an image manually, via the web interface.
                     http:
                       type: object
                       description: |
@@ -288,6 +290,7 @@ spec:
                   type: string
                   description: |
                     Current status of `VirtualMachineImage` resource:
+
                     * Pending - The resource has been created and is on a waiting queue.
                     * Provisioning - The process of resource creation (copying/downloading/building the image/filling the PVC with data) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
@@ -295,7 +298,7 @@ spec:
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
                     * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
                     * ImageLost - The child image of the resource is missing. The resource cannot be used.
-                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
+
                   enum:
                     [
                       "Pending",

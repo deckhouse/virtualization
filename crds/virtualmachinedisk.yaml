@@ -27,7 +27,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk which could be mounted to `VirtualMachines` as is. After creation, only the `.spec.persistentVolumeClaim.size` field is available for upward change, all other fields are immutable.
+            Describes a virtual machine disk that can be mounted in `VirtualMachines`. Once the resource is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
 
             A PVC is created under the hood of the resource, into which the data from the source is filled.
           required:

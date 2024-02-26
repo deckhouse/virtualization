@@ -5,9 +5,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Данный ресурс описывает образ диска виртуальной машины, который может быть использован в качестве источника данных для новых `VirtualMachineDisks` или может быть смонтирован в `VirtualMachines`.  Этот ресурс не может быть изменен после его создания.
+            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualMachineDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
 
-
+            > Этот ресурс не может быть изменен после его создания.
 
             Под капотом этого ресурса создается образ контейнера, который хранится в специальном container registry (DVCR) или PVC, в который заливаются данные из источника.
           properties:
@@ -17,32 +17,23 @@ spec:
                   description: |
                     Тип хранилища для хранения образа:
 
-                    * `Kubernetes` — использовать PersistentVolumeClaim в текущем кластере K8s. В этом случае образ будет загружен и скопирован на PV как есть.
-
                     * `ContainerRegistry` — использовать container registry (DVCR). В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации).
-                persistentVolumeClaim:
-                  description: |
-                    Настройки для создания PVC для хранения диска.
-                  properties:
-                    storageClassName:
-                      description: |
-                        Имя класса StorageClass, требуемого для PersistentVolumeClaim. Дополнительная информация — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
                 dataSource:
                   description: |
-                    Тип источника, из которого будет создан диск. Если источник (.spec.dataSource) отсутствует, будет создан пустой диск.
+                    Тип источника, из которого будет создан образ.
                   properties:
                     type:
                       description: |
-                        Тип источника, из которого будет создан диск:
+                        Тип источника, из которого будет создан образ:
 
-                        * `HTTP` — создать диск из файла, опубликованного на HTTP/HTTPS-сервере.
-                        * `ContainerImage` — создать диск из образа в container registry.
-                        * `VirtualMachineImage` — создать диск из существующего `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — создать диск из существующего `ClusterVirtualMachineImage`.
-                        * `Upload` — загрузить образ диска вручную, через веб-интерфейс.
+                        * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
+                        * `ContainerImage` — создать образ из образа в container registry.
+                        * `VirtualMachineImage` — создать образ из другого существующего `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage` — создать образ из другого существующего `ClusterVirtualMachineImage`.
+                        * `Upload` — загрузить образ вручную, через веб-интерфейс.
                     http:
                       description: |
-                        Создать диск из файла, опубликованного по URL. Поддерживаемые схемы:
+                        Создать образ из файла, опубликованного по URL. Поддерживаемые схемы:
 
                         * HTTP;
                         * HTTPS.
@@ -168,7 +159,7 @@ spec:
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
                   description: |
-                    Текущее состояние ресурса `ClusterVirtualMachineImage`:
+                    Текущее состояние ресурса `VirtualMachineImage`:
 
                     * Pending — ресурс был создан и находится в очереди ожидания.
                     * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).
@@ -177,7 +168,6 @@ spec:
                     * Failed — при создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
                     * NotReady — невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
                     * ImageLost — дочерний образ ресурса отсутствует. Ресурс не может быть использован.
-                    * PVCLost — дочерний PVC ресурса отсутствует. Ресурс не может быть использован.
 
                 progress:
                   description: |
