@@ -57,8 +57,8 @@ spec:
 
                         * `HTTP` — fill the image with data from some external http/https url.
                         * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` - create a new image from an existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` - create a new image from an existing `ClusterVirtualMachineImage`.
+                        * `VirtualMachineImage` — create a new image from an existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage` — create a new image from an existing `ClusterVirtualMachineImage`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
