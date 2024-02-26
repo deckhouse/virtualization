@@ -31,10 +31,11 @@ type console struct {
 }
 
 var (
-	_ rest.KindProvider = &console{}
-	_ rest.Storage      = &console{}
-	_ rest.Connecter    = &console{}
-	_ rest.Scoper       = &console{}
+	_ rest.KindProvider         = &console{}
+	_ rest.Storage              = &console{}
+	_ rest.Connecter            = &console{}
+	_ rest.Scoper               = &console{}
+	_ rest.SingularNameProvider = &console{}
 )
 
 func newConsole(groupResource schema.GroupResource, vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig) *console {
@@ -62,6 +63,11 @@ func (c console) Kind() string {
 // NamespaceScoped implements rest.Scoper interface
 func (c console) NamespaceScoped() bool {
 	return true
+}
+
+// GetSingularName implements rest.SingularNameProvider interface
+func (c console) GetSingularName() string {
+	return "virtualmachine"
 }
 
 // Connect implements rest.Connecter interface

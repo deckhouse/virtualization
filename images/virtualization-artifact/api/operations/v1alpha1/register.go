@@ -39,6 +39,7 @@ var (
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineConsole{},
+		&VirtualMachineConsoleList{},
 	)
 	return nil
 }

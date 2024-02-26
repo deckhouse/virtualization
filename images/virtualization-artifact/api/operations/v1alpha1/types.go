@@ -14,3 +14,16 @@ type VirtualMachineConsole struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VirtualMachineConsoleList is a list of VirtualMachineConsole.
+type VirtualMachineConsoleList struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// List of pod metrics.
+	Items []VirtualMachineConsole `json:"items"`
+}

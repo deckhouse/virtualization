@@ -19,11 +19,11 @@ type VirtualMachineConsole struct {
 
 // VirtualMachineConsoleList is a list of VirtualMachineConsole.
 type VirtualMachineConsoleList struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta
 
 	// List of pod metrics.
-	Items []VirtualMachineConsole `json:"items"`
+	Items []VirtualMachineConsole
 }

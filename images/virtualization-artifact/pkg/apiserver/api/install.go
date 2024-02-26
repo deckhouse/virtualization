@@ -9,9 +9,9 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/api/operations"
 	"github.com/deckhouse/virtualization-controller/api/operations/install"
+	"github.com/deckhouse/virtualization-controller/api/operations/v1alpha1"
 )
 
 type KubevirtApiServerConfig struct {
@@ -43,7 +43,7 @@ func Build(vm rest.Storage) genericapiserver.APIGroupInfo {
 	resources := map[string]rest.Storage{
 		"virtualmachines": vm,
 	}
-	apiGroupInfo.VersionedResourcesStorageMap[virtv2.SchemeGroupVersion.Version] = resources
+	apiGroupInfo.VersionedResourcesStorageMap[v1alpha1.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
 }
 
