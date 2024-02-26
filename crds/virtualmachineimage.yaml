@@ -340,10 +340,6 @@ spec:
       - name: Progress
         type: string
         jsonPath: .status.progress
-      - name: Capacity
-        type: string
-        jsonPath: .status.capacity
-        priority: 1
       - name: StoredSize
         type: string
         jsonPath: .status.size.stored
