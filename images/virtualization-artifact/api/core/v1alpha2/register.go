@@ -4,15 +4,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/deckhouse/virtualization-controller/api/core"
 )
 
-const (
-	APIGroup   = "virtualization.deckhouse.io"
-	APIVersion = "v1alpha2"
-)
+const Version = "v1alpha2"
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: APIGroup, Version: APIVersion}
+var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: Version}
 
 // ClusterVirtualMachineImageGVK is group version kind for ClusterVirtualMachineImage
 var ClusterVirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: CVMIKind}

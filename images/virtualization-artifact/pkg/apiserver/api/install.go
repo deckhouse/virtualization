@@ -9,9 +9,9 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations/install"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/operations"
+	"github.com/deckhouse/virtualization-controller/api/operations/install"
 )
 
 type KubevirtApiServerConfig struct {
@@ -27,6 +27,15 @@ var (
 func init() {
 	install.Install(Scheme)
 	metav1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
+
+	unversioned := schema.GroupVersion{Group: "", Version: "v1"}
+	Scheme.AddUnversionedTypes(unversioned,
+		&metav1.Status{},
+		&metav1.APIVersions{},
+		&metav1.APIGroupList{},
+		&metav1.APIGroup{},
+		&metav1.APIResourceList{},
+	)
 }
 
 func Build(vm rest.Storage) genericapiserver.APIGroupInfo {

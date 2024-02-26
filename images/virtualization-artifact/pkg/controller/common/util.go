@@ -19,7 +19,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtcore "github.com/deckhouse/virtualization-controller/api/core"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 )
 
@@ -214,7 +214,7 @@ const (
 	LabelDefaultPreferenceKind = "instancetype.kubevirt.io/default-preference-kind"
 
 	// LabelImplicitIPAddressClaim is a label to implicitly bind ip address claim to virtual machine.
-	LabelImplicitIPAddressClaim = virtv2alpha1.APIGroup + "/implicit-ip-address-claim"
+	LabelImplicitIPAddressClaim = virtcore.GroupName + "/implicit-ip-address-claim"
 	// LabelImplicitIPAddressClaimValue is a value for LabelImplicitIPAddressClaim.
 	LabelImplicitIPAddressClaimValue = "true"
 

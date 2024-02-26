@@ -18,8 +18,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/operations"
 )
 
 // "k8s.io/kubernetes/pkg/capabilities"

@@ -7,7 +7,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 )
 
@@ -37,7 +37,7 @@ func (c Config) Validate() []error {
 }
 
 func (c Config) Complete() (*server, error) {
-	informer, err := informerFactory(c.Rest)
+	informer, err := virtualizationInformerFactory(c.Rest)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +53,10 @@ func (c Config) Complete() (*server, error) {
 	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt); err != nil {
 		return nil, err
 	}
-	//s := NewServer(
-	//	vmInformer.Informer(),
-	//	genericServer,
-	//)
-	s := NewServer(genericServer)
+	s := NewServer(
+		vmInformer.Informer(),
+		genericServer,
+	)
 	if err != nil {
 		return nil, err
 	}

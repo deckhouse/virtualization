@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"

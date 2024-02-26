@@ -3,20 +3,21 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/deckhouse/virtualization-controller/api/operations"
 )
 
 const (
-	// GroupName is the group name use in this package
-	GroupName = "operations.virtualization.deckhouse.io"
-	Version   = "v1alpha1"
+	Version = "v1alpha1"
 )
+
 const (
 	VirtualMachineConsoleKind     = "VirtualMachineConsole"
 	VirtualMachineConsoleResource = "virtualmachineconsoles"
 )
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: Version}
+var SchemeGroupVersion = schema.GroupVersion{Group: operations.GroupName, Version: Version}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {

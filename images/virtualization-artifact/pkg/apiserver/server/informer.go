@@ -3,9 +3,10 @@ package server
 import (
 	"fmt"
 
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	virtClient "github.com/deckhouse/virtualization-controller/api/client/clientset/versioned"
+	virtInformers "github.com/deckhouse/virtualization-controller/api/client/informers/externalversions"
 )
 
 const (
@@ -15,10 +16,10 @@ const (
 	defaultResync = 0
 )
 
-func informerFactory(rest *rest.Config) (informers.SharedInformerFactory, error) {
-	client, err := kubernetes.NewForConfig(rest)
+func virtualizationInformerFactory(rest *rest.Config) (virtInformers.SharedInformerFactory, error) {
+	client, err := virtClient.NewForConfig(rest)
 	if err != nil {
 		return nil, fmt.Errorf("unable to construct lister client: %w", err)
 	}
-	return informers.NewSharedInformerFactory(client, defaultResync), nil
+	return virtInformers.NewSharedInformerFactory(client, defaultResync), nil
 }

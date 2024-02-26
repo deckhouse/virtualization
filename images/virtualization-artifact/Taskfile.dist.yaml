@@ -582,16 +582,17 @@ tasks:
       - _ensure:k8s-codegen-mod
       - _ensure:k8s-kube-openapi
     cmd:  ./hack/update-codegen.sh all
-  gen:api:controller:
-    desc: "Regenerate deepcopy code for CRDs."
+  gen:api:core:
+    desc: "Regenerate code for core components."
     deps:
       - _ensure:k8s-codegen-mod
-    cmd: ./hack/update-codegen.sh controller
-  gen:api:apiserver:
-    desc: "Regenerate openapi code for apiserver"
+    cmd: ./hack/update-codegen.sh core
+  gen:api:operations:
+    desc: "Regenerate code for operations components"
     deps:
+      - _ensure:k8s-codegen-mod
       - _ensure:k8s-kube-openapi
-    cmd: ./hack/update-codegen.sh apiserver
+    cmd: ./hack/update-codegen.sh operations
   ci:generate:
     desc: "Run generations and check git diff to ensure all files are committed"
     cmds:
@@ -663,7 +664,14 @@ tasks:
         ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
         --deployment="virtualization-api"                                 \
         --namespace="d8-virtualization"                                   \
-        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt --v=3"
+        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --cert-dir=/tmp --v=7"
+#    cmd: |
+#        ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+#        --deployment="virtualization-api"                                 \
+#        --namespace="d8-virtualization"                                   \
+#        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/tmp/virtualziation-api/certificates/tls.key --tls-cert-file=/tmp/virtualziation-api/certificates/tls.crt --v=3"
+#
+
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"
     deps:

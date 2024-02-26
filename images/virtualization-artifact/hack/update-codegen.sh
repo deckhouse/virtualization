@@ -5,7 +5,7 @@ set -o pipefail
 
 function usage {
   cat <<EOF
-Usage: $(basename "$0") <controller/apiserver/all>
+Usage: $(basename "$0") <core/operations/all>
 Example:
    $(basename "$0") controller
 EOF
@@ -19,34 +19,34 @@ function source::settings {
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
-function generate::apiserver {
-        bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" "./pkg/apiserver" "apis:operations" \
-          --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-          --output-base "${SCRIPT_ROOT}"
-        bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" "./pkg/apiserver/apis" "operations:v1alpha1" \
+function generate::operations {
+          bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:operations" \
+            --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
+            --output-base "${SCRIPT_ROOT}"
+          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "operations:v1alpha1" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${SCRIPT_ROOT}"
 
-        chmod +x "${GOPATH}/bin/openapi-gen"
-        "${GOPATH}/bin/openapi-gen" \
-          -i "${MODULE}/pkg/apiserver/apis/operations/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
-          -p pkg/apiserver/api/generated/openapi/        \
-          -O zz_generated.openapi                        \
-          -o "${SCRIPT_ROOT}"                            \
-          -h "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" -r /dev/null
+          chmod +x "${GOPATH}/bin/openapi-gen"
+          "${GOPATH}/bin/openapi-gen" \
+            -i "${MODULE}/api/operations/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
+            -p pkg/apiserver/api/generated/openapi/        \
+            -O zz_generated.openapi                        \
+            -o "${SCRIPT_ROOT}"                            \
+            -h "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" -r /dev/null
 }
 
-function generate::controller {
-        OUTPUT_BASE=$(mktemp -d)
-        trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
-#        bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" . "api:v1alpha2" \
-#          --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-#          --output-base "${SCRIPT_ROOT}"
-        echo "${CODEGEN_PKG}/generate-groups.sh"
-        bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/api/client" "${MODULE}" "api:v1alpha2" \
+function generate::core {
+          OUTPUT_BASE=$(mktemp -d)
+          trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
+          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "core:v1alpha2" \
+            --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
+            --output-base "${SCRIPT_ROOT}"
+
+          bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/api/client" "${MODULE}/api" "core:v1alpha2" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${OUTPUT_BASE}"
-        cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
+          cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
 }
 
 
@@ -57,18 +57,18 @@ if [ "$#" != 1 ] || [ "${WHAT}" == "--help" ] ; then
 fi
 
 case "$WHAT" in
-  controller)
+  core)
     source::settings
-    generate::controller
+    generate::core
     ;;
-  apiserver*)
+  operations)
     source::settings
-    generate::apiserver
+    generate::operations
     ;;
   all)
     source::settings
-    generate::apiserver
-    generate::controller
+    generate::core
+    generate::operations
     ;;
 *)
     echo "Invalid argument: $WHAT"

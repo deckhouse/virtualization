@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	"k8s.io/apimachinery/pkg/types"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 // StartVM starts VM via adding change request to the KVVM status.
