@@ -29,7 +29,7 @@ function generate::operations {
 
           chmod +x "${GOPATH}/bin/openapi-gen"
           "${GOPATH}/bin/openapi-gen" \
-            -i "${MODULE}/api/operations/v1alpha1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
+            -i "${MODULE}/api/core/v1alpha2,${MODULE}/api/operations/v1alpha1,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
             -p pkg/apiserver/api/generated/openapi/        \
             -O zz_generated.openapi                        \
             -o "${SCRIPT_ROOT}"                            \

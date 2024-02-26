@@ -18,6 +18,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
@@ -30,7 +31,7 @@ type Options struct {
 	Features       *genericoptions.FeatureOptions
 	Logging        *logs.Options
 
-	Kubevirt api.KubevirtApiServerConfig
+	Kubevirt storage.KubevirtApiServerConfig
 
 	ShowVersion bool
 	// Only to be used to for testing

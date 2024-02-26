@@ -12,12 +12,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/api/operations"
 	"github.com/deckhouse/virtualization-controller/api/operations/install"
 	"github.com/deckhouse/virtualization-controller/api/operations/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
 )
-
-type KubevirtApiServerConfig struct {
-	Endpoint  string
-	CertsPath string
-}
 
 var (
 	Scheme = runtime.NewScheme()
@@ -38,17 +34,19 @@ func init() {
 	)
 }
 
-func Build(vm rest.Storage) genericapiserver.APIGroupInfo {
+func Build(vm, console rest.Storage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(operations.GroupName, Scheme, metav1.ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
-		"virtualmachines": vm,
+		"virtualmachines":         vm,
+		"virtualmachines/console": console,
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[v1alpha1.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
 }
 
-func Install(vmLister cache.GenericLister, server *genericapiserver.GenericAPIServer, kubevirt KubevirtApiServerConfig) error {
-	vmConsole := newConsole(operations.Resource("virtualmachines"), vmLister, kubevirt)
-	info := Build(vmConsole)
+func Install(vmLister cache.GenericLister, server *genericapiserver.GenericAPIServer, kubevirt storage.KubevirtApiServerConfig) error {
+	vmStorage := storage.NewStorage(operations.Resource("virtualmachines"), vmLister)
+	consoleStorage := storage.NewConsoleStorage(operations.Resource("virtualmachines/console"), vmLister, kubevirt)
+	info := Build(vmStorage, consoleStorage)
 	return server.InstallAPIGroup(&info)
 }

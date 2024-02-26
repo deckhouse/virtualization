@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -40,6 +41,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineConsole{},
 		&VirtualMachineConsoleList{},
+		&virtv2.VirtualMachine{},
+		&virtv2.VirtualMachineList{},
 	)
 	return nil
 }

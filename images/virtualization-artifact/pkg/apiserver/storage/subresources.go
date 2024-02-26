@@ -1,4 +1,4 @@
-package api
+package storage
 
 import (
 	"context"
@@ -22,24 +22,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/api/operations"
 )
 
-// "k8s.io/kubernetes/pkg/capabilities"
-
-type console struct {
+type ConsoleStorage struct {
 	groupResource schema.GroupResource
 	vmLister      cache.GenericLister
 	kubevirt      KubevirtApiServerConfig
 }
 
+type KubevirtApiServerConfig struct {
+	Endpoint  string
+	CertsPath string
+}
+
 var (
-	_ rest.KindProvider         = &console{}
-	_ rest.Storage              = &console{}
-	_ rest.Connecter            = &console{}
-	_ rest.Scoper               = &console{}
-	_ rest.SingularNameProvider = &console{}
+	_ rest.Storage   = &ConsoleStorage{}
+	_ rest.Connecter = &ConsoleStorage{}
 )
 
-func newConsole(groupResource schema.GroupResource, vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig) *console {
-	return &console{
+func NewConsoleStorage(groupResource schema.GroupResource, vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig) *ConsoleStorage {
+	return &ConsoleStorage{
 		groupResource: groupResource,
 		vmLister:      vmLister,
 		kubevirt:      kubevirt,
@@ -47,31 +47,16 @@ func newConsole(groupResource schema.GroupResource, vmLister cache.GenericLister
 }
 
 // New implements rest.Storage interface
-func (c console) New() runtime.Object {
+func (c ConsoleStorage) New() runtime.Object {
 	return &operations.VirtualMachineConsole{}
 }
 
 // Destroy implements rest.Storage interface
-func (c console) Destroy() {
-}
-
-// Kind implements rest.KindProvider interface
-func (c console) Kind() string {
-	return operations.VirtualMachineConsoleKind
-}
-
-// NamespaceScoped implements rest.Scoper interface
-func (c console) NamespaceScoped() bool {
-	return true
-}
-
-// GetSingularName implements rest.SingularNameProvider interface
-func (c console) GetSingularName() string {
-	return "virtualmachine"
+func (c ConsoleStorage) Destroy() {
 }
 
 // Connect implements rest.Connecter interface
-func (c console) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+func (c ConsoleStorage) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
 	consoleOpts, ok := opts.(*operations.VirtualMachineConsole)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
@@ -85,12 +70,12 @@ func (c console) Connect(ctx context.Context, name string, opts runtime.Object, 
 }
 
 // NewConnectOptions implements rest.Connecter interface
-func (c console) NewConnectOptions() (runtime.Object, bool, string) {
+func (c ConsoleStorage) NewConnectOptions() (runtime.Object, bool, string) {
 	return &operations.VirtualMachineConsole{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
-func (c console) ConnectMethods() []string {
+func (c ConsoleStorage) ConnectMethods() []string {
 	return upgradeableMethods
 }
 

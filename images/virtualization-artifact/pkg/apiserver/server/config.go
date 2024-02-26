@@ -9,6 +9,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -16,7 +17,7 @@ var ErrConfigInvalid = errors.New("configuration is invalid")
 type Config struct {
 	Apiserver *genericapiserver.Config
 	Rest      *rest.Config
-	Kubevirt  api.KubevirtApiServerConfig
+	Kubevirt  storage.KubevirtApiServerConfig
 }
 
 func (c Config) Validate() []error {
