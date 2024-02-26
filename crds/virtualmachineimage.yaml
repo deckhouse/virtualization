@@ -64,13 +64,13 @@ spec:
                         - "ClusterVirtualMachineImage"
                         - "Upload"
                       description: |
-                        Type of origin from which the image will be created:
+                        The type of an origin of the image. Options are:
 
-                        * `HTTP` - create an image from a file published on an HTTP/HTTPS server.
-                        * `ContainerImage` - create an image from an image in a container registry.
-                        * `VirtualMachineImage` - create an image from another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` - create an image from another existing `ClusterVirtualMachineImage`.
-                        * `Upload` - upload an image manually, via the web interface.
+                        * `HTTP` — fill the image with data from some external http/https url.
+                        * `ContainerImage` — use an image, stored in container registry image.
+                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
+                        * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
                       description: |
