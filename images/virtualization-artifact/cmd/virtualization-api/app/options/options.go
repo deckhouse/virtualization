@@ -143,7 +143,7 @@ func (o Options) RestConfig() (*rest.Config, error) {
 	}
 
 	// Use protobufs for communication with apiserver
-	cfg.ContentType = "application/vnd.kubernetes.protobuf"
+	// cfg.ContentType = "application/vnd.kubernetes.protobuf"
 	err = rest.SetKubernetesDefaults(cfg)
 	if err != nil {
 		return nil, err

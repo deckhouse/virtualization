@@ -664,13 +664,8 @@ tasks:
         ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
         --deployment="virtualization-api"                                 \
         --namespace="d8-virtualization"                                   \
-        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --cert-dir=/tmp --v=7"
-#    cmd: |
-#        ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
-#        --deployment="virtualization-api"                                 \
-#        --namespace="d8-virtualization"                                   \
-#        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/tmp/virtualziation-api/certificates/tls.key --tls-cert-file=/tmp/virtualziation-api/certificates/tls.crt --v=3"
-#
+        --flags="--kubevirt-certs=/etc/virt-api/certificates --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/tmp/virtualziation-api/certificates/tls.key --tls-cert-file=/tmp/virtualziation-api/certificates/tls.crt --v=7"
+
 
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"
