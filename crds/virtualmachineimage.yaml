@@ -44,6 +44,7 @@ spec:
                 storage:
                   type: string
                   enum: ["ContainerRegistry"]
+                  default: ContainerRegistry
                   description: |
                     Storage type to store the image for current virtualization setup.
 
