@@ -1,6 +1,11 @@
 positive:
   configValues:
   - virtualMachineCIDRs: ["10.10.10.0/24"]
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G
+        type: PersistentVolumeClaim
   values:
   - virtualMachineCIDRs: ["10.10.10.0/24"]
     internal: {}
