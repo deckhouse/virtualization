@@ -1,0 +1,20 @@
+---
+image: {{ $.ImageName }}
+fromImage: base-ubuntu-jammy
+git:
+- add: /images/{{ $.ImageName }}/entrypoint.sh
+  to: /usr/local/bin/entrypoint.sh
+  stageDependencies:
+    setup:
+    - "*.sh"
+shell:
+  install:
+  - apt-get update && apt-get install -yq curl
+  - curl -L "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+  - chmod +x /usr/local/bin/kubectl /usr/local/bin/entrypoint.sh
+  - apt-get clean autoclean
+  - apt-get autoremove --yes
+  - rm -rf /var/lib/{apt,dpkg,cache,log}/
+docker:
+  USER: "64535:64535"
+  ENTRYPOINT: ["/usr/local/bin/entrypoint.sh"]
