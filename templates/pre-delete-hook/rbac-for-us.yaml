@@ -21,8 +21,6 @@ rules:
   - kubevirts
   verbs:
   - get
-  - create
-  - update
   - delete
   - watch
   - list
