@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from lib.tests import testing
-from lib.hooks.internal_tls import GenerateCertificateHook, default_sans
+from lib.hooks.internal_tls import GenerateCertificatesHook, CertitifacteRequest, CACertitifacteRequest, default_sans
 from lib.certificate import parse
 import lib.utils as utils
 from OpenSSL import crypto
@@ -30,23 +30,34 @@ SANS = [
     f"{NAME}.{NAMESPACE}.svc"
 ]
 
-hook_generate = GenerateCertificateHook(
+hook_generate = GenerateCertificatesHook(
+    CertitifacteRequest(
+        cn=NAME,
+        sansGenerator=default_sans(SANS),
+        tls_secret_name=NAME,
+        values_path_prefix=f"{MODULE_NAME}.internal.cert"),
     module_name=MODULE_NAME,
-    cn=NAME,
-    sansGenerator=default_sans(SANS),
     namespace=NAMESPACE,
-    tls_secret_name=NAME,
-    values_path_prefix=f"{MODULE_NAME}.internal.cert",)
+    ca_request=CACertitifacteRequest(
+        cn=f"CA {NAME}",
+        ca_secret_name="",
+        values_path_prefix="")
+)
 
-hook_regenerate = GenerateCertificateHook(
+hook_regenerate = GenerateCertificatesHook(
+    CertitifacteRequest(
+        cn=NAME,
+        sansGenerator=default_sans(SANS),
+        tls_secret_name=NAME,
+        values_path_prefix=f"{MODULE_NAME}.internal.cert",
+        expire=0),
     module_name=MODULE_NAME,
-    cn=NAME,
-    sansGenerator=default_sans(SANS),
     namespace=NAMESPACE,
-    tls_secret_name=NAME,
-    values_path_prefix=f"{MODULE_NAME}.internal.cert",
-    expire=0)
-
+    ca_request=CACertitifacteRequest(
+        cn=f"CA {NAME}",
+        ca_secret_name="",
+        values_path_prefix="")
+)
 
 binding_context = [
     {

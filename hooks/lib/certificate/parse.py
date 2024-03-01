@@ -20,6 +20,8 @@ from ipaddress import ip_address
 def parse_certificate(crt: str) -> crypto.X509:
     return crypto.load_certificate(crypto.FILETYPE_PEM, crt)
 
+def parse_key(key: str) -> crypto.PKey:
+    return crypto.load_privatekey(crypto.FILETYPE_PEM, key)
 
 def get_certificate_san(crt: crypto.X509) -> list[str]:
     san = ''

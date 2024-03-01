@@ -24,6 +24,7 @@ import unittest
 
 NAMESPACE   = "d8-virtualization"
 MODULE_NAME = "virtualization"
+ROOT_CA_VALUE_PATH = f"{MODULE_NAME}.internal.rootCA"
 
 def json_load(path: str):
     with open(path, "r", encoding="utf-8") as f:
@@ -36,9 +37,9 @@ def get_dir_path() -> str:
 
 class CommonTest(unittest.TestCase):
     def _test_run(self,
-                   func: Callable[[hook.Context], None], 
-                   bindind_context_file: str, 
-                   initial_values_file: str) -> hook.Output:
+                  func: Callable[[hook.Context], None], 
+                  bindind_context_file: str, 
+                  initial_values_file: str) -> hook.Output:
         path = self.path_testdata
         bindind_context = json_load(f"{path}/{bindind_context_file}")
         initial_values = json_load(f"{path}/{initial_values_file}")
