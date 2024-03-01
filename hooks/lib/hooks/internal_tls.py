@@ -15,17 +15,12 @@
 
 from deckhouse import hook
 from lib.certificate.certificate import CACertificateGenerator, CertificateGenerator
-from lib.certificate.parse import parse_certificate, get_certificate_san
-from datetime import datetime, timedelta
-from OpenSSL import crypto
-from ipaddress import ip_address
+from lib.certificate import parse
+from datetime import timedelta
 from typing import Callable
 from lib.hooks.hook import Hook
+from lib.hooks import common
 import lib.utils as utils
-
-PUBLIC_DOMAIN_PREFIX = "%PUBLIC_DOMAIN%://"
-CLUSTER_DOMAIN_PREFIX = "%CLUSTER_DOMAIN%://"
-
 
 KEY_USAGES = {
     0: "digitalSignature",
@@ -113,8 +108,8 @@ class GenerateCertificateHook(Hook):
         :param values_path_prefix: Prefix full path to store CA certificate TLS private key and cert.
 	    full paths will be
 	    values_path_prefix + .`ca`  - CA certificate
-	    values_path_prefix + .`crt` - TLS private key
-	    values_path_prefix + .`key` - TLS certificate
+	    values_path_prefix + .`crt` - TLS certificate
+	    values_path_prefix + .`key` - TLS private key
 	    Example: values_path_prefix =  'virtualization.internal.dvcrCert'
 	    Data in values store as plain text
         :type values_path_prefix: :py:class:`str`
@@ -191,7 +186,7 @@ class GenerateCertificateHook(Hook):
                     utils.base64_decode(data.get("ca.crt", "")))
                 cert_outdated = self.is_irrelevant_cert(
                     utils.base64_decode(data.get("tls.crt", "")), sans)
-                if (ca_outdated or cert_outdated) and data.get("tls.key", "") == "":
+                if ca_outdated or cert_outdated or data.get("tls.key", "") == "":
                     print(f"Certificates from secret {self.tls_secret_name} is invalid. Generate new certififcates.")
                     tls_data = self.generate_selfsigned_tls_data(sans=sans)
                 else:
@@ -252,24 +247,7 @@ class GenerateCertificateHook(Hook):
         :type sans: :py:class:`list`
         :rtype: :py:class:`bool`
         """
-        if len(crt_data) == 0:
-            return True
-        crt = parse_certificate(crt_data)
-        if self.cert_renew_deadline_exceeded(crt):
-            return True
-        alt_names = []
-        for san in sans:
-            try:
-                ip_address(san)
-                alt_names.append(f"IP Address:{san}")
-            except ValueError:
-                alt_names.append(f"DNS:{san}")
-        cert_sans = get_certificate_san(crt)
-        cert_sans.sort()
-        alt_names.sort()
-        if cert_sans != alt_names:
-            return True
-        return False
+        return parse.is_irrelevant_cert(crt_data, sans, self.cert_outdated_duration)
 
     def is_outdated_ca(self, ca: str) -> bool:
         """
@@ -279,27 +257,7 @@ class GenerateCertificateHook(Hook):
         :type ca: :py:class:`str`
         :rtype: :py:class:`bool`
         """
-        if len(ca) == 0:
-            return True
-        crt = parse_certificate(ca)
-        return self.cert_renew_deadline_exceeded(crt)
-
-    def cert_renew_deadline_exceeded(self, crt: crypto.X509) -> bool:
-        """
-        Check certificate 
-        :param crt: Certificate
-        :type crt: :py:class:`crypto.X509`
-        :return: 
-            if timeNow > expire - cert_outdated_duration:
-                return True
-            return False
-        :rtype: :py:class:`bool`
-        """
-        not_after = datetime.strptime(
-            crt.get_notAfter().decode('ascii'), '%Y%m%d%H%M%SZ')
-        if datetime.now() > not_after - self.cert_outdated_duration:
-            return True
-        return False
+        return parse.is_outdated_ca(ca, self.cert_outdated_duration)
 
 def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
     """
@@ -317,37 +275,11 @@ def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
         cluster_domain = str(
             ctx.values["global"]["discovery"].get("clusterDomain", ""))
         for san in sans:
-            san.startswith(PUBLIC_DOMAIN_PREFIX)
-            if san.startswith(PUBLIC_DOMAIN_PREFIX) and public_domain != "":
-                san = get_public_domain_san(san, public_domain)
-            elif san.startswith(CLUSTER_DOMAIN_PREFIX) and cluster_domain != "":
-                san = get_cluster_domain_san(san, cluster_domain)
+            san.startswith(common.PUBLIC_DOMAIN_PREFIX)
+            if san.startswith(common.PUBLIC_DOMAIN_PREFIX) and public_domain != "":
+                san = common.get_public_domain_san(san, public_domain)
+            elif san.startswith(common.CLUSTER_DOMAIN_PREFIX) and cluster_domain != "":
+                san = common.get_cluster_domain_san(san, cluster_domain)
             res.append(san)
         return res
     return generate_sans
-
-
-def cluster_domain_san(san: str) -> str:
-    """
-    Create template to enrich specified san with a cluster domain
-    :param san: San.
-    :type sans: :py:class:`str`
-    """
-    return CLUSTER_DOMAIN_PREFIX + san.rstrip('.')
-
-
-def public_domain_san(san: str) -> str:
-    """
-    Create template to enrich specified san with a public domain
-    :param san: San.
-    :type sans: :py:class:`str`
-    """
-    return PUBLIC_DOMAIN_PREFIX + san.rstrip('.')
-
-
-def get_public_domain_san(san: str, public_domain: str) -> str:
-    return f"{san.lstrip(PUBLIC_DOMAIN_PREFIX)}.{public_domain}"
-
-
-def get_cluster_domain_san(san: str, cluster_domain: str) -> str:
-    return f"{san.lstrip(CLUSTER_DOMAIN_PREFIX)}.{cluster_domain}"

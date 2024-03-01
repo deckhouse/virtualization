@@ -15,35 +15,28 @@
 # limitations under the License.
 
 from lib.tests import testing
-from lib.hooks.internal_tls import GenerateCertificateHook, default_sans
+from lib.hooks.ca_generator import GenerateCAHook
 from lib.certificate import parse
 import lib.utils as utils
 from OpenSSL import crypto
-from ipaddress import ip_address
 
 NAME        = "test"
 MODULE_NAME = NAME
 NAMESPACE   = NAME
-SANS = [
-    NAME,
-    f"{NAME}.{NAMESPACE}",
-    f"{NAME}.{NAMESPACE}.svc"
-]
 
-hook_generate = GenerateCertificateHook(
+
+hook_generate = GenerateCAHook(
     module_name=MODULE_NAME,
     cn=NAME,
-    sansGenerator=default_sans(SANS),
     namespace=NAMESPACE,
-    tls_secret_name=NAME,
+    ca_secret_name=NAME,
     values_path_prefix=f"{MODULE_NAME}.internal.cert",)
 
-hook_regenerate = GenerateCertificateHook(
+hook_regenerate = GenerateCAHook(
     module_name=MODULE_NAME,
     cn=NAME,
-    sansGenerator=default_sans(SANS),
     namespace=NAMESPACE,
-    tls_secret_name=NAME,
+    ca_secret_name=NAME,
     values_path_prefix=f"{MODULE_NAME}.internal.cert",
     expire=0)
 
@@ -71,7 +64,6 @@ values = {
 
 class TestCertificate(testing.TestHook):
     secret_data = {}
-    sans_default = SANS + ["localhost", "127.0.0.1"]
 
     @staticmethod
     def parse_certificate(crt: str) -> crypto.X509:
@@ -80,23 +72,9 @@ class TestCertificate(testing.TestHook):
     def check_data(self):
         self.assertGreater(len(self.values[MODULE_NAME]["internal"].get("cert", {})), 0)
         self.secret_data = self.values[MODULE_NAME]["internal"]["cert"]
-        self.assertTrue(utils.is_base64(self.secret_data.get("ca", "")))
         self.assertTrue(utils.is_base64(self.secret_data.get("crt", "")))
         self.assertTrue(utils.is_base64(self.secret_data.get("key", "")))
-
-    def check_sans(self, crt: crypto.X509) -> bool:
-        sans_from_cert = parse.get_certificate_san(crt)
-        sans = []
-        for san in self.sans_default:
-            try:
-                ip_address(san)
-                sans.append(f"IP Address:{san}")
-            except ValueError:
-                sans.append(f"DNS:{san}")
-        sans_from_cert.sort()
-        sans.sort()
-        self.assertEqual(sans_from_cert, sans)
-        
+       
     def verify_certificate(self, ca: crypto.X509, crt: crypto.X509) -> crypto.X509StoreContextError:
         store = crypto.X509Store()
         store.add_cert(ca)
@@ -115,11 +93,9 @@ class TestGenerateCertificate(TestCertificate):
     def test_generate_certificate(self):
         self.hook_run()
         self.check_data()
-        ca = self.parse_certificate(self.secret_data["ca"])
         crt = self.parse_certificate(self.secret_data["crt"])
-        if (e := self.verify_certificate(ca, crt)) is not None:
+        if (e := self.verify_certificate(crt, crt)) is not None:
             self.fail(f"Certificate is not verify. Raised an exception: {e} ")
-        self.check_sans(crt)
 
 class TestReGenerateCertificate(TestCertificate):
     def setUp(self):
@@ -132,7 +108,6 @@ class TestReGenerateCertificate(TestCertificate):
                 {
                     "filterResult": {
                         "data": {
-                            "ca.crt" : self.values[MODULE_NAME]["internal"]["cert"]["ca"], 
                             "tls.crt": self.values[MODULE_NAME]["internal"]["cert"]["crt"],
                             "key.crt": self.values[MODULE_NAME]["internal"]["cert"]["key"]
                             }
@@ -144,14 +119,11 @@ class TestReGenerateCertificate(TestCertificate):
 
     def test_regenerate_certificate(self):
         self.check_data()
-        ca = self.parse_certificate(self.secret_data["ca"])
         crt = self.parse_certificate(self.secret_data["crt"])
-        if self.verify_certificate(ca, crt) is None:
+        if self.verify_certificate(crt, crt) is None:
             self.fail(f"Certificate has not expired")
         self.hook_run()
         self.check_data()
-        ca = self.parse_certificate(self.secret_data["ca"])
         crt = self.parse_certificate(self.secret_data["crt"])
-        if (e := self.verify_certificate(ca, crt)) is not None:
+        if (e := self.verify_certificate(crt, crt)) is not None:
             self.fail(f"Certificate is not verify. Raised an exception: {e} ")
-        self.check_sans(crt)

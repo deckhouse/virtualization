@@ -41,4 +41,13 @@ properties:
           crt:
             type: string
           key:
-            type: string        
+            type: string
+      rootCA: 
+        type: object 
+        properties:
+          type: object
+          properties:
+            crt:
+              type: string
+            key:
+              type: string        

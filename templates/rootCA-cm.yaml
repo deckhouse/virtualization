@@ -1,0 +1,10 @@
+{{- $ca := printf "%s" .Values.virtualization.internal.rootCA.crt | b64dec }}
+apiVersion: v1
+data:
+  ca-bundle: |
+  {{- $ca | nindent 4 }}
+kind: ConfigMap
+metadata:
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+  name: virtualization-ca
+  namespace: d8-{{ .Chart.Name }}
