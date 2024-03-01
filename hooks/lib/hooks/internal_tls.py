@@ -15,7 +15,6 @@
 
 from deckhouse import hook
 from lib.certificate.certificate import CACertificateGenerator, CertificateGenerator
-from OpenSSL.crypto import X509Name, PKey
 from lib.certificate import parse
 from datetime import timedelta
 from typing import Callable
@@ -44,6 +43,9 @@ EXTENDED_KEY_USAGES = {
 }
 
 class CACertitifacteRequest:
+    """
+    Сonfig for the hook that generates CA certificate.
+    """
     def __init__(self, cn: str,
                  ca_secret_name: str,
                  values_path_prefix: str,
@@ -56,8 +58,37 @@ class CACertitifacteRequest:
         self.expire = expire
         self.key_size = key_size
         self.cert_outdated_duration = cert_outdated_duration
+        """
+        :param cn: Certificate common Name. often it is module name
+        :type cn: :py:class:`str`
+
+        :param ca_secret_name: TLS secret name. 
+        Secret must be TLS secret type https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets.
+        CA certificate MUST set to ca.crt key.
+        :type ca_secret_name: :py:class:`str`
+
+        :param values_path_prefix: Prefix full path to store CA certificate TLS private key and cert.
+	    full paths will be
+	    values_path_prefix + .`crt` - TLS certificate
+	    values_path_prefix + .`key` - TLS private key
+	    Example: values_path_prefix =  'virtualization.internal.Cert'
+	    Data in values store as plain text
+        :type values_path_prefix: :py:class:`str`
+
+        :param expire: Optional. Validity period of SSL certificates.
+        :type expire: :py:class:`int`
+
+        :param key_size: Optional. Key Size.
+        :type key_size: :py:class:`int`
+
+        :param cert_outdated_duration: Optional. (expire - cert_outdated_duration) is time to regenerate the certificate.
+        :type cert_outdated_duration: :py:class:`timedelta`
+        """
 
 class CertitifacteRequest:
+    """
+    Сonfig for the hook that generates certificate.
+    """
     def __init__(self, cn: str,
                  sansGenerator: Callable[[list[str]], Callable[[hook.Context], list[str]]],
                  tls_secret_name: str,
@@ -88,11 +119,51 @@ class CertitifacteRequest:
         self.locality = locality
         self.organisation_name = organisation_name
         self.organisational_unit_name = organisational_unit_name
+        """
+        :param cn: Certificate common Name. often it is module name
+        :type cn: :py:class:`str`
 
+        :param sansGenerator: Function which returns list of domain to include into cert. Use default_sans
+        :type sansGenerator: :py:class:`function`
+
+        :param tls_secret_name: TLS secret name. 
+        Secret must be TLS secret type https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets.
+        CA certificate MUST set to ca.crt key.
+        :type tls_secret_name: :py:class:`str`
+
+        :param values_path_prefix: Prefix full path to store CA certificate TLS private key and cert.
+	    full paths will be
+	    values_path_prefix + .`ca`  - CA certificate
+	    values_path_prefix + .`crt` - TLS certificate
+	    values_path_prefix + .`key` - TLS private key
+	    Example: values_path_prefix =  'virtualization.internal.Cert'
+	    Data in values store as plain text
+        :type values_path_prefix: :py:class:`str`
+
+        :param key_usages: Optional. key_usages specifies valid usage contexts for keys.
+        :type key_usages: :py:class:`list`
+
+        :param extended_key_usages: Optional. extended_key_usages specifies valid usage contexts for keys.
+        :type extended_key_usages: :py:class:`list`
+
+        :param before_gen_check: Optional. Runs check function before hook execution. Function should return boolean 'continue' value
+	    if return value is false - hook will stop its execution
+	    if return value is true - hook will continue
+        :type before_gen_check: :py:class:`function`
+
+        :param expire: Optional. Validity period of SSL certificates.
+        :type expire: :py:class:`int`
+
+        :param key_size: Optional. Key Size.
+        :type key_size: :py:class:`int`
+
+        :param cert_outdated_duration: Optional. (expire - cert_outdated_duration) is time to regenerate the certificate.
+        :type cert_outdated_duration: :py:class:`timedelta`
+        """
 
 class GenerateCertificatesHook(Hook):
     """
-    Сonfig for the hook that generates certificates.
+    Hook that generates certificates.
     """
     SNAPSHOT_SECRETS_NAME = "secrets"
     SNAPSHOT_SECRETS_CHECK_NAME = "secretsCheck"
@@ -182,9 +253,12 @@ class GenerateCertificatesHook(Hook):
         data_ca_crt = data.get("ca.crt", "")
         ca_not_equal = data_ca_crt == "" or data_ca_crt != ca_data.get("tls.crt", "")
         ca_outdated = self.__is_outdated_ca(
-                    utils.base64_decode(data_ca_crt))
+                    utils.base64_decode(data_ca_crt), 
+                    req.cert_outdated_duration)
         cert_outdated = self.__is_irrelevant_cert(
-                    utils.base64_decode(data.get("tls.crt", "")), sans)
+                    utils.base64_decode(data.get("tls.crt", "")), 
+                    sans, 
+                    req.cert_outdated_duration)
         if ca_not_equal or ca_outdated or cert_outdated or data.get("tls.key", "") == "":
             print(f"Certificates from secret {req.tls_secret_name} is invalid. Generate new certififcates.")
             if len(ca_data) > 0:
@@ -203,7 +277,9 @@ class GenerateCertificatesHook(Hook):
             print(f"Secret {req.ca_secret_name} not found. Generate new certififcates.")
             regenerate = True
         else:
-            ca_outdated = self.__is_outdated_ca(utils.base64_decode(data.get("tls.crt", "")))
+            ca_outdated = self.__is_outdated_ca(
+                utils.base64_decode(data.get("tls.crt", "")),
+                req.cert_outdated_duration)
             if ca_outdated or data.get("tls.key", "") == "":
                 print(f"Certificates from secret {req.ca_secret_name} is invalid. Generate new certififcates.")
                 regenerate = True
@@ -269,26 +345,11 @@ class GenerateCertificatesHook(Hook):
         }
         return self.__generate_selfsigned_tls_data_with_ca(req, sans, ca_data)
 
-    def __is_irrelevant_cert(self, crt_data: str, sans: list) -> bool:
-        """
-        Check certificate duration and SANs list
-        :param crt_data: Raw certificate
-        :type crt_data: :py:class:`str`
-        :param sans: List of sans.
-        :type sans: :py:class:`list`
-        :rtype: :py:class:`bool`
-        """
-        return parse.is_irrelevant_cert(crt_data, sans, self.cert_outdated_duration)
+    def __is_irrelevant_cert(self, crt_data: str, sans: list, cert_outdated_duration: timedelta) -> bool:
+        return parse.is_irrelevant_cert(crt_data, sans, cert_outdated_duration)
 
-    def __is_outdated_ca(self, ca: str) -> bool:
-        """
-        Issue a new certificate if there is no CA in the secret. Without CA it is not possible to validate the certificate.
-        Check CA duration.
-        :param ca: Raw CA
-        :type ca: :py:class:`str`
-        :rtype: :py:class:`bool`
-        """
-        return parse.is_outdated_ca(ca, self.cert_outdated_duration)
+    def __is_outdated_ca(self, ca: str, cert_outdated_duration: timedelta) -> bool:
+        return parse.is_outdated_ca(ca, cert_outdated_duration)
 
 def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
     """

@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from deckhouse import hook
-from lib.module import module
 from typing import Callable
 import json
 import os 
