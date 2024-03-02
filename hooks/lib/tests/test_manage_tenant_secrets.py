@@ -20,7 +20,7 @@ from lib.hooks.manage_tenant_secrets import ManageTenantSecretsHook
 hook = ManageTenantSecretsHook(source_namespace="source_namespace",
                                source_secret_name="secret_name",
                                pod_labels_to_follow={"app": "test"},
-                               destination_secret_labels={"test":"test"},
+                               destination_secret_labels={"test": "test"},
                                module_name="test")
 
 binding_context = [
@@ -30,12 +30,13 @@ binding_context = [
             hook.POD_SNAPSHOT_NAME: [
                 {
                     "filterResult": {
-                        "namespace": "pod-namespace1"  ## Create secret  
+                        "namespace": "pod-namespace1"  # Create secret
                     }
                 },
                 {
                     "filterResult": {
-                        "namespace": "pod-namespace2" ## Don't create secret, because ns has deletionTimestamp
+                        # Don't create secret, because ns has deletionTimestamp
+                        "namespace": "pod-namespace2"
                     }
                 }
             ],
@@ -43,14 +44,15 @@ binding_context = [
                 {
                     "filterResult": {
                         "data": {"test": "test"},
-                        "namespace": "source_namespace", 
+                        "namespace": "source_namespace",
                         "type": "Opaque"
                     }
                 },
                 {
                     "filterResult": {
                         "data": {"test": "test"},
-                        "namespace": "pod-namespace3", ## Delete secret, because namespace pod-namespace3 hasn't pods
+                        # Delete secret, because namespace pod-namespace3 hasn't pods
+                        "namespace": "pod-namespace3",
                         "type": "Opaque"
                     }
                 },
@@ -61,13 +63,13 @@ binding_context = [
                         "name": "source_namespace",
                         "isTerminating": False
                     }
-                }, 
+                },
                 {
                     "filterResult": {
                         "name": "pod-namespace1",
                         "isTerminating": False
                     }
-                },  
+                },
                 {
                     "filterResult": {
                         "name": "pod-namespace2",
@@ -79,24 +81,28 @@ binding_context = [
                         "name": "pod-namespace3",
                         "isTerminating": False
                     }
-                }, 
+                },
             ]
-        }   
+        }
     }
 ]
- 
+
+
 class TestManageSecrets(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context
-        self.values          = {}
+        self.values = {}
+
     def test_manage_secrets(self):
         self.hook_run()
         self.assertEqual(len(self.kube_resources), 1)
         self.assertEqual(self.kube_resources[0]["kind"], "Secret")
-        self.assertEqual(self.kube_resources[0]["metadata"]["name"], "secret_name")
-        self.assertEqual(self.kube_resources[0]["metadata"]["namespace"], "pod-namespace1")
+        self.assertEqual(
+            self.kube_resources[0]["metadata"]["name"], "secret_name")
+        self.assertEqual(
+            self.kube_resources[0]["metadata"]["namespace"], "pod-namespace1")
         self.assertEqual(self.kube_resources[0]["type"], "Opaque")
         self.assertEqual(self.kube_resources[0]["data"], {'test': 'test'})
-        self.assertEqual(self.kube_resources[0]["metadata"]["labels"], {'test': 'test'})
-
+        self.assertEqual(
+            self.kube_resources[0]["metadata"]["labels"], {'test': 'test'})

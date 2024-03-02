@@ -21,16 +21,19 @@ from lib.password_generator import password_generator
 import common
 import lib.utils as utils
 
+
 class Key:
     def __init__(self,
                  name: str,
                  value_path: str,
                  lenght: int = 64):
-        self.name = name 
+        self.name = name
         self.value_path = value_path
         self.lenght = lenght
+
+
 class GenerateSecretHook(Hook):
-    SNAPSHOT_NAME   = "secrets"
+    SNAPSHOT_NAME = "secrets"
 
     def __init__(self,
                  module_name: str = None):
@@ -38,12 +41,12 @@ class GenerateSecretHook(Hook):
         self.namespace = common.NAMESPACE
         self.secret_name = "dvcr-secrets"
         self.keys = (
-            Key(name="passwordRW", 
-                value_path=f"{self.module_name}.internal.dvcr.passwordRW", 
+            Key(name="passwordRW",
+                value_path=f"{self.module_name}.internal.dvcr.passwordRW",
                 lenght=32),
             Key(name="salt",
                 value_path=f"{self.module_name}.internal.dvcr.salt")
-        )     
+        )
 
     def generate_config(self) -> dict:
         return {
@@ -69,7 +72,7 @@ class GenerateSecretHook(Hook):
                 },
             ]
         }
-    
+
     def reconcile(self) -> Callable[[Context], None]:
         def r(ctx: Context):
             for key in self.keys:
@@ -77,10 +80,13 @@ class GenerateSecretHook(Hook):
                     key_from_secret = ctx.snapshots[self.SNAPSHOT_NAME][0]["filterResult"]["data"][key.name]
                     self.set_value(key.value_path, ctx.values, key_from_secret)
                 except (IndexError, KeyError):
-                    print(f"Generate new key {key.name} for secret {self.secret_name}.")
-                    genkey = utils.base64_encode_from_str(password_generator.alpha_num(key.lenght))
+                    print(
+                        f"Generate new key {key.name} for secret {self.secret_name}.")
+                    genkey = utils.base64_encode_from_str(
+                        password_generator.alpha_num(key.lenght))
                     self.set_value(key.value_path, ctx.values, genkey)
         return r
+
 
 if __name__ == "__main__":
     hook = GenerateSecretHook()

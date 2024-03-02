@@ -15,17 +15,12 @@
 
 from deckhouse import hook
 from lib.certificate.certificate import CACertificateGenerator, CertificateGenerator
-from lib.certificate.parse import parse_certificate, get_certificate_san
-from datetime import datetime, timedelta
-from OpenSSL import crypto
-from ipaddress import ip_address
+from lib.certificate import parse
+from datetime import timedelta
 from typing import Callable
 from lib.hooks.hook import Hook
+from lib.hooks import common
 import lib.utils as utils
-
-PUBLIC_DOMAIN_PREFIX = "%PUBLIC_DOMAIN%://"
-CLUSTER_DOMAIN_PREFIX = "%CLUSTER_DOMAIN%://"
-
 
 KEY_USAGES = {
     0: "digitalSignature",
@@ -48,62 +43,171 @@ EXTENDED_KEY_USAGES = {
 }
 
 
-class GenerateCertificateHook(Hook):
+class TLSData(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def is_empty(self) -> bool:
+        return len(self) == 0
+
+    def set(self, key: str, value):
+        if isinstance(value, str):
+            if utils.is_base64(value):
+                self[key] = value
+                return self
+            self[key] = utils.base64_encode_from_str(value)
+            return self
+        if isinstance(value, bytes):
+            self[key] = utils.base64_encode(value)
+            return self
+        raise Exception(f"invalid type {type(value)}")
+
+    def to_dict(self) -> dict:
+        return dict(self)
+
+
+class TLSSecretData(TLSData):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def CA(self) -> str:
+        return self.get("ca.crt", "")
+
+    def cert(self) -> str:
+        return self.get("tls.crt", "")
+
+    def key(self) -> str:
+        return self.get("tls.key", "")
+
+    def set_ca(self, ca):
+        return self.set("ca.crt", ca)
+
+    def set_cert(self, crt):
+        return self.set("tls.crt", crt)
+
+    def set_key(self, key):
+        return self.set("tls.key", key)
+
+
+class TLSValueData(TLSData):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def CA(self) -> str:
+        return self.get("ca", "")
+
+    def cert(self) -> str:
+        return self.get("crt", "")
+
+    def key(self) -> str:
+        return self.get("key", "")
+
+    def set_ca(self, ca):
+        return self.set("ca", ca)
+
+    def set_cert(self, crt):
+        return self.set("crt", crt)
+
+    def set_key(self, key):
+        return self.set("key", key)
+
+
+def convert_to_TLSValueData(data: TLSSecretData) -> TLSValueData:
+    result = TLSValueData()
+    return result.set_ca(data.CA()).set_cert(data.cert()).set_key(data.key())
+
+
+def convert_to_TLSSecretData(data: TLSValueData) -> TLSSecretData:
+    result = TLSSecretData()
+    return result.set_ca(data.CA()).set_cert(data.cert()).set_key(data.key())
+
+
+class CACertitifacteRequest:
     """
-    Сonfig for the hook that generates certificates.
+    Сonfig for the hook that generates CA certificate.
     """
-    SNAPSHOT_SECRETS_NAME = "secrets"
-    SNAPSHOT_SECRETS_CHECK_NAME = "secretsCheck"
+
+    def __init__(self, cn: str,
+                 ca_secret_name: str,
+                 values_path_prefix: str,
+                 expire: int = 31536000,
+                 key_size: int = 4096,
+                 cert_outdated_duration: timedelta = timedelta(days=30)) -> None:
+        self.cn = cn
+        self.ca_secret_name = ca_secret_name
+        self.values_path_prefix = values_path_prefix
+        self.expire = expire
+        self.key_size = key_size
+        self.cert_outdated_duration = cert_outdated_duration
+        """
+        :param cn: Certificate common Name. often it is module name
+        :type cn: :py:class:`str`
+
+        :param ca_secret_name: TLS secret name. 
+        Secret must be TLS secret type https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets.
+        CA certificate MUST set to ca.crt key.
+        :type ca_secret_name: :py:class:`str`
+
+        :param values_path_prefix: Prefix full path to store CA certificate TLS private key and cert.
+	    full paths will be
+	    values_path_prefix + .`crt` - TLS certificate
+	    values_path_prefix + .`key` - TLS private key
+	    Example: values_path_prefix =  'virtualization.internal.Cert'
+	    Data in values store as plain text
+        :type values_path_prefix: :py:class:`str`
+
+        :param expire: Optional. Validity period of SSL certificates.
+        :type expire: :py:class:`int`
+
+        :param key_size: Optional. Key Size.
+        :type key_size: :py:class:`int`
+
+        :param cert_outdated_duration: Optional. (expire - cert_outdated_duration) is time to regenerate the certificate.
+        :type cert_outdated_duration: :py:class:`timedelta`
+        """
+
+
+class CertitifacteRequest:
+    """
+    Сonfig for the hook that generates certificate.
+    """
 
     def __init__(self, cn: str,
                  sansGenerator: Callable[[list[str]], Callable[[hook.Context], list[str]]],
-                 namespace: str,
                  tls_secret_name: str,
                  values_path_prefix: str,
-                 module_name: str = None,
                  key_usages: list[str] = [KEY_USAGES[2], KEY_USAGES[5]],
                  extended_key_usages: list[str] = [EXTENDED_KEY_USAGES[0]],
-                 before_hook_check: Callable[[hook.Context], bool] = None,
+                 before_gen_check: Callable[[hook.Context], bool] = None,
                  expire: int = 31536000,
                  key_size: int = 4096,
-                 algo: str = "rsa",
                  cert_outdated_duration: timedelta = timedelta(days=30),
                  country: str = None,
                  state: str = None,
                  locality: str = None,
                  organisation_name: str = None,
                  organisational_unit_name: str = None) -> None:
-        super().__init__(module_name=module_name)
         self.cn = cn
         self.sansGenerator = sansGenerator
-        self.namespace = namespace
         self.tls_secret_name = tls_secret_name
         self.values_path_prefix = values_path_prefix
         self.key_usages = key_usages
         self.extended_key_usages = extended_key_usages
-        self.before_hook_check = before_hook_check
+        self.before_gen_check = before_gen_check
         self.expire = expire
         self.key_size = key_size
-        self.algo = algo
         self.cert_outdated_duration = cert_outdated_duration
         self.country = country
         self.state = state
         self.locality = locality
         self.organisation_name = organisation_name
         self.organisational_unit_name = organisational_unit_name
-        self.queue = f"/modules/{self.module_name}/generate-certs"
         """
-        :param module_name: Module name
-        :type module_name: :py:class:`str`
-
         :param cn: Certificate common Name. often it is module name
         :type cn: :py:class:`str`
 
         :param sansGenerator: Function which returns list of domain to include into cert. Use default_sans
         :type sansGenerator: :py:class:`function`
-
-        :param namespace: Namespace for TLS secret.
-        :type namespace: :py:class:`str`
 
         :param tls_secret_name: TLS secret name. 
         Secret must be TLS secret type https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets.
@@ -113,9 +217,9 @@ class GenerateCertificateHook(Hook):
         :param values_path_prefix: Prefix full path to store CA certificate TLS private key and cert.
 	    full paths will be
 	    values_path_prefix + .`ca`  - CA certificate
-	    values_path_prefix + .`crt` - TLS private key
-	    values_path_prefix + .`key` - TLS certificate
-	    Example: values_path_prefix =  'virtualization.internal.dvcrCert'
+	    values_path_prefix + .`crt` - TLS certificate
+	    values_path_prefix + .`key` - TLS private key
+	    Example: values_path_prefix =  'virtualization.internal.Cert'
 	    Data in values store as plain text
         :type values_path_prefix: :py:class:`str`
 
@@ -125,10 +229,10 @@ class GenerateCertificateHook(Hook):
         :param extended_key_usages: Optional. extended_key_usages specifies valid usage contexts for keys.
         :type extended_key_usages: :py:class:`list`
 
-        :param before_hook_check: Optional. Runs check function before hook execution. Function should return boolean 'continue' value
+        :param before_gen_check: Optional. Runs check function before hook execution. Function should return boolean 'continue' value
 	    if return value is false - hook will stop its execution
 	    if return value is true - hook will continue
-        :type before_hook_check: :py:class:`function`
+        :type before_gen_check: :py:class:`function`
 
         :param expire: Optional. Validity period of SSL certificates.
         :type expire: :py:class:`int`
@@ -136,12 +240,33 @@ class GenerateCertificateHook(Hook):
         :param key_size: Optional. Key Size.
         :type key_size: :py:class:`int`
 
-        :param algo: Optional. Key generation algorithm. Supports only rsa and dsa.
-        :type algo: :py:class:`str`
-
         :param cert_outdated_duration: Optional. (expire - cert_outdated_duration) is time to regenerate the certificate.
         :type cert_outdated_duration: :py:class:`timedelta`
         """
+
+
+class GenerateCertificatesHook(Hook):
+    """
+    Hook that generates certificates.
+    """
+    SNAPSHOT_SECRETS_NAME = "secrets"
+    SNAPSHOT_SECRETS_CHECK_NAME = "secretsCheck"
+
+    def __init__(self, *certificate_requests: CertitifacteRequest,
+                 namespace: str,
+                 module_name: str = None,
+                 algo: str = "rsa",
+                 ca_request: CACertitifacteRequest = None) -> None:
+        super().__init__(module_name=module_name)
+        self.namespace = namespace
+        self.algo = algo
+        self.ca_request = ca_request
+        self.queue = f"/modules/{self.module_name}/generate-certs"
+        self.secrets_names = [i.tls_secret_name for i in certificate_requests]
+        if ca_request is not None:
+            self.secrets_names.append(ca_request.ca_secret_name)
+        self.certificate_requests_map = {
+            i.tls_secret_name: i for i in certificate_requests}
 
     def generate_config(self) -> dict:
         return {
@@ -153,7 +278,7 @@ class GenerateCertificateHook(Hook):
                     "apiVersion": "v1",
                     "kind": "Secret",
                     "nameSelector": {
-                        "matchNames": [self.tls_secret_name]
+                        "matchNames": self.secrets_names
                     },
                     "namespace": {
                         "nameSelector": {
@@ -161,7 +286,7 @@ class GenerateCertificateHook(Hook):
                         }
                     },
                     "includeSnapshotsFrom": [self.SNAPSHOT_SECRETS_NAME],
-                    "jqFilter": '{"data": .data}',
+                    "jqFilter": '{"name": .metadata.name, "data": .data}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
@@ -174,132 +299,138 @@ class GenerateCertificateHook(Hook):
             ]
         }
 
-    def reconcile(self) -> Callable[[hook.Context], None]:
-        def r(ctx: hook.Context) -> None:
-            tls_data = {}
-            if self.before_hook_check is not None:
-                passed = self.before_hook_check(ctx)
-                if not passed:
-                    return
-            sans = self.sansGenerator(ctx)
-            if len(ctx.snapshots.get(self.SNAPSHOT_SECRETS_NAME, [])) == 0:
-                print(f"Secret {self.tls_secret_name} not found. Generate new certififcates.")
-                tls_data = self.generate_selfsigned_tls_data(sans=sans)
-            else:
-                data = ctx.snapshots[self.SNAPSHOT_SECRETS_NAME][0]["filterResult"]["data"]
-                ca_outdated = self.is_outdated_ca(
-                    utils.base64_decode(data.get("ca.crt", "")))
-                cert_outdated = self.is_irrelevant_cert(
-                    utils.base64_decode(data.get("tls.crt", "")), sans)
-                if (ca_outdated or cert_outdated) and data.get("tls.key", "") == "":
-                    print(f"Certificates from secret {self.tls_secret_name} is invalid. Generate new certififcates.")
-                    tls_data = self.generate_selfsigned_tls_data(sans=sans)
-                else:
-                    tls_data = {
-                        "ca": data["ca.crt"],
-                        "crt": data["tls.crt"],
-                        "key": data["tls.key"]
-                    }
-            self.set_value(self.values_path_prefix, ctx.values, tls_data)
+    def reconcile(self) -> None:
+        def r(ctx: hook.Context):
+            snaps = {}
+            for s in ctx.snapshots.get(self.SNAPSHOT_SECRETS_NAME, []):
+                snaps[s["filterResult"]["name"]] = TLSSecretData(
+                    s["filterResult"]["data"])
+            ca_data = TLSSecretData()
+            if self.__with_common_ca:
+                tls_value_data = self.__sync_ca(self.ca_request,
+                                                snaps.get(self.ca_request.ca_secret_name, TLSSecretData()))
+                ca_data = convert_to_TLSSecretData(tls_value_data)
+                self.set_value(self.ca_request.values_path_prefix,
+                               ctx.values, tls_value_data.to_dict())
+
+            for name, req in self.certificate_requests_map.items():
+                if name == self.ca_request.ca_secret_name:
+                    continue
+                data = snaps.get(name, TLSSecretData())
+                tls_value_data = self.__sync_cert(ctx, req, data, ca_data)
+                if tls_value_data is None:
+                    continue
+                self.set_value(req.values_path_prefix,
+                               ctx.values, tls_value_data.to_dict())
         return r
 
-    def generate_selfsigned_tls_data(self, sans: list) -> dict[str, str]:
-        """
-        Generate self signed certificate. 
-        :param sans: List of sans.
-        :type sans: :py:class:`list`
-        Example: {
-            "ca": "encoded in base64",
-            "crt": "encoded in base64",
-            "key": "encoded in base64"
-        }
-        :rtype: :py:class:`dict[str, str]`
-        """
-        ca = CACertificateGenerator(cn=f"CA {self.cn}",
-                         expire=self.expire,
-                         key_size=self.key_size,
-                         algo=self.algo)
-        ca_crt, _ = ca.generate()
-        cert = CertificateGenerator(cn=self.cn,
-                                    expire=self.expire,
-                                    key_size=self.key_size,
+    def __with_common_ca(self) -> bool:
+        return self.ca_request is not None
+
+    def __sync_cert(self, ctx: hook.Context, req: CertitifacteRequest, data: TLSSecretData, ca_data: TLSSecretData) -> TLSValueData:
+        if req.before_gen_check is not None:
+            passed = req.before_gen_check(ctx)
+            if not passed:
+                return
+        sans = req.sansGenerator(ctx)
+        if data.is_empty():
+            print(
+                f"Secret {req.tls_secret_name} not found. Generate new certififcates.")
+            if not ca_data.is_empty():
+                return self.__generate_selfsigned_tls_data_with_ca(req=req, sans=sans, ca_data=ca_data)
+            return self.__generate_selfsigned_tls_data(req=req, sans=sans)
+
+        ca_not_equal = data.CA() == "" or data.CA() != ca_data.cert()
+        ca_outdated = self.__is_outdated_ca(
+            utils.base64_decode(data.CA()),
+            req.cert_outdated_duration)
+        cert_outdated = self.__is_irrelevant_cert(
+            utils.base64_decode(data.cert()),
+            sans,
+            req.cert_outdated_duration)
+        if ca_not_equal or ca_outdated or cert_outdated or data.key() == "":
+            print(
+                f"Certificates from secret {req.tls_secret_name} is invalid. Generate new certififcates.")
+            if len(ca_data) > 0:
+                return self.__generate_selfsigned_tls_data_with_ca(req=req, sans=sans, ca_data=ca_data)
+            return self.__generate_selfsigned_tls_data(req=req, sans=sans)
+
+        return convert_to_TLSValueData(data)
+
+    def __sync_ca(self, req: CACertitifacteRequest, data: TLSSecretData) -> TLSValueData:
+        regenerate = False
+        if data.is_empty():
+            print(
+                f"Secret {req.ca_secret_name} not found. Generate new certififcates.")
+            regenerate = True
+        else:
+            ca_outdated = self.__is_outdated_ca(
+                utils.base64_decode(data.cert()),
+                req.cert_outdated_duration)
+            if ca_outdated or data.key() == "":
+                print(
+                    f"Certificates from secret {req.ca_secret_name} is invalid. Generate new certififcates.")
+                regenerate = True
+        if regenerate:
+            generator = CACertificateGenerator(
+                cn=req.cn, expire=req.expire, key_size=req.key_size, algo=self.algo)
+            crt, key = generator.generate()
+            d = TLSValueData()
+            return d.set_cert(crt).set_key(key)
+
+        return convert_to_TLSValueData(data)
+
+    def __generate_selfsigned_tls_data_with_ca(self,
+                                               req: CertitifacteRequest,
+                                               sans: list,
+                                               ca_data: TLSSecretData) -> TLSValueData:
+        if ca_data.cert() == "" or ca_data.key() == "":
+            raise Exception("rootCA not found")
+        crt_x509 = parse.parse_certificate(
+            crt=utils.base64_decode(ca_data.cert()))
+        ca_subject = crt_x509.get_subject()
+        ca_pkey = parse.parse_key(key=utils.base64_decode(ca_data.key()))
+
+        cert = CertificateGenerator(cn=req.cn,
+                                    expire=req.expire,
+                                    key_size=req.key_size,
                                     algo=self.algo)
-        if len(self.key_usages) > 0:
-            key_usages = ", ".join(self.key_usages)
+        if len(req.key_usages) > 0:
+            key_usages = ", ".join(req.key_usages)
             cert.add_extension(type_name="keyUsage",
                                critical=False, value=key_usages)
-        if len(self.extended_key_usages) > 0:
-            extended_key_usages = ", ".join(self.extended_key_usages)
+        if len(req.extended_key_usages) > 0:
+            extended_key_usages = ", ".join(req.extended_key_usages)
             cert.add_extension(type_name="extendedKeyUsage",
                                critical=False, value=extended_key_usages)
-        crt, key = cert.with_metadata(country=self.country,
-                                      state=self.state,
-                                      locality=self.locality,
-                                      organisation_name=self.organisation_name,
-                                      organisational_unit_name=self.organisational_unit_name
-                                      ).with_hosts(*sans).generate(ca_subj=ca.get_subject(),
-                                                                   ca_key=ca.key)
-        return {"ca": utils.base64_encode(ca_crt),
-                "crt": utils.base64_encode(crt),
-                "key": utils.base64_encode(key)}
+        crt, key = cert.with_metadata(country=req.country,
+                                      state=req.state,
+                                      locality=req.locality,
+                                      organisation_name=req.organisation_name,
+                                      organisational_unit_name=req.organisational_unit_name
+                                      ).with_hosts(*sans).generate(ca_subj=ca_subject,
+                                                                   ca_key=ca_pkey)
+        result = TLSValueData()
+        return result.set_ca(ca_data.cert()).set_cert(crt).set_key(key)
 
-    def is_irrelevant_cert(self, crt_data: str, sans: list) -> bool:
-        """
-        Check certificate duration and SANs list
-        :param crt_data: Raw certificate
-        :type crt_data: :py:class:`str`
-        :param sans: List of sans.
-        :type sans: :py:class:`list`
-        :rtype: :py:class:`bool`
-        """
-        if len(crt_data) == 0:
-            return True
-        crt = parse_certificate(crt_data)
-        if self.cert_renew_deadline_exceeded(crt):
-            return True
-        alt_names = []
-        for san in sans:
-            try:
-                ip_address(san)
-                alt_names.append(f"IP Address:{san}")
-            except ValueError:
-                alt_names.append(f"DNS:{san}")
-        cert_sans = get_certificate_san(crt)
-        cert_sans.sort()
-        alt_names.sort()
-        if cert_sans != alt_names:
-            return True
-        return False
+    def __generate_selfsigned_tls_data(self,
+                                       req: CertitifacteRequest,
+                                       sans: list) -> TLSValueData:
+        ca = CACertificateGenerator(cn=f"CA {req.cn}",
+                                    expire=req.expire,
+                                    key_size=req.key_size,
+                                    algo=self.algo)
+        crt, key = ca.generate()
+        ca_data = TLSSecretData()
+        ca_data.set_cert(crt).set_key(key)
+        return self.__generate_selfsigned_tls_data_with_ca(req, sans, ca_data)
 
-    def is_outdated_ca(self, ca: str) -> bool:
-        """
-        Issue a new certificate if there is no CA in the secret. Without CA it is not possible to validate the certificate.
-        Check CA duration.
-        :param ca: Raw CA
-        :type ca: :py:class:`str`
-        :rtype: :py:class:`bool`
-        """
-        if len(ca) == 0:
-            return True
-        crt = parse_certificate(ca)
-        return self.cert_renew_deadline_exceeded(crt)
+    def __is_irrelevant_cert(self, crt_data: str, sans: list, cert_outdated_duration: timedelta) -> bool:
+        return parse.is_irrelevant_cert(crt_data, sans, cert_outdated_duration)
 
-    def cert_renew_deadline_exceeded(self, crt: crypto.X509) -> bool:
-        """
-        Check certificate 
-        :param crt: Certificate
-        :type crt: :py:class:`crypto.X509`
-        :return: 
-            if timeNow > expire - cert_outdated_duration:
-                return True
-            return False
-        :rtype: :py:class:`bool`
-        """
-        not_after = datetime.strptime(
-            crt.get_notAfter().decode('ascii'), '%Y%m%d%H%M%SZ')
-        if datetime.now() > not_after - self.cert_outdated_duration:
-            return True
-        return False
+    def __is_outdated_ca(self, ca: str, cert_outdated_duration: timedelta) -> bool:
+        return parse.is_outdated_ca(ca, cert_outdated_duration)
+
 
 def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
     """
@@ -317,37 +448,11 @@ def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
         cluster_domain = str(
             ctx.values["global"]["discovery"].get("clusterDomain", ""))
         for san in sans:
-            san.startswith(PUBLIC_DOMAIN_PREFIX)
-            if san.startswith(PUBLIC_DOMAIN_PREFIX) and public_domain != "":
-                san = get_public_domain_san(san, public_domain)
-            elif san.startswith(CLUSTER_DOMAIN_PREFIX) and cluster_domain != "":
-                san = get_cluster_domain_san(san, cluster_domain)
+            san.startswith(common.PUBLIC_DOMAIN_PREFIX)
+            if san.startswith(common.PUBLIC_DOMAIN_PREFIX) and public_domain != "":
+                san = common.get_public_domain_san(san, public_domain)
+            elif san.startswith(common.CLUSTER_DOMAIN_PREFIX) and cluster_domain != "":
+                san = common.get_cluster_domain_san(san, cluster_domain)
             res.append(san)
         return res
     return generate_sans
-
-
-def cluster_domain_san(san: str) -> str:
-    """
-    Create template to enrich specified san with a cluster domain
-    :param san: San.
-    :type sans: :py:class:`str`
-    """
-    return CLUSTER_DOMAIN_PREFIX + san.rstrip('.')
-
-
-def public_domain_san(san: str) -> str:
-    """
-    Create template to enrich specified san with a public domain
-    :param san: San.
-    :type sans: :py:class:`str`
-    """
-    return PUBLIC_DOMAIN_PREFIX + san.rstrip('.')
-
-
-def get_public_domain_san(san: str, public_domain: str) -> str:
-    return f"{san.lstrip(PUBLIC_DOMAIN_PREFIX)}.{public_domain}"
-
-
-def get_cluster_domain_san(san: str, cluster_domain: str) -> str:
-    return f"{san.lstrip(CLUSTER_DOMAIN_PREFIX)}.{cluster_domain}"

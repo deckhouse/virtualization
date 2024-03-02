@@ -33,7 +33,7 @@ binding_context_add = [
                     }
                 }
             ]
-        }   
+        }
     }
 ]
 
@@ -63,7 +63,7 @@ binding_context_change = [
                     }
                 }
             ]
-        }   
+        }
     }
 ]
 
@@ -77,31 +77,37 @@ initial_values_delete_or_change = {
     }
 }
 
+
 class TestClusterIPAdd(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_add
-        self.values          = initial_values_add
+        self.values = initial_values_add
+
     def test_adding(self):
         self.hook_run()
         self.assertEqual(self.values["test"]["internal"]["dvcr"]["serviceIP"],
                          CLUSTER_IP_ADD)
 
+
 class TestClusterIPChange(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_change
-        self.values          = initial_values_delete_or_change
+        self.values = initial_values_delete_or_change
+
     def test_changing(self):
         self.hook_run()
         self.assertEqual(self.values["test"]["internal"]["dvcr"]["serviceIP"],
                          CLUSTER_IP_CHANGE)
 
+
 class TestClusterIPDelete(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_delete
-        self.values          = initial_values_delete_or_change
+        self.values = initial_values_delete_or_change
+
     def test_deleting(self):
         self.hook_run()
         self.assertEqual(self.values["test"]["internal"]["dvcr"].get("serviceIP"),

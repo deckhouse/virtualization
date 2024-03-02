@@ -19,14 +19,16 @@ import jsonpatch
 import kubernetes_validate
 import jsonschema
 
+
 class TestHook(unittest.TestCase):
     kube_resources = []
     kube_version = "1.28"
+
     def setUp(self):
         self.bindind_context = []
         self.values = {}
-        self.func = None 
-    
+        self.func = None
+
     def tearDown(self):
         pass
 
@@ -44,14 +46,15 @@ class TestHook(unittest.TestCase):
             obj = kube_operation["object"]
             if validate_kube_resources:
                 try:
-                    ## TODO Validate CRD
-                    kubernetes_validate.validate(obj, self.kube_version, strict=True)
+                    # TODO Validate CRD
+                    kubernetes_validate.validate(
+                        obj, self.kube_version, strict=True)
                     self.kube_resources.append(obj)
                 except (kubernetes_validate.SchemaNotFoundError,
                         kubernetes_validate.InvalidSchemaError,
                         kubernetes_validate.ValidationError,
                         jsonschema.RefResolutionError) as e:
-                    self.fail(f"Object is not valid. Raised an exception: {e} ")
+                    self.fail(
+                        f"Object is not valid. Raised an exception: {e} ")
             else:
                 self.kube_resources.append(obj)
-

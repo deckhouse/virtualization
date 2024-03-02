@@ -50,11 +50,11 @@ binding_context_regenerate_key1 = [
                     }
                 }
             ]
-        }   
+        }
     }
 ]
 
-binding_context_regenerate_key2= [
+binding_context_regenerate_key2 = [
     {
         "binding": hook.SNAPSHOT_NAME,
         "snapshots": {
@@ -67,7 +67,7 @@ binding_context_regenerate_key2= [
                     }
                 }
             ]
-        }   
+        }
     }
 ]
 
@@ -82,6 +82,7 @@ initial_values_regenerate_something = {
     }
 }
 
+
 class TestGenerateKeys(testing.TestHook):
     def key_test(self, key: str, lenght: int):
         self.assertGreater(len(key), 0)
@@ -90,31 +91,37 @@ class TestGenerateKeys(testing.TestHook):
 
     def get_key(self, key: str) -> str:
         return self.values[MODULE_NAME]["internal"]["dvcr"].get(key, "")
-    
+
+
 class TestGenerateSecretALL(TestGenerateKeys):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_generate_all
-        self.values          = initial_values_generate_all
+        self.values = initial_values_generate_all
+
     def test_generate_all(self):
         self.hook_run()
         self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].lenght)
         self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].lenght)
 
+
 class TestGenerateSecretKey1(TestGenerateKeys):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_regenerate_key1
-        self.values          = initial_values_regenerate_something
+        self.values = initial_values_regenerate_something
+
     def test_generate_passwordRW(self):
         self.hook_run()
         self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].lenght)
 
+
 class TestGenerateSecretKey2(TestGenerateKeys):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context_regenerate_key2
-        self.values          = initial_values_regenerate_something
+        self.values = initial_values_regenerate_something
+
     def test_generate_salt(self):
         self.hook_run()
         self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].lenght)
