@@ -42,12 +42,12 @@ properties:
             type: string
           key:
             type: string
-      rootCA: 
-        type: object 
+      rootCA:
+        type: object
         properties:
-          type: object
-          properties:
-            crt:
-              type: string
-            key:
-              type: string        
+          ca:
+            type: string
+          crt:
+            type: string
+          key:
+            type: string
