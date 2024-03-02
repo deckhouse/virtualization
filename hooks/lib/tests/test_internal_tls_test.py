@@ -142,6 +142,7 @@ class TestReGenerateCertificate(TestCertificate):
             hook_regenerate.SNAPSHOT_SECRETS_NAME : [
                 {
                     "filterResult": {
+                        "name": NAME,
                         "data": {
                             "ca.crt" : self.values[MODULE_NAME]["internal"]["cert"]["ca"], 
                             "tls.crt": self.values[MODULE_NAME]["internal"]["cert"]["crt"],

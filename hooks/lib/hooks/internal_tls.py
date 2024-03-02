@@ -42,6 +42,77 @@ EXTENDED_KEY_USAGES = {
     4: "OCSPSigning"
 }
 
+class TLSData(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def is_empty(self) ->bool:
+        return len(self) == 0
+    
+    def set(self, key: str, value):
+        if isinstance(value, str):
+            if utils.is_base64(value):
+                self[key] = value
+                return self
+            self[key] = utils.base64_encode_from_str(value)
+            return self
+        if isinstance(value, bytes):
+            self[key] = utils.base64_encode(value)
+            return self
+        raise Exception(f"invalid type {type(value)}")
+
+class TLSSecretData(TLSData):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def CA(self) -> str:
+        return self.get("ca.crt", "")
+    
+    def cert(self) -> str:
+        return self.get("tls.crt", "")
+    
+    def key(self) -> str:
+        return self.get("tls.key", "")
+    
+    def set_ca(self, ca):
+        return self.set("ca.crt", ca)
+    
+    def set_cert(self, crt):
+        return self.set("tls.crt", crt)
+
+    def set_key(self, key):
+        return self.set("tls.key", key)
+
+class TLSValueData(TLSData):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def CA(self) -> str:
+        return self.get("ca", "")
+    
+    def cert(self) -> str:
+        return self.get("crt", "")
+    
+    def key(self) -> str:
+        return self.get("key", "")
+        
+    def set_ca(self, ca):
+        return self.set("ca", ca)
+
+    def set_cert(self, crt):
+        return self.set("crt", crt)
+    
+    def set_key(self, key):
+        return self.set("key", key)
+    
+def convert_to_TLSValueData(data: TLSSecretData) -> TLSValueData:
+    result = TLSValueData()
+    return result.set_ca(data.CA()).set_cert(data.cert()).set_key(data.key())
+
+def convert_to_TLSSecretData(data: TLSValueData) -> TLSSecretData:
+    result = TLSSecretData()
+    return result.set_ca(data.CA()).set_cert(data.cert()).set_key(data.key())
+
 class CACertitifacteRequest:
     """
     Сonfig for the hook that generates CA certificate.
@@ -219,94 +290,83 @@ class GenerateCertificatesHook(Hook):
         def r(ctx: hook.Context):
             snaps = {}
             for s in ctx.snapshots.get(self.SNAPSHOT_SECRETS_NAME, []):
-                s["filterResult"]["name"] = s["filterResult"]["data"]
-
-            ca_data = {}
+                snaps[s["filterResult"]["name"]] = TLSSecretData(s["filterResult"]["data"])
+            ca_data = TLSSecretData()
             if self.__with_common_ca:
-                ca_data = snaps.get(self.ca_request.ca_secret_name, {})
-                tls_data = self.__sync_ca(self.ca_request, ca_data)
-                self.set_value(self.ca_request.values_path_prefix, ctx.values, tls_data)
+                tls_value_data = self.__sync_ca(self.ca_request, 
+                                          snaps.get(self.ca_request.ca_secret_name, TLSSecretData()))
+                ca_data = convert_to_TLSSecretData(tls_value_data)
+                self.set_value(self.ca_request.values_path_prefix, ctx.values, tls_value_data)
 
             for name, req in self.certificate_requests_map.items():
                 if name == self.ca_request.ca_secret_name:
                     continue
-                data = snaps.get(name, {})
-                tls_data = self.__sync_cert(ctx, req, data, ca_data)
-                self.set_value(req.values_path_prefix, ctx.values, tls_data)
+                data = snaps.get(name, TLSSecretData())
+                tls_value_data = self.__sync_cert(ctx, req, data, ca_data)
+                self.set_value(req.values_path_prefix, ctx.values, tls_value_data)
         return r
 
     def __with_common_ca(self) -> bool:
         return self.ca_request is not None
     
-    def __sync_cert(self, ctx: hook.Context, req: CertitifacteRequest, data: dict[str: str], ca_data: dict[str: str]) ->  dict[str: str]:
+    def __sync_cert(self, ctx: hook.Context, req: CertitifacteRequest, data: TLSSecretData, ca_data: TLSSecretData) ->  TLSValueData:
         if req.before_gen_check is not None:
             passed = req.before_gen_check(ctx)
             if not passed:
                 return
         sans = req.sansGenerator(ctx)
-        if len(data) == 0:
+        if data.is_empty():
             print(f"Secret {req.tls_secret_name} not found. Generate new certififcates.")
-            if len(ca_data) > 0:
+            if not ca_data.is_empty():
                 return self.__generate_selfsigned_tls_data_with_ca(req=req, sans=sans, ca_data=ca_data)    
             return self.__generate_selfsigned_tls_data(req=req, sans=sans)
         
-        data_ca_crt = data.get("ca.crt", "")
-        ca_not_equal = data_ca_crt == "" or data_ca_crt != ca_data.get("tls.crt", "")
+        ca_not_equal = data.CA() == "" or data.CA() != ca_data.cert()
         ca_outdated = self.__is_outdated_ca(
-                    utils.base64_decode(data_ca_crt), 
+                    utils.base64_decode(data.CA()), 
                     req.cert_outdated_duration)
         cert_outdated = self.__is_irrelevant_cert(
-                    utils.base64_decode(data.get("tls.crt", "")), 
+                    utils.base64_decode(data.cert()), 
                     sans, 
                     req.cert_outdated_duration)
-        if ca_not_equal or ca_outdated or cert_outdated or data.get("tls.key", "") == "":
+        if ca_not_equal or ca_outdated or cert_outdated or data.key() == "":
             print(f"Certificates from secret {req.tls_secret_name} is invalid. Generate new certififcates.")
             if len(ca_data) > 0:
                 return self.__generate_selfsigned_tls_data_with_ca(req=req, sans=sans, ca_data=ca_data)    
             return self.__generate_selfsigned_tls_data(req=req, sans=sans)
-        return {
-            "ca": data["ca.crt"],
-            "crt": data["tls.crt"],
-            "key": data["tls.key"]
-            }
+        
+        return convert_to_TLSValueData(data)
 
-
-    def __sync_ca(self, req: CACertitifacteRequest, data: dict[str: str]) ->  dict[str: str]:
+    def __sync_ca(self, req: CACertitifacteRequest, data: TLSSecretData) ->  TLSValueData:
         regenerate = False
-        if len(data) == 0:
+        if data.is_empty():
             print(f"Secret {req.ca_secret_name} not found. Generate new certififcates.")
             regenerate = True
         else:
             ca_outdated = self.__is_outdated_ca(
-                utils.base64_decode(data.get("tls.crt", "")),
+                utils.base64_decode(data.cert()),
                 req.cert_outdated_duration)
-            if ca_outdated or data.get("tls.key", "") == "":
+            if ca_outdated or data.key() == "":
                 print(f"Certificates from secret {req.ca_secret_name} is invalid. Generate new certififcates.")
                 regenerate = True
         if regenerate:
             generator = CACertificateGenerator(cn=req.cn, expire=req.expire, key_size=req.key_size, algo=self.algo)
             crt, key = generator.generate()
-            return {
-                "crt": utils.base64_encode(crt),
-                "key": utils.base64_encode(key)
-                }
+            d = TLSValueData()
+            return d.set_cert(crt).set_key(key)
         
-        return  {
-            "crt": data["tls.crt"],
-            "key": data["tls.key"]
-            }
+        return  convert_to_TLSValueData(data)
+
   
     def __generate_selfsigned_tls_data_with_ca(self, 
                                              req: CertitifacteRequest,
                                              sans: list,
-                                             ca_data: dict[str, str]) -> dict[str, str]:
-        ca_crt = ca_data.get("crt", "")
-        ca_key = ca_data.get("key", "")
-        if ca_crt is None or ca_key is None:
+                                             ca_data: TLSSecretData) -> TLSValueData:
+        if ca_data.cert() == "" or ca_data.key() == "":
             raise Exception("rootCA not found")
-        crt_x509 = parse.parse_certificate(crt=utils.base64_decode(ca_crt))
+        crt_x509 = parse.parse_certificate(crt=utils.base64_decode(ca_data.cert()))
         ca_subject = crt_x509.get_subject()
-        ca_pkey = parse.parse_key(key=utils.base64_decode(ca_key))
+        ca_pkey = parse.parse_key(key=utils.base64_decode(ca_data.key()))
 
         cert = CertificateGenerator(cn=req.cn,
                                     expire=req.expire,
@@ -327,22 +387,20 @@ class GenerateCertificatesHook(Hook):
                                       organisational_unit_name=req.organisational_unit_name
                                       ).with_hosts(*sans).generate(ca_subj=ca_subject,
                                                                    ca_key=ca_pkey)
-        return {"ca": ca_crt,
-                "crt": utils.base64_encode(crt),
-                "key": utils.base64_encode(key)}
+        result = TLSValueData()
+        return result.set_ca(ca_data.cert()).set_cert(crt).set_key(key)
+
  
     def __generate_selfsigned_tls_data(self, 
                                      req: CertitifacteRequest, 
-                                     sans: list) -> dict[str, str]:
+                                     sans: list) -> TLSValueData:
         ca = CACertificateGenerator(cn=f"CA {req.cn}",
                         expire=req.expire,
                         key_size=req.key_size,
                         algo=self.algo)
         crt, key = ca.generate()
-        ca_data = {
-            "crt": utils.base64_encode(crt),
-            "key": utils.base64_encode(key)
-        }
+        ca_data = TLSSecretData()
+        ca_data.set_cert(crt).set_key(key)
         return self.__generate_selfsigned_tls_data_with_ca(req, sans, ca_data)
 
     def __is_irrelevant_cert(self, crt_data: str, sans: list, cert_outdated_duration: timedelta) -> bool:
