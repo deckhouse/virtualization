@@ -30,8 +30,6 @@ def main():
                 "virtualization-controller-admission-webhook",
                 f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
                 f"virtualization-controller-admission-webhook.{common.NAMESPACE}.svc"],
-                tls_secret_name="admission-webhook-secret",
-                values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
             ),
             tls_secret_name="admission-webhook-secret",
             values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
@@ -45,7 +43,7 @@ def main():
                 f"dvcr.{common.NAMESPACE}.svc"]),
             tls_secret_name="dvcr-tls",
             values_path_prefix=f"{common.MODULE_NAME}.internal.dvcr.cert",
-            before_hook_check=dvcr_before_check
+            before_gen_check=dvcr_before_check
         ),
 
         namespace=common.NAMESPACE,
