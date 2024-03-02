@@ -24,7 +24,7 @@ SECRET_DATA = {
     "ca.crt": "CACRT",
     "tls.crt": "TLSCRT",
     "tls.key": "TLSKEY"
-    }
+}
 
 hook = CopyCustomCertificatesHook(module_name=MODULE_NAME)
 
@@ -46,7 +46,7 @@ binding_context = [
                     }
                 }
             ]
-        }   
+        }
     }
 ]
 
@@ -71,7 +71,7 @@ values_add = {
     }
 }
 
- 
+
 values_delete = {
     "global": {
         "modules": {
@@ -90,21 +90,25 @@ values_delete = {
 
 class TestCopyCustomCertificateAdd(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context
-        self.values          = values_add
+        self.values = values_add
+
     def test_copy_custom_certificate_adding(self):
         self.hook_run()
-        self.assertGreater(len(self.values[MODULE_NAME]["internal"].get("customCertificateData", {})), 0)
-        self.assertEqual(self.values[MODULE_NAME]["internal"]["customCertificateData"], SECRET_DATA)
+        self.assertGreater(
+            len(self.values[MODULE_NAME]["internal"].get("customCertificateData", {})), 0)
+        self.assertEqual(
+            self.values[MODULE_NAME]["internal"]["customCertificateData"], SECRET_DATA)
+
 
 class TestCopyCustomCertificateDelete(testing.TestHook):
     def setUp(self):
-        self.func            = hook.reconcile()
+        self.func = hook.reconcile()
         self.bindind_context = binding_context
-        self.values          = values_delete
+        self.values = values_delete
+
     def test_copy_custom_certificate_deleting(self):
         self.hook_run()
-        self.assertEqual(len(self.values[MODULE_NAME]["internal"].get("customCertificateData", {})), 0)
-
-
+        self.assertEqual(
+            len(self.values[MODULE_NAME]["internal"].get("customCertificateData", {})), 0)

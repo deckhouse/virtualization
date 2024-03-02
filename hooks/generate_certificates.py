@@ -27,22 +27,22 @@ def main():
         CertitifacteRequest(
             cn=f"virtualization-controller",
             sansGenerator=default_sans([
-            "virtualization-controller-admission-webhook",
-            f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
-            f"virtualization-controller-admission-webhook.{common.NAMESPACE}.svc"],
+                "virtualization-controller-admission-webhook",
+                f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
+                f"virtualization-controller-admission-webhook.{common.NAMESPACE}.svc"],
+                tls_secret_name="admission-webhook-secret",
+                values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
+            ),
             tls_secret_name="admission-webhook-secret",
             values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
-        ),
-        tls_secret_name="admission-webhook-secret",
-        values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
         ),
 
         CertitifacteRequest(
             cn="dvcr",
             sansGenerator=dvcr_sans_generator([
-            "dvcr",
-            f"dvcr.{common.NAMESPACE}",
-            f"dvcr.{common.NAMESPACE}.svc"]),
+                "dvcr",
+                f"dvcr.{common.NAMESPACE}",
+                f"dvcr.{common.NAMESPACE}.svc"]),
             tls_secret_name="dvcr-tls",
             values_path_prefix=f"{common.MODULE_NAME}.internal.dvcr.cert",
             before_hook_check=dvcr_before_check
@@ -59,15 +59,18 @@ def main():
 
     hook.run()
 
+
 def dvcr_before_check(ctx: Context) -> bool:
     val = dvcr_get_serviceIP(values=ctx.values)
     if val is None:
         return False
     return True
 
+
 def dvcr_get_serviceIP(values: dict):
     return module_values.get_value(path=f"{common.MODULE_NAME}.internal.dvcr.serviceIP", values=values)
- 
+
+
 def dvcr_sans_generator(sans: list[str]) -> Callable[[Context], list[str]]:
     def generator(ctx: Context) -> list:
         sans.extend(["localhost", "127.0.0.1", dvcr_get_serviceIP(ctx.values)])

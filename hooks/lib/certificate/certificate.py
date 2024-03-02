@@ -63,7 +63,7 @@ class Certificate:
 
         :param organisational_unit_name: Optional. The organizational unit of the entity.
         :type organisational_unit_name: :py:class:`str`
-        """ 
+        """
 
         if country is not None:
             self.cert.get_subject().C = country
@@ -100,7 +100,7 @@ class Certificate:
 
         :param issuer: Optional X509 certificate to use as issuer.
         :type issuer: :py:class:`crypto.X509`
-        """ 
+        """
         ext = crypto.X509Extension(type_name=str.encode(type_name),
                                    critical=critical,
                                    value=str.encode(value),
@@ -114,7 +114,7 @@ class Certificate:
         Generate certificate.
         :return: (certificate, key)
         :rtype: (:py:data:`bytes`, :py:data:`bytes`)
-        """ 
+        """
         pub = crypto.dump_certificate(crypto.FILETYPE_PEM, self.cert)
         priv = crypto.dump_privatekey(crypto.FILETYPE_PEM, self.key)
         return pub, priv
@@ -124,6 +124,7 @@ class CACertificateGenerator(Certificate):
     """
     A class representing a generator CA certificate.
     """
+
     def __sign(self) -> None:
         self.cert.set_issuer(self.get_subject())
         self.cert.set_pubkey(self.key)
@@ -134,7 +135,7 @@ class CACertificateGenerator(Certificate):
         Generate CA certificate.
         :return: (ca crt, ca key)
         :rtype: (:py:data:`bytes`, :py:data:`bytes`)
-        """ 
+        """
         self.add_extension(type_name="subjectKeyIdentifier",
                            critical=False, value="hash", subject=self.cert)
         self.add_extension(type_name="authorityKeyIdentifier",
@@ -151,6 +152,7 @@ class CertificateGenerator(Certificate):
     """
     A class representing a generator certificate.
     """
+
     def with_hosts(self, *hosts: str):
         """
         This function is used to add subject alternative names to a certificate. 
@@ -185,9 +187,10 @@ class CertificateGenerator(Certificate):
         :type ca_key: :py:class:`crypto.PKey`
         :return: (certificate, key)
         :rtype: (:py:data:`bytes`, :py:data:`bytes`)
-        """ 
+        """
         self.__sign(ca_subj, ca_key)
         return super().generate()
+
 
 def is_valid_hostname(hostname):
     if len(hostname) > 255:

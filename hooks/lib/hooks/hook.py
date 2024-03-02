@@ -19,6 +19,7 @@ from lib.module import module
 from lib.module import values as module_values
 import yaml
 
+
 class Hook:
     def __init__(self, module_name: str = None) -> None:
         self.module_name = self.get_module_name(module_name)
@@ -29,15 +30,15 @@ class Hook:
     @staticmethod
     def get_value(path: str, values: dict, default=None):
         return module_values.get_value(path, values, default)
-    
+
     @staticmethod
     def set_value(path: str, values: dict, value: str) -> None:
         return module_values.set_value(path, values, value)
-    
+
     @staticmethod
     def delete_value(path: str, values: dict) -> None:
         return module_values.delete_value(path, values)
-    
+
     @staticmethod
     def get_module_name(module_name: str) -> str:
         if module_name is not None:
@@ -48,7 +49,7 @@ class Hook:
         def r(ctx: hook.Context) -> None:
             pass
         return r
-    
+
     def run(self) -> None:
         conf = self.generate_config()
         if isinstance(conf, dict):

@@ -13,13 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random 
+import random
 import string
+
 
 def generate_random_string(length: int, letters: str) -> str:
     return ''.join(random.choice(letters) for i in range(length))
 
+
 SYMBOLS = "[]{}<>()=-_!@#$%^&*.,"
+
 
 def num(length: int) -> str:
     """
@@ -30,6 +33,7 @@ def num(length: int) -> str:
     """
     return generate_random_string(length, string.digits)
 
+
 def alpha(length: int) -> str:
     """
     Generates a random string of the given length out of alphabetic characters.
@@ -38,6 +42,7 @@ def alpha(length: int) -> str:
     :rtype: :py:class:`str`
     """
     return generate_random_string(length, string.ascii_letters)
+
 
 def symbols(length: int) -> str:
     """
@@ -58,6 +63,7 @@ def alpha_num(length: int) -> str:
     """
     return generate_random_string(length, string.ascii_letters + string.digits)
 
+
 def alpha_num_lower_case(length: int) -> str:
     """
     Generates a random string of the given length out of alphanumeric characters without UpperCase letters.
@@ -66,6 +72,7 @@ def alpha_num_lower_case(length: int) -> str:
     :rtype: :py:class:`str`
     """
     return generate_random_string(length, string.ascii_lowercase + string.digits)
+
 
 def alpha_num_symbols(length: int) -> str:
     """

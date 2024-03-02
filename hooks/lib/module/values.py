@@ -27,6 +27,7 @@ def get_value(path: str, values: dict, default=None):
     keys = path.lstrip(".").split(".")
     return get(keys, values, default)
 
+
 def set_value(path: str, values: dict, value) -> None:
     """
     Functions for save value to dict.
@@ -48,10 +49,12 @@ def set_value(path: str, values: dict, value) -> None:
     keys = path.lstrip(".").split(".")
     return set(keys, values, value)
 
+
 def delete_value(path: str, values: dict) -> None:
     if get_value(path, values) is None:
         return
     keys = path.lstrip(".").split(".")
+
     def delete(keys: list, values: dict) -> None:
         if len(keys) == 1:
             values.pop(keys[0])

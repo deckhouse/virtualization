@@ -17,11 +17,14 @@ from OpenSSL import crypto
 from datetime import datetime, timedelta
 from ipaddress import ip_address
 
+
 def parse_certificate(crt: str) -> crypto.X509:
     return crypto.load_certificate(crypto.FILETYPE_PEM, crt)
 
+
 def parse_key(key: str) -> crypto.PKey:
     return crypto.load_privatekey(crypto.FILETYPE_PEM, key)
+
 
 def get_certificate_san(crt: crypto.X509) -> list[str]:
     san = ''
@@ -31,6 +34,7 @@ def get_certificate_san(crt: crypto.X509) -> list[str]:
         if 'subjectAltName' in str(ext.get_short_name()):
             san = ext.__str__()
     return san.split(', ')
+
 
 def is_outdated_ca(ca: str, cert_outdated_duration: timedelta) -> bool:
     """
@@ -46,6 +50,7 @@ def is_outdated_ca(ca: str, cert_outdated_duration: timedelta) -> bool:
         return True
     crt = parse_certificate(ca)
     return cert_renew_deadline_exceeded(crt, cert_outdated_duration)
+
 
 def cert_renew_deadline_exceeded(crt: crypto.X509, cert_outdated_duration: timedelta) -> bool:
     """
@@ -65,6 +70,7 @@ def cert_renew_deadline_exceeded(crt: crypto.X509, cert_outdated_duration: timed
     if datetime.now() > not_after - cert_outdated_duration:
         return True
     return False
+
 
 def is_irrelevant_cert(crt_data: str, sans: list, cert_outdated_duration: timedelta) -> bool:
     """

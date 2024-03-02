@@ -15,16 +15,19 @@
 
 from lib.module import values as module_values
 import re
-import os 
+import os
+
 
 def get_values_first_defined(values: dict, *keys):
     return _get_first_defined(values, keys)
+
 
 def _get_first_defined(values: dict, keys: tuple):
     for i in range(len(keys)):
         if (val := module_values.get_value(path=keys[i], values=values)) is not None:
             return val
     return
+
 
 def get_https_mode(module_name: str, values: dict) -> str:
     module_path = f"{module_name}.https.mode"
@@ -34,6 +37,7 @@ def get_https_mode(module_name: str, values: dict) -> str:
         return str(https_mode)
     raise Exception("https mode is not defined")
 
+
 def get_module_name() -> str:
     module = ""
     file_path = os.path.abspath(__file__)
@@ -42,17 +46,18 @@ def get_module_name() -> str:
         if dir.startswith(external_modules_dir):
             dir = external_modules_dir
         if file_path.startswith(dir):
-            module = re.sub(f"{dir}/?\d?\d?\d?-?", "", file_path, 1).split("/")[0]
+            module = re.sub(f"{dir}/?\d?\d?\d?-?", "",
+                            file_path, 1).split("/")[0]
             # /deckhouse/external-modules/virtualization/mr/hooks/hook_name.py
             # {-------------------------- file_path --------------------------}
-            # {------ MODULES_DIR ------}{---------- regexp result ----------}} 
-            #                             virtualization/mr/hooks/hook_name.py 
+            # {------ MODULES_DIR ------}{---------- regexp result ----------}}
+            #                             virtualization/mr/hooks/hook_name.py
             #                            {-module-name-}{---------------------}
             #                                  or
             # /deckhouse/modules/900-virtualization/hooks/hook_name.py
             # {---------------------- file_path ----------------------}
-            # {-- MODULES_DIR --}{---{-------- regexp result --------}} 
-            #                        virtualization/hooks/hook_name.py 
+            # {-- MODULES_DIR --}{---{-------- regexp result --------}}
+            #                        virtualization/hooks/hook_name.py
             #                        {-module-name-}{-----------------}
 
             break

@@ -18,12 +18,13 @@ from deckhouse import hook
 from typing import Callable
 from lib.hooks.hook import Hook
 
+
 class ManageTenantSecretsHook(Hook):
     POD_SNAPSHOT_NAME = "pods"
     SECRETS_SNAPSHOT_NAME = "secrets"
     NAMESPACE_SNAPSHOT_NAME = "namespaces"
 
-    def __init__(self, 
+    def __init__(self,
                  source_namespace: str,
                  source_secret_name: str,
                  pod_labels_to_follow: dict,
@@ -69,7 +70,7 @@ class ManageTenantSecretsHook(Hook):
                     "nameSelector": {
                         "matchNames": [self.source_secret_name]
                     },
-                    "jqFilter": '{"data": .data, "namespace": .metadata.namespace, "type": .type}', 
+                    "jqFilter": '{"data": .data, "namespace": .metadata.namespace, "type": .type}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
@@ -82,7 +83,7 @@ class ManageTenantSecretsHook(Hook):
                         self.SECRETS_SNAPSHOT_NAME,
                         self.NAMESPACE_SNAPSHOT_NAME
                     ],
-                    "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}', 
+                    "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 }
@@ -101,13 +102,14 @@ class ManageTenantSecretsHook(Hook):
             "data": data,
             "type": secret_type
         }
-    
+
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context) -> None:
-            pod_namespaces = set([p["filterResult"]["namespace"] for p in ctx.snapshots.get(self.POD_SNAPSHOT_NAME, [])])
+            pod_namespaces = set([p["filterResult"]["namespace"]
+                                 for p in ctx.snapshots.get(self.POD_SNAPSHOT_NAME, [])])
             secrets = ctx.snapshots.get(self.SECRETS_SNAPSHOT_NAME, [])
             for ns in ctx.snapshots.get(self.NAMESPACE_SNAPSHOT_NAME, []):
-                if  ns["filterResult"]["isTerminating"]:
+                if ns["filterResult"]["isTerminating"]:
                     pod_namespaces.discard(ns["filterResult"]["name"])
             data, secret_type, secrets_by_ns = "", "", {}
             for s in secrets:
@@ -115,10 +117,12 @@ class ManageTenantSecretsHook(Hook):
                     data = s["filterResult"]["data"]
                     secret_type = s["filterResult"]["type"]
                     continue
-                secrets_by_ns[s["filterResult"]["namespace"]] = s["filterResult"]["data"]
+                secrets_by_ns[s["filterResult"]["namespace"]
+                              ] = s["filterResult"]["data"]
 
             if len(data) == 0 or len(secret_type) == 0:
-                print(f"Registry secret {self.source_namespace}/{self.source_secret_name} not found. Skip")
+                print(
+                    f"Registry secret {self.source_namespace}/{self.source_secret_name} not found. Skip")
                 return
 
             for ns in pod_namespaces:
@@ -137,4 +141,3 @@ class ManageTenantSecretsHook(Hook):
                                       namespace=ns,
                                       name=self.source_secret_name)
         return r
-

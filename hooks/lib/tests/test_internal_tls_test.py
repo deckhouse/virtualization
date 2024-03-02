@@ -21,9 +21,9 @@ import lib.utils as utils
 from OpenSSL import crypto
 from ipaddress import ip_address
 
-NAME        = "test"
+NAME = "test"
 MODULE_NAME = NAME
-NAMESPACE   = NAME
+NAMESPACE = NAME
 SANS = [
     NAME,
     f"{NAME}.{NAMESPACE}",
@@ -62,7 +62,7 @@ hook_regenerate = GenerateCertificatesHook(
 binding_context = [
     {
         "binding": "binding",
-        "snapshots": {}   
+        "snapshots": {}
     }
 ]
 
@@ -72,13 +72,14 @@ values = {
             "publicDomainTemplate": "example.com"
         },
         "discovery": {
-             "clusterDomain": "cluster.local"
+            "clusterDomain": "cluster.local"
         }
     },
     MODULE_NAME: {
         "internal": {}
     }
 }
+
 
 class TestCertificate(testing.TestHook):
     secret_data = {}
@@ -89,7 +90,8 @@ class TestCertificate(testing.TestHook):
         return parse.parse_certificate(utils.base64_decode(crt))
 
     def check_data(self):
-        self.assertGreater(len(self.values[MODULE_NAME]["internal"].get("cert", {})), 0)
+        self.assertGreater(
+            len(self.values[MODULE_NAME]["internal"].get("cert", {})), 0)
         self.secret_data = self.values[MODULE_NAME]["internal"]["cert"]
         self.assertTrue(utils.is_base64(self.secret_data.get("ca", "")))
         self.assertTrue(utils.is_base64(self.secret_data.get("crt", "")))
@@ -107,7 +109,7 @@ class TestCertificate(testing.TestHook):
         sans_from_cert.sort()
         sans.sort()
         self.assertEqual(sans_from_cert, sans)
-        
+
     def verify_certificate(self, ca: crypto.X509, crt: crypto.X509) -> crypto.X509StoreContextError:
         store = crypto.X509Store()
         store.add_cert(ca)
@@ -118,11 +120,13 @@ class TestCertificate(testing.TestHook):
         except crypto.X509StoreContextError as e:
             return e
 
+
 class TestGenerateCertificate(TestCertificate):
     def setUp(self):
-        self.func            = hook_generate.reconcile()
+        self.func = hook_generate.reconcile()
         self.bindind_context = binding_context
-        self.values          = values
+        self.values = values
+
     def test_generate_certificate(self):
         self.hook_run()
         self.check_data()
@@ -132,27 +136,28 @@ class TestGenerateCertificate(TestCertificate):
             self.fail(f"Certificate is not verify. Raised an exception: {e} ")
         self.check_sans(crt)
 
+
 class TestReGenerateCertificate(TestCertificate):
     def setUp(self):
-        self.func            = hook_regenerate.reconcile()
+        self.func = hook_regenerate.reconcile()
         self.bindind_context = binding_context
-        self.values          = values
+        self.values = values
         self.hook_run()
         self.bindind_context[0]["snapshots"] = {
-            hook_regenerate.SNAPSHOT_SECRETS_NAME : [
+            hook_regenerate.SNAPSHOT_SECRETS_NAME: [
                 {
                     "filterResult": {
                         "name": NAME,
                         "data": {
-                            "ca.crt" : self.values[MODULE_NAME]["internal"]["cert"]["ca"], 
+                            "ca.crt": self.values[MODULE_NAME]["internal"]["cert"]["ca"],
                             "tls.crt": self.values[MODULE_NAME]["internal"]["cert"]["crt"],
                             "key.crt": self.values[MODULE_NAME]["internal"]["cert"]["key"]
-                            }
                         }
                     }
-                ]
-            }
-        self.func            = hook_generate.reconcile()
+                }
+            ]
+        }
+        self.func = hook_generate.reconcile()
 
     def test_regenerate_certificate(self):
         self.check_data()
