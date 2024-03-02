@@ -18,14 +18,16 @@ from typing import Callable
 from deckhouse import hook
 from lib.hooks.hook import Hook
 import common
+
+
 class DiscoveryClusterIPServiceHook(Hook):
     SNAPSHOT_NAME = "discovery-service"
 
     def __init__(self, module_name: str = None):
         super().__init__(module_name=module_name)
-        self.namespace    = common.NAMESPACE
+        self.namespace = common.NAMESPACE
         self.service_name = "dvcr"
-        self.value_path   = f"{self.module_name}.internal.dvcr.serviceIP"
+        self.value_path = f"{self.module_name}.internal.dvcr.serviceIP"
 
     def generate_config(self) -> dict:
         return {
@@ -54,16 +56,18 @@ class DiscoveryClusterIPServiceHook(Hook):
 
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context):
-            services = [s["filterResult"]["clusterIP"] for s in ctx.snapshots.get(self.SNAPSHOT_NAME, [])]
+            services = [s["filterResult"]["clusterIP"]
+                        for s in ctx.snapshots.get(self.SNAPSHOT_NAME, [])]
             if len(services) == 0:
-                print(f"Service dvcr not found. Delete value from {self.value_path}.")
+                print(
+                    f"Service dvcr not found. Delete value from {self.value_path}.")
                 self.delete_value(self.value_path, ctx.values)
             else:
                 print(f"Set {services[0]} to {self.value_path}.")
-                self.set_value(self.value_path, ctx.values, services[0])            
+                self.set_value(self.value_path, ctx.values, services[0])
         return r
+
 
 if __name__ == "__main__":
     h = DiscoveryClusterIPServiceHook()
     h.run()
-

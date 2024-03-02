@@ -18,8 +18,10 @@ from typing import Callable
 from lib.module import module
 from lib.hooks.hook import Hook
 
+
 class CopyCustomCertificatesHook(Hook):
     CUSTOM_CERTIFICATES_SNAPSHOT_NAME = "custom_certificates"
+
     def __init__(self,
                  module_name: str = None):
         super().__init__(module_name=module_name)
@@ -60,20 +62,21 @@ class CopyCustomCertificatesHook(Hook):
         def r(ctx: hook.Context) -> None:
             custom_certificates = {}
             for s in ctx.snapshots.get(self.CUSTOM_CERTIFICATES_SNAPSHOT_NAME, []):
-                custom_certificates[s["filterResult"]["name"]] = s["filterResult"]["data"]
+                custom_certificates[s["filterResult"]
+                                    ["name"]] = s["filterResult"]["data"]
             if len(custom_certificates) == 0:
                 return
 
             https_mode = module.get_https_mode(module_name=self.module_name,
-                                            values=ctx.values)
+                                               values=ctx.values)
             path = f"{self.module_name}.internal.customCertificateData"
             if https_mode != "CustomCertificate":
                 self.delete_value(path, ctx.values)
                 return
 
             raw_secret_name = module.get_values_first_defined(ctx.values,
-                                                            f"{self.module_name}.https.customCertificate.secretName",
-                                                            "global.modules.https.customCertificate.secretName")
+                                                              f"{self.module_name}.https.customCertificate.secretName",
+                                                              "global.modules.https.customCertificate.secretName")
             secret_name = str(raw_secret_name or "")
             secret_data = custom_certificates.get(secret_name)
             if secret_data is None:
