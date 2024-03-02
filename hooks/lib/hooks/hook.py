@@ -32,7 +32,7 @@ class Hook:
         return module_values.get_value(path, values, default)
 
     @staticmethod
-    def set_value(path: str, values: dict, value: str) -> None:
+    def set_value(path: str, values: dict, value) -> None:
         return module_values.set_value(path, values, value)
 
     @staticmethod

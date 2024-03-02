@@ -62,6 +62,9 @@ class TLSData(dict):
             return self
         raise Exception(f"invalid type {type(value)}")
 
+    def to_dict(self) -> dict:
+        return dict(self)
+
 
 class TLSSecretData(TLSData):
     def __init__(self, *args, **kwargs):
@@ -308,7 +311,7 @@ class GenerateCertificatesHook(Hook):
                                                 snaps.get(self.ca_request.ca_secret_name, TLSSecretData()))
                 ca_data = convert_to_TLSSecretData(tls_value_data)
                 self.set_value(self.ca_request.values_path_prefix,
-                               ctx.values, tls_value_data)
+                               ctx.values, tls_value_data.to_dict())
 
             for name, req in self.certificate_requests_map.items():
                 if name == self.ca_request.ca_secret_name:
@@ -316,7 +319,7 @@ class GenerateCertificatesHook(Hook):
                 data = snaps.get(name, TLSSecretData())
                 tls_value_data = self.__sync_cert(ctx, req, data, ca_data)
                 self.set_value(req.values_path_prefix,
-                               ctx.values, tls_value_data)
+                               ctx.values, tls_value_data.to_dict())
         return r
 
     def __with_common_ca(self) -> bool:
