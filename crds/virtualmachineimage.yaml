@@ -27,7 +27,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk image which could be used as data source for new `VirtualMachineDisks` or could be mounted to `VirtualMachines` as is. This resource is immutable, once created, cannot be modified.
+            This resource describes a virtual machine disk image or installation image (iso) that can be used as a data source for new `VirtualMachineDisks` or can be mounted in `VirtualMachines`.
+
+            > This resource cannot be modified once it has been created.
 
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
           required:
@@ -42,6 +44,7 @@ spec:
                 storage:
                   type: string
                   enum: ["ContainerRegistry"]
+                  default: ContainerRegistry
                   description: |
                     Storage type to store the image for current virtualization setup.
 
@@ -66,8 +69,8 @@ spec:
 
                         * `HTTP` — fill the image with data from some external http/https url.
                         * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
+                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -132,7 +135,7 @@ spec:
                       required:
                         - image
                       description: |
-                        Use an image stored in external container regitry. Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+                        Use an image stored in external container regitry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
@@ -251,12 +254,12 @@ spec:
                       type: string
                       example: 199M
                       description:  |
-                        Image size in DVCR or in PVC in human-readable format.
+                        Image size in DVCR in human-readable format.
                     storedBytes:
                       type: string
                       example: 199001234
                       description:  |
-                        Image size in DVCR or in PVC in bytes.
+                        Image size in DVCR in bytes.
                     unpacked:
                       type: string
                       example: 1G
@@ -267,11 +270,6 @@ spec:
                       example: 1000000234
                       description:  |
                         Unpacked image size in bytes.
-                capacity:
-                  type: string
-                  example: 50G
-                  description: |
-                    Requested capacity of the PVC in human-readable format.
                 cdrom:
                   type: boolean
                   description: |
@@ -288,14 +286,15 @@ spec:
                   type: string
                   description: |
                     Current status of `VirtualMachineImage` resource:
+
                     * Pending - The resource has been created and is on a waiting queue.
-                    * Provisioning - The process of resource creation (copying/downloading/building the image/filling the PVC with data) is in progress.
+                    * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
                     * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
                     * ImageLost - The child image of the resource is missing. The resource cannot be used.
-                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
+
                   enum:
                     [
                       "Pending",
@@ -304,13 +303,12 @@ spec:
                       "Ready",
                       "Failed",
                       "ImageLost",
-                      "PVCLost",
                       "Unknown"
                     ]
                 progress:
                   type: string
                   description: |
-                    Progress of copying an image from source to PVC.
+                    Progress of copying an image from source to DVCR.
                 uploadCommand:
                   type: string
                   description: |
@@ -343,10 +341,6 @@ spec:
       - name: Progress
         type: string
         jsonPath: .status.progress
-      - name: Capacity
-        type: string
-        jsonPath: .status.capacity
-        priority: 1
       - name: StoredSize
         type: string
         jsonPath: .status.size.stored
@@ -357,10 +351,6 @@ spec:
         priority: 1
       - name: Registry URL
         jsonPath: .status.target.registryURL
-        type: string
-        priority: 1
-      - name: Target PVC
-        jsonPath: .status.target.persistentVolumeClaimName
         type: string
         priority: 1
       - name: Age

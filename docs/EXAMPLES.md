@@ -136,29 +136,6 @@ kubectl -n vms get virtualmachineimage
 # ubuntu-img   Ready   false   100%       10m
 ```
 
-to store the image in disk storage provided by the platform, the `storage` settings will be as follows:
-
-```yaml
-spec:
-  storage: Kubernetes
-  persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
-```
-
-where `your-storage-class-name` is the name of the storageClass to be used.
-
-To view the list of available storage classes, run the following command:
-
-```bash
-kubectl get storageclass
-
-# Пример вывода команды:
-# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   20d
-```
-
 The `ClusterVirtualMachineImage` resource is created similarly, but does not require the `storage` settings to be specified:
 
 ```yaml
