@@ -26,7 +26,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk image that can be used as a data source for new `VirtualMachineDisks` or can be mounted in `VirtualMachines` as is. This resource type is available to all namespaces in the cluster. This resource is immutable, once created, cannot be modified.
+            Describes a virtual machine disk image that can be used as a data source for new `VirtualMachineDisks` or an installation image (iso) to be mounted in `VirtualMachines` directly. This resource type is available for all namespaces in the cluster.
+
+            > This resource cannot be modified once it has been created.
 
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registry (DVCR).
           required:
@@ -53,10 +55,10 @@ spec:
                       description: |
                         The type of an origin of the image. Options are:
 
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — use another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — use another existing `ClusterVirtualMachineImage`.
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
+                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
+                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
