@@ -318,6 +318,8 @@ class GenerateCertificatesHook(Hook):
                     continue
                 data = snaps.get(name, TLSSecretData())
                 tls_value_data = self.__sync_cert(ctx, req, data, ca_data)
+                if tls_value_data is None:
+                    continue
                 self.set_value(req.values_path_prefix,
                                ctx.values, tls_value_data.to_dict())
         return r
