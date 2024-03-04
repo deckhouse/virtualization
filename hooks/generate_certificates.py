@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-from lib.hooks.internal_tls import GenerateCertificatesHook, CertitifacteRequest, CACertitifacteRequest, default_sans
+from lib.hooks.internal_tls import *
 from lib.module import values as module_values
 from deckhouse.hook import Context
 from typing import Callable
@@ -44,6 +44,25 @@ def main():
             tls_secret_name="dvcr-tls",
             values_path_prefix=f"{common.MODULE_NAME}.internal.dvcr.cert",
             before_gen_check=dvcr_before_check
+        ),
+
+        CertitifacteRequest(
+            cn=f"virtualization-api",
+            sansGenerator=default_sans([
+                "virtualization-api",
+                f"virtualization-api.{common.NAMESPACE}",
+                f"virtualization-api.{common.NAMESPACE}.svc"],
+            ),
+            tls_secret_name="virtualziation-api-tls",
+            values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.cert"
+        ),
+
+        CertitifacteRequest(
+            cn=f"virtualization-api-proxy",
+            sansGenerator=empty_sans(),
+            tls_secret_name="virtualization-api-proxy-tls",
+            values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.proxyCert",
+            extended_key_usages = [EXTENDED_KEY_USAGES[1]]
         ),
 
         namespace=common.NAMESPACE,

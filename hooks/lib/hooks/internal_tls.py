@@ -456,3 +456,9 @@ def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
             res.append(san)
         return res
     return generate_sans
+
+
+def empty_sans() -> Callable[[hook.Context], list[str]]:
+    def generator(ctx: hook.Context) -> list:
+        return []
+    return generator

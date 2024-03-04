@@ -664,7 +664,7 @@ tasks:
         ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
         --deployment="virtualization-api"                                 \
         --namespace="d8-virtualization"                                   \
-        --flags="--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt --v=7 --proxy-client-cert-file= --proxy-client-key-file="
+        --flags="--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt --v=7 --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt --proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key"
 
 
   mirrord:wipe:apiserver:
