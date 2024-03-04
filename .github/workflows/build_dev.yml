@@ -126,7 +126,8 @@ jobs:
         shell: bash
 
   dev_setup_build:
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: Build and Push images
     needs:
       - lint
