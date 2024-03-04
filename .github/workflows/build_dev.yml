@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   show_dev_manifest:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
+    # runs-on: ubuntu-latest
     name: Show
     steps:
       - name: Set vars for PR
