@@ -25,22 +25,34 @@ index 5cbb8197f..82f6f9238 100644
 +	})
 +}
 diff --git a/pkg/util/tls/tls.go b/pkg/util/tls/tls.go
-index e9e140548..922ae9826 100644
+index e9e140548..7e46688c6 100644
 --- a/pkg/util/tls/tls.go
 +++ b/pkg/util/tls/tls.go
-@@ -91,7 +91,7 @@ func SetupExportProxyTLS(certManager certificate.Manager, kubeVirtInformer cache
+@@ -132,6 +132,57 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
  	return tlsConfig
  }
  
--func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
-+func SetupTLSWithCertManager(caManager, virtualizationCAManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
- 	tlsConfig := &tls.Config{
- 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
- 			cert := certManager.Current()
-@@ -112,6 +112,16 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
- 				return nil, err
- 			}
- 
++func SetupTLSWithVirtualizationCAManager(caManager, virtualizationCAManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
++	tlsConfig := &tls.Config{
++		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
++			cert := certManager.Current()
++			if cert == nil {
++				return nil, fmt.Errorf(noSrvCertMessage)
++			}
++			return cert, nil
++		},
++		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
++			cert := certManager.Current()
++			if cert == nil {
++				return nil, fmt.Errorf(noSrvCertMessage)
++			}
++
++			clientCAPool, err := caManager.GetCurrent()
++			if err != nil {
++				log.Log.Reason(err).Error("Failed to get requestheader client CA")
++				return nil, err
++			}
++
 +			virtualizationClientCAPool, err := virtualizationCAManager.GetCurrent()
 +			if err != nil {
 +				log.Log.Reason(err).Error("Failed to get CA from config-map virtualization-ca")
@@ -51,11 +63,31 @@ index e9e140548..922ae9826 100644
 +				clientCAPool.AppendCertsFromPEM(subj)
 +			}
 +
- 			kv := clusterConfig.GetConfigFromKubeVirtCR()
- 			tlsConfig := getTLSConfiguration(kv)
- 			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
++			kv := clusterConfig.GetConfigFromKubeVirtCR()
++			tlsConfig := getTLSConfiguration(kv)
++			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
++			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
++			config := &tls.Config{
++				CipherSuites: ciphers,
++				MinVersion:   minTLSVersion,
++				Certificates: []tls.Certificate{*cert},
++				ClientCAs:    clientCAPool,
++				ClientAuth:   clientAuth,
++			}
++
++			config.BuildNameToCertificate()
++			return config, nil
++		},
++	}
++	tlsConfig.BuildNameToCertificate()
++	return tlsConfig
++}
++
+ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+ 	// #nosec cause: InsecureSkipVerify: true
+ 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
 diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
-index 120f2d68f..8eaa011d2 100644
+index 120f2d68f..4b82edd13 100644
 --- a/pkg/virt-api/api.go
 +++ b/pkg/virt-api/api.go
 @@ -884,7 +884,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
@@ -72,7 +104,7 @@ index 120f2d68f..8eaa011d2 100644
  	// if the TLS handshake requests it. As a result, the TLS handshake fails
  	// and our aggregated endpoint never becomes available.
 -	app.tlsConfig = kvtls.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
-+	app.tlsConfig = kvtls.SetupTLSWithCertManager(k8sCAManager, virtualizationCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
++	app.tlsConfig = kvtls.SetupTLSWithVirtualizationCAManager(k8sCAManager, virtualizationCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
  	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
  }
  
