@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 )
@@ -8,19 +9,23 @@ import (
 func NewServer(
 	virtualMachines cache.Controller,
 	apiserver *genericapiserver.GenericAPIServer,
+	proxyCertManager certManager.CertificateManager,
 ) *server {
 	return &server{
 		virtualMachines:  virtualMachines,
 		GenericAPIServer: apiserver,
+		proxyCertManager: proxyCertManager,
 	}
 }
 
 type server struct {
 	*genericapiserver.GenericAPIServer
-	virtualMachines cache.Controller
+	proxyCertManager certManager.CertificateManager
+	virtualMachines  cache.Controller
 }
 
 func (s *server) RunUntil(stopCh <-chan struct{}) error {
+	go s.proxyCertManager.Start()
 	// Start informers
 	go s.virtualMachines.Run(stopCh)
 
@@ -29,5 +34,7 @@ func (s *server) RunUntil(stopCh <-chan struct{}) error {
 	if !ok {
 		return nil
 	}
-	return s.GenericAPIServer.PrepareRun().Run(stopCh)
+	err := s.GenericAPIServer.PrepareRun().Run(stopCh)
+	s.proxyCertManager.Stop()
+	return err
 }

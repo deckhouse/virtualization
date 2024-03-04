@@ -3,21 +3,24 @@ package server
 import (
 	"errors"
 	"fmt"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager/filesystem"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
 
 type Config struct {
-	Apiserver *genericapiserver.Config
-	Rest      *rest.Config
-	Kubevirt  storage.KubevirtApiServerConfig
+	Apiserver           *genericapiserver.Config
+	Rest                *rest.Config
+	Kubevirt            rest2.KubevirtApiServerConfig
+	ProxyClientCertFile string
+	ProxyClientKeyFile  string
 }
 
 func (c Config) Validate() []error {
@@ -25,8 +28,14 @@ func (c Config) Validate() []error {
 	if c.Kubevirt.Endpoint == "" {
 		errs = append(errs, fmt.Errorf(".Kubevirt.Endpoint is required. %w", ErrConfigInvalid))
 	}
-	if c.Kubevirt.CertsPath == "" {
-		errs = append(errs, fmt.Errorf(".Kubevirt.CertsPath is required. %w", ErrConfigInvalid))
+	if c.Kubevirt.CaBundlePath == "" {
+		errs = append(errs, fmt.Errorf(".Kubevirt.CaBundlePath is required. %w", ErrConfigInvalid))
+	}
+	if c.ProxyClientCertFile == "" {
+		errs = append(errs, fmt.Errorf(".ProxyClientCertFile is required. %w", ErrConfigInvalid))
+	}
+	if c.ProxyClientKeyFile == "" {
+		errs = append(errs, fmt.Errorf(".ProxyClientKeyFile is required. %w", ErrConfigInvalid))
 	}
 	if c.Apiserver == nil {
 		errs = append(errs, fmt.Errorf(".Apiserver is required. %w", ErrConfigInvalid))
@@ -38,6 +47,7 @@ func (c Config) Validate() []error {
 }
 
 func (c Config) Complete() (*server, error) {
+	proxyCertManager := filesystem.NewFileCertificateManager(c.ProxyClientCertFile, c.ProxyClientKeyFile)
 	informer, err := virtualizationInformerFactory(c.Rest)
 	if err != nil {
 		return nil, err
@@ -51,12 +61,14 @@ func (c Config) Complete() (*server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt); err != nil {
+	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager); err != nil {
 		return nil, err
 	}
+
 	s := NewServer(
 		vmInformer.Informer(),
 		genericServer,
+		proxyCertManager,
 	)
 	if err != nil {
 		return nil, err

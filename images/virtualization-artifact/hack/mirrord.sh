@@ -55,7 +55,7 @@ if [[ $COMMAND == "run" ]] &&  [[ -n $DEPLOYMENT ]] && [[ -n $BINARY ]] && [[ -n
 elif [[ $COMMAND == "wipe" ]] && [[ -n $DEPLOYMENT ]] && [[ -n $BINARY ]] && [[ -n $NAMESPACE ]]; then
     echo "Stopping mirror..."
     echo "Delete deployment ${NAMESPACE}/${NEW_NAME}"
-    kubectl -n "${NAMESPACE}" delete deployment/"${NEW_NAME}"
+    kubectl -n "${NAMESPACE}" delete --cascade="foreground" --grace-period 0 deployment "${NEW_NAME}"
     kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 1
     exit 0
 else
@@ -81,6 +81,7 @@ fi
 
 kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
 kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 0
+kubectl -n "${NAMESPACE}" wait --for=jsonpath='{.spec.replicas}'=0 deployment "${DEPLOYMENT}"
 
 mirrord exec --config-file "${CONFIG_MIRRORD}"  \
   --target "deployment/${NEW_NAME}"             \

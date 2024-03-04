@@ -42,15 +42,18 @@ properties:
             type: string
           key:
             type: string
-      apiserverCert:
+      apiserver:
         type: object
         properties:
-          ca:
-            type: string
-          crt:
-            type: string
-          key:
-            type: string
+          cert:
+            type: object
+            properties:
+              ca:
+                type: string
+              crt:
+                type: string
+              key:
+                type: string
       rootCA:
         type: object
         properties:

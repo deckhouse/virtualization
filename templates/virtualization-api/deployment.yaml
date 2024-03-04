@@ -62,8 +62,8 @@ spec:
       containers:
         - name: virtualization-api
           args:
-            - --kubevirt-certs="/etc/virt-api/certificates"
-            - --kubevirt-endpoint="virt-api.d8-{{ .Chart.Name}}.svc"
+            - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
+            - --kubevirt-endpoint=virt-api.d8-{{ .Chart.Name}}.svc
             - --secure-port=8443
             - --v=3
             - --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key
@@ -87,7 +87,7 @@ spec:
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
               {{- include "virtualization_api_resources" . | nindent 12 }}
               {{- end }}
-      dnsPolicy: Default
+      dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-api
       {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
@@ -102,4 +102,7 @@ spec:
           secret:
             defaultMode: 420
             optional: true
-            secretName: kubevirt-virt-api-certs
+            secretName: kubevirt-ca
+            items:
+              - key: tls.crt
+                path: ca.crt

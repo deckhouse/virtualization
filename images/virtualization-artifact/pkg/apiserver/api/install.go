@@ -1,6 +1,8 @@
 package api
 
 import (
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,9 +46,9 @@ func Build(vm, console rest.Storage) genericapiserver.APIGroupInfo {
 	return apiGroupInfo
 }
 
-func Install(vmLister cache.GenericLister, server *genericapiserver.GenericAPIServer, kubevirt storage.KubevirtApiServerConfig) error {
+func Install(vmLister cache.GenericLister, server *genericapiserver.GenericAPIServer, kubevirt rest2.KubevirtApiServerConfig, proxyCertManager certManager.CertificateManager) error {
 	vmStorage := storage.NewStorage(operations.Resource("virtualmachines"), vmLister)
-	consoleStorage := storage.NewConsoleStorage(operations.Resource("virtualmachines/console"), vmLister, kubevirt)
+	consoleStorage := rest2.NewConsoleREST(operations.Resource("virtualmachines/console"), vmLister, kubevirt, proxyCertManager)
 	info := Build(vmStorage, consoleStorage)
 	return server.InstallAPIGroup(&info)
 }

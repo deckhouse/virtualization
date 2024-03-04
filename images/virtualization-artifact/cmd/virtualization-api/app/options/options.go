@@ -2,6 +2,7 @@ package options
 
 import (
 	"fmt"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"net"
 	"strings"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
@@ -31,7 +31,10 @@ type Options struct {
 	Features       *genericoptions.FeatureOptions
 	Logging        *logs.Options
 
-	Kubevirt storage.KubevirtApiServerConfig
+	Kubevirt rest2.KubevirtApiServerConfig
+
+	ProxyClientCertFile string
+	ProxyClientKeyFile  string
 
 	ShowVersion bool
 	// Only to be used to for testing
@@ -51,7 +54,10 @@ func (o *Options) Flags() (fs flag.NamedFlagSets) {
 	msfs := fs.FlagSet("virtualization-api server")
 	msfs.BoolVar(&o.ShowVersion, "version", false, "Show version")
 	msfs.StringVar(&o.Kubevirt.Endpoint, "kubevirt-endpoint", "", "Kubevirt APIServer endpoint")
-	msfs.StringVar(&o.Kubevirt.CertsPath, "kubevirt-certs", "", "Kubevirt Certs")
+	msfs.StringVar(&o.Kubevirt.CaBundlePath, "kubevirt-cabundle", "", "Kubevirt CaBundle path")
+	// proxy flags for autentification in virt-api.
+	msfs.StringVar(&o.ProxyClientCertFile, "proxy-client-cert-file", "", "The client certificate used to verify the identity of the virtualization-api.")
+	msfs.StringVar(&o.ProxyClientKeyFile, "proxy-client-key-file", "", "Private key for the client certificate used to prove the identity of the virtualization-api.")
 
 	o.SecureServing.AddFlags(fs.FlagSet("virtualization-api secure serving"))
 	o.Authentication.AddFlags(fs.FlagSet("virtualization-api authentication"))
@@ -86,15 +92,17 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	}
 
 	conf := &server.Config{
-		Apiserver: apiserver,
-		Rest:      restConfig,
-		Kubevirt:  vconf.LoadKubevirtAPIServerFromEnv(),
+		Apiserver:           apiserver,
+		Rest:                restConfig,
+		Kubevirt:            vconf.LoadKubevirtAPIServerFromEnv(),
+		ProxyClientCertFile: o.ProxyClientCertFile,
+		ProxyClientKeyFile:  o.ProxyClientKeyFile,
 	}
 	if o.Kubevirt.Endpoint != "" {
 		conf.Kubevirt.Endpoint = o.Kubevirt.Endpoint
 	}
-	if o.Kubevirt.CertsPath != "" {
-		conf.Kubevirt.CertsPath = o.Kubevirt.CertsPath
+	if o.Kubevirt.CaBundlePath != "" {
+		conf.Kubevirt.CaBundlePath = o.Kubevirt.CaBundlePath
 	}
 	if errs := conf.Validate(); len(errs) > 0 {
 		return nil, errs[0]

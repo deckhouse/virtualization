@@ -164,6 +164,6 @@ const (
 
 	DockerRegistrySchemePrefix = "docker://"
 
-	KubevirtAPIServerEndpointVar  = "KUBEVIRT_APISERVER_ENDPOINT"
-	KubevirtAPIServerCertsPathVar = "KUBEVIRT_APISERVER_CERTS_PATH"
+	KubevirtAPIServerEndpointVar     = "KUBEVIRT_APISERVER_ENDPOINT"
+	KubevirtAPIServerCABundlePathVar = "KUBEVIRT_APISERVER_CABUNDLE"
 )

@@ -97,12 +97,13 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 	}
 
 	filtered := &virtv2.VirtualMachineList{}
+	filtered.Items = make([]virtv2.VirtualMachine, 0, len(items))
 	for _, manifest := range items {
-		vm, ok := manifest.(*virtv2.VirtualMachine)
-		if !ok || vm == nil {
+		var vm *virtv2.VirtualMachine
+		var ok bool
+		if vm, ok = manifest.(*virtv2.VirtualMachine); !ok || vm == nil {
 			continue
 		}
-
 		if matches(vm, name) {
 			filtered.Items = append(filtered.Items, *vm)
 		}
@@ -123,9 +124,9 @@ func nameFor(fs fields.Selector) (string, error) {
 	return name, nil
 }
 
-func matches(pm *virtv2.VirtualMachine, name string) bool {
+func matches(obj metav1.Object, name string) bool {
 	if name == "" {
-		name = pm.GetName()
+		name = obj.GetName()
 	}
-	return pm.GetName() == name
+	return obj.GetName() == name
 }
