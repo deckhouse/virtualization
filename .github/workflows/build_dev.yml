@@ -20,8 +20,7 @@ concurrency:
 
 jobs:
   show_dev_manifest:
-    runs-on: [self-hosted, regular]
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     name: Show
     steps:
       - name: Set vars for PR
@@ -80,8 +79,7 @@ jobs:
         shell: bash
 
   lint:
-    runs-on: [self-hosted, regular]
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     name: Run linter
     steps:
       - name: Set up Go 1.20
@@ -102,8 +100,7 @@ jobs:
         continue-on-error: true
   
   test:
-    runs-on: [self-hosted, regular]
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     name: Run unit test
     steps:
       - name: Set up Go 1.20
@@ -128,8 +125,7 @@ jobs:
         shell: bash
 
   dev_setup_build:
-    runs-on: [self-hosted, regular]
-    # runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
     name: Build and Push images
     needs:
       - lint
