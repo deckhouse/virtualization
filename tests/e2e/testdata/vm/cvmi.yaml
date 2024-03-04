@@ -1,10 +1,8 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: ClusterVirtualMachineImage
 metadata:
-  name: test-vm-image
-  namespace: test-d8-virtualization
+  name: linux-cvmi-http
 spec:
-  storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:

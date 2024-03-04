@@ -1,0 +1,94 @@
+#---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: vm2-service
+#  namespace: testcases
+#  labels:
+#    vm: linux
+#spec:
+#  selector:
+#    service: v2
+#  ports:
+#    - protocol: TCP
+#      port: 31023
+#      targetPort: 22
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineDisk
+metadata:
+  name: linux-vmd-cvmi-vm1
+  namespace: testcases
+spec:
+  persistentVolumeClaim:
+    size: 10Gi
+#    storageClassName: "linstor-thick-data-r1"
+  dataSource:
+    type: "ClusterVirtualMachineImage"
+    clusterVirtualMachineImage:
+      name: linux-cvmi-http
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-ubuntu-jammy-vmd-cvmi-01
+  namespace: testcases
+  labels:
+    vm: linux
+    service: v2
+spec:
+  runPolicy: AlwaysOn
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 2
+  memory:
+    size: 2Gi
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: linux-vmd-cvmi-vm1
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      packages:
+      - qemu-guest-agent
+      - nginx
+      write_files:
+        - path: /usr/scripts/genpage_script.sh
+          permissions: "0755"
+          content: |
+            #!/bin/bash
+
+            cat > /var/www/html/index.html<<EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <title>Welcome to $(hostname)<title>
+            </head>
+            <body>
+            <h1>Welcome to nginx on server $(hostname) !</h1>
+            </body>
+            </html>
+            EOF
+      runcmd:
+      - [ hostnamectl, set-hostname, srv-vm2 ]
+      - [ systemctl, daemon-reload ]
+      - [ systemctl, enable, --now, qemu-guest-agent.service ]
+      - [ /usr/scripts/genpage_script.sh ]
+      - [ systemctl, enable, --now, nginx ]
+      user: ubuntu
+      password: ubuntu
+      chpasswd: { expire: False }
+      ssh_pwauth: True
+      users:
+      - name: cloud
+        passwd: $6$VZitgOHHow4fx7aT$BXbg/QL4n/dYbjxFuNQlfFmRaTvtxApWn2Qwo7r1BxXIANtaJQNyJMtvu5A.mp2hxT59aTjnsiOYMVfYbyd0j.
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        chpasswd: { expire: False }
+        lock_passwd: false
+        ssh_authorized_keys:
+        - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJ4lrUhqV/ymWyK7rWtx7ulyrUWQqZejmn2pR6/2mxTl+TPUQEYEZKLjt9xtgvOYsfHARRWsoF7URNZdg6LI/HuxMK6kz5ohwrP6GB4XngL7vfyZdefiV6OVK+Fsdw6WgH7Cr5myIc8Sv6gumcDYfT9xX0pcGipRZD9qaHkm34U9jhT6U1QRIgG0Po31HAA6JmKEFZ/0S715McYKTTx3aIFzrm5kxCmNCtk19oMZDOCdYhScVGcZKeaP/PLF7fpvajaWLySwKFfRj1HYnaX1rgmpINNpiWXsq+7D53a7/LUpTIvERYD31fh8YW72hilS8rWbymILZhQFRlTtma0kVY7T5qsvvBmP2da4T5Jn+DqZPI0Ey24eiVO7G8uk0gjZOW8YF5t0OJuVL/0lCBQo3RkIBjg9aR60zaJypVlXRZmYwm4attEjSFOU+4Hymu79NdeJNQhTCAxnCF5NC7OZ7ETtGzEt2L8s2t5w2jRiaDyDzKHeWAgXx7DLYdfqRIO+ETJj5Vmzl/c+R9t0UXNQpTuZjiutukTwVGe+ho/74HuXClUrs6qPkR125KjEHcME+EXuHEkwaCgDGJsCfiecjwFv30E//iPk0weJ3K3wFTyqf2vFixcMDgbkwOjgGqZ005blCfuN+FJ1NbqNLe3YhBymOpLFkB0/DhImqfF4kS6w== korolevn@nikita.korolev-macbook
