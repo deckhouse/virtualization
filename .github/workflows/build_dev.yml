@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   show_dev_manifest:
-    runs-on: self-hosted
+    runs-on: [self-hosted, regular]
     # runs-on: ubuntu-latest
     name: Show
     steps:
@@ -80,7 +80,7 @@ jobs:
         shell: bash
 
   lint:
-    runs-on: self-hosted
+    runs-on: [self-hosted, regular]
     # runs-on: ubuntu-latest
     name: Run linter
     steps:
@@ -102,7 +102,7 @@ jobs:
         continue-on-error: true
   
   test:
-    runs-on: self-hosted
+    runs-on: [self-hosted, regular]
     # runs-on: ubuntu-latest
     name: Run unit test
     steps:
@@ -128,8 +128,8 @@ jobs:
         shell: bash
 
   dev_setup_build:
+    runs-on: [self-hosted, regular]
     # runs-on: ubuntu-latest
-    runs-on: self-hosted
     name: Build and Push images
     needs:
       - lint
