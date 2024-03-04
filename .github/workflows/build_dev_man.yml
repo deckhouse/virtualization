@@ -1,4 +1,4 @@
-name: Build and push for dev
+name: Build and push for dev (Manually)
 
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
