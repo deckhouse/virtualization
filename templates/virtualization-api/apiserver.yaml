@@ -4,7 +4,7 @@ metadata:
   name: v1alpha1.operations.virtualization.deckhouse.io
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
 spec:
-  caBundle: {{ .Values.virtualization.internal.apiserverCert.ca }}
+  caBundle: {{ .Values.virtualization.internal.apiserver.cert.ca }}
   group: operations.virtualization.deckhouse.io
   groupPriorityMinimum: 1000
   service:
