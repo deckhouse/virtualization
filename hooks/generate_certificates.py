@@ -53,7 +53,7 @@ def main():
                 f"virtualization-api.{common.NAMESPACE}",
                 f"virtualization-api.{common.NAMESPACE}.svc"],
             ),
-            tls_secret_name="virtualziation-api-tls",
+            tls_secret_name="virtualization-api-tls",
             values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.cert"
         ),
 

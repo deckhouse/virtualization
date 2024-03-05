@@ -27,13 +27,17 @@ def parse_key(key: str) -> crypto.PKey:
 
 
 def get_certificate_san(crt: crypto.X509) -> list[str]:
-    san = ''
+    san = ""
     ext_count = crt.get_extension_count()
     for i in range(0, ext_count):
         ext = crt.get_extension(i)
-        if 'subjectAltName' in str(ext.get_short_name()):
+        if "subjectAltName"in str(ext.get_short_name()):
             san = ext.__str__()
-    return san.split(', ')
+            break
+    if len(san) > 0:
+        return san.split(', ')
+    return []
+
 
 
 def is_outdated_ca(ca: str, cert_outdated_duration: timedelta) -> bool:
