@@ -5,18 +5,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/operations"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"net/http"
+	"net/url"
+	"os"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
-	"net/http"
-	"net/url"
-	"os"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/operations"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 func streamLocation(

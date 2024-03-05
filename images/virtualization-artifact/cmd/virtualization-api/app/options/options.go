@@ -2,7 +2,6 @@ package options
 
 import (
 	"fmt"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"net"
 	"strings"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )

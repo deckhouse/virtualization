@@ -3,20 +3,17 @@ package rest
 import (
 	"context"
 	"fmt"
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/operations"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"net/http"
+	"net/url"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
-	"net/http"
-	"net/url"
-)
 
-const consoleTemplateURI = "wss://%s/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachine/%s/%s"
+	"github.com/deckhouse/virtualization-controller/api/operations"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+)
 
 type ConsoleREST struct {
 	groupResource    schema.GroupResource
@@ -53,9 +50,6 @@ func (r ConsoleREST) New() runtime.Object {
 func (r ConsoleREST) Destroy() {
 }
 
-func (r ConsoleREST) getFetcherVirtualMachine(name, namespace string) (*virtv2.VirtualMachine, *errors.StatusError) {
-	return storage.FetchVirtualMachine(r.vmLister, name, namespace)
-}
 func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
 	consoleOpts, ok := opts.(*operations.VirtualMachineConsole)
 	if !ok {

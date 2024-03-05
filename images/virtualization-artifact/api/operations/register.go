@@ -1,9 +1,10 @@
 package operations
 
 import (
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 // GroupName is the group name use in this package

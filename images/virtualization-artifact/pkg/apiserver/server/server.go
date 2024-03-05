@@ -1,9 +1,10 @@
 package server
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 func NewServer(

@@ -3,13 +3,15 @@ package filesystem
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/util"
-	"github.com/fsnotify/fsnotify"
-	"k8s.io/klog/v2"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"k8s.io/klog/v2"
+
+	"github.com/deckhouse/virtualization-controller/pkg/tls/util"
 )
 
 type FileCertificateManager struct {
@@ -22,7 +24,7 @@ type FileCertificateManager struct {
 	errorRetryInterval time.Duration
 }
 
-func NewFileCertificateManager(certBytesPath string, keyBytesPath string) *FileCertificateManager {
+func NewFileCertificateManager(certBytesPath, keyBytesPath string) *FileCertificateManager {
 	return &FileCertificateManager{
 		certBytesPath:      certBytesPath,
 		keyBytesPath:       keyBytesPath,
@@ -109,7 +111,7 @@ func (f *FileCertificateManager) Stop() {
 func (f *FileCertificateManager) rotateCerts() error {
 	crt, err := f.loadCertificates()
 	if err != nil {
-		return fmt.Errorf("failed to load the certificate %s and %s", f.certBytesPath, f.keyBytesPath)
+		return fmt.Errorf("failed to load the certificate %s and %s: %w", f.certBytesPath, f.keyBytesPath, err)
 	}
 
 	f.certAccessLock.Lock()
@@ -134,12 +136,12 @@ func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate,
 
 	crt, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load certificate: %v\n", err)
+		return nil, fmt.Errorf("failed to load certificate: %w\n", err)
 	}
 
 	leaf, err := util.ParseCertsPEM(certBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load leaf certificate: %v\n", err)
+		return nil, fmt.Errorf("failed to load leaf certificate: %w\n", err)
 	}
 	crt.Leaf = leaf[0]
 	return &crt, nil

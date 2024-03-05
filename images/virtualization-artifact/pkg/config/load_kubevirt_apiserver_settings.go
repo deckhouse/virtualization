@@ -1,9 +1,9 @@
 package config
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"os"
 
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 )
 

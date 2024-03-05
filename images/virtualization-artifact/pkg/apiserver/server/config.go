@@ -3,14 +3,14 @@ package server
 import (
 	"errors"
 	"fmt"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager/filesystem"
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager/filesystem"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")

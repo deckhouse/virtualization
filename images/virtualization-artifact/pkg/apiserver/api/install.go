@@ -1,8 +1,6 @@
 package api
 
 import (
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,7 +12,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/api/operations"
 	"github.com/deckhouse/virtualization-controller/api/operations/install"
 	"github.com/deckhouse/virtualization-controller/api/operations/v1alpha1"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/storage"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 var (
