@@ -77,7 +77,7 @@ spec:
               name:  virtualization-api-tls
               readOnly: true
             - mountPath: /etc/virtualziation-api-proxy/certificates
-              name:  virtualziation-api-proxy-tls
+              name:  virtualization-api-proxy-tls
               readOnly: true
             - mountPath: /etc/virt-api/certificates
               name:  kubevirt-virt-api-certs
@@ -111,8 +111,8 @@ spec:
             items:
               - key: tls.crt
                 path: ca.crt
-        - name: virtualziation-api-proxy-tls
+        - name: virtualization-api-proxy-tls
           secret:
             defaultMode: 420
             optional: true
-            secretName: virtualziation-api-proxy-tls
+            secretName: virtualization-api-proxy-tls
