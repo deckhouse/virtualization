@@ -2,18 +2,50 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"io/fs"
 	"path/filepath"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type virtualMachine struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+}
+
+func getVMFromManifest(manifest string) (*virtualMachine, error) {
+	unstructs, err := helper.ParseYaml(manifest)
+	if err != nil {
+		return nil, err
+	}
+	var unstruct *unstructured.Unstructured
+	for _, u := range unstructs {
+		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
+			unstruct = u
+			break
+		}
+	}
+	var vm virtualMachine
+
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
+		return nil, err
+	}
+	return &vm, nil
+}
 
 var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	imageManifest := vmPath("image.yaml")
-	manifestVM := vmPath("vm_label_annotation.yaml")
+	vmManifest := vmPath("vm_label_annotation.yaml")
 
 	const (
 		labelName       = "os"
@@ -48,11 +80,17 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		return cmdResult
 	}
 
+	WaitVmStatus := func(name, phase string) {
+		GinkgoHelper()
+		WaitResource(kc.ResourceVM, name, "jsonpath={.status.phase}="+phase, LongWaitDuration)
+	}
+
 	BeforeAll(func() {
 		By("Apply image for vms")
 		ApplyFromFile(imageManifest)
 		WaitFromFile(imageManifest, PhaseReady, LongWaitDuration)
 	})
+
 	AfterAll(func() {
 		By("Delete all manifests")
 		files := make([]string, 0)
@@ -72,33 +110,25 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		}
 	})
 
-	WaitVmStatus := func(name, phase string) {
-		GinkgoHelper()
-		WaitResource(kc.ResourceVM, name, "jsonpath={.status.phase}="+phase, LongWaitDuration)
-	}
-
 	Context("Label", func() {
-		var name string
-
-		vm, err := GetVMFromManifest(manifestVM)
+		var vm *virtualMachine
+		var err error
 
 		BeforeAll(func() {
 			By("Apply manifest")
-			vm, err := GetVMFromManifest(manifestVM)
-			Expect(err).To(BeNil())
-			name = vm.Name
-			ApplyFromFile(manifestVM)
-			WaitVmStatus(name, VMStatusRunning)
+			vm, err = getVMFromManifest(vmManifest)
+			Expect(err).NotTo(HaveOccurred())
+			ApplyFromFile(vmManifest)
+			WaitVmStatus(vm.Name, VMStatusRunning)
 		})
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifestVM, kc.DeleteOptions{})
+			kubectl.Delete(vmManifest, kc.DeleteOptions{})
 		})
 
 		Describe(fmt.Sprintf("Add label %s=%s", labelName, labelValue), func() {
 			It("Labeled", func() {
-				Expect(err).To(BeNil())
 				subCMD := fmt.Sprintf("-n %s label vm %s %s=%s", conf.Namespace, vm.Name, labelName, labelValue)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.Error()).NotTo(HaveOccurred())
@@ -106,6 +136,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 
 		Describe("Check label on resource", func() {
+
 			It("VM", func() {
 				res := getRecourseLabel(kc.ResourceVM, vm.Name)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
@@ -122,7 +153,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 				Expect(res.StdOut()).To(Equal(labelValue))
 			})
 			It("POD virtlauncher", func() {
-				//pod := getPodName(conf.Namespace, vm.Name)
 				pod := getPodName(vm.Name)
 				res := getRecourseLabel(kc.ResourcePod, pod)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
@@ -133,15 +163,14 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		Describe(fmt.Sprintf("Remove label %s=%s", labelName, labelValue), func() {
 
 			It("Label was removed", func() {
-				Expect(err).To(BeNil())
 				subCMD := fmt.Sprintf("-n %s label vm %s %s-", conf.Namespace, vm.Name, labelName)
-
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.Error()).NotTo(HaveOccurred())
 			})
 		})
 
 		Describe("Label must be removed from resource", func() {
+
 			It("VM", func() {
 				res := getRecourseLabel(kc.ResourceVM, vm.Name)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
@@ -158,7 +187,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("POD virtlauncher", func() {
-				//pod := getPodName(conf.Namespace, vm.Name)
 				pod := getPodName(vm.Name)
 				res := getRecourseLabel(kc.ResourcePod, pod)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
@@ -168,27 +196,24 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Annotation", func() {
-		var name string
-
-		vm, err := GetVMFromManifest(manifestVM)
+		var vm *virtualMachine
 
 		BeforeAll(func() {
 			By("Apply manifest")
-			vm, err := GetVMFromManifest(manifestVM)
-			Expect(err).To(BeNil())
-			name = vm.Name
-			ApplyFromFile(manifestVM)
-			WaitVmStatus(name, VMStatusRunning)
+			var err error
+			vm, err = getVMFromManifest(vmManifest)
+			Expect(err).NotTo(HaveOccurred())
+			ApplyFromFile(vmManifest)
+			WaitVmStatus(vm.Name, VMStatusRunning)
 		})
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifestVM, kc.DeleteOptions{})
+			kubectl.Delete(vmManifest, kc.DeleteOptions{})
 		})
 
 		Describe(fmt.Sprintf("Add annotation %s=%s", annotationName, annotationValue), func() {
 			It("Annotated", func() {
-				Expect(err).To(BeNil())
 				subCMD := fmt.Sprintf("-n %s annotate vm %s %s=%s", conf.Namespace, vm.Name, annotationName, annotationValue)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.Error()).NotTo(HaveOccurred())
@@ -212,7 +237,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 				Expect(res.StdOut()).To(Equal(annotationValue))
 			})
 			It("POD virtlauncher", func() {
-				//pod := getPodName(conf.Namespace, vm.Name)
 				pod := getPodName(vm.Name)
 				res := getRecourseAnnotation(kc.ResourcePod, pod)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
@@ -223,7 +247,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		Describe("Remove annotation test-annotation=true", func() {
 
 			It("Was removed", func() {
-				Expect(err).To(BeNil())
 				subCMD := fmt.Sprintf("-n %s annotate vm %s %s-", conf.Namespace, vm.Name, annotationName)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.Error()).NotTo(HaveOccurred())
@@ -247,7 +270,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 				Expect(res.StdOut()).To(BeEmpty())
 			})
 			It("POD virtlauncher", func() {
-				//pod := getPodName(conf.Namespace, vm.Name)
 				pod := getPodName(vm.Name)
 				res := getRecourseAnnotation(kc.ResourcePod, pod)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())

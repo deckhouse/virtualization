@@ -59,7 +59,7 @@ tasks:
           export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
           ginkgo --focus "{{ .TEST }}" -v
         {{else}}
-          echo "Test not passed"
+          echo "Specify test to run"
           echo 'Example: TEST="Label and Annotation" task run_one'
         {{end}}
     vars:
