@@ -152,6 +152,29 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		}
 	}
 
+	if current.Provisioning.Type == v1alpha2.ProvisioningTypeSysprepSecret {
+		currentSecret := current.Provisioning.SysprepSecretRef
+		desiredSecret := desired.Provisioning.SysprepSecretRef
+		changes = compareEmpty(
+			"provisioning.sysprepSecretRef",
+			NewPtrValue(currentSecret, currentSecret == nil),
+			NewPtrValue(desiredSecret, desiredSecret == nil),
+			ActionRestart,
+		)
+		if len(changes) > 0 {
+			return changes
+		}
+
+		// SysprepSecretRef is not nil, compare names.
+		return compareStrings(
+			"provisioning.sysprepSecretRef.name",
+			currentSecret.Name,
+			desiredSecret.Name,
+			"",
+			ActionRestart,
+		)
+	}
+
 	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserData {
 		return compareStrings(
 			"provisioning.userData",

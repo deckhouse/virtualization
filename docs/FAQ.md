@@ -71,7 +71,7 @@ spec:
   blockDevices:
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
-        name: win-iso
+        name: win-11-iso
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
         name: win-virtio-iso
@@ -181,4 +181,57 @@ By changing the labels on the virtual machine, we will redirect network traffic 
 metadata:
   labels:
     app: old
+```
+
+## How to provide windows answer file (Sysprep)
+
+To provide Sysprep ability it's necessary to define in virtual machine with SysprepSecret provisioning.
+
+First of all create sysprep secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-config
+data:
+  unattend.xml: XXXx # base64 of answer file 
+```
+
+And then feel free to create a virtual machine with unattended installation.
+
+It's necessary to make sure the virtual machine does not restart, which can be done by setting the run policy as AlwaysOn:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  namespace: default
+  labels:
+    vm: win
+spec:
+  provisioning:
+    type: SysprepSecret
+    sysprepSecretRef:
+      name: sysprep-config
+  runPolicy: AlwaysOn
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 6
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  enableParavirtualization: true
+  blockDevices:
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-11-iso
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-virtio-iso
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: win-disk
 ```

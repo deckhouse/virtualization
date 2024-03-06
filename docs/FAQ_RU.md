@@ -71,7 +71,7 @@ spec:
   blockDevices:
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
-        name: win-iso
+        name: win-11-iso
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
         name: win-virtio-iso
@@ -223,4 +223,57 @@ kubectl get pvc dvcr -n d8-virtualization
 #Output
 NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
 dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO            linstor-thick-data-r1   7d
+```
+
+## Как предоставить файл ответов windows (Sysprep)
+
+Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepSecret.
+
+Прежде всего необходимо создать секрет:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-config
+data:
+  unattend.xml: XXXx # base64 файла ответов
+```
+
+Затем можно создать виртуальную машину, которая в процессе установке будет использовать файл ответов.
+
+Необходимо убедиться, чтобы виртальная машина не перезапускалась, что возможно обеспечить установив runPolicy в значение AlwaysOn: 
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  namespace: default
+  labels:
+    vm: win
+spec:
+  provisioning:
+    type: SysprepSecret
+    sysprepSecretRef:
+      name: sysprep-config
+  runPolicy: AlwaysOn
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 6
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  enableParavirtualization: true
+  blockDevices:
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-11-iso
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-virtio-iso
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: win-disk
 ```
