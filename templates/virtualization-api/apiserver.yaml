@@ -1,11 +1,11 @@
 apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
-  name: v1alpha1.operations.virtualization.deckhouse.io
+  name: v1alpha1.subresources.virtualization.deckhouse.io
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
 spec:
   caBundle: {{ .Values.virtualization.internal.apiserver.cert.ca }}
-  group: operations.virtualization.deckhouse.io
+  group: subresources.virtualization.deckhouse.io
   groupPriorityMinimum: 1000
   service:
     name: virtualization-api

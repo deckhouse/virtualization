@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager/filesystem"
 )
 
@@ -30,6 +31,12 @@ func (c Config) Validate() []error {
 	}
 	if c.Kubevirt.CaBundlePath == "" {
 		errs = append(errs, fmt.Errorf(".Kubevirt.CaBundlePath is required. %w", ErrConfigInvalid))
+	}
+	if c.Kubevirt.ServiceAccount.Name == "" {
+		errs = append(errs, fmt.Errorf(".Kubevirt.ServiceAccount.Name is required. %w", ErrConfigInvalid))
+	}
+	if c.Kubevirt.ServiceAccount.Namespace == "" {
+		errs = append(errs, fmt.Errorf(".Kubevirt.ServiceAccount.Namespace is required. %w", ErrConfigInvalid))
 	}
 	if c.ProxyClientCertFile == "" {
 		errs = append(errs, fmt.Errorf(".ProxyClientCertFile is required. %w", ErrConfigInvalid))

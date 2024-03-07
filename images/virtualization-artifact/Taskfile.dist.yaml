@@ -587,12 +587,12 @@ tasks:
     deps:
       - _ensure:k8s-codegen-mod
     cmd: ./hack/update-codegen.sh core
-  gen:api:operations:
-    desc: "Regenerate code for operations components"
+  gen:api:subresources:
+    desc: "Regenerate code for subresources components"
     deps:
       - _ensure:k8s-codegen-mod
       - _ensure:k8s-kube-openapi
-    cmd: ./hack/update-codegen.sh operations
+    cmd: ./hack/update-codegen.sh subresources
   ci:generate:
     desc: "Run generations and check git diff to ensure all files are committed"
     cmds:
@@ -661,11 +661,21 @@ tasks:
     deps:
       - _ensure:mirrord
     cmd: |
+        flags=()
+        flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
+        flags+=( "--kubevirt-endpoint=virt-api.d8-virtualization.svc" )
+        flags+=( "--secure-port=8443" )
+        flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
+        flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
+        flags+=( "--v=7" )
+        flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
+        flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
+        flags+=( "--service-account-name=virtualization-api" )
+        flags+=( "--service-account-namespace=d8-virtualization" )
         ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
         --deployment="virtualization-api"                                 \
         --namespace="d8-virtualization"                                   \
-        --flags="--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt --kubevirt-endpoint=virt-api.d8-virtualization.svc --secure-port=8443 --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt --v=7 --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt --proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key"
-
+        --flags="${flags[@]}"
 
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"

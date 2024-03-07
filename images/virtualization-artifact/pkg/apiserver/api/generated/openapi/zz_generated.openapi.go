@@ -100,7 +100,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_controller_api_core_v1alpha2_VirtualMachineStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_controller_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
-		"github.com/deckhouse/virtualization-controller/api/operations/v1alpha1.VirtualMachineConsole":               schema_virtualization_controller_api_operations_v1alpha1_VirtualMachineConsole(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachineConsole":             schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineConsole(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachinePortForward":         schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachinePortForward(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachineVNC":                 schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineVNC(ref),
 		"k8s.io/api/core/v1.AWSElasticBlockStoreVolumeSource":                                                        schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
 		"k8s.io/api/core/v1.Affinity":                                                                schema_k8sio_api_core_v1_Affinity(ref),
 		"k8s.io/api/core/v1.AttachedVolume":                                                          schema_k8sio_api_core_v1_AttachedVolume(ref),
@@ -3393,7 +3395,74 @@ func schema_virtualization_controller_api_core_v1alpha2_WeightedVirtualMachineAn
 	}
 }
 
-func schema_virtualization_controller_api_operations_v1alpha1_VirtualMachineConsole(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineConsole(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachinePortForward(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"protocol": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"protocol", "port"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineVNC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

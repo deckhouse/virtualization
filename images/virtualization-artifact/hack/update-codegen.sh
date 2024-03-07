@@ -5,7 +5,7 @@ set -o pipefail
 
 function usage {
   cat <<EOF
-Usage: $(basename "$0") <core/operations/all>
+Usage: $(basename "$0") <core/subresources/all>
 Example:
    $(basename "$0") controller
 EOF
@@ -19,17 +19,17 @@ function source::settings {
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
-function generate::operations {
-          bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:operations" \
+function generate::subresources {
+          bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:subresources" \
             --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
             --output-base "${SCRIPT_ROOT}"
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "operations:v1alpha1" \
+          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "subresources:v1alpha1" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${SCRIPT_ROOT}"
 
           chmod +x "${GOPATH}/bin/openapi-gen"
           "${GOPATH}/bin/openapi-gen" \
-            -i "${MODULE}/api/core/v1alpha2,${MODULE}/api/operations/v1alpha1,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
+            -i "${MODULE}/api/core/v1alpha2,${MODULE}/api/subresources/v1alpha1,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
             -p pkg/apiserver/api/generated/openapi/        \
             -O zz_generated.openapi                        \
             -o "${SCRIPT_ROOT}"                            \
@@ -43,7 +43,7 @@ function generate::core {
             --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
             --output-base "${SCRIPT_ROOT}"
 
-          bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/api/client" "${MODULE}/api" "core:v1alpha2" \
+          bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/api/client/generated" "${MODULE}/api" "core:v1alpha2" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${OUTPUT_BASE}"
           cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
@@ -61,14 +61,14 @@ case "$WHAT" in
     source::settings
     generate::core
     ;;
-  operations)
+  subresources)
     source::settings
-    generate::operations
+    generate::subresources
     ;;
   all)
     source::settings
     generate::core
-    generate::operations
+    generate::subresources
     ;;
 *)
     echo "Invalid argument: $WHAT"

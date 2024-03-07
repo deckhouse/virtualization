@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -17,7 +19,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )
@@ -58,6 +59,9 @@ func (o *Options) Flags() (fs flag.NamedFlagSets) {
 	// proxy flags for autentification in virt-api.
 	msfs.StringVar(&o.ProxyClientCertFile, "proxy-client-cert-file", "", "The client certificate used to verify the identity of the virtualization-api.")
 	msfs.StringVar(&o.ProxyClientKeyFile, "proxy-client-key-file", "", "Private key for the client certificate used to prove the identity of the virtualization-api.")
+	// flags for authorization sa
+	msfs.StringVar(&o.Kubevirt.ServiceAccount.Name, "service-account-name", "", "The service-account name for authorization in kubevirt apiserver")
+	msfs.StringVar(&o.Kubevirt.ServiceAccount.Namespace, "service-account-namespace", "", "The service-account namespace for authorization in kubevirt apiserver")
 
 	o.SecureServing.AddFlags(fs.FlagSet("virtualization-api secure serving"))
 	o.Authentication.AddFlags(fs.FlagSet("virtualization-api authentication"))
@@ -103,6 +107,12 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	}
 	if o.Kubevirt.CaBundlePath != "" {
 		conf.Kubevirt.CaBundlePath = o.Kubevirt.CaBundlePath
+	}
+	if o.Kubevirt.ServiceAccount.Name != "" {
+		conf.Kubevirt.ServiceAccount.Name = o.Kubevirt.ServiceAccount.Name
+	}
+	if o.Kubevirt.ServiceAccount.Namespace != "" {
+		conf.Kubevirt.ServiceAccount.Namespace = o.Kubevirt.ServiceAccount.Namespace
 	}
 	if errs := conf.Validate(); len(errs) > 0 {
 		return nil, errs[0]

@@ -70,6 +70,8 @@ spec:
             - --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key
             - --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt
             - --proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key
+            - --service-account-name=virtualization-api
+            - --service-account-namespace=d8-{{ .Chart.Name }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
           imagePullPolicy: Always
           volumeMounts:

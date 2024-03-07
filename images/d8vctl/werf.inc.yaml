@@ -1,0 +1,11 @@
+---
+image: {{ $.ImageName }}
+fromImage: base-ubuntu-jammy
+import:
+  - image: virtualization-artifact
+    add: /usr/local/go/src/virtualization-controller/d8vctl-adm64
+    to: /app/d8vctl-adm64
+    after: install
+docker:
+  WORKDIR: "/app"
+
