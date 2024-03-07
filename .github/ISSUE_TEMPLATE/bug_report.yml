@@ -1,8 +1,8 @@
 name: 🎯 Bug report
 description: Report a bug to help us improve Deckhouse
 labels:
-- 'type/bug'
-- 'status/needs-triage'
+  - 'type/bug'
+  - 'status/needs-triage'
 body:
   - type: markdown
     attributes:
@@ -23,7 +23,14 @@ body:
     attributes:
       label: Version
       description: |
-        What version of Deckhouse are you running?
+        What version of Virtualization are you running?  
+        To find it, run `kubectl get modulereleases.deckhouse.io`  
+        
+        Example output:
+        ```
+        NAME                    PHASE        UPDATE POLICY   TRANSITIONTIME   MESSAGE
+        virtualization-v1.0.0  Deployed      deckhouse       78d
+        ```
       placeholder: v1.0.0
     validations:
       required: true
