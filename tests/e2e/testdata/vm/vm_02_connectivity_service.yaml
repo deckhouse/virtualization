@@ -31,7 +31,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: linux-ubuntu-jammy-vmd-cvmi-02
+  name: e2e-srv-vm1
   namespace: testcases
   labels:
     vm: linux
@@ -74,7 +74,7 @@ spec:
             </html>
             EOF
       runcmd:
-      - [ hostnamectl, set-hostname, srv-vm2 ]
+      - [ hostnamectl, set-hostname, e2e-srv-vm1 ]
       - [ systemctl, daemon-reload ]
       - [ systemctl, enable, --now, qemu-guest-agent.service ]
       - [ /usr/scripts/genpage_script.sh ]
@@ -92,3 +92,4 @@ spec:
         lock_passwd: false
         ssh_authorized_keys:
         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDJ4lrUhqV/ymWyK7rWtx7ulyrUWQqZejmn2pR6/2mxTl+TPUQEYEZKLjt9xtgvOYsfHARRWsoF7URNZdg6LI/HuxMK6kz5ohwrP6GB4XngL7vfyZdefiV6OVK+Fsdw6WgH7Cr5myIc8Sv6gumcDYfT9xX0pcGipRZD9qaHkm34U9jhT6U1QRIgG0Po31HAA6JmKEFZ/0S715McYKTTx3aIFzrm5kxCmNCtk19oMZDOCdYhScVGcZKeaP/PLF7fpvajaWLySwKFfRj1HYnaX1rgmpINNpiWXsq+7D53a7/LUpTIvERYD31fh8YW72hilS8rWbymILZhQFRlTtma0kVY7T5qsvvBmP2da4T5Jn+DqZPI0Ey24eiVO7G8uk0gjZOW8YF5t0OJuVL/0lCBQo3RkIBjg9aR60zaJypVlXRZmYwm4attEjSFOU+4Hymu79NdeJNQhTCAxnCF5NC7OZ7ETtGzEt2L8s2t5w2jRiaDyDzKHeWAgXx7DLYdfqRIO+ETJj5Vmzl/c+R9t0UXNQpTuZjiutukTwVGe+ho/74HuXClUrs6qPkR125KjEHcME+EXuHEkwaCgDGJsCfiecjwFv30E//iPk0weJ3K3wFTyqf2vFixcMDgbkwOjgGqZ005blCfuN+FJ1NbqNLe3YhBymOpLFkB0/DhImqfF4kS6w== korolevn@nikita.korolev-macbook
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
