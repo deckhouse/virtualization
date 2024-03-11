@@ -6,7 +6,7 @@ function usage {
   "Usage: $0 [run/wipe] --app=<?> --namespace=<?> --deployment=<?>"
   "Examples:"
     # Run"
-      $(basename "$0") run --app="/path/to/main.go" --deployment="your deployment" --namespace="your namespace"
+      $(basename "$0") run --app="/path/to/main.go" --deployment="your deployment" --namespace="your namespace" --flags="--app-flag1=flag1, app-flag2=flag2"
     # Wipe"
       $(basename "$0") wipe --deployment="your deployment" --namespace="your namespace"
 EOF
@@ -86,4 +86,4 @@ kubectl -n "${NAMESPACE}" wait --for=jsonpath='{.spec.replicas}'=0 deployment "$
 mirrord exec --config-file "${CONFIG_MIRRORD}"  \
   --target "deployment/${NEW_NAME}"             \
   --target-namespace "${NAMESPACE}"             \
-  "${BIN_DIR}/${BINARY}" -- $FLAGS
+  "${BIN_DIR}/${BINARY}" -- $(echo $FLAGS | sed 's!"!!g')

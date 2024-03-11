@@ -1,6 +1,6 @@
 // +k8s:deepcopy-gen=package
-// +groupName=operations.virtualization.deckhouse.io
+// +groupName=subresources.virtualization.deckhouse.io
 
-// Package operations defines an API for exposing operations.
+// Package subresources defines an API for exposing operations.
 
 package subresources

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Version = "v1alpha1"
+	Version = "v1alpha2"
 )
 
 // SchemeGroupVersion is group version used to register these objects

@@ -672,10 +672,11 @@ tasks:
         flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
         flags+=( "--service-account-name=virtualization-api" )
         flags+=( "--service-account-namespace=d8-virtualization" )
+
         ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
         --deployment="virtualization-api"                                 \
         --namespace="d8-virtualization"                                   \
-        --flags="${flags[@]}"
+        --flags="\"${flags[@]}\""
 
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"
