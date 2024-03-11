@@ -1,8 +1,8 @@
 name: 🎯 Bug report
 description: Report a bug to help us improve Deckhouse
 labels:
-- 'type/bug'
-- 'status/needs-triage'
+  - 'type/bug'
+  - 'status/needs-triage'
 body:
   - type: markdown
     attributes:
@@ -21,12 +21,40 @@ body:
           required: true
   - type: input
     attributes:
-      label: Version
+      label: Virtualization Version
       description: |
-        What version of Deckhouse are you running?
+        What version of the virtualization module are you using?
+        To find it, run the `kubectl get modulereleases.deckhouse.io`  command.
+        
+        Example output:
+        ```
+        NAME                    PHASE        UPDATE POLICY   TRANSITIONTIME   MESSAGE
+        virtualization-v1.0.0  Deployed      deckhouse       78d
+        ```
       placeholder: v1.0.0
     validations:
       required: true
+  - type: input
+    attributes:
+      label: Deckhouse Version
+      description: |
+        What version of Deckhouse are you using?
+        To find it, run the `kubectl get deckhousereleases` command.
+        
+        Example output:  
+        ```
+        NAME      PHASE        TRANSITIONTIME   MESSAGE
+        v1.57.1   Deployed     10d
+        ```
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Kubernetes Storage
+      description: |
+        What kind of storage do you use?
+      placeholder: linstor
   - type: textarea
     attributes:
       label: Expected Behavior
