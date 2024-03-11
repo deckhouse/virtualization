@@ -23,8 +23,8 @@ body:
     attributes:
       label: Virtualization Version
       description: |
-        What version of Virtualization are you running?  
-        To find it, run `kubectl get modulereleases.deckhouse.io`  
+        What version of the virtual environment are you using?
+        To find it, run the `kubectl get modulereleases.deckhouse.io`  command.
         
         Example output:
         ```
