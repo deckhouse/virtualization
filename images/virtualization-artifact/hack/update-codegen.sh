@@ -23,7 +23,7 @@ function generate::subresources {
           bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:subresources" \
             --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
             --output-base "${SCRIPT_ROOT}"
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "subresources:v1alpha2" \
+          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy,conversion" "${MODULE}" ./api "subresources:v1alpha2" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${SCRIPT_ROOT}"
 

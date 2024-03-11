@@ -9,18 +9,18 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
-
 	"github.com/deckhouse/virtualization-controller/api/subresources"
 	"github.com/deckhouse/virtualization-controller/api/subresources/install"
 	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 var (
-	Scheme = runtime.NewScheme()
-	Codecs = serializer.NewCodecFactory(Scheme)
+	Scheme         = runtime.NewScheme()
+	Codecs         = serializer.NewCodecFactory(Scheme)
+	ParameterCodec = runtime.NewParameterCodec(Scheme)
 )
 
 func init() {
@@ -38,7 +38,7 @@ func init() {
 }
 
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
-	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, metav1.ParameterCodec, Codecs)
+	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
 		"virtualmachines":             store,
 		"virtualmachines/console":     store.ConsoleREST(),

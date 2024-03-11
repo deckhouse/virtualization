@@ -99,6 +99,7 @@ func asyncSubresourceHelper(config *rest.Config, resource, namespace, name, subr
 		}
 
 		if response != nil {
+			defer response.Body.Close()
 			switch response.StatusCode {
 			case http.StatusOK:
 			case http.StatusNotFound:

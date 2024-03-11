@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const operationURLTpl = "/apis/subresources.virtualization.deckhouse.io/v1alpha1/namespaces/%s/%s/%s/%s"
+const operationURLTpl = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/%s/%s/%s"
 
 func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string, queryParams url.Values) (*http.Request, error) {
 	u, err := url.Parse(config.Host)

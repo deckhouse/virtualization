@@ -20,14 +20,17 @@ Initially copied from https://github.com/kubevirt/kubevirt/blob/main/staging/src
 package kubecli
 
 import (
+	"errors"
 	"fmt"
-	virtualizationv1alpha2 "github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
-	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"k8s.io/client-go/rest"
+
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 )
 
 type vm struct {
@@ -49,16 +52,16 @@ type connectionStruct struct {
 
 func (v vm) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
 	if options != nil && options.ConnectionTimeout != 0 {
-		timeoutChan := time.Tick(options.ConnectionTimeout)
+		ticker := time.NewTicker(options.ConnectionTimeout)
 		connectionChan := make(chan connectionStruct)
 
 		go func() {
 			for {
 				select {
-				case <-timeoutChan:
+				case <-ticker.C:
 					connectionChan <- connectionStruct{
 						con: nil,
-						err: fmt.Errorf("Timeout trying to connect to the virtual machine instance"),
+						err: fmt.Errorf("timeout trying to connect to the virtual machine instance"),
 					}
 					return
 				default:
@@ -66,7 +69,8 @@ func (v vm) SerialConsole(name string, options *SerialConsoleOptions) (StreamInt
 
 				con, err := asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "console", url.Values{})
 				if err != nil {
-					asyncSubresourceError, ok := err.(*AsyncSubresourceError)
+					var asyncSubresourceError *AsyncSubresourceError
+					ok := errors.As(err, &asyncSubresourceError)
 					// return if response status code does not equal to 400
 					if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
 						connectionChan <- connectionStruct{con: nil, err: err}

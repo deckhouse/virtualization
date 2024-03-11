@@ -1,9 +1,10 @@
 package install
 
 import (
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+
+	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 // Install registers the API group and adds types to a scheme

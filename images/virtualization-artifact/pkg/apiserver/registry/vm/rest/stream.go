@@ -21,9 +21,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
-var upgradeableMethods = []string{http.MethodGet, http.MethodPost}
+const (
+	userHeader       = "X-Remote-User"
+	groupHeader      = "X-Remote-Group"
+	kubevirtPathTmpl = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachineinstances/%s/%s"
+)
 
-const kubevirtPathTmpl = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachineinstances/%s/%s"
+var upgradeableMethods = []string{http.MethodGet, http.MethodPost}
 
 func streamLocation(
 	ctx context.Context,
@@ -87,7 +91,7 @@ func getVM(getter cache.GenericLister, key types.NamespacedName) (*virtv2.Virtua
 	return vm, nil
 }
 
-func streamParams(params url.Values, opts runtime.Object) error {
+func streamParams(_ url.Values, opts runtime.Object) error {
 	switch opts := opts.(type) {
 	case *subresources.VirtualMachineConsole:
 		return nil
@@ -98,7 +102,6 @@ func streamParams(params url.Values, opts runtime.Object) error {
 	default:
 		return fmt.Errorf("unknown object for streaming: %v", opts)
 	}
-	return nil
 }
 
 func newThrottledUpgradeAwareProxyHandler(
@@ -109,8 +112,8 @@ func newThrottledUpgradeAwareProxyHandler(
 	sa types.NamespacedName,
 ) http.Handler {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
-		r.Header.Add("X-Remote-User", fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
-		r.Header.Add("X-Remote-Group", "system:serviceaccounts")
+		r.Header.Add(userHeader, fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
+		r.Header.Add(groupHeader, "system:serviceaccounts")
 		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, wrapTransport, upgradeRequired, proxy.NewErrorResponder(responder))
 		proxyHandler.ServeHTTP(w, r)
 	}

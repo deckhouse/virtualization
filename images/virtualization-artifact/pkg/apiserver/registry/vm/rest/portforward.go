@@ -3,15 +3,17 @@ package rest
 import (
 	"context"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/tools/cache"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/tools/cache"
+
+	"github.com/deckhouse/virtualization-controller/api/subresources"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 type PortForwardREST struct {

@@ -25,7 +25,6 @@ shell:
   - export GOARCH=amd64
   - go build -v -a -o virtualization-controller ./cmd/virtualization-controller
   - go build -v -a -o virtualization-api ./cmd/virtualization-api
-  - go build -v -a -o d8vctl-adm64 ./cmd/d8vctl
 
 
 

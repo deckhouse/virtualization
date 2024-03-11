@@ -5,8 +5,6 @@ import (
 	"net"
 	"strings"
 
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
-
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -19,6 +17,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
+	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )

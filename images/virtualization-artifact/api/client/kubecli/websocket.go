@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"crypto/tls"
+	"errors"
 	"io"
 	"net/http"
 
@@ -105,7 +106,7 @@ func (s *binaryReader) Read(p []byte) (int, error) {
 			err = readErr
 			if err != nil {
 				s.reader = nil
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					if n == 0 {
 						continue
 					} else {
@@ -126,7 +127,8 @@ func convert(err error) error {
 	if err == nil {
 		return nil
 	}
-	if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
+	var e *websocket.CloseError
+	if errors.As(err, &e) && e.Code == websocket.CloseNormalClosure {
 		return io.EOF
 	}
 	return err
