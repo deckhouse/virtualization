@@ -53,7 +53,7 @@ body:
     attributes:
       label: Kubernetes Storage
       description: |
-        What storage are you use?
+        What kind of storage do you use?
       placeholder: linstor
   - type: textarea
     attributes:
