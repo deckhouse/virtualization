@@ -21,7 +21,7 @@ body:
           required: true
   - type: input
     attributes:
-      label: Version
+      label: Virtualization Version
       description: |
         What version of Virtualization are you running?  
         To find it, run `kubectl get modulereleases.deckhouse.io`  
@@ -34,6 +34,27 @@ body:
       placeholder: v1.0.0
     validations:
       required: true
+  - type: input
+    attributes:
+      label: Deckhouse Version
+      description: |
+        What version of Deckhouse are you running?  
+        To find it, run `kubectl get deckhousereleases`  
+        
+        Example output:  
+        ```
+        NAME      PHASE        TRANSITIONTIME   MESSAGE
+        v1.57.1   Deployed     10d
+        ```
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Kubernetes Storage
+      description: |
+        What storage are you use?
+      placeholder: linstor
   - type: textarea
     attributes:
       label: Expected Behavior
