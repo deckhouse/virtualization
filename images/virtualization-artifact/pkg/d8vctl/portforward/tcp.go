@@ -25,7 +25,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 )
 
 func (p *portForwarder) startForwardingTCP(address *net.IPAddr, port forwardedPort) error {
@@ -53,7 +53,7 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 			return
 		}
 		glog.Infof("opening new tcp tunnel to %d", port.remote)
-		stream, err := p.resource.PortForward(p.name, v1alpha1.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+		stream, err := p.resource.PortForward(p.name, v1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 		if err != nil {
 			glog.Errorf("can't access vm/%s.%s: %v", p.name, p.namespace, err)
 			return

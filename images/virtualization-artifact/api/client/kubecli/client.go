@@ -1,35 +1,27 @@
 package kubecli
 
 import (
+	coreinstall "github.com/deckhouse/virtualization-controller/api/core/install"
+	subinstall "github.com/deckhouse/virtualization-controller/api/subresources/install"
 	"io"
-	"net"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"net"
 
 	"github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned"
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 )
 
 var (
-	SchemeBuilder  runtime.SchemeBuilder
-	Scheme         *runtime.Scheme
-	Codecs         serializer.CodecFactory
-	ParameterCodec runtime.ParameterCodec
+	Scheme = runtime.NewScheme()
+	Codecs = serializer.NewCodecFactory(Scheme)
 )
 
 func init() {
-	SchemeBuilder = v1alpha2.SchemeBuilder
-	Scheme = runtime.NewScheme()
-	AddToScheme := SchemeBuilder.AddToScheme
-	Codecs = serializer.NewCodecFactory(Scheme)
-	ParameterCodec = runtime.NewParameterCodec(Scheme)
-	AddToScheme(Scheme)
-	AddToScheme(scheme.Scheme)
+	subinstall.Install(Scheme)
+	coreinstall.Install(Scheme)
 }
 
 type Client interface {
@@ -49,7 +41,7 @@ type VirtualMachineInterface interface {
 	virtualizationv1alpha2.VirtualMachineInterface
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
-	PortForward(name string, opts v1alpha1.VirtualMachinePortForward) (StreamInterface, error)
+	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 }
 
 type client struct {

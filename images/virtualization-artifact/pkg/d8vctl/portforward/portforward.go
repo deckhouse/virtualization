@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization-controller/api/client/kubecli"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/d8vctl/templates"
 )
 
@@ -145,7 +145,7 @@ func (o *PortForward) setResource(namespace string) error {
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {
-	streamer, err := o.resource.PortForward(name, v1alpha1.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+	streamer, err := o.resource.PortForward(name, v1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 	if err != nil {
 		return err
 	}

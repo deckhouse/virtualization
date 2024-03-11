@@ -5,4 +5,4 @@
 // +groupName=operations.virtualization.deckhouse.io
 
 // Package v1alpha1 is the v1alpha1 version of the operations API.
-package v1alpha1 // import "github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations/v1alpha1"
+package v1alpha2 // import "github.com/deckhouse/virtualization-controller/pkg/apiserver/apis/operations/v1alpha1"

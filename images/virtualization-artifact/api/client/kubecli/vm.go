@@ -22,11 +22,11 @@ package kubecli
 import (
 	"fmt"
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
-	"k8s.io/apimachinery/pkg/conversion/queryparams"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 	"k8s.io/client-go/rest"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -92,10 +92,13 @@ func (v vm) VNC(name string) (StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
-func (v vm) PortForward(name string, opts v1alpha1.VirtualMachinePortForward) (StreamInterface, error) {
-	params, err := queryparams.Convert(opts)
-	if err != nil {
-		return nil, err
+func (v vm) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error) {
+	params := url.Values{}
+	if opts.Port > 0 {
+		params.Add("port", strconv.Itoa(opts.Port))
+	}
+	if opts.Protocol != "" {
+		params.Add("protocol", opts.Protocol)
 	}
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "portforward", params)
 }

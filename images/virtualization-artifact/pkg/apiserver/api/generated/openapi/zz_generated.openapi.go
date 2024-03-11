@@ -100,9 +100,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_controller_api_core_v1alpha2_VirtualMachineStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_controller_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
-		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachineConsole":             schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineConsole(ref),
-		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachinePortForward":         schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachinePortForward(ref),
-		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1.VirtualMachineVNC":                 schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineVNC(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachineConsole(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
+		"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2.VirtualMachineVNC":                 schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachineVNC(ref),
 		"k8s.io/api/core/v1.AWSElasticBlockStoreVolumeSource":                                                        schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
 		"k8s.io/api/core/v1.Affinity":                                                                schema_k8sio_api_core_v1_Affinity(ref),
 		"k8s.io/api/core/v1.AttachedVolume":                                                          schema_k8sio_api_core_v1_AttachedVolume(ref),
@@ -3395,7 +3395,7 @@ func schema_virtualization_controller_api_core_v1alpha2_WeightedVirtualMachineAn
 	}
 }
 
-func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineConsole(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachineConsole(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3421,7 +3421,7 @@ func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineCo
 	}
 }
 
-func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachinePortForward(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachinePortForward(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3462,7 +3462,7 @@ func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachinePo
 	}
 }
 
-func schema_virtualization_controller_api_subresources_v1alpha1_VirtualMachineVNC(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_subresources_v1alpha2_VirtualMachineVNC(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

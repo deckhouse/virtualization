@@ -27,7 +27,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/deckhouse/virtualization-controller/api/client/kubecli"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 )
 
 type portForwarder struct {
@@ -37,7 +37,7 @@ type portForwarder struct {
 }
 
 type portforwardableResource interface {
-	PortForward(name string, options v1alpha1.VirtualMachinePortForward) (kubecli.StreamInterface, error)
+	PortForward(name string, options v1alpha2.VirtualMachinePortForward) (kubecli.StreamInterface, error)
 }
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {

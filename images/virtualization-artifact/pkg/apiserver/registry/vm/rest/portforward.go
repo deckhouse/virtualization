@@ -35,7 +35,7 @@ func NewPortForwardREST(vmLister cache.GenericLister, kubevirt KubevirtApiServer
 
 // New implements rest.Storage interface
 func (r PortForwardREST) New() runtime.Object {
-	return &subresources.VirtualMachineConsole{}
+	return &subresources.VirtualMachinePortForward{}
 }
 
 // Destroy implements rest.Storage interface
@@ -57,7 +57,7 @@ func (r PortForwardREST) Connect(ctx context.Context, name string, opts runtime.
 
 // NewConnectOptions implements rest.Connecter interface
 func (r PortForwardREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachineConsole{}, false, ""
+	return &subresources.VirtualMachinePortForward{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface

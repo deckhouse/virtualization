@@ -14,7 +14,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/api/subresources"
 	"github.com/deckhouse/virtualization-controller/api/subresources/install"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha1"
+	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
@@ -45,7 +45,7 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/vnc":         store.VncREST(),
 		"virtualmachines/portforward": store.PortForwardREST(),
 	}
-	apiGroupInfo.VersionedResourcesStorageMap[v1alpha1.SchemeGroupVersion.Version] = resources
+	apiGroupInfo.VersionedResourcesStorageMap[v1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
 }
 

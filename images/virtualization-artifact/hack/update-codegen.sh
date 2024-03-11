@@ -23,13 +23,13 @@ function generate::subresources {
           bash "${CODEGEN_PKG}/generate-groups.sh" deepcopy "${MODULE}" . "api:subresources" \
             --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
             --output-base "${SCRIPT_ROOT}"
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "subresources:v1alpha1" \
+          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}" ./api "subresources:v1alpha2" \
           --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
           --output-base "${SCRIPT_ROOT}"
 
           chmod +x "${GOPATH}/bin/openapi-gen"
           "${GOPATH}/bin/openapi-gen" \
-            -i "${MODULE}/api/core/v1alpha2,${MODULE}/api/subresources/v1alpha1,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
+            -i "${MODULE}/api/core/v1alpha2,${MODULE}/api/subresources/v1alpha2,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
             -p pkg/apiserver/api/generated/openapi/        \
             -O zz_generated.openapi                        \
             -o "${SCRIPT_ROOT}"                            \
