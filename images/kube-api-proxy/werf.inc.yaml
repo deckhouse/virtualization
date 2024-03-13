@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}-builder
-fromImage: base-golang-20-bookworm
+fromImage: base-golang-21-bookworm
 git:
   - add: /images/{{ $.ImageName }}
     to: /src/kube-api-proxy
