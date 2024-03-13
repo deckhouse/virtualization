@@ -17,7 +17,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
 )
@@ -31,7 +31,7 @@ type Options struct {
 	Features       *genericoptions.FeatureOptions
 	Logging        *logs.Options
 
-	Kubevirt rest2.KubevirtApiServerConfig
+	Kubevirt vmrest.KubevirtApiServerConfig
 
 	ProxyClientCertFile string
 	ProxyClientKeyFile  string
@@ -113,8 +113,8 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	if o.Kubevirt.ServiceAccount.Namespace != "" {
 		conf.Kubevirt.ServiceAccount.Namespace = o.Kubevirt.ServiceAccount.Namespace
 	}
-	if errs := conf.Validate(); len(errs) > 0 {
-		return nil, errs[0]
+	if err := conf.Validate(); err != nil {
+		return nil, err
 	}
 	return conf, nil
 }

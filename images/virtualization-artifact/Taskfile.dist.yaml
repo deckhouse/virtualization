@@ -55,8 +55,6 @@ vars:
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
-  REPO_DIR:
-    sh: pwd
   CONTROLLER_IMAGE:
     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
   CONTROLLER_BUILDER_IMAGE:
@@ -461,7 +459,7 @@ tasks:
       - |
         go build -mod=readonly -trimpath \
         -ldflags "-w -X $PKG/version.gitVersion=$GIT_TAG -X $PKG/version.gitCommit=$GIT_COMMIT -X $PKG/version.buildDate=$BUILD_DATE" \
-        -o "$REPO_DIR/bin/$BINARY_NAME" $REPO_DIR/cmd/virtualization-api
+        -o "$PWD/bin/$BINARY_NAME" $PWD/cmd/virtualization-api
 
   dev:run:
     desc: "Install virtualization-controller into the cluster using helm"

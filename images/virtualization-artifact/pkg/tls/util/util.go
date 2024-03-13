@@ -9,7 +9,6 @@ import (
 const CertificateBlockType string = "CERTIFICATE"
 
 func ParseCertsPEM(pemCerts []byte) ([]*x509.Certificate, error) {
-	ok := false
 	certs := []*x509.Certificate{}
 	for len(pemCerts) > 0 {
 		var block *pem.Block
@@ -28,11 +27,10 @@ func ParseCertsPEM(pemCerts []byte) ([]*x509.Certificate, error) {
 		}
 
 		certs = append(certs, cert)
-		ok = true
 	}
 
-	if !ok {
-		return certs, errors.New("data does not contain any valid RSA or ECDSA certificates")
+	if len(certs) == 0 {
+		return nil, errors.New("data does not contain any valid RSA or ECDSA certificates")
 	}
 	return certs, nil
 }

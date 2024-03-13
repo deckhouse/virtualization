@@ -11,10 +11,8 @@ func nameFor(fs fields.Selector) (string, error) {
 	if fs == nil {
 		fs = fields.Everything()
 	}
-	name := ""
-	if value, found := fs.RequiresExactMatch("metadata.name"); found {
-		name = value
-	} else if !fs.Empty() {
+	name, found := fs.RequiresExactMatch("metadata.name")
+	if !found && !fs.Empty() {
 		return "", fmt.Errorf("field label not supported: %s", fs.Requirements()[0].Field)
 	}
 	return name, nil

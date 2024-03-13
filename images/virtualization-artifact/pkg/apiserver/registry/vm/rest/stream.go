@@ -91,6 +91,7 @@ func getVM(getter cache.GenericLister, key types.NamespacedName) (*virtv2.Virtua
 	return vm, nil
 }
 
+// TODO: This may be useful in the future
 func streamParams(_ url.Values, opts runtime.Object) error {
 	switch opts := opts.(type) {
 	case *subresources.VirtualMachineConsole:

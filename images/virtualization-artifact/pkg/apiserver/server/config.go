@@ -23,33 +23,33 @@ type Config struct {
 	ProxyClientKeyFile  string
 }
 
-func (c Config) Validate() []error {
-	errs := []error{}
+func (c Config) Validate() error {
+	var err error
 	if c.Kubevirt.Endpoint == "" {
-		errs = append(errs, fmt.Errorf(".Kubevirt.Endpoint is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Kubevirt.Endpoint is required. %w", ErrConfigInvalid))
 	}
 	if c.Kubevirt.CaBundlePath == "" {
-		errs = append(errs, fmt.Errorf(".Kubevirt.CaBundlePath is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Kubevirt.CaBundlePath is required. %w", ErrConfigInvalid))
 	}
 	if c.Kubevirt.ServiceAccount.Name == "" {
-		errs = append(errs, fmt.Errorf(".Kubevirt.ServiceAccount.Name is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Kubevirt.ServiceAccount.Name is required. %w", ErrConfigInvalid))
 	}
 	if c.Kubevirt.ServiceAccount.Namespace == "" {
-		errs = append(errs, fmt.Errorf(".Kubevirt.ServiceAccount.Namespace is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Kubevirt.ServiceAccount.Namespace is required. %w", ErrConfigInvalid))
 	}
 	if c.ProxyClientCertFile == "" {
-		errs = append(errs, fmt.Errorf(".ProxyClientCertFile is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".ProxyClientCertFile is required. %w", ErrConfigInvalid))
 	}
 	if c.ProxyClientKeyFile == "" {
-		errs = append(errs, fmt.Errorf(".ProxyClientKeyFile is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".ProxyClientKeyFile is required. %w", ErrConfigInvalid))
 	}
 	if c.Apiserver == nil {
-		errs = append(errs, fmt.Errorf(".Apiserver is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Apiserver is required. %w", ErrConfigInvalid))
 	}
 	if c.Rest == nil {
-		errs = append(errs, fmt.Errorf(".Rest is required. %w", ErrConfigInvalid))
+		err = errors.Join(err, fmt.Errorf(".Rest is required. %w", ErrConfigInvalid))
 	}
-	return errs
+	return err
 }
 
 func (c Config) Complete() (*server, error) {
@@ -76,8 +76,5 @@ func (c Config) Complete() (*server, error) {
 		genericServer,
 		proxyCertManager,
 	)
-	if err != nil {
-		return nil, err
-	}
 	return s, nil
 }

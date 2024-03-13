@@ -14,16 +14,16 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
 )
 
 type VirtualMachineStorage struct {
 	groupResource schema.GroupResource
 	vmLister      cache.GenericLister
-	console       *rest2.ConsoleREST
-	vnc           *rest2.VNCREST
-	portforward   *rest2.PortForwardREST
+	console       *vmrest.ConsoleREST
+	vnc           *vmrest.VNCREST
+	portforward   *vmrest.PortForwardREST
 	rest.TableConvertor
 }
 
@@ -40,27 +40,27 @@ var (
 func NewStorage(
 	groupResource schema.GroupResource,
 	vmLister cache.GenericLister,
-	kubevirt rest2.KubevirtApiServerConfig,
+	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certManager.CertificateManager,
 ) *VirtualMachineStorage {
 	return &VirtualMachineStorage{
 		groupResource: groupResource,
 		vmLister:      vmLister,
-		console:       rest2.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
-		vnc:           rest2.NewVNCREST(vmLister, kubevirt, proxyCertManager),
-		portforward:   rest2.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
+		console:       vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
+		vnc:           vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
+		portforward:   vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
 	}
 }
 
-func (store VirtualMachineStorage) ConsoleREST() *rest2.ConsoleREST {
+func (store VirtualMachineStorage) ConsoleREST() *vmrest.ConsoleREST {
 	return store.console
 }
 
-func (store VirtualMachineStorage) VncREST() *rest2.VNCREST {
+func (store VirtualMachineStorage) VncREST() *vmrest.VNCREST {
 	return store.vnc
 }
 
-func (store VirtualMachineStorage) PortForwardREST() *rest2.PortForwardREST {
+func (store VirtualMachineStorage) PortForwardREST() *vmrest.PortForwardREST {
 	return store.portforward
 }
 
@@ -122,9 +122,8 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 	filtered := &virtv2.VirtualMachineList{}
 	filtered.Items = make([]virtv2.VirtualMachine, 0, len(items))
 	for _, manifest := range items {
-		var vm *virtv2.VirtualMachine
-		var ok bool
-		if vm, ok = manifest.(*virtv2.VirtualMachine); !ok || vm == nil {
+		vm, ok := manifest.(*virtv2.VirtualMachine)
+		if !ok || vm == nil {
 			continue
 		}
 		if matches(vm, name) {

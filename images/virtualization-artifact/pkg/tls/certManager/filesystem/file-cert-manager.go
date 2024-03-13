@@ -28,7 +28,7 @@ func NewFileCertificateManager(certBytesPath, keyBytesPath string) *FileCertific
 	return &FileCertificateManager{
 		certBytesPath:      certBytesPath,
 		keyBytesPath:       keyBytesPath,
-		stopCh:             make(chan struct{}, 1),
+		stopCh:             make(chan struct{}),
 		errorRetryInterval: 1 * time.Minute,
 	}
 }
