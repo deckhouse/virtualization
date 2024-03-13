@@ -1,0 +1,120 @@
+package main
+
+import (
+	log "log/slog"
+	"os"
+
+	"kube-api-proxy/pkg/kubevirt"
+	logutil "kube-api-proxy/pkg/log"
+	"kube-api-proxy/pkg/proxy"
+	"kube-api-proxy/pkg/rewriter"
+	"kube-api-proxy/pkg/server"
+	"kube-api-proxy/pkg/target"
+)
+
+// This proxy is a proof-of-concept of proxying Kubernetes API requests
+// with rewrites.
+//
+// It assumes presence of KUBERNETES_* environment variables and files
+// in /var/run/secrets/kubernetes.io/serviceaccount (token and ca.crt).
+//
+// A client behind the proxy should connect to 127.0.0.1:$PROXY_PORT
+// using plain http. Example of kubeconfig file:
+// apiVersion: v1
+// kind: Config
+// clusters:
+// - cluster:
+//   server: http://127.0.0.1:23915
+//   name: proxy.api.server
+// contexts:
+// - context:
+//   cluster: proxy.api.server
+//   name: proxy.api.server
+// current-context: proxy.api.server
+
+const (
+	loopbackAddr              = "127.0.0.1"
+	defaultAPIClientProxyPort = "23915"
+	defaultWebhookProxyPort   = "24192"
+)
+
+func main() {
+	proxies := make([]*server.HTTPServer, 0)
+
+	// Register direct proxy from local Kubernetes API client to Kubernetes API server.
+	{
+		config, err := target.NewKubernetesTarget()
+		if err != nil {
+			log.Error("Load Kubernetes REST", logutil.SlogErr(err))
+			os.Exit(1)
+		}
+		lAddr := server.ConstructListenAddr(
+			os.Getenv("CLIENT_PROXY_ADDRESS"), os.Getenv("CLIENT_PROXY_PORT"),
+			loopbackAddr, defaultAPIClientProxyPort)
+		rwr := &rewriter.RuleBasedRewriter{
+			Rules:          kubevirt.KubevirtRewriteRules,
+			ToTargetMode:   rewriter.Rename,
+			FromTargetMode: rewriter.Restore,
+		}
+		proxyHandler := &proxy.Handler{
+			Name:         "kube-api",
+			TargetClient: config.Client,
+			TargetURL:    config.APIServerURL,
+			Rewriter:     rwr,
+		}
+		proxySrv := &server.HTTPServer{
+			InstanceDesc: "API Client proxy",
+			ListenAddr:   lAddr,
+			RootHandler:  proxyHandler,
+		}
+		proxies = append(proxies, proxySrv)
+	}
+
+	// Register reverse proxy from Kubernetes API server to local webhook server.
+	{
+		config, err := target.NewWebhookTarget()
+		if err != nil {
+			log.Error("Configure webhook client", logutil.SlogErr(err))
+			os.Exit(1)
+		}
+		lAddr := server.ConstructListenAddr(
+			os.Getenv("WEBHOOK_PROXY_ADDRESS"), os.Getenv("WEBHOOK_PROXY_PORT"),
+			loopbackAddr, defaultWebhookProxyPort)
+		rwr := &rewriter.RuleBasedRewriter{
+			Rules:          kubevirt.KubevirtRewriteRules,
+			ToTargetMode:   rewriter.Restore,
+			FromTargetMode: rewriter.Rename,
+		}
+		proxyHandler := &proxy.Handler{
+			Name:         "webhook",
+			TargetClient: config.Client,
+			TargetURL:    config.URL,
+			Rewriter:     rwr,
+		}
+		proxySrv := &server.HTTPServer{
+			InstanceDesc: "Webhook proxy",
+			ListenAddr:   lAddr,
+			RootHandler:  proxyHandler,
+			CertFile:     config.CertFile,
+			KeyFile:      config.KeyFile,
+		}
+		proxies = append(proxies, proxySrv)
+	}
+
+	// Start proxies and block the main process until at least one proxy stops.
+	proxyGroup := server.NewRunnableGroup()
+	for i := range proxies {
+		proxyGroup.Add(proxies[i])
+	}
+	proxyGroup.Start()
+
+	// Log errors for each instance and exit.
+	exitCode := 0
+	for _, srv := range proxies {
+		if srv.Err != nil {
+			log.Error(srv.InstanceDesc, logutil.SlogErr(srv.Err))
+			exitCode = 1
+		}
+	}
+	os.Exit(exitCode)
+}

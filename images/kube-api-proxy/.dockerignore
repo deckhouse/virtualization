@@ -1,0 +1,10 @@
+templates
+Chart.yaml
+*.log
+*.swp
+local/caddy/images
+.git
+
+golangci-lint
+proxy
+test-controller
