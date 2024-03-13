@@ -91,6 +91,8 @@ spec:
       - name: virt-operator
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all" . | nindent 8 }}
         args:
+        - --kubeconfig
+        - /kubeconfig.local/proxy.kubeconfig
         - --port
         - "8443"
         - -v
@@ -131,6 +133,27 @@ spec:
           readOnly: true
         - mountPath: /profile-data
           name: profile-data
+        - mountPath: /kubeconfig.local
+          name: kube-api-proxy-kubeconfig
+      - name: proxy
+        #image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
+        image: "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest"
+        imagePullPolicy: Always
+        command:
+          - /proxy
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        env:
+          - name: WEBHOOK_PROXY
+            value: "no"
       {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
@@ -143,3 +166,6 @@ spec:
           secretName: kubevirt-operator-certs
       - emptyDir: {}
         name: profile-data
+      - name: kube-api-proxy-kubeconfig
+        configMap:
+          name: kube-api-proxy-kubeconfig
