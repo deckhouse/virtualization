@@ -54,6 +54,23 @@ webhooks:
         {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
+  - name: "vmcpu.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups: [ "virtualization.deckhouse.io" ]
+        apiVersions: [ "v1alpha2" ]
+        operations: [ "UPDATE" ]
+        resources: [ "virtualmachinecpumodels" ]
+        scope: "Cluster"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller-admission-webhook
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinecpumodel
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+    admissionReviewVersions: [ "v1" ]
+    sideEffects: None
   - name: "vmip.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]

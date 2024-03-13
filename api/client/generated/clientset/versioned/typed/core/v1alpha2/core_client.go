@@ -30,6 +30,7 @@ type VirtualizationV1alpha2Interface interface {
 	ClusterVirtualMachineImagesGetter
 	VirtualMachinesGetter
 	VirtualMachineBlockDeviceAttachmentsGetter
+	VirtualMachineCPUModelsGetter
 	VirtualMachineDisksGetter
 	VirtualMachineIPAddressClaimsGetter
 	VirtualMachineIPAddressLeasesGetter
@@ -52,6 +53,10 @@ func (c *VirtualizationV1alpha2Client) VirtualMachines(namespace string) Virtual
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineBlockDeviceAttachments(namespace string) VirtualMachineBlockDeviceAttachmentInterface {
 	return newVirtualMachineBlockDeviceAttachments(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualMachineCPUModels(namespace string) VirtualMachineCPUModelInterface {
+	return newVirtualMachineCPUModels(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineDisks(namespace string) VirtualMachineDiskInterface {

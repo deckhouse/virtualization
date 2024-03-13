@@ -165,6 +165,12 @@ func (r *VMReconciler) syncKVVMDependencies(ctx context.Context, state *VMReconc
 		return false, nil
 	}
 
+	if controllerutil.AddFinalizer(state.CPUModel, virtv2.FinalizerVMCPUProtection) {
+		if err = state.Client.Update(ctx, state.CPUModel); err != nil {
+			return false, fmt.Errorf("error setting finalizer on the VMCPU %q: %w", state.CPUModel.Name, err)
+		}
+	}
+
 	// Ensure IP address claim.
 	claimed, err := r.ensureIPAddressClaim(ctx, state, opts)
 	if err != nil {
@@ -251,6 +257,13 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	// Ensure IP address claim.
+	if !r.ensureCPUModel(state, opts) {
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		state.VM.Changed().Status.Message = "Waiting for CPUModel to become available"
+		return nil
+	}
+
+	// Ensure IP address claim.
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for IPAddressClaim to become available"
@@ -329,6 +342,18 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	return nil
 }
 
+func (r *VMReconciler) ensureCPUModel(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) bool {
+	if state.CPUModel != nil {
+		return true
+	}
+
+	state.SetStatusMessage("CPU model not available: waiting for the CPU model")
+	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonCPUModelNotFound, "CPU model not available: waiting for the CPU model")
+	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+
+	return false
+}
+
 func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (bool, error) {
 	// 1. OK: already bound.
 	if r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
@@ -368,18 +393,6 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 
 	return false, nil
-}
-
-func (r *VMReconciler) ensureCPUModel(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) bool {
-	if state.CPUModel != nil {
-		return true
-	}
-
-	state.SetStatusMessage("CPU model not found: waiting for the CPU model")
-	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonCPUModelNotFound, "CPU model not found: waiting for the CPU model")
-	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-
-	return false
 }
 
 func (r *VMReconciler) ShouldDeleteChildResources(state *VMReconcilerState) bool {

@@ -53,7 +53,6 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
-		virtv2.DiskDevice,
 		virtv2.FinalizerVMDProtection,
 		state.VMD,
 	)
@@ -248,4 +247,18 @@ func (state *VMDReconcilerState) IsDataVolumeInProgress() bool {
 
 func (state *VMDReconcilerState) IsDataVolumeComplete() bool {
 	return state.DV != nil && state.DV.Status.Phase == cdiv1.Succeeded
+}
+
+func (state *VMDReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool {
+	if state.VMD.IsEmpty() {
+		return false
+	}
+
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type == virtv2.DiskDevice && bda.VirtualMachineDisk != nil && bda.VirtualMachineDisk.Name == state.VMD.Name().Name {
+			return true
+		}
+	}
+
+	return false
 }

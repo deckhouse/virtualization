@@ -10,7 +10,7 @@ import (
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 func NewVMCPUValidator(log logr.Logger) *VMCPUValidator {
@@ -22,9 +22,8 @@ type VMCPUValidator struct {
 }
 
 func (v *VMCPUValidator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	// TODO(VMCPU): check if requested type is available.
-	// TODO(VMCPU): check if requested model is available.
-	// TODO(VMCPU): check if requested features are available.
+	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
+	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }
 
@@ -38,8 +37,6 @@ func (v *VMCPUValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtim
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineCPUModel but got a %T", oldObj)
 	}
-
-	v.log.Info("Validating VMCPU")
 
 	if newVMCPU.Spec.Type != oldVMCPU.Spec.Type {
 		return nil, errors.New("virtual machine CPU type cannot be changed once set")

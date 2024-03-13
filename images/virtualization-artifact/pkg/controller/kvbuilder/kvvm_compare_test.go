@@ -33,7 +33,12 @@ func Test_kvvm_compare_resources(t *testing.T) {
 		Namespace: vm.Namespace,
 		Name:      vm.Name,
 	}, KVVMOptions{})
-	err := ApplyVirtualMachineSpec(curr, vm, nil, nil, nil, nil, "")
+
+	cpuModel := virtv2.VirtualMachineCPUModelSpec{
+		Type: virtv2.Host,
+	}
+
+	err := ApplyVirtualMachineSpec(curr, vm, nil, nil, nil, nil, cpuModel, "")
 	require.NoError(t, err, "ApplyVirtualMachineSpec should not fail")
 	vm.Spec.Memory.Size = "5Gi"
 
@@ -41,7 +46,7 @@ func Test_kvvm_compare_resources(t *testing.T) {
 		Namespace: vm.Namespace,
 		Name:      vm.Name,
 	}, KVVMOptions{})
-	err = ApplyVirtualMachineSpec(next, vm, nil, nil, nil, nil, "")
+	err = ApplyVirtualMachineSpec(next, vm, nil, nil, nil, nil, cpuModel, "")
 	require.NoError(t, err, "ApplyVirtualMachineSpec should not fail")
 
 	actions, err := CompareKVVM(curr, next)

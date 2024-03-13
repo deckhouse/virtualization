@@ -37,6 +37,14 @@ type VirtualMachineBlockDeviceAttachmentListerExpansion interface{}
 // VirtualMachineBlockDeviceAttachmentNamespaceLister.
 type VirtualMachineBlockDeviceAttachmentNamespaceListerExpansion interface{}
 
+// VirtualMachineCPUModelListerExpansion allows custom methods to be added to
+// VirtualMachineCPUModelLister.
+type VirtualMachineCPUModelListerExpansion interface{}
+
+// VirtualMachineCPUModelNamespaceListerExpansion allows custom methods to be added to
+// VirtualMachineCPUModelNamespaceLister.
+type VirtualMachineCPUModelNamespaceListerExpansion interface{}
+
 // VirtualMachineDiskListerExpansion allows custom methods to be added to
 // VirtualMachineDiskLister.
 type VirtualMachineDiskListerExpansion interface{}

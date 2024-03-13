@@ -810,9 +810,9 @@ spec:
                   required:
                     - cores
                   properties:
-                    model:
+                    modelName:
                       type: string
-                      default: "Legacy"
+                      default: "generic-v1"
                       description: |
                         Name of `VirtualMachineCPUModel` resource holding the CPU model of the VirtualMachine.
                     cores:

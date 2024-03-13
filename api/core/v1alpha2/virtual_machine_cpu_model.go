@@ -43,11 +43,22 @@ const (
 )
 
 type VirtualMachineCPUModelStatus struct {
-	Features VirtualMachineCPUModelStatusFeatures `json:"features,omitempty"`
-	Nodes    []string                             `json:"nodes,omitempty"`
+	Features *VirtualMachineCPUModelStatusFeatures `json:"features,omitempty"`
+	Nodes    *[]string                             `json:"nodes,omitempty"`
+	Phase    VirtualMachineCPUModelStatusPhase     `json:"phase"`
 }
 
 type VirtualMachineCPUModelStatusFeatures struct {
 	Enabled          []string `json:"enabled"`
 	NotEnabledCommon []string `json:"notEnabledCommon"`
 }
+
+type VirtualMachineCPUModelStatusPhase string
+
+const (
+	VMCPUPhasePending     VirtualMachineCPUModelStatusPhase = "Pending"
+	VMCPUPhaseInProgress  VirtualMachineCPUModelStatusPhase = "InProgress"
+	VMCPUPhaseReady       VirtualMachineCPUModelStatusPhase = "Ready"
+	VMCPUPhaseFailed      VirtualMachineCPUModelStatusPhase = "Failed"
+	VMCPUPhaseTerminating VirtualMachineCPUModelStatusPhase = "Terminating"
+)

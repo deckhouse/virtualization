@@ -52,7 +52,6 @@ func NewCVMIReconcilerState(controllerNamespace string) func(name types.Namespac
 		}
 		state.AttacheeState = vmattachee.NewAttacheeState(
 			state,
-			virtv2.ClusterImageDevice,
 			virtv2.FinalizerCVMIProtection,
 			state.CVMI,
 		)
@@ -188,4 +187,18 @@ func (state *CVMIReconcilerState) IsReady() bool {
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *CVMIReconcilerState) IsPodComplete() bool {
 	return state.Pod != nil && cc.IsPodComplete(state.Pod)
+}
+
+func (state *CVMIReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool {
+	if state.CVMI.IsEmpty() {
+		return false
+	}
+
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type == virtv2.ClusterImageDevice && bda.ClusterVirtualMachineImage != nil && bda.ClusterVirtualMachineImage.Name == state.CVMI.Name().Name {
+			return true
+		}
+	}
+
+	return false
 }

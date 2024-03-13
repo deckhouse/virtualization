@@ -23,6 +23,8 @@ type VirtualMachineExpansion interface{}
 
 type VirtualMachineBlockDeviceAttachmentExpansion interface{}
 
+type VirtualMachineCPUModelExpansion interface{}
+
 type VirtualMachineDiskExpansion interface{}
 
 type VirtualMachineIPAddressClaimExpansion interface{}

@@ -99,7 +99,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 		return fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
 	}
 
-	vmcpuKey := types.NamespacedName{Name: state.VM.Current().Spec.CPU.Model, Namespace: state.VM.Name().Namespace}
+	vmcpuKey := types.NamespacedName{Name: state.VM.Current().Spec.CPU.Model}
 	state.CPUModel, err = helper.FetchObject(ctx, vmcpuKey, state.Client, &virtv2.VirtualMachineCPUModel{})
 	if err != nil {
 		return fmt.Errorf("unable to get cpu model %s: %w", claimKey, err)
