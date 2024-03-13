@@ -121,10 +121,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.21"
-      
+
       - name: Install Task
         uses: arduino/setup-task@v2
-      
+
       - uses: actions/checkout@v4
       
       - name: Run test hooks
@@ -145,13 +145,13 @@ jobs:
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      
+
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      
+
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY

@@ -1,0 +1,183 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-api-proxy
+  labels:
+    heritage: storage
+    app: kube-api-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-api-proxy
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        heritage: storage
+        app: kube-api-proxy
+    spec:
+      imagePullSecrets:
+        - name: "deckhouse-registry"
+      containers:
+        - name: proxy-only
+          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          imagePullPolicy: Always
+          command:
+            - /proxy
+          env:
+            - name: CLIENT_PROXY_PORT
+              value: "23916"
+            - name: WEBHOOK_PROXY
+              value: "no"
+        - name: proxy
+          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          imagePullPolicy: Always
+          command:
+            - /proxy
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: WEBHOOK_ADDRESS
+              value: "https://127.0.0.1:9443"
+            - name: WEBHOOK_CERT_FILE
+              value: /tmp/proxy-webhook/serving-certs/tls.crt
+            - name: WEBHOOK_KEY_FILE
+              value: /tmp/proxy-webhook/serving-certs/tls.key
+          ports:
+            - containerPort: 24192
+              name: proxy-webhook
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/proxy-webhook/serving-certs
+              name: test-admission-webhook
+        - name: controller
+          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          imagePullPolicy: Always
+          command:
+            - /test-controller
+          ports:
+            - containerPort: 9443
+              name: controller
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: test-admission-webhook
+          env:
+            - name: RENAME
+              value: "no"
+            - name: KUBECONFIG
+              value: "/proxy.kubeconfig"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+      dnsPolicy: Default
+      serviceAccountName: kube-api-proxy
+      volumes:
+        - name: test-admission-webhook
+          secret:
+            secretName: test-admission-webhook
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: deckhouse-registry
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJkZXYtcmVnaXN0cnkuZGVja2hvdXNlLmlvIjp7ImF1dGgiOiJiR2xqWlc1elpTMTBiMnRsYmpvNFVrZDFSR2RWVjBObGRFSkdXRUZ4UVVoWWVHOVRjR0ZRWkZsS05FcERWdz09In19fQ==
+  address: ZGV2LXJlZ2lzdHJ5LmRlY2tob3VzZS5pbw==
+  path: L3N5cy9kZWNraG91c2Utb3Nz
+  scheme: aHR0cHM=
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-api-proxy
+  labels:
+    heritage: kube-api-proxy
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-api-proxy
+  labels:
+    heritage: kube-api-proxy
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-api-proxy
+  labels:
+    heritage: kube-api-proxy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-api-proxy
+subjects:
+  - kind: ServiceAccount
+    name: kube-api-proxy
+    namespace: kproxy
+
+---
+# Certs for webhook server
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-admission-webhook
+type: kubernetes.io/tls
+data:
+  ca.crt: |
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURPRENDQWlDZ0F3SUJBZ0lVZmFCQytkMW52WXRXcHVEVGUzTFIwTFVmUUxRd0RRWUpLb1pJaHZjTkFRRUwKQlFBd05ERXlNREFHQTFVRUF4TXBZWEJwSUhCeWIzaDVhVzVuSUhSbGMzUnpJR1p2Y2lCMllXeHBaR0YwYVc1bgpJSGRsWW1odmIyc3dIaGNOTWpRd016QTJNVEV4TkRBd1doY05Namt3TXpBMU1URXhOREF3V2pBME1USXdNQVlEClZRUURFeWxoY0drZ2NISnZlSGxwYm1jZ2RHVnpkSE1nWm05eUlIWmhiR2xrWVhScGJtY2dkMlZpYUc5dmF6Q0MKQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFPUUpxNnRUYTFIZnFkTzJoaFNZSFJDYgo1ZzhYdkVJazZzY2R1cE1Na1ViREk0ekR3aytyc2dJd21lZ3VrVzA4bDdObllkUXluSy94STFvNmVxQ1EzOEU0ClZNTVFTUFJRZ3hwckdyNTBSSTJHcERodFlxNWFuTG1zSDFhd25hWm5nYkpwQU1OL245eHFoVjBNNFlWeWJyOVIKblZwUkpkVmVxQzdnQzlXbVVQRDBsLzFKRHZXaFIyTmVpWDFoWFBhcCtwUDQwbzBwSTBIOUI1dXBLMUFGcGhjZgo3SG5QV0t4L08wNWZQRVg1RStsdytZTFgvWmtya0M0aFNBRG5XUWZpbnd3eTE3dkdOWUlZOFY1ZW42amVFNUdTCmpFWWhHU2NBNFJHZUw1UGdCUEFKQzBHSXk0MmV3azk1S0MyUHp3cXd5RXdmQmJQb2FkamJNZkNEWVJHR3NOTUMKQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnRUdNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwTwpCQllFRktEaDArVFY0UmEyNlM4U3l4T2YvV2V0RGYzWU1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQTJTV3FMClp1eEtyVTcxK2grY2NCWkZjUWpXU1RIbFBIelcvVHlEdXdnbitaYXYraisrQzllWGwzQjhPQ0UwZHppcm9lRUsKdEl3Qmo1OHk0d0xIY1RZR3lZaTlzU2FRU3QzaW5rdXQ4Vmx4NTVTV29WQlNWTzdrZDBZNzlQYnNGYVVyNnNJdApkQ3M2ODBGRWwzODNmWWpxMllGaDFRQ2tON1BxL0pBZ2tENjQrRFVTYjlsUUhsUWdZdHRvS0pNb1ZqeEx5dENBCmZaeUdXaDNoR3pqSFJwOHorQUJvaURYYU1IYW1vRFNWVnpmbndYWkowSU80QllKRzhHZlQ3MWExbkdMcEJaNFUKOVdKUzlvaktUS0g3SlVNSk1uQXhzMTNvY2pIc1U5RVlLejVkNHUybmhkMkcyYWZ1SFo2TTA0azVKWXdUNnFlego0eHRub1llRnRzVTIvL1BLCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.crt: |
+    LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ0ekNDQXN1Z0F3SUJBZ0lVWUdMUVlxc1hGOEk4ZVdORkN0cER4ZDFBV2ZNd0RRWUpLb1pJaHZjTkFRRUwKQlFBd05ERXlNREFHQTFVRUF4TXBZWEJwSUhCeWIzaDVhVzVuSUhSbGMzUnpJR1p2Y2lCMllXeHBaR0YwYVc1bgpJSGRsWW1odmIyc3dIaGNOTWpRd016QTJNVEV4TkRBd1doY05NalV3TXpBMk1URXhOREF3V2pBc01Tb3dLQVlEClZRUURFeUYwWlhOMExXRmtiV2x6YzJsdmJpMTNaV0pvYjI5ckxtdHdjbTk0ZVM1emRtTXdnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRRE1HWko2L2ZEeEFkMXpCZFBOQnptQnFib3N2M01mUjJBbQpGejNjV2VoMVJ2U3FVNUd3T0s2VWNwQnhRTWw3eTgyR1VlOUhvcEdCeHJRck9qZElnaGpocVE5azR0aFZnRE14CnpiUGFsTlFzWVNMUVFRRmgxeURZZ0NZUUVJeERrVFM4SUY1dzJHVzMzNGNtTllBVGdGbzVZYnNqTmZCVjRxeG4Kbnptbi82RkFjN3h6c0FtS3dyNWVQT0lWZmtpaTJxaU10K3BwSEUwM2xhT0FRYjVQL001emVENlJub0xtMmJ0NQpRREoxM0ttc3NhY1hVOVFMTmt0R2E3Q0xzM1RDd1FjeGJFaGl1Sk9mcU1vdzB1dUE4aDRsOVZXcDdSYmNmUXpHCkxjR0NwL2RxOXNLV3lsZnYrYnNwMmVtNEJZMFExQktIdmsrM2x4cnBzTW5aMFdMekVYTnBBZ01CQUFHamdmUXcKZ2ZFd0RnWURWUjBQQVFIL0JBUURBZ1dnTUJNR0ExVWRKUVFNTUFvR0NDc0dBUVVGQndNQk1Bd0dBMVVkRXdFQgovd1FDTUFBd0hRWURWUjBPQkJZRUZKNEQzZjhzOFFwdi85R2JkSE1PWTBsRlpiRlZNQjhHQTFVZEl3UVlNQmFBCkZLRGgwK1RWNFJhMjZTOFN5eE9mL1dldERmM1lNSHdHQTFVZEVRUjFNSE9DSFhSbGMzUXRZV1J0YVhOemFXOXUKTFhkbFltaHZiMnN1YTNCeWIzaDVnaUYwWlhOMExXRmtiV2x6YzJsdmJpMTNaV0pvYjI5ckxtdHdjbTk0ZVM1egpkbU9DTDNSbGMzUXRZV1J0YVhOemFXOXVMWGRsWW1odmIyc3VhM0J5YjNoNUxuTjJZeTVqYkhWemRHVnlMbXh2ClkyRnNNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUURBOTNWeEJpbUJvTHJkMUVodU90bElNVDlOa3JXK3hseUEKQ1V1a25EM2JGdnYzcUVwaTZIQzNwMXVLSDMrdkpId3ZPazZTbVFzUWpiSHNxMHNpNWZpZ0JQTjZKSXcvN1pKZwppVU1QdHJldThTKzgzZWY4NUhvMDNNSzRUQytjRUtkdmJiNHd1Z0FTeW43cXVZSEFrbVl4eEt1aCtLOThoTFh6CmIzZThjRFRKWlU0N1RMcGRzV21MRWVNNENUTGgvV1ZDaVBRN3dMOFlUamc4VktOVXFrOHUwd05CT2xaWW5ic2EKNEFWVWM3VkdPUjd1M3hZM3dWcnpOK213Vk05VzIrbmd5QmpVQm84Q0FxV2ZZNzRRRW5BcjJqelIzUzNVUWU4ZQpJOUgxaDM5Qjk3d2dDMFpaSmVnUmoyV1BsK0swbHQrYXBZb0NVS2FaclRCS0x6NjI1QzVMCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: |
+    LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFcGdJQkFBS0NBUUVBekJtU2V2M3c4UUhkY3dYVHpRYzVnYW02TEw5ekgwZGdKaGM5M0Zub2RVYjBxbE9SCnNEaXVsSEtRY1VESmU4dk5obEh2UjZLUmdjYTBLem8zU0lJWTRha1BaT0xZVllBek1jMnoycFRVTEdFaTBFRUIKWWRjZzJJQW1FQkNNUTVFMHZDQmVjTmhsdDkrSEpqV0FFNEJhT1dHN0l6WHdWZUtzWjU4NXAvK2hRSE84YzdBSgppc0srWGp6aUZYNUlvdHFvakxmcWFSeE5ONVdqZ0VHK1Qvek9jM2cra1o2QzV0bTdlVUF5ZGR5cHJMR25GMVBVCkN6WkxSbXV3aTdOMHdzRUhNV3hJWXJpVG42aktNTkxyZ1BJZUpmVlZxZTBXM0gwTXhpM0JncWYzYXZiQ2xzcFgKNy9tN0tkbnB1QVdORU5RU2g3NVB0NWNhNmJESjJkRmk4eEZ6YVFJREFRQUJBb0lCQVFDWk0wVEJiMlh3OGc1dwpyVm9iVnlYeVR4MkJReis5cGN6bEtxTHppTVUxYXNweUk0S0MvVGtHRXF5YlpoOFcvcGJLRVN5RDMrSkt3SVV5CndXTUgyU2VtRTBtTDE3NjlCeHJtY2xwall6MlVCbUdrWW5jUUl2UHpydFZqVDVpSml6QkRXaVNwbmJWVWZNT3MKaVpJV2tVeW9MOVRSakVaWG9XcjU2UW5WTWN1dlhSaDI1RTlIU3FVbUJJUXFHSWdVKzludjR3SGRjc3JwOHZ0bgp6d1RRN05mcGJid3VIclBTV3V4R2hHT0tvUmlDZjBML1BPNjlrcFJBK3M4VzB6cTY5N3AwNXlPNmtWQmRqLzh3CndQcTIrQ0M4cjM2YnBucGZrb0pRVDUwMUF6THkwaHhacktWZU5zNnBNUHRsUUZaekJYSDR6YTdwRm5sMUk4VE4KNmwyMmNuZDFBb0dCQU5TM1djMThBOXlXL3JJWWR3eE1IRkovYXJ6aXBhRS9HcGJnMTlwUVl6ZUtOZ2VidjB5SwozeVA2VDZjSFBLNnZDRXpiUy9LZGR3Z2dPamtyeUhENXVwNTQyRHJzL1dYUGJZYXhpZWFDb1R4NXVLYkZTOUNJCnhEbitYeG5GMmRxSU1HSXhabHJWOFN6U0htM2x6NWVyN21oelhIdDJZT2tVRjErVzBtTnNDbkNIQW9HQkFQV2gKWXZVZEYrdUM4bzA2OTc5b3UrcXNsSktjUlNObC9TTUprcWZMTXBFZ3pDaXhITGY0T1pFMUIzRWhqT3cxWEc0QQplZ1pxZ2pIQktaK2Z6NXpsWm1lbjlzNHlUREJGTkhmeHdGbU5xU1hoNjVQU044SXBOZzdiTi9DUWF3ekNNVUZZClRzbVNqcFhqZE1vaWdvQWRkbVNFUFJIUnRDamdCdUwxcEo5U2ZLaVBBb0dCQUlCTkN1eG05Y2xTaGRNVDhKSkoKUWZmOGhIdmpWTFdhWTBaSDNjbi9IS2orUXpKNW5YdmtjMHkzQ040Yy9sdjZsTTRPbzVOMXFMc00vVEZJbUVDVQpVQnlQbFJTTnB4V0dkSEIrbTBlZTJQT3FFMWI3djR2TFFsZ2NkbTRNS1NlblowK0NybEx4b2VNLzVUeXlGWEZOCk1hSnNtb2FaVTBDaWJxcW9STVBWQWNMM0FvR0JBT1BmWDgyanV2QXJJRmZ6VDZuTVFTRTZEKzlmZUNpWjBsZ3gKNWxNeUNHeG83OTRFU1c5R29pbGE5OWQxVjZZKzdzdkNOM0pDVnh4UFpnMEhGblVvd0hNRGVNemNEcUJ0WTNxdQoxVkovUUYrN2tuQWxnc0xtdHBiYnVxNjdYQVNQRjJEV3l1am54TTI3SVRydy92NVoxdDd6YXpCZnluSnRPeFpNCjZ2Yy9jQlJ6QW9HQkFNWGt0RElWVVdQelVFa2VYVXIyYncwem1vVWhjd3Z6RDE1NitEOWJ3cjlPdHBUV1N5TG0KdmZvbVpVMVVhcFhUTnhUN2J6YzRRSFUyZVdRaWtCaWp4Rkl4d0lLNlQ5elZveG16QXluMmdqdUFMaUR2dXE2aQp0WW44WDdCVjBxaHJNVU9SMWpEOWN2UFM2NXhDeU9zUHJOWVJzK280ZFBFaVQzOTY1cHlzdjZ0RAotLS0tLUVORCBSU0EgUFJJVkFURSBLRVktLS0tLQo=
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-admission-webhook
+spec:
+  ports:
+    - name: admission-webhook
+      port: 443
+      targetPort: proxy-webhook
+      protocol: TCP
+  selector:
+    app: kube-api-proxy
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: "test-admission-webhook"
+webhooks:
+  - name: "vm.test-controller.validate"
+    rules:
+      - apiGroups: ["x.virtualization.deckhouse.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE", "DELETE"]
+        resources: ["virtualmachines"]
+        scope: "Namespaced"
+    clientConfig:
+      service:
+        namespace: kproxy
+        name: test-admission-webhook
+        path: /validate-x-virtualization-deckhouse-io-v1-virtualmachine
+        #path: /validate-kubevirt-io-v1-virtualmachine
+        port: 443
+      caBundle: |
+        LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURPRENDQWlDZ0F3SUJBZ0lVZmFCQytkMW52WXRXcHVEVGUzTFIwTFVmUUxRd0RRWUpLb1pJaHZjTkFRRUwKQlFBd05ERXlNREFHQTFVRUF4TXBZWEJwSUhCeWIzaDVhVzVuSUhSbGMzUnpJR1p2Y2lCMllXeHBaR0YwYVc1bgpJSGRsWW1odmIyc3dIaGNOTWpRd016QTJNVEV4TkRBd1doY05Namt3TXpBMU1URXhOREF3V2pBME1USXdNQVlEClZRUURFeWxoY0drZ2NISnZlSGxwYm1jZ2RHVnpkSE1nWm05eUlIWmhiR2xrWVhScGJtY2dkMlZpYUc5dmF6Q0MKQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFPUUpxNnRUYTFIZnFkTzJoaFNZSFJDYgo1ZzhYdkVJazZzY2R1cE1Na1ViREk0ekR3aytyc2dJd21lZ3VrVzA4bDdObllkUXluSy94STFvNmVxQ1EzOEU0ClZNTVFTUFJRZ3hwckdyNTBSSTJHcERodFlxNWFuTG1zSDFhd25hWm5nYkpwQU1OL245eHFoVjBNNFlWeWJyOVIKblZwUkpkVmVxQzdnQzlXbVVQRDBsLzFKRHZXaFIyTmVpWDFoWFBhcCtwUDQwbzBwSTBIOUI1dXBLMUFGcGhjZgo3SG5QV0t4L08wNWZQRVg1RStsdytZTFgvWmtya0M0aFNBRG5XUWZpbnd3eTE3dkdOWUlZOFY1ZW42amVFNUdTCmpFWWhHU2NBNFJHZUw1UGdCUEFKQzBHSXk0MmV3azk1S0MyUHp3cXd5RXdmQmJQb2FkamJNZkNEWVJHR3NOTUMKQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnRUdNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwTwpCQllFRktEaDArVFY0UmEyNlM4U3l4T2YvV2V0RGYzWU1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQTJTV3FMClp1eEtyVTcxK2grY2NCWkZjUWpXU1RIbFBIelcvVHlEdXdnbitaYXYraisrQzllWGwzQjhPQ0UwZHppcm9lRUsKdEl3Qmo1OHk0d0xIY1RZR3lZaTlzU2FRU3QzaW5rdXQ4Vmx4NTVTV29WQlNWTzdrZDBZNzlQYnNGYVVyNnNJdApkQ3M2ODBGRWwzODNmWWpxMllGaDFRQ2tON1BxL0pBZ2tENjQrRFVTYjlsUUhsUWdZdHRvS0pNb1ZqeEx5dENBCmZaeUdXaDNoR3pqSFJwOHorQUJvaURYYU1IYW1vRFNWVnpmbndYWkowSU80QllKRzhHZlQ3MWExbkdMcEJaNFUKOVdKUzlvaktUS0g3SlVNSk1uQXhzMTNvY2pIc1U5RVlLejVkNHUybmhkMkcyYWZ1SFo2TTA0azVKWXdUNnFlego0eHRub1llRnRzVTIvL1BLCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    admissionReviewVersions: ["v1"]
+    sideEffects: None

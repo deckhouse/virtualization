@@ -2,13 +2,13 @@
 image: {{ $.ImageName }}
 fromImage: base-scratch
 import:
-- artifact: virt-artifact
+- image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest
   excludePaths:
   - 'sys'
   to: /
   before: setup
-- artifact: virt-artifact
+- image: virt-artifact
   add: /
   to: /
   includePaths:
