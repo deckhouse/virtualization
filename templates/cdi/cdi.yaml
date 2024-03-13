@@ -2,9 +2,12 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
+{{- $kubeAPIProxyRewriter := true }}
+{{- $webhookProxyPort :=  24192 }}
 ---
-apiVersion: x.virtualization.deckhouse.io/v1beta1
-kind: CDI
+apiVersion: internal.virtualization.deckhouse.io/v1beta1
+kind: DVPInternalCDI
 metadata:
   name: cdi
   namespace: d8-{{ .Chart.Name }}
@@ -36,16 +39,6 @@ spec:
         resourceName: cdi-uploadproxy
         patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
         type: json
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
-    {{- end }}
 
     {{- if (include "helm_lib_ha_enabled" .) }}
       - resourceType: Deployment
@@ -54,8 +47,8 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"cdi.kubevirt.io","operator":"In","values":["cdi-apiserver"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-        type: json
+        patch: {{ include "strategic_affinity_patch" (list "app" "cdi-apiserver") }}
+        type: strategic
 
       - resourceType: Deployment
         resourceName: cdi-deployment
@@ -63,9 +56,89 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["containerized-data-importer"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-        type: json
+        patch: {{ include "strategic_affinity_patch" (list "app" "containerized-data-importer") }}
+        type: strategic
     {{- end }}
+
+    {{- if $kubeAPIProxyRewriter }}
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: {{ include "cdi.apiserver_kubeproxy_patch" . }}
+        type: strategic
+
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: {{ include "nowebhook_kubeproxy_patch" (list . "cdi-controller") }}
+        type: strategic
+
+      # Change service in webhook configurations to point to the rewriter proxy.
+      # Add port to cdi-api service.
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
+          [{"op":"replace", "path":"/spec/ports/0/name", "value":"https"}]
+        type: json
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
+          {"spec":{"ports":[
+            {"name": "webhook-proxy",
+             "port": {{ $webhookProxyPort }},
+             "protocol": "TCP",
+             "targetPort": "webhook-proxy"}
+          ]}}
+        type: strategic
+      - resourceName: cdi-api-datavolume-mutate
+        resourceType: MutatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"datavolume-mutate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-dataimportcron-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"dataimportcron-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-datavolume-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"datavolume-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-populator-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"populator-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"cdi-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+      - resourceName: objecttransfer-api-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhooks":[
+            { "name":"objecttransfer-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
+          ]}
+        type: strategic
+
+    {{- end }}
+
   workload:
     nodeSelector:
       kubernetes.io/os: linux
