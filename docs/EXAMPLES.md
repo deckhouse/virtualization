@@ -336,12 +336,12 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachine: linux-vm # имя виртуальной машины, к которой будет подключен диск
+  virtualMachine: linux-vm # Name of the virtual machine to attach disk to.
   blockDevice:
     type: ObjectRef
     objectRef:
       kind: VirtualDisk
-      name: vmd-blank # имя подключаемого диска
+      name: vmd-blank # Name of the disk that should be attached.
 ```
 
 If you change the machine name in this resource to another machine name, the disk will be reconnected from one virtual machine to another.

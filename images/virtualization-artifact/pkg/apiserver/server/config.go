@@ -73,7 +73,7 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), virtv2.Resource(virtv2.VMResource).String(), metav1.GetOptions{})
+	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), virtv2.Resource(virtv2.VirtualMachineResource).String(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

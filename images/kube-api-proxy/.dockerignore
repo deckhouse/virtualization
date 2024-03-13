@@ -1,0 +1,9 @@
+.git
+*.log
+*.swp
+
+templates
+Chart.yaml
+
+golangci-lint
+proxy

@@ -186,7 +186,7 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachine) {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
-	if vm.Status.NodeName == "" {
+	if vm.Status.Node == "" {
 		// VMI has no node assigned
 		return
 	}
@@ -222,7 +222,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 
 	// Retrieve a Cilium Node by VMs node name.
 	ciliumNode := &ciliumv2.CiliumNode{}
-	err = m.client.Get(ctx, types.NamespacedName{Namespace: "", Name: vm.Status.NodeName}, ciliumNode)
+	err = m.client.Get(ctx, types.NamespacedName{Namespace: "", Name: vm.Status.Node}, ciliumNode)
 	if err != nil {
 		m.log.Error(err, "failed to get cilium node for vmi")
 	}
