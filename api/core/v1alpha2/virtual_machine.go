@@ -96,6 +96,7 @@ const (
 )
 
 type CPUSpec struct {
+	Model        string `json:"model"`
 	Cores        int    `json:"cores"`
 	CoreFraction string `json:"coreFraction"`
 }

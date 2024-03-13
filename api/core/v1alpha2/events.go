@@ -19,6 +19,9 @@ const (
 	// ReasonClaimNotAssigned is event reason that claimed IP is not assigned in the guest VM.
 	ReasonClaimNotAssigned = "ClaimNotAssigned"
 
+	// ReasonCPUModelNotFound is event reason that defined cpu model not found.
+	ReasonCPUModelNotFound = "CPUModelNotFound"
+
 	// ReasonImportSucceeded is event reason that the import is successfully completed
 	ReasonImportSucceeded = "ImportSucceeded"
 
