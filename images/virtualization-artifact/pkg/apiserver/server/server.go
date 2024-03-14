@@ -11,21 +11,21 @@ func NewServer(
 	virtualMachines cache.Controller,
 	apiserver *genericapiserver.GenericAPIServer,
 	proxyCertManager certmanager.CertificateManager,
-) *server {
-	return &server{
+) *Server {
+	return &Server{
 		virtualMachines:  virtualMachines,
 		GenericAPIServer: apiserver,
 		proxyCertManager: proxyCertManager,
 	}
 }
 
-type server struct {
+type Server struct {
 	*genericapiserver.GenericAPIServer
 	proxyCertManager certmanager.CertificateManager
 	virtualMachines  cache.Controller
 }
 
-func (s *server) RunUntil(stopCh <-chan struct{}) error {
+func (s *Server) RunUntil(stopCh <-chan struct{}) error {
 	go s.proxyCertManager.Start()
 	// Start informers
 	go s.virtualMachines.Run(stopCh)

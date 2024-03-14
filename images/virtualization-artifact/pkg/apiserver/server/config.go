@@ -52,7 +52,7 @@ func (c Config) Validate() error {
 	return err
 }
 
-func (c Config) Complete() (*server, error) {
+func (c Config) Complete() (*Server, error) {
 	proxyCertManager := filesystem.NewFileCertificateManager(c.ProxyClientCertFile, c.ProxyClientKeyFile)
 	informer, err := virtualizationInformerFactory(c.Rest)
 	if err != nil {
