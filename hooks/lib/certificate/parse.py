@@ -31,7 +31,7 @@ def get_certificate_san(crt: crypto.X509) -> list[str]:
     ext_count = crt.get_extension_count()
     for i in range(0, ext_count):
         ext = crt.get_extension(i)
-        if "subjectAltName"in str(ext.get_short_name()):
+        if "subjectAltName" in str(ext.get_short_name()):
             san = ext.__str__()
             break
     if len(san) > 0:
