@@ -1,7 +1,18 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddressClaim
+---
+apiVersion: v1
+kind: Service
 metadata:
-  name: test-connectivity-ipam-vm2
+  name: test-connectivity-svc2
   namespace: test-d8-virtualization
+  labels:
+    vm: linux
 spec:
-  reclaimPolicy: Delete
+  type: NodePort
+  selector:
+    service: v2
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 31082
+      protocol: TCP

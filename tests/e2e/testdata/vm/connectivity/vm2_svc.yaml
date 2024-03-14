@@ -2,7 +2,11 @@
 apiVersion: v1
 kind: Service
 metadata:
+<<<<<<< HEAD
   name: test-connectivity-svc2
+=======
+  name: vm2-service
+>>>>>>> 376f6af (chore: add test vm connectivity)
   namespace: test-d8-virtualization
   labels:
     vm: linux
@@ -15,4 +19,8 @@ spec:
       port: 80
       targetPort: 80
       nodePort: 31082
+<<<<<<< HEAD
       protocol: TCP
+=======
+      protocol: TCP
+>>>>>>> 376f6af (chore: add test vm connectivity)

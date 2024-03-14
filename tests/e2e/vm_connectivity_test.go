@@ -77,6 +77,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		By("Apply image for vms")
 		ApplyFromFile(imageManifest)
 		WaitFromFile(imageManifest, PhaseReady, LongWaitDuration)
+		ChmodFile(vmPath("sshkeys/id_ed"), 0600)
 	})
 
 	AfterAll(func() {
