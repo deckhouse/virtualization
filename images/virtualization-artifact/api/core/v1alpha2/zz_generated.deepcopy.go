@@ -828,6 +828,16 @@ func (in *VirtualMachineAndPodAffinityTerm) DeepCopyInto(out *VirtualMachineAndP
 		*out = new(metav1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MatchLabelKeys != nil {
+		in, out := &in.MatchLabelKeys, &out.MatchLabelKeys
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.MismatchLabelKeys != nil {
+		in, out := &in.MismatchLabelKeys, &out.MismatchLabelKeys
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

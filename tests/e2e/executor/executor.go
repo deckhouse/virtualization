@@ -20,7 +20,7 @@ type Executor interface {
 }
 
 func (e CMDExecutor) Exec(command string) *CMDResult {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(DefaultTimeout))
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 	return e.ExecContext(ctx, command)
 }

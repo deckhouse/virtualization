@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 

@@ -306,7 +306,7 @@ class GenerateCertificatesHook(Hook):
                 snaps[s["filterResult"]["name"]] = TLSSecretData(
                     s["filterResult"]["data"])
             ca_data = TLSSecretData()
-            if self.__with_common_ca:
+            if self.__with_common_ca():
                 tls_value_data = self.__sync_ca(self.ca_request,
                                                 snaps.get(self.ca_request.ca_secret_name, TLSSecretData()))
                 ca_data = convert_to_TLSSecretData(tls_value_data)
@@ -456,3 +456,9 @@ def default_sans(sans: list[str]) -> Callable[[hook.Context], list[str]]:
             res.append(san)
         return res
     return generate_sans
+
+
+def empty_sans() -> Callable[[hook.Context], list[str]]:
+    def generator(ctx: hook.Context) -> list:
+        return []
+    return generator

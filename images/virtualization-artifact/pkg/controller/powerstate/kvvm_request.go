@@ -3,9 +3,10 @@ package powerstate
 import (
 	"fmt"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kvv1 "kubevirt.io/api/core/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
 // BuildPatch creates a patch to request VM state changing via updating KVVM status.

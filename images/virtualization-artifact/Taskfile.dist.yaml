@@ -61,7 +61,6 @@ env:
     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
-
 tasks:
   dev:converge:
     desc: "Rebuild and deploy all components into detected cluster"
@@ -443,6 +442,25 @@ tasks:
         docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
         docker rmi -f $(docker image ls | grep {{ .DevRegistry }}/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
 
+  build:go:apiserver:
+    env:
+      PKG: "k8s.io/client-go/pkg"
+      BINARY_NAME: "virtualization-api"
+      CGO_ENABLED: "0"
+      GOOS: "linux"
+      GOARCH: "amd64"
+      GIT_COMMIT:
+        sh: git rev-parse "HEAD^{commit}" 2>/dev/null
+      GIT_TAG:
+        sh: git describe --abbrev=0 --tags 2>/dev/null
+      BUILD_DATE:
+        sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
+    cmds:
+      - |
+        go build -mod=readonly -trimpath \
+        -ldflags "-w -X $PKG/version.gitVersion=$GIT_TAG -X $PKG/version.gitCommit=$GIT_COMMIT -X $PKG/version.buildDate=$BUILD_DATE" \
+        -o "$PWD/bin/$BINARY_NAME" $PWD/cmd/virtualization-api
+
   dev:run:
     desc: "Install virtualization-controller into the cluster using helm"
     deps:
@@ -556,26 +574,27 @@ tasks:
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
-
-  gen:api:
-    desc: "Regenerate deepcopy code for CRDs."
+  generate:
+    desc: "Regenerate all"
     deps:
       - _ensure:k8s-codegen-mod
-    cmds:
-      - |
-        # Use only deepcopy generator. Use . for output-base to update files in api/v1alpha2 directory.
-        $K8S_CODEGEN/generate-groups.sh \
-          deepcopy \
-          github.com/deckhouse/virtualization-controller \
-          . \
-          "api:v1alpha2" \
-          --go-header-file "./scripts/boilerplate.go.txt" \
-          --output-base .
-
+      - _ensure:k8s-kube-openapi
+    cmd:  ./hack/update-codegen.sh all
+  generate:core:
+    desc: "Regenerate code for core components."
+    deps:
+      - _ensure:k8s-codegen-mod
+    cmd: ./hack/update-codegen.sh core
+  generate:subresources:
+    desc: "Regenerate code for subresources components"
+    deps:
+      - _ensure:k8s-codegen-mod
+      - _ensure:k8s-kube-openapi
+    cmd: ./hack/update-codegen.sh subresources
   ci:generate:
     desc: "Run generations and check git diff to ensure all files are committed"
     cmds:
-      - task: gen:api
+      - task: generate
       - task: _ci:verify-gen
 
   _ci:verify-gen:
@@ -622,16 +641,46 @@ tasks:
       - |
         golangci-lint run --sort-results
 
-  mirrord:run:
+  mirrord:run:controller:
     desc: "Run local virtualization-controller in cluster using a mirrord"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh run
-  mirrord:wipe:
+    cmd: |
+        ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
+        --deployment=virtualization-controller                                 \
+        --namespace=d8-virtualization
+  mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
     deps:
       - _ensure:mirrord
-    cmd: ./hack/mirrord.sh wipe
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-controller --namespace=d8-virtualization
+  mirrord:run:apiserver:
+    desc: "Run local virtualization-api in cluster using a mirrord"
+    deps:
+      - _ensure:mirrord
+    cmd: |
+        flags=()
+        flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
+        flags+=( "--kubevirt-endpoint=virt-api.d8-virtualization.svc" )
+        flags+=( "--secure-port=8443" )
+        flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
+        flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
+        flags+=( "--v=7" )
+        flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
+        flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
+        flags+=( "--service-account-name=virtualization-api" )
+        flags+=( "--service-account-namespace=d8-virtualization" )
+
+        ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+        --deployment="virtualization-api"                                 \
+        --namespace="d8-virtualization"                                   \
+        --flags="\"${flags[@]}\""
+
+  mirrord:wipe:apiserver:
+    desc: "wipe up Mirrord's trash"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-api --namespace=d8-virtualization
 
   _copy_d8_registry_secret:
     internal: true
@@ -657,6 +706,14 @@ tasks:
       - |
         ls $K8S_CODEGEN && find $K8S_CODEGEN -name \*.sh -exec chmod +x {} \;
 
+  _ensure:k8s-kube-openapi:
+    desc: "Ensure k8s.io/kube-openapi"
+    internal: true
+    cmds:
+      - go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
+    status:
+      - |
+        ls $GOPATH/bin/openapi-gen
   _ensure:helm:
     desc: "Ensure helm is installed"
     internal: true

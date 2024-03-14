@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 const BlockDevicesPath = "blockDevices"
