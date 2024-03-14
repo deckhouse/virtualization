@@ -1,0 +1,8 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineIPAddressClaim
+metadata:
+  name: e2e-srv-vm1
+  namespace: test-d8-virtualization
+spec:
+  address: 10.66.20.1
+  reclaimPolicy: Delete

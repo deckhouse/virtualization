@@ -4,6 +4,7 @@ metadata:
   name: test-vm-provisioning
   namespace: test-d8-virtualization
 spec:
+  runPolicy: AlwaysOn
   disruptions:
     restartApprovalMode: Automatic
   osType: Generic

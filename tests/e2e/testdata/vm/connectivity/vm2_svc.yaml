@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vm2-service
+  namespace: test-d8-virtualization
+  labels:
+    vm: linux
+spec:
+  type: NodePort
+  selector:
+    service: v2
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 31082
+      protocol: TCP
