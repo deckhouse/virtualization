@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	vmiutil "github.com/deckhouse/virtualization-controller/pkg/common/vmi"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"

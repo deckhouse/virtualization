@@ -1,6 +1,6 @@
 package datasource
 
-import virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+import virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 
 type CABundle struct {
 	Type           virtv2.DataSourceType

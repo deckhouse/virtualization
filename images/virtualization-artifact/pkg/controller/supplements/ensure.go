@@ -11,7 +11,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	ingutil "github.com/deckhouse/virtualization-controller/pkg/common/ingress"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"

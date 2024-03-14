@@ -32,3 +32,5 @@ Rename group name for all kubevirt CRDs to override them with deckhouse virtuali
 
 Also, remove short names and change categories. Just in case.
 
+#### `011-virt-api-authentication.patch`
+Added the ability for virt-api to authenticate clients with certificates signed by our rootCA located in the config-map virtualization-ca.

@@ -7,7 +7,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 

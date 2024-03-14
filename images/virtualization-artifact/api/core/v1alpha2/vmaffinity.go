@@ -34,6 +34,8 @@ type VirtualMachineAndPodAffinityTerm struct {
 	Namespaces        []string              `json:"namespaces,omitempty"`
 	TopologyKey       string                `json:"topologyKey"`
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
+	MatchLabelKeys    []string              `json:"matchLabelKeys,omitempty"`
+	MismatchLabelKeys []string              `json:"mismatchLabelKeys,omitempty"`
 }
 
 func NewAffinityFromVMAffinity(vmAffinity *VMAffinity) *corev1.Affinity {

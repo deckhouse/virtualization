@@ -378,6 +378,18 @@ spec:
                                   topologyKey:
                                     type: string
                                     description: ""
+                                  matchLabelKeys:
+                                    items:
+                                      type: string
+                                      description: ""
+                                    type: array
+                                    description: ""
+                                  mismatchLabelKeys:
+                                    items:
+                                      type: string
+                                      description: ""
+                                    type: array
+                                    description: ""
                                 required:
                                 - topologyKey
                                 type: object
@@ -470,6 +482,18 @@ spec:
                                 description: ""
                               topologyKey:
                                 type: string
+                                description: ""
+                              matchLabelKeys:
+                                items:
+                                  type: string
+                                  description: ""
+                                type: array
+                                description: ""
+                              mismatchLabelKeys:
+                                items:
+                                  type: string
+                                  description: ""
+                                type: array
                                 description: ""
                             required:
                             - topologyKey
@@ -559,6 +583,18 @@ spec:
                                   topologyKey:
                                     type: string
                                     description: ""
+                                  matchLabelKeys:
+                                    items:
+                                      type: string
+                                      description: ""
+                                    type: array
+                                    description: ""
+                                  mismatchLabelKeys:
+                                    items:
+                                      type: string
+                                      description: ""
+                                    type: array
+                                    description: ""
                                 required:
                                 - topologyKey
                                 type: object
@@ -651,6 +687,18 @@ spec:
                                 description: ""
                               topologyKey:
                                 type: string
+                                description: ""
+                              matchLabelKeys:
+                                items:
+                                  type: string
+                                  description: ""
+                                type: array
+                                description: ""
+                              mismatchLabelKeys:
+                                items:
+                                  type: string
+                                  description: ""
+                                type: array
                                 description: ""
                             required:
                             - topologyKey

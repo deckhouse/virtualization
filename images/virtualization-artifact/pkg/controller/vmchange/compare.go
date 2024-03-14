@@ -1,7 +1,7 @@
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange

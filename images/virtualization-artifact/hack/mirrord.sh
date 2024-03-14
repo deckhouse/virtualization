@@ -1,32 +1,79 @@
 #!/bin/bash
 set -eo pipefail
 
-function usage { echo "Usage: $0 [run/wipe]" ; exit 1; }
+function usage {
+    cat <<EOF
+Usage: $0 COMMAND OPTIONS
+
+Commands:
+  run    Run locally executed application in a cluster environment.
+         Arguments:
+         --app           Path to main.go
+         --namespace     Namespace of deployment
+         --deployment    Deployment where application should be injected
+         --flags         Arguments for application.
+         
+  wipe   Stop and cleanup.
+         Arguments:
+         --namespace     Namespace of deployment
+         --deployment    Deployment where application was injected
+  "Examples:"
+    # Run"
+      $(basename "$0") run --app="/path/to/main.go" --deployment="your deployment" --namespace="your namespace" --flags="--app-flag1=flag1, app-flag2=flag2"
+    # Wipe"
+      $(basename "$0") wipe --deployment="your deployment" --namespace="your namespace"
+EOF
+  exit 1
+}
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 BIN_DIR="${SCRIPT_DIR}/../bin"
-APP="${SCRIPT_DIR}/../cmd/virtualization-controller/main.go"
 CONFIG_MIRRORD="${SCRIPT_DIR}/mirrord-config.json"
-BINARY="virtualization-controller"
-NAMESPACE="d8-virtualization"
-DEPLOYMENT="virtualization-controller"
+
+COMMAND=$1
+shift
+# Set naming variable
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --app=*)
+        APP="${1#*=}"
+        shift
+        ;;
+    --deployment=*)
+        DEPLOYMENT="${1#*=}"
+        BINARY="${1#*=}"
+        shift
+        ;;
+    --namespace=*)
+        NAMESPACE="${1#*=}"
+        shift
+        ;;
+    --flags=*)
+        FLAGS="${1#*=}"
+        shift
+        ;;
+    *)
+        echo "Invalid argument: $1"
+        usage
+        exit 1
+        ;;
+    esac
+done
+
 NEW_NAME="mirrord-copy-${DEPLOYMENT}"
 export NEW_NAME
 
-if [[ -z $1 ]]; then
-  usage
-elif [[ $1 == "wipe" ]]; then
-  echo "Stopping mirror..."
-  echo "Delete deployment ${NAMESPACE}/${NEW_NAME}"
-  kubectl -n "${NAMESPACE}" delete deployment/"${NEW_NAME}"
-  kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 1
-  exit 0
-elif [[ $1 == "run" ]]; then
-  echo "Starting mirror..."
+if [[ $COMMAND == "run" ]] &&  [[ -n $DEPLOYMENT ]] && [[ -n $BINARY ]] && [[ -n $NAMESPACE ]] && [[ -n $APP ]]; then
+ echo "Starting mirror..."
+elif [[ $COMMAND == "wipe" ]] && [[ -n $DEPLOYMENT ]] && [[ -n $BINARY ]] && [[ -n $NAMESPACE ]]; then
+    echo "Stopping mirror..."
+    echo "Delete deployment ${NAMESPACE}/${NEW_NAME}"
+    kubectl -n "${NAMESPACE}" delete --cascade="foreground" --grace-period 0 deployment "${NEW_NAME}"
+    kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 1
+    exit 0
 else
   usage
 fi
-
 
 if [ ! -d "${BIN_DIR}" ]; then
   mkdir "${BIN_DIR}"
@@ -47,4 +94,9 @@ fi
 
 kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
 kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 0
-mirrord exec --config-file "${CONFIG_MIRRORD}"  --target "deployment/${NEW_NAME}" --target-namespace "${NAMESPACE}" "${BIN_DIR}/${BINARY}"
+kubectl -n "${NAMESPACE}" wait --for=jsonpath='{.spec.replicas}'=0 deployment "${DEPLOYMENT}"
+
+mirrord exec --config-file "${CONFIG_MIRRORD}"  \
+  --target "deployment/${NEW_NAME}"             \
+  --target-namespace "${NAMESPACE}"             \
+  "${BIN_DIR}/${BINARY}" -- $(echo $FLAGS | sed 's!"!!g')

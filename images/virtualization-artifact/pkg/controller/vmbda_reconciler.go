@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kubevirt"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
