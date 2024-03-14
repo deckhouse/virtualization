@@ -3,7 +3,20 @@ set -eo pipefail
 
 function usage {
     cat <<EOF
-  "Usage: $0 [run/wipe] --app=<?> --namespace=<?> --deployment=<?>"
+Usage: $0 COMMAND OPTIONS
+
+Commands:
+  run    Run locally executed application in a cluster environment.
+         Arguments:
+         --app           Path to main.go
+         --namespace     Namespace of deployment
+         --deployment    Deployment where application should be injected
+         --flags         Arguments for application.
+         
+  wipe   Stop and cleanup.
+         Arguments:
+         --namespace     Namespace of deployment
+         --deployment    Deployment where application was injected
   "Examples:"
     # Run"
       $(basename "$0") run --app="/path/to/main.go" --deployment="your deployment" --namespace="your namespace" --flags="--app-flag1=flag1, app-flag2=flag2"
