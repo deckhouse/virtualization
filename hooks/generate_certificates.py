@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-from lib.hooks.internal_tls import GenerateCertificatesHook, CertitifacteRequest, CACertitifacteRequest, default_sans
+from lib.hooks.internal_tls import *
 from lib.module import values as module_values
 from deckhouse.hook import Context
 from typing import Callable
@@ -25,7 +25,7 @@ import common
 def main():
     hook = GenerateCertificatesHook(
         CertitifacteRequest(
-            cn=f"virtualization-controller",
+            cn="virtualization-controller",
             sansGenerator=default_sans([
                 "virtualization-controller-admission-webhook",
                 f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
@@ -46,11 +46,30 @@ def main():
             before_gen_check=dvcr_before_check
         ),
 
+        CertitifacteRequest(
+            cn="virtualization-api",
+            sansGenerator=default_sans([
+                "virtualization-api",
+                f"virtualization-api.{common.NAMESPACE}",
+                f"virtualization-api.{common.NAMESPACE}.svc"],
+            ),
+            tls_secret_name="virtualization-api-tls",
+            values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.cert"
+        ),
+
+        CertitifacteRequest(
+            cn="virtualization-api-proxy",
+            sansGenerator=empty_sans(),
+            tls_secret_name="virtualization-api-proxy-tls",
+            values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.proxyCert",
+            extended_key_usages = [EXTENDED_KEY_USAGES[1]]
+        ),
+
         namespace=common.NAMESPACE,
         module_name=common.MODULE_NAME,
 
         ca_request=CACertitifacteRequest(
-            cn=f"virtualization.deckhouse.io",
+            cn="virtualization.deckhouse.io",
             ca_secret_name="virtualization-ca",
             values_path_prefix=f"{common.MODULE_NAME}.internal.rootCA",
         ))

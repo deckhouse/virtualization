@@ -163,4 +163,10 @@ const (
 	VirtualMachineCIDRs = "VIRTUAL_MACHINE_CIDRS"
 
 	DockerRegistrySchemePrefix = "docker://"
+
+	KubevirtAPIServerEndpointVar     = "KUBEVIRT_APISERVER_ENDPOINT"
+	KubevirtAPIServerCABundlePathVar = "KUBEVIRT_APISERVER_CABUNDLE"
+
+	VirtualizationApiAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
+	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
 )

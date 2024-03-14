@@ -170,7 +170,8 @@ class CertificateGenerator(Certificate):
                 if not is_valid_hostname(h):
                     continue
                 alt_names.append(f"DNS:{h}")
-        self.add_extension("subjectAltName", False, ", ".join(alt_names))
+        if len(alt_names) > 0:
+            self.add_extension("subjectAltName", False, ", ".join(alt_names))
         return self
 
     def __sign(self, ca_subj: crypto.X509Name, ca_key: crypto.PKey) -> None:

@@ -42,6 +42,27 @@ properties:
             type: string
           key:
             type: string
+      apiserver:
+        type: object
+        properties:
+          cert:
+            type: object
+            properties:
+              ca:
+                type: string
+              crt:
+                type: string
+              key:
+                type: string
+          proxyCert:
+            type: object
+            properties:
+              ca:
+                type: string
+              crt:
+                type: string
+              key:
+                type: string
       rootCA:
         type: object
         properties:

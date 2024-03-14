@@ -4,14 +4,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/v1alpha2"
+	virtvcore "github.com/deckhouse/virtualization-controller/api/core"
+	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 )
 
 // MakeOwnerReference makes owner reference from a ClusterVirtualMachineImage.
 func MakeOwnerReference(vmd *virtv2alpha1.VirtualMachineDisk) metav1.OwnerReference {
 	return *metav1.NewControllerRef(vmd, schema.GroupVersionKind{
-		Group:   virtv2alpha1.APIGroup,
-		Version: virtv2alpha1.APIVersion,
+		Group:   virtvcore.GroupName,
+		Version: virtv2alpha1.Version,
 		Kind:    virtv2alpha1.VMDKind,
 	})
 }
