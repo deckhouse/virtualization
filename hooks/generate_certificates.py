@@ -58,7 +58,7 @@ def main():
         ),
 
         CertitifacteRequest(
-            cn=f"virtualization-api-proxy",
+            cn="virtualization-api-proxy",
             sansGenerator=empty_sans(),
             tls_secret_name="virtualization-api-proxy-tls",
             values_path_prefix=f"{common.MODULE_NAME}.internal.apiserver.proxyCert",
