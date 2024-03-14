@@ -16,10 +16,13 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
+
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/rewriter"
 )
 
+// StreamHandler reads a stream from the target, transforms events
+// and sends them to the client.
 type StreamHandler struct {
 	r         io.ReadCloser
 	w         io.Writer
@@ -105,11 +108,12 @@ func (wsr *StreamHandler) proxy() {
 			kind := gjson.GetBytes(got.Object.Raw, "kind").String()
 			name := gjson.GetBytes(got.Object.Raw, "metadata.name").String()
 			ns := gjson.GetBytes(got.Object.Raw, "metadata.namespace").String()
-			log.Info(fmt.Sprintf("Proxy '%s' event with %s/%s %s/%s object", got.Type, group, kind, ns, name))
+			log.Info(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", got.Type, group, kind, ns, name))
 		}
 
 		// Rewrite object in the event.
-		rwrBytes, err := wsr.rewriter.RestoreResource(got.Object.Raw, wsr.origGroup)
+		//wsr.rewriter.RewriteFromTarget()
+		rwrBytes, err := rewriter.RestoreResource(got.Object.Raw, wsr.origGroup)
 		if err != nil {
 			log.Error(fmt.Sprintf("rewrite event '%s'", got.Type), logutil.SlogErr(err))
 			continue
