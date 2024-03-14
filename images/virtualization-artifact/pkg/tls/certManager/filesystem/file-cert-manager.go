@@ -17,7 +17,6 @@ import (
 type FileCertificateManager struct {
 	stopCh             chan struct{}
 	certAccessLock     sync.Mutex
-	stopped            bool
 	cert               *tls.Certificate
 	certBytesPath      string
 	keyBytesPath       string
@@ -101,11 +100,11 @@ sync:
 func (f *FileCertificateManager) Stop() {
 	f.certAccessLock.Lock()
 	defer f.certAccessLock.Unlock()
-	if f.stopped {
-		return
+	select {
+	case <-f.stopCh:
+	default:
+		close(f.stopCh)
 	}
-	close(f.stopCh)
-	f.stopped = true
 }
 
 func (f *FileCertificateManager) rotateCerts() error {

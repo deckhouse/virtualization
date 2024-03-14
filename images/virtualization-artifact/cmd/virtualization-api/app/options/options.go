@@ -41,13 +41,8 @@ type Options struct {
 	DisableAuthForTesting bool
 }
 
-func (o *Options) Validate() []error {
-	var errors []error
-	err := logsapi.ValidateAndApply(o.Logging, nil)
-	if err != nil {
-		errors = append(errors, err)
-	}
-	return errors
+func (o *Options) Validate() error {
+	return logsapi.ValidateAndApply(o.Logging, nil)
 }
 
 func (o *Options) Flags() (fs flag.NamedFlagSets) {
