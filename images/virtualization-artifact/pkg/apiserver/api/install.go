@@ -14,7 +14,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 var (
@@ -53,7 +53,7 @@ func Install(
 	vmLister cache.GenericLister,
 	server *genericapiserver.GenericAPIServer,
 	kubevirt rest2.KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) error {
 	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"), vmLister, kubevirt, proxyCertManager)
 	info := Build(vmStorage)

@@ -18,7 +18,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 const (
@@ -36,7 +36,7 @@ func streamLocation(
 	opts runtime.Object,
 	streamPath string,
 	kubevirt KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	ns, _ := request.NamespaceFrom(ctx)
 	vm, err := getVM(getter, types.NamespacedName{Namespace: ns, Name: name})

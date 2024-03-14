@@ -15,7 +15,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 type VirtualMachineStorage struct {
@@ -41,7 +41,7 @@ func NewStorage(
 	groupResource schema.GroupResource,
 	vmLister cache.GenericLister,
 	kubevirt vmrest.KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) *VirtualMachineStorage {
 	return &VirtualMachineStorage{
 		groupResource: groupResource,

@@ -25,7 +25,7 @@ import common
 def main():
     hook = GenerateCertificatesHook(
         CertitifacteRequest(
-            cn=f"virtualization-controller",
+            cn="virtualization-controller",
             sansGenerator=default_sans([
                 "virtualization-controller-admission-webhook",
                 f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
@@ -47,7 +47,7 @@ def main():
         ),
 
         CertitifacteRequest(
-            cn=f"virtualization-api",
+            cn="virtualization-api",
             sansGenerator=default_sans([
                 "virtualization-api",
                 f"virtualization-api.{common.NAMESPACE}",
@@ -69,7 +69,7 @@ def main():
         module_name=common.MODULE_NAME,
 
         ca_request=CACertitifacteRequest(
-            cn=f"virtualization.deckhouse.io",
+            cn="virtualization.deckhouse.io",
             ca_secret_name="virtualization-ca",
             values_path_prefix=f"{common.MODULE_NAME}.internal.rootCA",
         ))

@@ -12,12 +12,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 type ConsoleREST struct {
 	vmLister         cache.GenericLister
-	proxyCertManager certManager.CertificateManager
+	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
@@ -32,7 +32,7 @@ var (
 	_ rest.Connecter = &ConsoleREST{}
 )
 
-func NewConsoleREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certManager.CertificateManager) *ConsoleREST {
+func NewConsoleREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
 	return &ConsoleREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -78,7 +78,7 @@ func ConsoleLocation(
 	name string,
 	opts *subresources.VirtualMachineConsole,
 	kubevirt KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	return streamLocation(ctx, getter, name, opts, "console", kubevirt, proxyCertManager)
 }

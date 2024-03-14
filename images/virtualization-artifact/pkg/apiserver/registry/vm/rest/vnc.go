@@ -11,12 +11,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 type VNCREST struct {
 	vmLister         cache.GenericLister
-	proxyCertManager certManager.CertificateManager
+	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
@@ -25,7 +25,7 @@ var (
 	_ rest.Connecter = &VNCREST{}
 )
 
-func NewVNCREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certManager.CertificateManager) *VNCREST {
+func NewVNCREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *VNCREST {
 	return &VNCREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -71,7 +71,7 @@ func VNCLocation(
 	name string,
 	opts *subresources.VirtualMachineVNC,
 	kubevirt KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	return streamLocation(ctx, getter, name, opts, "vnc", kubevirt, proxyCertManager)
 }

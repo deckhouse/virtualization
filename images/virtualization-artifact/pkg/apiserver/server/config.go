@@ -10,7 +10,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager/filesystem"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")

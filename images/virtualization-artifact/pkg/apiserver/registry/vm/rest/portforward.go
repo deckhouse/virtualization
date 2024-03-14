@@ -13,12 +13,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/pkg/tls/certManager"
+	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 )
 
 type PortForwardREST struct {
 	vmLister         cache.GenericLister
-	proxyCertManager certManager.CertificateManager
+	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
@@ -27,7 +27,7 @@ var (
 	_ rest.Connecter = &PortForwardREST{}
 )
 
-func NewPortForwardREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certManager.CertificateManager) *PortForwardREST {
+func NewPortForwardREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *PortForwardREST {
 	return &PortForwardREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -73,7 +73,7 @@ func PortForwardLocation(
 	name string,
 	opts *subresources.VirtualMachinePortForward,
 	kubevirt KubevirtApiServerConfig,
-	proxyCertManager certManager.CertificateManager,
+	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	streamPath := buildPortForwardResourcePath(opts)
 	return streamLocation(ctx, getter, name, opts, streamPath, kubevirt, proxyCertManager)
