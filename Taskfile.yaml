@@ -63,3 +63,18 @@ tasks:
       - check-werf
     cmds:
       - werf build {{ .target }}
+
+  format:prettier:yaml:
+    desc: "Format yaml files with prettier."
+    cmds:
+      - prettier -w "**/*.yaml" "**/*.yml"
+  
+  lint:prettier:
+    desc: "Check if prettier-formatted."
+    deps:
+      - lint:prettier:yaml
+
+  lint:prettier:yaml:
+    desc: "Check if yaml files are prettier-formatted."
+    cmds:
+      - prettier -c "**/*.yaml" "**/*.yml"

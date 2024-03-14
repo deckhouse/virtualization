@@ -82,10 +82,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Run linter
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.21"
       
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -98,6 +98,9 @@ jobs:
           task virtualization-controller:lint:go
         shell: bash
         continue-on-error: true
+
+      - name: Install prettier
+        run: task -p deps:install:prettier
   
   test:
     runs-on: ubuntu-latest
@@ -127,9 +130,6 @@ jobs:
   dev_setup_build:
     runs-on: ubuntu-latest
     name: Build and Push images
-    needs:
-      - lint
-      - test
     steps:      
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}

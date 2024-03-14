@@ -1,50 +1,34 @@
-name: Build and push for dev (Manually)
+name: Build and push for dev (Self-hosted)
 
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
-  CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
-  #  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  # CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
 on:
-  workflow_dispatch:
-    inputs:
-
-      tag:
-        description: "The module's tag, which must pr654 For example: pr56"
-        type: string
-        required: true
-#  pull_request:
-#    types: [ opened, edited, synchronize ]
+  pull_request:
+    types: [ labeled ]
 #  push:
 #    branches:
 #      - main
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number || github.event.inputs.tag }}
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  tag_validation:
-    runs-on: [self-hosted, test-vm-runner]
-    steps:
-      - name: Validation for tag
-        run: |
-          echo ${{ github.event.inputs.tag }} | grep -P '^pr\d+$'
-        shell: bash
-
   show_dev_manifest:
+    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
     runs-on: [self-hosted, test-vm-runner]
     name: Show
-    needs:
-      - tag_validation
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
-          MODULES_MODULE_TAG="$(echo ${{github.event.inputs.tag}})"
+          MODULES_MODULE_TAG="$(echo ${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
         shell: bash
 
@@ -97,6 +81,7 @@ jobs:
         shell: bash
 
   lint:
+    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
     runs-on: [self-hosted, test-vm-runner]
     name: Run linter
     needs:
@@ -120,6 +105,7 @@ jobs:
         continue-on-error: true
   
   test:
+    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
     runs-on: [self-hosted, test-vm-runner]
     name: Run unit test
     steps:
@@ -145,12 +131,9 @@ jobs:
         shell: bash
 
   dev_setup_build:
+    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
     runs-on: [self-hosted, test-vm-runner]
     name: Build and Push images
-    needs:
-      - tag_validation
-      - lint
-      - test
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
