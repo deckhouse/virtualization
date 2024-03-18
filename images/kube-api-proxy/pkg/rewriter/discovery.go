@@ -127,48 +127,69 @@ func RewriteAPIGroup(rules *RewriteRules, obj []byte, origGroup string) ([]byte,
 	return obj, nil
 }
 
+// RewriteAPIResourceList rewrites server responses on
+// /apis/GROUP/VERSION requests.
+// This method excludes resources not belonging to original group from request.
+//
+// Example:
+//
+// Path rewrite: https://10.222.0.1:443/apis/kubevirt.io/v1 -> https://10.222.0.1:443/apis/x.virtualization.deckhouse.io/v1
+// original Group:  kubevirt.io
+// rewrite name,singularName,kind for each resource.
+// /status -> name and kind
+// /scale -> rewrite resource name in the name field
+//
+// Response from /apis/x.virtualization.deckhouse.io/v1:
+//
+//	{
+//	    "kind":"APIResourceList",
+//	    "apiVersion":"v1",
+//
+// --> "groupVersion":"x.virtualization.deckhouse.io/v1"  --> rewrite to origGroup+version: kubevirt.io/v1
+//
+//	    "resources":[
+//		   {
+//
+// -->   "name":"virtualmachineinstancereplicasets",
+// -->   "singularName":"virtualmachineinstancereplicaset",
+//
+//	"namespaced":true,
+//
+// -->   "kind":"VirtualMachineInstanceReplicaSet",
+//
+//	  "verbs":["delete","deletecollection","get","list","patch","create","update","watch"],
+//	  "shortNames":["xvmirs","xvmirss"],
+//	  "categories":["kubevirt"],
+//	  "storageVersionHash":"QUMxLW9gfYs="
+//	},{
+//
+// -->   "name":"virtualmachineinstancereplicasets/status",
+//
+//	"singularName":"",
+//	"namespaced":true,
+//
+// -->   "kind":"VirtualMachineInstanceReplicaSet",
+//
+//		     "verbs":["get","patch","update"]
+//	    },{
+//
+// -->   "name":"virtualmachineinstancereplicasets/scale",
+//
+//	      "singularName":"",
+//		     "namespaced":true,
+//		     "group":"autoscaling",
+//		     "version":"v1",
+//		     "kind":"Scale",
+//		     "verbs":["get","patch","update"]
+//		   }]
+//	}
 func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
-	// https://10.222.0.1:443/apis/kubevirt.io/v1 -> https://10.222.0.1:443/apis/x.virtualization.deckhouse.io/v1
-	// groupVersion -> original group from request (kubevirt.io)
-	// filter resources to include only resources with original group from the request.
-	// rewrite name,singularName,kind for each resource.
-	// /scale -> rewrite resource name in the name field
-	// /status -> name and kind
-
-	// Example:
-	// {
-	//     "kind":"APIResourceList",
-	//     "apiVersion":"v1",
-	// --> "groupVersion":"x.virtualization.deckhouse.io/v1"
-	//     "resources":[
-	//	   {
-	// -->   "name":"virtualmachineinstancereplicasets",
-	// -->   "singularName":"virtualmachineinstancereplicaset",
-	//       "namespaced":true,
-	// -->   "kind":"VirtualMachineInstanceReplicaSet",
-	//       "verbs":["delete","deletecollection","get","list","patch","create","update","watch"],
-	//       "shortNames":["xvmirs","xvmirss"],
-	//       "categories":["kubevirt"],
-	//       "storageVersionHash":"QUMxLW9gfYs="
-	//     },{
-	// -->   "name":"virtualmachineinstancereplicasets/status",
-	//       "singularName":"",
-	//       "namespaced":true,
-	// -->   "kind":"VirtualMachineInstanceReplicaSet",
-	//	     "verbs":["get","patch","update"]
-	//     },{
-	// -->   "name":"virtualmachineinstancereplicasets/scale",
-	//       "singularName":"",
-	//	     "namespaced":true,
-	//	     "group":"autoscaling",
-	//	     "version":"v1",
-	//	     "kind":"Scale",
-	//	     "verbs":["get","patch","update"]
-	//	   }]
-	// }
-
+	// Ignore apiGroups not in rules.
+	apiGroupRule, ok := rules.Rules[origGroup]
+	if !ok {
+		return obj, nil
+	}
 	// MVP: rewrite only group for now. (No prefixes in the cluster yet).
-	apiGroupRule := rules.Rules[origGroup]
 	obj, err := sjson.SetBytes(obj, "groupVersion", origGroup+"/"+apiGroupRule.GroupRule.PreferredVersion)
 	if err != nil {
 		return nil, err
