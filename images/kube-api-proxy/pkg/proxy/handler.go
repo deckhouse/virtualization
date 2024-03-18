@@ -28,12 +28,12 @@ type Handler struct {
 func (p *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	log := log.With(log.String("proxy.name", p.Name))
 
-	isWatch := strings.Contains(req.URL.RawQuery, "watch=true")
-	if !isWatch {
-		// Debug: lock handlers for readable logs.
-		p.m.Lock()
-		defer p.m.Unlock()
-	}
+	//isWatch := strings.Contains(req.URL.RawQuery, "watch=true")
+	//if !isWatch {
+	//	// Debug: lock handlers for readable logs.
+	//	p.m.Lock()
+	//	defer p.m.Unlock()
+	//}
 
 	log.Info(fmt.Sprintf("%s %s %s", req.Method, req.RemoteAddr, req.URL.String()))
 
@@ -55,6 +55,19 @@ func (p *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if reqResult == nil {
 		log.Info(fmt.Sprintf("%s %s %s", req.Method, req.RemoteAddr, origURL))
 	} else {
+		// Rewrite protobuf to json to rewrite watch events with core resources.
+		// TODO check resource name in path and override content-type for particular resources only (i.e. Pods).
+		if reqResult.IsWatch && reqResult.IsCoreAPI {
+			newAccept := make([]string, 0)
+			for _, hdr := range req.Header.Values("Accept") {
+				if strings.Contains(hdr, "application/vnd.kubernetes.protobuf") {
+					newAccept = append(newAccept, "application/json")
+				} else {
+					newAccept = append(newAccept, hdr)
+				}
+			}
+			req.Header["Accept"] = newAccept
+		}
 		if reqResult.TargetPath != "" {
 			req.URL.Path = reqResult.TargetPath
 			log.Info(fmt.Sprintf("%s %s %s -> %s", req.Method, req.RemoteAddr, origURL, req.URL.String()))
@@ -97,20 +110,19 @@ func (p *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Watch rewriter does rewrites for every event in background.
-	if isWatch {
+	// Watch rewriter  does rewrites for every event in background.
+	if reqResult.IsWatch {
 		copyHeader(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
 
 		log.Info(fmt.Sprintf("Start streaming watch events. Response: Status %s, Content-Type %s", resp.Status, resp.Header.Get("Content-Type")))
-		// Lock proxying watch events.
-		wsr, err := NewStreamHandler(resp.Body, w, resp.Header.Get("Content-Type"), reqResult.OrigGroup, p.Rewriter)
+		// Start stream handler and lock ServeHTTP while proxying watch events stream.
+		wsr, err := NewStreamHandler(resp.Body, w, resp.Header.Get("Content-Type"), p.Rewriter, reqResult)
 		if err != nil {
 			log.Error("Error watching stream", logutil.SlogErr(err))
 			http.Error(w, fmt.Sprintf("watch stream: %v", err), http.StatusInternalServerError)
 			return
 		}
-		// Block handler until stream ended.
 		<-wsr.DoneChan()
 		return
 	}

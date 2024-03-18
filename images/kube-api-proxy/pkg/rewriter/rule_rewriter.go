@@ -11,6 +11,7 @@ import (
 )
 
 type RewriteRequestResult struct {
+	IsCoreAPI        bool
 	IsWatch          bool
 	IsWebhook        bool
 	OrigGroup        string
@@ -102,6 +103,20 @@ func (rw *RuleBasedRewriter) rewriteBodyJSON(reqResult *RewriteRequestResult, ob
 	var rwrBytes []byte
 	var err error
 
+	if reqResult.IsCoreAPI {
+		pass := true
+		switch kind {
+		case "APIGroupList":
+		case "APIGroup":
+		case "APIResourceList":
+		default:
+			pass = false
+		}
+		if pass {
+			return obj, nil
+		}
+	}
+
 	switch kind {
 	case "APIGroupList":
 		rwrBytes, err = RewriteAPIGroupList(rw.Rules, obj)
@@ -115,11 +130,12 @@ func (rw *RuleBasedRewriter) rewriteBodyJSON(reqResult *RewriteRequestResult, ob
 	case "AdmissionReview":
 		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj, reqResult.OrigGroup)
 
-	//case "Pod":
-	// rewrite owner
-
 	default:
-		rwrBytes, err = RewriteResourceOrList(rw.Rules, obj, mode)
+		if reqResult.IsCoreAPI {
+			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, mode)
+		} else {
+			rwrBytes, err = RewriteResourceOrList(rw.Rules, obj, mode)
+		}
 	}
 
 	// Return obj bytes as-is in case of the error.

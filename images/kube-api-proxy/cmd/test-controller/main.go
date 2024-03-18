@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
+	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	apiruntimeschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -189,7 +190,7 @@ func NewController(
 		return nil, err
 	}
 
-	if err = SetupWatches(ctx, mgr, c); err != nil {
+	if err = SetupWatches(ctx, mgr, c, log); err != nil {
 		return nil, err
 	}
 
@@ -201,16 +202,44 @@ func NewController(
 	return c, nil
 }
 
-func SetupWatches(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func SetupWatches(ctx context.Context, mgr manager.Manager, ctr controller.Controller, log logr.Logger) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &kvv1.VirtualMachine{}), &handler.EnqueueRequestForObject{},
 		//if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
+			CreateFunc: func(e event.CreateEvent) bool {
+				log.Info("Got CREATE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				log.Info("Got DELETE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				log.Info("Got UPDATE event for VM %s/%s", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+				return true
+			},
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on VM: %w", err)
+	}
+	//if err := ctr.Watch(source.Kind(mgr.GetCache(), &kvv1.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				log.Info("Got CREATE event for Pod %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				log.Info("Got DELETE event for Pod %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				log.Info("Got UPDATE event for Pod %s/%s", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+				return true
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
 
 	return nil

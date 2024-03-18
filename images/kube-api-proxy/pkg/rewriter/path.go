@@ -17,7 +17,7 @@ func (rw *RuleBasedRewriter) RewritePath(urlPath string) (*RewriteRequestResult,
 	}
 
 	// Is it an API request?
-	if strings.HasPrefix(urlPath, "/apis/") {
+	if strings.HasPrefix(urlPath, "/apis/") || urlPath == "/apis" {
 		// TODO refactor RewriteAPIPath to produce a string, not an array.
 		cleanedPath := strings.Trim(urlPath, "/")
 		pathItems := strings.Split(cleanedPath, "/")
@@ -25,10 +25,20 @@ func (rw *RuleBasedRewriter) RewritePath(urlPath string) (*RewriteRequestResult,
 		if err != nil {
 			return nil, err
 		}
+		if res == nil {
+			// e.g. no rewrite rule find.
+			return nil, nil
+		}
 		if len(res.PathItems) > 0 {
 			res.TargetPath = "/" + path.Join(res.PathItems...)
 		}
 		return res, nil
+	}
+
+	if strings.HasPrefix(urlPath, "/api/") || urlPath == "/api" {
+		return &RewriteRequestResult{
+			IsCoreAPI: true,
+		}, nil
 	}
 
 	return nil, nil

@@ -8,7 +8,6 @@ import (
 	"mime"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
@@ -26,8 +25,8 @@ import (
 type StreamHandler struct {
 	r         io.ReadCloser
 	w         io.Writer
-	origGroup string
 	rewriter  *rewriter.RuleBasedRewriter
+	reqResult *rewriter.RewriteRequestResult
 	decoder   streaming.Decoder
 	done      chan struct{}
 }
@@ -38,12 +37,12 @@ type StreamHandler struct {
 // k8s.io/apimachinery@v0.26.1/pkg/watch/streamwatcher.go:100 receive method
 // k8s.io/kubernetes@v1.13.0/staging/src/k8s.io/client-go/rest/request.go:537 wrapperFn, create framer.
 // k8s.io/kubernetes@v1.13.0/staging/src/k8s.io/client-go/rest/request.go:598 instantiate watch NewDecoder
-func NewStreamHandler(r io.ReadCloser, w io.Writer, contentType string, origGroup string, rewriter *rewriter.RuleBasedRewriter) (*StreamHandler, error) {
+func NewStreamHandler(r io.ReadCloser, w io.Writer, contentType string, rewriter *rewriter.RuleBasedRewriter, reqResult *rewriter.RewriteRequestResult) (*StreamHandler, error) {
 	wsr := &StreamHandler{
 		r:         r,
 		w:         w,
-		origGroup: origGroup,
 		rewriter:  rewriter,
+		reqResult: reqResult,
 		done:      make(chan struct{}),
 	}
 	decoder, err := wsr.createWatchDecoder(contentType)
@@ -60,13 +59,13 @@ func NewStreamHandler(r io.ReadCloser, w io.Writer, contentType string, origGrou
 // proxy reads result from the decoder in a loop, rewrites and writes to a client.
 // Sources
 // k8s.io/apimachinery@v0.26.1/pkg/watch/streamwatcher.go:100 receive method
-func (wsr *StreamHandler) proxy() {
+func (s *StreamHandler) proxy() {
 	defer utilruntime.HandleCrash()
-	defer wsr.Stop()
+	defer s.Stop()
 	for {
 		// Read event from the server.
 		var got metav1.WatchEvent
-		res, _, err := wsr.decoder.Decode(nil, &got)
+		res, _, err := s.decoder.Decode(nil, &got)
 		if err != nil {
 			switch err {
 			case io.EOF:
@@ -112,8 +111,12 @@ func (wsr *StreamHandler) proxy() {
 		}
 
 		// Rewrite object in the event.
-		//wsr.rewriter.RewriteFromTarget()
-		rwrBytes, err := rewriter.RestoreResource(got.Object.Raw, wsr.origGroup)
+		var objBytes []byte
+		if s.reqResult.IsCoreAPI {
+			objBytes, err = rewriter.RewriteOwnerReferences(s.rewriter.Rules, got.Object.Raw, rewriter.Restore)
+		} else {
+			objBytes, err = rewriter.RestoreResource(s.rewriter.Rules, got.Object.Raw, s.reqResult.OrigGroup)
+		}
 		if err != nil {
 			log.Error(fmt.Sprintf("rewrite event '%s'", got.Type), logutil.SlogErr(err))
 			continue
@@ -123,7 +126,7 @@ func (wsr *StreamHandler) proxy() {
 		ev := metav1.WatchEvent{
 			Type: got.Type,
 			Object: runtime.RawExtension{
-				Raw: rwrBytes,
+				Raw: objBytes,
 			},
 		}
 		evBytes, err := json.Marshal(ev)
@@ -136,56 +139,34 @@ func (wsr *StreamHandler) proxy() {
 			l = 300
 		}
 		log.Info(fmt.Sprintf("restored event: %s", string(evBytes)[0:l]))
-		wsr.w.Write(evBytes)
+		s.w.Write(evBytes)
+
+		// Check if application is stopped.
 		select {
-		case <-wsr.done:
+		case <-s.done:
 			return
 		default:
 		}
 	}
 }
 
-func (wsr *StreamHandler) Stop() {
+func (s *StreamHandler) Stop() {
 	select {
-	case <-wsr.done:
+	case <-s.done:
 	default:
-		close(wsr.done)
+		close(s.done)
 	}
 }
 
-func (wsr *StreamHandler) DoneChan() chan struct{} {
-	return wsr.done
-}
-
-// restoreWatchEvent restores renamed kind and apiVersion to original values.
-func restoreWatchEvent(ev *metav1.WatchEvent) ([]byte, error) {
-	kind := gjson.GetBytes(ev.Object.Raw, "kind").String()
-
-	var rwrBytes []byte
-	var err error
-	switch kind {
-	default:
-		return nil, nil
-	case "VirtualMachine":
-		rwrBytes, err = sjson.SetBytes(ev.Object.Raw, "kind", "VirtualMachine")
-		if err != nil {
-			return nil, err
-		}
-		rwrBytes, err = sjson.SetBytes(rwrBytes, "apiVersion", "kubevirt.io/v1")
-		if err != nil {
-			return nil, err
-		}
-	}
-	// TODO: rewrite obj by kind.
-	// No rewrite for now, return as-is.
-	return rwrBytes, nil
+func (s *StreamHandler) DoneChan() chan struct{} {
+	return s.done
 }
 
 // createSerializers
 // Source
 // k8s.io/client-go@v0.26.1/rest/request.go:765 newStreamWatcher
 // k8s.io/apimachinery@v0.26.1/pkg/runtime/negotiate.go:70 StreamDecoder
-func (wsr *StreamHandler) createWatchDecoder(contentType string) (streaming.Decoder, error) {
+func (s *StreamHandler) createWatchDecoder(contentType string) (streaming.Decoder, error) {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		log.Info("Unexpected media type from the server: %q: %v", contentType, err)
@@ -205,7 +186,7 @@ func (wsr *StreamHandler) createWatchDecoder(contentType string) (streaming.Deco
 	}
 
 	// A chain of the framer and the serializer will split body stream into JSON objects.
-	frameReader := info.StreamSerializer.Framer.NewFrameReader(wsr.r)
+	frameReader := info.StreamSerializer.Framer.NewFrameReader(s.r)
 	streamingDecoder := streaming.NewDecoder(frameReader, info.StreamSerializer.Serializer)
 	return streamingDecoder, nil
 }

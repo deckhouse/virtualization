@@ -138,6 +138,63 @@ func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName str
 	return sjson.SetBytes(obj, "kind", rules.RestoreKind(kind))
 }
 
+func RewriteOwnerReferences(rules *RewriteRules, obj []byte, mode Mode) ([]byte, error) {
+	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
+	if len(ownerRefs) == 0 {
+		return obj, nil
+	}
+
+	rwrOwnerRefs := []byte(`[]`)
+	rewritten := false
+	for _, ownerRef := range ownerRefs {
+		kind := ownerRef.Get("kind").String()
+		if mode == Restore {
+			kind = rules.RestoreKind(kind)
+		}
+		// Find if kind should be rewritten.
+		origGroup, origResource, _ := rules.ResourceByKind(kind)
+		if origGroup == "" && origResource == "" {
+			// There is no rewrite rule for kind, append ownerRef as is.
+			var err error
+			rwrOwnerRefs, err = sjson.SetRawBytes(rwrOwnerRefs, "-1", []byte(ownerRef.Raw))
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if mode == Rename {
+			kind = rules.RenameKind(kind)
+		}
+
+		rwrOwnerRef := []byte(ownerRef.Raw)
+
+		rwrOwnerRef, err := sjson.SetBytes(rwrOwnerRef, "kind", kind)
+		if err != nil {
+			return nil, err
+		}
+
+		apiVersion := ownerRef.Get("apiVersion").String()
+		if mode == Restore {
+			apiVersion = rules.RestoreApiVersion(apiVersion, origGroup)
+		}
+		if mode == Rename {
+			apiVersion = rules.RenameApiVersion(apiVersion)
+		}
+		rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "apiVersion", apiVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		rwrOwnerRefs, err = sjson.SetRawBytes(rwrOwnerRefs, "-1", rwrOwnerRef)
+		rewritten = true
+	}
+	if rewritten {
+		return sjson.SetRawBytes(obj, "metadata.ownerReferences", rwrOwnerRefs)
+	}
+
+	return obj, nil
+}
+
 // RenameOwnerReferences renames kind and apiVersion to send request to server.
 func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
 	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
