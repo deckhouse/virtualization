@@ -3,11 +3,11 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
-          description:  |
+          description: |
             Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddressClaim`.
           properties:
             spec:
-              description:  |
+              description: |
                 Параметры конфигурации `VirtualMachineIPAddressLease`.
               properties:
                 reclaimPolicy:
@@ -18,19 +18,19 @@ spec:
 
                     * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
                 claimRef:
-                  description:  |
+                  description: |
                     Ссылка на существующие `VirtualMachineIPAddressClaim`.
                   properties:
                     name:
-                      description:  |
+                      description: |
                         Имя ссылающегося `VirtualMachineIPAddressClaim`.
                     namespace:
-                      description:  |
+                      description: |
                         Пространство имен ссылающегося `VirtualMachineIPAddressClaim`.
             status:
-              description:  |
+              description: |
                 Состояние ресурса `VirtualMachineIPAddressLease`.
               properties:
                 phase:
-                  description:  |
+                  description: |
                     Представляет текущее состояние выданной аренды IP-адреса.

@@ -14,7 +14,6 @@ on:
   push:
     branches:
       - main
-      - workflow-check-yaml
 
 defaults:
   run:
@@ -81,9 +80,9 @@ jobs:
 
           OUTER
 
-  lint:
+  lint_go:
     runs-on: ubuntu-latest
-    name: Run linter
+    name: Run go linter
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -99,13 +98,25 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
+  
+  lint_yaml:
+    runs-on: ubuntu-latest
+    name: Run yaml linter
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      
+      - name: Install Task
+        uses: arduino/setup-task@v1
         
+      - uses: actions/checkout@v4
+
       - name: Install prettier
-        if: always()
         run: task -p deps:install:prettier
 
       - name: Lint yaml with prettier
-        if: always()
         run: task -p lint
         
   

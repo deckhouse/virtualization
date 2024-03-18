@@ -72,19 +72,19 @@ spec:
                             Secret name.
                       required: ["name"]
                   oneOf:
-                  - properties:
-                      type:
-                        enum: ['UserData']
-                    required: ['userData']
-                    not:
-                      required: ['userDataSecretRef']
-                  - properties:
-                      type:
-                        enum: ['UserDataSecret']
-                      userDataSecretRef: {}
-                    required: ['userDataSecretRef']
-                    not:
-                      required: ['userData']
+                    - properties:
+                        type:
+                          enum: ["UserData"]
+                      required: ["userData"]
+                      not:
+                        required: ["userDataSecretRef"]
+                    - properties:
+                        type:
+                          enum: ["UserDataSecret"]
+                        userDataSecretRef: {}
+                      required: ["userDataSecretRef"]
+                      not:
+                        required: ["userData"]
                 runPolicy:
                   type: string
                   enum:
@@ -135,8 +135,8 @@ spec:
                                   type: array
                                   description: ""
                               required:
-                              - key
-                              - operator
+                                - key
+                                - operator
                               type: object
                             type: array
                           matchLabels:
@@ -157,9 +157,9 @@ spec:
                         description: ""
                         type: string
                     required:
-                    - maxSkew
-                    - topologyKey
-                    - whenUnsatisfiable
+                      - maxSkew
+                      - topologyKey
+                      - whenUnsatisfiable
                     type: object
                   type: array
 
@@ -195,8 +195,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -217,8 +217,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -232,8 +232,8 @@ spec:
                                 type: integer
                                 description: ""
                             required:
-                            - preference
-                            - weight
+                              - preference
+                              - weight
                             type: object
                             description: ""
                           type: array
@@ -259,8 +259,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -281,8 +281,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -292,7 +292,7 @@ spec:
                               type: array
                               description: ""
                           required:
-                          - nodeSelectorTerms
+                            - nodeSelectorTerms
                           type: object
                           description: ""
                       type: object
@@ -323,8 +323,8 @@ spec:
                                               type: array
                                               description: ""
                                           required:
-                                          - key
-                                          - operator
+                                            - key
+                                            - operator
                                           type: object
                                           description: ""
                                         type: array
@@ -355,8 +355,8 @@ spec:
                                               type: array
                                               description: ""
                                           required:
-                                          - key
-                                          - operator
+                                            - key
+                                            - operator
                                           type: object
                                           description: ""
                                         type: array
@@ -379,7 +379,7 @@ spec:
                                     type: string
                                     description: ""
                                 required:
-                                - topologyKey
+                                  - topologyKey
                                 type: object
                                 description: ""
                               weight:
@@ -389,8 +389,8 @@ spec:
                                 type: integer
                                 description: ""
                             required:
-                            - virtualMachineAndPodAffinityTerm
-                            - weight
+                              - virtualMachineAndPodAffinityTerm
+                              - weight
                             type: object
                             description: ""
                           type: array
@@ -416,8 +416,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -448,8 +448,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -472,7 +472,7 @@ spec:
                                 type: string
                                 description: ""
                             required:
-                            - topologyKey
+                              - topologyKey
                             type: object
                             description: ""
                           type: array
@@ -504,8 +504,8 @@ spec:
                                               type: array
                                               description: ""
                                           required:
-                                          - key
-                                          - operator
+                                            - key
+                                            - operator
                                           type: object
                                           description: ""
                                         type: array
@@ -536,8 +536,8 @@ spec:
                                               type: array
                                               description: ""
                                           required:
-                                          - key
-                                          - operator
+                                            - key
+                                            - operator
                                           type: object
                                           description: ""
                                         type: array
@@ -560,7 +560,7 @@ spec:
                                     type: string
                                     description: ""
                                 required:
-                                - topologyKey
+                                  - topologyKey
                                 type: object
                                 description: ""
                               weight:
@@ -570,8 +570,8 @@ spec:
                                 type: integer
                                 description: ""
                             required:
-                            - virtualMachineAndPodAffinityTerm
-                            - weight
+                              - virtualMachineAndPodAffinityTerm
+                              - weight
                             type: object
                             description: ""
                           type: array
@@ -597,8 +597,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -629,8 +629,8 @@ spec:
                                           type: array
                                           description: ""
                                       required:
-                                      - key
-                                      - operator
+                                        - key
+                                        - operator
                                       type: object
                                       description: ""
                                     type: array
@@ -653,14 +653,13 @@ spec:
                                 type: string
                                 description: ""
                             required:
-                            - topologyKey
+                              - topologyKey
                             type: object
                             description: ""
                           type: array
                           description: ""
                       type: object
                   type: object
-
 
                 nodeSelector:
                   additionalProperties:
@@ -795,77 +794,77 @@ spec:
                     List of block devices that can be mounted by disks belonging to the VM.
                     The order of booting is determined by the order in the list.
                   items:
-                      type: object
-                      properties:
-                        type:
-                          type: string
-                          enum:
-                            - "ClusterVirtualMachineImage"
-                            - "VirtualMachineImage"
-                            - "VirtualMachineDisk"
-                          description: |
-                            The type of the block device. Options are:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - "ClusterVirtualMachineImage"
+                          - "VirtualMachineImage"
+                          - "VirtualMachineDisk"
+                        description: |
+                          The type of the block device. Options are:
 
-                            * `ClusterVirtualMachineImage` — Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                            * `VirtualMachineImage` — Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                            * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
-                        clusterVirtualMachineImage:
-                          type: object
-                          description: |
-                            Attach `ClusterVirtualMachineImage` as the disk in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                          required:
-                            - name
-                          properties:
-                            name:
-                              type: string
-                              description: |
-                                The name of the `ClusterVirtualMachineImage` resource.
-                        virtualMachineImage:
-                          type: object
-                          description: |
-                            Use `VirtualMachineImage` as the disk. The image with storage ContainerRegistry will be mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device. The image with storage Kubernetes will be mounted as ephemeral disk, so changes to volume will be lost on reboot.
-                          required:
-                            - name
-                          properties:
-                            name:
-                              type: string
-                              description: |
-                                The name of the `VirtualMachineImage` resource.
-                        virtualMachineDisk:
-                          type: object
-                          description: |
-                            Attach `VirtualMachineDisk` as the disk device in RW mode.
-                          required:
-                            - name
-                          properties:
-                            name:
-                              type: string
-                              description: |
-                                The name of the `VirtualMachineDisk` resource.
-                      oneOf:
+                          * `ClusterVirtualMachineImage` — Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          * `VirtualMachineImage` — Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
+                      clusterVirtualMachineImage:
+                        type: object
+                        description: |
+                          Attach `ClusterVirtualMachineImage` as the disk in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                            description: |
+                              The name of the `ClusterVirtualMachineImage` resource.
+                      virtualMachineImage:
+                        type: object
+                        description: |
+                          Use `VirtualMachineImage` as the disk. The image with storage ContainerRegistry will be mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device. The image with storage Kubernetes will be mounted as ephemeral disk, so changes to volume will be lost on reboot.
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                            description: |
+                              The name of the `VirtualMachineImage` resource.
+                      virtualMachineDisk:
+                        type: object
+                        description: |
+                          Attach `VirtualMachineDisk` as the disk device in RW mode.
+                        required:
+                          - name
+                        properties:
+                          name:
+                            type: string
+                            description: |
+                              The name of the `VirtualMachineDisk` resource.
+                    oneOf:
                       - properties:
                           type:
-                            enum: ['ClusterVirtualMachineImage']
+                            enum: ["ClusterVirtualMachineImage"]
                           clusterVirtualMachineImage: {}
-                        required: ['clusterVirtualMachineImage']
+                        required: ["clusterVirtualMachineImage"]
                         not:
                           anyOf:
                             - required: ["virtualMachineImage"]
                             - required: ["virtualMachineDisk"]
                       - properties:
                           type:
-                            enum: ['VirtualMachineImage']
+                            enum: ["VirtualMachineImage"]
                           virtualMachineImage: {}
-                        required: ['virtualMachineImage']
+                        required: ["virtualMachineImage"]
                         not:
                           anyOf:
                             - required: ["clusterVirtualMachineImage"]
                             - required: ["virtualMachineDisk"]
                       - properties:
                           type:
-                            enum: ['VirtualMachineDisk']
+                            enum: ["VirtualMachineDisk"]
                           virtualMachineDisk: {}
-                        required: ['virtualMachineDisk']
+                        required: ["virtualMachineDisk"]
                         not:
                           anyOf:
                             - required: ["virtualMachineImage"]
@@ -926,33 +925,33 @@ spec:
                     type: object
                     required: ["type", "size"]
                     oneOf:
-                    - properties:
-                        type:
-                          enum: ['ClusterVirtualMachineImage']
-                        clusterVirtualMachineImage: {}
-                      required: ['clusterVirtualMachineImage']
-                      not:
-                        anyOf:
-                          - required: ["virtualMachineImage"]
-                          - required: ["virtualMachineDisk"]
-                    - properties:
-                        type:
-                          enum: ['VirtualMachineImage']
-                        virtualMachineImage: {}
-                      required: ['virtualMachineImage']
-                      not:
-                        anyOf:
-                          - required: ["clusterVirtualMachineImage"]
-                          - required: ["virtualMachineDisk"]
-                    - properties:
-                        type:
-                          enum: ['VirtualMachineDisk']
-                        virtualMachineDisk: {}
-                      required: ['virtualMachineDisk']
-                      not:
-                        anyOf:
-                          - required: ["virtualMachineImage"]
-                          - required: ["clusterVirtualMachineImage"]
+                      - properties:
+                          type:
+                            enum: ["ClusterVirtualMachineImage"]
+                          clusterVirtualMachineImage: {}
+                        required: ["clusterVirtualMachineImage"]
+                        not:
+                          anyOf:
+                            - required: ["virtualMachineImage"]
+                            - required: ["virtualMachineDisk"]
+                      - properties:
+                          type:
+                            enum: ["VirtualMachineImage"]
+                          virtualMachineImage: {}
+                        required: ["virtualMachineImage"]
+                        not:
+                          anyOf:
+                            - required: ["clusterVirtualMachineImage"]
+                            - required: ["virtualMachineDisk"]
+                      - properties:
+                          type:
+                            enum: ["VirtualMachineDisk"]
+                          virtualMachineDisk: {}
+                        required: ["virtualMachineDisk"]
+                        not:
+                          anyOf:
+                            - required: ["virtualMachineImage"]
+                            - required: ["clusterVirtualMachineImage"]
                     properties:
                       hotpluggable:
                         type: boolean
@@ -1042,17 +1041,17 @@ spec:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
       additionalPrinterColumns:
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: NodeName
-        type: string
-        jsonPath: .status.nodeName
-      - name: IPAddress
-        type: string
-        jsonPath: .status.ipAddress
-      - name: Age
-        type: date
-        jsonPath: .metadata.creationTimestamp
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: NodeName
+          type: string
+          jsonPath: .status.nodeName
+        - name: IPAddress
+          type: string
+          jsonPath: .status.ipAddress
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}

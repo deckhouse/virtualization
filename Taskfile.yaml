@@ -65,7 +65,7 @@ tasks:
       - werf build {{ .target }}
   
   lint:
-    desc: 'Run all linters in parallel. Important vars: "paths".'
+    desc: 'Run all linters in parallel.'
     deps:
       - lint:prettier
 
@@ -74,8 +74,8 @@ tasks:
     cmds:
       - npm install -g prettier
 
-  format:prettier:yaml:
-    desc: "Format yaml"
+  dev:format:yaml:
+    desc: "Format non-templated YAML files, e.g. CRDs"
     cmds:
       - |
         docker run --rm -it \
@@ -90,4 +90,4 @@ tasks:
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."
     cmds:
-      - prettier --debug-check "**/*.yaml" "**/*.yml"
+      - prettier -c "**/*.yaml" "**/*.yml"

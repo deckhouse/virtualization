@@ -11,9 +11,6 @@ env:
 on:
   pull_request:
     types: [ labeled ]
-#  push:
-#    branches:
-#      - main
 
 defaults:
   run:
@@ -24,10 +21,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  show_dev_manifest:
+  check_label:
+    name: Check label
     if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
-    runs-on: [self-hosted, test-vm-runner]
-    name: Show
+    runs-on: [self-hosted, ci-testing]
+    outputs:
+      should_run: ${{ steps.check_label.outputs.should_run }}
+    steps:
+      - id: check_label
+        name: Check label
+        run: echo "should_run=true"  >> $GITHUB_OUTPUT
+
+  show_dev_manifest:
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Show manifest
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
@@ -81,10 +90,11 @@ jobs:
 
           OUTER
 
-  lint:
-    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
-    runs-on: [self-hosted, test-vm-runner]
-    name: Run linter
+  lint_go:
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Run go linter
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -100,18 +110,35 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
+  
+  lint_yaml:
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Run yaml linter
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
       
-      - name: Install prettier
-        if: always()
-        run: task -p deps:install:prettier
-      
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        
+      - uses: actions/checkout@v4
+
       - name: Lint yaml with prettier
-        if: always()
-        run: task -p lint
+        run: |
+          if ! type prettier >/dev/null; then
+            echo "On self-host runner prettier should be installed"
+            exit 1
+          fi
+          task -p lint
   
   test:
-    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
-    runs-on: [self-hosted, test-vm-runner]
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
     name: Run unit test
     steps:
       - name: Set up Go 1.20
@@ -134,8 +161,9 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
-    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
-    runs-on: [self-hosted, test-vm-runner]
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
     name: Build and Push images
     steps:
       - name: Set vars for PR
@@ -157,7 +185,14 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-
+      
+      - name: Cleanup build folder
+        run: |
+          ls -la ./
+          rm -rf ./* || true
+          rm -rf ./.??* || true
+          ls -la ./
+      
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
