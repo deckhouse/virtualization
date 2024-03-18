@@ -114,7 +114,7 @@ tasks:
     desc: "run kubectl in proxy deployment"
     cmds:
       - |
-        kubectl -n kproxy exec -t deploy/kube-api-proxy -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
+        kubectl -n kproxy exec -ti deploy/kube-api-proxy -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
 
   logs:proxy:
     desc: "Show proxy logs"
