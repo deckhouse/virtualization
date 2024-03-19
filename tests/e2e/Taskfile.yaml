@@ -1,76 +1,93 @@
+# https://taskfile.dev
+
 version: "3"
 
 silent: true
 
+includes:
+  vmi-router:
+    taskfile: ./images/vmi-router
+    dir: ./images/vmi-router
+  virtualization-controller:
+    taskfile: ./images/virtualization-artifact
+    dir: ./images/virtualization-artifact
+  hooks:
+    taskfile: ./hooks
+    dir: ./hooks
+  e2e:
+    taskfile: ./tests/e2e
+    dir: ./tests/e2e
+
 vars:
-  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
-  GINKGO_VERSION: "2.13.2"
-  VERSION: "v1.0.0"
+  deckhouse_lib_helm_ver: 1.7.0
+  target: ""
 
 tasks:
-  virtctl:
+  check-werf:
     cmds:
-      - |
-        case {{OS}} in
-          darwin*)      CMD_PATH="/opt/homebrew/bin/virtctl" ;;
-          linux*)       CMD_PATH="/usr/local/bin/virtctl"    ;;
-          *)            echo "unknown: {{OS}}"; exit 1       ;;
-        esac
-        
-        URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-{{OS}}-{{ARCH}}"
-        test -f $CMD_PATH || ( sudo curl -L $URL -o $CMD_PATH && sudo chmod +x $CMD_PATH )
-  ginkgo:
-    cmds:
-      - |
-        v=($(ginkgo version 2>/dev/null)) 
-        if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then 
-          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ; 
-        fi
-  run:
-    desc: "Run e2e tests"
-    deps:
-      - virtctl
-      - ginkgo
-    cmds:
-      - ginkgo
+      - which werf >/dev/null || (echo "werf not found."; exit 1)
+    silent: true
 
-  run_local:
-    desc: "Run locally e2e tests"
-    deps:
-      - virtctl
-      - ginkgo
+  check-yq:
     cmds:
-      - |
-        export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-        ginkgo
+      - which yq >/dev/null || (echo "yq not found."; exit 1)
+    silent: true
 
-  run_one:
-    desc: "Run one test or group"
-    deps:
-      - virtctl
-      - ginkgo
+  check-jq:
     cmds:
-      - |
-        {{if .TEST }}
-          export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-          ginkgo --focus "{{ .TEST }}" -v
-        {{else}}
-          echo "Specify test to run"
-          echo 'Example: TEST="Label and Annotation" task run_one'
-        {{end}}
+      - which jq >/dev/null || (echo "jq not found."; exit 1)
+    silent: true
 
-  fix:ssh_key_perm:
-    desc: "Check and fix rights for ssh keys"
+  check-helm:
+    cmds:
+      - which helm >/dev/null || (echo "helm not found."; exit 1)
+    silent: true
+
+  helm-update-subcharts:
+    deps:
+      - check-helm
+    cmds:
+      - helm repo add deckhouse https://deckhouse.github.io/lib-helm
+      - helm repo update deckhouse
+      - helm dep update
+
+  helm-bump-helm-lib:
+    deps:
+      - check-yq
+    cmds:
+      - yq -i '.dependencies[] |= select(.name == "deckhouse_lib_helm").version = "{{ .deckhouse_lib_helm_ver }}"' Chart.yaml
+      - task: helm-update-subcharts
+
+  build:
+    deps:
+      - check-werf
+    cmds:
+      - werf build {{ .target }}
+  
+  lint:
+    desc: 'Run all linters in parallel.'
+    deps:
+      - lint:prettier
+
+  deps:install:prettier:
+    desc: "Install prettier."
+    cmds:
+      - npm install -g prettier
+
+  dev:format:yaml:
+    desc: "Format non-templated YAML files, e.g. CRDs"
     cmds:
       - |
-        ID_ED=testdata/vm/sshkeys/id_ed
-        case {{OS}} in
-          darwin*)      RIGHTS_SSH=$(stat -f %Lp $ID_ED) ;;
-          linux*)       RIGHTS_SSH=$(stat -c "%a" $ID_ED) ;;
-          *)            echo "unknown: {{OS}}"; exit 1       ;;
-        esac
-        
-        if [ $RIGHTS_SSH -ne 600 ]; then
-          echo "Fix permissions for file $ID_ED"
-          chmod 600 $ID_ED
-        fi
+        docker run --rm -it \
+          -v ./:/tmp/virt node:20.11.1-alpine3.19 \
+          sh -c "npm install -g prettier ; cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
+  
+  lint:prettier:
+    desc: "Check if prettier-formatted."
+    deps:
+      - lint:prettier:yaml
+
+  lint:prettier:yaml:
+    desc: "Check if yaml files are prettier-formatted."
+    cmds:
+      - prettier -c "**/*.yaml" "**/*.yml"
