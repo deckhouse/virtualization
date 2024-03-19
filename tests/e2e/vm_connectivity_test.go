@@ -18,14 +18,24 @@ import (
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 )
 
+const (
+	CurlPod = "curl-helper"
+)
+
 type Service struct {
 	ApiVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
 	Metadata   struct {
 		Name      string `yaml:"name"`
 		Namespace string `yaml:"namespace"`
+		Labels    struct {
+			vm string `yaml:"vm,omitempty"`
+		} `yaml:"labels,omitempty"`
 	} `yaml:"metadata"`
 	Spec struct {
+		Selector struct {
+			Service string `yaml:"service,omitempty"`
+		} `yaml:"selector"`
 		Ports []struct {
 			Port       int `yaml:"port"`
 			TargetPort int `yaml:"targetPort,omitempty"`
@@ -34,7 +44,7 @@ type Service struct {
 	} `yaml:"spec"`
 }
 
-func getSVC(manifestPath string) *Service {
+func getSVC(manifestPath string) (*Service, error) {
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		log.Fatalf("Error read file: %v", err)
@@ -46,13 +56,13 @@ func getSVC(manifestPath string) *Service {
 		log.Fatalf("Error parsing yaml: %v", err)
 	}
 
-	return &service
+	return &service, err
 }
 
 var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 	imageManifest := vmPath("image.yaml")
-	vmOneManifest := vmPath("connectivity/vm1_connectivity_service.yaml")
-	vmTwoManifest := vmPath("connectivity/vm2_connectivity_service.yaml")
+	vmOneManifest := vmPath("connectivity/vm1_connectivity.yaml")
+	vmTwoManifest := vmPath("connectivity/vm2_connectivity.yaml")
 	vmOneIPClaim := vmPath("connectivity/vm1_ipclaim.yaml")
 	vmTwoIPClaim := vmPath("connectivity/vm2_ipclaim.yaml")
 	vmSvcOne := vmPath("connectivity/vm1_svc.yaml")
@@ -98,26 +108,32 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 				Username:    "cloud",
 				IdenityFile: vmPath("sshkeys/id_ed"),
 			})
-			Expect(res.Error()).To(
-				BeNil(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(),
-				vmPath("sshkeys/id_ed"))
+			Expect(res.Error()).
+				NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(),
+					vmPath("sshkeys/id_ed"))
 			Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
 		}
 
-		curlSVC := func(vmName, svcName, namespace string) *executor.CMDResult {
+		svc1, err := getSVC(vmSvcOne)
+		Expect(err).NotTo(HaveOccurred())
+		svc2, err := getSVC(vmSvcTwo)
+		Expect(err).NotTo(HaveOccurred())
+
+		curlSVC := func(vmName string, serv *Service, namespace string) *executor.CMDResult {
 			GinkgoHelper()
-			svc := getSVC(svcName)
+			svc := *serv
 
 			subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Metadata.Name, svc.Metadata.Namespace,
 				svc.Spec.Ports[0].Port)
 			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
-				namespace, UploadHelpPod, vmName, conf.Disks.UploadHelperImage, subCurlCMD)
+				namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
+			fmt.Printf("%s <-- subCurlCMD", subCMD)
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
 
 		deletePodHelper := func(vmName, namespace string) *executor.CMDResult {
 			GinkgoHelper()
-			subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, UploadHelpPod, vmName)
+			subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, CurlPod, vmName)
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
 
@@ -129,9 +145,9 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		ItApplyFromFile(vmSvcTwo)
 
 		vmOne, err := GetVMFromManifest(vmOneManifest)
-		Expect(err).To(BeNil())
+		Expect(err).NotTo(HaveOccurred(), "%s", err)
 		vmTwo, err := GetVMFromManifest(vmTwoManifest)
-		Expect(err).To(BeNil())
+		Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 		It(fmt.Sprintf("Wait %s running", vmOne.Name), func() {
 			waitVmStatus(vmOne.Name, VMStatusRunning)
@@ -153,8 +169,8 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			CheckResultSshCommand(vmOne.Name, command, httpCode)
 		})
 
-		It(fmt.Sprintf("Get nginx page through service from %s", vmOne.Name), func() {
-			res := curlSVC(vmOne.Name, vmSvcOne, conf.Namespace)
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vmOne.Name, svc1.Metadata.Name), func() {
+			res := curlSVC(vmOne.Name, svc1, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmOne.Name))
 		})
@@ -164,8 +180,8 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
-		It(fmt.Sprintf("Get nginx page through service %s", vmTwo.Name), func() {
-			res := curlSVC(vmTwo.Name, vmSvcTwo, conf.Namespace)
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vmTwo.Name, svc2.Metadata.Name), func() {
+			res := curlSVC(vmTwo.Name, svc2, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmTwo.Name))
 		})
@@ -175,7 +191,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
-		It(fmt.Sprintf("Change label on %s", "vm1-service"), func() {
+		It(fmt.Sprintf("Change selector on %s", svc1.Metadata.Name), func() {
 			PatchSvcSelector := func(name, label string) {
 				GinkgoHelper()
 				PatchResource(kc.ResourceService, name, &kc.JsonPatch{
@@ -185,19 +201,19 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 				})
 			}
 
-			PatchSvcSelector("vm1-service", "v2")
+			PatchSvcSelector(svc1.Metadata.Name, svc2.Spec.Selector.Service)
 		})
-		It(fmt.Sprintf("Check label %s", "vm1-service"), func() {
+		It(fmt.Sprintf("Check selector on %s, must be %s", svc1.Metadata.Name, svc2.Spec.Selector.Service), func() {
 			GetSvcLabel := func(name, label string) {
 				GinkgoHelper()
 				output := "jsonpath={.spec.selector.service}"
 				CheckField(kc.ResourceService, name, output, label)
 			}
-			GetSvcLabel("vm1-service", "v2")
+			GetSvcLabel(svc1.Metadata.Name, svc2.Spec.Selector.Service)
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s and expect %s hostname", vmOne.Name, vmTwo.Name), func() {
-			res := curlSVC(vmOne.Name, vmSvcOne, conf.Namespace)
+			res := curlSVC(vmOne.Name, svc1, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmTwo.Name))
 		})

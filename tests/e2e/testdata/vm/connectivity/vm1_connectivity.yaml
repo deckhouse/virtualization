@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineDisk
 metadata:
-  name: linux-vmd-vmi-vm1
+  name: test-connectivity-vmd-vmi-1
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
@@ -15,7 +15,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: e2e-srv-vm1
+  name: test-connectivity-vm1
   namespace: test-d8-virtualization
   labels:
     vm: linux
@@ -33,8 +33,8 @@ spec:
   blockDevices:
     - type: VirtualMachineDisk
       virtualMachineDisk:
-        name: linux-vmd-vmi-vm1
-  virtualMachineIPAddressClaimName: e2e-srv-vm1
+        name: test-connectivity-vmd-vmi-1
+  virtualMachineIPAddressClaimName: test-connectivity-ipam-vm1
   provisioning:
     type: UserData
     userData: |
@@ -61,7 +61,7 @@ spec:
             </html>
             EOF
       runcmd:
-      - [ hostnamectl, set-hostname, e2e-srv-vm1 ]
+      - [ hostnamectl, set-hostname, test-connectivity-vm1 ]
       - [ systemctl, daemon-reload ]
       - [ systemctl, enable, --now, qemu-guest-agent.service ]
       - [ /usr/scripts/genpage_script.sh ]

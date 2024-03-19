@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: vm2-service
+  name: test-connectivity-svc2
   namespace: test-d8-virtualization
   labels:
     vm: linux
