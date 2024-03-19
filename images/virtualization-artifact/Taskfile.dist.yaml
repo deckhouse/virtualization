@@ -574,35 +574,6 @@ tasks:
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
-  generate:
-    desc: "Regenerate all"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
-    cmd:  ./hack/update-codegen.sh all
-  generate:core:
-    desc: "Regenerate code for core components."
-    deps:
-      - _ensure:k8s-codegen-mod
-    cmd: ./hack/update-codegen.sh core
-  generate:subresources:
-    desc: "Regenerate code for subresources components"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
-    cmd: ./hack/update-codegen.sh subresources
-  ci:generate:
-    desc: "Run generations and check git diff to ensure all files are committed"
-    cmds:
-      - task: generate
-      - task: _ci:verify-gen
-
-  _ci:verify-gen:
-    desc: "Check generated files are up-to-date."
-    internal: true
-    cmds:
-      - |
-        git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
 
   fmt:
     desc: "Run formatters locally"

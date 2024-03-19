@@ -10,8 +10,8 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/deckhouse/virtualization-controller/api/subresources"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type VNCREST struct {

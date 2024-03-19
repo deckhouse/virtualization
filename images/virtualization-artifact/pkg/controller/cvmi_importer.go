@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	cvmiutil "github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func (r *CVMIReconciler) startImporterPod(

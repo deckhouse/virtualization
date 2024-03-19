@@ -3,7 +3,7 @@ package vmchange
 import (
 	"reflect"
 
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func compareTopologySpreadConstraints(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {

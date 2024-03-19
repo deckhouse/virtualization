@@ -8,8 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const FailureReasonCannotBeProcessed = "The resource cannot be processed."

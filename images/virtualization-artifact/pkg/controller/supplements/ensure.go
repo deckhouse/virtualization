@@ -11,13 +11,13 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	ingutil "github.com/deckhouse/virtualization-controller/pkg/common/ingress"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DataSource interface {
