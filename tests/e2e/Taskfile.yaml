@@ -63,7 +63,7 @@ tasks:
           echo 'Example: TEST="Label and Annotation" task run_one'
         {{end}}
 
-  ssh_key_perm:
+  fix:ssh_key_perm:
     desc: "Check and fix rights for ssh keys"
     cmds:
       - |
@@ -75,6 +75,6 @@ tasks:
         esac
         
         if [ $RIGHTS_SSH -ne 600 ]; then
-          echo "Fix file $ID_ED permissions"
+          echo "Fix permissions for file $ID_ED"
           chmod 600 $ID_ED
         fi

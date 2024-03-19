@@ -34,21 +34,19 @@ type Service struct {
 	} `yaml:"spec"`
 }
 
-func getSVC(manifestPath string) (svcFQDN string, svcPort int) {
+func getSVC(manifestPath string) *Service {
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		log.Fatalf("Error read file: %v", err)
 	}
 
-	service := Service{}
+	var service Service
 	err = yaml.Unmarshal(data, &service)
 	if err != nil {
 		log.Fatalf("Error parsing yaml: %v", err)
 	}
 
-	svcFQDN = fmt.Sprintf("%s.%s.svc", service.Metadata.Name, service.Metadata.Namespace)
-	svcPort = service.Spec.Ports[0].Port
-	return svcFQDN, svcPort
+	return &service
 }
 
 var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
@@ -108,15 +106,17 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 
 		curlSVC := func(vmName, svcName, namespace string) *executor.CMDResult {
 			GinkgoHelper()
-			svcNameVm, svcPortVm := getSVC(svcName)
+			svc := getSVC(svcName)
 
-			subCurlCMD := fmt.Sprintf("%s %s:%d", "curl -o -", svcNameVm, svcPortVm)
+			subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Metadata.Name, svc.Metadata.Namespace,
+				svc.Spec.Ports[0].Port)
 			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
 				namespace, UploadHelpPod, vmName, conf.Disks.UploadHelperImage, subCurlCMD)
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
 
 		deletePodHelper := func(vmName, namespace string) *executor.CMDResult {
+			GinkgoHelper()
 			subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, UploadHelpPod, vmName)
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
