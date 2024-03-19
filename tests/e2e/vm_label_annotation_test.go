@@ -10,38 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"github.com/deckhouse/virtualization/tests/e2e/helper"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type virtualMachine struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-}
-
-func getVMFromManifest(manifest string) (*virtualMachine, error) {
-	unstructs, err := helper.ParseYaml(manifest)
-	if err != nil {
-		return nil, err
-	}
-	var unstruct *unstructured.Unstructured
-	for _, u := range unstructs {
-		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
-			unstruct = u
-			break
-		}
-	}
-	var vm virtualMachine
-
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
-		return nil, err
-	}
-	return &vm, nil
-}
 
 var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	imageManifest := vmPath("image.yaml")
@@ -111,12 +81,12 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Label", func() {
-		var vm *virtualMachine
+		var vm *VirtualMachine
 		var err error
 
 		BeforeAll(func() {
 			By("Apply manifest")
-			vm, err = getVMFromManifest(vmManifest)
+			vm, err = GetVMFromManifest(vmManifest)
 			Expect(err).NotTo(HaveOccurred())
 			ApplyFromFile(vmManifest)
 			WaitVmStatus(vm.Name, VMStatusRunning)
@@ -196,12 +166,12 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Annotation", func() {
-		var vm *virtualMachine
+		var vm *VirtualMachine
 
 		BeforeAll(func() {
 			By("Apply manifest")
 			var err error
-			vm, err = getVMFromManifest(vmManifest)
+			vm, err = GetVMFromManifest(vmManifest)
 			Expect(err).NotTo(HaveOccurred())
 			ApplyFromFile(vmManifest)
 			WaitVmStatus(vm.Name, VMStatusRunning)
@@ -214,7 +184,8 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 
 		Describe(fmt.Sprintf("Add annotation %s=%s", annotationName, annotationValue), func() {
 			It("Annotated", func() {
-				subCMD := fmt.Sprintf("-n %s annotate vm %s %s=%s", conf.Namespace, vm.Name, annotationName, annotationValue)
+				subCMD := fmt.Sprintf("-n %s annotate vm %s %s=%s", conf.Namespace, vm.Name, annotationName,
+					annotationValue)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
 				Expect(res.Error()).NotTo(HaveOccurred())
 			})

@@ -3,16 +3,12 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"io/fs"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -62,7 +58,8 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 
 	WaitKubevirtVMStatus := func(name, printableStatus string) {
 		GinkgoHelper()
-		WaitResource(kc.ResourceKubevirtVM, name, "jsonpath={.status.printableStatus}="+printableStatus, LongWaitDuration)
+		WaitResource(kc.ResourceKubevirtVM, name, "jsonpath={.status.printableStatus}="+printableStatus,
+			LongWaitDuration)
 	}
 
 	WaitVmStatus := func(name, phase string) {
@@ -152,7 +149,8 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 		When("Virtctl start", func() {
 			It("Virtctl start", func() {
 				res := virtctl.StartVm(name, conf.Namespace)
-				Expect(res.Error()).To(BeNil(), "virtctl start failed vm %s/%s.\n%s", conf.Namespace, name, res.StdErr())
+				Expect(res.Error()).To(BeNil(), "virtctl start failed vm %s/%s.\n%s", conf.Namespace, name,
+					res.StdErr())
 			})
 			It("Get kubevirt vm", func() {
 				time.Sleep(30 * time.Second)
@@ -381,42 +379,3 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 	})
 
 })
-
-type VirtualMachine struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              VirtualMachineSpec `json:"spec"`
-}
-
-type VirtualMachineSpec struct {
-	RunPolicy                        RunPolicy           `json:"runPolicy"`
-	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
-	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
-	PriorityClassName                string              `json:"priorityClassName"`
-	Tolerations                      []corev1.Toleration `json:"tolerations,omitempty"`
-	TerminationGracePeriodSeconds    *int64              `json:"terminationGracePeriodSeconds,omitempty"`
-	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
-
-	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
-}
-
-type RunPolicy string
-
-func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
-	unstructs, err := helper.ParseYaml(manifest)
-	if err != nil {
-		return nil, err
-	}
-	var unstruct *unstructured.Unstructured
-	for _, u := range unstructs {
-		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
-			unstruct = u
-			break
-		}
-	}
-	var vm VirtualMachine
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
-		return nil, err
-	}
-	return &vm, nil
-}
