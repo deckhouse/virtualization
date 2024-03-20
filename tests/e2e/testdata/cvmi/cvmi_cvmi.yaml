@@ -8,7 +8,6 @@ spec:
     http:
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
-
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualMachineImage
 metadata:

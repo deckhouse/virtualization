@@ -1,0 +1,10 @@
+**/.git
+**/.svn
+**/.hg
+**/werf*.yaml
+**/werf*.yml
+**/templates
+**/workflows
+**/ISSUE_TEMPLATE
+**/Taskfile*
+.gitlab-ci.yml

@@ -456,36 +456,36 @@ spec:
 
                     Порядок загрузки определяется порядком в списке.
                   items:
-                      properties:
-                        type:
-                          description: |
-                            Поддерживаемые типы:
+                    properties:
+                      type:
+                        description: |
+                          Поддерживаемые типы:
 
-                            * `ClusterVirtualMachineImage` — использовать `ClusterVirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                            * `VirtualMachineImage` — использовать `VirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                            * `VirtualMachineDisk` — используйте `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
-                        clusterVirtualMachineImage:
-                          description: |
-                            Использовать `ClusterVirtualMachineImage` в качестве диска.
-                            Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                          properties:
-                            name:
-                              description: |
-                                Имя ресурса `ClusterVirtualMachineImage`.
-                        virtualMachineImage:
-                          description: |
-                            Использовать `VirtualMachineImage` в качестве диска. Образ с хранилищем ContainerRegistry будет смонтирован в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM. Образ с хранилищем Kubernetes будет смонтирован как эфемерный диск, поэтому изменения в томе будут потеряны при перезагрузке.
-                          properties:
-                            name:
-                              description: |
-                                Имя ресурса `VirtualMachineImage`.
-                        virtualMachineDisk:
-                          description: |
-                            Подключить `VirtualMachineDisk` в качестве дискового устройства в режиме RW.
-                          properties:
-                            name:
-                              description: |
-                                Имя ресурса `VirtualMachineDisk`.
+                          * `ClusterVirtualMachineImage` — использовать `ClusterVirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
+                          * `VirtualMachineImage` — использовать `VirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
+                          * `VirtualMachineDisk` — используйте `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
+                      clusterVirtualMachineImage:
+                        description: |
+                          Использовать `ClusterVirtualMachineImage` в качестве диска.
+                          Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
+                        properties:
+                          name:
+                            description: |
+                              Имя ресурса `ClusterVirtualMachineImage`.
+                      virtualMachineImage:
+                        description: |
+                          Использовать `VirtualMachineImage` в качестве диска. Образ с хранилищем ContainerRegistry будет смонтирован в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM. Образ с хранилищем Kubernetes будет смонтирован как эфемерный диск, поэтому изменения в томе будут потеряны при перезагрузке.
+                        properties:
+                          name:
+                            description: |
+                              Имя ресурса `VirtualMachineImage`.
+                      virtualMachineDisk:
+                        description: |
+                          Подключить `VirtualMachineDisk` в качестве дискового устройства в режиме RW.
+                        properties:
+                          name:
+                            description: |
+                              Имя ресурса `VirtualMachineDisk`.
                 restartApprovalID:
                   description: |
                     Хэш изменений виртуальной машины из .status.changeID.

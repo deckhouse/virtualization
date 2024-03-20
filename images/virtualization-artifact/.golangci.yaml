@@ -1,17 +1,17 @@
 run:
   timeout: 10m
 #  skip-dirs:
-    # this code has been copied from kubectl cli. No need to lint external code.
+# this code has been copied from kubectl cli. No need to lint external code.
 #    - go_lib/dependency/k8s/drain
-    # this code has been copied from kubernetes vertical-pod-autoscaler. No need to lint external code.
- #   - modules/302-vertical-pod-autoscaler/hooks/internal/vertical-pod-autoscaler/v1
+# this code has been copied from kubernetes vertical-pod-autoscaler. No need to lint external code.
+#   - modules/302-vertical-pod-autoscaler/hooks/internal/vertical-pod-autoscaler/v1
 issues:
   # Show all errors.
   max-issues-per-linter: 0
   max-same-issues: 0
   exclude:
-#  - ST1005.*
-  - "don't use an underscore in package name"
+    #  - ST1005.*
+    - "don't use an underscore in package name"
 #  - "exported: .*"
 
 linters-settings:
@@ -34,28 +34,28 @@ linters-settings:
 linters:
   disable-all: true
   enable:
-  - asciicheck
-  - bidichk
-  - bodyclose
-  - dogsled
-  - errcheck
-  - errname
-  - errorlint
-  - exportloopref
-  - gci
-  - gocritic
-  - gofmt
-  - gofumpt
-  - goimports
-  - gosimple
-  - govet
-  - ineffassign
-  - misspell
-  - nolintlint
-  - revive
-  - staticcheck
-  - typecheck
-  - unconvert
-  - unparam
-  - unused
-  - whitespace
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - dogsled
+    - errcheck
+    - errname
+    - errorlint
+    - exportloopref
+    - gci
+    - gocritic
+    - gofmt
+    - gofumpt
+    - goimports
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - revive
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace

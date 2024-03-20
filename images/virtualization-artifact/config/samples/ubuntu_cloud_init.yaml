@@ -7,7 +7,7 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: 'https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img'
+      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine

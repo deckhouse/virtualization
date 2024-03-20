@@ -3,7 +3,7 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
-          description:  |
+          description: |
             Ресурс, определяющий IP-адрес для виртуальной машины.
           properties:
             spec:
@@ -11,10 +11,10 @@ spec:
                 Настройки `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description:  |
+                  description: |
                     Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
                 leaseName:
-                  description:  |
+                  description: |
                     Выданный `VirtualMachineIPAddressLease`, управляется автоматически.
                 reclaimPolicy:
                   description: |
@@ -24,18 +24,18 @@ spec:
 
                     * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
             status:
-              description:  |
+              description: |
                 Состояние ресурса `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description:  |
+                  description: |
                     Назначенный IP-адрес.
                 virtualMachineName:
-                  description:  |
+                  description: |
                     Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
                 phase:
-                  description:  |
+                  description: |
                     Текущее состояние ресурса.
                 conflictMessage:
-                  description:  |
+                  description: |
                     Подробное описание ошибки.

@@ -14,6 +14,11 @@ on:
   push:
     branches:
       - main
+
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
@@ -21,21 +26,19 @@ concurrency:
 jobs:
   show_dev_manifest:
     runs-on: ubuntu-latest
-    name: Show
+    name: Show manifest
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
       
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
 
       - name: Show dev config
         run: |
@@ -76,37 +79,50 @@ jobs:
           kubectl patch mpo ${MODULES_MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
 
           OUTER
-        shell: bash
 
-  lint:
+  lint_go:
     runs-on: ubuntu-latest
-    name: Run linter
+    name: Run go linter
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.21"
       
       - name: Install Task
         uses: arduino/setup-task@v1
-      
+        
       - uses: actions/checkout@v4
-      
+        
       - name: Run lint virtualization-controller
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
-        shell: bash
-        continue-on-error: true
+  
+  lint_yaml:
+    runs-on: ubuntu-latest
+    name: Run yaml linter
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        
+      - uses: actions/checkout@v4
+
+      - name: Install prettier
+        run: task -p deps:install:prettier
+
+      - name: Lint yaml with prettier
+        run: task -p lint
+        
   
   test:
     runs-on: ubuntu-latest
     name: Run unit test
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.21"
       
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -116,34 +132,27 @@ jobs:
       - name: Run test hooks
         run: |
           task hooks:test
-        shell: bash
 
       - name: Run unit test virtualization-controller
         run: |
           task virtualization-controller:init
           task virtualization-controller:test:unit
-        shell: bash
 
   dev_setup_build:
     runs-on: ubuntu-latest
     name: Build and Push images
-    needs:
-      - lint
-      - test
     steps:      
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
       
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
       
       - name: Print vars
         run: |
@@ -152,9 +161,10 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-        shell: bash
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
@@ -165,4 +175,3 @@ jobs:
             --oci-empty-base \
             --new_layer "" \
             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash

@@ -171,16 +171,16 @@ properties:
                     description: |
                       Bucket in which you can store your files and data objects.
             oneOf:
-            - required: ["s3"]
-              properties:
-                type:
-                  enum: ['S3']
+              - required: ["s3"]
+                properties:
+                  type:
+                    enum: ["S3"]
         oneOf:
-        - required: ["persistentVolumeClaim"]
-          properties:
-            type:
-              enum: ['PersistentVolumeClaim']
-        - required: ["objectStorage"]
-          properties:
-            type:
-              enum: ['ObjectStorage']
+          - required: ["persistentVolumeClaim"]
+            properties:
+              type:
+                enum: ["PersistentVolumeClaim"]
+          - required: ["objectStorage"]
+            properties:
+              type:
+                enum: ["ObjectStorage"]

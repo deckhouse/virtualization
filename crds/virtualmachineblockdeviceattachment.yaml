@@ -65,10 +65,10 @@ spec:
                           type: string
                           description: The name of `VirtualMachineDisk`
                   oneOf:
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineDisk']
-                      virtualMachineDisk: {}
+                    - properties:
+                        type:
+                          enum: ["VirtualMachineDisk"]
+                        virtualMachineDisk: {}
             status:
               type: object
               properties:
@@ -97,20 +97,20 @@ spec:
                   description: |
                     Detailed description of the error.
       additionalPrinterColumns:
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: VirtualMachineName
-        type: string
-        jsonPath: .status.virtualMachineName
-        priority: 1
-      - name: FailureReason
-        type: string
-        jsonPath: .status.failureReason
-        priority: 1
-      - name: FailureMessage
-        type: string
-        jsonPath: .status.failureMessage
-        priority: 1
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: VirtualMachineName
+          type: string
+          jsonPath: .status.virtualMachineName
+          priority: 1
+        - name: FailureReason
+          type: string
+          jsonPath: .status.failureReason
+          priority: 1
+        - name: FailureMessage
+          type: string
+          jsonPath: .status.failureMessage
+          priority: 1
       subresources:
         status: {}

@@ -21,7 +21,7 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
-          description:  |
+          description: |
             The resource that defines fact of issued lease for `VirtualMachineIPAddressClaim`.
           properties:
             apiVersion:
@@ -31,28 +31,28 @@ spec:
             metadata:
               type: object
             spec:
-              description:  |
+              description: |
                 The desired state of `VirtualMachineIPAddressLease`.
               properties:
                 reclaimPolicy:
                   type: string
                   default: "Delete"
-                  enum: ['Delete', 'Retain']
+                  enum: ["Delete", "Retain"]
                   description: |
                     Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
 
                     * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddressClaim`.
                     * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
                 claimRef:
-                  description:  |
+                  description: |
                     The link to existing `VirtualMachineIPAddressClaim`.
                   properties:
                     name:
-                      description:  |
+                      description: |
                         The name of the referenced `VirtualMachineIPAddressClaim`.
                       type: string
                     namespace:
-                      description:  |
+                      description: |
                         The Namespace of the referenced `VirtualMachineIPAddressClaim`.
                       type: string
                   required:
@@ -61,11 +61,11 @@ spec:
                   type: object
               type: object
             status:
-              description:  |
+              description: |
                 The observed state of `VirtualMachineIPAddressLease`.
               properties:
                 phase:
-                  description:  |
+                  description: |
                     Represents the current state of issued IP address lease.
                   type: string
               type: object

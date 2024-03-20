@@ -1,59 +1,54 @@
-name: Build and push for dev (Manually)
+name: Build and push for dev (Self-hosted)
 
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
-  CI_COMMIT_REF_NAME: ${{ github.event.inputs.tag }}
-  #  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
 on:
-  workflow_dispatch:
-    inputs:
+  pull_request:
+    types: [ labeled ]
 
-      tag:
-        description: "The module's tag, which must pr654 For example: pr56"
-        type: string
-        required: true
-#  pull_request:
-#    types: [ opened, edited, synchronize ]
-#  push:
-#    branches:
-#      - main
+defaults:
+  run:
+    shell: bash
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.number || github.event.inputs.tag }}
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  tag_validation:
-    runs-on: [self-hosted, test-vm-runner]
+  check_label:
+    name: Check label
+    if: ${{ github.event.label.name == 'build/self-hosted/virt-runners' }}
+    runs-on: [self-hosted, ci-testing]
+    outputs:
+      should_run: ${{ steps.check_label.outputs.should_run }}
     steps:
-      - name: Validation for tag
-        run: |
-          echo ${{ github.event.inputs.tag }} | grep -P '^pr\d+$'
-        shell: bash
+      - id: check_label
+        name: Check label
+        run: echo "should_run=true"  >> $GITHUB_OUTPUT
 
   show_dev_manifest:
-    runs-on: [self-hosted, test-vm-runner]
-    name: Show
-    needs:
-      - tag_validation
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Show manifest
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
-          MODULES_MODULE_TAG="$(echo ${{github.event.inputs.tag}})"
+          MODULES_MODULE_TAG="$(echo ${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
 
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
 
       - name: Show dev config
         run: |
@@ -94,13 +89,12 @@ jobs:
           kubectl patch mpo ${MODULES_MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
 
           OUTER
-        shell: bash
 
-  lint:
-    runs-on: [self-hosted, test-vm-runner]
-    name: Run linter
-    needs:
-      - tag_validation
+  lint_go:
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Run go linter
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -116,11 +110,30 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
-        shell: bash
-        continue-on-error: true
+  
+  lint_yaml:
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
+    name: Run yaml linter
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        
+      - uses: actions/checkout@v4
+
+      - name: Lint yaml with prettier
+        run: |
+          if ! type prettier >/dev/null; then
+            echo "On self-host runner prettier should be installed"
+            exit 1
+          fi
+          task -p lint
   
   test:
-    runs-on: [self-hosted, test-vm-runner]
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
     name: Run unit test
     steps:
       - name: Set up Go 1.20
@@ -136,35 +149,29 @@ jobs:
       - name: Run test hooks
         run: |
           task hooks:test
-        shell: bash
 
       - name: Run unit test virtualization-controller
         run: |
           task virtualization-controller:init
           task virtualization-controller:test:unit
-        shell: bash
 
   dev_setup_build:
-    runs-on: [self-hosted, test-vm-runner]
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
     name: Build and Push images
-    needs:
-      - tag_validation
-      - lint
-      - test
     steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
 
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-        shell: bash
 
       - name: Print vars
         run: |
@@ -173,9 +180,11 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-        shell: bash
-
+      
+      
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
@@ -186,4 +195,3 @@ jobs:
             --oci-empty-base \
             --new_layer "" \
             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash

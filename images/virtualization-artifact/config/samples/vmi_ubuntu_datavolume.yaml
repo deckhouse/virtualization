@@ -9,4 +9,4 @@ spec:
   dataSource:
     type: "ContainerImage"
     containerImage:
-      image: 'k3d-registry.virtualization-controller.test:5000/dvcr/cvmi/ubuntu-iso'
+      image: "k3d-registry.virtualization-controller.test:5000/dvcr/cvmi/ubuntu-iso"

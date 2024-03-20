@@ -15,8 +15,8 @@ properties:
             type: string
           ca.crt:
             type: string
-      dvcr: 
-        type: object 
+      dvcr:
+        type: object
         properties:
           cert:
             type: object
@@ -27,7 +27,7 @@ properties:
                 type: string
               key:
                 type: string
-          passwordRW: 
+          passwordRW:
             type: string
           salt:
             type: string

@@ -131,8 +131,7 @@ spec:
                       description: |
                         Размер образа в DVCR или PVC в человекочитаемом формате.
                     storedBytes:
-                      description:
-                        Размер образа в DVCR или PVC в байтах.
+                      description: Размер образа в DVCR или PVC в байтах.
                     unpacked:
                       description: |
                         Размер распакованного образа в человекочитаемом формате.
