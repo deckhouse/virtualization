@@ -63,3 +63,31 @@ tasks:
       - check-werf
     cmds:
       - werf build {{ .target }}
+  
+  lint:
+    desc: 'Run all linters in parallel.'
+    deps:
+      - lint:prettier
+
+  deps:install:prettier:
+    desc: "Install prettier."
+    cmds:
+      - npm install -g prettier
+
+  dev:format:yaml:
+    desc: "Format non-templated YAML files, e.g. CRDs"
+    cmds:
+      - |
+        docker run --rm -it \
+          -v ./:/tmp/virt node:20.11.1-alpine3.19 \
+          sh -c "npm install -g prettier ; cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
+  
+  lint:prettier:
+    desc: "Check if prettier-formatted."
+    deps:
+      - lint:prettier:yaml
+
+  lint:prettier:yaml:
+    desc: "Check if yaml files are prettier-formatted."
+    cmds:
+      - prettier -c "**/*.yaml" "**/*.yml"
