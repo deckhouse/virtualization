@@ -17,4 +17,3 @@ spec:
     - type: VirtualMachineImage
       virtualMachineImage:
         name: test-vm-image
-
