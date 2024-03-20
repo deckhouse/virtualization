@@ -21,7 +21,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/deckhouse/virtualization/)
+      - prefix(github.com/deckhouse/)
   goimports:
     local-prefixes: github.com/deckhouse/
   errcheck:
