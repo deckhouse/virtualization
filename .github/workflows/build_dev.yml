@@ -103,11 +103,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Run yaml linter
     steps:
-      - name: Set up Go 1.21
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.21"
-      
       - name: Install Task
         uses: arduino/setup-task@v1
         
