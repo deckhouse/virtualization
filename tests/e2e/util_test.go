@@ -7,7 +7,12 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ApplyWaitGetOptions struct {
@@ -111,7 +116,8 @@ func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
 		Namespace: conf.Namespace,
 		JsonPatch: patch,
 	})
-	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
+		res.StdErr())
 }
 func CheckField(resource kc.Resource, name, output, compareValue string) {
 	GinkgoHelper()
@@ -121,4 +127,43 @@ func CheckField(resource kc.Resource, name, output, compareValue string) {
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "get failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 	Expect(res.StdOut()).To(Equal(compareValue))
+}
+
+type VirtualMachine struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualMachineSpec `json:"spec"`
+}
+
+type VirtualMachineSpec struct {
+	RunPolicy                        RunPolicy           `json:"runPolicy"`
+	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
+	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
+	PriorityClassName                string              `json:"priorityClassName"`
+	Tolerations                      []corev1.Toleration `json:"tolerations,omitempty"`
+	TerminationGracePeriodSeconds    *int64              `json:"terminationGracePeriodSeconds,omitempty"`
+	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
+
+	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
+}
+
+type RunPolicy string
+
+func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
+	unstructs, err := helper.ParseYaml(manifest)
+	if err != nil {
+		return nil, err
+	}
+	var unstruct *unstructured.Unstructured
+	for _, u := range unstructs {
+		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
+			unstruct = u
+			break
+		}
+	}
+	var vm VirtualMachine
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
+		return nil, err
+	}
+	return &vm, nil
 }

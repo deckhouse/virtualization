@@ -6,11 +6,16 @@ tasks:
   virtctl:
     vars:
       VERSION: "v1.0.0"
-      CMD_PATH: "/usr/local/bin/virtctl"
     cmds:
       - |
-        URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-linux-amd64"
-        virtctl &>/dev/null || ( sudo curl -L $URL -o {{ .CMD_PATH }} && sudo chmod +x {{ .CMD_PATH }} )
+        case {{OS}} in
+          darwin*)      CMD_PATH="/opt/homebrew/bin/virtctl" ;;
+          linux*)       CMD_PATH="/usr/local/bin/virtctl"    ;;
+          *)            echo "unknown: {{OS}}"; exit 1       ;;
+        esac
+        
+        URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-{{OS}}-{{ARCH}}"
+        test -f $CMD_PATH || ( sudo curl -L $URL -o $CMD_PATH && sudo chmod +x $CMD_PATH )
   ginkgo:
     vars:
       VERSION: "2.13.2"
@@ -28,3 +33,35 @@ tasks:
     cmds:
       - ginkgo
 
+  run_local:
+    desc: "Run localy e2e tests"
+    deps:
+      - virtctl
+      - ginkgo
+    cmds:
+      - |
+        export KUBECONFIG={{.KUBECONFIG}}
+        export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+        ginkgo
+    vars:
+      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
+      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
+
+  run_one:
+    desc: "Run one test or group"
+    deps:
+      - virtctl
+      - ginkgo
+    cmds:
+      - |
+        {{if .TEST }}
+          export KUBECONFIG={{.KUBECONFIG}}
+          export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+          ginkgo --focus "{{ .TEST }}" -v
+        {{else}}
+          echo "Specify test to run"
+          echo 'Example: TEST="Label and Annotation" task run_one'
+        {{end}}
+    vars:
+      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
+      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
