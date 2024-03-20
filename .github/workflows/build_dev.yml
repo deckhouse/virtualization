@@ -163,6 +163,8 @@ jobs:
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
