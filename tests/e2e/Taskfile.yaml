@@ -5,12 +5,10 @@ silent: true
 vars:
   E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
   GINKGO_VERSION: "2.13.2"
+  VERSION: "v1.0.0"
 
 tasks:
   virtctl:
-    vars:
-      VERSION: "v1.0.0"
-      CMD_PATH: "/usr/local/bin/virtctl"
     cmds:
       - |
         case {{OS}} in
@@ -49,7 +47,6 @@ tasks:
   run_one:
     desc: "Run one test or group"
     deps:
-      - fix:ssh_key_perm
       - virtctl
       - ginkgo
     cmds:
