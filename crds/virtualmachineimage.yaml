@@ -239,7 +239,7 @@ spec:
                     currentBytes:
                       type: string
                       example: 5123456
-                      description:  |
+                      description: |
                         Current download speed in bytes per second.
                 format:
                   type: string
@@ -253,22 +253,22 @@ spec:
                     stored:
                       type: string
                       example: 199M
-                      description:  |
+                      description: |
                         Image size in DVCR in human-readable format.
                     storedBytes:
                       type: string
                       example: 199001234
-                      description:  |
+                      description: |
                         Image size in DVCR in bytes.
                     unpacked:
                       type: string
                       example: 1G
-                      description:  |
+                      description: |
                         Unpacked image size in human-readable format.
                     unpackedBytes:
                       type: string
                       example: 1000000234
-                      description:  |
+                      description: |
                         Unpacked image size in bytes.
                 cdrom:
                   type: boolean
@@ -303,7 +303,7 @@ spec:
                       "Ready",
                       "Failed",
                       "ImageLost",
-                      "Unknown"
+                      "Unknown",
                     ]
                 progress:
                   type: string
@@ -332,29 +332,29 @@ spec:
                       name:
                         type: string
       additionalPrinterColumns:
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: CDROM
-        type: boolean
-        jsonPath: .status.cdrom
-      - name: Progress
-        type: string
-        jsonPath: .status.progress
-      - name: StoredSize
-        type: string
-        jsonPath: .status.size.stored
-        priority: 1
-      - name: UnpackedSize
-        type: string
-        jsonPath: .status.size.unpacked
-        priority: 1
-      - name: Registry URL
-        jsonPath: .status.target.registryURL
-        type: string
-        priority: 1
-      - name: Age
-        type: date
-        jsonPath: .metadata.creationTimestamp
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: CDROM
+          type: boolean
+          jsonPath: .status.cdrom
+        - name: Progress
+          type: string
+          jsonPath: .status.progress
+        - name: StoredSize
+          type: string
+          jsonPath: .status.size.stored
+          priority: 1
+        - name: UnpackedSize
+          type: string
+          jsonPath: .status.size.unpacked
+          priority: 1
+        - name: Registry URL
+          jsonPath: .status.target.registryURL
+          type: string
+          priority: 1
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}

@@ -49,7 +49,7 @@ spec:
                 force:
                   type: boolean
                   description: |
-                      Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
+                    Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
               oneOf:
                 - properties:
                     type:
@@ -57,8 +57,8 @@ spec:
                   required: ["virtualMachineName"]
                   not:
                     anyOf:
-                    - required:
-                      - force
+                      - required:
+                          - force
                 - properties:
                     type:
                       enum: ["Restart", "Stop"]

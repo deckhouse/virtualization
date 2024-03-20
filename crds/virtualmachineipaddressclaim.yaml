@@ -22,7 +22,7 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
-          description:  |
+          description: |
             The resource that defines IP address claim for virtual machine.
           properties:
             apiVersion:
@@ -36,17 +36,17 @@ spec:
                 The desired state of `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description:  |
+                  description: |
                     The requested IP address. If omitted the next available IP address will be assigned.
                   type: string
                 leaseName:
-                  description:  |
+                  description: |
                     The issued `VirtualMachineIPAddressLease`, managed automatically.
                   type: string
                 reclaimPolicy:
                   type: string
                   default: "Delete"
-                  enum: [ 'Delete', 'Retain' ]
+                  enum: ["Delete", "Retain"]
                   description: |
                     Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
 
@@ -54,23 +54,23 @@ spec:
                     * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
               type: object
             status:
-              description:  |
+              description: |
                 The observed state of `VirtualMachineIPAddressClaim`.
               properties:
                 address:
-                  description:  |
+                  description: |
                     The assigned IP address.
                   type: string
                 virtualMachineName:
-                  description:  |
+                  description: |
                     Represents the virtual machine that currently uses this IP address.
                   type: string
                 phase:
-                  description:  |
+                  description: |
                     The current state of the resource.
                   type: string
                 conflictMessage:
-                  description:  |
+                  description: |
                     Detailed description of the error.
                   type: string
               type: object

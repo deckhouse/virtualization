@@ -7,4 +7,4 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: 'http://caddy.caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img'
+      url: "http://caddy.caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img"

@@ -47,7 +47,7 @@ spec:
                       type: string
                       description: |
                         Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
-                      pattern: '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'
+                      pattern: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
                     storageClassName:
                       type: string
                       description: |
@@ -62,11 +62,11 @@ spec:
                     type:
                       type: string
                       enum:
-                      - 'HTTP'
-                      - 'ContainerImage'
-                      - 'VirtualMachineImage'
-                      - 'ClusterVirtualMachineImage'
-                      - 'Upload'
+                        - "HTTP"
+                        - "ContainerImage"
+                        - "VirtualMachineImage"
+                        - "ClusterVirtualMachineImage"
+                        - "Upload"
                       description: |
                         The type of an origin of the disk. Options are:
 
@@ -85,11 +85,11 @@ spec:
 
                         For https schema there is an option to skip TLS verification.
                       required:
-                      - url
+                        - url
                       properties:
                         url:
                           type: string
-                          example: 'https://mirror.example.com/images/slackware-15.qcow.gz'
+                          example: "https://mirror.example.com/images/slackware-15.qcow.gz"
                           # https://regex101.com/r/2zx8as/1
                           pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
                           description: |
@@ -137,13 +137,13 @@ spec:
                     containerImage:
                       type: object
                       required:
-                      - image
+                        - image
                       description: |
                         Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
-                          example: 'registry.example.com/images/slackware:15'
+                          example: "registry.example.com/images/slackware:15"
                           # https://regex101.com/r/NXfP8Y/1
                           pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
                           description: |
@@ -185,29 +185,29 @@ spec:
                           description: |
                             A name of existing `ClusterVirtualMachineImage`.
                   oneOf:
-                  - properties:
-                      type:
-                        enum: ['HTTP']
-                      http: {}
-                    required: ['http']
-                  - properties:
-                      type:
-                        enum: ['ContainerImage']
-                      containerImage: {}
-                    required: ['containerImage']
-                  - properties:
-                      type:
-                        enum: ['VirtualMachineImage']
-                      virtualMachineImage: {}
-                    required: ['virtualMachineImage']
-                  - properties:
-                      type:
-                        enum: ['ClusterVirtualMachineImage']
-                      clusterVirtualMachineImage: {}
-                    required: ['clusterVirtualMachineImage']
-                  - properties:
-                      type:
-                        enum: ['Upload']
+                    - properties:
+                        type:
+                          enum: ["HTTP"]
+                        http: {}
+                      required: ["http"]
+                    - properties:
+                        type:
+                          enum: ["ContainerImage"]
+                        containerImage: {}
+                      required: ["containerImage"]
+                    - properties:
+                        type:
+                          enum: ["VirtualMachineImage"]
+                        virtualMachineImage: {}
+                      required: ["virtualMachineImage"]
+                    - properties:
+                        type:
+                          enum: ["ClusterVirtualMachineImage"]
+                        clusterVirtualMachineImage: {}
+                      required: ["clusterVirtualMachineImage"]
+                    - properties:
+                        type:
+                          enum: ["Upload"]
             status:
               type: object
               properties:
@@ -262,13 +262,13 @@ spec:
                     * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                   enum:
                     [
-                      'Pending',
-                      'Provisioning',
-                      'WaitForUserUpload',
-                      'Ready',
-                      'Failed',
-                      'PVCLost',
-                      'Unknown'
+                      "Pending",
+                      "Provisioning",
+                      "WaitForUserUpload",
+                      "Ready",
+                      "Failed",
+                      "PVCLost",
+                      "Unknown",
                     ]
                 progress:
                   type: string
@@ -290,32 +290,29 @@ spec:
                   type: array
                   description: |
                     A list of virtual machines that use the disk
-                  example: [
-                            { name: "VM100" },
-                            { name: "VM200" }
-                            ]
+                  example: [{ name: "VM100" }, { name: "VM200" }]
                   items:
                     type: object
                     properties:
                       name:
                         type: string
       additionalPrinterColumns:
-      - name: Phase
-        type: string
-        jsonPath: .status.phase
-      - name: Capacity
-        type: string
-        jsonPath: .status.capacity
-      - name: Progress
-        type: string
-        jsonPath: .status.progress
-        priority: 1
-      - name: Target PVC
-        jsonPath: .status.target.persistentVolumeClaimName
-        type: string
-        priority: 1
-      - name: Age
-        type: date
-        jsonPath: .metadata.creationTimestamp
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Capacity
+          type: string
+          jsonPath: .status.capacity
+        - name: Progress
+          type: string
+          jsonPath: .status.progress
+          priority: 1
+        - name: Target PVC
+          jsonPath: .status.target.persistentVolumeClaimName
+          type: string
+          priority: 1
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}
