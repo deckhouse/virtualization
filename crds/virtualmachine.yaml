@@ -48,6 +48,8 @@ spec:
                       description: |
                         This parameter defines the type of provisioning script:
 
+                        * SysprepSecret - allows to automate Windows installation, setup, and custom software provisioning.
+
                         * UserData - allows the use of inline cloud-init userdata in the .spec.provisioning.UserData section.
 
                         * UserDataSecret - allows the use of an existing Secret with cloud-init userdata.
@@ -55,8 +57,19 @@ spec:
                         More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
                       type: string
                       enum:
+                        - SysprepSecret
                         - UserData
                         - UserDataSecret
+                    sysprepSecretRef:
+                      description: |
+                        Reference to an existing Secret with a Windows sysprep automation.
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: |
+                            Secret name.
+                      required: [ "name" ]
                     userData:
                       description: |
                         Inline cloud-init userdata script.
@@ -72,19 +85,31 @@ spec:
                             Secret name.
                       required: ["name"]
                   oneOf:
-                    - properties:
-                        type:
-                          enum: ["UserData"]
-                      required: ["userData"]
-                      not:
-                        required: ["userDataSecretRef"]
-                    - properties:
-                        type:
-                          enum: ["UserDataSecret"]
-                        userDataSecretRef: {}
-                      required: ["userDataSecretRef"]
-                      not:
-                        required: ["userData"]
+                  - properties:
+                      type:
+                        enum: [ "SysprepSecret" ]
+                    required: [ "sysprepSecretRef" ]
+                    not:
+                      anyOf:
+                        - required: [ "userData" ]
+                        - required: [ "userDataSecretRef" ]
+                  - properties:
+                      type:
+                        enum: ["UserData"]
+                    required: ["userData"]
+                    not:
+                      anyOf:
+                        - required: [ "sysprepSecretRef" ]
+                        - required: [ "userDataSecretRef" ]
+                  - properties:
+                      type:
+                        enum: ["UserDataSecret"]
+                      userDataSecretRef: {}
+                    required: ["userDataSecretRef"]
+                    not:
+                      anyOf:
+                        - required: [ "sysprepSecretRef" ]
+                        - required: [ "userData" ]
                 runPolicy:
                   type: string
                   enum:
