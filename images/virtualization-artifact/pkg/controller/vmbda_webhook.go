@@ -74,7 +74,7 @@ func (v *VMBDAValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtim
 }
 
 func (v *VMBDAValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rools: delete operation not implemented")
+	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }

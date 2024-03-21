@@ -133,6 +133,7 @@ rules:
   - virtualmachinedisks
   - virtualmachinedisksnapshots
   - virtualmachineimages
+  - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
@@ -156,10 +157,12 @@ rules:
   - virtualmachineblockdeviceattachments/finalizers
   - virtualmachines/finalizers
   - clustervirtualmachineimages/finalizers
+  - virtualmachinecpumodels/finalizers
   - virtualmachineipaddressleases/finalizers
   - virtualmachineipaddressclaims/finalizers
   - virtualmachineoperations/finalizers
   - virtualmachineipaddressclaims/status
+  - virtualmachinecpumodels/status
   - virtualmachineipaddressleases/status
   - virtualmachinedisks/status
   - virtualmachinedisksnapshots/status

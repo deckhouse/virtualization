@@ -12,6 +12,7 @@ rules:
   resources:
   - virtualmachinedisks
   - virtualmachineimages
+  - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
@@ -70,6 +71,7 @@ rules:
   resources:
   - virtualmachinedisks
   - virtualmachineimages
+  - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments

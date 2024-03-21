@@ -68,6 +68,7 @@ var _ = Describe("VM", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
+						Model: "test-vmcpu",
 						Cores: 2,
 					},
 					Memory: virtv2.MemorySpec{
@@ -96,6 +97,23 @@ var _ = Describe("VM", func() {
 				RuntimeObjects: []runtime.Object{vm},
 			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: "test-vm", Namespace: "test-ns"})
+		}
+
+		{
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineCPUModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vmcpu",
+				},
+				Spec: virtv2.VirtualMachineCPUModelSpec{
+					Type: virtv2.Host,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmcpu, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmcpu"}, reconciler.Client, &virtv2.VirtualMachineCPUModel{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmcpu).NotTo(BeNil())
+			Expect(vmcpu.Spec.Type).To(Equal(virtv2.Host))
 		}
 
 		{
@@ -374,6 +392,7 @@ var _ = Describe("Apply VM changes", func() {
 		nsName := "test-ns-2"
 		vmName := "test-vm-2"
 		vmipName := "test-vmip"
+		vmcpuName := "test-vmcpu"
 		vmdName := "test-vmd"
 		storageClassName := "local-path"
 
@@ -389,6 +408,7 @@ var _ = Describe("Apply VM changes", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
+						Model: vmcpuName,
 						Cores: 2,
 					},
 					Memory: virtv2.MemorySpec{
@@ -439,7 +459,21 @@ var _ = Describe("Apply VM changes", func() {
 			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: vmName, Namespace: nsName})
 
-			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineCPUModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: vmcpuName,
+				},
+				Spec: virtv2.VirtualMachineCPUModelSpec{
+					Type: virtv2.Host,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmcpu, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmcpuName}, reconciler.Client, &virtv2.VirtualMachineCPUModel{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmcpu).NotTo(BeNil())
+
+			err = reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmipName,
 					Namespace: nsName,
@@ -502,6 +536,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 	It("Restart VM on memory change after approval", func(ctx SpecContext) {
 		nsName := "test-ns-3"
 		vmName := "test-vm"
+		vmcpuName := "test-vmcpu"
 		vmipName := "test-vmip"
 		vmdName := "test-vmd"
 		storageClassName := "local-path"
@@ -525,6 +560,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
+						Model:        vmcpuName,
 						Cores:        cpuStartingCores,
 						CoreFraction: cpuStartingCoreFraction,
 					},
@@ -576,7 +612,19 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			})
 			reconcileExecutor = testutil.NewReconcileExecutor(types.NamespacedName{Name: vmName, Namespace: nsName})
 
-			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+			err := reconciler.Client.Create(ctx, &virtv2.VirtualMachineCPUModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: vmcpuName,
+				},
+				Spec: virtv2.VirtualMachineCPUModelSpec{Type: virtv2.Host},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			vmcpu, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmcpuName}, reconciler.Client, &virtv2.VirtualMachineCPUModel{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmcpu).NotTo(BeNil())
+
+			err = reconciler.Client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmipName,
 					Namespace: nsName,
@@ -649,10 +697,12 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					"path":      Equal("cpu"),
 					"operation": Equal(string(vmchange.ChangeReplace)),
 					"currentValue": MatchAllKeys(Keys{
+						"model":        BeEquivalentTo(vmcpuName),
 						"cores":        BeEquivalentTo(cpuStartingCores),
 						"coreFraction": Equal(cpuStartingCoreFraction),
 					}),
 					"desiredValue": MatchAllKeys(Keys{
+						"model":        BeEquivalentTo(vmcpuName),
 						"cores":        BeEquivalentTo(cpuNewCores),
 						"coreFraction": Equal(cpuNewCoreFraction),
 					}),

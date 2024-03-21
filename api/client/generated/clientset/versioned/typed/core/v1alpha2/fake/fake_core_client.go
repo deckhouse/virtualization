@@ -39,6 +39,10 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineBlockDeviceAttachments(namesp
 	return &FakeVirtualMachineBlockDeviceAttachments{c, namespace}
 }
 
+func (c *FakeVirtualizationV1alpha2) VirtualMachineCPUModels(namespace string) v1alpha2.VirtualMachineCPUModelInterface {
+	return &FakeVirtualMachineCPUModels{c, namespace}
+}
+
 func (c *FakeVirtualizationV1alpha2) VirtualMachineDisks(namespace string) v1alpha2.VirtualMachineDiskInterface {
 	return &FakeVirtualMachineDisks{c, namespace}
 }

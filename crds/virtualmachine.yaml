@@ -835,6 +835,11 @@ spec:
                   required:
                     - cores
                   properties:
+                    modelName:
+                      type: string
+                      default: "generic-v1"
+                      description: |
+                        Name of `VirtualMachineCPUModel` resource holding the CPU model of the VirtualMachine.
                     cores:
                       format: int32
                       type: integer

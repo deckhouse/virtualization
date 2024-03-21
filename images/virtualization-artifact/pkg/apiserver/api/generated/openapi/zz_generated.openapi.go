@@ -75,6 +75,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentList":   schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentList(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentSpec":   schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentStatus": schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentStatus(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModel":                    schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModel(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelList":                schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelList(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelSpec":                schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelSpec(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatus":              schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatus(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatusFeatures":      schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatusFeatures(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDisk":                        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDisk(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskList":                    schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskList(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskSpec":                    schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskSpec(ref),
@@ -772,6 +777,13 @@ func schema_virtualization_controller_api_core_v1alpha2_CPUSpec(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"cores": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -787,7 +799,7 @@ func schema_virtualization_controller_api_core_v1alpha2_CPUSpec(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"cores", "coreFraction"},
+				Required: []string{"model", "cores", "coreFraction"},
 			},
 		},
 	}
@@ -2128,6 +2140,227 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDevic
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineCPUModel an immutable resource describing the processor that will be used in the VM.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatus"),
+						},
+					},
+				},
+				Required: []string{"spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineCPUModelList contains a list of VirtualMachineCPUModel",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items provides a list of CDIs",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModel"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModel", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type", "model", "features"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatusFeatures"),
+						},
+					},
+					"nodes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"phase"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatusFeatures"},
+	}
+}
+
+func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatusFeatures(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"notEnabledCommon": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"enabled", "notEnabledCommon"},
 			},
 		},
 	}

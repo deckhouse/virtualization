@@ -1,0 +1,129 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachinecpumodels.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Cluster
+  names:
+    categories:
+      - virtualization
+    plural: virtualmachinecpumodels
+    singular: virtualmachinecpumodel
+    kind: VirtualMachineCPUModel
+    shortNames:
+      - vmcpu
+      - vmcpus
+  preserveUnknownFields: false
+  versions:
+    - name: v1alpha2
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: |
+            The immutable resource describes a CPU model for use in a VM. A resource cannot be deleted as long as it is used in one of the VMs.
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  description: |
+                    Resource type, the following options are supported:
+                    * Host - use the host's physical CPU directly.
+                    * Model - CPU model. A CPU model is a named and previously defined set of supported processor instructions.
+                    * Features - the required set of supported instructions for the processor.
+                  enum:
+                    - 'Host'
+                    - 'Model'
+                    - 'Features'
+                model:
+                  type: string
+                  description: |
+                    The name of CPU model. More information about models [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+                  example: IvyBridge
+                features:
+                  type: array
+                  description: |
+                    Required instructions for the CPU as a list More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+                  example: [
+                    "mmx",
+                    "vmx",
+                    "sse2"
+                  ]
+                  items:
+                    type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string
+                  description: |
+                    Current status of `VirtualMachineCPUModel` resource:
+                    * Pending - the resource is in the queue for processing.
+                    * InProgress - the resource is in the process of being created.
+                    * Ready - the resource has been created successfully.
+                    * Failed - an error occurred during the resource creation process.
+                  enum:
+                    [
+                      "Pending",
+                      "InProgress",
+                      "Ready",
+                      "Failed",
+                    ]
+                features:
+                  type: object
+                  description: |
+                    Information on CPU features for this model.
+                    Shown only for `type=Features`.
+                  properties:
+                    enabled:
+                      type: array
+                      description: |
+                        A list of CPU features for this model.
+                      example: [
+                        "mmx",
+                        "vmx",
+                        "sse2"
+                      ]
+                      items:
+                        type: string
+                    notEnabledCommon:
+                      type: array
+                      description: |
+                        A list of unused processor features additionally available for a given group of nodes.
+                      example: [
+                        "ssse3",
+                        "vme",
+                      ]
+                      items:
+                        type: string
+                nodes:
+                  type: array
+                  description: |
+                    List of nodes supporting this CPU model.
+                    Not shown for `type=Host`.
+                  example: [
+                    "node-1",
+                    "node-2",
+                  ]
+                  items:
+                    type: string
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}

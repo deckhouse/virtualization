@@ -58,6 +58,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachines().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineblockdeviceattachments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineBlockDeviceAttachments().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinecpumodels"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineCPUModels().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinedisks"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineDisks().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineipaddressclaims"):

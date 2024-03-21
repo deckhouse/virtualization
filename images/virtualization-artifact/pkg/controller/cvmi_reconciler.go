@@ -52,7 +52,7 @@ func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.ClusterVirtualMachineImage,
 			virtv2.ClusterVirtualMachineImageStatus,
-		](virtv2.ClusterImageDevice),
+		](),
 	}
 }
 
@@ -69,7 +69,7 @@ func (r *CVMIReconciler) SetupController(ctx context.Context, mgr manager.Manage
 		return err
 	}
 
-	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
+	return r.AttacheeReconciler.SetupController(mgr, ctr, r)
 }
 
 // Sync creates and deletes importer Pod depending on CVMI status.
@@ -382,4 +382,30 @@ func (r *CVMIReconciler) cleanupOnDeletion(ctx context.Context, state *CVMIRecon
 	}
 	controllerutil.RemoveFinalizer(state.CVMI.Changed(), virtv2.FinalizerCVMICleanup)
 	return nil
+}
+
+func (r *CVMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type == virtv2.ClusterImageDevice && bda.ClusterVirtualMachineImage != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *CVMIReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
+	var requests []reconcile.Request
+
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type != virtv2.ClusterImageDevice || bda.ClusterVirtualMachineImage == nil {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name: bda.ClusterVirtualMachineImage.Name,
+		}})
+	}
+
+	return requests
 }

@@ -39,6 +39,7 @@ type VMReconcilerState struct {
 	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
 
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
+	CPUModel       *virtv2.VirtualMachineCPUModel
 
 	Result                 *reconcile.Result
 	StatusMessage          string
@@ -96,6 +97,12 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.IPAddressClaim, err = helper.FetchObject(ctx, claimKey, state.Client, &virtv2.VirtualMachineIPAddressClaim{})
 	if err != nil {
 		return fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
+	}
+
+	vmcpuKey := types.NamespacedName{Name: state.VM.Current().Spec.CPU.Model}
+	state.CPUModel, err = helper.FetchObject(ctx, vmcpuKey, state.Client, &virtv2.VirtualMachineCPUModel{})
+	if err != nil {
+		return fmt.Errorf("unable to get cpu model %s: %w", claimKey, err)
 	}
 
 	kvvmName := state.VM.Name()

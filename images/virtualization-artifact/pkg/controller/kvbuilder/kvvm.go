@@ -78,10 +78,29 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
-func (b *KVVM) SetCPUModel(model string) {
-	b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
-		Model: model,
+func (b *KVVM) SetCPUModel(cpuModelSpec virtv2.VirtualMachineCPUModelSpec) error {
+	var cpu virtv1.CPU
+
+	switch cpuModelSpec.Type {
+	case virtv2.Host:
+		cpu.Model = virtv1.CPUModeHostPassthrough
+	case virtv2.Model:
+		cpu.Model = cpuModelSpec.Model
+	case virtv2.Features:
+		cpu.Features = make([]virtv1.CPUFeature, len(cpuModelSpec.Features))
+		for i, feature := range cpuModelSpec.Features {
+			cpu.Features[i] = virtv1.CPUFeature{
+				Name:   feature,
+				Policy: "require",
+			}
+		}
+	default:
+		return fmt.Errorf("unexpected cpu type: %s", cpuModelSpec.Type)
 	}
+
+	b.Resource.Spec.Template.Spec.Domain.CPU = &cpu
+
+	return nil
 }
 
 func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
