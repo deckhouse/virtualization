@@ -1,12 +1,12 @@
 package importer
 
 import (
-	virtv2alpha1 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	dsutil "github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // Settings stores all possible settings for dvcr-importer binary.

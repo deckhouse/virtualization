@@ -16,9 +16,9 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization-controller/api/subresources"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 const (

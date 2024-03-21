@@ -19,8 +19,8 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtcore "github.com/deckhouse/virtualization-controller/api/core"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	virtcore "github.com/deckhouse/virtualization/api/core"
 )
 
 const (

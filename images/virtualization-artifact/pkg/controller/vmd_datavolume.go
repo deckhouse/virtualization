@@ -10,13 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	vmdutil "github.com/deckhouse/virtualization-controller/pkg/common/vmd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var (
