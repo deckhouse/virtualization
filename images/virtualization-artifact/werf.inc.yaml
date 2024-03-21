@@ -2,6 +2,14 @@
 image: {{ $.ImageName }}
 fromImage: base-golang-20-bookworm
 git:
+- add: /api
+  to: /usr/local/go/api
+  stageDependencies:
+    install:
+      - go.mod
+      - go.sum
+    setup:
+      - "**/*.go"
 - add: /images/{{ $.ImageName }}
   to: /usr/local/go/src/virtualization-controller
   stageDependencies:

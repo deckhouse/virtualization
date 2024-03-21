@@ -1,7 +1,7 @@
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // LoadLastAppliedSpec loads VM spec from JSON in the last-applied-spec annotation.

@@ -9,12 +9,12 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
-	"github.com/deckhouse/virtualization-controller/api/subresources"
-	"github.com/deckhouse/virtualization-controller/api/subresources/install"
-	"github.com/deckhouse/virtualization-controller/api/subresources/v1alpha2"
 	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization/api/subresources"
+	"github.com/deckhouse/virtualization/api/subresources/install"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 var (

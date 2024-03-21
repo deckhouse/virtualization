@@ -6,6 +6,9 @@ includes:
   init: Taskfile.init.yaml
   cvmi: Taskfile.cvmi.yaml
   vmi: Taskfile.vmi.yaml
+  api:
+    taskfile: ../../api/Taskfile.dist.yaml
+    dir: ../../api
   my:
     taskfile: Taskfile.my.yaml
     optional: true
@@ -574,35 +577,6 @@ tasks:
   kctl:
     cmds:
       - kubectl -n virtualization-controller {{.CLI_ARGS}}
-  generate:
-    desc: "Regenerate all"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
-    cmd:  ./hack/update-codegen.sh all
-  generate:core:
-    desc: "Regenerate code for core components."
-    deps:
-      - _ensure:k8s-codegen-mod
-    cmd: ./hack/update-codegen.sh core
-  generate:subresources:
-    desc: "Regenerate code for subresources components"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
-    cmd: ./hack/update-codegen.sh subresources
-  ci:generate:
-    desc: "Run generations and check git diff to ensure all files are committed"
-    cmds:
-      - task: generate
-      - task: _ci:verify-gen
-
-  _ci:verify-gen:
-    desc: "Check generated files are up-to-date."
-    internal: true
-    cmds:
-      - |
-        git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
 
   fmt:
     desc: "Run formatters locally"
@@ -649,11 +623,13 @@ tasks:
         ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
         --deployment=virtualization-controller                                 \
         --namespace=d8-virtualization
+
   mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
     deps:
       - _ensure:mirrord
     cmd: ./hack/mirrord.sh wipe --deployment=virtualization-controller --namespace=d8-virtualization
+
   mirrord:run:apiserver:
     desc: "Run local virtualization-api in cluster using a mirrord"
     deps:
@@ -696,24 +672,6 @@ tasks:
         | kubectl apply -n "{{.NAMESPACE}}" -f -
         fi
 
-  _ensure:k8s-codegen-mod:
-    desc: "Ensure k8s.io/codegen module is present"
-    internal: true
-    cmds:
-      - echo -e "Path K8S_CODEGEN=${K8S_CODEGEN} should exists.\nAdd k8s.io/code-generator to go.mod and run go mod download" > /dev/stderr
-      - exit 1
-    status:
-      - |
-        ls $K8S_CODEGEN && find $K8S_CODEGEN -name \*.sh -exec chmod +x {} \;
-
-  _ensure:k8s-kube-openapi:
-    desc: "Ensure k8s.io/kube-openapi"
-    internal: true
-    cmds:
-      - go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
-    status:
-      - |
-        ls $GOPATH/bin/openapi-gen
   _ensure:helm:
     desc: "Ensure helm is installed"
     internal: true

@@ -5,8 +5,8 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	virtClient "github.com/deckhouse/virtualization-controller/api/client/generated/clientset/versioned"
-	virtInformers "github.com/deckhouse/virtualization-controller/api/client/generated/informers/externalversions"
+	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	virtInformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions"
 )
 
 const (
