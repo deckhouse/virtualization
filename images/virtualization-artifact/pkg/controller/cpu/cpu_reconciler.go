@@ -18,10 +18,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMCPUReconciler struct {

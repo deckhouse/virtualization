@@ -10,7 +10,7 @@ import (
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMCPUValidator(log logr.Logger) *VMCPUValidator {

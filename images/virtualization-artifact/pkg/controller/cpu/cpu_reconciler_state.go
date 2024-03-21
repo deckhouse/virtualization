@@ -11,9 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	virtv2 "github.com/deckhouse/virtualization-controller/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmattachee"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMCPUReconcilerState struct {
