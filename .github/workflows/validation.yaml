@@ -19,10 +19,15 @@ jobs:
     runs-on: ubuntu-latest
     name: check cytillic
     steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Run git diff
         run: |
-          echo $(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$' | grep -Pq "[\p{Cyrillic}]")
+          DIFF_FILES=$(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')

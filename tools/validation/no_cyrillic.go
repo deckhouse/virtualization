@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package val
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 	}
 	if description != "" {
 		// Here put cyrillic char -> C
-		fmt.Printf("Check description C... ")
+		fmt.Printf("Check description Сахар... ")
 		msg, hasCyr := checkCyrillicLetters(description)
 		if hasCyr {
 			fmt.Printf("ERROR\n%s\n", msg)
