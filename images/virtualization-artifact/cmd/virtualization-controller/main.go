@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/cpu"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -246,6 +247,11 @@ func main() {
 	}
 
 	if _, err := ipam.NewLeaseController(ctx, mgr, log); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	if _, err := cpu.NewVMCPUController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

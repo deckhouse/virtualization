@@ -160,6 +160,17 @@ func (r *VMReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMR
 
 // syncDependencies ensures IP Claim and block devices are ready and updates KVVM according to changes in VM spec.
 func (r *VMReconciler) syncKVVMDependencies(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (ready bool, err error) {
+	ok := r.ensureCPUModel(state, opts)
+	if !ok {
+		return false, nil
+	}
+
+	if controllerutil.AddFinalizer(state.CPUModel, virtv2.FinalizerVMCPUProtection) {
+		if err = state.Client.Update(ctx, state.CPUModel); err != nil {
+			return false, fmt.Errorf("error setting finalizer on the VMCPU %q: %w", state.CPUModel.Name, err)
+		}
+	}
+
 	// Ensure IP address claim.
 	claimed, err := r.ensureIPAddressClaim(ctx, state, opts)
 	if err != nil {
@@ -246,6 +257,13 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	}
 
 	// Ensure IP address claim.
+	if !r.ensureCPUModel(state, opts) {
+		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		state.VM.Changed().Status.Message = "Waiting for CPUModel to become available"
+		return nil
+	}
+
+	// Ensure IP address claim.
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for IPAddressClaim to become available"
@@ -322,6 +340,18 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	state.VM.Changed().Status.RestartID = state.RestartID
 	state.VM.Changed().Status.RestartAwaitingChanges = state.RestartAwaitingChanges
 	return nil
+}
+
+func (r *VMReconciler) ensureCPUModel(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) bool {
+	if state.CPUModel != nil {
+		return true
+	}
+
+	state.SetStatusMessage("CPU model not available: waiting for the CPU model")
+	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonCPUModelNotFound, "CPU model not available: waiting for the CPU model")
+	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
+
+	return false
 }
 
 func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (bool, error) {
@@ -444,7 +474,7 @@ func (r *VMReconciler) makeKVVMFromVMSpec(state *VMReconcilerState) (*virtv1.Vir
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err := kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.IPAddressClaim.Spec.Address)
+	err := kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, state.VM.Current(), state.VMDByName, state.VMIByName, state.CVMIByName, r.dvcrSettings, state.CPUModel.Spec, state.IPAddressClaim.Spec.Address)
 	if err != nil {
 		return nil, err
 	}

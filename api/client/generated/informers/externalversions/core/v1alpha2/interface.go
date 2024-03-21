@@ -29,6 +29,8 @@ type Interface interface {
 	VirtualMachines() VirtualMachineInformer
 	// VirtualMachineBlockDeviceAttachments returns a VirtualMachineBlockDeviceAttachmentInformer.
 	VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDeviceAttachmentInformer
+	// VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
+	VirtualMachineCPUModels() VirtualMachineCPUModelInformer
 	// VirtualMachineDisks returns a VirtualMachineDiskInformer.
 	VirtualMachineDisks() VirtualMachineDiskInformer
 	// VirtualMachineIPAddressClaims returns a VirtualMachineIPAddressClaimInformer.
@@ -65,6 +67,11 @@ func (v *version) VirtualMachines() VirtualMachineInformer {
 // VirtualMachineBlockDeviceAttachments returns a VirtualMachineBlockDeviceAttachmentInformer.
 func (v *version) VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDeviceAttachmentInformer {
 	return &virtualMachineBlockDeviceAttachmentInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
+func (v *version) VirtualMachineCPUModels() VirtualMachineCPUModelInformer {
+	return &virtualMachineCPUModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineDisks returns a VirtualMachineDiskInformer.

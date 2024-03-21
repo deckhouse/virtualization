@@ -14,26 +14,38 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type AttacheeState[T helper.Object[T, ST], ST any] struct {
+type StateReconciler interface {
 	two_phase_reconciler.ReconcilerState
+	AttacheeChecker
+}
 
-	Kind                virtv2.BlockDeviceType
+type AttacheeChecker interface {
+	IsAttachedToVM(vm virtv2.VirtualMachine) bool
+}
+
+type AttacheeState[T helper.Object[T, ST], ST any] struct {
+	StateReconciler
+
+	isAttached bool
+
 	ProtectionFinalizer string
-	isAttached          bool
 	Resource            *helper.Resource[T, ST]
 }
 
-func NewAttacheeState[T helper.Object[T, ST], ST any](reconcilerState two_phase_reconciler.ReconcilerState, kind virtv2.BlockDeviceType, protectionFinalizer string, resource *helper.Resource[T, ST]) *AttacheeState[T, ST] {
+func NewAttacheeState[T helper.Object[T, ST], ST any](
+	reconcilerState StateReconciler,
+	protectionFinalizer string,
+	resource *helper.Resource[T, ST],
+) *AttacheeState[T, ST] {
 	return &AttacheeState[T, ST]{
-		ReconcilerState:     reconcilerState,
-		Kind:                kind,
+		StateReconciler:     reconcilerState,
 		ProtectionFinalizer: protectionFinalizer,
 		Resource:            resource,
 	}
 }
 
 func (state *AttacheeState[T, ST]) ShouldReconcile(log logr.Logger) bool {
-	log.V(2).Info("AttacheeState ShouldReconcile", "Kind", state.Kind, "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
+	log.V(2).Info("AttacheeState ShouldReconcile", "ShouldRemoveProtectionFinalizer", state.ShouldRemoveProtectionFinalizer())
 	return state.ShouldRemoveProtectionFinalizer()
 }
 
@@ -44,7 +56,7 @@ func (state *AttacheeState[T, ST]) Reload(ctx context.Context, _ reconcile.Reque
 	}
 	state.isAttached = isAttached
 
-	log.V(2).Info("Attachee Reload", "Kind", state.Kind, "isAttached", state.isAttached)
+	log.V(2).Info("Attachee Reload", "isAttached", state.isAttached)
 
 	return nil
 }
@@ -59,23 +71,8 @@ func (state *AttacheeState[T, ST]) hasAttachedVM(ctx context.Context, apiClient 
 	}
 
 	for _, vm := range vms.Items {
-		for _, bda := range vm.Status.BlockDevicesAttached {
-			switch state.Kind {
-			case virtv2.ClusterImageDevice:
-				if state.Kind == bda.Type && bda.ClusterVirtualMachineImage != nil && bda.ClusterVirtualMachineImage.Name == state.Resource.Name().Name {
-					return true, nil
-				}
-			case virtv2.ImageDevice:
-				if state.Kind == bda.Type && bda.VirtualMachineImage != nil && bda.VirtualMachineImage.Name == state.Resource.Name().Name {
-					return true, nil
-				}
-			case virtv2.DiskDevice:
-				if state.Kind == bda.Type && bda.VirtualMachineDisk != nil && bda.VirtualMachineDisk.Name == state.Resource.Name().Name {
-					return true, nil
-				}
-			default:
-				return false, fmt.Errorf("unexpected block device kind: %s", state.Kind)
-			}
+		if state.IsAttachedToVM(vm) {
+			return true, nil
 		}
 	}
 

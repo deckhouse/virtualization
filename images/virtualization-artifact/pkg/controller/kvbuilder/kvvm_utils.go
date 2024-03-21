@@ -45,6 +45,7 @@ func ApplyVirtualMachineSpec(
 	vmiByName map[string]*virtv2.VirtualMachineImage,
 	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
 	dvcrSettings *dvcr.Settings,
+	cpu virtv2.VirtualMachineCPUModelSpec,
 	ipAddress string,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
@@ -56,7 +57,10 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
 		return err
 	}
-	kvvm.SetCPUModel("Nehalem")
+	if err := kvvm.SetCPUModel(cpu); err != nil {
+		return err
+	}
+
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector)

@@ -56,6 +56,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineList{},
 		&VirtualMachineBlockDeviceAttachment{},
 		&VirtualMachineBlockDeviceAttachmentList{},
+		&VirtualMachineCPUModel{},
+		&VirtualMachineCPUModelList{},
 		&VirtualMachineIPAddressClaim{},
 		&VirtualMachineIPAddressClaimList{},
 		&VirtualMachineIPAddressLease{},

@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -55,7 +56,7 @@ func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, 
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
 			*virtv2.VirtualMachineImage,
 			virtv2.VirtualMachineImageStatus,
-		](virtv2.ImageDevice),
+		](),
 	}
 }
 
@@ -98,7 +99,7 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		return fmt.Errorf("error setting watch on PVC: %w", err)
 	}
 
-	return r.AttacheeReconciler.SetupController(ctx, mgr, ctr)
+	return r.AttacheeReconciler.SetupController(mgr, ctr, r)
 }
 
 // Sync starts an importer/uploader Pod or creates a DataVolume to import image into DVCR or into PVC.
@@ -664,4 +665,31 @@ func (r *VMIReconciler) cleanupOnDeletion(ctx context.Context, state *VMIReconci
 	}
 	controllerutil.RemoveFinalizer(state.VMI.Changed(), virtv2.FinalizerVMICleanup)
 	return nil
+}
+
+func (r *VMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type == virtv2.ImageDevice && bda.VirtualMachineImage != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *VMIReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
+	var requests []reconcile.Request
+
+	for _, bda := range vm.Status.BlockDevicesAttached {
+		if bda.Type != virtv2.ImageDevice || bda.VirtualMachineImage == nil {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      bda.VirtualMachineImage.Name,
+			Namespace: vm.Namespace,
+		}})
+	}
+
+	return requests
 }
