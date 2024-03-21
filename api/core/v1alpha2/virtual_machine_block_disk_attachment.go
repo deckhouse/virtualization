@@ -2,6 +2,11 @@ package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+const (
+	VMBDAKind     = "VirtualMachineBlockDeviceAttachment"
+	VMBDAResource = "virtualmachineblockdeviceattachments"
+)
+
 // VirtualMachineBlockDeviceAttachment is a disk ready to be bound by a VM
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

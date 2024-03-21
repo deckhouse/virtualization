@@ -3,7 +3,7 @@ module github.com/deckhouse/virtualization-controller
 go 1.21
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20240306103413-6c4078d3a582
+	github.com/deckhouse/virtualization/api v0.0.0-20240321085500-118bb9c256f6
 	github.com/distribution/reference v0.5.0
 	github.com/docker/cli v23.0.5+incompatible
 	github.com/dustin/go-humanize v1.0.1
@@ -133,4 +133,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-replace github.com/deckhouse/virtualization/api => ./../../api
+replace (
+	github.com/deckhouse/virtualization/api => ./../../api
+)

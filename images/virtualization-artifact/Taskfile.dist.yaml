@@ -658,22 +658,6 @@ tasks:
       - _ensure:mirrord
     cmd: ./hack/mirrord.sh wipe --deployment=virtualization-api --namespace=d8-virtualization
 
-  generate:
-    desc: "Regenerate all"
-    cmd: task api:generate:all
-
-  generate:core:
-    desc: "Regenerate code for core components."
-    cmd: task api:generate:core
-
-  generate:subresources:
-    desc: "Regenerate code for subresources components"
-    cmd: task api:generate:subresources
-
-  ci:generate:
-    desc: "Run generations and check git diff to ensure all files are committed"
-    cmd: task api:ci:generate
-
   _copy_d8_registry_secret:
     internal: true
     vars:
