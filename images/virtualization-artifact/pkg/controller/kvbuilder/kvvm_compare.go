@@ -206,14 +206,6 @@ func CompareKVVM(curr, next *KVVM) (*ChangeApplyActions, error) {
 	}
 
 	{
-		action, err := CompareCloudInit(curr, next)
-		if err != nil {
-			return nil, err
-		}
-		actions.Add(action)
-	}
-
-	{
 		action, err := CompareOSType(curr, next)
 		if err != nil {
 			return nil, err
@@ -485,24 +477,6 @@ func CompareTablet(curr, next *KVVM) (*ChangeApplyAction, error) {
 				Title: "Tablet input connected",
 				Curr:  strconv.FormatBool(currHasTablet),
 				Next:  strconv.FormatBool(nextHasTablet),
-			},
-		},
-	}, nil
-}
-
-func CompareCloudInit(curr, next *KVVM) (*ChangeApplyAction, error) {
-	currSettings := curr.GetCloudInitSettings()
-	nextSettings := next.GetCloudInitSettings()
-	if reflect.DeepEqual(currSettings, nextSettings) {
-		return nil, nil
-	}
-	return &ChangeApplyAction{
-		Type: ActionRestart,
-		Changes: []ChangeItem{
-			{
-				Title: CloudInitDiskName,
-				Curr:  "old",
-				Next:  "new",
 			},
 		},
 	}, nil

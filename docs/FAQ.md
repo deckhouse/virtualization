@@ -71,7 +71,7 @@ spec:
   blockDevices:
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
-        name: win-iso
+        name: win-11-iso
     - type: ClusterVirtualMachineImage
       clusterVirtualMachineImage:
         name: win-virtio-iso
@@ -181,4 +181,57 @@ By changing the labels on the virtual machine, we will redirect network traffic 
 metadata:
   labels:
     app: old
+```
+
+## How to provide windows answer file (Sysprep)
+
+To provide Sysprep ability it's necessary to define in virtual machine with SysprepSecret provisioning.
+Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
+You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
+
+First, create sysprep secret:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-config
+data:
+  unattend.xml: XXXx # base64 of answer file 
+```
+
+Then create a virtual machine with unattended installation:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  namespace: default
+  labels:
+    vm: win
+spec:
+  provisioning:
+    type: SysprepSecret
+    sysprepSecretRef:
+      name: sysprep-config
+  runPolicy: AlwaysOn
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 6
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  enableParavirtualization: true
+  blockDevices:
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-11-iso
+    - type: ClusterVirtualMachineImage
+      clusterVirtualMachineImage:
+        name: win-virtio-iso
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: win-disk
 ```

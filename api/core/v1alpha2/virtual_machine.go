@@ -118,6 +118,7 @@ type Disruptions struct {
 
 type Provisioning struct {
 	Type              ProvisioningType             `json:"type"`
+	SysprepSecretRef  *corev1.LocalObjectReference `json:"sysprepSecretRef,omitempty"`
 	UserData          string                       `json:"userData,omitempty"`
 	UserDataSecretRef *corev1.LocalObjectReference `json:"userDataSecretRef,omitempty"`
 }
@@ -174,6 +175,7 @@ type VirtualMachineList struct {
 type ProvisioningType string
 
 const (
+	ProvisioningTypeSysprepSecret  ProvisioningType = "SysprepSecret"
 	ProvisioningTypeUserData       ProvisioningType = "UserData"
 	ProvisioningTypeUserDataSecret ProvisioningType = "UserDataSecret"
 )

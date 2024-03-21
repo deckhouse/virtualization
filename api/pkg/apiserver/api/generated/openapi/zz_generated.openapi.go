@@ -1560,6 +1560,11 @@ func schema_virtualization_api_core_v1alpha2_Provisioning(ref common.ReferenceCa
 							Format:  "",
 						},
 					},
+					"sysprepSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
 					"userData": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

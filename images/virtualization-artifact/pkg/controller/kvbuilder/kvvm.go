@@ -20,7 +20,10 @@ import (
 // TODO(VM): KVVM builder should know which fields are allowed to be changed on-fly, and what params need a new KVVM instance.
 // TODO(VM): Somehow report from this layer that "restart is needed" and controller will do other "effectiveSpec"-related stuff.
 
-const CloudInitDiskName = "cloudinit"
+const (
+	CloudInitDiskName = "cloudinit"
+	SysprepDiskName   = "sysprep"
+)
 
 type KVVMOptions struct {
 	EnableParavirtualization bool
@@ -201,6 +204,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		DiskDevice: dd,
 		Serial:     opts.Serial,
 	}
+
 	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = util.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk,
 		func(v1, v2 virtv1.Disk) bool {
@@ -232,6 +236,10 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 
 	case opts.Provisioning != nil:
 		switch opts.Provisioning.Type {
+		case virtv2.ProvisioningTypeSysprepSecret:
+			vs.Sysprep = &virtv1.SysprepSource{
+				Secret: opts.Provisioning.SysprepSecretRef,
+			}
 		case virtv2.ProvisioningTypeUserData:
 			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
 				UserData: opts.Provisioning.UserData,
@@ -286,31 +294,18 @@ func (b *KVVM) HasTablet(name string) bool {
 	return false
 }
 
-func (b *KVVM) SetCloudInit(p *virtv2.Provisioning) error {
-	if p != nil {
-		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
+func (b *KVVM) SetProvisioning(p *virtv2.Provisioning) error {
+	if p == nil {
+		return nil
 	}
-	return nil
-}
 
-func (b *KVVM) GetCloudInitSettings() map[string]interface{} {
-	var disk virtv1.Disk
-	for _, d := range b.Resource.Spec.Template.Spec.Domain.Devices.Disks {
-		if d.Name == CloudInitDiskName {
-			disk = d
-			break
-		}
-	}
-	var volume virtv1.Volume
-	for _, v := range b.Resource.Spec.Template.Spec.Volumes {
-		if v.Name == CloudInitDiskName && v.CloudInitNoCloud != nil {
-			volume = v
-			break
-		}
-	}
-	return map[string]interface{}{
-		"disk":   &disk,
-		"volume": &volume,
+	switch p.Type {
+	case virtv2.ProvisioningTypeSysprepSecret:
+		return b.SetDisk(SysprepDiskName, SetDiskOptions{Provisioning: p, IsCdrom: true})
+	case virtv2.ProvisioningTypeUserData, virtv2.ProvisioningTypeUserDataSecret:
+		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
+	default:
+		return fmt.Errorf("unexpected provisioning type %s. %w", p.Type, common.ErrUnknownType)
 	}
 }
 

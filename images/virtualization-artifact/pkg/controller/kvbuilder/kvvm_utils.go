@@ -165,7 +165,7 @@ func ApplyVirtualMachineSpec(
 		case device.DataVolumeName != "":
 		}
 	}
-	if err := kvvm.SetCloudInit(vm.Spec.Provisioning); err != nil {
+	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
 		return err
 	}
 
