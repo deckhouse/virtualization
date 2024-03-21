@@ -25,4 +25,4 @@ jobs:
 
       - name: Run git diff
         run: |
-          echo $(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')
+          echo $(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$' | grep -Pq "[\p{Cyrillic}]")
