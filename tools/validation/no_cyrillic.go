@@ -51,7 +51,7 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 			fmt.Printf("OK\n")
 		}
 	}
-
+	// Some fishka
 	fmt.Printf("Check new and updated lines ... ")
 	if len(info.Files) == 0 {
 		fmt.Printf("OK, diff is empty\n")
