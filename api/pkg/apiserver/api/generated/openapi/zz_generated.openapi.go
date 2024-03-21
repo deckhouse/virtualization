@@ -776,7 +776,7 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"model": {
+					"modelName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -798,7 +798,7 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"model", "cores", "coreFraction"},
+				Required: []string{"modelName", "cores", "coreFraction"},
 			},
 		},
 	}

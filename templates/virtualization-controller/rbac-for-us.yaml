@@ -75,6 +75,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create

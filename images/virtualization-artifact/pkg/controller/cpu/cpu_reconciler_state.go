@@ -95,7 +95,11 @@ func (state *VMCPUReconcilerState) ShouldReconcile(log logr.Logger) bool {
 		return false
 	}
 
-	return state.AttacheeState.ShouldReconcile(log)
+	if state.AttacheeState.ShouldReconcile(log) {
+		return true
+	}
+
+	return true
 }
 
 func (state *VMCPUReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool {
@@ -103,7 +107,7 @@ func (state *VMCPUReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool
 		return false
 	}
 
-	return state.VMCPU.Name().Name == vm.Spec.CPU.Model
+	return state.VMCPU.Name().Name == vm.Spec.CPU.ModelName
 }
 
 func (state *VMCPUReconcilerState) isDeletion() bool {

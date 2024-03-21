@@ -68,8 +68,8 @@ var _ = Describe("VM", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						Model: "test-vmcpu",
-						Cores: 2,
+						ModelName: "test-vmcpu",
+						Cores:     2,
 					},
 					Memory: virtv2.MemorySpec{
 						Size: "2Gi",
@@ -408,8 +408,8 @@ var _ = Describe("Apply VM changes", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						Model: vmcpuName,
-						Cores: 2,
+						ModelName: vmcpuName,
+						Cores:     2,
 					},
 					Memory: virtv2.MemorySpec{
 						Size: "2Gi",
@@ -560,7 +560,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					EnableParavirtualization:         true,
 					OsType:                           virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						Model:        vmcpuName,
+						ModelName:    vmcpuName,
 						Cores:        cpuStartingCores,
 						CoreFraction: cpuStartingCoreFraction,
 					},
@@ -697,12 +697,12 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					"path":      Equal("cpu"),
 					"operation": Equal(string(vmchange.ChangeReplace)),
 					"currentValue": MatchAllKeys(Keys{
-						"model":        BeEquivalentTo(vmcpuName),
+						"modelName":    BeEquivalentTo(vmcpuName),
 						"cores":        BeEquivalentTo(cpuStartingCores),
 						"coreFraction": Equal(cpuStartingCoreFraction),
 					}),
 					"desiredValue": MatchAllKeys(Keys{
-						"model":        BeEquivalentTo(vmcpuName),
+						"modelName":    BeEquivalentTo(vmcpuName),
 						"cores":        BeEquivalentTo(cpuNewCores),
 						"coreFraction": Equal(cpuNewCoreFraction),
 					}),

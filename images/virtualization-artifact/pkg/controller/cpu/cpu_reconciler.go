@@ -95,7 +95,7 @@ func (r *VMCPUReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 	case virtv2.Host:
 	case virtv2.Model:
 		state.VMCPU.Changed().Status.Nodes = &modelNodes
-		isReady = containAll(modelNodes, state.VMCPU.Current().Spec.Model)
+		isReady = len(modelNodes) > 0
 	case virtv2.Features:
 		state.VMCPU.Changed().Status.Nodes = &modelNodes
 		state.VMCPU.Changed().Status.Features = &features
@@ -116,13 +116,13 @@ func (r *VMCPUReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 }
 
 func (r *VMCPUReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
-	return vm.Spec.CPU.Model != ""
+	return vm.Spec.CPU.ModelName != ""
 }
 
 func (r *VMCPUReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
-			Name: vm.Spec.CPU.Model,
+			Name: vm.Spec.CPU.ModelName,
 		},
 	}}
 }
@@ -132,7 +132,7 @@ func (r *VMCPUReconciler) getModelNodes(model string, nodes []corev1.Node) []str
 
 	for _, node := range nodes {
 		for label, enabled := range node.Labels {
-			if !strings.HasPrefix(label, v1.CPUModelLabel+model) || enabled != "true" {
+			if label != v1.CPUModelLabel+model || enabled != "true" {
 				continue
 			}
 
