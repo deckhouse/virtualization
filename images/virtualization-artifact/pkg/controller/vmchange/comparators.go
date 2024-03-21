@@ -122,7 +122,7 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 		return fractionChanges
 	}
 
-	modelChanges := compareStrings("cpu.model", current.CPU.Model, desired.CPU.Model, "", ActionRestart)
+	modelChanges := compareStrings("cpu.model", current.CPU.ModelName, desired.CPU.ModelName, "", ActionRestart)
 	if HasChanges(modelChanges) {
 		return modelChanges
 	}
