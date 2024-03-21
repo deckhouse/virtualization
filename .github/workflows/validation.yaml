@@ -1,14 +1,19 @@
 on:
   pull_request:
     types: [ opened, edited, synchronize ]
-  push:
     branches:
       - main
       - cicd/check-no_cyrillic
+#  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
     shell: bash
+
 jobs:
   no_cyrillic:
     runs-on: ubuntu-latest
@@ -20,4 +25,4 @@ jobs:
 
       - name: Run git diff
         run: |
-          echo $(git diff --cached --name-only | grep -E '\.(go|md|yaml|yml)$')
+          echo $(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')
