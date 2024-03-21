@@ -41,7 +41,8 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 		}
 	}
 	if description != "" {
-		fmt.Printf("Check description ... ")
+		// Here put cyrillic char -> C
+		fmt.Printf("Check description C... ")
 		msg, hasCyr := checkCyrillicLetters(description)
 		if hasCyr {
 			fmt.Printf("ERROR\n%s\n", msg)
@@ -50,7 +51,7 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 			fmt.Printf("OK\n")
 		}
 	}
-	// Some fishka
+
 	fmt.Printf("Check new and updated lines ... ")
 	if len(info.Files) == 0 {
 		fmt.Printf("OK, diff is empty\n")
