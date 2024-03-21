@@ -1,0 +1,23 @@
+on:
+  pull_request:
+    types: [ opened, edited, synchronize ]
+  push:
+    branches:
+      - main
+      - cicd/check-no_cyrillic
+
+defaults:
+  run:
+    shell: bash
+jobs:
+  no_cyrillic:
+    runs-on: ubuntu-latest
+    name: check cytillic
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run git diff
+        run: |
+          echo $(git diff --cached --name-only | grep -E '\.(go|md|yaml|yml)$')
