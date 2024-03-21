@@ -186,8 +186,10 @@ metadata:
 ## How to provide windows answer file (Sysprep)
 
 To provide Sysprep ability it's necessary to define in virtual machine with SysprepSecret provisioning.
+Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
+You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
 
-First of all create sysprep secret:
+First, create sysprep secret:
 
 ```yaml
 apiVersion: v1
@@ -198,9 +200,7 @@ data:
   unattend.xml: XXXx # base64 of answer file 
 ```
 
-And then feel free to create a virtual machine with unattended installation.
-
-It's necessary to make sure the virtual machine does not restart, which can be done by setting the run policy as AlwaysOn:
+Then create a virtual machine with unattended installation:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
