@@ -33,13 +33,15 @@ type Service struct {
 		} `yaml:"labels,omitempty"`
 	} `yaml:"metadata"`
 	Spec struct {
+		Type     string `yaml:"type,omitempty"`
 		Selector struct {
 			Service string `yaml:"service,omitempty"`
 		} `yaml:"selector"`
 		Ports []struct {
-			Port       int `yaml:"port"`
-			TargetPort int `yaml:"targetPort,omitempty"`
-			NodePort   int `yaml:"nodePort,omitempty"`
+			Name       string `yaml:"name,omitempty"`
+			Port       int    `yaml:"port"`
+			TargetPort int    `yaml:"targetPort,omitempty"`
+			NodePort   int    `yaml:"nodePort,omitempty"`
 		} `yaml:"ports"`
 	} `yaml:"spec"`
 }
@@ -128,7 +130,6 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 				svc.Spec.Ports[0].Port)
 			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
 				namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
-			fmt.Printf("%s <-- subCurlCMD", subCMD)
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
 
@@ -160,11 +161,11 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			time.Sleep(30 * time.Second)
 		})
 
-		It("Check ssh via virtctl", func() {
+		It(fmt.Sprintf("Check ssh via virtctl on VM %s", vmOne.Name), func() {
 			command := "hostname"
 			CheckResultSshCommand(vmOne.Name, command, vmOne.Name)
 		})
-		It("Check external site from VM", func() {
+		It(fmt.Sprintf("Curl https://flant.com site from %s", vmOne.Name), func() {
 			command := "curl -o /dev/null -s -w \"%{http_code}\\n\" https://flant.com"
 			httpCode := "200"
 			CheckResultSshCommand(vmOne.Name, command, httpCode)

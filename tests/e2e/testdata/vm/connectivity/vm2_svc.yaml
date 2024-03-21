@@ -7,12 +7,10 @@ metadata:
   labels:
     vm: linux
 spec:
-  type: NodePort
   selector:
     service: v2
   ports:
     - name: http
       port: 80
       targetPort: 80
-      nodePort: 31082
       protocol: TCP
