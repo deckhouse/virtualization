@@ -110,25 +110,22 @@ jobs:
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
-  
+
   lint_yaml:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
+    runs-on: ubuntu-latest
     name: Run yaml linter
     steps:
       - name: Install Task
         uses: arduino/setup-task@v1
-        
+
       - uses: actions/checkout@v4
 
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+
       - name: Lint yaml with prettier
-        run: |
-          if ! type prettier >/dev/null; then
-            echo "On self-host runner prettier should be installed"
-            exit 1
-          fi
-          task -p lint
+        run: task -p lint:prettier:yaml
+
   
   test:
     needs: check_label
@@ -136,10 +133,10 @@ jobs:
     runs-on: [self-hosted, ci-testing]
     name: Run unit test
     steps:
-      - name: Set up Go 1.20
+      - name: Set up Go 1.21
         uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.21"
 
       - name: Install Task
         uses: arduino/setup-task@v1
