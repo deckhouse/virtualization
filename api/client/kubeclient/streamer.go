@@ -17,7 +17,7 @@ limitations under the License.
 Initially copied from https://github.com/kubevirt/kubevirt/blob/main/staging/src/kubevirt.io/client-go/kubecli/streamer.go
 */
 
-package kubecli
+package kubeclient
 
 import (
 	"net"
