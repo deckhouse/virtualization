@@ -31,7 +31,6 @@ import (
 // FakeVirtualMachineIPAddressLeases implements VirtualMachineIPAddressLeaseInterface
 type FakeVirtualMachineIPAddressLeases struct {
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
 var virtualmachineipaddressleasesResource = v1alpha2.SchemeGroupVersion.WithResource("virtualmachineipaddressleases")
@@ -41,8 +40,7 @@ var virtualmachineipaddressleasesKind = v1alpha2.SchemeGroupVersion.WithKind("Vi
 // Get takes name of the virtualMachineIPAddressLease, and returns the corresponding virtualMachineIPAddressLease object, and an error if there is any.
 func (c *FakeVirtualMachineIPAddressLeases) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachineipaddressleasesResource, c.ns, name), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootGetAction(virtualmachineipaddressleasesResource, name), &v1alpha2.VirtualMachineIPAddressLease{})
 	if obj == nil {
 		return nil, err
 	}
@@ -52,8 +50,7 @@ func (c *FakeVirtualMachineIPAddressLeases) Get(ctx context.Context, name string
 // List takes label and field selectors, and returns the list of VirtualMachineIPAddressLeases that match those selectors.
 func (c *FakeVirtualMachineIPAddressLeases) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineIPAddressLeaseList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachineipaddressleasesResource, virtualmachineipaddressleasesKind, c.ns, opts), &v1alpha2.VirtualMachineIPAddressLeaseList{})
-
+		Invokes(testing.NewRootListAction(virtualmachineipaddressleasesResource, virtualmachineipaddressleasesKind, opts), &v1alpha2.VirtualMachineIPAddressLeaseList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -74,15 +71,13 @@ func (c *FakeVirtualMachineIPAddressLeases) List(ctx context.Context, opts v1.Li
 // Watch returns a watch.Interface that watches the requested virtualMachineIPAddressLeases.
 func (c *FakeVirtualMachineIPAddressLeases) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachineipaddressleasesResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(virtualmachineipaddressleasesResource, opts))
 }
 
 // Create takes the representation of a virtualMachineIPAddressLease and creates it.  Returns the server's representation of the virtualMachineIPAddressLease, and an error, if there is any.
 func (c *FakeVirtualMachineIPAddressLeases) Create(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachineipaddressleasesResource, c.ns, virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootCreateAction(virtualmachineipaddressleasesResource, virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
 	if obj == nil {
 		return nil, err
 	}
@@ -92,8 +87,7 @@ func (c *FakeVirtualMachineIPAddressLeases) Create(ctx context.Context, virtualM
 // Update takes the representation of a virtualMachineIPAddressLease and updates it. Returns the server's representation of the virtualMachineIPAddressLease, and an error, if there is any.
 func (c *FakeVirtualMachineIPAddressLeases) Update(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachineipaddressleasesResource, c.ns, virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootUpdateAction(virtualmachineipaddressleasesResource, virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
 	if obj == nil {
 		return nil, err
 	}
@@ -104,8 +98,7 @@ func (c *FakeVirtualMachineIPAddressLeases) Update(ctx context.Context, virtualM
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 func (c *FakeVirtualMachineIPAddressLeases) UpdateStatus(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualmachineipaddressleasesResource, "status", c.ns, virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootUpdateSubresourceAction(virtualmachineipaddressleasesResource, "status", virtualMachineIPAddressLease), &v1alpha2.VirtualMachineIPAddressLease{})
 	if obj == nil {
 		return nil, err
 	}
@@ -115,14 +108,13 @@ func (c *FakeVirtualMachineIPAddressLeases) UpdateStatus(ctx context.Context, vi
 // Delete takes name of the virtualMachineIPAddressLease and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachineIPAddressLeases) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachineipaddressleasesResource, c.ns, name, opts), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootDeleteActionWithOptions(virtualmachineipaddressleasesResource, name, opts), &v1alpha2.VirtualMachineIPAddressLease{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachineIPAddressLeases) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachineipaddressleasesResource, c.ns, listOpts)
+	action := testing.NewRootDeleteCollectionAction(virtualmachineipaddressleasesResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualMachineIPAddressLeaseList{})
 	return err
@@ -131,8 +123,7 @@ func (c *FakeVirtualMachineIPAddressLeases) DeleteCollection(ctx context.Context
 // Patch applies the patch and returns the patched virtualMachineIPAddressLease.
 func (c *FakeVirtualMachineIPAddressLeases) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachineipaddressleasesResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualMachineIPAddressLease{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(virtualmachineipaddressleasesResource, name, pt, data, subresources...), &v1alpha2.VirtualMachineIPAddressLease{})
 	if obj == nil {
 		return nil, err
 	}

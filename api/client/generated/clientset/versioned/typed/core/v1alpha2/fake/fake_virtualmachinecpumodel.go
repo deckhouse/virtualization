@@ -31,7 +31,6 @@ import (
 // FakeVirtualMachineCPUModels implements VirtualMachineCPUModelInterface
 type FakeVirtualMachineCPUModels struct {
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
 var virtualmachinecpumodelsResource = v1alpha2.SchemeGroupVersion.WithResource("virtualmachinecpumodels")
@@ -41,8 +40,7 @@ var virtualmachinecpumodelsKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualM
 // Get takes name of the virtualMachineCPUModel, and returns the corresponding virtualMachineCPUModel object, and an error if there is any.
 func (c *FakeVirtualMachineCPUModels) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachinecpumodelsResource, c.ns, name), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootGetAction(virtualmachinecpumodelsResource, name), &v1alpha2.VirtualMachineCPUModel{})
 	if obj == nil {
 		return nil, err
 	}
@@ -52,8 +50,7 @@ func (c *FakeVirtualMachineCPUModels) Get(ctx context.Context, name string, opti
 // List takes label and field selectors, and returns the list of VirtualMachineCPUModels that match those selectors.
 func (c *FakeVirtualMachineCPUModels) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineCPUModelList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachinecpumodelsResource, virtualmachinecpumodelsKind, c.ns, opts), &v1alpha2.VirtualMachineCPUModelList{})
-
+		Invokes(testing.NewRootListAction(virtualmachinecpumodelsResource, virtualmachinecpumodelsKind, opts), &v1alpha2.VirtualMachineCPUModelList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -74,15 +71,13 @@ func (c *FakeVirtualMachineCPUModels) List(ctx context.Context, opts v1.ListOpti
 // Watch returns a watch.Interface that watches the requested virtualMachineCPUModels.
 func (c *FakeVirtualMachineCPUModels) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachinecpumodelsResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(virtualmachinecpumodelsResource, opts))
 }
 
 // Create takes the representation of a virtualMachineCPUModel and creates it.  Returns the server's representation of the virtualMachineCPUModel, and an error, if there is any.
 func (c *FakeVirtualMachineCPUModels) Create(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachinecpumodelsResource, c.ns, virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootCreateAction(virtualmachinecpumodelsResource, virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
 	if obj == nil {
 		return nil, err
 	}
@@ -92,8 +87,7 @@ func (c *FakeVirtualMachineCPUModels) Create(ctx context.Context, virtualMachine
 // Update takes the representation of a virtualMachineCPUModel and updates it. Returns the server's representation of the virtualMachineCPUModel, and an error, if there is any.
 func (c *FakeVirtualMachineCPUModels) Update(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachinecpumodelsResource, c.ns, virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootUpdateAction(virtualmachinecpumodelsResource, virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
 	if obj == nil {
 		return nil, err
 	}
@@ -104,8 +98,7 @@ func (c *FakeVirtualMachineCPUModels) Update(ctx context.Context, virtualMachine
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 func (c *FakeVirtualMachineCPUModels) UpdateStatus(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineCPUModel, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualmachinecpumodelsResource, "status", c.ns, virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootUpdateSubresourceAction(virtualmachinecpumodelsResource, "status", virtualMachineCPUModel), &v1alpha2.VirtualMachineCPUModel{})
 	if obj == nil {
 		return nil, err
 	}
@@ -115,14 +108,13 @@ func (c *FakeVirtualMachineCPUModels) UpdateStatus(ctx context.Context, virtualM
 // Delete takes name of the virtualMachineCPUModel and deletes it. Returns an error if one occurs.
 func (c *FakeVirtualMachineCPUModels) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachinecpumodelsResource, c.ns, name, opts), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootDeleteActionWithOptions(virtualmachinecpumodelsResource, name, opts), &v1alpha2.VirtualMachineCPUModel{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeVirtualMachineCPUModels) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachinecpumodelsResource, c.ns, listOpts)
+	action := testing.NewRootDeleteCollectionAction(virtualmachinecpumodelsResource, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualMachineCPUModelList{})
 	return err
@@ -131,8 +123,7 @@ func (c *FakeVirtualMachineCPUModels) DeleteCollection(ctx context.Context, opts
 // Patch applies the patch and returns the patched virtualMachineCPUModel.
 func (c *FakeVirtualMachineCPUModels) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachinecpumodelsResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualMachineCPUModel{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(virtualmachinecpumodelsResource, name, pt, data, subresources...), &v1alpha2.VirtualMachineCPUModel{})
 	if obj == nil {
 		return nil, err
 	}
