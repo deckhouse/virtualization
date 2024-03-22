@@ -108,12 +108,11 @@ jobs:
         
       - uses: actions/checkout@v4
 
-      - name: Install prettier
-        run: task -p deps:install:prettier
+      - name: Log in to registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Lint yaml with prettier
-        run: task -p lint
-        
+        run: task -p lint:prettier:yaml
   
   test:
     runs-on: ubuntu-latest
