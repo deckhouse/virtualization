@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"text/tabwriter"
-
 	kubeclient "github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
+	"os"
+	"text/tabwriter"
 )
 
 func main() {
