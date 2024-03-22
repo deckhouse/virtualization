@@ -32,7 +32,7 @@ import (
 // VirtualMachineIPAddressLeasesGetter has a method to return a VirtualMachineIPAddressLeaseInterface.
 // A group's client should implement this interface.
 type VirtualMachineIPAddressLeasesGetter interface {
-	VirtualMachineIPAddressLeases(namespace string) VirtualMachineIPAddressLeaseInterface
+	VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInterface
 }
 
 // VirtualMachineIPAddressLeaseInterface has methods to work with VirtualMachineIPAddressLease resources.
@@ -52,14 +52,12 @@ type VirtualMachineIPAddressLeaseInterface interface {
 // virtualMachineIPAddressLeases implements VirtualMachineIPAddressLeaseInterface
 type virtualMachineIPAddressLeases struct {
 	client rest.Interface
-	ns     string
 }
 
 // newVirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeases
-func newVirtualMachineIPAddressLeases(c *VirtualizationV1alpha2Client, namespace string) *virtualMachineIPAddressLeases {
+func newVirtualMachineIPAddressLeases(c *VirtualizationV1alpha2Client) *virtualMachineIPAddressLeases {
 	return &virtualMachineIPAddressLeases{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -67,7 +65,6 @@ func newVirtualMachineIPAddressLeases(c *VirtualizationV1alpha2Client, namespace
 func (c *virtualMachineIPAddressLeases) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	result = &v1alpha2.VirtualMachineIPAddressLease{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -84,7 +81,6 @@ func (c *virtualMachineIPAddressLeases) List(ctx context.Context, opts v1.ListOp
 	}
 	result = &v1alpha2.VirtualMachineIPAddressLeaseList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -101,7 +97,6 @@ func (c *virtualMachineIPAddressLeases) Watch(ctx context.Context, opts v1.ListO
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -112,7 +107,6 @@ func (c *virtualMachineIPAddressLeases) Watch(ctx context.Context, opts v1.ListO
 func (c *virtualMachineIPAddressLeases) Create(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	result = &v1alpha2.VirtualMachineIPAddressLease{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualMachineIPAddressLease).
@@ -125,7 +119,6 @@ func (c *virtualMachineIPAddressLeases) Create(ctx context.Context, virtualMachi
 func (c *virtualMachineIPAddressLeases) Update(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	result = &v1alpha2.VirtualMachineIPAddressLease{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		Name(virtualMachineIPAddressLease.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -140,7 +133,6 @@ func (c *virtualMachineIPAddressLeases) Update(ctx context.Context, virtualMachi
 func (c *virtualMachineIPAddressLeases) UpdateStatus(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	result = &v1alpha2.VirtualMachineIPAddressLease{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		Name(virtualMachineIPAddressLease.Name).
 		SubResource("status").
@@ -154,7 +146,6 @@ func (c *virtualMachineIPAddressLeases) UpdateStatus(ctx context.Context, virtua
 // Delete takes name of the virtualMachineIPAddressLease and deletes it. Returns an error if one occurs.
 func (c *virtualMachineIPAddressLeases) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		Name(name).
 		Body(&opts).
@@ -169,7 +160,6 @@ func (c *virtualMachineIPAddressLeases) DeleteCollection(ctx context.Context, op
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -182,7 +172,6 @@ func (c *virtualMachineIPAddressLeases) DeleteCollection(ctx context.Context, op
 func (c *virtualMachineIPAddressLeases) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
 	result = &v1alpha2.VirtualMachineIPAddressLease{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("virtualmachineipaddressleases").
 		Name(name).
 		SubResource(subresources...).

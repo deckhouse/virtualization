@@ -71,7 +71,7 @@ func (v *version) VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDevi
 
 // VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
 func (v *version) VirtualMachineCPUModels() VirtualMachineCPUModelInformer {
-	return &virtualMachineCPUModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &virtualMachineCPUModelInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineDisks returns a VirtualMachineDiskInformer.
@@ -86,7 +86,7 @@ func (v *version) VirtualMachineIPAddressClaims() VirtualMachineIPAddressClaimIn
 
 // VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
 func (v *version) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer {
-	return &virtualMachineIPAddressLeaseInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &virtualMachineIPAddressLeaseInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineImages returns a VirtualMachineImageInformer.
