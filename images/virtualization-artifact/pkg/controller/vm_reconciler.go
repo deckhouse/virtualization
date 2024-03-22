@@ -215,8 +215,8 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 	changes := r.detectSpecChanges(state, opts, lastAppliedSpec)
 
 	var syncErr error
-	// Delay changes propagation to KVVM until user approves them.
-	if r.shouldWaitForChangesApproval(state, opts, changes) {
+	// Delay changes propagation to KVVM until user restarts VM.
+	if r.shouldWaitBeforeApplyingChanges(state, opts, changes) {
 		syncErr = state.SetChangesInfo(changes)
 		if syncErr != nil {
 			syncErr = fmt.Errorf("prepare changes info for approval: %w", syncErr)
@@ -335,9 +335,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		opts.Log.Error(fmt.Errorf("unexpected KVVM state: status %q, fallback VM phase to %q", state.KVVM.Status.PrintableStatus, state.VM.Changed().Status.Phase), "")
 	}
 
-	// Update RestartID related fields.
 	state.VM.Changed().Status.Message = state.StatusMessage
-	state.VM.Changed().Status.RestartID = state.RestartID
 	state.VM.Changed().Status.RestartAwaitingChanges = state.RestartAwaitingChanges
 	return nil
 }
@@ -594,55 +592,19 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 	// with the current VM spec (maybe edited by the user).
 	specChanges := vmchange.CompareSpecs(lastSpec, &state.VM.Current().Spec)
 
-	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v, change id %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType(), specChanges.ChangeID()))
+	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
 	opts.Log.V(2).Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
 
 	return &specChanges
 }
 
-// shouldWaitForChangesApproval returns true if disruptive update was not approved yet.
-func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
-	// Should not wait in Automatic mode.
-	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
-		return false
-	}
-
-	// Should not wait in Manual mode if no changes detected or if changes are non-disruptive.
-	// Returning 'false' value leads to apply changes to the KVVM and resets changes related fields in the VM status.
-	if changes.IsEmpty() || !changes.IsDisruptive() {
-		return false
-	}
-
-	changeID := changes.ChangeID()
-	currChangeID := state.VM.Current().Status.RestartID
-
-	// Wait for approval when approval process starts or user made more changes and change ID is expired.
-	if currChangeID == "" {
-		opts.Log.V(2).Info("Wait for approval: status.changeID is inited", "changes", changes)
-		return true
-	}
-	if currChangeID != changeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDExpired, "Previously set Change ID is expired, RestartID is refreshed.")
-		opts.Log.V(2).Info("Wait for approval: status.changeID is refreshed", "changes", changes)
-		return true
-	}
-
-	approveChangeID := state.VM.Current().Spec.RestartApprovalID
-	// Approved change not set yet, do nothing.
-	if approveChangeID == "" {
-		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is empty", "changes", changes)
-		return true
-	}
-	// Change IDs are not equal: approved Change ID was expired. Record event and wait for the next update.
-	if currChangeID != approveChangeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Restart approval ID is expired, check VM spec and update spec. restartApprovalID according to status.restartID.")
-		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is expired", "vm.name", state.VM.Name(), "status.restartID", currChangeID, "spec.restartApprovalID", approveChangeID)
-		return true
-	}
-
-	// Changes approved: change IDs become equal. Stop waiting.
-	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDApproveAccepted, "Approved Change ID accepted, apply changes.")
-	return false
+// shouldWaitBeforeApplyingChanges returns true if changes can't be applied right now.
+//
+// Wait if changes are disruptive, and approval mode is manual, and VM is still running.
+func (r *VMReconciler) shouldWaitBeforeApplyingChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
+	// Restart is non-disruptive if VM is stopped or failed or in the pending state.
+	applyingIsDisruptive := !(state.vmIsFailed() || state.vmIsPending() || state.vmIsStopped())
+	return vmutil.ApprovalMode(state.VM.Current()) == virtv2.Manual && changes.IsDisruptive() && applyingIsDisruptive
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
@@ -651,33 +613,34 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		return nil
 	}
 
-	switch changes.ActionType() {
+	action := changes.ActionType()
+
+	if state.KVVMI == nil && action == vmchange.ActionRestart {
+		action = vmchange.ActionApplyImmediate
+	}
+
+	switch action {
 	case vmchange.ActionRestart:
 		opts.Log.Info("Restart VM to apply changes", "vm.name", state.VM.Current().GetName())
 
-		message := fmt.Sprintf("Apply changes with ID %s", changes.ChangeID())
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
 
+		// Update KVVM spec according the current VM spec.
 		if err := r.updateKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
-
+		// Delete old version of KVVMI, so kubevirt will create new, updated KVVMI.
 		if err := r.restartKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
 		}
 
-	case vmchange.ActionSubresourceSignal:
-		opts.Log.Info("Apply changes using subresource signal", "vm.name", state.VM.Current().GetName(), "action", changes)
-
-		if err := r.updateKVVMLastAppliedSpec(ctx, state, opts); err != nil {
-			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
-		}
-		// TODO(future): Implement APIService and its client.
-		opts.Log.Error(fmt.Errorf("unexpected action: subresource signal, do nothing"), "vm.name", state.VM.Current().GetName(), "action", changes)
 	case vmchange.ActionApplyImmediate:
-		opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", changes)
-		message := fmt.Sprintf("Apply changes with ID %s without restart", changes.ChangeID())
+		message := "Apply changes without restart"
+		if changes.IsDisruptive() {
+			message = "Apply disruptive changes without restart"
+		}
+		opts.Log.Info(message, "vm.name", state.VM.Current().GetName(), "action", changes)
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
 
 		if err := r.updateKVVM(ctx, state, opts); err != nil {
@@ -692,7 +655,7 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		}
 	}
 
-	// Cleanup: remove change ID and pending changes after applying changes.
+	// Cleanup: remove changes from the VM status after applying changes.
 	state.ResetChangesInfo()
 	return nil
 }

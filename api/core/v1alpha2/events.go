@@ -31,12 +31,6 @@ const (
 	// ReasonHotplugPostponed is event reason that disk hotplug is not possible at the moment.
 	ReasonHotplugPostponed = "HotplugPostponed"
 
-	// ReasonVMChangeIDExpired is event reason that change id approve request should be updated.
-	ReasonVMChangeIDExpired = "ChangeIDExpired"
-
-	// ReasonVMChangeIDApproveAccepted is event reason that change id approve was accepted and handled.
-	ReasonVMChangeIDApproveAccepted = "ChangeIDApproveAccepted"
-
 	// ReasonVMWaitForBlockDevices is event reason that block devices used by VM are not ready yet.
 	ReasonVMWaitForBlockDevices = "WaitForBlockDevices"
 

@@ -785,8 +785,8 @@ spec:
                       type: string
                       description: |
                         The approval mode for disruptive updates:
-                        - `Manual` — to approve restart, you must do this manually by copying the restart ID from `.status.restartID` to `.spec.restartApprovalID`.
-                        - `Automatic` —  automatically approve disruption-involving updates.
+                        - `Manual` — restart VM manually to apply disruptive updates.
+                        - `Automatic` — VM will restart automatically to apply disruptive updates.
                       enum:
                         - Manual
                         - Automatic
@@ -947,11 +947,6 @@ spec:
                           anyOf:
                             - required: ["virtualMachineImage"]
                             - required: ["clusterVirtualMachineImage"]
-                restartApprovalID:
-                  type: string
-                  description: |
-                    Hash of virtual machine changes from .status.restartID.
-                    Required to approve restart for applying disruptive changes.
             status:
               type: object
               properties:
@@ -1107,10 +1102,6 @@ spec:
                   type: string
                   description: |
                     Detailed description of the VM state.
-                restartID:
-                  type: string
-                  description: |
-                    Hash of virtual machine changes. Use spec.restartApprovalID to approve disruptive changes, e.g. restart.
                 restartAwaitingChanges:
                   description: |
                     A list of changes require restart for applying.

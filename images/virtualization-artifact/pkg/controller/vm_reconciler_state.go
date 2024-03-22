@@ -43,7 +43,6 @@ type VMReconcilerState struct {
 
 	Result                 *reconcile.Result
 	StatusMessage          string
-	RestartID              string
 	RestartAwaitingChanges []apiextensionsv1.JSON
 }
 
@@ -203,7 +202,6 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.VMDByName = vmdByName
 	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
-	state.RestartID = state.VM.Current().Status.RestartID
 	state.StatusMessage = state.VM.Current().Status.Message
 	state.RestartAwaitingChanges = state.VM.Current().Status.RestartAwaitingChanges
 
@@ -225,21 +223,15 @@ func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) er
 	}
 	state.RestartAwaitingChanges = statusChanges
 
-	state.RestartID = changes.ChangeID()
-
 	statusMessage := ""
 	if changes.ActionType() == vmchange.ActionRestart {
-		statusMessage = "VM restart required to apply changes. Check status.restartID and add spec.restartApprovalID to restart VM."
-	} else {
-		// Non restart changes, e.g. subresource signaling.
-		statusMessage = "Approval required to apply changes. Check status.restartID and add spec.restartApprovalID to change VM."
+		statusMessage = "VM restart required to apply changes."
 	}
 	state.StatusMessage = statusMessage
 	return nil
 }
 
 func (state *VMReconcilerState) ResetChangesInfo() {
-	state.RestartID = ""
 	state.RestartAwaitingChanges = nil
 	state.StatusMessage = ""
 }
