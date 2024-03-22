@@ -14,14 +14,6 @@ import (
 
 var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|_RU\.md$|_ru\.html$|docs/site/_.+|docs/documentation/_.+`)
 
-func getenv(key, def string) string {
-	v := os.Getenv(key)
-	if len(v) == 0 {
-		return def
-	}
-	return v
-}
-
 func prepareListFiles(files []string) []string {
 	var outListFiles []string
 
@@ -36,9 +28,9 @@ func prepareListFiles(files []string) []string {
 }
 
 func cmdGitDiffFilesList() ([]string, error) {
-	githubHeadRef := fmt.Sprintf("origin/%s", getenv("GITHUB_HEAD_REF", "cicd/check-no_cyrillic"))
 
-	gitCmd := exec.Command("git", "diff", "--name-only", "origin/main", githubHeadRef)
+	gitCmd := exec.Command("git", "diff", "--name-only", "origin/main...")
+	//gitCmd := exec.Command("git", "diff", "--name-only", "origin/main", githubHeadRef)
 	outCmd, err := gitCmd.Output()
 	if err != nil {
 		return nil, err
@@ -54,12 +46,12 @@ func cmdGitDiffFilesList() ([]string, error) {
 func noCyrilic(files []string) error {
 	count := 0
 	var lineNum int
-	dirPath := "/Users/korolevn/repos/Virtualization-tasks/github/virtualization/"
-	//dirPath, err := os.Getwd()
-	//if err != nil {
-	//	fmt.Println(dirPath)
-	//	os.Exit(1)
-	//}
+	//dirPath := "/Users/korolevn/repos/Virtualization-tasks/github/virtualization/"
+	dirPath, err := os.Getwd()
+	if err != nil {
+		fmt.Println(dirPath)
+		os.Exit(1)
+	}
 
 	if len(files) == 0 {
 		return nil
