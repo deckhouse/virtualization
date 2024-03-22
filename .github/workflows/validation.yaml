@@ -28,6 +28,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run git diff
-        run: |
-          DIFF_FILES=$(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')
+      - name: Run no cyrrilic validation
+        run: go run tools/testval/main.go
+#      - name: Run git diff
+#        run: |
+#          DIFF_FILES=$(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')

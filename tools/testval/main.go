@@ -7,9 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unicode"
 )
+
+var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|_RU\.md$|_ru\.html$|docs/site/_.+|docs/documentation/_.+`)
 
 func getenv(key, def string) string {
 	v := os.Getenv(key)
@@ -19,7 +22,20 @@ func getenv(key, def string) string {
 	return v
 }
 
-func cmdGitDiff() ([]string, error) {
+func prepareListFiles(files []string) []string {
+	var outListFiles []string
+
+	for _, fileName := range files {
+		if skipDocRe.MatchString(fileName) {
+			continue
+		}
+		outListFiles = append(outListFiles, fileName)
+	}
+	fmt.Println(outListFiles, "<-- outListFiles")
+	return outListFiles
+}
+
+func cmdGitDiffFilesList() ([]string, error) {
 	githubHeadRef := fmt.Sprintf("origin/%s", getenv("GITHUB_HEAD_REF", "cicd/check-no_cyrillic"))
 
 	gitCmd := exec.Command("git", "diff", "--name-only", "origin/main", githubHeadRef)
@@ -27,42 +43,53 @@ func cmdGitDiff() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	outSrt := strings.TrimSuffix(string(outCmd), "\n")
-	out := strings.Split(outSrt, "\n")
+	outSrtTrim := strings.TrimSuffix(string(outCmd), "\n")
+	outList := strings.Split(outSrtTrim, "\n")
+
+	out := prepareListFiles(outList)
 
 	return out, err
 }
 
 func noCyrilic(files []string) error {
 	count := 0
-
+	var lineNum int
 	dirPath := "/Users/korolevn/repos/Virtualization-tasks/github/virtualization/"
-	//path, err := os.Getwd()
+	//dirPath, err := os.Getwd()
 	//if err != nil {
-	//	log.Println(err)
+	//	fmt.Println(dirPath)
+	//	os.Exit(1)
 	//}
+
+	if len(files) == 0 {
+		return nil
+	}
 
 	for _, fileName := range files {
 		filePath := filepath.Join(dirPath, fileName)
 		file, err := os.Open(filePath)
 		if err != nil {
 			fmt.Printf("Problem open file: %v\n", err)
-			count += 1
 			continue
 		}
 		scanner := bufio.NewScanner(file)
-
+		lineNum = 0
 		for scanner.Scan() {
+			lineNum += 1
 			line := scanner.Text()
-			for i, char := range line {
+			for _, char := range line {
 				if unicode.Is(unicode.Cyrillic, char) {
-					fmt.Printf("File %s with cyrillic char [%s] line [%d]\n", fileName, string(char), i)
+					fmt.Printf("File %s with cyrillic char [%s] in line num [%d], line %s\n", fileName, string(char),
+						lineNum, line)
 					count += 1
 					break
 				}
 			}
 		}
-		file.Close()
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
 	}
 	if count > 0 {
 		return errors.New("Need to fix files")
@@ -71,10 +98,8 @@ func noCyrilic(files []string) error {
 	return nil
 }
 
-//git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$'
-
 func main() {
-	res, err := cmdGitDiff()
+	res, err := cmdGitDiffFilesList()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -82,5 +107,6 @@ func main() {
 	err = noCyrilic(res)
 	if err != nil {
 		fmt.Println(err)
+		os.Exit(1)
 	}
 }
