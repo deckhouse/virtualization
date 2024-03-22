@@ -63,11 +63,6 @@ type VirtualMachineSpec struct {
 	Memory       MemorySpec        `json:"memory"`
 	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
 	Provisioning *Provisioning     `json:"provisioning"`
-
-	// RestartApprovalID is a field for manual approval of disruptive changes.
-	// TODO Implement APIService and remove this field.
-	// +optional
-	RestartApprovalID string `json:"restartApprovalID,omitempty"`
 }
 
 type RunPolicy string
@@ -132,7 +127,6 @@ type VirtualMachineStatus struct {
 	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
 	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
 	Message              string                                   `json:"message"`
-	RestartID            string                                   `json:"restartID"`
 
 	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
