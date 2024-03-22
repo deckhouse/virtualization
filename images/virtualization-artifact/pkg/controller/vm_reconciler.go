@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	common "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
@@ -69,8 +70,23 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
-				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
-					oldVM.Status.Ready != newVM.Status.Ready
+				statusChanged := oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus
+				readyChanged := oldVM.Status.Ready != newVM.Status.Ready
+				oldReadyCondStatus := ""
+				for _, cond := range oldVM.Status.Conditions {
+					if cond.Type == virtv1.VirtualMachineReady {
+						oldReadyCondStatus = string(cond.Status)
+					}
+				}
+				newReadyCondStatus := ""
+				for _, cond := range newVM.Status.Conditions {
+					if cond.Type == virtv1.VirtualMachineReady {
+						newReadyCondStatus = string(cond.Status)
+					}
+				}
+				readyConditionChanged := oldReadyCondStatus != newReadyCondStatus
+
+				return statusChanged || readyChanged || readyConditionChanged
 			},
 		},
 	); err != nil {
@@ -495,6 +511,13 @@ func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState,
 		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
+	// Workaround for AlwaysOnUnlessStoppedManually
+	if state.VM.Current().Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManualy {
+		// Save "newly created" status to annotations to start VM a slightly later.
+		opts.Log.Info("Add annotation to KVVM to start it later after creation")
+		common.AddAnnotation(kvvm, "virtualization.deckhouse.io/vm.powerstate.start-on-creation", "true")
+	}
+
 	if err := opts.Client.Create(ctx, kvvm); err != nil {
 		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
@@ -735,7 +758,26 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		// kubevirt restarts VM via re-creation of KVVMI.
 		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
 	case virtv2.AlwaysOnUnlessStoppedManualy:
-		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
+		if state.KVVM.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped {
+			_, hasAnno := state.KVVM.GetAnnotations()["virtualization.deckhouse.io/vm.powerstate.start-on-creation"]
+			if hasAnno {
+				// Add start request to start newly created VM.
+				opts.Log.Info("Patch KVVM to delete start-on-creation annotation")
+				patch := `[{"op":"remove", "path": "/metadata/annotations/virtualization.deckhouse.io~1vm.powerstate.start-on-creation"}]`
+				err = opts.Client.Patch(ctx, state.KVVM, client.RawPatch(types.JSONPatchType, []byte(patch)))
+				//delete(state.KVVM.Annotations, "virtualization.deckhouse.io/vm.powerstate.start-on-creation")
+				//err = opts.Client.Update(ctx, state.KVVM)
+				if err != nil {
+					return fmt.Errorf("unable to patch KubeVirt VM '%s' after: %w", state.KVVM.GetName(), err)
+				}
+
+				opts.Log.Info("Patch KVVM status to start VM")
+				err = powerstate.StartVM(ctx, opts.Client, state.KVVM)
+				if err != nil {
+					return fmt.Errorf("unable to patch KubeVirt VM '%s' status to start: %w", state.KVVM.GetName(), err)
+				}
+			}
+		} else if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
 			if state.KVVMI.Status.Phase == virtv1.Succeeded {
 				if isPodCompleted {
 					// Request to start new KVVMI if guest was restarted.
