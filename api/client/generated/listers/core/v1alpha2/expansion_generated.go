@@ -41,10 +41,6 @@ type VirtualMachineBlockDeviceAttachmentNamespaceListerExpansion interface{}
 // VirtualMachineCPUModelLister.
 type VirtualMachineCPUModelListerExpansion interface{}
 
-// VirtualMachineCPUModelNamespaceListerExpansion allows custom methods to be added to
-// VirtualMachineCPUModelNamespaceLister.
-type VirtualMachineCPUModelNamespaceListerExpansion interface{}
-
 // VirtualMachineDiskListerExpansion allows custom methods to be added to
 // VirtualMachineDiskLister.
 type VirtualMachineDiskListerExpansion interface{}
@@ -64,10 +60,6 @@ type VirtualMachineIPAddressClaimNamespaceListerExpansion interface{}
 // VirtualMachineIPAddressLeaseListerExpansion allows custom methods to be added to
 // VirtualMachineIPAddressLeaseLister.
 type VirtualMachineIPAddressLeaseListerExpansion interface{}
-
-// VirtualMachineIPAddressLeaseNamespaceListerExpansion allows custom methods to be added to
-// VirtualMachineIPAddressLeaseNamespaceLister.
-type VirtualMachineIPAddressLeaseNamespaceListerExpansion interface{}
 
 // VirtualMachineImageListerExpansion allows custom methods to be added to
 // VirtualMachineImageLister.

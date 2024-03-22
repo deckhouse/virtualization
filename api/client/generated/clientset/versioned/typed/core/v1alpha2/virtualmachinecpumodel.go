@@ -32,7 +32,7 @@ import (
 // VirtualMachineCPUModelsGetter has a method to return a VirtualMachineCPUModelInterface.
 // A group's client should implement this interface.
 type VirtualMachineCPUModelsGetter interface {
-	VirtualMachineCPUModels(namespace string) VirtualMachineCPUModelInterface
+	VirtualMachineCPUModels() VirtualMachineCPUModelInterface
 }
 
 // VirtualMachineCPUModelInterface has methods to work with VirtualMachineCPUModel resources.
@@ -52,14 +52,12 @@ type VirtualMachineCPUModelInterface interface {
 // virtualMachineCPUModels implements VirtualMachineCPUModelInterface
 type virtualMachineCPUModels struct {
 	client rest.Interface
-	ns     string
 }
 
 // newVirtualMachineCPUModels returns a VirtualMachineCPUModels
-func newVirtualMachineCPUModels(c *VirtualizationV1alpha2Client, namespace string) *virtualMachineCPUModels {
+func newVirtualMachineCPUModels(c *VirtualizationV1alpha2Client) *virtualMachineCPUModels {
 	return &virtualMachineCPUModels{
 		client: c.RESTClient(),
-		ns:     namespace,
 	}
 }
 
@@ -67,7 +65,6 @@ func newVirtualMachineCPUModels(c *VirtualizationV1alpha2Client, namespace strin
 func (c *virtualMachineCPUModels) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	result = &v1alpha2.VirtualMachineCPUModel{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
@@ -84,7 +81,6 @@ func (c *virtualMachineCPUModels) List(ctx context.Context, opts v1.ListOptions)
 	}
 	result = &v1alpha2.VirtualMachineCPUModelList{}
 	err = c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -101,7 +97,6 @@ func (c *virtualMachineCPUModels) Watch(ctx context.Context, opts v1.ListOptions
 	}
 	opts.Watch = true
 	return c.client.Get().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -112,7 +107,6 @@ func (c *virtualMachineCPUModels) Watch(ctx context.Context, opts v1.ListOptions
 func (c *virtualMachineCPUModels) Create(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	result = &v1alpha2.VirtualMachineCPUModel{}
 	err = c.client.Post().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(virtualMachineCPUModel).
@@ -125,7 +119,6 @@ func (c *virtualMachineCPUModels) Create(ctx context.Context, virtualMachineCPUM
 func (c *virtualMachineCPUModels) Update(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	result = &v1alpha2.VirtualMachineCPUModel{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		Name(virtualMachineCPUModel.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
@@ -140,7 +133,6 @@ func (c *virtualMachineCPUModels) Update(ctx context.Context, virtualMachineCPUM
 func (c *virtualMachineCPUModels) UpdateStatus(ctx context.Context, virtualMachineCPUModel *v1alpha2.VirtualMachineCPUModel, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	result = &v1alpha2.VirtualMachineCPUModel{}
 	err = c.client.Put().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		Name(virtualMachineCPUModel.Name).
 		SubResource("status").
@@ -154,7 +146,6 @@ func (c *virtualMachineCPUModels) UpdateStatus(ctx context.Context, virtualMachi
 // Delete takes name of the virtualMachineCPUModel and deletes it. Returns an error if one occurs.
 func (c *virtualMachineCPUModels) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		Name(name).
 		Body(&opts).
@@ -169,7 +160,6 @@ func (c *virtualMachineCPUModels) DeleteCollection(ctx context.Context, opts v1.
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
@@ -182,7 +172,6 @@ func (c *virtualMachineCPUModels) DeleteCollection(ctx context.Context, opts v1.
 func (c *virtualMachineCPUModels) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineCPUModel, err error) {
 	result = &v1alpha2.VirtualMachineCPUModel{}
 	err = c.client.Patch(pt).
-		Namespace(c.ns).
 		Resource("virtualmachinecpumodels").
 		Name(name).
 		SubResource(subresources...).

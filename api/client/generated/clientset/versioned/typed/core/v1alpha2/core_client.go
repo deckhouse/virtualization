@@ -55,8 +55,8 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineBlockDeviceAttachments(name
 	return newVirtualMachineBlockDeviceAttachments(c, namespace)
 }
 
-func (c *VirtualizationV1alpha2Client) VirtualMachineCPUModels(namespace string) VirtualMachineCPUModelInterface {
-	return newVirtualMachineCPUModels(c, namespace)
+func (c *VirtualizationV1alpha2Client) VirtualMachineCPUModels() VirtualMachineCPUModelInterface {
+	return newVirtualMachineCPUModels(c)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineDisks(namespace string) VirtualMachineDiskInterface {
@@ -67,8 +67,8 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressClaims(namespace s
 	return newVirtualMachineIPAddressClaims(c, namespace)
 }
 
-func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases(namespace string) VirtualMachineIPAddressLeaseInterface {
-	return newVirtualMachineIPAddressLeases(c, namespace)
+func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInterface {
+	return newVirtualMachineIPAddressLeases(c)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineImages(namespace string) VirtualMachineImageInterface {

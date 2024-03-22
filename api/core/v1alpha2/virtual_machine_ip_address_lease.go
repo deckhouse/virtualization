@@ -4,6 +4,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddressClaim`.
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineIPAddressLease struct {
 	metav1.TypeMeta   `json:",inline"`

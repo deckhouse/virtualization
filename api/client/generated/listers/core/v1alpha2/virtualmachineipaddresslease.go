@@ -30,8 +30,9 @@ type VirtualMachineIPAddressLeaseLister interface {
 	// List lists all VirtualMachineIPAddressLeases in the indexer.
 	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddressLease, err error)
-	// VirtualMachineIPAddressLeases returns an object that can list and get VirtualMachineIPAddressLeases.
-	VirtualMachineIPAddressLeases(namespace string) VirtualMachineIPAddressLeaseNamespaceLister
+	// Get retrieves the VirtualMachineIPAddressLease from the index for a given name.
+	// Objects returned here must be treated as read-only.
+	Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error)
 	VirtualMachineIPAddressLeaseListerExpansion
 }
 
@@ -53,41 +54,9 @@ func (s *virtualMachineIPAddressLeaseLister) List(selector labels.Selector) (ret
 	return ret, err
 }
 
-// VirtualMachineIPAddressLeases returns an object that can list and get VirtualMachineIPAddressLeases.
-func (s *virtualMachineIPAddressLeaseLister) VirtualMachineIPAddressLeases(namespace string) VirtualMachineIPAddressLeaseNamespaceLister {
-	return virtualMachineIPAddressLeaseNamespaceLister{indexer: s.indexer, namespace: namespace}
-}
-
-// VirtualMachineIPAddressLeaseNamespaceLister helps list and get VirtualMachineIPAddressLeases.
-// All objects returned here must be treated as read-only.
-type VirtualMachineIPAddressLeaseNamespaceLister interface {
-	// List lists all VirtualMachineIPAddressLeases in the indexer for a given namespace.
-	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddressLease, err error)
-	// Get retrieves the VirtualMachineIPAddressLease from the indexer for a given namespace and name.
-	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error)
-	VirtualMachineIPAddressLeaseNamespaceListerExpansion
-}
-
-// virtualMachineIPAddressLeaseNamespaceLister implements the VirtualMachineIPAddressLeaseNamespaceLister
-// interface.
-type virtualMachineIPAddressLeaseNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualMachineIPAddressLeases in the indexer for a given namespace.
-func (s virtualMachineIPAddressLeaseNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddressLease, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineIPAddressLease))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineIPAddressLease from the indexer for a given namespace and name.
-func (s virtualMachineIPAddressLeaseNamespaceLister) Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+// Get retrieves the VirtualMachineIPAddressLease from the index for a given name.
+func (s *virtualMachineIPAddressLeaseLister) Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error) {
+	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
