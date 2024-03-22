@@ -17,7 +17,7 @@ defaults:
 jobs:
   no_cyrillic:
     runs-on: ubuntu-latest
-    name: check cytillic
+    name: check cyrillic
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run no cyrrilic validation
+      - name: Run no cyrillic validation
         run: go run tools/testval/main.go
 #      - name: Run git diff
 #        run: |
