@@ -69,7 +69,7 @@ spec:
                           type: string
                           description: |
                             Secret name.
-                      required: [ "name" ]
+                      required: ["name"]
                     userData:
                       description: |
                         Inline cloud-init userdata script.
@@ -85,31 +85,31 @@ spec:
                             Secret name.
                       required: ["name"]
                   oneOf:
-                  - properties:
-                      type:
-                        enum: [ "SysprepSecret" ]
-                    required: [ "sysprepSecretRef" ]
-                    not:
-                      anyOf:
-                        - required: [ "userData" ]
-                        - required: [ "userDataSecretRef" ]
-                  - properties:
-                      type:
-                        enum: ["UserData"]
-                    required: ["userData"]
-                    not:
-                      anyOf:
-                        - required: [ "sysprepSecretRef" ]
-                        - required: [ "userDataSecretRef" ]
-                  - properties:
-                      type:
-                        enum: ["UserDataSecret"]
-                      userDataSecretRef: {}
-                    required: ["userDataSecretRef"]
-                    not:
-                      anyOf:
-                        - required: [ "sysprepSecretRef" ]
-                        - required: [ "userData" ]
+                    - properties:
+                        type:
+                          enum: ["SysprepSecret"]
+                      required: ["sysprepSecretRef"]
+                      not:
+                        anyOf:
+                          - required: ["userData"]
+                          - required: ["userDataSecretRef"]
+                    - properties:
+                        type:
+                          enum: ["UserData"]
+                      required: ["userData"]
+                      not:
+                        anyOf:
+                          - required: ["sysprepSecretRef"]
+                          - required: ["userDataSecretRef"]
+                    - properties:
+                        type:
+                          enum: ["UserDataSecret"]
+                        userDataSecretRef: {}
+                      required: ["userDataSecretRef"]
+                      not:
+                        anyOf:
+                          - required: ["sysprepSecretRef"]
+                          - required: ["userData"]
                 runPolicy:
                   type: string
                   enum:
