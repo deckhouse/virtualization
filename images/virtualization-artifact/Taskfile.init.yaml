@@ -5,18 +5,18 @@ version: "3"
 tasks:
   mod:
     cmds:
-    - go mod download
+      - go mod download
 
   golangci-lint:
     cmds:
-    - go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
 
   ginkgo:
     cmds:
-    - go install github.com/onsi/ginkgo/v2/ginkgo@v2.11.0
+      - go install github.com/onsi/ginkgo/v2/ginkgo@v2.11.0
 
   default:
     cmds:
-    - task: mod
-    - task: ginkgo
-    - task: golangci-lint
+      - task: mod
+      - task: ginkgo
+      - task: golangci-lint

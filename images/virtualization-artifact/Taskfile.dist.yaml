@@ -43,7 +43,7 @@ vars:
       done
 
   ImagePrefix:
-    desc: 'This prefix is required to use one shared registry'
+    desc: "This prefix is required to use one shared registry"
     sh: |
       # Image prefix may be overriden with IMAGE_PREFIX env var.
       [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
@@ -174,8 +174,6 @@ tasks:
           echo '  Uploader: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}'
         fi
 
-
-
   cluster:down:
     desc: ""
     cmds:
@@ -216,7 +214,6 @@ tasks:
           echo "Wait until kubevirt is ready ..."
           kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
         fi
-
 
   cdi:preload-images:
     desc: "Preload images for cdi-importer components"
@@ -424,7 +421,7 @@ tasks:
       - task: _ensure:image-prefix
       - task: dvcr:importer:push
         vars:
-          IMAGE_NAME: '{{.ImporterImageName}}'
+          IMAGE_NAME: "{{.ImporterImageName}}"
           REGISTRY:
             sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
@@ -434,7 +431,7 @@ tasks:
       - task: _ensure:image-prefix
       - task: dvcr:uploader:push
         vars:
-          IMAGE_NAME: '{{.UploaderImageName}}'
+          IMAGE_NAME: "{{.UploaderImageName}}"
           REGISTRY:
             sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
@@ -474,7 +471,7 @@ tasks:
     preconditions:
       - sh: |
           docker images | grep 'virtualization-controller.*latest'
-        msg: 'Image for virtualization-controller should be built'
+        msg: "Image for virtualization-controller should be built"
     cmds:
       - |
         mkdir -p local/virtualization-controller/crds
@@ -620,9 +617,9 @@ tasks:
     deps:
       - _ensure:mirrord
     cmd: |
-        ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
-        --deployment=virtualization-controller                                 \
-        --namespace=d8-virtualization
+      ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
+      --deployment=virtualization-controller                                 \
+      --namespace=d8-virtualization
 
   mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
@@ -635,22 +632,22 @@ tasks:
     deps:
       - _ensure:mirrord
     cmd: |
-        flags=()
-        flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
-        flags+=( "--kubevirt-endpoint=virt-api.d8-virtualization.svc" )
-        flags+=( "--secure-port=8443" )
-        flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
-        flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
-        flags+=( "--v=7" )
-        flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
-        flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
-        flags+=( "--service-account-name=virtualization-api" )
-        flags+=( "--service-account-namespace=d8-virtualization" )
+      flags=()
+      flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
+      flags+=( "--kubevirt-endpoint=virt-api.d8-virtualization.svc" )
+      flags+=( "--secure-port=8443" )
+      flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
+      flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
+      flags+=( "--v=7" )
+      flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
+      flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
+      flags+=( "--service-account-name=virtualization-api" )
+      flags+=( "--service-account-namespace=d8-virtualization" )
 
-        ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
-        --deployment="virtualization-api"                                 \
-        --namespace="d8-virtualization"                                   \
-        --flags="\"${flags[@]}\""
+      ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+      --deployment="virtualization-api"                                 \
+      --namespace="d8-virtualization"                                   \
+      --flags="\"${flags[@]}\""
 
   mirrord:wipe:apiserver:
     desc: "wipe up Mirrord's trash"
@@ -661,7 +658,7 @@ tasks:
   _copy_d8_registry_secret:
     internal: true
     vars:
-      NAMESPACE: '{{.NAMESPACE}}'
+      NAMESPACE: "{{.NAMESPACE}}"
     cmds:
       - |
         [ "{{.NAMESPACE}}" == "" ] && echo "No NS specified for copy deckhouse-registry Secret." && exit 0
@@ -701,7 +698,7 @@ tasks:
     internal: true
     preconditions:
       - sh: kubectl version
-      #>/dev/null
+        #>/dev/null
         msg: |-
           No cluster available, run 'task dev:up' or 'task dev:cluster:reset' to setup local k3d cluster
           or switch KUBECONFIG to use remote cluster.
@@ -713,9 +710,9 @@ tasks:
       - sh: '[ -n "{{.ClusterType}}" ]'
         msg: |-
           ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
-#      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
-#        msg: |-
-#          Image prefix not detected for remote cluster. Switch KUBECONFIG, check SSH tunnel, or set .
+  #      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
+  #        msg: |-
+  #          Image prefix not detected for remote cluster. Switch KUBECONFIG, check SSH tunnel, or set .
 
   _ensure:image-prefix:
     internal: true
@@ -779,7 +776,7 @@ tasks:
     internal: true
     cmds:
       - echo -e >&2 "Install virtctl from the release page of the KubeVirt github page:\n" \
-          "https://github.com/kubevirt/kubevirt/releases\n"
+        "https://github.com/kubevirt/kubevirt/releases\n"
       - exit 1
     status:
       - which virtctl >/dev/null
@@ -791,4 +788,3 @@ tasks:
       - exit 1
     status:
       - which mirrord >/dev/null
-

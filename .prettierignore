@@ -6,5 +6,4 @@
 **/templates
 **/workflows
 **/ISSUE_TEMPLATE
-**/Taskfile*
 .gitlab-ci.yml
