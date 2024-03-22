@@ -23,7 +23,6 @@ func prepareListFiles(files []string) []string {
 		}
 		outListFiles = append(outListFiles, fileName)
 	}
-	fmt.Println(outListFiles, "<-- outListFiles")
 	return outListFiles
 }
 
