@@ -7,15 +7,15 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/deckhouse/virtualization/api/client/kubecli"
+	kubeclient "github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func main() {
-	// kubecli.DefaultClientConfig() prepares config using kubeconfig.
+	// kubeclient.DefaultClientConfig() prepares config using kubeconfig.
 	// typically, you need to set env variable, KUBECONFIG=<path-to-kubeconfig>/.kubeconfig
-	clientConfig := kubecli.DefaultClientConfig(&pflag.FlagSet{})
+	clientConfig := kubeclient.DefaultClientConfig(&pflag.FlagSet{})
 
 	// retrive default namespace.
 	namespace, _, err := clientConfig.Namespace()
@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// get the virtualization client
-	client, err := kubecli.GetClientFromClientConfig(clientConfig)
+	client, err := kubeclient.GetClientFromClientConfig(clientConfig)
 	if err != nil {
 		log.Fatalf("Cannot obtain Virtualization client: %v\n", err)
 	}
