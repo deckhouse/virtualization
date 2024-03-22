@@ -112,16 +112,15 @@ jobs:
           task virtualization-controller:lint:go
 
   lint_yaml:
-    runs-on: ubuntu-latest
+    needs: check_label
+    if: needs.check_label.outputs.should_run
+    runs-on: [self-hosted, ci-testing]
     name: Run yaml linter
     steps:
       - name: Install Task
         uses: arduino/setup-task@v1
 
       - uses: actions/checkout@v4
-
-      - name: Log in to registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Lint yaml with prettier
         run: task -p lint:prettier:yaml
