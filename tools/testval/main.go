@@ -79,7 +79,7 @@ func noCyrilic(files []string) error {
 			line := scanner.Text()
 			for _, char := range line {
 				if unicode.Is(unicode.Cyrillic, char) {
-					fmt.Printf("File %s with cyrillic char [%s] in line num [%d], line %s\n", fileName, string(char),
+					fmt.Printf("File %s with cyrillic char [%s] at line number [%d]; line %s\n", fileName, string(char),
 						lineNum, line)
 					count += 1
 					break
