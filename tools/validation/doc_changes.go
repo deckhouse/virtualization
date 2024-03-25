@@ -91,7 +91,6 @@ Only following file names are allowed in the module '/docs/' directory:
     CLUSTER_CONFIGURATION.md
     CONFIGURATION.md
     CR.md
-    ISTIO-CR.md
     FAQ.md
     README.md
     USAGE.md
