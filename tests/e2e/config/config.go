@@ -32,6 +32,7 @@ type Config struct {
 	Disks            DisksConf        `yaml:"disks"`
 	VM               VmConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
+	HelperImages     HelperImages     `yaml:"helperimages"`
 }
 
 type ClusterTransport struct {
@@ -55,6 +56,10 @@ type VmConf struct {
 
 type IpamConf struct {
 	TestDataDir string `yaml:"testDataDir"`
+}
+
+type HelperImages struct {
+	CurlImage string `yaml:"curlImage"`
 }
 
 func (c *Config) setEnvs() error {

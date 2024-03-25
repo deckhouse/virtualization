@@ -1,0 +1,81 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineDisk
+metadata:
+  name: test-connectivity-vmd-vmi-2
+  namespace: test-d8-virtualization
+spec:
+  persistentVolumeClaim:
+    size: 4Gi
+  dataSource:
+    type: "VirtualMachineImage"
+    virtualMachineImage:
+      name: test-vm-image
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: test-connectivity-vm2
+  namespace: test-d8-virtualization
+  labels:
+    vm: linux
+    service: v2
+spec:
+  runPolicy: AlwaysOn
+  disruptions:
+    restartApprovalMode: Automatic
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: test-connectivity-vmd-vmi-2
+  virtualMachineIPAddressClaimName: test-connectivity-ipam-vm2
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      packages:
+      - qemu-guest-agent
+      - nginx
+      write_files:
+        - path: /usr/scripts/genpage_script.sh
+          permissions: "0755"
+          content: |
+            #!/bin/bash
+
+            cat > /var/www/html/index.html<<EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <title>Welcome to $(hostname)<title>
+            </head>
+            <body>
+            <h1>Welcome to nginx on server $(hostname) !</h1>
+            </body>
+            </html>
+            EOF
+      runcmd:
+      - [ hostnamectl, set-hostname, test-connectivity-vm2 ]
+      - [ systemctl, daemon-reload ]
+      - [ systemctl, enable, --now, qemu-guest-agent.service ]
+      - [ /usr/scripts/genpage_script.sh ]
+      - [ systemctl, enable, --now, nginx ]
+      user: ubuntu
+      password: ubuntu
+      chpasswd: { expire: False }
+      ssh_pwauth: True
+      users:
+      - name: cloud
+        passwd: $6$VZitgOHHow4fx7aT$BXbg/QL4n/dYbjxFuNQlfFmRaTvtxApWn2Qwo7r1BxXIANtaJQNyJMtvu5A.mp2hxT59aTjnsiOYMVfYbyd0j.
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        chpasswd: { expire: False }
+        lock_passwd: false
+        ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com

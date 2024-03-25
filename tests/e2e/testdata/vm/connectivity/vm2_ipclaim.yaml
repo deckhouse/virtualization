@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineIPAddressClaim
+metadata:
+  name: test-connectivity-ipam-vm2
+  namespace: test-d8-virtualization
+spec:
+  reclaimPolicy: Delete

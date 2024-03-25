@@ -2,10 +2,13 @@ version: "3"
 
 silent: true
 
+vars:
+  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
+  GINKGO_VERSION: "2.13.2"
+  VERSION: "v1.0.0"
+
 tasks:
   virtctl:
-    vars:
-      VERSION: "v1.0.0"
     cmds:
       - |
         case {{OS}} in
@@ -17,13 +20,11 @@ tasks:
         URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-{{OS}}-{{ARCH}}"
         test -f $CMD_PATH || ( sudo curl -L $URL -o $CMD_PATH && sudo chmod +x $CMD_PATH )
   ginkgo:
-    vars:
-      VERSION: "2.13.2"
     cmds:
       - |
         v=($(ginkgo version 2>/dev/null)) 
-        if [ "${v[2]}" != "{{ .VERSION }}" ]; then 
-          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .VERSION }}" ; 
+        if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then 
+          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ; 
         fi
   run:
     desc: "Run e2e tests"
@@ -34,18 +35,14 @@ tasks:
       - ginkgo
 
   run_local:
-    desc: "Run localy e2e tests"
+    desc: "Run locally e2e tests"
     deps:
       - virtctl
       - ginkgo
     cmds:
       - |
-        export KUBECONFIG={{.KUBECONFIG}}
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
         ginkgo
-    vars:
-      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
-      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
 
   run_one:
     desc: "Run one test or group"
@@ -55,13 +52,25 @@ tasks:
     cmds:
       - |
         {{if .TEST }}
-          export KUBECONFIG={{.KUBECONFIG}}
           export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
           ginkgo --focus "{{ .TEST }}" -v
         {{else}}
           echo "Specify test to run"
           echo 'Example: TEST="Label and Annotation" task run_one'
         {{end}}
-    vars:
-      KUBECONFIG: '{{default "$HOME/.kube/config" .KUBECONFIG}}'
-      E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
+
+  fix:ssh_key_perm:
+    desc: "Check and fix rights for ssh keys"
+    cmds:
+      - |
+        ID_ED=testdata/vm/sshkeys/id_ed
+        case {{OS}} in
+          darwin*)      RIGHTS_SSH=$(stat -f %Lp $ID_ED) ;;
+          linux*)       RIGHTS_SSH=$(stat -c "%a" $ID_ED) ;;
+          *)            echo "unknown: {{OS}}"; exit 1       ;;
+        esac
+        
+        if [ $RIGHTS_SSH -ne 600 ]; then
+          echo "Fix permissions for file $ID_ED"
+          chmod 600 $ID_ED
+        fi
