@@ -16,43 +16,20 @@ import (
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
 	CurlPod = "curl-helper"
 )
 
-type Service struct {
-	ApiVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		Name      string `yaml:"name"`
-		Namespace string `yaml:"namespace"`
-		Labels    struct {
-			vm string `yaml:"vm,omitempty"`
-		} `yaml:"labels,omitempty"`
-	} `yaml:"metadata"`
-	Spec struct {
-		Type     string `yaml:"type,omitempty"`
-		Selector struct {
-			Service string `yaml:"service,omitempty"`
-		} `yaml:"selector"`
-		Ports []struct {
-			Name       string `yaml:"name,omitempty"`
-			Port       int    `yaml:"port"`
-			TargetPort int    `yaml:"targetPort,omitempty"`
-			NodePort   int    `yaml:"nodePort,omitempty"`
-		} `yaml:"ports"`
-	} `yaml:"spec"`
-}
-
-func getSVC(manifestPath string) (*Service, error) {
+func getSVC(manifestPath string) (*corev1.Service, error) {
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		log.Fatalf("Error read file: %v", err)
 	}
 
-	var service Service
+	service := corev1.Service{}
 	err = yaml.Unmarshal(data, &service)
 	if err != nil {
 		log.Fatalf("Error parsing yaml: %v", err)
@@ -122,14 +99,15 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		svc2, err := getSVC(vmSvcTwo)
 		Expect(err).NotTo(HaveOccurred())
 
-		curlSVC := func(vmName string, serv *Service, namespace string) *executor.CMDResult {
+		curlSVC := func(vmName string, serv *corev1.Service, namespace string) *executor.CMDResult {
 			GinkgoHelper()
 			svc := *serv
 
-			subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Metadata.Name, svc.Metadata.Namespace,
+			subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Name, svc.Namespace,
 				svc.Spec.Ports[0].Port)
 			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
 				namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
+			fmt.Println(subCMD, "<---- subCurlCMD")
 			return kubectl.RawCommand(subCMD, ShortWaitDuration)
 		}
 
@@ -171,7 +149,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			CheckResultSshCommand(vmOne.Name, command, httpCode)
 		})
 
-		It(fmt.Sprintf("Get nginx page from %s through service %s", vmOne.Name, svc1.Metadata.Name), func() {
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vmOne.Name, svc1.Name), func() {
 			res := curlSVC(vmOne.Name, svc1, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmOne.Name))
@@ -182,7 +160,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
-		It(fmt.Sprintf("Get nginx page from %s through service %s", vmTwo.Name, svc2.Metadata.Name), func() {
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vmTwo.Name, svc2.Name), func() {
 			res := curlSVC(vmTwo.Name, svc2, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmTwo.Name))
@@ -193,7 +171,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
-		It(fmt.Sprintf("Change selector on %s", svc1.Metadata.Name), func() {
+		It(fmt.Sprintf("Change selector on %s", svc1.Name), func() {
 			PatchSvcSelector := func(name, label string) {
 				GinkgoHelper()
 				PatchResource(kc.ResourceService, name, &kc.JsonPatch{
@@ -203,15 +181,15 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 				})
 			}
 
-			PatchSvcSelector(svc1.Metadata.Name, svc2.Spec.Selector.Service)
+			PatchSvcSelector(svc1.Name, svc2.Spec.Selector["service"])
 		})
-		It(fmt.Sprintf("Check selector on %s, must be %s", svc1.Metadata.Name, svc2.Spec.Selector.Service), func() {
+		It(fmt.Sprintf("Check selector on %s, must be %s", svc1.Name, svc2.Spec.Selector["service"]), func() {
 			GetSvcLabel := func(name, label string) {
 				GinkgoHelper()
 				output := "jsonpath={.spec.selector.service}"
 				CheckField(kc.ResourceService, name, output, label)
 			}
-			GetSvcLabel(svc1.Metadata.Name, svc2.Spec.Selector.Service)
+			GetSvcLabel(svc1.Name, svc2.Spec.Selector["service"])
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s and expect %s hostname", vmOne.Name, vmTwo.Name), func() {
