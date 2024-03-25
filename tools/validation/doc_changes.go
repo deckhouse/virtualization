@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Flant JSC
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package val
+package main
 
 import (
 	"fmt"
@@ -73,9 +73,9 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 	return exitCode
 }
 
-var possibleDocRootsRe = regexp.MustCompile(`modules/[^/]+/docs/|docs/(site|documentation)/pages`)
-var docsDirAllowedFileRe = regexp.MustCompile(`modules/[^/]+/docs/(CLUSTER_CONFIGURATION|CONFIGURATION|CR|ISTIO-CR|FAQ|README|USAGE|EXAMPLES|ADVANCED_USAGE)(_RU)?.md`)
-var docsDirFileRe = regexp.MustCompile(`/docs/[^/]+.md`)
+var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/(site|documentation)/pages`)
+var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|USAGE|EXAMPLES|ADVANCED_USAGE)(_RU)?.md`)
+var docsDirFileRe = regexp.MustCompile(`docs/[^/]+.md`)
 
 func checkDocFile(fName string, diffInfo *DiffInfo) (msg Message) {
 	if !possibleDocRootsRe.MatchString(fName) {

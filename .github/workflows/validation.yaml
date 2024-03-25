@@ -1,10 +1,11 @@
+name: Validations
+
 on:
   pull_request:
     types: [ opened, edited, synchronize ]
+  push:
     branches:
       - main
-      - cicd/check-no_cyrillic
-#  push:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -17,19 +18,20 @@ defaults:
 jobs:
   no_cyrillic:
     runs-on: ubuntu-latest
-    name: check cyrillic
+    name: Validation no-cyrillic
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
         with:
           go-version: "1.21"
 
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Run no cyrillic validation
-        run: go run tools/testval/main.go
-#      - name: Run git diff
-#        run: |
-#          DIFF_FILES=$(git diff --name-only origin/main origin/${GITHUB_HEAD_REF} | grep -E '\.(go|md|yaml|yml)$')
+      - name: Run validation "No cyrillic"
+        run: |
+          task validation:no-cyrillic
