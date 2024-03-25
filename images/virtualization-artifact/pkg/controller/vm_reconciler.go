@@ -630,7 +630,7 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		if err := r.updateKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
-		// Delete old version of KVVMI, so kubevirt will create new, updated KVVMI.
+		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
 		if err := r.restartKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
 		}
@@ -662,10 +662,14 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 
 // restartKVVM deletes KVVMI to restart VM.
 func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if err := opts.Client.Delete(ctx, state.KVVMI); err != nil {
-		return fmt.Errorf("unable to remove current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
+	err := powerstate.RestartVM(ctx, opts.Client, state.KVVM, state.KVVMI, false)
+	if err != nil {
+		return fmt.Errorf("unable to restart current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
 	}
-	state.KVVMI = nil
+	//if err := opts.Client.Delete(ctx, state.KVVMI); err != nil {
+	//	return fmt.Errorf("unable to remove current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
+	//}
+	//state.KVVMI = nil
 	// Also reset kubevirt Pods to prevent mismatch version errors on metadata update.
 	state.KVPods = nil
 
@@ -679,8 +683,6 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 	}
 
 	vmRunPolicy := effectiveSpec.RunPolicy
-
-	isPodCompleted, vmShutdownReason := powerstate.ShutdownReason(state.KVVMI, state.KVPods)
 
 	var err error
 	switch vmRunPolicy {
@@ -700,10 +702,10 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 	case virtv2.AlwaysOnUnlessStoppedManualy:
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
 			if state.KVVMI.Status.Phase == virtv1.Succeeded {
-				if isPodCompleted {
+				if state.VMPodCompleted {
 					// Request to start new KVVMI if guest was restarted.
 					// Cleanup KVVMI is enough if VM was stopped from inside.
-					if vmShutdownReason == "guest-reset" {
+					if state.VMShutdownReason == "guest-reset" {
 						opts.Log.Info("Restart for guest initiated reset")
 						err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 						if err != nil {
@@ -732,9 +734,9 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		// Manual policy requires to handle only guest-reset event.
 		// All types of shutdown are a final state.
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
-			if state.KVVMI.Status.Phase == virtv1.Succeeded && isPodCompleted {
+			if state.KVVMI.Status.Phase == virtv1.Succeeded && state.VMPodCompleted {
 				// Request to start new KVVMI (with updated settings).
-				if vmShutdownReason == "guest-reset" {
+				if state.VMShutdownReason == "guest-reset" {
 					err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 					if err != nil {
 						return fmt.Errorf("restart VM on guest-reset: %w", err)

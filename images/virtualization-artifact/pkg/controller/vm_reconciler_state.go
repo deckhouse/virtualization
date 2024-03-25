@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -40,6 +41,9 @@ type VMReconcilerState struct {
 
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
 	CPUModel       *virtv2.VirtualMachineCPUModel
+
+	VMPodCompleted   bool
+	VMShutdownReason string
 
 	Result                 *reconcile.Result
 	StatusMessage          string
@@ -112,6 +116,8 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.KVVM = kvvm
 
 	if state.KVVM != nil {
+		state.VMPodCompleted, state.VMShutdownReason = powerstate.ShutdownReason(state.KVVMI, state.KVPods)
+
 		if state.KVVM.Status.Created {
 			// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
 			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
