@@ -66,4 +66,3 @@ tasks:
       - task: vmi:status
         vars:
           VMI_NAME: ubuntu-iso-pvc
-

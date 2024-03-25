@@ -16,7 +16,7 @@ tasks:
           linux*)       CMD_PATH="/usr/local/bin/virtctl"    ;;
           *)            echo "unknown: {{OS}}"; exit 1       ;;
         esac
-        
+
         URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-{{OS}}-{{ARCH}}"
         test -f $CMD_PATH || ( sudo curl -L $URL -o $CMD_PATH && sudo chmod +x $CMD_PATH )
   ginkgo:

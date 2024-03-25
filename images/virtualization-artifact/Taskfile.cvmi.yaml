@@ -126,7 +126,6 @@ tasks:
         vars:
           CVMI_NAME: debian-iso
 
-
   get-ca-bundle-for-test:
     desc: "Get CA chain for debian-iso resource"
     cmds:
