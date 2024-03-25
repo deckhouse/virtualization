@@ -12,7 +12,7 @@ tasks:
     deps:
       - _ensure:k8s-codegen-mod
       - _ensure:k8s-kube-openapi
-    cmd:  ./scripts/update-codegen.sh all
+    cmd: ./scripts/update-codegen.sh all
 
   generate:core:
     desc: "Regenerate code for core components."
