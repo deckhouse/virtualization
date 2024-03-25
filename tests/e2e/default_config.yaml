@@ -16,3 +16,5 @@ vm:
   testDataDir: "./testdata/vm"
 ipam:
   testDataDir: "./testdata/ipam"
+helperimages:
+  curlImage: "curlimages/curl"

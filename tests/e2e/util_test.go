@@ -9,6 +9,8 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"log"
+	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -166,4 +168,19 @@ func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
 		return nil, err
 	}
 	return &vm, nil
+}
+
+func ChmodFile(pathFile string, permission os.FileMode) {
+
+	stats, err := os.Stat(pathFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if stats.Mode().Perm() != permission {
+		err = os.Chmod(pathFile, permission)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
