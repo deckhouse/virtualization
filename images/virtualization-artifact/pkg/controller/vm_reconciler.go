@@ -215,18 +215,18 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 	changes := r.detectSpecChanges(state, opts, lastAppliedSpec)
 
 	var syncErr error
-	// Delay changes propagation to KVVM until user restarts VM.
-	if r.shouldWaitBeforeApplyingChanges(state, opts, changes) {
+	if r.canApplyChanges(state, opts, changes) {
+		// No need to wait, apply changes to KVVM immediately.
+		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
+		// Changes are applied, consider current spec as last applied.
+		lastAppliedSpec = &state.VM.Current().Spec
+	} else {
+		// Delay changes propagation to KVVM until user restarts VM.
 		syncErr = state.SetChangesInfo(changes)
 		if syncErr != nil {
 			syncErr = fmt.Errorf("prepare changes info for approval: %w", syncErr)
 			opts.Log.Error(syncErr, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
 		}
-	} else {
-		// No need to wait, apply changes immediately.
-		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
-		// Changes are applied, consider current spec as last applied.
-		lastAppliedSpec = &state.VM.Current().Spec
 	}
 
 	// Ensure power state according to the runPolicy.
@@ -598,13 +598,29 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 	return &specChanges
 }
 
-// shouldWaitBeforeApplyingChanges returns true if changes can't be applied right now.
+// canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-func (r *VMReconciler) shouldWaitBeforeApplyingChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
-	// Restart is non-disruptive if VM is stopped or failed or in the pending state.
-	applyingIsDisruptive := !(state.vmIsFailed() || state.vmIsPending() || state.vmIsStopped())
-	return vmutil.ApprovalMode(state.VM.Current()) == virtv2.Manual && changes.IsDisruptive() && applyingIsDisruptive
+// canApplyChanges
+func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
+	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
+		return true
+	}
+	if !changes.IsDisruptive() {
+		return true
+	}
+	// Apply disruptive changes if VM is absent or not running.
+	if state.KVVMI == nil || state.VMPod == nil {
+		return true
+	}
+	// VM is stopped if instance is not created or Pod is in the Complete state.
+	podStopped := state.VMPod == nil
+	if state.VMPod != nil {
+		phase := state.VMPod.Status.Phase
+		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
+	}
+	isStopped := state.vmIsStopped() && (!state.vmIsCreated() || podStopped)
+	return state.vmIsFailed() || state.vmIsPending() || isStopped
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
