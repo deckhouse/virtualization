@@ -6,6 +6,7 @@ import (
 
 const (
 	DefaultCPUCoreFraction               = "100%"
+	DefaultCPUModelName                  = "generic-v1"
 	DefaultDisruptionsApprovalMode       = v1alpha2.Manual
 	DefaultOSType                        = v1alpha2.GenericOs
 	DefaultBootloader                    = v1alpha2.BIOS
@@ -122,7 +123,7 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 		return fractionChanges
 	}
 
-	modelChanges := compareStrings("cpu.model", current.CPU.ModelName, desired.CPU.ModelName, "", ActionRestart)
+	modelChanges := compareStrings("cpu.model", current.CPU.ModelName, desired.CPU.ModelName, DefaultCPUModelName, ActionRestart)
 	if HasChanges(modelChanges) {
 		return modelChanges
 	}
