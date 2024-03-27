@@ -168,7 +168,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 	var cvmi *v1alpha2.ClusterVirtualMachineImage
 	var vmdList []string
 	var vmMap []string
-	//vmMap := make(map[string]string)
 
 	clientConfig := kubeclient.DefaultClientConfig(&pflag.FlagSet{})
 	client, err := kubeclient.GetClientFromClientConfig(clientConfig)
@@ -196,7 +195,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 	AfterAll(func() {
 		By("Delete all resources")
 		for _, name := range vmMap {
-			//for name, _ := range vmMap {
 			err = client.VirtualMachines(conf.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
 				GracePeriodSeconds: func(i int64) *int64 { return &i }(deleteGracePeriodSeconds)})
 			//Expect(err).NotTo(HaveOccurred())
@@ -214,24 +212,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 		}
 	})
 
-	//AfterAll(func() {
-	//	By("Delete all resources")
-	//	files := make([]string, 0)
-	//	err := filepath.Walk(conf.VM.TestDataDir, func(path string, info fs.FileInfo, err error) error {
-	//		if err == nil && strings.HasSuffix(info.Name(), "yaml") {
-	//			files = append(files, path)
-	//		}
-	//		return nil
-	//	})
-	//	if err != nil || len(files) == 0 {
-	//		kubectl.Delete(conf.VM.TestDataDir, kc.DeleteOptions{})
-	//	} else {
-	//		for _, f := range files {
-	//			kubectl.Delete(f, kc.DeleteOptions{})
-	//		}
-	//	}
-	//})
-
 	Context("VM", func() {
 		cvmi = CVMI(client, cvmiName, "create")
 		It("Create", func() {
@@ -240,7 +220,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 				vm := VM(conf.Namespace, fmt.Sprintf("%s-%d", vmName, i), vmd)
 				createVM(client, vm, vmd, conf.Namespace)
 				vmMap = append(vmMap, vm.Name)
-				//vmMap[vm.Name] = "Pending"
 				vmdList = append(vmdList, vmd.Name)
 			}
 		})
@@ -251,34 +230,24 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 			fmt.Println("Starting at", start)
 
 			for len(vmMap) != notRunningVMCount {
-				//for len(vmMap) != runningVM {
 
 				for i, name := range vmMap {
-					//for name, _ := range vmMap {
-					//for name, status := range vmMap {
-					//if status == "Running" {
-					//	continue
-					//}
 
 					vm, err := client.VirtualMachines(conf.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					//if string(vm.Status.Phase) == "Running" && status != "Running" {
 					if string(vm.Status.Phase) == "Running" {
-						//vmMap[name] = string(vm.Status.Phase)
 						runningVM += 1
 						vmRun := fmt.Sprintf("VM [%s] is [%s]", vm.Name, string(vm.Status.Phase))
 						fmt.Println(vmRun)
 						fmt.Println("runningVMs:", runningVM)
 						vmMap = append(vmMap[:i], vmMap[i+1:]...)
-						//delete(vmMap, vm.Name)
 					}
 				}
 
 				now := time.Now()
 				timeDiff := now.Sub(start)
 
-				//if timeDiff > minutesLimits*time.Minute {
 				if timeDiff > minutesLimits {
 					break
 				}
