@@ -12,10 +12,9 @@ const (
 type ActionType string
 
 const (
-	ActionNone              ActionType = ""
-	ActionRestart           ActionType = "Restart"
-	ActionSubresourceSignal ActionType = "SubresourceSignal"
-	ActionApplyImmediate    ActionType = "ApplyImmediate"
+	ActionNone           ActionType = ""
+	ActionRestart        ActionType = "Restart"
+	ActionApplyImmediate ActionType = "ApplyImmediate"
 )
 
 type FieldChange struct {

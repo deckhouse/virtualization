@@ -1,7 +1,6 @@
 package vmchange
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -233,7 +232,6 @@ func (s *SpecChanges) ActionType() ActionType {
 	// Types from most dangerous to least dangerous.
 	typesInOrder := []ActionType{
 		ActionRestart,
-		ActionSubresourceSignal,
 		ActionApplyImmediate,
 	}
 
@@ -250,22 +248,6 @@ func (s *SpecChanges) ActionType() ActionType {
 
 func (s *SpecChanges) IsDisruptive() bool {
 	return s.ActionType() == ActionRestart
-}
-
-func (s *SpecChanges) ChangeID() string {
-	if len(s.changes) == 0 {
-		return NoChanges
-	}
-
-	// Sort by path.
-	sort.SliceStable(s.changes, func(i, j int) bool {
-		return s.changes[i].Path < s.changes[j].Path
-	})
-
-	hasher := sha256.New()
-	hasher.Write([]byte(s.ToJSON()))
-
-	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
 func (s *SpecChanges) ToJSON() string {
