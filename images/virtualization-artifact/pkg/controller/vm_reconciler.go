@@ -601,7 +601,6 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 // canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-// canApplyChanges
 func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
 	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
 		return true
@@ -610,17 +609,22 @@ func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_rec
 		return true
 	}
 	// Apply disruptive changes if VM is absent or not running.
-	if state.KVVMI == nil || state.VMPod == nil {
+	if state.KVVMI == nil {
 		return true
 	}
+
+	if state.vmIsFailed() || state.vmIsPending() {
+		return true
+	}
+
 	// VM is stopped if instance is not created or Pod is in the Complete state.
-	podStopped := state.VMPod == nil
+	podStopped := true
 	if state.VMPod != nil {
 		phase := state.VMPod.Status.Phase
 		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
 	}
-	isStopped := state.vmIsStopped() && (!state.vmIsCreated() || podStopped)
-	return state.vmIsFailed() || state.vmIsPending() || isStopped
+
+	return state.vmIsStopped() && (!state.vmIsCreated() || podStopped)
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
@@ -682,11 +686,7 @@ func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState
 	if err != nil {
 		return fmt.Errorf("unable to restart current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
 	}
-	//if err := opts.Client.Delete(ctx, state.KVVMI); err != nil {
-	//	return fmt.Errorf("unable to remove current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
-	//}
-	//state.KVVMI = nil
-	// Also reset kubevirt Pods to prevent mismatch version errors on metadata update.
+
 	state.KVPods = nil
 
 	return nil
@@ -721,7 +721,7 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 				if state.VMPodCompleted {
 					// Request to start new KVVMI if guest was restarted.
 					// Cleanup KVVMI is enough if VM was stopped from inside.
-					if state.VMShutdownReason == "guest-reset" {
+					if state.VMShutdownReason == powerstate.GuestResetReason {
 						opts.Log.Info("Restart for guest initiated reset")
 						err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 						if err != nil {
@@ -752,7 +752,7 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
 			if state.KVVMI.Status.Phase == virtv1.Succeeded && state.VMPodCompleted {
 				// Request to start new KVVMI (with updated settings).
-				if state.VMShutdownReason == "guest-reset" {
+				if state.VMShutdownReason == powerstate.GuestResetReason {
 					err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 					if err != nil {
 						return fmt.Errorf("restart VM on guest-reset: %w", err)

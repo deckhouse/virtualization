@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -23,6 +22,7 @@ import (
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -116,19 +116,14 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 	state.KVVM = kvvm
 
-	if state.KVVM != nil {
-
-		if state.vmIsCreated() {
-			// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
-			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
-			// if state.KVVM.Status.ObservedGeneration == state.KVVM.Status.DesiredGeneration {
-			kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
-			if err != nil {
-				return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
-			}
-			state.KVVMI = kvvmi
-			//}
+	if state.KVVM != nil && state.vmIsCreated() {
+		// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
+		// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
+		kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
+		if err != nil {
+			return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
 		}
+		state.KVVMI = kvvmi
 	}
 
 	// Search for virt-launcher Pods if KubeVirt VMI exists for VM.

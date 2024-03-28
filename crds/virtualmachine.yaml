@@ -777,16 +777,16 @@ spec:
                   default:
                     restartApprovalMode: Manual
                   description: |
-                    Disruptions settings for VM.
+                    Disruptions settings for virtual machine.
 
-                    Some VM settings require a reboot of the VM when changing the configuration. To reboot, it is necessary to approve the changes. The `approvalMode` parameter is used for this purpose.
+                    Some virtual machine settings require a reboot of the virtual machine when changing the configuration. To reboot, it is necessary to approve the changes. The `approvalMode` parameter is used for this purpose.
                   properties:
                     restartApprovalMode:
                       type: string
                       description: |
                         The approval mode for disruptive updates:
-                        - `Manual` — restart VM manually to apply disruptive updates.
-                        - `Automatic` — VM will restart automatically to apply disruptive updates.
+                        - `Manual` — restart virtual machine manually to apply disruptive updates.
+                        - `Automatic` — virtual machine will restart automatically to apply disruptive updates.
                       enum:
                         - Manual
                         - Automatic

@@ -510,9 +510,12 @@ var _ = Describe("Apply VM changes", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			// Check that kubevirt VMI was deleted because memory changes require restart.
-			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted")
+			Expect(kvvm).ShouldNot(BeNil())
+			Expect(kvvm.Status.StateChangeRequests).To(HaveLen(2))
+			Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StopRequest))
+			Expect(kvvm.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StartRequest))
 		}
 	})
 })
