@@ -69,7 +69,7 @@ tasks:
           linux*)       RIGHTS_SSH=$(stat -c "%a" $ID_ED) ;;
           *)            echo "unknown: {{OS}}"; exit 1       ;;
         esac
-        
+
         if [ $RIGHTS_SSH -ne 600 ]; then
           echo "Fix permissions for file $ID_ED"
           chmod 600 $ID_ED
