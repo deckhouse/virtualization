@@ -15,7 +15,6 @@ import (
 )
 
 func CVMI(client kubeclient.Client, name string, action string) *v1alpha2.ClusterVirtualMachineImage {
-	//cvmiName := "ubuntu-22.04"
 
 	cvmi := v1alpha2.ClusterVirtualMachineImage{
 		ObjectMeta: metav1.ObjectMeta{
@@ -117,9 +116,6 @@ func VM(namespace, name string, vmdName v1alpha2.VirtualMachineDisk) v1alpha2.Vi
 }
 
 func VMD(namespace, name string, cvmiName v1alpha2.ClusterVirtualMachineImage) v1alpha2.VirtualMachineDisk {
-	//client.apis["storage.k8s.io"].v1.storageclasses.get()
-
-	//storageClassName := "linstor-thin-data-r2"
 
 	vmd := v1alpha2.VirtualMachineDisk{
 		ObjectMeta: metav1.ObjectMeta{
@@ -135,7 +131,6 @@ func VMD(namespace, name string, cvmiName v1alpha2.ClusterVirtualMachineImage) v
 			},
 			PersistentVolumeClaim: v1alpha2.VMDPersistentVolumeClaim{
 				Size: resource.NewQuantity(6*1024*1024*1024, resource.BinarySI),
-				//StorageClassName: &storageClassName,
 			},
 		},
 	}
@@ -144,13 +139,9 @@ func VMD(namespace, name string, cvmiName v1alpha2.ClusterVirtualMachineImage) v
 
 func createVM(client kubeclient.Client, vm v1alpha2.VirtualMachine, vmd v1alpha2.VirtualMachineDisk, namespace string) {
 	resVMD, err := client.VirtualMachineDisks(namespace).Create(context.TODO(), &vmd, metav1.CreateOptions{})
-	if err != nil {
-		log.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred(), "cannot create vmd - %s", &vmd.Name)
 	resVM, err := client.VirtualMachines(namespace).Create(context.TODO(), &vm, metav1.CreateOptions{})
-	if err != nil {
-		log.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred(), "cannot create vm - %s", &vm.Name)
 	fmt.Println("VM", resVM.Name, "with VMD", resVMD.Name, "created")
 }
 
@@ -175,23 +166,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 		log.Fatalf("Cannot obtain Virtualization client: %v\n", err)
 	}
 
-	//BeforeAll(func() {
-	//	files := make([]string, 0)
-	//	err := filepath.Walk(conf.VM.TestDataDir, func(path string, info fs.FileInfo, err error) error {
-	//		if err == nil && strings.HasSuffix(info.Name(), "yaml") {
-	//			files = append(files, path)
-	//		}
-	//		return nil
-	//	})
-	//	if err != nil || len(files) == 0 {
-	//		kubectl.Delete(conf.VM.TestDataDir, kc.DeleteOptions{})
-	//	} else {
-	//		for _, f := range files {
-	//			kubectl.Delete(f, kc.DeleteOptions{})
-	//		}
-	//	}
-	//})
-
 	AfterAll(func() {
 		By("Delete all resources")
 		for _, name := range vmMap {
@@ -202,14 +176,14 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 				fmt.Println(err)
 			}
 		}
-		for _, disk := range vmdList {
-			err = client.VirtualMachineDisks(conf.Namespace).Delete(context.TODO(), disk, metav1.DeleteOptions{
-				GracePeriodSeconds: func(i int64) *int64 { return &i }(deleteGracePeriodSeconds)})
-			//Expect(err).NotTo(HaveOccurred())
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
+		//for _, disk := range vmdList {
+		//	err = client.VirtualMachineDisks(conf.Namespace).Delete(context.TODO(), disk, metav1.DeleteOptions{
+		//		GracePeriodSeconds: func(i int64) *int64 { return &i }(deleteGracePeriodSeconds)})
+		//	//Expect(err).NotTo(HaveOccurred())
+		//	if err != nil {
+		//		fmt.Println(err)
+		//	}
+		//}
 	})
 
 	Context("VM", func() {
@@ -238,9 +212,6 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 
 					if string(vm.Status.Phase) == "Running" {
 						runningVM += 1
-						vmRun := fmt.Sprintf("VM [%s] is [%s]", vm.Name, string(vm.Status.Phase))
-						fmt.Println(vmRun)
-						fmt.Println("runningVMs:", runningVM)
 						vmMap = append(vmMap[:i], vmMap[i+1:]...)
 					}
 				}
@@ -251,12 +222,8 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 				if timeDiff > minutesLimits {
 					break
 				}
-				out := fmt.Sprintf("NotRunningVM-[%d] and RunningVM-[%d]", len(vmMap), runningVM)
-				fmt.Println(out)
 				time.Sleep(1 * time.Second)
 			}
-			fmt.Println("All vm are running")
-			fmt.Println(vmMap)
 			fmt.Println("Finished at", time.Now())
 			fmt.Println("Duration", time.Now().Sub(start))
 			Expect(len(vmMap)).To(Equal(notRunningVMCount))
