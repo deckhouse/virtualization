@@ -11,9 +11,10 @@ env:
 on:
   pull_request:
     types: [ opened, edited, synchronize ]
-  push:
+#  push:
     branches:
       - main
+      - ci/fix/lint-prettier-yaml
 
 defaults:
   run:
