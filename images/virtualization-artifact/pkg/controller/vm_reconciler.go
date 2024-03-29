@@ -715,7 +715,7 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		// Power state change reason is not significant for AlwaysOn:
 		// kubevirt restarts VM via re-creation of KVVMI.
 		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
-	case virtv2.AlwaysOnUnlessStoppedManualy:
+	case virtv2.AlwaysOnUnlessStoppedManually:
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
 			if state.KVVMI.Status.Phase == virtv1.Succeeded {
 				if state.VMPodCompleted {
