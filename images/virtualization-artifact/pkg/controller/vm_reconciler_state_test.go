@@ -46,7 +46,6 @@ func TestUnmarshalVMStatus(t *testing.T) {
 		Status: v1alpha2.VirtualMachineStatus{
 			Phase:                  v1alpha2.MachineRunning,
 			Message:                "",
-			RestartID:              "",
 			RestartAwaitingChanges: nil,
 		},
 	}

@@ -114,7 +114,7 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 			// initialize only
 			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyManual)
 		}
-	case virtv2.AlwaysOnUnlessStoppedManualy:
+	case virtv2.AlwaysOnUnlessStoppedManually:
 		if !b.ResourceExists {
 			// initialize only
 			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)

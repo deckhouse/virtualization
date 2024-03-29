@@ -214,7 +214,7 @@ func (r *Reconciler) isOperationAllowedForRunPolicy(op virtv2.VMOPOperation, run
 		return op == virtv2.VMOPOperationTypeRestart
 	case virtv2.AlwaysOffPolicy:
 		return false
-	case virtv2.ManualPolicy, virtv2.AlwaysOnUnlessStoppedManualy:
+	case virtv2.ManualPolicy, virtv2.AlwaysOnUnlessStoppedManually:
 		return true
 	default:
 		return false

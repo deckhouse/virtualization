@@ -22,6 +22,7 @@ import (
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -34,6 +35,7 @@ type VMReconcilerState struct {
 	KVVM       *virtv1.VirtualMachine
 	KVVMI      *virtv1.VirtualMachineInstance
 	KVPods     *corev1.PodList
+	VMPod      *corev1.Pod
 	VMDByName  map[string]*virtv2.VirtualMachineDisk
 	VMIByName  map[string]*virtv2.VirtualMachineImage
 	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
@@ -41,9 +43,11 @@ type VMReconcilerState struct {
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
 	CPUModel       *virtv2.VirtualMachineCPUModel
 
+	VMPodCompleted   bool
+	VMShutdownReason string
+
 	Result                 *reconcile.Result
 	StatusMessage          string
-	RestartID              string
 	RestartAwaitingChanges []apiextensionsv1.JSON
 }
 
@@ -112,35 +116,36 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	}
 	state.KVVM = kvvm
 
-	if state.KVVM != nil {
-		if state.KVVM.Status.Created {
-			// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
-			// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
-			// if state.KVVM.Status.ObservedGeneration == state.KVVM.Status.DesiredGeneration {
-			kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
-			if err != nil {
-				return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
-			}
-			state.KVVMI = kvvmi
-			//}
+	if state.KVVM != nil && state.vmIsCreated() {
+		// FIXME(VM): ObservedGeneration & DesiredGeneration only available since KubeVirt 1.0.0 which is only prereleased at the moment
+		// FIXME(VM): Uncomment following check when KubeVirt updated to 1.0.0
+		kvvmi, err := helper.FetchObject(ctx, kvvmName, state.Client, &virtv1.VirtualMachineInstance{})
+		if err != nil {
+			return fmt.Errorf("unable to get KubeVirt VMI %q: %w", kvvmName, err)
 		}
+		state.KVVMI = kvvmi
 	}
 
 	// Search for virt-launcher Pods if KubeVirt VMI exists for VM.
 	if state.KVVMI != nil {
-		pods := new(corev1.PodList)
+		podList := new(corev1.PodList)
 		selector := labels.SelectorFromSet(map[string]string{"vm.kubevirt.io/name": state.KVVM.GetName()})
-		err = state.Client.List(ctx, pods, &client.ListOptions{
+		err = state.Client.List(ctx, podList, &client.ListOptions{
 			LabelSelector: selector,
 			Namespace:     kvvm.Namespace,
 		})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return fmt.Errorf("unable to list virt-launcher Pod for KubeVirt VM %q: %w", kvvmName, err)
 		}
-		if len(pods.Items) > 0 {
-			state.KVPods = pods
+		if len(podList.Items) > 0 {
+			state.KVPods = podList
+			// Find Pod with actual VM.
+			state.VMPod = kvvmutil.GetVMPod(state.KVVMI, podList)
 		}
 	}
+
+	// Get shutdown reason if VM is completed.
+	state.VMPodCompleted, state.VMShutdownReason = powerstate.ShutdownReason(state.KVVMI, state.KVPods)
 
 	var vmdByName map[string]*virtv2.VirtualMachineDisk
 	var vmiByName map[string]*virtv2.VirtualMachineImage
@@ -203,7 +208,6 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.VMDByName = vmdByName
 	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
-	state.RestartID = state.VM.Current().Status.RestartID
 	state.StatusMessage = state.VM.Current().Status.Message
 	state.RestartAwaitingChanges = state.VM.Current().Status.RestartAwaitingChanges
 
@@ -225,21 +229,15 @@ func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) er
 	}
 	state.RestartAwaitingChanges = statusChanges
 
-	state.RestartID = changes.ChangeID()
-
 	statusMessage := ""
 	if changes.ActionType() == vmchange.ActionRestart {
-		statusMessage = "VM restart required to apply changes. Check status.restartID and add spec.restartApprovalID to restart VM."
-	} else {
-		// Non restart changes, e.g. subresource signaling.
-		statusMessage = "Approval required to apply changes. Check status.restartID and add spec.restartApprovalID to change VM."
+		statusMessage = "VM restart required to apply changes."
 	}
 	state.StatusMessage = statusMessage
 	return nil
 }
 
 func (state *VMReconcilerState) ResetChangesInfo() {
-	state.RestartID = ""
 	state.RestartAwaitingChanges = nil
 	state.StatusMessage = ""
 }
@@ -429,6 +427,10 @@ func (state *VMReconcilerState) EnsureRunStrategy(ctx context.Context, desiredRu
 
 func (state *VMReconcilerState) isDeletion() bool {
 	return !state.VM.Current().ObjectMeta.DeletionTimestamp.IsZero()
+}
+
+func (state *VMReconcilerState) vmIsCreated() bool {
+	return state.KVVM != nil && state.KVVM.Status.Created
 }
 
 func (state *VMReconcilerState) vmIsStopped() bool {
