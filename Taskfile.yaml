@@ -79,3 +79,11 @@ tasks:
         docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
           sh -c "cd /tmp/virt ; prettier -c \"**/*.yaml\" \"**/*.yml\""
+
+  lint:prettier:yaml-debug:
+    desc: "Check if yaml files are prettier-formatted. --debug-check"
+    cmds:
+      - |
+        docker run --rm \
+          -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
+          sh -c "cd /tmp/virt ; prettier -c --debug-check \"**/*.{yaml,yml}\" --log-level debug"

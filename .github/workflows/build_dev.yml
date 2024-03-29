@@ -108,6 +108,8 @@ jobs:
         uses: arduino/setup-task@v1
         
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Lint yaml with prettier
         run: task -p lint:prettier:yaml
