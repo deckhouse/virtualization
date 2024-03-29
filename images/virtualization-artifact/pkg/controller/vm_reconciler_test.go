@@ -510,9 +510,12 @@ var _ = Describe("Apply VM changes", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 
 			// Check that kubevirt VMI was deleted because memory changes require restart.
-			kvvmi, err = helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted")
+			Expect(kvvm).ShouldNot(BeNil())
+			Expect(kvvm.Status.StateChangeRequests).To(HaveLen(2))
+			Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StopRequest))
+			Expect(kvvm.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StartRequest))
 		}
 	})
 })
@@ -533,7 +536,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 		}
 	})
 
-	It("Restart VM on memory change after approval", func(ctx SpecContext) {
+	It("Apply memory changes to VM on restart", func(ctx SpecContext) {
 		nsName := "test-ns-3"
 		vmName := "test-vm"
 		vmcpuName := "test-vmcpu"
@@ -548,7 +551,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 		cpuNewCoreFraction := "50%"
 
 		{
-			By("Creating VM in Ready status")
+			By("Creating VM with Manual approval in Ready status")
 			vm := &virtv2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: nsName,
@@ -677,8 +680,6 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vm).ShouldNot(BeNil())
 
-			Expect(vm.Status.RestartID).ShouldNot(BeEmpty(), "Should put changeID to the status")
-
 			id := func(elem interface{}) string {
 				return elem.(map[string]interface{})["path"].(string)
 			}
@@ -714,29 +715,35 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					"desiredValue": Equal(memoryNewSize),
 				}),
 			}))
-
-			By("Approving pending changes")
-			vm.Spec.RestartApprovalID = vm.Status.RestartID
-			// Update vm and reconcile approval.
-			err = reconciler.Client.Update(ctx, vm)
-			Expect(err).ShouldNot(HaveOccurred())
-			err = reconcileExecutor.Execute(ctx, reconciler)
-			Expect(err).ShouldNot(HaveOccurred())
 		}
 
 		{
-			By("Checking kubevirt VMI is gone")
+			By("Restarting VM via KVVMI deletion")
+
+			// Emulate VM stop: delete kvvmi and update kvvm status.
 			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kvvmi).To(BeNil(), "kubevirt VirtualMachineInstance should be deleted after manual approval")
+			Expect(kvvmi).ToNot(BeNil(), "kubevirt VirtualMachineInstance should not be deleted at this point")
+			err = reconciler.Client.Delete(ctx, kvvmi)
+			Expect(err).ShouldNot(HaveOccurred())
+			// Emulate kubevirt reconcile loop: set kvvm status to Stopped.
+			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachine{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(kvvm).ToNot(BeNil(), "kubevirt VirtualMachine should not be deleted at this point")
+			kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusStopped
+			err = reconciler.Client.Status().Update(ctx, kvvm)
+			Expect(err).ShouldNot(HaveOccurred())
 
-			By("Checking status is cleared")
+			// Reconcile VM to apply waiting changes to KVVM.
+			err = reconcileExecutor.Execute(ctx, reconciler)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			By("Checking VM have no restartAwaitingChanges after stop")
 			vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv2.VirtualMachine{})
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vm).ShouldNot(BeNil())
 
-			Expect(vm.Status.RestartID).Should(BeEmpty(), "Should clear changeID after manual approval")
-			Expect(vm.Status.RestartAwaitingChanges).Should(BeEmpty(), "Should clear pendingChanges after manual approval")
+			Expect(vm.Status.RestartAwaitingChanges).Should(BeEmpty(), "Should clear restartAwaitingChanges after VM stop")
 		}
 	})
 })
@@ -772,12 +779,14 @@ func CreateReadyVM(ctx context.Context, reconciler *two_phase_reconciler.Reconci
 	err = reconciler.Client.Create(ctx, kvvmi)
 	Expect(err).NotTo(HaveOccurred())
 
+	// Update statuses to indicate running VM.
 	kvvmi.Status.Phase = virtv1.Running
 	err = reconciler.Client.Status().Update(ctx, kvvmi)
 	Expect(err).NotTo(HaveOccurred())
 
 	kvvm.Status.Created = true
 	kvvm.Status.Ready = true
+	kvvm.Status.PrintableStatus = virtv1.VirtualMachineStatusRunning
 	err = reconciler.Client.Status().Update(ctx, kvvm)
 	Expect(err).NotTo(HaveOccurred())
 

@@ -42,25 +42,33 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 	if err != nil || len(podList.Items) == 0 {
 		return nil, err
 	}
-	if len(podList.Items) == 1 {
-		return &podList.Items[0], nil
+	return GetVMPod(kvvmi, &podList), nil
+}
+
+func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *corev1.Pod {
+	if len(podList.Items) == 0 {
+		return nil
 	}
-	// Next, if pods are > 0
+	if len(podList.Items) == 1 {
+		return &podList.Items[0]
+	}
+
 	// If migration is completed - return the target pod.
-	if kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.Completed {
+	if kvvmi != nil && kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.Completed {
 		for _, pod := range podList.Items {
 			if pod.Name == kvvmi.Status.MigrationState.TargetPod {
-				return &pod, nil
+				return &pod
 			}
 		}
 	}
-	// return the first running pod
+
+	// Return the first Running Pod or just a first Pod.
 	for _, pod := range podList.Items {
 		if pod.Status.Phase == corev1.PodRunning {
-			return &pod, nil
+			return &pod
 		}
 	}
-	return &podList.Items[0], nil
+	return &podList.Items[0]
 }
 
 // DeletePodByKVVMI deletes pod by kvvmi.

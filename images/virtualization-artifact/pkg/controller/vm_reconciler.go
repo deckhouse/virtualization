@@ -215,18 +215,18 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 	changes := r.detectSpecChanges(state, opts, lastAppliedSpec)
 
 	var syncErr error
-	// Delay changes propagation to KVVM until user approves them.
-	if r.shouldWaitForChangesApproval(state, opts, changes) {
+	if r.canApplyChanges(state, opts, changes) {
+		// No need to wait, apply changes to KVVM immediately.
+		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
+		// Changes are applied, consider current spec as last applied.
+		lastAppliedSpec = &state.VM.Current().Spec
+	} else {
+		// Delay changes propagation to KVVM until user restarts VM.
 		syncErr = state.SetChangesInfo(changes)
 		if syncErr != nil {
 			syncErr = fmt.Errorf("prepare changes info for approval: %w", syncErr)
 			opts.Log.Error(syncErr, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
 		}
-	} else {
-		// No need to wait, apply changes immediately.
-		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
-		// Changes are applied, consider current spec as last applied.
-		lastAppliedSpec = &state.VM.Current().Spec
 	}
 
 	// Ensure power state according to the runPolicy.
@@ -335,9 +335,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		opts.Log.Error(fmt.Errorf("unexpected KVVM state: status %q, fallback VM phase to %q", state.KVVM.Status.PrintableStatus, state.VM.Changed().Status.Phase), "")
 	}
 
-	// Update RestartID related fields.
 	state.VM.Changed().Status.Message = state.StatusMessage
-	state.VM.Changed().Status.RestartID = state.RestartID
 	state.VM.Changed().Status.RestartAwaitingChanges = state.RestartAwaitingChanges
 	return nil
 }
@@ -594,55 +592,39 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 	// with the current VM spec (maybe edited by the user).
 	specChanges := vmchange.CompareSpecs(lastSpec, &state.VM.Current().Spec)
 
-	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v, change id %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType(), specChanges.ChangeID()))
+	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
 	opts.Log.V(2).Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
 
 	return &specChanges
 }
 
-// shouldWaitForChangesApproval returns true if disruptive update was not approved yet.
-func (r *VMReconciler) shouldWaitForChangesApproval(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
-	// Should not wait in Automatic mode.
+// canApplyChanges returns true if changes can be applied right now.
+//
+// Wait if changes are disruptive, and approval mode is manual, and VM is still running.
+func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
 	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
-		return false
-	}
-
-	// Should not wait in Manual mode if no changes detected or if changes are non-disruptive.
-	// Returning 'false' value leads to apply changes to the KVVM and resets changes related fields in the VM status.
-	if changes.IsEmpty() || !changes.IsDisruptive() {
-		return false
-	}
-
-	changeID := changes.ChangeID()
-	currChangeID := state.VM.Current().Status.RestartID
-
-	// Wait for approval when approval process starts or user made more changes and change ID is expired.
-	if currChangeID == "" {
-		opts.Log.V(2).Info("Wait for approval: status.changeID is inited", "changes", changes)
 		return true
 	}
-	if currChangeID != changeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDExpired, "Previously set Change ID is expired, RestartID is refreshed.")
-		opts.Log.V(2).Info("Wait for approval: status.changeID is refreshed", "changes", changes)
+	if !changes.IsDisruptive() {
+		return true
+	}
+	// Apply disruptive changes if VM is absent or not running.
+	if state.KVVMI == nil {
 		return true
 	}
 
-	approveChangeID := state.VM.Current().Spec.RestartApprovalID
-	// Approved change not set yet, do nothing.
-	if approveChangeID == "" {
-		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is empty", "changes", changes)
-		return true
-	}
-	// Change IDs are not equal: approved Change ID was expired. Record event and wait for the next update.
-	if currChangeID != approveChangeID {
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonVMChangeIDExpired, "Restart approval ID is expired, check VM spec and update spec. restartApprovalID according to status.restartID.")
-		opts.Log.V(2).Info("Wait for approval: spec.restartApprovalID is expired", "vm.name", state.VM.Name(), "status.restartID", currChangeID, "spec.restartApprovalID", approveChangeID)
+	if state.vmIsFailed() || state.vmIsPending() {
 		return true
 	}
 
-	// Changes approved: change IDs become equal. Stop waiting.
-	opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangeIDApproveAccepted, "Approved Change ID accepted, apply changes.")
-	return false
+	// VM is stopped if instance is not created or Pod is in the Complete state.
+	podStopped := true
+	if state.VMPod != nil {
+		phase := state.VMPod.Status.Phase
+		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
+	}
+
+	return state.vmIsStopped() && (!state.vmIsCreated() || podStopped)
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
@@ -651,33 +633,34 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		return nil
 	}
 
-	switch changes.ActionType() {
+	action := changes.ActionType()
+
+	if state.KVVMI == nil && action == vmchange.ActionRestart {
+		action = vmchange.ActionApplyImmediate
+	}
+
+	switch action {
 	case vmchange.ActionRestart:
 		opts.Log.Info("Restart VM to apply changes", "vm.name", state.VM.Current().GetName())
 
-		message := fmt.Sprintf("Apply changes with ID %s", changes.ChangeID())
-		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
+		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
 
+		// Update KVVM spec according the current VM spec.
 		if err := r.updateKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
 		}
-
+		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
 		if err := r.restartKVVM(ctx, state, opts); err != nil {
 			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
 		}
 
-	case vmchange.ActionSubresourceSignal:
-		opts.Log.Info("Apply changes using subresource signal", "vm.name", state.VM.Current().GetName(), "action", changes)
-
-		if err := r.updateKVVMLastAppliedSpec(ctx, state, opts); err != nil {
-			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
-		}
-		// TODO(future): Implement APIService and its client.
-		opts.Log.Error(fmt.Errorf("unexpected action: subresource signal, do nothing"), "vm.name", state.VM.Current().GetName(), "action", changes)
 	case vmchange.ActionApplyImmediate:
-		opts.Log.Info("Apply changes without restart", "vm.name", state.VM.Current().GetName(), "action", changes)
-		message := fmt.Sprintf("Apply changes with ID %s without restart", changes.ChangeID())
+		message := "Apply changes without restart"
+		if changes.IsDisruptive() {
+			message = "Apply disruptive changes without restart"
+		}
+		opts.Log.Info(message, "vm.name", state.VM.Current().GetName(), "action", changes)
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
 
 		if err := r.updateKVVM(ctx, state, opts); err != nil {
@@ -692,18 +675,18 @@ func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconc
 		}
 	}
 
-	// Cleanup: remove change ID and pending changes after applying changes.
+	// Cleanup: remove changes from the VM status after applying changes.
 	state.ResetChangesInfo()
 	return nil
 }
 
 // restartKVVM deletes KVVMI to restart VM.
 func (r *VMReconciler) restartKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	if err := opts.Client.Delete(ctx, state.KVVMI); err != nil {
-		return fmt.Errorf("unable to remove current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
+	err := powerstate.RestartVM(ctx, opts.Client, state.KVVM, state.KVVMI, false)
+	if err != nil {
+		return fmt.Errorf("unable to restart current KubeVirt VMI %q: %w", state.KVVMI.Name, err)
 	}
-	state.KVVMI = nil
-	// Also reset kubevirt Pods to prevent mismatch version errors on metadata update.
+
 	state.KVPods = nil
 
 	return nil
@@ -716,8 +699,6 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 	}
 
 	vmRunPolicy := effectiveSpec.RunPolicy
-
-	isPodCompleted, vmShutdownReason := powerstate.ShutdownReason(state.KVVMI, state.KVPods)
 
 	var err error
 	switch vmRunPolicy {
@@ -734,13 +715,13 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		// Power state change reason is not significant for AlwaysOn:
 		// kubevirt restarts VM via re-creation of KVVMI.
 		err = state.EnsureRunStrategy(ctx, virtv1.RunStrategyAlways)
-	case virtv2.AlwaysOnUnlessStoppedManualy:
+	case virtv2.AlwaysOnUnlessStoppedManually:
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
 			if state.KVVMI.Status.Phase == virtv1.Succeeded {
-				if isPodCompleted {
+				if state.VMPodCompleted {
 					// Request to start new KVVMI if guest was restarted.
 					// Cleanup KVVMI is enough if VM was stopped from inside.
-					if vmShutdownReason == "guest-reset" {
+					if state.VMShutdownReason == powerstate.GuestResetReason {
 						opts.Log.Info("Restart for guest initiated reset")
 						err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 						if err != nil {
@@ -769,9 +750,9 @@ func (r *VMReconciler) syncPowerState(ctx context.Context, state *VMReconcilerSt
 		// Manual policy requires to handle only guest-reset event.
 		// All types of shutdown are a final state.
 		if state.KVVMI != nil && state.KVVMI.DeletionTimestamp == nil {
-			if state.KVVMI.Status.Phase == virtv1.Succeeded && isPodCompleted {
+			if state.KVVMI.Status.Phase == virtv1.Succeeded && state.VMPodCompleted {
 				// Request to start new KVVMI (with updated settings).
-				if vmShutdownReason == "guest-reset" {
+				if state.VMShutdownReason == powerstate.GuestResetReason {
 					err = powerstate.SafeRestartVM(ctx, opts.Client, state.KVVM, state.KVVMI)
 					if err != nil {
 						return fmt.Errorf("restart VM on guest-reset: %w", err)
