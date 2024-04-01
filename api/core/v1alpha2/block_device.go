@@ -8,13 +8,14 @@ type BlockDeviceSpec struct {
 }
 
 type BlockDeviceStatus struct {
-	Type                       BlockDeviceType         `json:"type"`
-	VirtualMachineImage        *ImageDeviceSpec        `json:"virtualMachineImage"`
-	ClusterVirtualMachineImage *ClusterImageDeviceSpec `json:"clusterVirtualMachineImage"`
-	VirtualMachineDisk         *DiskDeviceSpec         `json:"virtualMachineDisk"`
-	Hotpluggable               bool                    `json:"hotpluggable"`
-	Target                     string                  `json:"target"`
-	Size                       string                  `json:"size"`
+	Type                                BlockDeviceType            `json:"type"`
+	VirtualMachineImage                 *ImageDeviceSpec           `json:"virtualMachineImage"`
+	ClusterVirtualMachineImage          *ClusterImageDeviceSpec    `json:"clusterVirtualMachineImage"`
+	VirtualMachineDisk                  *DiskDeviceSpec            `json:"virtualMachineDisk"`
+	Target                              string                     `json:"target"`
+	Size                                string                     `json:"size"`
+	Hotpluggable                        bool                       `json:"hotpluggable"`
+	VirtualMachineBlockDeviceAttachment *BlockDeviceAttachmentSpec `json:"virtualMachineBlockDeviceAttachment"`
 }
 
 type BlockDeviceType string
@@ -34,5 +35,9 @@ type ImageDeviceSpec struct {
 }
 
 type DiskDeviceSpec struct {
+	Name string `json:"name"`
+}
+
+type BlockDeviceAttachmentSpec struct {
 	Name string `json:"name"`
 }

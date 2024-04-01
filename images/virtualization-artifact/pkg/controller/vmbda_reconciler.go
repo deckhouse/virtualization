@@ -318,6 +318,9 @@ func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, 
 		Target:       vs.Target,
 		Size:         state.VMD.Status.Capacity,
 		Hotpluggable: true,
+		VirtualMachineBlockDeviceAttachment: &virtv2.BlockDeviceAttachmentSpec{
+			Name: state.VMBDA.Name().Name,
+		},
 	})
 
 	return true
