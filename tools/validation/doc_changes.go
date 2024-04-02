@@ -73,7 +73,7 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 	return exitCode
 }
 
-var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/(site|documentation)/pages`)
+var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/documentation`)
 var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|USAGE|EXAMPLES|ADVANCED_USAGE)(_RU)?.md`)
 var docsDirFileRe = regexp.MustCompile(`docs/[^/]+.md`)
 
