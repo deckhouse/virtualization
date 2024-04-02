@@ -152,7 +152,7 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 		cvmiName                       = "ubuntu-22.04"
 		vmCount                        = 26
 		notRunningVMCount              = 0
-		minutesLimits                  = 12 * time.Minute
+		overallTimeout                 = 12 * time.Minute
 		deleteGracePeriodSeconds int64 = 30
 	)
 
