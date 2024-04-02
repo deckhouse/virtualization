@@ -9,6 +9,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -54,7 +55,6 @@ require (
 	k8s.io/client-go v0.29.2 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	kubevirt.io/api v1.0.0 // indirect
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect

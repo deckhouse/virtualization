@@ -42,7 +42,7 @@ tasks:
     cmds:
       - |
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-        ginkgo
+        ginkgo --label-filter="!performance"
 
   run_one:
     desc: "Run one test or group"

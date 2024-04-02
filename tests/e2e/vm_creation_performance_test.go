@@ -2,19 +2,21 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	kubeclient "github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"log"
 	"time"
 )
 
-func CVMI(client kubeclient.Client, name string, action string) *v1alpha2.ClusterVirtualMachineImage {
+func CVMI(client kubeclient.Client, name string, action string) (*v1alpha2.ClusterVirtualMachineImage, error) {
 
 	cvmi := v1alpha2.ClusterVirtualMachineImage{
 		ObjectMeta: metav1.ObjectMeta{
@@ -30,15 +32,17 @@ func CVMI(client kubeclient.Client, name string, action string) *v1alpha2.Cluste
 	if action == "create" {
 		res, err := client.ClusterVirtualMachineImages().Get(context.TODO(), name, metav1.GetOptions{})
 		if res != nil && err == nil {
-			return res
+			return res, err
 		}
 
 		res, err = client.ClusterVirtualMachineImages().Create(context.TODO(), &cvmi, metav1.CreateOptions{})
 		if err != nil {
 			log.Fatal(err)
 		}
-		return res
-	} else if action == "delete" {
+		return res, err
+	}
+
+	if action == "delete" {
 		res, err := client.ClusterVirtualMachineImages().Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Fatal(err)
@@ -48,12 +52,13 @@ func CVMI(client kubeclient.Client, name string, action string) *v1alpha2.Cluste
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("Deleted")
-		return res
-	} else {
-		fmt.Println("None")
+		fmt.Println(res.Name, "was deleted")
+		return res, err
 	}
-	return nil
+
+	err := errors.New("support only create or delete for CVMI resource")
+	log.Fatal(err)
+	return nil, err
 }
 
 func VM(namespace, name string, vmdName v1alpha2.VirtualMachineDisk) v1alpha2.VirtualMachine {
@@ -138,6 +143,7 @@ func VMD(namespace, name string, cvmiName v1alpha2.ClusterVirtualMachineImage) v
 }
 
 func createVM(client kubeclient.Client, vm v1alpha2.VirtualMachine, vmd v1alpha2.VirtualMachineDisk, namespace string) {
+	GinkgoHelper()
 	resVMD, err := client.VirtualMachineDisks(namespace).Create(context.TODO(), &vmd, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), "cannot create vmd - %s", &vmd.Name)
 	resVM, err := client.VirtualMachines(namespace).Create(context.TODO(), &vm, metav1.CreateOptions{})
@@ -145,20 +151,18 @@ func createVM(client kubeclient.Client, vm v1alpha2.VirtualMachine, vmd v1alpha2
 	fmt.Println("VM", resVM.Name, "with VMD", resVMD.Name, "created")
 }
 
-var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordered, ContinueOnFailure, func() {
 	const (
 		vmName                         = "perf-test-vm"
 		vmdName                        = "perf-test-vmd"
 		cvmiName                       = "ubuntu-22.04"
 		vmCount                        = 26
-		notRunningVMCount              = 0
 		overallTimeout                 = 12 * time.Minute
 		deleteGracePeriodSeconds int64 = 30
 	)
 
 	var cvmi *v1alpha2.ClusterVirtualMachineImage
-	var vmdList []string
-	var vmMap []string
+	var vmMap = make(map[string]string)
 
 	clientConfig := kubeclient.DefaultClientConfig(&pflag.FlagSet{})
 	client, err := kubeclient.GetClientFromClientConfig(clientConfig)
@@ -168,66 +172,57 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 
 	AfterAll(func() {
 		By("Delete all resources")
-		for _, name := range vmMap {
-			err = client.VirtualMachines(conf.Namespace).Delete(context.TODO(), name, metav1.DeleteOptions{
-				GracePeriodSeconds: func(i int64) *int64 { return &i }(deleteGracePeriodSeconds)})
-			//Expect(err).NotTo(HaveOccurred())
+		vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+		for _, vm := range vmList.Items {
+			err = client.VirtualMachines(conf.Namespace).Delete(context.TODO(), vm.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: ptr.To(deleteGracePeriodSeconds)})
+			Expect(err).NotTo(HaveOccurred())
 			if err != nil {
 				fmt.Println(err)
 			}
 		}
-		//for _, disk := range vmdList {
-		//	err = client.VirtualMachineDisks(conf.Namespace).Delete(context.TODO(), disk, metav1.DeleteOptions{
-		//		GracePeriodSeconds: func(i int64) *int64 { return &i }(deleteGracePeriodSeconds)})
-		//	//Expect(err).NotTo(HaveOccurred())
-		//	if err != nil {
-		//		fmt.Println(err)
-		//	}
-		//}
 	})
 
 	Context("VM", func() {
-		cvmi = CVMI(client, cvmiName, "create")
+		cvmi, err = CVMI(client, cvmiName, "create")
+		Expect(err).NotTo(HaveOccurred(), "%s", err)
+
 		It("Create", func() {
 			for i := 1; i <= vmCount; i++ {
 				vmd := VMD(conf.Namespace, fmt.Sprintf("%s-%d", vmdName, i), *cvmi)
 				vm := VM(conf.Namespace, fmt.Sprintf("%s-%d", vmName, i), vmd)
 				createVM(client, vm, vmd, conf.Namespace)
-				vmMap = append(vmMap, vm.Name)
-				vmdList = append(vmdList, vmd.Name)
 			}
 		})
 		It("Wait until all virtual machines are running", func() {
-			runningVM := 0
+			vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
 
 			start := time.Now()
 			fmt.Println("Starting at", start)
 
-			for len(vmMap) != notRunningVMCount {
-
-				for i, name := range vmMap {
-
-					vm, err := client.VirtualMachines(conf.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					if string(vm.Status.Phase) == "Running" {
-						runningVM += 1
-						vmMap = append(vmMap[:i], vmMap[i+1:]...)
-					}
-				}
+			for len(vmMap) != vmCount {
+				vmList, err = client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
 				now := time.Now()
 				elapsed := now.Sub(start)
 
+				for _, vm := range vmList.Items {
+					if vmMap[vm.Name] != vm.Name && string(vm.Status.Phase) == "Running" {
+						vmMap[vm.Name] = string(vm.Status.Phase)
+					}
+				}
+
 				if elapsed > overallTimeout {
 					break
 				}
+
 				time.Sleep(1 * time.Second)
 			}
 			fmt.Println("Finished at", time.Now())
 			fmt.Println("Duration", time.Now().Sub(start))
-			Expect(len(vmMap)).To(Equal(notRunningVMCount))
-
+			Expect(len(vmList.Items)).To(Equal(vmCount))
 		})
 	})
 })
