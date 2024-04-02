@@ -217,9 +217,9 @@ var _ = Describe("Performance test 20 vm creation", Ordered, ContinueOnFailure, 
 				}
 
 				now := time.Now()
-				timeDiff := now.Sub(start)
+				elapsed := now.Sub(start)
 
-				if timeDiff > minutesLimits {
+				if elapsed > overallTimeout {
 					break
 				}
 				time.Sleep(1 * time.Second)
