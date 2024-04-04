@@ -1,25 +1,24 @@
 package disk
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/klog/v2"
+
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/klog/v2"
 )
 
 const (
 	MetricDiskStatusPhase = "disk_status_phase"
 )
 
-var (
-	diskMetrics = map[string]*prometheus.Desc{
-		MetricDiskStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricDiskStatusPhase),
-			"The disk current phase.",
-			[]string{"name", "namespace", "uid", "phase"},
-			nil),
-	}
-)
+var diskMetrics = map[string]*prometheus.Desc{
+	MetricDiskStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricDiskStatusPhase),
+		"The disk current phase.",
+		[]string{"name", "namespace", "uid", "phase"},
+		nil),
+}
 
 func SetupCollector(lister Lister, registerer prometheus.Registerer) *Collector {
 	c := &Collector{

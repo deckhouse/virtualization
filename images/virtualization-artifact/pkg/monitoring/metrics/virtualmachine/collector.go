@@ -1,25 +1,24 @@
 package virtualmachine
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/klog/v2"
+
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/klog/v2"
 )
 
 const (
 	MetricVirtualMachineStatusPhase = "virtualmachine_status_phase"
 )
 
-var (
-	virtualMachineMetrics = map[string]*prometheus.Desc{
-		MetricVirtualMachineStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineStatusPhase),
-			"The virtualmachine current phase.",
-			[]string{"name", "namespace", "uid", "node", "phase"},
-			nil),
-	}
-)
+var virtualMachineMetrics = map[string]*prometheus.Desc{
+	MetricVirtualMachineStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineStatusPhase),
+		"The virtualmachine current phase.",
+		[]string{"name", "namespace", "uid", "node", "phase"},
+		nil),
+}
 
 func SetupCollector(vmLister Lister, registerer prometheus.Registerer) *Collector {
 	c := &Collector{
@@ -101,5 +100,4 @@ func (s *scraper) updateVMStatusPhaseMetrics(vm virtv2.VirtualMachine) {
 		}
 		s.ch <- mv
 	}
-
 }

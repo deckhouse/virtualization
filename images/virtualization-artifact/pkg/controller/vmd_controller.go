@@ -2,18 +2,18 @@ package controller
 
 import (
 	"context"
-	diskmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/disk"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	diskmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/disk"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
