@@ -34,6 +34,7 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
+tmp/
 tmp/*
 
 # Kubernetes
@@ -41,3 +42,11 @@ tmp/*
 
 # direnv
 .envrc
+
+# logs
+log/
+logs/
+*.log
+
+# ansible inventory
+inventory/

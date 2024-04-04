@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineIPAddressClaim
+metadata:
+  name: static
+spec:
+  address: 10.66.10.1
+  reclaimPolicy: Delete

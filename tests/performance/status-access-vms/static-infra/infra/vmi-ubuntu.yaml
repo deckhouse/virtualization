@@ -1,0 +1,12 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineImage
+metadata:
+  name: ubuntu-2204
+  namespace: default
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img

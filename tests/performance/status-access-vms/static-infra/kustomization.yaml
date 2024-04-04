@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: test-perf
+
+resources:
+  - ./ns.yaml
+  - ./infra
+  - ./overlays/vm-01
+  - ./overlays/vm-02

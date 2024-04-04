@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineDisk
+metadata:
+  name: vmd-root
+spec:
+  persistentVolumeClaim:
+    size: 10G
+    storageClassName: linstor-thick-data-r1
+  dataSource:
+    type: VirtualMachineImage
+    virtualMachineImage:
+      name: ubuntu-2204

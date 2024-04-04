@@ -1,0 +1,57 @@
+#cloud-config
+package_update: true
+packages:
+  - tmux
+  - htop
+  - qemu-guest-agent
+  - nginx
+  - iputils-ping
+  - jq
+  - rsync
+  - fio
+
+user: ubuntu
+password: ubuntu
+chpasswd: { expire: False }
+ssh_pwauth: True
+
+users:
+  - name: cloud
+    # passwd: cloud
+    passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    chpasswd: { expire: False }
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/allow_tcp_forwarding.conf
+    content: |
+      # Разрешить TCP forwarding
+      AllowTcpForwarding yes
+  - path: /usr/scripts/genpage_script.sh
+    permissions: "0755"
+    content: |
+      #!/bin/bash
+
+      cat > /var/www/html/index.html<<EOF
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <title>Welcome to $(hostname)<title>
+      </head>
+      <body>
+      <h1>Welcome to nginx on server $(hostname) !</h1>
+      </body>
+      </html>
+      EOF
+runcmd:
+  - systemctl restart ssh
+  - [hostnamectl, set-hostname, vm-01]
+  - [systemctl, daemon-reload]
+  - [/usr/scripts/genpage_script.sh]
+  - [systemctl, enable, --now, nginx]
+
+final_message: "🔥🔥🔥 The system is finally up, after $UPTIME seconds 🔥🔥🔥"

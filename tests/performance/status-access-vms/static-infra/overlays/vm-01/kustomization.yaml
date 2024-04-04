@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+nameSuffix: "-vm-01"
+
+labels:
+  - includeSelectors: true
+    pairs:
+      vm: vm-01
+resources:
+  - ../../base/vm
+
+patches:
+  - target:
+      kind: VirtualMachineIPAddressClaim
+      name: static
+    patch: |-
+      - op: replace
+        path: /spec/address
+        value: 10.66.10.121

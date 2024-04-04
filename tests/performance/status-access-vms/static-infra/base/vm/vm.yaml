@@ -1,0 +1,27 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: static
+  labels:
+    vm: linux
+    vm-os: linux
+spec:
+  runPolicy: AlwaysOn
+  enableParavirtualization: true
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+    coreFraction: 100%
+  memory:
+    size: 2Gi
+  disruptions:
+    restartApprovalMode: Automatic
+  provisioning:
+    type: UserDataSecret
+    userDataSecretRef:
+      name: cloud-init
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: vmd-root
