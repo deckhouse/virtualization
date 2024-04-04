@@ -2,6 +2,9 @@ package controller
 
 import (
 	"context"
+	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -22,12 +25,13 @@ func NewVMBDAController(
 ) (controller.Controller, error) {
 	reconciler := NewVMBDAReconciler(controllerNamespace)
 
+	mgrCache := mgr.GetCache()
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMBDAReconcilerState](
 		reconciler,
 		NewVMBDAReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
+			Cache:    mgrCache,
 			Recorder: mgr.GetEventRecorderFor(VMBDAControllerName),
 			Scheme:   mgr.GetScheme(),
 			Log:      log.WithName(VMBDAControllerName),
@@ -48,7 +52,21 @@ func NewVMBDAController(
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachineBlockDeviceAttachment controller")
+	vmbdametrics.SetupCollector(&vmbdaLister{vmbdaCache: mgrCache}, metrics.Registry)
 
+	log.Info("Initialized VirtualMachineBlockDeviceAttachment controller")
 	return cvmiController, nil
+}
+
+type vmbdaLister struct {
+	vmbdaCache cache.Cache
+}
+
+func (l vmbdaLister) List() ([]v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
+	vmdas := v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+	err := l.vmbdaCache.List(context.Background(), &vmdas)
+	if err != nil {
+		return nil, err
+	}
+	return vmdas.Items, nil
 }

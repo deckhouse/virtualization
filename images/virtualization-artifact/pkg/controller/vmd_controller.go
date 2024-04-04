@@ -2,6 +2,9 @@ package controller
 
 import (
 	"context"
+	diskmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/disk"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -35,12 +38,13 @@ func NewVMDController(
 		ImporterPodPullPolicy,
 		dvcrSettings,
 	)
+	mgrCache := mgr.GetCache()
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](
 		reconciler,
 		NewVMDReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
+			Cache:    mgrCache,
 			Recorder: mgr.GetEventRecorderFor(vmdControllerName),
 			Scheme:   mgr.GetScheme(),
 			Log:      log.WithName(vmdControllerName),
@@ -65,6 +69,21 @@ func NewVMDController(
 		return nil, err
 	}
 
+	diskmetrics.SetupCollector(&diskLister{diskCache: mgrCache}, metrics.Registry)
+
 	log.Info("Initialized VirtualMachineDisk controller")
 	return c, nil
+}
+
+type diskLister struct {
+	diskCache cache.Cache
+}
+
+func (l diskLister) List() ([]v1alpha2.VirtualMachineDisk, error) {
+	disks := v1alpha2.VirtualMachineDiskList{}
+	err := l.diskCache.List(context.Background(), &disks)
+	if err != nil {
+		return nil, err
+	}
+	return disks.Items, nil
 }

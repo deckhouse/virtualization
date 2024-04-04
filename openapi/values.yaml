@@ -33,15 +33,18 @@ properties:
             type: string
           serviceIP:
             type: string
-      admissionWebhookCert:
+      controller:
         type: object
         properties:
-          ca:
-            type: string
-          crt:
-            type: string
-          key:
-            type: string
+          cert:
+            type: object
+            properties:
+              ca:
+                type: string
+              crt:
+                type: string
+              key:
+                type: string
       apiserver:
         type: object
         properties:

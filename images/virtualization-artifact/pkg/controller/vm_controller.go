@@ -2,11 +2,13 @@ package controller
 
 import (
 	"context"
-
+	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -28,12 +30,13 @@ func NewVMController(
 		dvcrSettings: dvcrSettings,
 		ipam:         ipam.New(),
 	}
+	mgrCache := mgr.GetCache()
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMReconcilerState](
 		reconciler,
 		NewVMReconcilerState,
 		two_phase_reconciler.ReconcilerOptions{
 			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
+			Cache:    mgrCache,
 			Recorder: mgr.GetEventRecorderFor(vmControllerName),
 			Scheme:   mgr.GetScheme(),
 			Log:      log.WithName(vmControllerName),
@@ -55,6 +58,21 @@ func NewVMController(
 		return nil, err
 	}
 
+	vmmetrics.SetupCollector(&vmLister{vmCache: mgrCache}, metrics.Registry)
+
 	log.Info("Initialized VirtualMachine controller")
 	return c, nil
+}
+
+type vmLister struct {
+	vmCache cache.Cache
+}
+
+func (l vmLister) List() ([]v1alpha2.VirtualMachine, error) {
+	vmList := v1alpha2.VirtualMachineList{}
+	err := l.vmCache.List(context.Background(), &vmList)
+	if err != nil {
+		return nil, err
+	}
+	return vmList.Items, nil
 }

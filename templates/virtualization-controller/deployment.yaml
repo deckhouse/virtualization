@@ -56,7 +56,7 @@ spec:
       labels:
         app: virtualization-controller
       annotations:
-        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/admission-webhook-secret.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/secret-tls.yaml") . | sha256sum }}
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
       containers:
