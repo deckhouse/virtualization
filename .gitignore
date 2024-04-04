@@ -50,3 +50,6 @@ logs/
 
 # ansible inventory
 inventory/
+
+# some tmp
+static-infra/

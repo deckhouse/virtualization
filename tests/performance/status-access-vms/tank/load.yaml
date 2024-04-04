@@ -1,12 +1,17 @@
 phantom:
-  address: 95.143.190.246:80 # [Target's address]:[target's port]
+  address: 95.143.190.246
+  header_http: "1.1"
+  headers:
+    - "[Host: 95.143.190.24]"
+    - "[Connection: close]"
+    - "[User-Agent: Tank]"
   uris:
     - /
   load_profile:
-    load_type: rps # schedule load by defining requests per second
-    schedule: line(1, 50, 2m) # starting from 1rps growing linearly to 10rps during 10 minutes
-#  writelog: all
+    load_type: rps
+    schedule: line(5, 200, 10m) const(50,2m)
+  instances: 30
 console:
-  enabled: true # enable console output
+  enabled: true
 telegraf:
-  enabled: false # let's disable telegraf monitoring for the first time
+  enabled: false
