@@ -28,7 +28,7 @@ all:
 }
 
 function main {
-    prepaer_ssh_key
+    prepare_ssh_key
 
     while true
     do
