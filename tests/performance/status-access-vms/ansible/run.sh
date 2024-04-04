@@ -2,7 +2,7 @@
 SSKKEY="../sshkeys/id_ed"
 NAMESPACE=test-perf
 
-function prepaer_ssh_key {
+function prepare_ssh_key {
     chmod 600 $SSKKEY
     sed -i '' -E "s|private_key_file=.+|private_key_file=${SSKKEY}|" ./ansible.cfg
 }
