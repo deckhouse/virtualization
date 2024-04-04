@@ -85,4 +85,4 @@ spec:
       volumes:
         - name: admission-webhook-secret
           secret:
-            secretName: admission-webhook-secret
+            secretName: virtualization-controller-tls
