@@ -70,6 +70,9 @@ spec:
             - containerPort: 9443
               name: controller
               protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
