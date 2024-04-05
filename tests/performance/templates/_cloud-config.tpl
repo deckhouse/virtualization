@@ -5,7 +5,13 @@ chpasswd: { expire: false }
 user: ubuntu
 password: ubuntu
 users:
-  - name: ubuntu
+  - name: cloud
+    #cloud
+    passwd: $6$VZitgOHHow4fx7aT$BXbg/QL4n/dYbjxFuNQlfFmRaTvtxApWn2Qwo7r1BxXIANtaJQNyJMtvu5A.mp2hxT59aTjnsiOYMVfYbyd0j.
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    chpasswd: { expire: False }
+    lock_passwd: false
     ssh-authorized-keys:
       - {{ .Files.Get "ssh/id_ed.pub" }}
       {{- range .Values.sshAuthorizeKeys }}
