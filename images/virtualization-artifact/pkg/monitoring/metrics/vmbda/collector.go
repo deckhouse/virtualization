@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	MetricVMDBAStatusPhase = "virtualmachine_block_device_attachment_status_phase"
+	MetricVMDBAStatusPhase = "virtualmachineblockdeviceattachment_status_phase"
 )
 
 var vmbdaMetrics = map[string]*prometheus.Desc{
 	MetricVMDBAStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMDBAStatusPhase),
-		"The virtual machine block device attachment current phase.",
+		"The virtualmachineblockdeviceattachment current phase.",
 		[]string{"name", "namespace", "uid", "phase"},
 		nil),
 }

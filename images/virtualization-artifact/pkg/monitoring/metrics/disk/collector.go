@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	MetricDiskStatusPhase = "disk_status_phase"
+	MetricDiskStatusPhase = "virtualdisk_status_phase"
 )
 
 var diskMetrics = map[string]*prometheus.Desc{
 	MetricDiskStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricDiskStatusPhase),
-		"The disk current phase.",
+		"The virtualdisk current phase.",
 		[]string{"name", "namespace", "uid", "phase"},
 		nil),
 }
