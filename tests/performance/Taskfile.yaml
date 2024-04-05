@@ -1,0 +1,59 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+vars:
+  NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
+  COUNT: '{{ .COUNT | default "1" }}'
+  RESOURCES: '{{ .RESOURCES | default "all" }}'
+  RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
+
+tasks:
+  help:
+    desc: "Help about bootstrapper.sh."
+    cmds:
+      - ./bootstrapper.sh --help
+
+  apply:
+    desc: "Apply disks and virtual machines."
+    cmds:
+      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
+
+  destroy:
+    desc: "Destroy disks and virtual machines."
+    cmds:
+      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
+
+  apply:all:
+    desc: "Apply disks and virtual machines in two steps (in two different releases)."
+    cmds:
+      - task apply:disks
+      - task apply:vms
+
+  destroy:all:
+    desc: "Destroy disks and virtual machines in two steps (in two different releases)."
+    cmds:
+      - task destroy:vms
+      - task destroy:disks
+
+  apply:disks:
+    desc: "Apply virtual machine disks."
+    cmds:
+      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+
+  apply:vms:
+    desc: "Apply virtual machines."
+    cmds:
+      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+
+  destroy:disks:
+    desc: "Destroy disks."
+    cmds:
+      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+
+  destroy:vms:
+    desc: "Destroy virtual machines."
+    cmds:
+      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"

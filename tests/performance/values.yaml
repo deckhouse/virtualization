@@ -1,0 +1,13 @@
+count: 3
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 10%
+  memory:
+    size: 500Mi
+
+resources: "all"
+resourcesPrefix: "performance"
+diskSize: 5Gi
+storageClass: ""
+imageURL: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
