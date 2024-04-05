@@ -8,6 +8,6 @@ spec:
 
 resources: "all"
 resourcesPrefix: "performance"
-diskSize: 5Gi
+diskSize: 3Gi
 storageClass: ""
 imageURL: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
