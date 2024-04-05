@@ -1,0 +1,34 @@
+{{- if or (eq .Values.resources "vms") (eq .Values.resources "all") }}
+{{- $count := (.Values.count | int) }}
+{{- range until $count  }}
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: {{ $.Values.resourcesPrefix }}-{{ . }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    vm: {{ $.Values.resourcesPrefix }}
+spec:
+  runPolicy: AlwaysOn
+  enableParavirtualization: true
+  osType: Generic
+  bootloader: BIOS
+  {{- with $.Values.spec.cpu }}
+  cpu:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $.Values.spec.memory }}
+  memory:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  blockDevices:
+    - type: VirtualMachineDisk
+      virtualMachineDisk:
+        name: {{ $.Values.resourcesPrefix }}-{{ . }}
+  provisioning:
+    type: UserDataSecret
+    userDataSecretRef:
+      name: {{ $.Values.resourcesPrefix }}-cloud-init
+{{- end }}
+{{- end }}

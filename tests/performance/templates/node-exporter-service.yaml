@@ -1,0 +1,34 @@
+{{- if or (eq .Values.resources "vms") (eq .Values.resources "all") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+  namespace: {{ $.Release.Namespace }}
+spec:
+  selector:
+    vm.kubevirt.io/name: {{ $.Values.resourcesPrefix }}
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: svc-node-exporter
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  selector:
+    matchLabels:
+      app: svc-node-exporter
+{{- end }}
