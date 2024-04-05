@@ -4,6 +4,8 @@ kind: Service
 metadata:
   name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
   namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
 spec:
   selector:
     vm.kubevirt.io/name: {{ $.Values.resourcesPrefix }}
@@ -19,7 +21,8 @@ metadata:
   name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: svc-node-exporter
+    app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+    prometheus: main
 spec:
   endpoints:
     - path: /metrics
@@ -30,5 +33,5 @@ spec:
       - {{ $.Release.Namespace }}
   selector:
     matchLabels:
-      app: svc-node-exporter
+      app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
 {{- end }}
