@@ -63,10 +63,10 @@ type vmbdaLister struct {
 }
 
 func (l vmbdaLister) List() ([]v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
-	vmdas := v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
-	err := l.vmbdaCache.List(context.Background(), &vmdas)
+	vmbdas := v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+	err := l.vmbdaCache.List(context.Background(), &vmbdas)
 	if err != nil {
 		return nil, err
 	}
-	return vmdas.Items, nil
+	return vmbdas.Items, nil
 }

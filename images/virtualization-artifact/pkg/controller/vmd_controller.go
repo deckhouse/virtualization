@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
-	diskmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/disk"
+	diskmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualdisk"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

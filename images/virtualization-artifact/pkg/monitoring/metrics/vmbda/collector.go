@@ -45,11 +45,15 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	vmbdas, err := c.lister.List()
-	if len(vmbdas) == 0 || err != nil {
+	if err != nil {
+		klog.Errorf("Failed to get list of VirtualMachineBlockDeviceAttachment: %v", err)
 		return
 	}
-	scraper := newScraper(ch)
-	scraper.Report(vmbdas)
+	if len(vmbdas) == 0 {
+		return
+	}
+	s := newScraper(ch)
+	s.Report(vmbdas)
 }
 
 func newScraper(ch chan<- prometheus.Metric) *scraper {
@@ -72,8 +76,8 @@ func (s *scraper) updateVMBDAStatusPhaseMetrics(vmbda virtv2.VirtualMachineBlock
 		phase = virtv2.BlockDeviceAttachmentPhaseInProgress
 	}
 	phases := []struct {
-		v bool
-		n string
+		value bool
+		name  string
 	}{
 		{phase == virtv2.BlockDeviceAttachmentPhaseInProgress, string(virtv2.BlockDeviceAttachmentPhaseInProgress)},
 		{phase == virtv2.BlockDeviceAttachmentPhaseAttached, string(virtv2.BlockDeviceAttachmentPhaseAttached)},
@@ -81,16 +85,16 @@ func (s *scraper) updateVMBDAStatusPhaseMetrics(vmbda virtv2.VirtualMachineBlock
 	}
 	desc := vmbdaMetrics[MetricVMBDAStatusPhase]
 	for _, p := range phases {
-		mv, err := prometheus.NewConstMetric(
+		metric, err := prometheus.NewConstMetric(
 			desc,
 			prometheus.GaugeValue,
-			util.BoolFloat64(p.v),
-			vmbda.GetName(), vmbda.GetNamespace(), string(vmbda.GetUID()), p.n,
+			util.BoolFloat64(p.value),
+			vmbda.GetName(), vmbda.GetNamespace(), string(vmbda.GetUID()), p.name,
 		)
 		if err != nil {
 			klog.Warningf("Error creating the new const metric for %s: %s", desc, err)
 			return
 		}
-		s.ch <- mv
+		s.ch <- metric
 	}
 }

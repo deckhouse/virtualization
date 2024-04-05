@@ -1,4 +1,4 @@
-package disk
+package virtualdisk
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,11 +45,15 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	disks, err := c.lister.List()
-	if len(disks) == 0 || err != nil {
+	if err != nil {
+		klog.Errorf("Failed to get list of VirtualDisks: %v", err)
 		return
 	}
-	scraper := newScraper(ch)
-	scraper.Report(disks)
+	if len(disks) == 0 {
+		return
+	}
+	s := newScraper(ch)
+	s.Report(disks)
 }
 
 func newScraper(ch chan<- prometheus.Metric) *scraper {
@@ -72,8 +76,8 @@ func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualMachineDisk) {
 		phase = virtv2.DiskPending
 	}
 	phases := []struct {
-		v bool
-		n string
+		value bool
+		name  string
 	}{
 		{phase == virtv2.DiskPending, string(virtv2.DiskPending)},
 		{phase == virtv2.DiskWaitForUserUpload, string(virtv2.DiskWaitForUserUpload)},
@@ -85,16 +89,16 @@ func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualMachineDisk) {
 	}
 	desc := diskMetrics[MetricDiskStatusPhase]
 	for _, p := range phases {
-		mv, err := prometheus.NewConstMetric(
+		metric, err := prometheus.NewConstMetric(
 			desc,
 			prometheus.GaugeValue,
-			util.BoolFloat64(p.v),
-			disk.GetName(), disk.GetNamespace(), string(disk.GetUID()), p.n,
+			util.BoolFloat64(p.value),
+			disk.GetName(), disk.GetNamespace(), string(disk.GetUID()), p.name,
 		)
 		if err != nil {
 			klog.Warningf("Error creating the new const metric for %s: %s", desc, err)
 			return
 		}
-		s.ch <- mv
+		s.ch <- metric
 	}
 }

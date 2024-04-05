@@ -45,11 +45,15 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
 	vms, err := c.lister.List()
-	if len(vms) == 0 || err != nil {
+	if err != nil {
+		klog.Errorf("Failed to get list of VirtualMachine: %v", err)
 		return
 	}
-	scraper := newScraper(ch)
-	scraper.Report(vms)
+	if len(vms) == 0 {
+		return
+	}
+	s := newScraper(ch)
+	s.Report(vms)
 }
 
 func newScraper(ch chan<- prometheus.Metric) *scraper {
@@ -72,8 +76,8 @@ func (s *scraper) updateVMStatusPhaseMetrics(vm virtv2.VirtualMachine) {
 		phase = virtv2.MachinePending
 	}
 	phases := []struct {
-		v bool
-		n string
+		value bool
+		name  string
 	}{
 		{phase == virtv2.MachineScheduling, string(virtv2.MachineScheduling)},
 		{phase == virtv2.MachinePending, string(virtv2.MachinePending)},
@@ -88,16 +92,16 @@ func (s *scraper) updateVMStatusPhaseMetrics(vm virtv2.VirtualMachine) {
 	}
 	desc := virtualMachineMetrics[MetricVirtualMachineStatusPhase]
 	for _, p := range phases {
-		mv, err := prometheus.NewConstMetric(
+		metric, err := prometheus.NewConstMetric(
 			desc,
 			prometheus.GaugeValue,
-			util.BoolFloat64(p.v),
-			vm.GetName(), vm.GetNamespace(), string(vm.GetUID()), vm.Status.NodeName, p.n,
+			util.BoolFloat64(p.value),
+			vm.GetName(), vm.GetNamespace(), string(vm.GetUID()), vm.Status.NodeName, p.name,
 		)
 		if err != nil {
 			klog.Warningf("Error creating the new const metric for %s: %s", desc, err)
 			return
 		}
-		s.ch <- mv
+		s.ch <- metric
 	}
 }
