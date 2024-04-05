@@ -1,15 +1,15 @@
 phantom:
-  address: 95.143.190.246
+  address: ya.ru
   header_http: "1.1"
   headers:
-    - "[Host: 95.143.190.24]"
+    - "[Host: ya.ru]"
     - "[Connection: close]"
     - "[User-Agent: Tank]"
   uris:
     - /
   load_profile:
     load_type: rps
-    schedule: line(5, 200, 10m) const(50,2m)
+    schedule: line(5, 500, 10m) const(50,2m) const(500,10m)
   instances: 30
 console:
   enabled: true

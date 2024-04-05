@@ -4,10 +4,19 @@ version: "3"
 
 silent: true
 
+
 includes:
   shatal:
     taskfile: ./shatal
     dir: ./shatal
+  tank:
+    taskfile: status-access-vms/tank/Taskfile.tank.yaml
+    dir: status-access-vms/tank
+    optional: true
+  vm_access:
+    taskfile: status-access-vms/ansible/Taskfile.vmaccess.yaml
+    dir: status-access-vms/ansible
+    optional: true
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
