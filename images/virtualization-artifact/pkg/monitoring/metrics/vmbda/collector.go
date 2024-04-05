@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	MetricVMDBAStatusPhase = "virtualmachineblockdeviceattachment_status_phase"
+	MetricVMBDAStatusPhase = "virtualmachineblockdeviceattachment_status_phase"
 )
 
 var vmbdaMetrics = map[string]*prometheus.Desc{
-	MetricVMDBAStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMDBAStatusPhase),
+	MetricVMBDAStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMBDAStatusPhase),
 		"The virtualmachineblockdeviceattachment current phase.",
 		[]string{"name", "namespace", "uid", "phase"},
 		nil),
@@ -79,7 +79,7 @@ func (s *scraper) updateVMBDAStatusPhaseMetrics(vmbda virtv2.VirtualMachineBlock
 		{phase == virtv2.BlockDeviceAttachmentPhaseAttached, string(virtv2.BlockDeviceAttachmentPhaseAttached)},
 		{phase == virtv2.BlockDeviceAttachmentPhaseFailed, string(virtv2.BlockDeviceAttachmentPhaseFailed)},
 	}
-	desc := vmbdaMetrics[MetricVMDBAStatusPhase]
+	desc := vmbdaMetrics[MetricVMBDAStatusPhase]
 	for _, p := range phases {
 		mv, err := prometheus.NewConstMetric(
 			desc,
