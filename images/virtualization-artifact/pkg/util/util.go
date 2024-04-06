@@ -41,3 +41,10 @@ func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, re
 	}
 	return
 }
+
+func BoolFloat64(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
+}

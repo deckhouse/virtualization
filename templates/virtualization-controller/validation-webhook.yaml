@@ -13,11 +13,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachine
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
   - name: "vmd.virtualization-controller.validate.d8-virtualization"
@@ -30,11 +30,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinedisk
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
   - name: "vmbda.virtualization-controller.validate.d8-virtualization"
@@ -47,11 +47,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineblockdeviceattachment
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
   - name: "vmcpu.virtualization-controller.validate.d8-virtualization"
@@ -64,11 +64,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinecpumodel
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: [ "v1" ]
     sideEffects: None
   - name: "vmip.virtualization-controller.validate.d8-virtualization"
@@ -81,11 +81,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddressclaim
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
   - name: "vmipl.virtualization-controller.validate.d8-virtualization"
@@ -98,11 +98,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineipaddresslease
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
   - name: "vmop.virtualization-controller.validate.d8-virtualization"
@@ -115,11 +115,11 @@ webhooks:
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller-admission-webhook
+        name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineoperation
         port: 443
       caBundle: |
-        {{ .Values.virtualization.internal.admissionWebhookCert.ca }}
+        {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
 

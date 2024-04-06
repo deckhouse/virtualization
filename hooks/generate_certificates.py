@@ -27,12 +27,12 @@ def main():
         CertitifacteRequest(
             cn="virtualization-controller",
             sansGenerator=default_sans([
-                "virtualization-controller-admission-webhook",
-                f"virtualization-controller-admission-webhook.{common.NAMESPACE}",
-                f"virtualization-controller-admission-webhook.{common.NAMESPACE}.svc"],
+                "virtualization-controller",
+                f"virtualization-controller.{common.NAMESPACE}",
+                f"virtualization-controller.{common.NAMESPACE}.svc"],
             ),
-            tls_secret_name="admission-webhook-secret",
-            values_path_prefix=f"{common.MODULE_NAME}.internal.admissionWebhookCert"
+            tls_secret_name="virtualization-controller-tls",
+            values_path_prefix=f"{common.MODULE_NAME}.internal.controller.cert"
         ),
 
         CertitifacteRequest(
