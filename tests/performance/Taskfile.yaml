@@ -5,9 +5,11 @@ version: "3"
 silent: true
 
 vars:
-  NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   COUNT: '{{ .COUNT | default "1" }}'
+  NAMESPACE: "{{ .NAMESPACE }}"
+  STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
   RESOURCES: '{{ .RESOURCES | default "all" }}'
+  NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
 
 tasks:
@@ -29,14 +31,33 @@ tasks:
   apply:all:
     desc: "Apply disks and virtual machines in two steps (in two different releases)."
     cmds:
-      - task apply:disks
-      - task apply:vms
+      - task: apply:disks
+        vars:
+          COUNT: "{{ .COUNT }}"
+          NAMESPACE: "{{ .NAMESPACE }}"
+          STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
+          NAME_PREFIX: "{{ .NAME_PREFIX }}"
+          RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
+      - task: apply:vms
+        vars:
+          COUNT: "{{ .COUNT }}"
+          NAMESPACE: "{{ .NAMESPACE }}"
+          NAME_PREFIX: "{{ .NAME_PREFIX }}"
+          RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
 
   destroy:all:
     desc: "Destroy disks and virtual machines in two steps (in two different releases)."
     cmds:
-      - task destroy:vms
-      - task destroy:disks
+      - task: destroy:vms
+        vars:
+          NAMESPACE: "{{ .NAMESPACE }}"
+          NAME_PREFIX: "{{ .NAME_PREFIX }}"
+          RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
+      - task: destroy:disks
+        vars:
+          NAMESPACE: "{{ .NAMESPACE }}"
+          NAME_PREFIX: "{{ .NAME_PREFIX }}"
+          RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
 
   apply:disks:
     desc: "Apply virtual machine disks."
@@ -46,7 +67,7 @@ tasks:
   apply:vms:
     desc: "Apply virtual machines."
     cmds:
-      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
 
   destroy:disks:
     desc: "Destroy disks."
