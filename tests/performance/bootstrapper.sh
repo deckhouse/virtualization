@@ -55,7 +55,12 @@ function validate_apply_args() {
 function apply() {
   echo "Apply resources: ${RESOURCES}"
 
-  helm upgrade --install "${RELEASE_NAME}" . -n "${NAMESPACE}" --create-namespace --set "count=${COUNT}" --set "resourcesPrefix=${RESOURCES_PREFIX}" --set "resources=${RESOURCES}" --set "storageClass=${STORAGE_CLASS}"
+  args=( upgrade --install "${RELEASE_NAME}" . -n "${NAMESPACE}" --create-namespace --set "count=${COUNT}" --set "resourcesPrefix=${RESOURCES_PREFIX}" --set "resources=${RESOURCES}" )
+  if [ -n "${STORAGE_CLASS}" ]; then
+      args+=( --set "storageClass=${STORAGE_CLASS}" )
+  fi
+
+  helm "${args[@]}"
 }
 
 function destroy() {
