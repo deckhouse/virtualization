@@ -1,6 +1,6 @@
 #!/bin/bash
 SSK_KEY="../../ssh/id_ed"
-ANSIBLE_CFG=".ansible.cfg"
+ANSIBLE_CFG="./ansible.cfg"
 INVENTORY_FILE="inventory/hosts.yml"
 
 function Help() {
@@ -67,12 +67,16 @@ function main {
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
         while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 1; done
         
-        ALL_HOSTS=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,4}') - 2 )) # One head line and 1 empty at EOF
+        TOTAL_HOSTS=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,4}') - 2 )) # One head line and 1 empty at EOF
         OK_HOSTS=$(( $(grep 'ok=1' $ANSIBLE_REPORT_FILE | wc -l) ))
         UNREACHABLE_HOSTS=$(( $(grep 'unreachable=1' $ANSIBLE_REPORT_FILE | wc -l) ))
-        OK_PCT=$(bc -l <<< "scale=2; $OK_HOSTS/$ALL_HOSTS*100")
+        OK_PCT=$(bc -l <<< "scale=2; $OK_HOSTS/$TOTAL_HOSTS*100")
         
-        echo "OK hosts count:$OK_HOSTS pct.:$OK_PCT% | Unreachable hosts $UNREACHABLE_HOSTS | Total hosts $ALL_HOSTS"
+        if [[ $UNREACHABLE_HOSTS -ne 0 ]]; then
+            grep 'unreachable=1' $ANSIBLE_REPORT_FILE
+        fi
+
+        echo "OK hosts count:$OK_HOSTS pct.:$OK_PCT% | Unreachable hosts $UNREACHABLE_HOSTS | Total hosts $TOTAL_HOSTS"
         echo "Wait 1 sec"
         sleep 1
     done
