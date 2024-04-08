@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dustin/go-humanize"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 )
 
 // FinalReport example: { "source-image-size": "1111", "source-image-virtual-size": "8888", "source-image-format": "qcow2"}
@@ -19,15 +20,15 @@ type FinalReport struct {
 }
 
 func (r *FinalReport) StoredSize() string {
-	return humanize.Bytes(r.StoredSizeBytes)
+	return util.HumanizeIBytes(r.StoredSizeBytes)
 }
 
 func (r *FinalReport) UnpackedSize() string {
-	return humanize.Bytes(r.UnpackedSizeBytes)
+	return util.HumanizeIBytes(r.UnpackedSizeBytes)
 }
 
 func (r *FinalReport) GetAverageSpeed() string {
-	return humanize.Bytes(r.AverageSpeed) + "/s"
+	return util.HumanizeIBytes(r.AverageSpeed) + "/s"
 }
 
 func (r *FinalReport) GetAverageSpeedRaw() uint64 {
