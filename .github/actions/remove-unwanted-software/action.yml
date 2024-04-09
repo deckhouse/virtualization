@@ -1,0 +1,134 @@
+# Usage:
+#
+# jobs:
+#   build_job:
+#   - steps:
+#       - name: Remove unwanted software
+#         uses: ./.github/actions/remove-unwanted-software
+#
+# Inspired by:
+# https://github.com/AdityaGarg8/remove-unwanted-software
+
+name: Remove unwanted software
+description: Remove huge unwanted software packages from the Github-hosted runner.
+branding:
+  icon: "scissors"
+  color: "blue"
+inputs:
+  show-sizes:
+    description: "Calculate and show space usage for some notable directories (increase execution time heavily)"
+    required: false
+    default: "false"
+  keep-docker-images:
+    description: "Keep preinstalled Docker images, e.g. alpine, debian, ubuntu, node"
+    required: false
+    default: "false"
+  deeper-cleanup:
+    description: "Deeper cleanup by removing some packages less then 1Gb: Azure and AWS tools, Julia, MS Edge, powershell, chromium"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Calculate space usage
+      shell: bash
+      if: ${{ inputs.show-sizes == 'true' }}
+      run: |
+        echo Usage for /opt
+        sudo du -shc /opt/* || true
+
+        echo Usage for /opt/hostedtoolcache
+        du -shc /opt/hostedtoolcache/* || true
+        echo
+
+        echo Usage for /opt/microsoft
+        du -shc /opt/microsoft/* || true
+        echo
+
+        echo Usage for /opt/az
+        du -shc /opt/az/* || true
+        echo
+
+        echo Usage for /usr/lib
+        sudo du -shc /usr/lib/* || true
+        echo
+
+        echo Usage for /usr/local/lib
+        sudo du -shc /usr/local/lib/* || true
+        echo
+
+        echo Usage for /usr/local/share
+        sudo du -shc /usr/local/share/* || true
+        echo
+
+        echo Usage for /usr/share
+        sudo du -shc /usr/share/* || true
+        echo
+
+        echo Docker images:
+        docker images -a
+        echo
+        echo Usage for /var/lib/docker
+        sudo bash -c 'du -shc /var/lib/docker/*' || true
+        echo
+
+    - name: Remove unwanted software
+      shell: bash
+      run: |
+        echo "Space available before cleanup"
+        df -h /
+
+        function cleanup_dir() {
+          dir=$1
+          TIMEFORMAT="Cleanup ${dir} took %R seconds"
+          time {
+            sudo rm -rf $dir || true
+          }
+        }
+
+        echo "Remove Android ... (~8.9G)"
+        cleanup_dir /usr/local/lib/android
+
+        echo "Remove CodeQL ... (~5.0G)" 
+        cleanup_dir /opt/hostedtoolcache/CodeQL
+
+        echo "Remove Swift ... (~1.9G)"
+        cleanup_dir /usr/share/swift
+
+        echo "Remove DotNet ... (~1.6G)"
+        cleanup_dir /usr/share/dotnet
+
+        if [[ ${{ inputs.keep-docker-images }} != 'true' ]] ; then
+          echo "Remove preinstalled Docker images ..."
+          TIMEFORMAT="Cleanup preinstalled Docker images took %R seconds"
+          time {
+            sudo docker image prune --all --force > /dev/null
+          }
+        fi
+
+        if [[ ${{ inputs.deeper-cleanup }} == 'true' ]] ; then
+          echo "Remove Azure tools ... (~747M)"
+          cleanup_dir /opt/az
+
+          echo "Remove chromium ... (~510M)"
+          cleanup_dir /usr/local/share/chromium
+
+          echo "Remove Julia ... (~579M)"
+          cleanup_dir /usr/local/julia1.10.2
+
+          echo "Remove MS Tools: MS Edge ... (~559M)"
+          cleanup_dir /opt/microsoft/msedge
+
+          echo "Remove MS Tools: powershell ... (~175M)"
+          cleanup_dir /usr/local/share/powershell
+
+          echo "Remove AWS tools ... (~403M)"
+          cleanup_dir /usr/local/aws-cli
+          cleanup_dir /usr/local/aws-sam-cli
+        fi
+
+        echo "Space available after cleanup"
+        df -h /
+        rootSize=$(df -h / | tail -n 1 )
+        echo "::notice title=Space available after cleanup::${rootSize}"
