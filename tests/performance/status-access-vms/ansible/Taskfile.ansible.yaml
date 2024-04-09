@@ -16,6 +16,6 @@ tasks:
       - ./run.sh -h
 
   run:
-    desc: "Start endless fact-gathering and checks vms availability (need pass namespace like 'run -- -n testnamespase')"
+    desc: "Start endless fact-gathering and checks vms availability (need pass namespace like 'run -- -n testnamespace')"
     cmds:
       - ./run.sh {{.CLI_ARGS}}

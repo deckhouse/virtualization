@@ -35,12 +35,11 @@ function prepare_ssh_key {
     sed -i '' -E "s|private_key_file=.+|private_key_file=${SSK_KEY}|" $ANSIBLE_CFG
 }
 
-sigint_handler() {
+exit_handler() {
     echo "Canceld"
     exit 0
 }
-trap 'sigint_handler' SIGINT
-
+trap 'exit_handler' EXIT
 
 function generate_inventory {
     VMS=$(kubectl -n $NAMESPACE get vm -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
@@ -64,21 +63,30 @@ function main {
         generate_inventory
         
         echo "Try to access all hosts from inventory "
+        # ansible-playbook playbook.yaml | grep -A1 "Display percentage of successful hosts"
+        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts,/PLAY RECAP/{p}'
+        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts,/PLAY RECAP/' | sed '$d'
+        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts/,$p'
+        # ansible-playbook playbook.yaml | sed -n '/TASK [Display percentage of successful hosts]/,$p' > /dev/stdout
+        # ansible-playbook playbook.yaml
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
         while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 1; done
         
-        TOTAL_HOSTS=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,4}') - 2 )) # One head line and 1 empty at EOF
-        OK_HOSTS=$(( $(grep 'ok=1' $ANSIBLE_REPORT_FILE | wc -l) ))
-        UNREACHABLE_HOSTS=$(( $(grep 'unreachable=1' $ANSIBLE_REPORT_FILE | wc -l) ))
-        OK_PCT=$(bc -l <<< "scale=2; $OK_HOSTS/$TOTAL_HOSTS*100")
+        HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,4}') - 2 ))
+        HOSTS_OK=$(( $(grep -E 'ok=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
+        HOSTS_UNREACHABLE=$(( $(grep -E 'unreachable=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
+        OK_PCT=$(bc -l <<< "scale=2; $HOSTS_OK/$HOSTS_TOTAL*100")
         
-        if [[ $UNREACHABLE_HOSTS -ne 0 ]]; then
+        if [[ $HOSTS_UNREACHABLE -ne 0 ]]; then
             grep 'unreachable=1' $ANSIBLE_REPORT_FILE
+            # cat ./retry/playbook.retry
         fi
 
-        echo "OK hosts count:$OK_HOSTS pct.:$OK_PCT% | Unreachable hosts $UNREACHABLE_HOSTS | Total hosts $TOTAL_HOSTS"
-        echo "Wait 1 sec"
-        sleep 1
+        echo "OK hosts count:$HOSTS_OK pct.:$OK_PCT% | Unreachable hosts $HOSTS_UNREACHABLE | Total hosts $HOSTS_TOTAL"
+        echo "Wait 5 sec"
+        # exit 0
+        sleep 5
+        echo -e "---\n"
     done
 }
 
