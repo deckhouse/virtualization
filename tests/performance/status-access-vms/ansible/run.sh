@@ -63,12 +63,6 @@ function main {
         generate_inventory
         
         echo "Try to access all hosts from inventory "
-        # ansible-playbook playbook.yaml | grep -A1 "Display percentage of successful hosts"
-        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts,/PLAY RECAP/{p}'
-        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts,/PLAY RECAP/' | sed '$d'
-        # ansible-playbook playbook.yaml | sed -n '/Display percentage of successful hosts/,$p'
-        # ansible-playbook playbook.yaml | sed -n '/TASK [Display percentage of successful hosts]/,$p' > /dev/stdout
-        # ansible-playbook playbook.yaml
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
         while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 1; done
         
@@ -79,14 +73,12 @@ function main {
         
         if [[ $HOSTS_UNREACHABLE -ne 0 ]]; then
             grep 'unreachable=1' $ANSIBLE_REPORT_FILE
-            # cat ./retry/playbook.retry
         fi
 
         echo "OK hosts count:$HOSTS_OK pct.:$OK_PCT% | Unreachable hosts $HOSTS_UNREACHABLE | Total hosts $HOSTS_TOTAL"
-        echo "Wait 5 sec"
-        # exit 0
-        sleep 5
+        echo "Wait 2 sec"
         echo -e "---\n"
+        sleep 2
     done
 }
 
