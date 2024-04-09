@@ -33,6 +33,9 @@ jobs:
         shell: bash
         name: Show vars
 
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
@@ -61,6 +64,9 @@ jobs:
         shell: bash
         name: Show vars
 
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
@@ -88,6 +94,9 @@ jobs:
           echo $MODULES_MODULE_TAG
         shell: bash
         name: Show vars
+
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
 
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
