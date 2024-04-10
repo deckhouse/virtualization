@@ -51,5 +51,5 @@ logs/
 # ansible inventory
 inventory/
 
-# some tmp
-static-infra/
+# generated directories
+retry/

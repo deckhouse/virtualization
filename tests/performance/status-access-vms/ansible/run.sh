@@ -11,15 +11,17 @@ Syntax: scriptTemplate [-s|n|h]:
 options:
 n     Set namespace with VirtualMachines
 s     Path to ssh private key, default ../../ssh/id_ed
+u     Enable or disable ansible unreachable host file (Only 'true' or 'false' required; -u false )
 h     Print this help
    
 EOF
 }
 
-while getopts "s:n:h" opt; do
+while getopts "s:n:u:h" opt; do
   case $opt in
     s) SSK_KEY=$OPTARG ;;
     n) NAMESPACE=$OPTARG ;;
+    u) UNREACHABLE_HOST_FILE=$OPTARG ;;
     h) Help
        exit 0;;
     \?) echo "Error: Invalid option -$OPTARG" >&2
@@ -28,7 +30,18 @@ while getopts "s:n:h" opt; do
   esac
 done
 
-if [ -z $NAMESPACE ]; then echo "Namespace must be defined"; exit 1;fi
+function enable_unreachable_host_file {
+    local ENABLE=$1
+    if $ENABLE; then
+        echo "Enable write to file unreachable host"
+        sed -i '' -E "s|^# retry_files_enabled=true|retry_files_enabled=true|" $ANSIBLE_CFG
+        sed -i '' -E "s|^# retry_files_save_path=./retry|retry_files_save_path=./retry|" $ANSIBLE_CFG
+    else
+        echo "Disable write to file unreachable host"
+        sed -i '' -E "s|^retry_files_enabled=true|# retry_files_enabled=true|" $ANSIBLE_CFG
+        sed -i '' -E "s|^retry_files_save_path=./retry|# retry_files_save_path=./retry|" $ANSIBLE_CFG
+    fi
+}
 
 function prepare_ssh_key {
     chmod 600 $SSK_KEY
@@ -36,10 +49,18 @@ function prepare_ssh_key {
 }
 
 exit_handler() {
-    echo "Canceld"
+    echo "Canceled"
     exit 0
 }
 trap 'exit_handler' EXIT
+
+if [ -z $NAMESPACE ]; then echo "Namespace must be defined"; exit 1;fi
+
+if [ $UNREACHABLE_HOST_FILE == true ] ; then
+    enable_unreachable_host_file true
+else
+    enable_unreachable_host_file false
+fi
 
 function generate_inventory {
     VMS=$(kubectl -n $NAMESPACE get vm -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
@@ -62,7 +83,7 @@ function main {
         echo "Generate inventory"
         generate_inventory
         
-        echo "Try to access all hosts from inventory "
+        echo "Try to access all hosts from inventory $(date)"
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
         while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 1; done
         
