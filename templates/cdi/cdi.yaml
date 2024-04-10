@@ -36,6 +36,17 @@ spec:
         resourceName: cdi-uploadproxy
         patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
         type: json
+
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-apiserver" "yes") }}
+        type: strategic
+
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-controller" "no") }}
+        type: strategic
+
     {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -44,6 +55,14 @@ spec:
       - resourceType: Deployment
         resourceName: cdi-deployment
         patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
+        type: json
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
         type: json
     {{- end }}
 
@@ -54,8 +73,8 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"cdi.kubevirt.io","operator":"In","values":["cdi-apiserver"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-        type: json
+        patch: {{ include "cdi.strategic_affinity_patch" (list "cdi-apiserver") }}
+        type: strategic
 
       - resourceType: Deployment
         resourceName: cdi-deployment
@@ -63,8 +82,8 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"app","operator":"In","values":["containerized-data-importer"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-        type: json
+        patch: {{ include "cdi.strategic_affinity_patch" (list "containerized-data-importer") }}
+        type: strategic
     {{- end }}
   workload:
     nodeSelector:
