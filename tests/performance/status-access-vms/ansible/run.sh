@@ -122,15 +122,15 @@ function main {
         
         echo "Try to access all hosts from inventory $(date)"
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
-        while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 1; done
+        while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 2; done
         
-        HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,4}') - 2 ))
+        HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | cut -d ' ' -f1) - 2 ))
         HOSTS_OK=$(( $(grep -E 'ok=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
         HOSTS_UNREACHABLE=$(( $(grep -E 'unreachable=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
         OK_PCT=$(bc -l <<< "scale=2; $HOSTS_OK/$HOSTS_TOTAL*100")
         
         if [[ $HOSTS_UNREACHABLE -ne 0 ]]; then
-            grep 'unreachable=1' $ANSIBLE_REPORT_FILE
+            grep -E 'unreachable=[1-9]+' $ANSIBLE_REPORT_FILE
         fi
 
         echo "OK hosts count:$HOSTS_OK pct.:$OK_PCT% | Unreachable hosts $HOSTS_UNREACHABLE | Total hosts $HOSTS_TOTAL"
