@@ -62,7 +62,7 @@ func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request,
 		return nil
 	}
 
-	vmName := state.VMOP.Current().Spec.VirtualMachineName
+	vmName := state.VMOP.Current().Spec.VirtualMachine
 	vm, err := helper.FetchObject(ctx,
 		types.NamespacedName{Name: vmName, Namespace: req.Namespace},
 		client,
@@ -140,10 +140,10 @@ func (state *ReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool, er
 	if err != nil {
 		return false, err
 	}
-	vmName := state.VMOP.Current().Spec.VirtualMachineName
+	vmName := state.VMOP.Current().Spec.VirtualMachine
 
 	for _, vmop := range vmops.Items {
-		if vmop.GetName() == state.VMOP.Current().GetName() || vmop.Spec.VirtualMachineName != vmName {
+		if vmop.GetName() == state.VMOP.Current().GetName() || vmop.Spec.VirtualMachine != vmName {
 			continue
 		}
 		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
@@ -171,7 +171,7 @@ func (state *ReconcilerState) GetInProgress() bool {
 
 func (state *ReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
 	if state.VmIsEmpty() {
-		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachineName)
+		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachine)
 	}
 	kvvm := &virtv1.VirtualMachine{}
 	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}
@@ -181,7 +181,7 @@ func (state *ReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachi
 
 func (state *ReconcilerState) GetKVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error) {
 	if state.VmIsEmpty() {
-		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachineName)
+		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachine)
 	}
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}

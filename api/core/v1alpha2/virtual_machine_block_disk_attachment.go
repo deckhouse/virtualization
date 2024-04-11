@@ -29,25 +29,27 @@ type VirtualMachineBlockDeviceAttachmentList struct {
 }
 
 type VirtualMachineBlockDeviceAttachmentSpec struct {
-	VMName      string                           `json:"virtualMachineName"`
-	BlockDevice BlockDeviceAttachmentBlockDevice `json:"blockDevice"`
+	VirtualMachine string         `json:"virtualMachine"`
+	BlockDeviceRef VMBDAObjectRef `json:"blockDeviceRef"`
 }
 
-type BlockDeviceAttachmentBlockDevice struct {
-	Type               BlockDeviceAttachmentType                `json:"type"`
-	VirtualMachineDisk *BlockDeviceAttachmentVirtualMachineDisk `json:"virtualMachineDisk"`
+type VMBDAObjectRef struct {
+	Kind VMBDAObjectRefKind `json:"kind,omitempty"`
+	Name string             `json:"name,omitempty"`
 }
 
-type BlockDeviceAttachmentType string
+type VMBDAObjectRefKind string
 
-const BlockDeviceAttachmentTypeVirtualMachineDisk BlockDeviceAttachmentType = "VirtualMachineDisk"
+const (
+	VMBDAObjectRefKindVirtualDisk VMBDAObjectRefKind = "VirtualDisk"
+)
 
-type BlockDeviceAttachmentVirtualMachineDisk struct {
-	Name string `json:"name"`
-}
+type VirtualMachineBlockDeviceAttachmentObjectRefKind string
+
+const BlockDeviceAttachmentTypeVirtualDisk VirtualMachineBlockDeviceAttachmentObjectRefKind = "VirtualDisk"
 
 type VirtualMachineBlockDeviceAttachmentStatus struct {
-	VMName         string                     `json:"virtualMachineName,omitempty"`
+	VirtualMachine string                     `json:"virtualMachine,omitempty"`
 	Phase          BlockDeviceAttachmentPhase `json:"phase,omitempty"`
 	FailureReason  string                     `json:"failureReason,omitempty"`
 	FailureMessage string                     `json:"failureMessage,omitempty"`

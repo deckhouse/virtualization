@@ -37,7 +37,7 @@ import (
 )
 
 type VMIReconciler struct {
-	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	*vmattachee.AttacheeReconciler[*virtv2.VirtualImage, virtv2.VirtualImageStatus]
 
 	importerImage string
 	uploaderImage string
@@ -54,21 +54,21 @@ func NewVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, 
 		pullPolicy:    pullPolicy,
 		dvcrSettings:  dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
-			*virtv2.VirtualMachineImage,
-			virtv2.VirtualMachineImageStatus,
+			*virtv2.VirtualImage,
+			virtv2.VirtualImageStatus,
 		](),
 	}
 }
 
 func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineImage{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VMI: %w", err)
+		return fmt.Errorf("error setting watch on VI: %w", err)
 	}
 
 	if err := ctr.Watch(
@@ -76,7 +76,7 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		handler.EnqueueRequestForOwner(
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachineImage{},
+			&virtv2.VirtualImage{},
 			handler.OnlyControllerOwner(),
 		),
 	); err != nil {
@@ -88,7 +88,7 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		handler.EnqueueRequestForOwner(
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachineImage{},
+			&virtv2.VirtualImage{},
 			handler.OnlyControllerOwner(),
 		), predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
@@ -106,7 +106,7 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 // There are 3 modes of import:
 // - Start and track importer/uploader Pod only (e.g. dataSource is HTTP and storage is ContainerRegistry).
 // - Start importer/uploader Pod first and then create DataVolume (e.g. target size is unknown: dataSource is HTTP and storage is Kubernetes without specified size for PVC).
-// - Create and track DataVolume only (e.g. dataSource is ClusterVirtualMachineImage and storage is Kubernetes).
+// - Create and track DataVolume only (e.g. dataSource is ClusterVirtualImage and storage is Kubernetes).
 func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
 		return nil
@@ -114,7 +114,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 
 	switch {
 	case state.IsDeletion():
-		opts.Log.V(1).Info("Delete VMI, remove protective finalizers")
+		opts.Log.V(1).Info("Delete VI, remove protective finalizers")
 		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
@@ -123,7 +123,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
-		opts.Log.Info("VMI ready: cleanup underlying resources")
+		opts.Log.Info("VI ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
 			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
@@ -132,7 +132,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	case state.IsLost():
 		return nil
 	case state.IsFailed():
-		opts.Log.Info("VMI failed: cleanup underlying resources")
+		opts.Log.Info("VI failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
 			err := r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
@@ -151,7 +151,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
-			opts.Log.V(1).Info("Start new Pod for VMI")
+			opts.Log.V(1).Info("Start new Pod for VI")
 			if err := r.verifyDataSource(state); err != nil {
 				return err
 			}
@@ -165,7 +165,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.Pod != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
-			opts.Log.V(2).Info("Requeue: wait until Pod is completed", "vmi.name", state.VMI.Current().Name)
+			opts.Log.V(2).Info("Requeue: wait until Pod is completed", "vi.name", state.VMI.Current().Name)
 			if err := r.ensurePodFinalizers(ctx, state, opts); err != nil {
 				return err
 			}
@@ -184,7 +184,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 			return nil
 		case state.CanCreateDataVolume():
-			opts.Log.V(1).Info("Create DataVolume for VMI")
+			opts.Log.V(1).Info("Create DataVolume for VI")
 
 			if err := r.createDataVolume(ctx, state.VMI.Current(), state, opts); err != nil {
 				return err
@@ -194,7 +194,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.DV != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
-			opts.Log.V(2).Info("Requeue: wait until DataVolume is completed", "vmi.name", state.VMI.Current().Name)
+			opts.Log.V(2).Info("Requeue: wait until DataVolume is completed", "vi.name", state.VMI.Current().Name)
 
 			if state.IsDataVolumeComplete() {
 				err := r.setPVCOwnerReference(ctx, state, opts.Client)
@@ -214,7 +214,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	}
 
 	// Report unexpected state.
-	details := fmt.Sprintf("vmi.Status.Phase='%s'", state.VMI.Current().Status.Phase)
+	details := fmt.Sprintf("vi.Status.Phase='%s'", state.VMI.Current().Status.Phase)
 	if state.Pod != nil {
 		details += fmt.Sprintf(" pod.Name='%s' pod.Status.Phase='%s'", state.Pod.Name, state.Pod.Status.Phase)
 	}
@@ -224,13 +224,13 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	if state.PVC != nil {
 		details += fmt.Sprintf(" pvc.Name='%s' pvc.Status.Phase='%s'", state.PVC.Name, state.PVC.Status.Phase)
 	}
-	opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("VMI has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.VMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("VI has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }
 
 func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(2).Info("Update VMI status", "vmi.name", state.VMI.Current().GetName())
+	opts.Log.V(2).Info("Update VI status", "vi.name", state.VMI.Current().GetName())
 
 	// Do nothing if object is being deleted as any update will lead to en error.
 	if state.IsDeletion() {
@@ -265,11 +265,11 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		break
 	case state.IsReady():
 		if state.ShouldTrackDataVolume() && state.PVC == nil {
-			opts.Log.Info("PVC not found for ready vmi with kubernetes storage")
+			opts.Log.Info("PVC not found for ready vi with kubernetes storage")
 			vmiStatus.Phase = virtv2.ImagePVCLost
 		}
 	case state.ShouldTrackPod() && state.IsPodInProgress():
-		opts.Log.V(2).Info("Fetch progress from Pod", "vmi.name", state.VMI.Current().GetName())
+		opts.Log.V(2).Info("Fetch progress from Pod", "vi.name", state.VMI.Current().GetName())
 
 		vmiStatus.Phase = virtv2.ImageProvisioning
 		if state.VMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
@@ -291,7 +291,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 				return err
 			}
 			if progress != nil {
-				opts.Log.V(2).Info("Got progress", "vmi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+				opts.Log.V(2).Info("Got progress", "vi.name", state.VMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
 				// map 0-100% to 0-50%.
 				progressPct := progress.Progress()
 				if state.ShouldTrackDataVolume() {
@@ -403,7 +403,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
 		if state.PVC == nil {
-			opts.Log.Info("PVC not found for completed vmi")
+			opts.Log.Info("PVC not found for completed vi")
 			vmiStatus.Phase = virtv2.ImagePVCLost
 			break
 		}
@@ -424,7 +424,7 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmiStatus.DownloadSpeed.CurrentBytes = ""
 		// PVC name equals to the DataVolume name.
 		dv := state.Supplements.DataVolume()
-		vmiStatus.Target.PersistentVolumeClaimName = dv.Name
+		vmiStatus.Target.PersistentVolumeClaim = dv.Name
 
 		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
 		vmiStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
@@ -563,7 +563,7 @@ func (r *VMIReconciler) removeFinalizerChildResources(ctx context.Context, state
 
 func (r *VMIReconciler) verifyDataSource(state *VMIReconcilerState) error {
 	switch state.VMI.Current().Spec.DataSource.Type {
-	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+	case virtv2.DataSourceTypeObjectRef:
 		return state.DVCRDataSource.Validate()
 	default:
 		return nil
@@ -594,7 +594,7 @@ func (r *VMIReconciler) startPod(ctx context.Context, state *VMIReconcilerState,
 
 func (r *VMIReconciler) cleanup(
 	ctx context.Context,
-	vmi *virtv2.VirtualMachineImage,
+	vmi *virtv2.VirtualImage,
 	client client.Client,
 	state *VMIReconcilerState,
 	opts two_phase_reconciler.ReconcilerOptions,
@@ -668,8 +668,8 @@ func (r *VMIReconciler) cleanupOnDeletion(ctx context.Context, state *VMIReconci
 }
 
 func (r *VMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.ImageDevice && bda.VirtualMachineImage != nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.ImageDevice {
 			return true
 		}
 	}
@@ -680,13 +680,13 @@ func (r *VMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
 func (r *VMIReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type != virtv2.ImageDevice || bda.VirtualMachineImage == nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind != virtv2.ImageDevice {
 			continue
 		}
 
 		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      bda.VirtualMachineImage.Name,
+			Name:      bda.Name,
 			Namespace: vm.Namespace,
 		}})
 	}

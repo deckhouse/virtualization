@@ -47,14 +47,14 @@ func (r *LeaseReconciler) enqueueRequestsFromClaims(_ context.Context, obj clien
 		return nil
 	}
 
-	if claim.Spec.LeaseName == "" {
+	if claim.Spec.VirtualMachineIPAddressLease == "" {
 		return nil
 	}
 
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Name: claim.Spec.LeaseName,
+				Name: claim.Spec.VirtualMachineIPAddressLease,
 			},
 		},
 	}

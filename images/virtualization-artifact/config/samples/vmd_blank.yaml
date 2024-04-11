@@ -1,8 +1,8 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
     size: "80M"

@@ -25,13 +25,13 @@ webhooks:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
-        resources:   ["virtualmachinedisks"]
+        resources:   ["virtualdisks"]
         scope:       "Namespaced"
     clientConfig:
       service:
         namespace: virtualization-controller
         name: admission-webhook-service
-        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinedisk
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualdisk
         port: 443
       caBundle: |
         {{ .Files.Get "admission-webhook-certs/ca.pem" | b64enc }}

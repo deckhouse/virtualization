@@ -1,11 +1,11 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: ubuntu-iso-dv
 spec:
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
   dataSource:
     type: "ContainerImage"
     containerImage:

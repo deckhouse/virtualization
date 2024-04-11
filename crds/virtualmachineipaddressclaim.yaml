@@ -39,7 +39,7 @@ spec:
                   description: |
                     The requested IP address. If omitted the next available IP address will be assigned.
                   type: string
-                leaseName:
+                virtualMachineIPAddressLease:
                   description: |
                     The issued `VirtualMachineIPAddressLease`, managed automatically.
                   type: string
@@ -61,14 +61,24 @@ spec:
                   description: |
                     The assigned IP address.
                   type: string
-                virtualMachineName:
+                virtualMachine:
                   description: |
                     Represents the virtual machine that currently uses this IP address.
                   type: string
                 phase:
-                  description: |
-                    The current state of the resource.
                   type: string
+                  enum:
+                    - "Pending"
+                    - "Bound"
+                    - "Lost"
+                    - "Conflict"
+                  description: |
+                    Represents the current state of IP address claim.
+
+                    * Pending - the process of creating is in progress.
+                    * Bound - the IP address claim is bound to IP address lease.
+                    * Lost - the IP address claim has lost its IP address lease.
+                    * Conflict - the IP address lease is bound to another claim.
                 conflictMessage:
                   description: |
                     Detailed description of the error.
@@ -86,7 +96,7 @@ spec:
         - jsonPath: .status.phase
           name: Status
           type: string
-        - jsonPath: .status.virtualMachineName
+        - jsonPath: .status.virtualMachine
           name: VM
           type: string
         - jsonPath: .metadata.creationTimestamp

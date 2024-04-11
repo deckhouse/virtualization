@@ -35,44 +35,35 @@ spec:
             spec:
               type: object
               required:
-                - virtualMachineName
-                - blockDevice
+                - virtualMachine
+                - blockDeviceRef
               properties:
-                virtualMachineName:
+                virtualMachine:
                   type: string
                   description: |
                     The name of the virtual machine to which the disk or image is connected.
-                blockDevice:
+                blockDeviceRef:
                   type: object
                   description: |
                     The block device that will be connected as a hot plug disk to the virtual machine.
+
+                  required: ["kind", "name"]
                   properties:
-                    type:
+                    kind:
                       type: string
                       enum:
-                        - "VirtualMachineDisk"
+                        - "VirtualDisk"
                       description: |
                         The type of the block device. Options are:
 
-                        * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
-                    virtualMachineDisk:
-                      type: object
-                      description: Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: The name of `VirtualMachineDisk`
-                  oneOf:
-                    - properties:
-                        type:
-                          enum: ["VirtualMachineDisk"]
-                        virtualMachineDisk: {}
+                        * `VirtualDisk` — Use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+                    name:
+                      type: string
+                      description: The name of block device to attach.
             status:
               type: object
               properties:
-                virtualMachineName:
+                virtualMachine:
                   type: string
                   description: |
                     The name of the virtual machine to which this disk is attached.
@@ -100,9 +91,9 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
-        - name: VirtualMachineName
+        - name: VirtualMachine
           type: string
-          jsonPath: .status.virtualMachineName
+          jsonPath: .status.virtualMachine
           priority: 1
         - name: FailureReason
           type: string

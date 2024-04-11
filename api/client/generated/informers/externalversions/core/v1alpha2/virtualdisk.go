@@ -31,58 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterVirtualMachineImageInformer provides access to a shared informer and lister for
-// ClusterVirtualMachineImages.
-type ClusterVirtualMachineImageInformer interface {
+// VirtualDiskInformer provides access to a shared informer and lister for
+// VirtualDisks.
+type VirtualDiskInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.ClusterVirtualMachineImageLister
+	Lister() v1alpha2.VirtualDiskLister
 }
 
-type clusterVirtualMachineImageInformer struct {
+type virtualDiskInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
+	namespace        string
 }
 
-// NewClusterVirtualMachineImageInformer constructs a new informer for ClusterVirtualMachineImage type.
+// NewVirtualDiskInformer constructs a new informer for VirtualDisk type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterVirtualMachineImageInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterVirtualMachineImageInformer(client, resyncPeriod, indexers, nil)
+func NewVirtualDiskInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredVirtualDiskInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterVirtualMachineImageInformer constructs a new informer for ClusterVirtualMachineImage type.
+// NewFilteredVirtualDiskInformer constructs a new informer for VirtualDisk type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterVirtualMachineImageInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredVirtualDiskInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().ClusterVirtualMachineImages().List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualDisks(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().ClusterVirtualMachineImages().Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualDisks(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1alpha2.ClusterVirtualMachineImage{},
+		&corev1alpha2.VirtualDisk{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterVirtualMachineImageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterVirtualMachineImageInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *virtualDiskInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredVirtualDiskInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterVirtualMachineImageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.ClusterVirtualMachineImage{}, f.defaultInformer)
+func (f *virtualDiskInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&corev1alpha2.VirtualDisk{}, f.defaultInformer)
 }
 
-func (f *clusterVirtualMachineImageInformer) Lister() v1alpha2.ClusterVirtualMachineImageLister {
-	return v1alpha2.NewClusterVirtualMachineImageLister(f.Informer().GetIndexer())
+func (f *virtualDiskInformer) Lister() v1alpha2.VirtualDiskLister {
+	return v1alpha2.NewVirtualDiskLister(f.Informer().GetIndexer())
 }
