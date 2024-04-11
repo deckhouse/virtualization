@@ -17,9 +17,25 @@ limitations under the License.
 
 package v1alpha2
 
-// ClusterVirtualMachineImageListerExpansion allows custom methods to be added to
-// ClusterVirtualMachineImageLister.
-type ClusterVirtualMachineImageListerExpansion interface{}
+// ClusterVirtualImageListerExpansion allows custom methods to be added to
+// ClusterVirtualImageLister.
+type ClusterVirtualImageListerExpansion interface{}
+
+// VirtualDiskListerExpansion allows custom methods to be added to
+// VirtualDiskLister.
+type VirtualDiskListerExpansion interface{}
+
+// VirtualDiskNamespaceListerExpansion allows custom methods to be added to
+// VirtualDiskNamespaceLister.
+type VirtualDiskNamespaceListerExpansion interface{}
+
+// VirtualImageListerExpansion allows custom methods to be added to
+// VirtualImageLister.
+type VirtualImageListerExpansion interface{}
+
+// VirtualImageNamespaceListerExpansion allows custom methods to be added to
+// VirtualImageNamespaceLister.
+type VirtualImageNamespaceListerExpansion interface{}
 
 // VirtualMachineListerExpansion allows custom methods to be added to
 // VirtualMachineLister.
@@ -41,14 +57,6 @@ type VirtualMachineBlockDeviceAttachmentNamespaceListerExpansion interface{}
 // VirtualMachineCPUModelLister.
 type VirtualMachineCPUModelListerExpansion interface{}
 
-// VirtualMachineDiskListerExpansion allows custom methods to be added to
-// VirtualMachineDiskLister.
-type VirtualMachineDiskListerExpansion interface{}
-
-// VirtualMachineDiskNamespaceListerExpansion allows custom methods to be added to
-// VirtualMachineDiskNamespaceLister.
-type VirtualMachineDiskNamespaceListerExpansion interface{}
-
 // VirtualMachineIPAddressClaimListerExpansion allows custom methods to be added to
 // VirtualMachineIPAddressClaimLister.
 type VirtualMachineIPAddressClaimListerExpansion interface{}
@@ -60,14 +68,6 @@ type VirtualMachineIPAddressClaimNamespaceListerExpansion interface{}
 // VirtualMachineIPAddressLeaseListerExpansion allows custom methods to be added to
 // VirtualMachineIPAddressLeaseLister.
 type VirtualMachineIPAddressLeaseListerExpansion interface{}
-
-// VirtualMachineImageListerExpansion allows custom methods to be added to
-// VirtualMachineImageLister.
-type VirtualMachineImageListerExpansion interface{}
-
-// VirtualMachineImageNamespaceListerExpansion allows custom methods to be added to
-// VirtualMachineImageNamespaceLister.
-type VirtualMachineImageNamespaceListerExpansion interface{}
 
 // VirtualMachineOperationListerExpansion allows custom methods to be added to
 // VirtualMachineOperationLister.

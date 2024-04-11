@@ -13,7 +13,7 @@ spec:
                 address:
                   description: |
                     Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
-                leaseName:
+                virtualMachineIPAddressLease:
                   description: |
                     Выданный `VirtualMachineIPAddressLease`, управляется автоматически.
                 reclaimPolicy:
@@ -30,12 +30,17 @@ spec:
                 address:
                   description: |
                     Назначенный IP-адрес.
-                virtualMachineName:
+                virtualMachine:
                   description: |
                     Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
                 phase:
                   description: |
-                    Текущее состояние ресурса.
+                    Представляет текущее состояние ресурса `VirtualMachineIPAddressClaim`.
+
+                    * Pending - создание ресурса находится в процессе выполнения.
+                    * Bound - ресурс `VirtualMachineIPAddressClaim` привязан к ресурсу `VirtualMachineIPAddressLease`.
+                    * Lost - ресурс `VirtualMachineIPAddressClaim` потерял свойю связку с `VirtualMachineIPAddressLease`.
+                    * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddressClaim`.
                 conflictMessage:
                   description: |
                     Подробное описание ошибки.

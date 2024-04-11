@@ -12,21 +12,21 @@ Let's create an empty disk for OS installation:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: win-disk
   namespace: default
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClassName: local-path
+    storageClass: local-path
 ```
 
 Let's create resources with iso-images of Windows OS and virtio drivers:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-11-iso
 spec:
@@ -38,7 +38,7 @@ spec:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-virtio-iso
 spec:
@@ -69,15 +69,12 @@ spec:
     size: 8Gi
   enableParavirtualization: true
   blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 Once the resource is created, the virtual machine will be started. You need to connect to it and use the graphical wizard to add the `virtio` drivers and perform the OS installation.
@@ -96,9 +93,9 @@ spec:
   runPolicy: AlwaysON
   # ...
   blockDevices:
-    # remove all ClusterVirtualMachineImage resources with iso disks from this section
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
+    # remove all ClusterVirtualImage resources with iso disks from this section
+    - type: VirtualDisk
+      virtualDisk:
         name: win-disk
 ```
 
@@ -225,13 +222,13 @@ spec:
     size: 8Gi
   enableParavirtualization: true
   blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
+    - type: VirtualDisk
+      virtualDisk:
         name: win-disk
 ```

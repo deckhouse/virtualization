@@ -4,7 +4,7 @@ apiVersion: v1
 metadata:
   name: dvcr-linstor
 spec:
-  storageClassName: linstor-thin-data-r1
+  storageClass: linstor-thin-data-r1
   accessModes:
     - ReadWriteOnce
   resources:

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	kubeclient "github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/spf13/pflag"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"os"
 	"text/tabwriter"
+
+	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
 
 func main() {
@@ -35,17 +37,17 @@ func main() {
 		log.Fatalf("Cannot fetch VirtualMachines in namespace %s: %v", namespace, err)
 	}
 	// Fetch list of Disks.
-	diskList, err := client.VirtualMachineDisks(namespace).List(context.TODO(), metav1.ListOptions{})
+	diskList, err := client.VirtualDisks(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Cannot fetch Disks in namespace %s: %v", namespace, err)
 	}
 	// Fetch list of Images.
-	imgList, err := client.VirtualMachineImages(namespace).List(context.TODO(), metav1.ListOptions{})
+	imgList, err := client.VirtualImages(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Cannot fetch Images in namespace %s: %v", namespace, err)
 	}
 	// Fetch list of ClusterImages.
-	cimgList, err := client.ClusterVirtualMachineImages().List(context.TODO(), metav1.ListOptions{})
+	cimgList, err := client.ClusterVirtualImages().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Cannot fetch ClusterImages: %v", err)
 	}

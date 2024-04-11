@@ -1,6 +1,6 @@
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: test-connectivity-vmd-vmi-2
   namespace: test-d8-virtualization
@@ -8,8 +8,8 @@ spec:
   persistentVolumeClaim:
     size: 4Gi
   dataSource:
-    type: "VirtualMachineImage"
-    virtualMachineImage:
+    type: "VirtualImage"
+    virtualImage:
       name: test-vm-image
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -31,10 +31,10 @@ spec:
   memory:
     size: 1Gi
   blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
+    - type: VirtualDisk
+      virtualDisk:
         name: test-connectivity-vmd-vmi-2
-  virtualMachineIPAddressClaimName: test-connectivity-ipam-vm2
+  virtualMachineIPAddressClaim: test-connectivity-ipam-vm2
   provisioning:
     type: UserData
     userData: |

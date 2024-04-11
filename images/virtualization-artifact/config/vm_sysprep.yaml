@@ -8,7 +8,7 @@ data:
   id_rsa.pub: c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFDNnpkZ0ZpTHIxdUFLN1BkY2NoRGQrTHNlQTVmRU9jeENDdDdUTGxyN014Nmg4alVnK0crOEw5SkJOWnVEelRaU0YwZFI3cXd6ZEJCUWpvckFuWlRtWTNCaHNLY0ZyOEd0NEtNR3JTNnIzRE5tR3J1UDhHT1J2ZWdkV1p1WGdBU0tWcFhlSTduQ0lqUkp3QWFLMXgrZUdId0FXTzlaOG9oY2JvSGJMeWZmT29TWkRTSXVrMmtSSWM0NytFTlJqZzBUNngyVlJzcVgyN2c2ajREZlBLUVpHazB6dlhrWmFZdHIxZTJ0WmdxVEJXcVpVbG9NSks4bWlRcTZNa3RDS0FTNFZ0UGswazd0ZVFYNTdPR3dENkQ3dW80YitDbDhhWUFBd2huMGhjMEMyVVNmYnVWSGdxODhFU28yLytOd1Y0U1FjbDNzeENXMjF5R0lqQUd0NEh5N0oK
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-11-iso
 spec:
@@ -18,7 +18,7 @@ spec:
       url: "https://software.download.prss.microsoft.com/dbazure/Win11_23H2_EnglishInternational_x64v2.iso?t=373e4da1-33cb-437a-8953-d2d82ffebc24&P1=1709887519&P2=601&P3=2&P4=tqE6F8wcrhc8F%2fU8sBkhHEuZD15Nd38TCvTKxzamX8FXI4ckmOZDzoXEdsX%2fHGU0To1bKXQq7fZkGtDMZM8SmcP9vPhWOXJwAZxuZEUk66TXbrHFWbi4txvK5%2f5FNNbGVMB1oBkEt%2f7rIYSRBofUXNtfZOD0mdlNl59Rww1Oufm9D5KTXWEJwK8imxbFwechKHhJewjt1KFcT%2bhfqh0YrWMPEdgU%2fVJom%2f5G2V2iFWZzZrCyZxsMSOtBM9OJxbmI6qXHzv36Fd7s3RyRQdMKww9s0OKaUEYuKtNBTJ0FaGxGEHjkslZmiqpXg%2bhZj%2bSUEgnVDlpb907qLMs4UeO4MQ%3d%3d"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-virtio-iso
 spec:
@@ -28,7 +28,7 @@ spec:
       url: "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: vm-vmd
   namespace: default
@@ -59,12 +59,12 @@ spec:
     size: 8Gi
   enableParavirtualization: true
   blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-virtio-iso
-    - type: VirtualMachineDisk
+    - type: VirtualDisk
       virtualMachineDisk:
         name: vm-vmd

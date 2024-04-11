@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-iso
   annotations:
@@ -11,7 +11,7 @@ spec:
       url: "http://caddy.caddy.svc.cluster.local/images/win10.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-virtio-iso
   annotations:
@@ -23,7 +23,7 @@ spec:
       url: "http://caddy.caddy.svc.cluster.local/images/virtio-win-0.1.229.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: win-disk
 spec:
@@ -49,13 +49,13 @@ spec:
   enableParavirtualization: false
   blockDevices:
     # deattach it after install {
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: win-virtio-iso
     # } deattach it after install
-    - type: VirtualMachineDisk
+    - type: VirtualDisk
       virtualMachineDisk:
         name: win-disk

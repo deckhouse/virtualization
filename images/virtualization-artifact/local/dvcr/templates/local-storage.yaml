@@ -20,7 +20,7 @@ spec:
               values:
                 - k3d-k3s-default-server-0
   persistentVolumeReclaimPolicy: Delete
-  storageClassName: dvcr
+  storageClass: dvcr
   volumeMode: Filesystem
 ---
 apiVersion: v1
@@ -28,7 +28,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: dvcr
 spec:
-  storageClassName: dvcr
+  storageClass: dvcr
   accessModes:
     - ReadWriteOnce
   resources:

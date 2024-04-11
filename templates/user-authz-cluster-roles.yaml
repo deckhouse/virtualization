@@ -10,14 +10,14 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachinedisks
-  - virtualmachineimages
+  - virtualdisks
+  - virtualimages
   - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
   - virtualmachines
-  - clustervirtualmachineimages
+  - clustervirtualimages
   verbs:
   - get
   - list
@@ -69,8 +69,8 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachinedisks
-  - virtualmachineimages
+  - virtualdisks
+  - virtualimages
   - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
@@ -94,7 +94,7 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - clustervirtualmachineimages
+  - clustervirtualimages
   verbs:
   - create
   - delete
