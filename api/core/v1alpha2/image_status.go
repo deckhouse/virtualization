@@ -17,7 +17,7 @@ type ImageStatus struct {
 	DownloadSpeed  ImageStatusSpeed `json:"downloadSpeed"`
 	Size           ImageStatusSize  `json:"size"`
 	Format         string           `json:"format"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
 	Capacity       string            `json:"capacity,omitempty"`
 	CDROM          bool              `json:"cdrom"`
 	Target         ImageStatusTarget `json:"target"`
@@ -44,6 +44,6 @@ type ImageStatusSize struct {
 
 type ImageStatusTarget struct {
 	RegistryURL string `json:"registryURL"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName
-	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
+	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }

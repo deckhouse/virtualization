@@ -28,13 +28,13 @@ func (v *VMBDAValidator) ValidateCreate(_ context.Context, obj runtime.Object) (
 
 	v.log.Info("Validating VMBDA")
 
-	switch vmbda.Spec.BlockDevice.Type {
-	case v1alpha2.BlockDeviceAttachmentTypeVirtualMachineDisk:
-		if vmbda.Spec.BlockDevice.VirtualMachineDisk == nil || vmbda.Spec.BlockDevice.VirtualMachineDisk.Name == "" {
-			return nil, errors.New("virtual machine disk name is omitted, but required")
+	switch vmbda.Spec.BlockDeviceRef.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		if vmbda.Spec.BlockDeviceRef.Name == "" {
+			return nil, errors.New("virtual disk name is omitted, but required")
 		}
 	default:
-		return nil, fmt.Errorf("unknown block device type %q", vmbda.Spec.BlockDevice.Type)
+		return nil, fmt.Errorf("unknown block device kind %q", vmbda.Spec.BlockDeviceRef.Kind)
 	}
 
 	return nil, nil
@@ -53,21 +53,21 @@ func (v *VMBDAValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtim
 
 	v.log.Info("Validating VMBDA")
 
-	if newVMBDA.Spec.VMName != oldVMBDA.Spec.VMName {
+	if newVMBDA.Spec.VirtualMachine != oldVMBDA.Spec.VirtualMachine {
 		return nil, errors.New("virtual machine name cannot be changed once set")
 	}
 
-	if newVMBDA.Spec.BlockDevice.Type != oldVMBDA.Spec.BlockDevice.Type {
+	if newVMBDA.Spec.BlockDeviceRef.Kind != oldVMBDA.Spec.BlockDeviceRef.Kind {
 		return nil, errors.New("block device type cannot be changed once set")
 	}
 
-	switch newVMBDA.Spec.BlockDevice.Type {
-	case v1alpha2.BlockDeviceAttachmentTypeVirtualMachineDisk:
-		if newVMBDA.Spec.BlockDevice.VirtualMachineDisk == nil || newVMBDA.Spec.BlockDevice.VirtualMachineDisk.Name != oldVMBDA.Spec.BlockDevice.VirtualMachineDisk.Name {
-			return nil, errors.New("virtual machine disk name cannot be changed once set")
+	switch newVMBDA.Spec.BlockDeviceRef.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		if newVMBDA.Spec.BlockDeviceRef.Name != oldVMBDA.Spec.BlockDeviceRef.Name {
+			return nil, errors.New("virtual disk name cannot be changed once set")
 		}
 	default:
-		return nil, fmt.Errorf("unknown block device type %q", newVMBDA.Spec.BlockDevice.Type)
+		return nil, fmt.Errorf("unknown block device kind %q", newVMBDA.Spec.BlockDeviceRef.Kind)
 	}
 
 	return nil, nil

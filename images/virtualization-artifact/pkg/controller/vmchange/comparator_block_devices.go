@@ -7,18 +7,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const BlockDevicesPath = "blockDevices"
+const BlockDevicesPath = "blockDeviceRefs"
 
 // compareBlockDevices returns changes between current and desired blockDevices lists.
 func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	if len(current.BlockDevices) == 0 && len(desired.BlockDevices) == 0 {
+	if len(current.BlockDeviceRefs) == 0 && len(desired.BlockDeviceRefs) == 0 {
 		return nil
 	}
 
 	fullChanges := compareEmpty(
 		BlockDevicesPath,
-		NewValue(current.BlockDevices, len(current.BlockDevices) == 0, false),
-		NewValue(desired.BlockDevices, len(desired.BlockDevices) == 0, false),
+		NewValue(current.BlockDeviceRefs, len(current.BlockDeviceRefs) == 0, false),
+		NewValue(desired.BlockDeviceRefs, len(desired.BlockDeviceRefs) == 0, false),
 		ActionRestart,
 	)
 
@@ -68,30 +68,30 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 			changes = append(changes, FieldChange{
 				Operation:      ChangeReplace,
 				Path:           itemPath,
-				CurrentValue:   current.BlockDevices[idx],
-				DesiredValue:   desired.BlockDevices[idx],
+				CurrentValue:   current.BlockDeviceRefs[idx],
+				DesiredValue:   desired.BlockDeviceRefs[idx],
 				ActionRequired: ActionRestart,
 			})
 		case isAdded:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeAdd,
 				Path:           itemPath,
-				DesiredValue:   desired.BlockDevices[idx],
+				DesiredValue:   desired.BlockDeviceRefs[idx],
 				ActionRequired: ActionRestart,
 			})
 		case isRemoved:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeRemove,
 				Path:           itemPath,
-				CurrentValue:   current.BlockDevices[idx],
+				CurrentValue:   current.BlockDeviceRefs[idx],
 				ActionRequired: ActionRestart,
 			})
 		case isSwapped:
 			changes = append(changes, FieldChange{
 				Operation:      ChangeReplace,
 				Path:           itemPath,
-				CurrentValue:   current.BlockDevices[idx],
-				DesiredValue:   desired.BlockDevices[idx],
+				CurrentValue:   current.BlockDeviceRefs[idx],
+				DesiredValue:   desired.BlockDeviceRefs[idx],
 				ActionRequired: ActionRestart,
 			})
 		}
@@ -102,9 +102,9 @@ func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 
 func cvmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
-	for idx, dev := range vm.BlockDevices {
-		if dev.ClusterVirtualMachineImage != nil {
-			res[dev.ClusterVirtualMachineImage.Name] = idx
+	for idx, dev := range vm.BlockDeviceRefs {
+		if dev.Kind == v1alpha2.ClusterImageDevice {
+			res[dev.Name] = idx
 		}
 	}
 	return res
@@ -112,9 +112,9 @@ func cvmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 
 func vmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
-	for idx, dev := range vm.BlockDevices {
-		if dev.VirtualMachineImage != nil {
-			res[dev.VirtualMachineImage.Name] = idx
+	for idx, dev := range vm.BlockDeviceRefs {
+		if dev.Kind == v1alpha2.VirtualImageKind {
+			res[dev.Name] = idx
 		}
 	}
 	return res
@@ -122,9 +122,9 @@ func vmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 
 func vmdIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
-	for idx, dev := range vm.BlockDevices {
-		if dev.VirtualMachineDisk != nil {
-			res[dev.VirtualMachineDisk.Name] = idx
+	for idx, dev := range vm.BlockDeviceRefs {
+		if dev.Kind == v1alpha2.VirtualDiskKind {
+			res[dev.Name] = idx
 		}
 	}
 	return res

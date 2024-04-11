@@ -33,4 +33,7 @@ spec:
               properties:
                 phase:
                   description: |
-                    Представляет текущее состояние выданной аренды IP-адреса.
+                    Представляет текущее состояние ресурса `VirtualMachineIPAddressLease`.
+
+                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddressClaim`.
+                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddressClaim`.

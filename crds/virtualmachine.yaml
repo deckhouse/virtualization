@@ -37,7 +37,7 @@ spec:
               required:
                 - cpu
                 - memory
-                - blockDevices
+                - blockDeviceRefs
               properties:
                 provisioning:
                   description: |
@@ -48,67 +48,80 @@ spec:
                       description: |
                         This parameter defines the type of provisioning script:
 
-                        * SysprepSecret - allows to automate Windows installation, setup, and custom software provisioning.
-
                         * UserData - allows the use of inline cloud-init userdata in the .spec.provisioning.UserData section.
 
-                        * UserDataSecret - allows the use of an existing Secret with cloud-init userdata.
+                        * UserDataRef - allows tto automate OS installation with cloud-init userdata.
+
+                        * SysprepRef - allows to automate Windows installation, setup, and custom software provisioning.
 
                         More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
                       type: string
                       enum:
-                        - SysprepSecret
                         - UserData
-                        - UserDataSecret
-                    sysprepSecretRef:
-                      description: |
-                        Reference to an existing Secret with a Windows sysprep automation.
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                          description: |
-                            Secret name.
-                      required: ["name"]
+                        - UserDataRef
+                        - SysprepRef
                     userData:
                       description: |
                         Inline cloud-init userdata script.
                       type: string
-                    userDataSecretRef:
+                    userDataRef:
                       description: |
                         Reference to an existing Secret with a cloud-init userdata script.
                       type: object
                       properties:
+                        kind:
+                          description: The kind of an existing Windows sysprep automation.
+                          default: "Secret"
+                          type: string
+                          enum:
+                            - Secret
                         name:
                           type: string
                           description: |
                             Secret name.
-                      required: ["name"]
+                      required: ["name", "kind"]
+                    sysprepRef:
+                      description: |
+                        Reference to an existing Windows sysprep automation.
+                      type: object
+                      properties:
+                        kind:
+                          description: The kind of an existing Windows sysprep automation.
+                          default: "Secret"
+                          type: string
+                          enum:
+                            - Secret
+                        name:
+                          type: string
+                          description: |
+                            Secret name.
+                      required: ["kind", "name"]
                   oneOf:
                     - properties:
                         type:
-                          enum: ["SysprepSecret"]
-                      required: ["sysprepSecretRef"]
+                          enum: ["Sysprep"]
+                        sysprepRef: {}
+                      required: ["sysprepRef"]
                       not:
                         anyOf:
                           - required: ["userData"]
-                          - required: ["userDataSecretRef"]
+                          - required: ["userDataRef"]
                     - properties:
                         type:
                           enum: ["UserData"]
                       required: ["userData"]
                       not:
                         anyOf:
-                          - required: ["sysprepSecretRef"]
-                          - required: ["userDataSecretRef"]
+                          - required: ["sysprepRef"]
+                          - required: ["userDataRef"]
                     - properties:
                         type:
-                          enum: ["UserDataSecret"]
-                        userDataSecretRef: {}
-                      required: ["userDataSecretRef"]
+                          enum: ["UserDataRef"]
+                        userDataRef: {}
+                      required: ["userDataRef"]
                       not:
                         anyOf:
-                          - required: ["sysprepSecretRef"]
+                          - required: ["sysprepRef"]
                           - required: ["userData"]
                 runPolicy:
                   type: string
@@ -126,7 +139,7 @@ spec:
                     * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
                     * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
 
-                virtualMachineIPAddressClaimName:
+                virtualMachineIPAddressClaim:
                   type: string
                   description: |
                     The name for associated `VirtualMachineIPAddressClaim` resource.
@@ -835,7 +848,7 @@ spec:
                   required:
                     - cores
                   properties:
-                    modelName:
+                    virtualMachineCPUModel:
                       type: string
                       default: "generic-v1"
                       description: |
@@ -866,87 +879,32 @@ spec:
                       description: |
                         Describes the maximum amount of memory resources allowed.
 
-                blockDevices:
+                blockDeviceRefs:
                   type: array
                   description: |
-                    List of block devices that can be mounted by disks belonging to the VM.
+                    List of block devices that can be mounted by disks belonging to the virtual machine.
                     The order of booting is determined by the order in the list.
                   items:
                     type: object
+                    description: |
+                      The reference to block device.
                     properties:
-                      type:
+                      kind:
                         type: string
-                        enum:
-                          - "ClusterVirtualMachineImage"
-                          - "VirtualMachineImage"
-                          - "VirtualMachineDisk"
                         description: |
                           The type of the block device. Options are:
 
-                          * `ClusterVirtualMachineImage` — Use `ClusterVirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                          * `VirtualMachineImage` — Use `VirtualMachineImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                          * `VirtualMachineDisk` — Use `VirtualMachineDisk` as the disk. This type is always mounted in RW mode.
-                      clusterVirtualMachineImage:
-                        type: object
+                          * `ClusterVirtualImage` — Use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          * `VirtualImage` — Use `VirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+                          * `VirtualDisk` — Use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+                        enum:
+                          - "ClusterVirtualImage"
+                          - "VirtualImage"
+                          - "VirtualDisk"
+                      name:
+                        type: string
                         description: |
-                          Attach `ClusterVirtualMachineImage` as the disk in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                        required:
-                          - name
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of the `ClusterVirtualMachineImage` resource.
-                      virtualMachineImage:
-                        type: object
-                        description: |
-                          Use `VirtualMachineImage` as the disk. The image with storage ContainerRegistry will be mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device. The image with storage Kubernetes will be mounted as ephemeral disk, so changes to volume will be lost on reboot.
-                        required:
-                          - name
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of the `VirtualMachineImage` resource.
-                      virtualMachineDisk:
-                        type: object
-                        description: |
-                          Attach `VirtualMachineDisk` as the disk device in RW mode.
-                        required:
-                          - name
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of the `VirtualMachineDisk` resource.
-                    oneOf:
-                      - properties:
-                          type:
-                            enum: ["ClusterVirtualMachineImage"]
-                          clusterVirtualMachineImage: {}
-                        required: ["clusterVirtualMachineImage"]
-                        not:
-                          anyOf:
-                            - required: ["virtualMachineImage"]
-                            - required: ["virtualMachineDisk"]
-                      - properties:
-                          type:
-                            enum: ["VirtualMachineImage"]
-                          virtualMachineImage: {}
-                        required: ["virtualMachineImage"]
-                        not:
-                          anyOf:
-                            - required: ["clusterVirtualMachineImage"]
-                            - required: ["virtualMachineDisk"]
-                      - properties:
-                          type:
-                            enum: ["VirtualMachineDisk"]
-                          virtualMachineDisk: {}
-                        required: ["virtualMachineDisk"]
-                        not:
-                          anyOf:
-                            - required: ["virtualMachineImage"]
-                            - required: ["clusterVirtualMachineImage"]
+                          The name of attached resource.
             status:
               type: object
               properties:
@@ -978,11 +936,11 @@ spec:
                     - "Starting"
                     - "Migrating"
                     - "Pause"
-                nodeName:
+                node:
                   type: string
                   description: |
                     The name of the node on which the VM is currently running.
-                ipAddressClaim:
+                virtualMachineIPAddressClaim:
                   type: string
                   description: |
                     Name of `VirtualMachineIPAddressClaim` holding the ip address of the VirtualMachine.
@@ -990,74 +948,29 @@ spec:
                   type: string
                   description: |
                     IP address of VM.
-                blockDevicesAttached:
+                blockDeviceRefs:
                   type: array
                   description: |
-                    The list of attached block devices.
+                    The list of attached block device attachments.
                   items:
                     type: object
-                    required: ["type", "size"]
-                    oneOf:
-                      - properties:
-                          type:
-                            enum: ["ClusterVirtualMachineImage"]
-                          clusterVirtualMachineImage: {}
-                        required: ["clusterVirtualMachineImage"]
-                        not:
-                          anyOf:
-                            - required: ["virtualMachineImage"]
-                            - required: ["virtualMachineDisk"]
-                      - properties:
-                          type:
-                            enum: ["VirtualMachineImage"]
-                          virtualMachineImage: {}
-                        required: ["virtualMachineImage"]
-                        not:
-                          anyOf:
-                            - required: ["clusterVirtualMachineImage"]
-                            - required: ["virtualMachineDisk"]
-                      - properties:
-                          type:
-                            enum: ["VirtualMachineDisk"]
-                          virtualMachineDisk: {}
-                        required: ["virtualMachineDisk"]
-                        not:
-                          anyOf:
-                            - required: ["virtualMachineImage"]
-                            - required: ["clusterVirtualMachineImage"]
+                    required: ["kind", "name", "size"]
                     properties:
                       hotpluggable:
                         type: boolean
                         description: |
                           Block device is available for hot plug.
-                      type:
+                      kind:
                         type: string
                         description: The type of block device.
                         enum:
-                          - "ClusterVirtualMachineImage"
-                          - "VirtualMachineImage"
-                          - "VirtualMachineDisk"
-                      clusterVirtualMachineImage:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of `ClusterVirtualMachineImage` resource.
-                      virtualMachineImage:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of `VirtualMachineImage` resource.
-                      virtualMachineDisk:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            description: |
-                              The name of `VirtualMachineDisk` resource.
+                          - "ClusterVirtualImage"
+                          - "VirtualImage"
+                          - "VirtualDisk"
+                      name:
+                        type: string
+                        description: |
+                          The name of attached resource.
                       target:
                         type: string
                         description: The name of attached block device.
@@ -1113,9 +1026,9 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
-        - name: NodeName
+        - name: Node
           type: string
-          jsonPath: .status.nodeName
+          jsonPath: .status.node
         - name: IPAddress
           type: string
           jsonPath: .status.ipAddress

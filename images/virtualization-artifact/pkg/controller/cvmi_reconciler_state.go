@@ -23,14 +23,14 @@ import (
 )
 
 type CVMIReconcilerState struct {
-	*vmattachee.AttacheeState[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	*vmattachee.AttacheeState[*virtv2.ClusterVirtualImage, virtv2.ClusterVirtualImageStatus]
 
 	Client      client.Client
 	Supplements *supplements.Generator
 	Result      *reconcile.Result
 	Namespace   string
 
-	CVMI           *helper.Resource[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	CVMI           *helper.Resource[*virtv2.ClusterVirtualImage, virtv2.ClusterVirtualImageStatus]
 	Service        *corev1.Service
 	Ingress        *netv1.Ingress
 	Pod            *corev1.Pod
@@ -43,8 +43,8 @@ func NewCVMIReconcilerState(controllerNamespace string) func(name types.Namespac
 			Client: client,
 			CVMI: helper.NewResource(
 				name, log, client, cache,
-				func() *virtv2.ClusterVirtualMachineImage { return &virtv2.ClusterVirtualMachineImage{} },
-				func(obj *virtv2.ClusterVirtualMachineImage) virtv2.ClusterVirtualMachineImageStatus {
+				func() *virtv2.ClusterVirtualImage { return &virtv2.ClusterVirtualImage{} },
+				func(obj *virtv2.ClusterVirtualImage) virtv2.ClusterVirtualImageStatus {
 					return obj.Status
 				},
 			),
@@ -61,7 +61,7 @@ func NewCVMIReconcilerState(controllerNamespace string) func(name types.Namespac
 
 func (state *CVMIReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
 	if err := state.CVMI.UpdateMeta(ctx); err != nil {
-		return fmt.Errorf("unable to update CVMI %q meta: %w", state.CVMI.Name(), err)
+		return fmt.Errorf("unable to update CVI %q meta: %w", state.CVMI.Name(), err)
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 	if state.CVMI.IsEmpty() {
-		log.Info("Reconcile observe an absent CVMI: it may be deleted", "CVMI", req.NamespacedName)
+		log.Info("Reconcile observe an absent CVI: it may be deleted", "cvi", req.NamespacedName)
 		return nil
 	}
 
@@ -95,9 +95,9 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		UID:       state.CVMI.Current().UID,
 	}
 
-	t := state.CVMI.Current().Spec.DataSource.Type
+	ds := state.CVMI.Current().Spec.DataSource
 
-	switch t {
+	switch ds.Type {
 	case virtv2.DataSourceTypeUpload:
 		state.Pod, err = uploader.FindPod(ctx, client, state.Supplements)
 		if err != nil {
@@ -118,11 +118,8 @@ func (state *CVMIReconcilerState) Reload(ctx context.Context, req reconcile.Requ
 		if err != nil {
 			return err
 		}
-	}
 
-	// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
-	switch t {
-	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+		// TODO These resources are not part of the state. Retrieve additional resources in Sync phase.
 		state.DVCRDataSource, err = NewDVCRDataSourcesForCVMI(ctx, state.CVMI.Current().Spec.DataSource, client)
 		if err != nil {
 			return err
@@ -173,7 +170,7 @@ func (state *CVMIReconcilerState) IsImportInPending() bool {
 // CanStartPod returns whether importer Pod can be started.
 // NOTE: valid only if ShouldTrackPod is true.
 func (state *CVMIReconcilerState) CanStartPod() bool {
-	return state.Pod == nil && !state.IsReady()
+	return !state.IsReady() && !state.IsFailed() && state.Pod == nil
 }
 
 func (state *CVMIReconcilerState) IsReady() bool {
@@ -194,8 +191,8 @@ func (state *CVMIReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool 
 		return false
 	}
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.ClusterImageDevice && bda.ClusterVirtualMachineImage != nil && bda.ClusterVirtualMachineImage.Name == state.CVMI.Name().Name {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.ClusterImageDevice && bda.Name == state.CVMI.Name().Name {
 			return true
 		}
 	}

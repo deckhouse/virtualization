@@ -71,12 +71,12 @@ function destroy() {
   case "${RESOURCES}" in
     "all")
       kubectl wait -n "${NAMESPACE}" --for=delete vm -l vm="${RESOURCES_PREFIX}"
-      kubectl wait -n "${NAMESPACE}" --for=delete vmd -l vm="${RESOURCES_PREFIX}"
-      kubectl wait -n "${NAMESPACE}" --for=delete vmi -l vm="${RESOURCES_PREFIX}"
+      kubectl wait -n "${NAMESPACE}" --for=delete vd -l vm="${RESOURCES_PREFIX}"
+      kubectl wait -n "${NAMESPACE}" --for=delete vi -l vm="${RESOURCES_PREFIX}"
       ;;
     "disks")
-      kubectl wait -n "${NAMESPACE}" --for=delete vmd -l vm="${RESOURCES_PREFIX}"
-      kubectl wait -n "${NAMESPACE}" --for=delete vmi -l vm="${RESOURCES_PREFIX}"
+      kubectl wait -n "${NAMESPACE}" --for=delete vd -l vm="${RESOURCES_PREFIX}"
+      kubectl wait -n "${NAMESPACE}" --for=delete vi -l vm="${RESOURCES_PREFIX}"
       ;;
     "vms")
       kubectl wait -n "${NAMESPACE}" --for=delete vm -l vm="${RESOURCES_PREFIX}"

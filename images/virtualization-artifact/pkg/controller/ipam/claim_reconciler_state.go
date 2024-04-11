@@ -72,8 +72,8 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		return nil
 	}
 
-	if state.Claim.Current().Status.VMName != "" {
-		vmKey := types.NamespacedName{Name: state.Claim.Current().Status.VMName, Namespace: state.Claim.Name().Namespace}
+	if state.Claim.Current().Status.VirtualMachine != "" {
+		vmKey := types.NamespacedName{Name: state.Claim.Current().Status.VirtualMachine, Namespace: state.Claim.Name().Namespace}
 		state.VM, err = helper.FetchObject(ctx, vmKey, apiClient, &virtv2.VirtualMachine{})
 		if err != nil {
 			return fmt.Errorf("unable to get VM %s: %w", vmKey, err)
@@ -90,8 +90,8 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		}
 
 		for _, vm := range vms.Items {
-			if vm.Spec.VirtualMachineIPAddressClaimName == state.Claim.Name().Name ||
-				vm.Spec.VirtualMachineIPAddressClaimName == "" && vm.Name == state.Claim.Name().Name {
+			if vm.Spec.VirtualMachineIPAddressClaim == state.Claim.Name().Name ||
+				vm.Spec.VirtualMachineIPAddressClaim == "" && vm.Name == state.Claim.Name().Name {
 				state.VM = new(virtv2.VirtualMachine)
 				*state.VM = vm
 				break
@@ -99,7 +99,7 @@ func (state *ClaimReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		}
 	}
 
-	leaseName := state.Claim.Current().Spec.LeaseName
+	leaseName := state.Claim.Current().Spec.VirtualMachineIPAddressLease
 	if leaseName == "" {
 		leaseName = ipToLeaseName(state.Claim.Current().Spec.Address)
 	}

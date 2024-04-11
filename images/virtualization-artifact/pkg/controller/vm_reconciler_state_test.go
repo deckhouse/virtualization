@@ -35,10 +35,10 @@ func TestUnmarshalVMStatus(t *testing.T) {
 			Memory: v1alpha2.MemorySpec{
 				Size: "2Gi",
 			},
-			BlockDevices: []v1alpha2.BlockDeviceSpec{
+			BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 				{
-					Type:               v1alpha2.DiskDevice,
-					VirtualMachineDisk: &v1alpha2.DiskDeviceSpec{Name: "test-vmd"},
+					Kind: v1alpha2.DiskDevice,
+					Name: "test-vmd",
 				},
 			},
 			Disruptions: &v1alpha2.Disruptions{RestartApprovalMode: v1alpha2.Automatic},

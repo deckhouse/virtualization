@@ -1,7 +1,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: clustervirtualmachineimages.virtualization.deckhouse.io
+  name: clustervirtualimages.virtualization.deckhouse.io
   labels:
     heritage: deckhouse
     module: virtualization
@@ -11,12 +11,12 @@ spec:
   names:
     categories:
       - virtualization
-    plural: clustervirtualmachineimages
-    singular: clustervirtualmachineimage
-    kind: ClusterVirtualMachineImage
+    plural: clustervirtualimages
+    singular: clustervirtualimage
+    kind: ClusterVirtualImage
     shortNames:
-      - cvmi
-      - cvmis
+      - cvi
+      - cvis
   preserveUnknownFields: false
   versions:
     - name: v1alpha2
@@ -26,7 +26,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual machine disk image that can be used as a data source for new `VirtualMachineDisks` or an installation image (iso) to be mounted in `VirtualMachines` directly. This resource type is available for all namespaces in the cluster.
+            Describes a virtual disk image that can be used as a data source for new `VirtualDisks` or an installation image (iso) to be mounted in `Virtuals` directly. This resource type is available for all namespaces in the cluster.
 
             > This resource cannot be modified once it has been created.
 
@@ -49,16 +49,14 @@ spec:
                       enum:
                         - "HTTP"
                         - "ContainerImage"
-                        - "VirtualMachineImage"
-                        - "ClusterVirtualMachineImage"
+                        - "ObjectRef"
                         - "Upload"
                       description: |
                         The type of an origin of the image. Options are:
 
                         * `HTTP` — create an image from a file published on http/https service at a given url
                         * `ContainerImage` — create the image from image stored in container registry.
-                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
+                        * `ObjectRef` — fill the cluster image from another existing `VirtualImage` or `ClusterVirtualImage`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -151,33 +149,25 @@ spec:
                             The CA chain in base64 format to verify the container registry.
                           example: |
                             YWFhCg==
-                    virtualMachineImage:
+                    objectRef:
                       type: object
-                      description: |
-                        Use another existing `VirtualMachineImage`.
-                      required:
-                        - name
-                        - namespace
+                      description: Reference to existing `VirtualImage` or `ClusterVirtualImage`.
+                      required: ["kind", "name"]
                       properties:
+                        kind:
+                          type: string
+                          description: A kind of existing `VirtualImage` or `ClusterVirtualImage`.
+                          enum:
+                            - "ClusterVirtualImage"
+                            - "VirtualImage"
                         name:
                           type: string
                           description: |
-                            A name of existing `VirtualMachineImage`.
+                            A name of existing `VirtualImage` or `ClusterVirtualImage`.
                         namespace:
                           type: string
                           description: |
-                            A namespace where `VirtualMachineImage` is located.
-                    clusterVirtualMachineImage:
-                      type: object
-                      description: |
-                        Use another existing `ClusterVirtualMachineImage`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: |
-                            A name of existing `ClusterVirtualMachineImage`.
+                            A namespace where `VirtualImage` is located.
                   oneOf:
                     - properties:
                         type:
@@ -191,14 +181,9 @@ spec:
                       required: ["containerImage"]
                     - properties:
                         type:
-                          enum: ["VirtualMachineImage"]
-                        virtualMachineImage: {}
-                      required: ["virtualMachineImage"]
-                    - properties:
-                        type:
-                          enum: ["ClusterVirtualMachineImage"]
-                        clusterVirtualMachineImage: {}
-                      required: ["clusterVirtualMachineImage"]
+                          enum: ["ObjectRef"]
+                        objectRef: {}
+                      required: ["objectRef"]
                     - properties:
                         type:
                           enum: ["Upload"]
@@ -273,13 +258,13 @@ spec:
                   properties:
                     registryURL:
                       type: string
-                      example: dvcr.svc.<dvcr-namespace>/cvmi/<image-name>:latest
+                      example: dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest
                       description: |
                         Created image in DVCR.
                 phase:
                   type: string
                   description: |
-                    Current status of `ClusterVirtualMachineImage` resource:
+                    Current status of `ClusterVirtualImage` resource:
                     * Pending - The resource has been created and is on a waiting queue.
                     * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
@@ -316,7 +301,7 @@ spec:
                 usedInVMs:
                   type: array
                   description: |
-                    A list of virtual machines and namespaces that use the image
+                    A list of virtual s and namespaces that use the image
                   example:
                     [
                       { name: "VM100", namespace: "customer1" },

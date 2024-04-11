@@ -107,7 +107,7 @@ func (state *VMCPUReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool
 		return false
 	}
 
-	return state.VMCPU.Name().Name == vm.Spec.CPU.ModelName
+	return state.VMCPU.Name().Name == vm.Spec.CPU.VirtualMachineCPUModel
 }
 
 func (state *VMCPUReconcilerState) isDeletion() bool {

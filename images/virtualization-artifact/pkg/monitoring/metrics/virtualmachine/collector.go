@@ -96,7 +96,7 @@ func (s *scraper) updateVMStatusPhaseMetrics(vm virtv2.VirtualMachine) {
 			desc,
 			prometheus.GaugeValue,
 			util.BoolFloat64(p.value),
-			vm.GetName(), vm.GetNamespace(), string(vm.GetUID()), vm.Status.NodeName, p.name,
+			vm.GetName(), vm.GetNamespace(), string(vm.GetUID()), vm.Status.Node, p.name,
 		)
 		if err != nil {
 			klog.Warningf("Error creating the new const metric for %s: %s", desc, err)

@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: linux-image
 spec:
@@ -13,17 +13,17 @@ spec:
       url: "http://caddy.caddy.svc.cluster.local/images/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: linux-disk
   namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClass: local-path
   dataSource:
-    type: ClusterVirtualMachineImage
-    clusterVirtualMachineImage:
+    type: ClusterVirtualImage
+    clusterVirtualImage:
       name: linux-image
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -41,7 +41,6 @@ spec:
     cores: 2
   memory:
     size: 2Gi
-  blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk

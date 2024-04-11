@@ -11,9 +11,9 @@ Additional importer and uploader are implemented to import into DVCR instead PVC
 - HTTP (equals to http source in DataVolume)
 - ContainerImage (equals to registry source in DataVolume)
 - Upload (equals to upload source in DataVolume)
-- VirtualMachineImage (import from DVCR)
-- ClusterVirtualMachineImage (import from DVCR)
-- VirtualMachineDisk (import from DVCR)
+- VirtualImage (import from DVCR)
+- ClusterVirtualImage (import from DVCR)
+- VirtualDisk (import from DVCR)
 - VirtualMachineDiskSnapshot - not implemented yet
 - PersistentVolumeClaim - not implemented yet
 

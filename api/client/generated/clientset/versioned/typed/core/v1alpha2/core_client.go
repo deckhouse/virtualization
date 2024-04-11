@@ -27,14 +27,14 @@ import (
 
 type VirtualizationV1alpha2Interface interface {
 	RESTClient() rest.Interface
-	ClusterVirtualMachineImagesGetter
+	ClusterVirtualImagesGetter
+	VirtualDisksGetter
+	VirtualImagesGetter
 	VirtualMachinesGetter
 	VirtualMachineBlockDeviceAttachmentsGetter
 	VirtualMachineCPUModelsGetter
-	VirtualMachineDisksGetter
 	VirtualMachineIPAddressClaimsGetter
 	VirtualMachineIPAddressLeasesGetter
-	VirtualMachineImagesGetter
 	VirtualMachineOperationsGetter
 }
 
@@ -43,8 +43,16 @@ type VirtualizationV1alpha2Client struct {
 	restClient rest.Interface
 }
 
-func (c *VirtualizationV1alpha2Client) ClusterVirtualMachineImages() ClusterVirtualMachineImageInterface {
-	return newClusterVirtualMachineImages(c)
+func (c *VirtualizationV1alpha2Client) ClusterVirtualImages() ClusterVirtualImageInterface {
+	return newClusterVirtualImages(c)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualDisks(namespace string) VirtualDiskInterface {
+	return newVirtualDisks(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualImages(namespace string) VirtualImageInterface {
+	return newVirtualImages(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachines(namespace string) VirtualMachineInterface {
@@ -59,20 +67,12 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineCPUModels() VirtualMachineC
 	return newVirtualMachineCPUModels(c)
 }
 
-func (c *VirtualizationV1alpha2Client) VirtualMachineDisks(namespace string) VirtualMachineDiskInterface {
-	return newVirtualMachineDisks(c, namespace)
-}
-
 func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressClaims(namespace string) VirtualMachineIPAddressClaimInterface {
 	return newVirtualMachineIPAddressClaims(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInterface {
 	return newVirtualMachineIPAddressLeases(c)
-}
-
-func (c *VirtualizationV1alpha2Client) VirtualMachineImages(namespace string) VirtualMachineImageInterface {
-	return newVirtualMachineImages(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineOperations(namespace string) VirtualMachineOperationInterface {

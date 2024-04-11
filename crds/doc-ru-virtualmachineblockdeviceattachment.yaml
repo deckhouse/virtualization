@@ -8,30 +8,24 @@ spec:
           properties:
             spec:
               properties:
-                virtualMachineName:
+                virtualMachine:
                   description: |
                     Имя виртуальной машины, к которой подключен диск.
-                blockDevice:
+                blockDeviceRef:
                   description: |
                     Блочное устройство, которое будет подключено к ВМ в качестве диска hotPlug.
                   properties:
-                    type:
+                    kind:
                       description: |
                         Тип блочного устройства. Возможны следующие варианты:
 
-                        * `VirtualMachineDisk` — использовать `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме RW.
-                    virtualMachineDisk:
+                        * `VirtualDisk` — использовать `VirtualDisk` в качестве диска. Этот тип всегда монтируется в режиме RW.
+                    name:
                       description: |
-                        Использовать `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме RW.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          description: |
-                            Имя существующего ресурса `VirtualMachineDisk`
+                        Имя блочного устройства
             status:
               properties:
-                virtualMachineName:
+                virtualMachine:
                   description: |
                     Имя виртуальной машины, к которой подключен этот диск.
                 phase:

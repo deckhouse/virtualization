@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// VirtualMachineImageInformer provides access to a shared informer and lister for
-// VirtualMachineImages.
-type VirtualMachineImageInformer interface {
+// VirtualImageInformer provides access to a shared informer and lister for
+// VirtualImages.
+type VirtualImageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualMachineImageLister
+	Lister() v1alpha2.VirtualImageLister
 }
 
-type virtualMachineImageInformer struct {
+type virtualImageInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewVirtualMachineImageInformer constructs a new informer for VirtualMachineImage type.
+// NewVirtualImageInformer constructs a new informer for VirtualImage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewVirtualMachineImageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineImageInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewVirtualImageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredVirtualImageInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredVirtualMachineImageInformer constructs a new informer for VirtualMachineImage type.
+// NewFilteredVirtualImageInformer constructs a new informer for VirtualImage type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredVirtualMachineImageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredVirtualImageInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineImages(namespace).List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineImages(namespace).Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1alpha2.VirtualMachineImage{},
+		&corev1alpha2.VirtualImage{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *virtualMachineImageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineImageInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *virtualImageInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredVirtualImageInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *virtualMachineImageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualMachineImage{}, f.defaultInformer)
+func (f *virtualImageInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&corev1alpha2.VirtualImage{}, f.defaultInformer)
 }
 
-func (f *virtualMachineImageInformer) Lister() v1alpha2.VirtualMachineImageLister {
-	return v1alpha2.NewVirtualMachineImageLister(f.Informer().GetIndexer())
+func (f *virtualImageInformer) Lister() v1alpha2.VirtualImageLister {
+	return v1alpha2.NewVirtualImageLister(f.Informer().GetIndexer())
 }

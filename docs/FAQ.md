@@ -12,21 +12,21 @@ Let's create an empty disk for OS installation:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: win-disk
   namespace: default
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClassName: local-path
+    storageClass: local-path
 ```
 
 Let's create resources with iso-images of Windows OS and virtio drivers:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-11-iso
 spec:
@@ -38,7 +38,7 @@ spec:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-virtio-iso
 spec:
@@ -68,16 +68,13 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 Once the resource is created, the virtual machine will be started. You need to connect to it and use the graphical wizard to add the `virtio` drivers and perform the OS installation.
@@ -95,14 +92,13 @@ spec:
   # ...
   runPolicy: AlwaysON
   # ...
-  blockDevices:
-    # remove all ClusterVirtualMachineImage resources with iso disks from this section
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    # remove all ClusterVirtualImage resources with iso disks from this section
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
-## How to create a virtual machine image for container registry
+## How to create a virtual image for container registry
 
 The virtual machine disk image stored in the container registry must be created in a special way.
 
@@ -185,7 +181,7 @@ metadata:
 
 ## How to provide windows answer file (Sysprep)
 
-To provide Sysprep ability it's necessary to define in virtual machine with SysprepSecret provisioning.
+To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
 Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
 You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
 
@@ -212,8 +208,9 @@ metadata:
     vm: win
 spec:
   provisioning:
-    type: SysprepSecret
-    sysprepSecretRef:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
       name: sysprep-config
   runPolicy: AlwaysOn
   osType: Windows
@@ -224,14 +221,11 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```

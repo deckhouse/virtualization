@@ -1,7 +1,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualmachineimages.virtualization.deckhouse.io
+  name: virtualdisks.virtualization.deckhouse.io
   labels:
     heritage: deckhouse
     module: virtualization
@@ -12,12 +12,12 @@ spec:
     categories:
       - all
       - virtualization
-    plural: virtualmachineimages
-    singular: virtualmachineimage
-    kind: VirtualMachineImage
+    plural: virtualdisks
+    singular: virtualdisk
+    kind: VirtualDisk
     shortNames:
-      - vmi
-      - vmis
+      - vd
+      - vds
   preserveUnknownFields: false
   versions:
     - name: v1alpha2
@@ -27,32 +27,35 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            This resource describes a virtual machine disk image or installation image (iso) that can be used as a data source for new `VirtualMachineDisks` or can be mounted in `VirtualMachines`.
+            Describes a virtual  disk that can be mounted in `Virtuals`. Once the resource is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
 
-            > This resource cannot be modified once it has been created.
-
-            A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
+            A PVC is created under the hood of the resource, into which the data from the source is filled.
           required:
             - spec
           properties:
             spec:
               type: object
               required:
-                - storage
-                - dataSource
+                - persistentVolumeClaim
               properties:
-                storage:
-                  type: string
-                  enum: ["ContainerRegistry"]
-                  default: ContainerRegistry
+                persistentVolumeClaim:
+                  type: object
                   description: |
-                    Storage type to store the image for current virtualization setup.
-
-                    * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
+                    Settings for creating PVCs to store the disk.
+                  properties:
+                    size:
+                      type: string
+                      description: |
+                        Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
+                      pattern: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
+                    storageClass:
+                      type: string
+                      description: |
+                        The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
                 dataSource:
                   type: object
                   description: |
-                    An origin of the image.
+                    An origin of the disk. If empty or absent, empty disk will be created.
                   required:
                     - type
                   properties:
@@ -61,17 +64,15 @@ spec:
                       enum:
                         - "HTTP"
                         - "ContainerImage"
-                        - "VirtualMachineImage"
-                        - "ClusterVirtualMachineImage"
+                        - "ObjectRef"
                         - "Upload"
                       description: |
-                        The type of an origin of the image. Options are:
+                        The type of an origin of the disk. Options are:
 
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `VirtualMachineImage` — create an image from another existing `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage`  — create an image from another existing `ClusterVirtualMachineImage`.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
+                        * `ObjectRef` — fill the disk from another existing `VirtualImage` or `ClusterVirtualImage`.
+                        * `Upload` — fill the disk with data, uploaded by user via the special interface.
                     http:
                       type: object
                       description: |
@@ -102,7 +103,8 @@ spec:
                         caBundle:
                           type: string
                           format: byte
-                          description: The CA chain in base64 format to verify the url.
+                          description: |
+                            The CA chain in base64 format to verify the url.
                           example: |
                             YWFhCg==
                         insecureSkipVerify:
@@ -135,7 +137,7 @@ spec:
                       required:
                         - image
                       description: |
-                        Use an image stored in external container regitry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+                        Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
                       properties:
                         image:
                           type: string
@@ -150,7 +152,7 @@ spec:
                             name:
                               type: string
                               description: |
-                                A name of the secret containing registry credentials which must be located in the same namespace.
+                                A name of the secret containing registry credentials.
                         caBundle:
                           type: string
                           format: byte
@@ -158,28 +160,21 @@ spec:
                             The CA chain in base64 format to verify the container registry.
                           example: |
                             YWFhCg==
-                    virtualMachineImage:
+                    objectRef:
                       type: object
-                      description: |
-                        Use another existing `VirtualMachineImage`.
-                      required:
-                        - name
+                      description: Reference to existing `VirtualImage` or `ClusterVirtualImage`.
+                      required: ["kind", "name"]
                       properties:
+                        kind:
+                          type: string
+                          description: A kind of existing `VirtualImage` or `ClusterVirtualImage`.
+                          enum:
+                            - "ClusterVirtualImage"
+                            - "VirtualImage"
                         name:
                           type: string
                           description: |
-                            A name of existing `VirtualMachineImage`.
-                    clusterVirtualMachineImage:
-                      type: object
-                      description: |
-                        Use another existing `ClusterVirtualMachineImage`.
-                      required:
-                        - name
-                      properties:
-                        name:
-                          type: string
-                          description: |
-                            A name of existing `ClusterVirtualMachineImage`.
+                            A name of existing `VirtualImage` or `ClusterVirtualImage`.
                   oneOf:
                     - properties:
                         type:
@@ -193,21 +188,12 @@ spec:
                       required: ["containerImage"]
                     - properties:
                         type:
-                          enum: ["VirtualMachineImage"]
-                        virtualMachineImage: {}
-                      required: ["virtualMachineImage"]
-                    - properties:
-                        type:
-                          enum: ["ClusterVirtualMachineImage"]
-                        clusterVirtualMachineImage: {}
-                      required: ["clusterVirtualMachineImage"]
+                          enum: ["ObjectRef"]
+                        objectRef: {}
+                      required: ["objectRef"]
                     - properties:
                         type:
                           enum: ["Upload"]
-              oneOf:
-                - properties:
-                    storage:
-                      enum: ["ContainerRegistry"]
             status:
               type: object
               properties:
@@ -229,72 +215,37 @@ spec:
                     current:
                       type: string
                       example: 5 Mbps
-                      description: |
-                        Current download speed.
+                      description: Current download speed.
                     avgBytes:
                       type: string
                       example: 1012345
-                      description: |
-                        Average download speed in bytes per second.
+                      description: Average download speed in bytes per second.
                     currentBytes:
                       type: string
                       example: 5123456
-                      description: |
-                        Current download speed in bytes per second.
-                format:
+                      description: Current download speed in bytes per second.
+                capacity:
                   type: string
+                  example: 50G
                   description: |
-                    Discovered format of the image.
-                size:
-                  type: object
-                  description: |
-                    Discovered sizes of the image.
-                  properties:
-                    stored:
-                      type: string
-                      example: 199M
-                      description: |
-                        Image size in DVCR in human-readable format.
-                    storedBytes:
-                      type: string
-                      example: 199001234
-                      description: |
-                        Image size in DVCR in bytes.
-                    unpacked:
-                      type: string
-                      example: 1G
-                      description: |
-                        Unpacked image size in human-readable format.
-                    unpackedBytes:
-                      type: string
-                      example: 1000000234
-                      description: |
-                        Unpacked image size in bytes.
-                cdrom:
-                  type: boolean
-                  description: |
-                    Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
+                    Requested capacity of the PVC in human-readable format.
                 target:
                   type: object
                   properties:
-                    registryURL:
+                    persistentVolumeClaim:
                       type: string
-                      example: dvcr.svc.<dvcr-namespace>/cvmi/<image-name>:latest
                       description: |
-                        Created image in DVCR.
+                        Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
                   type: string
                   description: |
-                    Current status of `VirtualMachineImage` resource:
-
+                    Current status of `VirtualDisk` resource:
                     * Pending - The resource has been created and is on a waiting queue.
-                    * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
+                    * Provisioning - The process of resource creation (copying/downloading/filling the PVC with data/extending PVC) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
-                    * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
-                    * ImageLost - The child image of the resource is missing. The resource cannot be used.
-
+                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                   enum:
                     [
                       "Pending",
@@ -302,13 +253,13 @@ spec:
                       "WaitForUserUpload",
                       "Ready",
                       "Failed",
-                      "ImageLost",
+                      "PVCLost",
                       "Unknown",
                     ]
                 progress:
                   type: string
                   description: |
-                    Progress of copying an image from source to DVCR.
+                    Progress of copying an image from source to PVC. Appears only during the `Provisioning' phase.
                 uploadCommand:
                   type: string
                   description: |
@@ -324,7 +275,7 @@ spec:
                 usedInVMs:
                   type: array
                   description: |
-                    A list of virtual machines that use the image
+                    A list of virtual that use the disk
                   example: [{ name: "VM100" }, { name: "VM200" }]
                   items:
                     type: object
@@ -335,22 +286,15 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
-        - name: CDROM
-          type: boolean
-          jsonPath: .status.cdrom
+        - name: Capacity
+          type: string
+          jsonPath: .status.capacity
         - name: Progress
           type: string
           jsonPath: .status.progress
-        - name: StoredSize
-          type: string
-          jsonPath: .status.size.stored
           priority: 1
-        - name: UnpackedSize
-          type: string
-          jsonPath: .status.size.unpacked
-          priority: 1
-        - name: Registry URL
-          jsonPath: .status.target.registryURL
+        - name: Target PVC
+          jsonPath: .status.target.persistentVolumeClaim
           type: string
           priority: 1
         - name: Age

@@ -19,9 +19,9 @@ type VirtualMachineOperation struct {
 }
 
 type VirtualMachineOperationSpec struct {
-	Type               VMOPOperation `json:"type"`
-	VirtualMachineName string        `json:"virtualMachineName"`
-	Force              bool          `json:"force,omitempty"`
+	Type           VMOPOperation `json:"type"`
+	VirtualMachine string        `json:"virtualMachine"`
+	Force          bool          `json:"force,omitempty"`
 }
 
 type VirtualMachineOperationStatus struct {

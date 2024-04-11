@@ -61,14 +61,20 @@ spec:
                   type: object
               type: object
             status:
+              type: object
               description: |
                 The observed state of `VirtualMachineIPAddressLease`.
               properties:
                 phase:
+                  type: string
+                  enum:
+                    - "Bound"
+                    - "Released"
                   description: |
                     Represents the current state of issued IP address lease.
-                  type: string
-              type: object
+
+                    * Bound - the IP address lease is bound to IP address claim.
+                    * Released - the IP address lease is available for binding.
           type: object
       served: true
       storage: true

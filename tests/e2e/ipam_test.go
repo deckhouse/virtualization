@@ -1,10 +1,12 @@
 package e2e
 
 import (
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"path"
+
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 func ipamPath(file string) string {
@@ -18,7 +20,7 @@ var _ = Describe("Ipam", func() {
 			kubectl.Delete(conf.Ipam.TestDataDir, kc.DeleteOptions{})
 		})
 		GetLeasNameFromClaim := func(manifestClaim string) string {
-			res := kubectl.Get(manifestClaim, kc.GetOptions{Output: "jsonpath={.spec.leaseName}"})
+			res := kubectl.Get(manifestClaim, kc.GetOptions{Output: "jsonpath={.spec.virtualMachineIPAddressLease}"})
 			Expect(res.Error()).NotTo(HaveOccurred(), "failed get vmip from file %s.\n%s", manifestClaim, res.StdErr())
 			return res.StdOut()
 		}

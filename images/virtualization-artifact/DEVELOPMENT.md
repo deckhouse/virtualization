@@ -37,17 +37,17 @@ docker login dev-registry.deckhouse.io
     task dev:logs
     ```
 
-3. Tasks to test CVMI/VMI
+3. Tasks to test CVI/VI
 
-Create ClusterVirtualMachineImage to import ubuntu ISO into DVCR:
+Create ClusterVirtualImage to import ubuntu ISO into DVCR:
 
     ```
-    task cvmi:recreate
+    task cvi:recreate
     ```
 
-Watch CVMI resource:
+Watch CVI resource:
     ```
-    task cvmi:watch
+    task cvi:watch
     ```
 
 
@@ -106,7 +106,7 @@ Set default context or use kubeswitch to switch to remote cluster context.
 
 3. Run VM
 
-Create ClusterVirtualMachineImage with alpine ISO from Caddy, VirtualMachineImage with 10Gb capacity and a VirtualMachine with 4 CPUs:
+Create ClusterVirtualImage with alpine ISO from Caddy, VirtualImage with 10Gb capacity and a VirtualMachine with 4 CPUs:
 
     ```
     kubectl create ns vm
@@ -123,10 +123,10 @@ NAME                                                  PHASE
 virtualmachine.virtualization.deckhouse.io/linux-vm   Running
 
 NAME                                                        CAPACITY   PHASE   PROGRESS
-virtualmachinedisk.virtualization.deckhouse.io/linux-disk   10Gi       Ready
+virtualdisk.virtualization.deckhouse.io/linux-disk   10Gi       Ready
 
 NAME                                                               CDROM   PHASE   PROGRESS
-clustervirtualmachineimage.virtualization.deckhouse.io/linux-iso   false   Ready
+clustervirtualimage.virtualization.deckhouse.io/linux-iso   false   Ready
 ```
 
 5. Access VM
@@ -165,7 +165,7 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.my.
 - `task dev:reset` — recreate k3d cluster and registry
 - `task build:cache:reset` — recreate build cache for virtualization-controller (requires after significant changes in go.mod)
 - `task kctl` — shortcut for `kubectl -n virtualization-controller`
-- `task gen:api` — run k8s code-generator to generate DeepCopy methods
+- `task task api:generate` — run k8s code-generator to generate DeepCopy methods
 - `task lint` — run Go linters
 - `task dev:update:crds` — apply all manifests from `api` directory
 - `task dev:update:<short-name>` — apply CRD manifest from `api` directory. Short names are: cvmi, vmi, vmd, vmds, vm.
@@ -175,7 +175,7 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.my.
 
 - Define YAML manifest "by hands" in `api` directory.
 - Define Go structures in `api/<version>` directory.
-- Run `task gen:api` to generate DeepCopy methods.
+- Run `task api:generate` to generate DeepCopy methods.
 - Add new types into addKnownTypes method in the `api/<versin>/register.go` file.
 - Use type in Watch calls during controller setup.
 
@@ -183,4 +183,4 @@ Repo contains Taskfile.dist.yaml. You can define your own tasks in [Taskfile.my.
 
 `task dev:converge` will copy YAML manifests from the `api` directory into `local/virtualization-controller/crds` directory before installing Helm chart.
 
-Helm only install new CRDs. It will not update CRDs on `helm update`, as it is dangerous to automate (see [Helm docs](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#some-caveats-and-explanations)). After making changes of YAML manifests, use `task dev:update:crds` to apply all manifests in the `api` directory or use CRD short name to update individual CRD, e.g. run `task dev:update:cvmi` to update `customresourcedefinition.apiextensions.k8s.io/ClusterVirtualMachineImage`.
+Helm only install new CRDs. It will not update CRDs on `helm update`, as it is dangerous to automate (see [Helm docs](https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#some-caveats-and-explanations)). After making changes of YAML manifests, use `task dev:update:crds` to apply all manifests in the `api` directory or use CRD short name to update individual CRD, e.g. run `task dev:update:cvmi` to update `customresourcedefinition.apiextensions.k8s.io/ClusterVirtualImage`.
