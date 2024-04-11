@@ -1,0 +1,21 @@
+kubeconfigBase64: "XXX="
+resourcesPrefix: "performance"
+namespace: "default"
+interval: "5s"
+count: 100
+debug: true
+drainer:
+  enabled: true
+  interval: "10s"
+creator:
+  enabled: true
+  interval: "5s"
+deleter:
+  enabled: true
+  weight: 1
+modifier:
+  enabled: true
+  weight: 1
+nothing:
+  enabled: true
+  weight: 8

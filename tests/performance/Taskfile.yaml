@@ -4,6 +4,11 @@ version: "3"
 
 silent: true
 
+includes:
+  shatal:
+    taskfile: ./shatal
+    dir: ./shatal
+
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
   NAMESPACE: "{{ .NAMESPACE }}"
