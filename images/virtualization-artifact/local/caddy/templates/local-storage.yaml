@@ -21,7 +21,7 @@ spec:
               values:
                 - k3d-k3s-default-server-0
   persistentVolumeReclaimPolicy: Delete
-  storageClassName: caddy-images
+  storageClass: caddy-images
   volumeMode: Filesystem
 
 ---
@@ -30,7 +30,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: caddy-images
 spec:
-  storageClassName: caddy-images
+  storageClass: caddy-images
   accessModes:
     - ReadWriteOnce
   resources:

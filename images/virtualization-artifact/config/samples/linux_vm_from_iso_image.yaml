@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: linux-iso
   annotations:
@@ -11,13 +11,13 @@ spec:
       url: "http://caddy.caddy.svc.cluster.local/images/alpine-standard-3.18.2-x86_64.iso"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: linux-disk
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: linstor-thin-data-r1
+    storageClass: linstor-thin-data-r1
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -35,9 +35,9 @@ spec:
     size: 6Gi
   blockDevices:
     # deattach it after install
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
+    - type: ClusterVirtualImage
+      clusterVirtualImage:
         name: linux-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
+    - type: VirtualDisk
+      virtualDisk:
         name: linux-disk

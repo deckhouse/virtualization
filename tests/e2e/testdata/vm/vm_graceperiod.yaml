@@ -14,7 +14,7 @@ spec:
   memory:
     size: 1Gi
   blockDevices:
-    - type: VirtualMachineImage
+    - type: VirtualImage
       virtualMachineImage:
         name: test-vm-image
   terminationGracePeriodSeconds: 5

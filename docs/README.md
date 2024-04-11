@@ -43,8 +43,8 @@ The module includes the following components:
 
 The API provides capabilities for creating and managing the following resources:
 
-- Virtual Machine Images
-- Virtual Machine Disks
+- Virtual Images
+- Virtual Disks
 - Virtual machines
 - Virtual Machine Operations
 
@@ -56,13 +56,13 @@ You can use external sources such as `http server`, `container registry`, and lo
 
 It is important to note that images can be attached to a virtual machine in read-only mode.
 
-Images are of two types: clustered `ClusterVirtualMachineImage`, which are available to all users of the platform, and namespaced `VirtualMachineImage`, which are available only to users within a specific `namespace`.
+Images are of two types: clustered `ClusterVirtualImage`, which are available to all users of the platform, and namespaced `VirtualImage`, which are available only to users within a specific `namespace`.
 
-For `ClusterVirtualMachineImage`, images are stored only in `DVCR`, while for `VirtualMachineImage` you can use both `DVCR` and platform-provided storage (`PVC`).
+For `ClusterVirtualImage`, images are stored only in `DVCR`, while for `VirtualImage` you can use both `DVCR` and platform-provided storage (`PVC`).
 
 ### Virtual Machine Disks
 
-Creating disks for virtual machines is provided by the `VirtualMachineDisk` resource. Disks are used in the virtual machine as the primary storage medium. Disks can be created from external sources, previously created images (`VirtualMachineImage` or `ClusterVirtualMachineImage`) or can be created `empty`.
+Creating disks for virtual machines is provided by the `VirtualDisk` resource. Disks are used in the virtual machine as the primary storage medium. Disks can be created from external sources, previously created images (`VirtualImage` or `ClusterVirtualImage`) or can be created `empty`.
 
 One of the key features of disks is the ability to resize them without having to stop the virtual machine. It is important to note that only the ability to increase disk size is supported, while decreasing is not available.
 

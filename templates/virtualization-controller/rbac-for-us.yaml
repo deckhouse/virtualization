@@ -137,15 +137,15 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachinedisks
+  - virtualdisks
   - virtualmachinedisksnapshots
-  - virtualmachineimages
+  - virtualimages
   - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
   - virtualmachines
-  - clustervirtualmachineimages
+  - clustervirtualimages
   - virtualmachineoperations
   verbs:
   - create
@@ -158,12 +158,12 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachinedisks/finalizers
+  - virtualdisks/finalizers
   - virtualmachinedisksnapshots/finalizers
-  - virtualmachineimages/finalizers
+  - virtualimages/finalizers
   - virtualmachineblockdeviceattachments/finalizers
   - virtualmachines/finalizers
-  - clustervirtualmachineimages/finalizers
+  - clustervirtualimages/finalizers
   - virtualmachinecpumodels/finalizers
   - virtualmachineipaddressleases/finalizers
   - virtualmachineipaddressclaims/finalizers
@@ -171,12 +171,12 @@ rules:
   - virtualmachineipaddressclaims/status
   - virtualmachinecpumodels/status
   - virtualmachineipaddressleases/status
-  - virtualmachinedisks/status
+  - virtualdisks/status
   - virtualmachinedisksnapshots/status
-  - virtualmachineimages/status
+  - virtualimages/status
   - virtualmachineblockdeviceattachments/status
   - virtualmachines/status
-  - clustervirtualmachineimages/status
+  - clustervirtualimages/status
   - virtualmachineoperations/status
   verbs:
   - patch

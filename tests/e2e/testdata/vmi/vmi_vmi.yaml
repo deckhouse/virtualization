@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: test-vmi-vmi-old
   namespace: test-d8-virtualization
@@ -12,13 +12,13 @@ spec:
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: test-vmi-vmi-new
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
   dataSource:
-    type: "VirtualMachineImage"
+    type: "VirtualImage"
     virtualMachineImage:
       name: test-vmi-vmi-old

@@ -5,6 +5,6 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   blockDevice:
-    type: VirtualMachineDisk
+    type: VirtualDisk
     virtualMachineDisk:
       name: vmd-blank

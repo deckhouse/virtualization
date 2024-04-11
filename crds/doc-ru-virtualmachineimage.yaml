@@ -5,7 +5,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualMachineDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
+            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
 
             > Этот ресурс не может быть изменен после его создания.
 
@@ -28,8 +28,8 @@ spec:
 
                         * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
                         * `ContainerImage` — создать образ из образа в container registry.
-                        * `VirtualMachineImage` — создать образ из другого существующего `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — создать образ из другого существующего `ClusterVirtualMachineImage`.
+                        * `VirtualImage` — создать образ из другого существующего `VirtualImage`.
+                        * `ClusterVirtualImage` — создать образ из другого существующего `ClusterVirtualImage`.
                         * `Upload` — загрузить образ вручную, через веб-интерфейс.
                     http:
                       description: |
@@ -85,23 +85,23 @@ spec:
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualMachineImage:
+                    virtualImage:
                       description: |
-                        Используйте существующий `VirtualMachineImage`.
+                        Используйте существующий `VirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `VirtualMachineImage`.
+                            Имя существующего `VirtualImage`.
                         namespace:
                           description: |
-                            Пространство имен, где `VirtualMachineImage` расположен.
-                    clusterVirtualMachineImage:
+                            Пространство имен, где `VirtualImage` расположен.
+                    clusterVirtualImage:
                       description: |
-                        Использовать существующий `ClusterVirtualMachineImage`.
+                        Использовать существующий `ClusterVirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `ClusterVirtualMachineImage`.
+                            Имя существующего `ClusterVirtualImage`.
             status:
               type: object
               properties:
@@ -150,12 +150,12 @@ spec:
                     registryURL:
                       description: |
                         Образ, созданный в DVCR.
-                    persistentVolumeClaimName:
+                    persistentVolumeClaim:
                       description: |
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
                   description: |
-                    Текущее состояние ресурса `VirtualMachineImage`:
+                    Текущее состояние ресурса `VirtualImage`:
 
                     * Pending — ресурс был создан и находится в очереди ожидания.
                     * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).

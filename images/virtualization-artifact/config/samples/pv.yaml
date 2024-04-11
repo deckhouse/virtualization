@@ -9,6 +9,6 @@ spec:
     storage: 10Gi
   accessModes:
     - ReadWriteOnce
-  storageClassName: manual
+  storageClass: manual
   hostPath:
     path: "/tmp/data1"
