@@ -28,7 +28,7 @@ while getopts "n:u:h" opt; do
 done
 
 exit_handler() {
-    echo "Canceled"
+    echo "Exit"
     exit 0
 }
 trap 'exit_handler' EXIT

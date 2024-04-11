@@ -1,4 +1,5 @@
 #!/bin/bash
+
 SSK_KEY="../../ssh/id_ed"
 ANSIBLE_CFG="./ansible.cfg"
 INVENTORY_FILE="inventory/hosts.yml"
@@ -30,13 +31,13 @@ while getopts "s:n:u:h" opt; do
   esac
 done
 
-function linux_sed {
+function enable_unreachable_host {
     local ENABLE=$1
 
     if $ENABLE; then
         echo "Enable write to file unreachable host"
         sed -i -E "s|^# retry_files_enabled=true|retry_files_enabled=true|" $ANSIBLE_CFG
-        sed -i '' -E "s|^# retry_files_save_path=./retry|retry_files_save_path=./retry|" $ANSIBLE_CFG
+        sed -i -E "s|^# retry_files_save_path=./retry|retry_files_save_path=./retry|" $ANSIBLE_CFG
     else
         echo "Disable write to file unreachable host"
         sed -i -E "s|^retry_files_enabled=true|# retry_files_enabled=true|" $ANSIBLE_CFG
@@ -62,11 +63,11 @@ function enable_unreachable_host_file {
     if [ "$(uname)" = "Darwin" ]; then
         darwin_sed $ENABLE
     elif [ "$(uname)" = "Linux" ]; then
-        linux_sed $ENABLE
+        enable_unreachable_host $ENABLE
     else
         echo "unknown OS"
         echo "try linux"
-        linux_sed $ENABLE
+        enable_unreachable_host $ENABLE
     fi
 
 }
@@ -86,7 +87,7 @@ function prepare_ssh_key {
 }
 
 exit_handler() {
-    echo "Canceled"
+    echo "Exit"
     exit 0
 }
 trap 'exit_handler' EXIT
@@ -120,11 +121,19 @@ function main {
         echo "Generate inventory"
         generate_inventory
         
-        echo "Try to access all hosts from inventory $(date)"
+        echo "Try to access all hosts from inventory $(date); Namespace: $NAMESPACE"
         ansible-playbook playbook.yaml | sed -n '/PLAY RECAP/,$p' > $ANSIBLE_REPORT_FILE
         while [ ! -f $ANSIBLE_REPORT_FILE ]; do sleep 2; done
         
-        HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | cut -d ' ' -f1) - 2 ))
+        echo $(wc -l $ANSIBLE_REPORT_FILE)
+
+        if [ "$(uname)" = "Darwin" ]; then
+            HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | grep -Eo '\d{1,7}') - 2 ))
+        elif [ "$(uname)" = "Linux" ]; then
+            HOSTS_TOTAL=$(( $(wc -l $ANSIBLE_REPORT_FILE | cut -d ' ' -f1) - 2 ))
+        fi
+        
+
         HOSTS_OK=$(( $(grep -E 'ok=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
         HOSTS_UNREACHABLE=$(( $(grep -E 'unreachable=[1-9]+' $ANSIBLE_REPORT_FILE | wc -l) ))
         OK_PCT=$(bc -l <<< "scale=2; $HOSTS_OK/$HOSTS_TOTAL*100")
