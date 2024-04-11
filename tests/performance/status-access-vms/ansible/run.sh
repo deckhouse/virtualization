@@ -30,8 +30,21 @@ while getopts "s:n:u:h" opt; do
   esac
 done
 
-function enable_unreachable_host_file {
+function linux_sed {
     local ENABLE=$1
+
+    if $ENABLE; then
+        echo "Enable write to file unreachable host"
+        sed -i -E "s|^# retry_files_enabled=true|retry_files_enabled=true|" $ANSIBLE_CFG
+        sed -i '' -E "s|^# retry_files_save_path=./retry|retry_files_save_path=./retry|" $ANSIBLE_CFG
+    else
+        echo "Disable write to file unreachable host"
+        sed -i -E "s|^retry_files_enabled=true|# retry_files_enabled=true|" $ANSIBLE_CFG
+        sed -i -E "s|^retry_files_save_path=./retry|# retry_files_save_path=./retry|" $ANSIBLE_CFG
+    fi
+}
+
+function darwin_sed {
     if $ENABLE; then
         echo "Enable write to file unreachable host"
         sed -i '' -E "s|^# retry_files_enabled=true|retry_files_enabled=true|" $ANSIBLE_CFG
@@ -43,9 +56,33 @@ function enable_unreachable_host_file {
     fi
 }
 
+function enable_unreachable_host_file {
+    local ENABLE=$1
+    
+    if [ "$(uname)" = "Darwin" ]; then
+        darwin_sed $ENABLE
+    elif [ "$(uname)" = "Linux" ]; then
+        linux_sed $ENABLE
+    else
+        echo "unknown OS"
+        echo "try linux"
+        linux_sed $ENABLE
+    fi
+
+}
+
 function prepare_ssh_key {
     chmod 600 $SSK_KEY
-    sed -i '' -E "s|private_key_file=.+|private_key_file=${SSK_KEY}|" $ANSIBLE_CFG
+    if [ "$(uname)" = "Darwin" ]; then
+        sed -i '' -E "s|private_key_file=.+|private_key_file=${SSK_KEY}|" $ANSIBLE_CFG
+    elif [ "$(uname)" = "Linux" ]; then
+        sed -i -E "s|private_key_file=.+|private_key_file=${SSK_KEY}|" $ANSIBLE_CFG
+    else
+        echo "unknown OS"
+        echo "try linux"
+        sed -i -E "s|private_key_file=.+|private_key_file=${SSK_KEY}|" $ANSIBLE_CFG
+    fi
+    
 }
 
 exit_handler() {
@@ -56,7 +93,7 @@ trap 'exit_handler' EXIT
 
 if [ -z $NAMESPACE ]; then echo "Namespace must be defined"; exit 1;fi
 
-if [ $UNREACHABLE_HOST_FILE == true ] ; then
+if [[ $UNREACHABLE_HOST_FILE == true ]] ; then
     enable_unreachable_host_file true
 else
     enable_unreachable_host_file false

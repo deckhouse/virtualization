@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VMS_UNREACHBLE_FILE=../retry/playbook.retry
+VMS_UNREACHBLE_FILE="../ansible/retry/playbook.retry"
 
 function Help() {
 # Display Help
@@ -9,7 +9,7 @@ function Help() {
 Syntax: scriptTemplate [-n|u|h]:
 options:
 n     Set namespace with VirtualMachines
-u     File with list of unreacheble VirtualMachines for VMOPS (default "../retry/playbook.retry")
+u     File with list of unreacheble VirtualMachines for VMOPS (default "../ansible/retry/playbook.retry")
 h     Print this help
    
 EOF
@@ -26,13 +26,14 @@ while getopts "n:u:h" opt; do
         exit 1 ;;
   esac
 done
+
 exit_handler() {
     echo "Canceled"
     exit 0
 }
 trap 'exit_handler' EXIT
 
-if [ ! -f $VMS_UNREACHBLE_FILE ];then echo "File does not exist"; exit 1;fi
+if [ ! -f $VMS_UNREACHBLE_FILE ]; then echo "File does not exist"; exit 1;fi
 if [ -z $NAMESPACE ]; then echo "Namespace must be defined"; exit 1;fi
 
 VMS_UNREACHBLE=( $(cut -d '.' -f1 $VMS_UNREACHBLE_FILE) )
@@ -45,7 +46,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
   name: restart-$vm
-  namespace: $NANESPACE
+  namespace: $NAMESPACE
 spec:
   virtualMachineName: $vm
   type: Restart
@@ -54,7 +55,7 @@ EOF
 
 done
 
-echo "Sleep 5 sec"
-sleep 5
+echo "Sleep 10 sec"
+sleep 10
 echo "Clear all vmops"
 kubectl -n $NAMESPACE delete vmops --all
