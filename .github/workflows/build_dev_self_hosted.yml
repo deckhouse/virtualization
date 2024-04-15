@@ -179,17 +179,25 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
       
-      
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
+      
+      - run: |
+            IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+            IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+            echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+            crane copy ${IMAGE_SRC} ${IMAGE_DST} 
+      if: ${{ github.ref_name == 'main' }}
+      name: Bundle image tag main
 
-      - name: Register the module
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+      - run: |
+            echo "✨ Register the module ${MODULES_MODULE_NAME}"
+            crane append \
+              --oci-empty-base \
+              --new_layer "" \
+              --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+      # if: ${{ github.ref_name == 'main' }}
+      name: Module registration tag main
