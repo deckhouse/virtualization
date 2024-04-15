@@ -1,0 +1,179 @@
+name: Weekly build and push for dev
+
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+  on:
+    workflow_dispatch:
+    pull_request:
+      types: [opened]
+    schedule:
+    - cron:  '0 4 * * 1'
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  show_dev_manifest:
+    runs-on: ubuntu-latest
+    name: Show manifest
+    steps:
+      - name: Set vars for PR
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+      
+      - name: Set vars for main
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
+      - name: Show dev config
+        run: |
+          cat << OUTER
+          Create ModuleConfig and ModulePullOverride resources to test this MR:
+          cat <<EOF | kubectl apply -f -
+          ---
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModulePullOverride
+          metadata:
+            name: ${MODULES_MODULE_NAME}
+          spec:
+            imageTag: ${MODULES_MODULE_TAG}
+            source: deckhouse
+
+          ---
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleConfig
+          metadata:
+            name: ${MODULES_MODULE_NAME}
+          spec:
+            enabled: true
+            settings:
+              dvcr:
+                storage:
+                  type: PersistentVolumeClaim
+                  persistentVolumeClaim:
+                    size: 50G
+              virtualMachineCIDRs:
+                - 10.66.10.0/24
+                - 10.66.20.0/24
+                - 10.66.30.0/24
+            version: 1
+          EOF
+
+          Or patch an existing ModulePullOverride:
+
+          kubectl patch mpo ${MODULES_MODULE_NAME} --type merge -p '{"spec":{"imageTag":"${MODULES_MODULE_TAG}"}}'
+
+          OUTER
+
+  lint_go:
+    runs-on: ubuntu-latest
+    name: Run go linter
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        
+      - uses: actions/checkout@v4
+        
+      - name: Run lint virtualization-controller
+        run: |
+          task virtualization-controller:init
+          task virtualization-controller:lint:go
+  
+  lint_yaml:
+    runs-on: ubuntu-latest
+    name: Run yaml linter
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Lint yaml with prettier
+        run: task -p lint:prettier:yaml
+  
+  test:
+    runs-on: ubuntu-latest
+    name: Run unit test
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      
+      - name: Install Task
+        uses: arduino/setup-task@v2
+      
+      - uses: actions/checkout@v4
+      
+      - name: Run test hooks
+        run: |
+          task hooks:test
+
+      - name: Run unit test virtualization-controller
+        run: |
+          task virtualization-controller:init
+          task virtualization-controller:test:unit
+
+  dev_setup_build:
+    runs-on: ubuntu-latest
+    name: Build and Push images
+    steps:      
+      - name: Set vars for PR
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+      
+      - name: Set vars for main
+        if: ${{ github.ref_name == 'main' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+      
+      - name: Print vars
+        run: |
+          echo MODULES_REGISTRY=$MODULES_REGISTRY
+          echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
+          echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
+          echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
+          echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
+      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/build@v1
+
+      - name: Register the module
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
