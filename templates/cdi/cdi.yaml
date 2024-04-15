@@ -2,9 +2,10 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $kubeAPIProxyRewriter := true }}
 ---
-apiVersion: x.virtualization.deckhouse.io/v1beta1
-kind: CDI
+apiVersion: internal.virtualization.deckhouse.io/v1beta1
+kind: DVPInternalCDI
 metadata:
   name: cdi
   namespace: d8-{{ .Chart.Name }}
@@ -83,6 +84,150 @@ spec:
       - resourceType: Deployment
         resourceName: cdi-deployment
         patch: {{ include "cdi.strategic_affinity_patch" (list "containerized-data-importer") }}
+        type: strategic
+    {{- end }}
+
+    {{- if $kubeAPIProxyRewriter }}
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: |
+          {"spec":{"template":{"spec":{
+            "volumes": [{
+              "name":"kube-api-proxy-kubeconfig",
+              "configMap": {"name": "kube-api-proxy-kubeconfig" }
+            }],
+            "containers":[{
+              "name":"cdi-controller",
+              "volumeMounts":[{
+                "name": "kube-api-proxy-kubeconfig",
+                "mountPath": "/kubeconfig.local"
+              }],
+              "env":[{
+                "name":"KUBECONFIG",
+                "value":"/kubeconfig.local/proxy.kubeconfig"
+              }]
+            }, {
+              "name": "proxy",
+              "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
+              "imagePullPolicy": "Always",
+              "command": ["/proxy"],
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "capabilities": {"drop": ["ALL"]},
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "env": [
+                {"name": "WEBHOOK_PROXY",
+                  "value": "no"
+                }
+              ]
+            }]
+          }}}}
+        type: strategic
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: |
+          {"spec":{"template":{"spec":{
+            "volumes": [{
+              "name":"kube-api-proxy-kubeconfig",
+              "configMap": {"name": "kube-api-proxy-kubeconfig" }
+            }],
+            "containers":[{
+              "name":"cdi-apiserver",
+              "volumeMounts":[{
+                "name": "kube-api-proxy-kubeconfig",
+                "mountPath": "/kubeconfig.local"
+              }],
+              "env":[{
+                "name":"KUBECONFIG",
+                "value":"/kubeconfig.local/proxy.kubeconfig"
+              }]
+            }, {
+              "name": "proxy",
+              "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
+              "imagePullPolicy": "Always",
+              "command": ["/proxy"],
+              "securityContext": {
+                "allowPrivilegeEscalation": false,
+                "capabilities": {"drop": ["ALL"]},
+                "seccompProfile": {
+                  "type": "RuntimeDefault"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "env": [
+                { "name": "WEBHOOK_ADDRESS",
+                  "value": "https://127.0.0.1:8443"
+                },
+                { "name": "WEBHOOK_CERT_FILE",
+                  "value": "/var/run/certs/cdi-apiserver-server-cert/tls.crt"
+                },
+                { "name": "WEBHOOK_KEY_FILE",
+                  "value": "/var/run/certs/cdi-apiserver-server-cert/tls.key"
+                }
+              ],
+              "volumeMounts":[{
+                "name": "server-cert",
+                "mountPath": "/var/run/certs/cdi-apiserver-server-cert",
+                "readOnly": true
+              }]
+            }]
+          }}}}
+        type: strategic
+      # Change service in webhook configurations to point to the rewriter proxy.
+      # cdi-api-webhook-proxy service is created separately.
+      - resourceName: cdi-api-datavolume-mutate
+        resourceType: MutatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"datavolume-mutate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-dataimportcron-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"dataimportcron-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-datavolume-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"datavolume-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-populator-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"populator-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
+        type: strategic
+      - resourceName: cdi-api-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"cdi-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
+        type: strategic
+      - resourceName: objecttransfer-api-validate
+        resourceType: ValidatingWebhookConfiguration
+        patch: |
+          {"webhook":[
+            { "name":"objecttransfer-validate.cdi.kubevirt.io",
+              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+          ]}
         type: strategic
     {{- end }}
   workload:

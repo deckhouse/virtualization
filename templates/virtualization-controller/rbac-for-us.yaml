@@ -87,9 +87,9 @@ rules:
   - create
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - datavolumes
+  - dvpinternaldatavolumes
   verbs:
   - get
   - create
@@ -98,10 +98,10 @@ rules:
   - watch
   - list
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines
-  - virtualmachineinstances
+  - dvpinternalvirtualmachines
+  - dvpinternalvirtualmachineinstances
   verbs:
   - get
   - watch
@@ -111,17 +111,17 @@ rules:
   - list
   - delete
 - apiGroups:
-    - x.virtualization.deckhouse.io
+    - internal.virtualization.deckhouse.io
   resources:
-    - kubevirts
+    - dvpinternalkubevirts
   verbs:
     - get
     - list
     - watch
 - apiGroups:
-    - x.virtualization.deckhouse.io
+    - internal.virtualization.deckhouse.io
   resources:
-    - virtualmachines/status
+    - dvpinternalvirtualmachines/status
   verbs:
     - patch
     - update
