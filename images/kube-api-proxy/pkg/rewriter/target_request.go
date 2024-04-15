@@ -136,6 +136,11 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 				return true
 			}
 
+			// Rewrite request body when creating CRD.
+			if tr.originEndpoint.ResourceType == "customresourcedefinitions" && tr.originEndpoint.Name == "" {
+				return true
+			}
+
 			// Should not rewrite request if path is not rewritten.
 			return false
 		}
