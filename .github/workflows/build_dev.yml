@@ -11,9 +11,11 @@ env:
 on:
   pull_request:
     types: [ opened, edited, synchronize ]
+    branches:
+      - test/pr/test-ci
   push:
     branches:
-      - main
+      - test/pr/test-ci
 
 defaults:
   run:
@@ -172,10 +174,10 @@ jobs:
 
       - run: |
               IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}-test"
               echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
               crane copy ${IMAGE_SRC} ${IMAGE_DST} 
-        if: ${{ github.ref_name == 'main' }}
+        # if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main
 
       - run: |
