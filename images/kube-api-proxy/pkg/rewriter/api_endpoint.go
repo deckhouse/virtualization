@@ -70,7 +70,7 @@ const (
 
 // ParseAPIEndpoint breaks url path by parts.
 func ParseAPIEndpoint(apiURL *url.URL) *APIEndpoint {
-	rawPath := apiURL.RawPath
+	rawPath := apiURL.Path
 	rawQuery := apiURL.RawQuery
 	isWatch := strings.Contains(rawQuery, WatchClause)
 
@@ -249,7 +249,7 @@ func (a *APIEndpoint) Clone() *APIEndpoint {
 }
 
 func (a *APIEndpoint) Path() string {
-	if a.IsUnknown || a.IsRoot {
+	if a.IsRoot || a.IsCore || a.IsUnknown {
 		return a.RawPath
 	}
 

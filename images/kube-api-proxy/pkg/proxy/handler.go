@@ -104,6 +104,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		isMute = true
 	case "clusterrolebindings":
 		isMute = false
+	case "clustervirtualmachineimages":
+		isMute = false
 	}
 	if isMute {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -147,6 +149,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			"virtualmachines/status",
 			"virtualmachineinstances",
 			"virtualmachineinstances/status",
+			"clustervirtualmachineimages",
+			"clustervirtualmachineimages/status",
 			"clusterrolebindings",
 			"customresourcedefinitions":
 			limit = 32000
@@ -299,7 +303,8 @@ func passResponse(w http.ResponseWriter, resp *http.Response, logger *slog.Logge
 		resp.Body = logutil.NewReaderLogger(resp.Body)
 	}
 
-	_, err := io.Copy(w, resp.Body)
+	dst := &immediateWriter{dst: w}
+	_, err := io.Copy(dst, resp.Body)
 	if err != nil {
 		logger.Error(fmt.Sprintf("copy response: %v", err))
 	}
@@ -396,5 +401,19 @@ func (h *Handler) transformStream(targetReq *rewriter.TargetRequest, w http.Resp
 		return
 	}
 	<-wsr.DoneChan()
+	return
+}
+
+type immediateWriter struct {
+	dst io.Writer
+}
+
+func (iw *immediateWriter) Write(p []byte) (n int, err error) {
+	n, err = iw.dst.Write(p)
+
+	if flusher, ok := iw.dst.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
 	return
 }
