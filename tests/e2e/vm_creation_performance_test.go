@@ -167,7 +167,7 @@ var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordere
 	clientConfig := kubeclient.DefaultClientConfig(&pflag.FlagSet{})
 	client, err := kubeclient.GetClientFromClientConfig(clientConfig)
 	if err != nil {
-		log.Fatalf("Cannot obtain Virtualization client: %v\n", err)
+		Expect(err).NotTo(HaveOccurred(),("Cannot obtain Virtualization client")
 	}
 
 	AfterAll(func() {
@@ -185,7 +185,7 @@ var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordere
 
 	Context("VM", func() {
 		cvmi, err = CVMI(client, cvmiName, "create")
-		Expect(err).NotTo(HaveOccurred(), "%s", err)
+		Expect(err).NotTo(HaveOccurred(), "should create CVMI %s", cvmiName)
 
 		It("Create", func() {
 			for i := 1; i <= vmCount; i++ {
