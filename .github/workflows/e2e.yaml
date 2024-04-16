@@ -1,0 +1,50 @@
+name: e2e
+
+env:
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+
+on:
+  pull_request:
+    branches:
+      - ci/tests/e2e-workflow
+  push:
+    branches:
+      - ci/tests/e2e-workflow
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  show_dev_manifest:
+    runs-on: ubuntu-latest
+    name: Show manifest
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+      
+      - uses: azure/setup-kubectl@v3
+         # default is latest stable
+        id: install
+
+      - uses: actions/checkout@v4
+
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: https://api.e2e.virtlab.flant.com
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          # token: ${{ secrets.E2E_VIRTUALIZATION_SA_TOKEN }}
+      
+      - name: Create Namespace
+        run: |
+          kubectl create namespace testgh
+      
+      - name: Get ns and delete
+        run: |
+          kubectl get ns | grep testgh
+          kubectl delete namespace testgh
