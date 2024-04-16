@@ -2,6 +2,7 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
 {{- $kubeAPIProxyRewriter := true }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1beta1
@@ -38,35 +39,6 @@ spec:
         patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
         type: json
 
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-apiserver" "yes") }}
-        type: strategic
-
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-controller" "no") }}
-        type: strategic
-
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
-        type: json
-    {{- end }}
-
     {{- if (include "helm_lib_ha_enabled" .) }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -89,96 +61,15 @@ spec:
 
     {{- if $kubeAPIProxyRewriter }}
       - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: |
-          {"spec":{"template":{"spec":{
-            "volumes": [{
-              "name":"kube-api-proxy-kubeconfig",
-              "configMap": {"name": "kube-api-proxy-kubeconfig" }
-            }],
-            "containers":[{
-              "name":"cdi-controller",
-              "volumeMounts":[{
-                "name": "kube-api-proxy-kubeconfig",
-                "mountPath": "/kubeconfig.local"
-              }],
-              "env":[{
-                "name":"KUBECONFIG",
-                "value":"/kubeconfig.local/proxy.kubeconfig"
-              }]
-            }, {
-              "name": "proxy",
-              "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-              "imagePullPolicy": "Always",
-              "command": ["/proxy"],
-              "securityContext": {
-                "allowPrivilegeEscalation": false,
-                "capabilities": {"drop": ["ALL"]},
-                "seccompProfile": {
-                  "type": "RuntimeDefault"
-                }
-              },
-              "terminationMessagePath": "/dev/termination-log",
-              "terminationMessagePolicy": "File",
-              "env": [
-                {"name": "WEBHOOK_PROXY",
-                  "value": "no"
-                }
-              ]
-            }]
-          }}}}
-        type: strategic
-      - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: |
-          {"spec":{"template":{"spec":{
-            "volumes": [{
-              "name":"kube-api-proxy-kubeconfig",
-              "configMap": {"name": "kube-api-proxy-kubeconfig" }
-            }],
-            "containers":[{
-              "name":"cdi-apiserver",
-              "volumeMounts":[{
-                "name": "kube-api-proxy-kubeconfig",
-                "mountPath": "/kubeconfig.local"
-              }],
-              "env":[{
-                "name":"KUBECONFIG",
-                "value":"/kubeconfig.local/proxy.kubeconfig"
-              }]
-            }, {
-              "name": "proxy",
-              "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-              "imagePullPolicy": "Always",
-              "command": ["/proxy"],
-              "securityContext": {
-                "allowPrivilegeEscalation": false,
-                "capabilities": {"drop": ["ALL"]},
-                "seccompProfile": {
-                  "type": "RuntimeDefault"
-                }
-              },
-              "terminationMessagePath": "/dev/termination-log",
-              "terminationMessagePolicy": "File",
-              "env": [
-                { "name": "WEBHOOK_ADDRESS",
-                  "value": "https://127.0.0.1:8443"
-                },
-                { "name": "WEBHOOK_CERT_FILE",
-                  "value": "/var/run/certs/cdi-apiserver-server-cert/tls.crt"
-                },
-                { "name": "WEBHOOK_KEY_FILE",
-                  "value": "/var/run/certs/cdi-apiserver-server-cert/tls.key"
-                }
-              ],
-              "volumeMounts":[{
-                "name": "server-cert",
-                "mountPath": "/var/run/certs/cdi-apiserver-server-cert",
-                "readOnly": true
-              }]
-            }]
-          }}}}
+        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-apiserver" "yes") }}
         type: strategic
+
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-controller" "no") }}
+        type: strategic
+
       # Change service in webhook configurations to point to the rewriter proxy.
       # cdi-api-webhook-proxy service is created separately.
       - resourceName: cdi-api-datavolume-mutate
@@ -229,7 +120,9 @@ spec:
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
         type: strategic
+
     {{- end }}
+
   workload:
     nodeSelector:
       kubernetes.io/os: linux

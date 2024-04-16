@@ -29,10 +29,10 @@ spec:
 {{- end }}
 
 {{- define "cdi.tmplKubeProxy" -}}
-  {{- $context := index . 0 -}}
+  {{- $ctx := index . 0 -}}
   {{- $containerName := index . 1 -}}
   {{- $webhookProxy := index . 2 -}}
-  {{- $proxyImage := include "helm_lib_module_image" (list $context "kubeApiProxy") }}
+  {{- $proxyImage := include "helm_lib_module_image" (list $ctx "kubeApiProxy") }}
 spec:
   template:
     spec:
@@ -46,8 +46,10 @@ spec:
         imagePullPolicy: IfNotPresent
         resources:
           requests:
+          {{- if not ( $ctx.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
             cpu: 10m
             memory: 150Mi
+          {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

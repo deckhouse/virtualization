@@ -46,8 +46,8 @@ var (
 
 const (
 	defaultVerbosity = "1"
-	//kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
-	//cdiCoreGroupName      = "x.virtualization.deckhouse.io"
+	// kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
+	// cdiCoreGroupName      = "x.virtualization.deckhouse.io"
 )
 
 func init() {
@@ -55,8 +55,8 @@ func init() {
 	uploaderImage = getRequiredEnvVar(common.UploaderPodImageNameVar)
 	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
 
-	//overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
-	//overrideCDICoreGroupName(cdiCoreGroupName)
+	// overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
+	// overrideCDICoreGroupName(cdiCoreGroupName)
 }
 
 func setupLogger() {
@@ -97,7 +97,7 @@ func getRequiredEnvVar(name string) string {
 	return val
 }
 
-//func overrideKubevirtCoreGroupName(groupName string) {
+// func overrideKubevirtCoreGroupName(groupName string) {
 //	virtv1.GroupVersion.Group = groupName
 //	virtv1.SchemeGroupVersion.Group = groupName
 //	virtv1.StorageGroupVersion.Group = groupName
@@ -116,7 +116,7 @@ func getRequiredEnvVar(name string) string {
 //	virtv1.AddToScheme = virtv1.SchemeBuilder.AddToScheme
 //}
 
-//func overrideCDICoreGroupName(groupName string) {
+// func overrideCDICoreGroupName(groupName string) {
 //	cdiv1beta1.SchemeGroupVersion.Group = groupName
 //	cdiv1beta1.CDIGroupVersionKind.Group = groupName
 //
@@ -125,7 +125,7 @@ func getRequiredEnvVar(name string) string {
 //}
 
 // Adds the list of known types to Scheme.
-//func addKnownTypes(scheme *apiruntime.Scheme) error {
+// func addKnownTypes(scheme *apiruntime.Scheme) error {
 //	scheme.AddKnownTypes(cdiv1beta1.SchemeGroupVersion,
 //		&cdiv1beta1.DataVolume{},
 //		&cdiv1beta1.DataVolumeList{},
