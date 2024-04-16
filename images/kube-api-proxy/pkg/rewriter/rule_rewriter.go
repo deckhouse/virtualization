@@ -24,8 +24,8 @@ const (
 // It assumes that ep contains original group and resourceType.
 // Restoring of path is not implemented.
 func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
-	// Leave paths /, /api, and /api/* as is.
-	if ep.IsRoot || ep.IsCore {
+	// Leave paths /, /api, /api/*, and unknown paths as is.
+	if ep.IsRoot || ep.IsCore || ep.IsUnknown {
 		return nil
 	}
 

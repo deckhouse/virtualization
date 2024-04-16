@@ -249,7 +249,7 @@ func (a *APIEndpoint) Clone() *APIEndpoint {
 }
 
 func (a *APIEndpoint) Path() string {
-	if a.IsUnknown || a.IsRoot {
+	if a.IsRoot || a.IsCore || a.IsUnknown {
 		return a.RawPath
 	}
 
