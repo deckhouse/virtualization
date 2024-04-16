@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|_RU\.md$|_ru\.html$|docs/site/_.+|docs/documentation/_.+`)
+var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|_RU\.md$`)
 var skipI18NRe = regexp.MustCompile(`/i18n/`)
 var skipSelfRe = regexp.MustCompile(`no_cyrillic(_test)?.go$`)
 
@@ -51,7 +51,7 @@ func RunNoCyrillicValidation(info *DiffInfo, title string, description string) (
 			fmt.Printf("OK\n")
 		}
 	}
-
+	// Some fishka
 	fmt.Printf("Check new and updated lines ... ")
 	if len(info.Files) == 0 {
 		fmt.Printf("OK, diff is empty\n")
