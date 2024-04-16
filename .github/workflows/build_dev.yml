@@ -160,85 +160,6 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
 
-      - name: sizes
-        run: |
-          echo /opt/hostedtoolcache
-          du -shc /opt/hostedtoolcache/* || true
-          echo
-          echo /opt/microsoft
-          du -shc /opt/microsoft/* || true
-          echo
-          echo /opt/az
-          du -shc /opt/az/* || true
-          echo
-          echo /usr/local/lib
-          du -shc /usr/local/lib/* || true
-          echo
-          echo /usr/local/share
-          du -shc /usr/local/share/* || true
-          echo
-          echo /usr/share
-          du -shc /usr/share/* || true
-          echo
-
-          echo /var/lib/docker
-          du -shc /var/lib/docker/* || true
-          echo
-
-          echo "Total size:"
-          du -shc /opt/hostedtoolcache /opt/microsoft /opt/az /usr/local/lib /usr/local/share /usr/share /var/lib/docker || true
-                    
-          echo
-          echo
-          echo Docker images:
-          docker images -a
-
-      - name: remove-unwanted-software
-        run: |
-          echo "=== Available space before cleanup"
-          df -h
-          function cleanup_dir() {
-            dir=$1
-            TIMEFORMAT="Cleanup ${dir} took %R seconds"
-            time {
-              echo "Remove ${desc}"
-              sudo rm -rf $dir || true
-            }
-          }
-          
-          echo "Remove CodeQL ... (5.0G)" 
-          cleanup_dir /opt/hostedtoolcache/CodeQL
-          echo "Remove Android ... (8.9G)"
-          cleanup_dir /usr/local/lib/android
-          echo "Remove Azure tools ... (747M)"
-          cleanup_dir /opt/az
-
-          echo "Remove chromium ... (510M)"
-          cleanup_dir /usr/local/share/chromium
-
-          echo "Remove DotNet ... (???)"
-          cleanup_dir /usr/share/dotnet
-
-          echo "Remove Julia ... (579M)"
-          cleanup_dir /usr/local/julia1.10.2
-
-          echo "Remove MS Tools: MS Edge ... (559M)"
-          cleanup_dir /opt/microsoft/msedge
-          echo "Remove MS Tools: powershell ... (175M)"
-          cleanup_dir /usr/local/share/powershell
-          
-          
-          echo "Remove AWS tools ... (403M)"
-          cleanup_dir /usr/local/aws-cli
-          cleanup_dir /usr/local/aws-sam-cli
-          
-          echo "Remove preinstalled Docker images ..."
-          sudo docker image prune --all --force > /dev/null
-          
-          
-          echo "=== Available space after cleanup"
-          df -h
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -250,9 +171,9 @@ jobs:
       - uses: deckhouse/modules-actions/build@v1
 
       - run: |
-              IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
-              echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-              crane copy ${IMAGE_SRC} ${IMAGE_DST}
+          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+          crane copy ${IMAGE_SRC} ${IMAGE_DST}
         if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main

@@ -105,20 +105,6 @@ func (rr *RewriteRules) GroupRule(group string) *GroupRule {
 	return nil
 }
 
-func (rr *RewriteRules) WebhookRule(path string) *WebhookRule {
-	if webhookRule, ok := rr.Webhooks[path]; ok {
-		return &webhookRule
-	}
-	return nil
-}
-
-func (rr *RewriteRules) GroupRule(group string) *GroupRule {
-	if groupRule, ok := rr.Rules[group]; ok {
-		return &groupRule.GroupRule
-	}
-	return nil
-}
-
 func (rr *RewriteRules) ResourceRules(group, resource string) (*GroupRule, *ResourceRule) {
 	groupRule, ok := rr.Rules[group]
 	if !ok {

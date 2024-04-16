@@ -175,9 +175,6 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	case RoleKind, RoleListKind:
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
 
-	case CRDKind, CRDListKind:
-		rwrBytes, err = RewriteCRDOrList(rw.Rules, obj, mode, reqResult.OrigGroup)
-
 	default:
 		if targetReq.IsCore() {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
