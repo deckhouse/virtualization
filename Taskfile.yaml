@@ -79,3 +79,13 @@ tasks:
         docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
           sh -c "cd /tmp/virt ; prettier -c \"**/*.yaml\" \"**/*.yml\""
+
+  validation:no-cyrillic:
+    desc: "No cyrillic"
+    cmds:
+      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type no-cyrillic
+
+  validation:doc-changes:
+    desc: "Doc-changes"
+    cmds:
+      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type doc-changes
