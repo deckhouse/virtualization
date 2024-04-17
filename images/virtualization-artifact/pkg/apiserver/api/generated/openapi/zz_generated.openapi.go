@@ -34,18 +34,18 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentBlockDevice":          schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentBlockDevice(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualMachineDisk":   schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentVirtualMachineDisk(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualDisk":          schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentVirtualDisk(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceSpec":                           schema_virtualization_controller_api_core_v1alpha2_BlockDeviceSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceStatus":                         schema_virtualization_controller_api_core_v1alpha2_BlockDeviceStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.CPUSpec":                                   schema_virtualization_controller_api_core_v1alpha2_CPUSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.CVMIDataSource":                            schema_virtualization_controller_api_core_v1alpha2_CVMIDataSource(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.Checksum":                                  schema_virtualization_controller_api_core_v1alpha2_Checksum(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterImageDeviceSpec":                    schema_virtualization_controller_api_core_v1alpha2_ClusterImageDeviceSpec(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImage":                schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImage(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageList":            schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageList(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageSpec":            schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageSpec(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageStatus":          schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageStatus(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceClusterVirtualMachineImage":      schema_virtualization_controller_api_core_v1alpha2_DataSourceClusterVirtualMachineImage(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImage":                       schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImage(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageList":                   schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageList(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageSpec":                   schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageSpec(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageStatus":                 schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceClusterVirtualImage":             schema_virtualization_controller_api_core_v1alpha2_DataSourceClusterVirtualImage(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceContainerRegistry":               schema_virtualization_controller_api_core_v1alpha2_DataSourceContainerRegistry(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceHTTP":                            schema_virtualization_controller_api_core_v1alpha2_DataSourceHTTP(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNameNamespacedRef":               schema_virtualization_controller_api_core_v1alpha2_DataSourceNameNamespacedRef(ref),
@@ -62,9 +62,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.MemorySpec":                                schema_virtualization_controller_api_core_v1alpha2_MemorySpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.Provisioning":                              schema_virtualization_controller_api_core_v1alpha2_Provisioning(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMAffinity":                                schema_virtualization_controller_api_core_v1alpha2_VMAffinity(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDDataSource":                             schema_virtualization_controller_api_core_v1alpha2_VMDDataSource(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskDataSource":                     schema_virtualization_controller_api_core_v1alpha2_VirtualDiskDataSource(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDDownloadSpeed":                          schema_virtualization_controller_api_core_v1alpha2_VMDDownloadSpeed(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDPersistentVolumeClaim":                  schema_virtualization_controller_api_core_v1alpha2_VMDPersistentVolumeClaim(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":          schema_virtualization_controller_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMIDataSource":                             schema_virtualization_controller_api_core_v1alpha2_VMIDataSource(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMIPersistentVolumeClaim":                  schema_virtualization_controller_api_core_v1alpha2_VMIPersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachine":                            schema_virtualization_controller_api_core_v1alpha2_VirtualMachine(ref),
@@ -80,10 +80,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelSpec":                schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatus":              schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineCPUModelStatusFeatures":      schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelStatusFeatures(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDisk":                        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDisk(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskList":                    schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskList(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskSpec":                    schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskSpec(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskStatus":                  schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskStatus(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDisk":                               schema_virtualization_controller_api_core_v1alpha2_VirtualDisk(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskList":                           schema_virtualization_controller_api_core_v1alpha2_VirtualDiskList(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskSpec":                           schema_virtualization_controller_api_core_v1alpha2_VirtualDiskSpec(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskStatus":                         schema_virtualization_controller_api_core_v1alpha2_VirtualDiskStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressClaim":              schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressClaim(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressClaimList":          schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressClaimList(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressClaimSpec":          schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressClaimSpec(ref),
@@ -93,10 +93,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressLeaseList":          schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressLeaseList(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressLeaseSpec":          schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineIPAddressLeaseStatus":        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImage":                       schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImage(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageList":                   schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageList(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageSpec":                   schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageSpec(ref),
-		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageStatus":                 schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageStatus(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImage":                              schema_virtualization_controller_api_core_v1alpha2_VirtualImage(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageList":                          schema_virtualization_controller_api_core_v1alpha2_VirtualImageList(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageSpec":                          schema_virtualization_controller_api_core_v1alpha2_VirtualImageSpec(ref),
+		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageStatus":                        schema_virtualization_controller_api_core_v1alpha2_VirtualImageStatus(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineList":                        schema_virtualization_controller_api_core_v1alpha2_VirtualMachineList(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineOperation":                   schema_virtualization_controller_api_core_v1alpha2_VirtualMachineOperation(ref),
 		"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineOperationList":               schema_virtualization_controller_api_core_v1alpha2_VirtualMachineOperationList(ref),
@@ -642,21 +642,21 @@ func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentBlo
 							Format:  "",
 						},
 					},
-					"virtualMachineDisk": {
+					"virtualDisk": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualMachineDisk"),
+							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualDisk"),
 						},
 					},
 				},
-				Required: []string{"type", "virtualMachineDisk"},
+				Required: []string{"type", "virtualDisk"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualMachineDisk"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.BlockDeviceAttachmentVirtualDisk"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentVirtualMachineDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceAttachmentVirtualDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -689,17 +689,17 @@ func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceSpec(ref comm
 							Format:  "",
 						},
 					},
-					"virtualMachineImage": {
+					"virtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ImageDeviceSpec"),
 						},
 					},
-					"clusterVirtualMachineImage": {
+					"clusterVirtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterImageDeviceSpec"),
 						},
 					},
-					"virtualMachineDisk": {
+					"virtualDisk": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DiskDeviceSpec"),
 						},
@@ -726,17 +726,17 @@ func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceStatus(ref co
 							Format:  "",
 						},
 					},
-					"virtualMachineImage": {
+					"virtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ImageDeviceSpec"),
 						},
 					},
-					"clusterVirtualMachineImage": {
+					"clusterVirtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterImageDeviceSpec"),
 						},
 					},
-					"virtualMachineDisk": {
+					"virtualDisk": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DiskDeviceSpec"),
 						},
@@ -763,7 +763,7 @@ func schema_virtualization_controller_api_core_v1alpha2_BlockDeviceStatus(ref co
 						},
 					},
 				},
-				Required: []string{"type", "virtualMachineImage", "clusterVirtualMachineImage", "virtualMachineDisk", "hotpluggable", "target", "size"},
+				Required: []string{"type", "virtualImage", "clusterVirtualImage", "virtualDisk", "hotpluggable", "target", "size"},
 			},
 		},
 		Dependencies: []string{
@@ -827,12 +827,12 @@ func schema_virtualization_controller_api_core_v1alpha2_CVMIDataSource(ref commo
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceContainerRegistry"),
 						},
 					},
-					"virtualMachineImage": {
+					"virtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNameNamespacedRef"),
 						},
 					},
-					"clusterVirtualMachineImage": {
+					"clusterVirtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNamedRef"),
 						},
@@ -889,11 +889,11 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterImageDeviceSpec(r
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterVirtualMachineImage is a cluster wide available image for virtual machines.",
+				Description: "ClusterVirtualImage is a cluster wide available image for virtual machines.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -919,13 +919,13 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageSpec"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageStatus"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageStatus"),
 						},
 					},
 				},
@@ -933,15 +933,15 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterVirtualMachineImageList provides the needed parameters to do request a list of ClusterVirtualMachineImages from the system.",
+				Description: "ClusterVirtualImageList provides the needed parameters to do request a list of ClusterVirtualImages from the system.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -972,7 +972,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImage"),
+										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImage"),
 									},
 								},
 							},
@@ -983,11 +983,11 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualMachineImage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.ClusterVirtualImage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1008,7 +1008,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineImageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1041,7 +1041,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName",
+							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1101,7 +1101,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualMachineIma
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_DataSourceClusterVirtualMachineImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_DataSourceClusterVirtualImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1376,7 +1376,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ImageStatus(ref common.R
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName",
+							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1528,7 +1528,7 @@ func schema_virtualization_controller_api_core_v1alpha2_ImageStatusTarget(ref co
 					},
 					"persistentVolumeClaimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName",
+							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1622,7 +1622,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VMAffinity(ref common.Re
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VMDDataSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskDataSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1644,12 +1644,12 @@ func schema_virtualization_controller_api_core_v1alpha2_VMDDataSource(ref common
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceContainerRegistry"),
 						},
 					},
-					"virtualMachineImage": {
+					"virtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNamedRef"),
 						},
 					},
-					"clusterVirtualMachineImage": {
+					"clusterVirtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNamedRef"),
 						},
@@ -1698,7 +1698,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VMDDownloadSpeed(ref com
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VMDPersistentVolumeClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1745,12 +1745,12 @@ func schema_virtualization_controller_api_core_v1alpha2_VMIDataSource(ref common
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceContainerRegistry"),
 						},
 					},
-					"virtualMachineImage": {
+					"virtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNamedRef"),
 						},
 					},
-					"clusterVirtualMachineImage": {
+					"clusterVirtualImage": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.DataSourceNamedRef"),
 						},
@@ -2366,11 +2366,11 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineCPUModelSt
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineDisk is a disk ready to be bound by a VM",
+				Description: "VirtualDisk is a disk ready to be bound by a VM",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2396,13 +2396,13 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDisk(ref c
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskSpec"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskStatus"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskStatus"),
 						},
 					},
 				},
@@ -2410,15 +2410,15 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDisk(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDiskStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineDiskList contains a list of VirtualMachineDisk",
+				Description: "VirtualDiskList contains a list of VirtualDisk",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2448,7 +2448,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskList(r
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDisk"),
+										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDisk"),
 									},
 								},
 							},
@@ -2459,11 +2459,11 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskList(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineDisk", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDisk", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2471,13 +2471,13 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskSpec(r
 				Properties: map[string]spec.Schema{
 					"dataSource": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDDataSource"),
+							Ref: ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskDataSource"),
 						},
 					},
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDPersistentVolumeClaim"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim"),
 						},
 					},
 				},
@@ -2485,11 +2485,11 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskSpec(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDDataSource", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VMDPersistentVolumeClaim"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskDataSource", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineDiskStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2664,7 +2664,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressC
 				Description: "VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"leaseName": {
+					"virtualMachineIPAddressLease": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
 							Default:     "",
@@ -2688,7 +2688,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressC
 						},
 					},
 				},
-				Required: []string{"leaseName", "address"},
+				Required: []string{"virtualMachineIPAddressLease", "address"},
 			},
 		},
 	}
@@ -2715,7 +2715,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressC
 							Format:      "",
 						},
 					},
-					"leaseName": {
+					"virtualMachineIPAddressLease": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
 							Type:        []string{"string"},
@@ -2915,11 +2915,11 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressL
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineImage is an image for virtual machines available in the particular namespace.",
+				Description: "VirtualImage is an image for virtual machines available in the particular namespace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2945,13 +2945,13 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImage(ref 
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageSpec"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageStatus"),
+							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageStatus"),
 						},
 					},
 				},
@@ -2959,15 +2959,15 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImage(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageSpec", "github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImageStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualImageList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineImageList provides the needed parameters to do request a list of ClusterVirtualMachineImages from the system.",
+				Description: "VirtualImageList provides the needed parameters to do request a list of ClusterVirtualImages from the system.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2998,7 +2998,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageList(
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImage"),
+										Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImage"),
 									},
 								},
 							},
@@ -3009,11 +3009,11 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageList(
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualMachineImage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+			"github.com/deckhouse/virtualization-controller/api/core/v1alpha2.VirtualImage", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualImageSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3047,7 +3047,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageSpec(
 	}
 }
 
-func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_controller_api_core_v1alpha2_VirtualImageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -3080,7 +3080,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineImageStatu
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaimName",
+							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3367,7 +3367,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref c
 					},
 					"virtualMachineIPAddressClaimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineIPAddressClaimName specifies a name for the associated `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.",
+							Description: "VirtualMachineIPAddressClaim specifies a name for the associated `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3475,7 +3475,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref c
 							Ref:     ref("github.com/deckhouse/virtualization-controller/api/core/v1alpha2.MemorySpec"),
 						},
 					},
-					"blockDevices": {
+					"BlockDeviceRefs": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -3501,7 +3501,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref c
 						},
 					},
 				},
-				Required: []string{"runPolicy", "priorityClassName", "disruptions", "enableParavirtualization", "cpu", "memory", "blockDevices", "provisioning"},
+				Required: []string{"runPolicy", "priorityClassName", "disruptions", "enableParavirtualization", "cpu", "memory", "blockDeviceRefs", "provisioning"},
 			},
 		},
 		Dependencies: []string{
@@ -3543,7 +3543,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineStatus(ref
 							Format:  "",
 						},
 					},
-					"blockDevicesAttached": {
+					"BlockDeviceRefs": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -3590,7 +3590,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineStatus(ref
 						},
 					},
 				},
-				Required: []string{"phase", "nodeName", "ipAddressClaim", "ipAddress", "blockDevicesAttached", "guestOSInfo", "message", "restartID"},
+				Required: []string{"phase", "nodeName", "ipAddressClaim", "ipAddress", "BlockDeviceRefs", "guestOSInfo", "message", "restartID"},
 			},
 		},
 		Dependencies: []string{

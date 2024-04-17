@@ -8,8 +8,9 @@ spec:
   persistentVolumeClaim:
     size: 4Gi
   dataSource:
-    type: "VirtualImage"
-    virtualImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
       name: test-vm-image
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -30,10 +31,9 @@ spec:
     cores: 1
   memory:
     size: 1Gi
-  blockDevices:
-    - type: VirtualDisk
-      virtualDisk:
-        name: test-connectivity-vmd-vmi-2
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: test-connectivity-vmd-vmi-2
   virtualMachineIPAddressClaim: test-connectivity-ipam-vm2
   provisioning:
     type: UserData

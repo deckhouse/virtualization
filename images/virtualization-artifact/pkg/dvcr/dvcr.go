@@ -30,9 +30,9 @@ type UploaderIngressSettings struct {
 }
 
 const (
-	CVMIImageTmpl = "cvmi/%s"
-	VMIImageTmpl  = "vmi/%s/%s"
-	VMDImageTmpl  = "vmd/%s/%s"
+	CVMIImageTmpl = "cvi/%s"
+	VMIImageTmpl  = "vi/%s/%s"
+	VMDImageTmpl  = "vd/%s/%s"
 )
 
 // RegistryImageForCVMI returns image name for CVMI.

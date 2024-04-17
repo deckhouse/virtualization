@@ -24,7 +24,6 @@ spec:
     cores: 1
   memory:
     size: 1Gi
-  blockDevices:
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: test-vm-boot-cvmi
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: test-vm-boot-cvmi

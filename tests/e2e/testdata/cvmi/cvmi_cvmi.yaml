@@ -14,6 +14,7 @@ metadata:
   name: test-cvmi-cvmi-new
 spec:
   dataSource:
-    type: "ClusterVirtualImage"
-    clusterVirtualImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "ClusterVirtualImage"
       name: test-cvmi-cvmi-old

@@ -5,6 +5,6 @@ metadata:
 spec:
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
   dataSource:
     type: "Upload"

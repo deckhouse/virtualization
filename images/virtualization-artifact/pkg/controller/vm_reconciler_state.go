@@ -25,7 +25,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -36,9 +35,9 @@ type VMReconcilerState struct {
 	KVVMI      *virtv1.VirtualMachineInstance
 	KVPods     *corev1.PodList
 	VMPod      *corev1.Pod
-	VMDByName  map[string]*virtv2.VirtualMachineDisk
-	VMIByName  map[string]*virtv2.VirtualMachineImage
-	CVMIByName map[string]*virtv2.ClusterVirtualMachineImage
+	VMDByName  map[string]*virtv2.VirtualDisk
+	VMIByName  map[string]*virtv2.VirtualImage
+	CVMIByName map[string]*virtv2.ClusterVirtualImage
 
 	IPAddressClaim *virtv2.VirtualMachineIPAddressClaim
 	CPUModel       *virtv2.VirtualMachineCPUModel
@@ -92,7 +91,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 		return nil
 	}
 
-	claimName := state.VM.Current().Spec.VirtualMachineIPAddressClaimName
+	claimName := state.VM.Current().Spec.VirtualMachineIPAddressClaim
 	if claimName == "" {
 		claimName = state.VM.Name().Name
 	}
@@ -103,7 +102,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 		return fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
 	}
 
-	vmcpuKey := types.NamespacedName{Name: state.VM.Current().Spec.CPU.ModelName}
+	vmcpuKey := types.NamespacedName{Name: state.VM.Current().Spec.CPU.VirtualMachineCPUModel}
 	state.CPUModel, err = helper.FetchObject(ctx, vmcpuKey, state.Client, &virtv2.VirtualMachineCPUModel{})
 	if err != nil {
 		return fmt.Errorf("unable to get cpu model %s: %w", claimKey, err)
@@ -147,61 +146,61 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	// Get shutdown reason if VM is completed.
 	state.VMPodCompleted, state.VMShutdownReason = powerstate.ShutdownReason(state.KVVMI, state.KVPods)
 
-	var vmdByName map[string]*virtv2.VirtualMachineDisk
-	var vmiByName map[string]*virtv2.VirtualMachineImage
-	var cvmiByName map[string]*virtv2.ClusterVirtualMachineImage
+	var vmdByName map[string]*virtv2.VirtualDisk
+	var vmiByName map[string]*virtv2.VirtualImage
+	var cvmiByName map[string]*virtv2.ClusterVirtualImage
 
-	for _, bd := range state.VM.Current().Spec.BlockDevices {
-		switch bd.Type {
+	for _, bd := range state.VM.Current().Spec.BlockDeviceRefs {
+		switch bd.Kind {
 		case virtv2.ImageDevice:
 			vmi, err := helper.FetchObject(ctx, types.NamespacedName{
-				Name:      bd.VirtualMachineImage.Name,
+				Name:      bd.Name,
 				Namespace: state.VM.Name().Namespace,
-			}, state.Client, &virtv2.VirtualMachineImage{})
+			}, state.Client, &virtv2.VirtualImage{})
 			if err != nil {
-				return fmt.Errorf("unable to get VMI %q: %w", bd.VirtualMachineImage.Name, err)
+				return fmt.Errorf("unable to get VMI %q: %w", bd.Name, err)
 			}
 			if vmi == nil {
 				continue
 			}
 			if vmiByName == nil {
-				vmiByName = make(map[string]*virtv2.VirtualMachineImage)
+				vmiByName = make(map[string]*virtv2.VirtualImage)
 			}
-			vmiByName[bd.VirtualMachineImage.Name] = vmi
+			vmiByName[bd.Name] = vmi
 
 		case virtv2.ClusterImageDevice:
 			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{
-				Name: bd.ClusterVirtualMachineImage.Name,
-			}, state.Client, &virtv2.ClusterVirtualMachineImage{})
+				Name: bd.Name,
+			}, state.Client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
-				return fmt.Errorf("unable to get CVMI %q: %w", bd.ClusterVirtualMachineImage.Name, err)
+				return fmt.Errorf("unable to get CVI %q: %w", bd.Name, err)
 			}
 			if cvmi == nil {
 				continue
 			}
 			if cvmiByName == nil {
-				cvmiByName = make(map[string]*virtv2.ClusterVirtualMachineImage)
+				cvmiByName = make(map[string]*virtv2.ClusterVirtualImage)
 			}
-			cvmiByName[bd.ClusterVirtualMachineImage.Name] = cvmi
+			cvmiByName[bd.Name] = cvmi
 
 		case virtv2.DiskDevice:
 			vmd, err := helper.FetchObject(ctx, types.NamespacedName{
-				Name:      bd.VirtualMachineDisk.Name,
+				Name:      bd.Name,
 				Namespace: state.VM.Name().Namespace,
-			}, state.Client, &virtv2.VirtualMachineDisk{})
+			}, state.Client, &virtv2.VirtualDisk{})
 			if err != nil {
-				return fmt.Errorf("unable to get VMD %q: %w", bd.VirtualMachineDisk.Name, err)
+				return fmt.Errorf("unable to get VMD %q: %w", bd.Name, err)
 			}
 			if vmd == nil {
 				continue
 			}
 			if vmdByName == nil {
-				vmdByName = make(map[string]*virtv2.VirtualMachineDisk)
+				vmdByName = make(map[string]*virtv2.VirtualDisk)
 			}
-			vmdByName[bd.VirtualMachineDisk.Name] = vmd
+			vmdByName[bd.Name] = vmd
 
 		default:
-			return fmt.Errorf("unexpected block device type %q. %w", bd.Type, common.ErrUnknownType)
+			return fmt.Errorf("unexpected block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}
 	}
 
@@ -242,80 +241,71 @@ func (state *VMReconcilerState) ResetChangesInfo() {
 	state.StatusMessage = ""
 }
 
-func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
-	for i := range state.VM.Current().Status.BlockDevicesAttached {
-		bda := &state.VM.Current().Status.BlockDevicesAttached[i]
-		switch spec.Type {
-		case virtv2.DiskDevice:
-			if bda.Type == spec.Type && bda.VirtualMachineDisk.Name == spec.VirtualMachineDisk.Name {
-				return bda
-			}
-
-		case virtv2.ImageDevice:
-			if bda.Type == spec.Type && bda.VirtualMachineImage.Name == spec.VirtualMachineImage.Name {
-				return bda
-			}
-
-		case virtv2.ClusterImageDevice:
-			if bda.Type == spec.Type && bda.ClusterVirtualMachineImage.Name == spec.ClusterVirtualMachineImage.Name {
-				return bda
-			}
+func (state *VMReconcilerState) FindAttachedBlockDevice(spec virtv2.BlockDeviceSpecRef) *virtv2.BlockDeviceStatusRef {
+	for i := range state.VM.Current().Status.BlockDeviceRefs {
+		bda := &state.VM.Current().Status.BlockDeviceRefs[i]
+		if bda.Kind == spec.Kind && bda.Name == spec.Name {
+			return bda
 		}
 	}
+
 	return nil
 }
 
-func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDeviceSpec) *virtv2.BlockDeviceStatus {
-	switch spec.Type {
+func (state *VMReconcilerState) CreateAttachedBlockDevice(spec virtv2.BlockDeviceSpecRef) *virtv2.BlockDeviceStatusRef {
+	switch spec.Kind {
 	case virtv2.ImageDevice:
-		vs := state.FindVolumeStatus(kvbuilder.GenerateVMIDiskName(spec.VirtualMachineImage.Name))
+		vs := state.FindVolumeStatus(kvbuilder.GenerateVMIDiskName(spec.Name))
 		if vs == nil {
 			return nil
 		}
 
-		vmi, hasVMI := state.VMIByName[spec.VirtualMachineImage.Name]
+		vmi, hasVMI := state.VMIByName[spec.Name]
 		if !hasVMI {
 			return nil
 		}
-		return &virtv2.BlockDeviceStatus{
-			Type:                virtv2.ImageDevice,
-			VirtualMachineImage: util.CopyByPointer(spec.VirtualMachineImage),
-			Target:              vs.Target,
-			Size:                vmi.Status.Capacity,
+
+		return &virtv2.BlockDeviceStatusRef{
+			Kind:   virtv2.ImageDevice,
+			Name:   spec.Name,
+			Target: vs.Target,
+			Size:   vmi.Status.Capacity,
 		}
 
 	case virtv2.DiskDevice:
-		vs := state.FindVolumeStatus(kvbuilder.GenerateVMDDiskName(spec.VirtualMachineDisk.Name))
+		vs := state.FindVolumeStatus(kvbuilder.GenerateVMDDiskName(spec.Name))
 		if vs == nil {
 			return nil
 		}
 
-		vmd, hasVmd := state.VMDByName[spec.VirtualMachineDisk.Name]
+		vmd, hasVmd := state.VMDByName[spec.Name]
 		if !hasVmd {
 			return nil
 		}
-		return &virtv2.BlockDeviceStatus{
-			Type:               virtv2.DiskDevice,
-			VirtualMachineDisk: util.CopyByPointer(spec.VirtualMachineDisk),
-			Target:             vs.Target,
-			Size:               vmd.Status.Capacity,
+
+		return &virtv2.BlockDeviceStatusRef{
+			Kind:   virtv2.DiskDevice,
+			Name:   spec.Name,
+			Target: vs.Target,
+			Size:   vmd.Status.Capacity,
 		}
 
 	case virtv2.ClusterImageDevice:
-		vs := state.FindVolumeStatus(kvbuilder.GenerateCVMIDiskName(spec.ClusterVirtualMachineImage.Name))
+		vs := state.FindVolumeStatus(kvbuilder.GenerateCVMIDiskName(spec.Name))
 		if vs == nil {
 			return nil
 		}
 
-		cvmi, hasCvmi := state.CVMIByName[spec.ClusterVirtualMachineImage.Name]
+		cvmi, hasCvmi := state.CVMIByName[spec.Name]
 		if !hasCvmi {
 			return nil
 		}
-		return &virtv2.BlockDeviceStatus{
-			Type:                       virtv2.ClusterImageDevice,
-			ClusterVirtualMachineImage: util.CopyByPointer(spec.ClusterVirtualMachineImage),
-			Target:                     vs.Target,
-			Size:                       cvmi.Status.Size.Unpacked,
+
+		return &virtv2.BlockDeviceStatusRef{
+			Kind:   virtv2.ClusterImageDevice,
+			Name:   spec.Name,
+			Target: vs.Target,
+			Size:   cvmi.Status.Size.Unpacked,
 		}
 	}
 	return nil
@@ -333,10 +323,10 @@ func (state *VMReconcilerState) FindVolumeStatus(volumeName string) *virtv1.Volu
 
 // SetFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.
 func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context) error {
-	for _, bd := range state.VM.Current().Spec.BlockDevices {
-		switch bd.Type {
+	for _, bd := range state.VM.Current().Spec.BlockDeviceRefs {
+		switch bd.Kind {
 		case virtv2.ImageDevice:
-			if vmi, hasKey := state.VMIByName[bd.VirtualMachineImage.Name]; hasKey {
+			if vmi, hasKey := state.VMIByName[bd.Name]; hasKey {
 				if controllerutil.AddFinalizer(vmi, virtv2.FinalizerVMIProtection) {
 					if err := state.Client.Update(ctx, vmi); err != nil {
 						return fmt.Errorf("error setting finalizer on a VMI %q: %w", vmi.Name, err)
@@ -344,15 +334,15 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 				}
 			}
 		case virtv2.ClusterImageDevice:
-			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
+			if cvmi, hasKey := state.CVMIByName[bd.Name]; hasKey {
 				if controllerutil.AddFinalizer(cvmi, virtv2.FinalizerCVMIProtection) {
 					if err := state.Client.Update(ctx, cvmi); err != nil {
-						return fmt.Errorf("error setting finalizer on a CVMI %q: %w", cvmi.Name, err)
+						return fmt.Errorf("error setting finalizer on a CVI %q: %w", cvmi.Name, err)
 					}
 				}
 			}
 		case virtv2.DiskDevice:
-			if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
+			if vmd, hasKey := state.VMDByName[bd.Name]; hasKey {
 				if controllerutil.AddFinalizer(vmd, virtv2.FinalizerVMDProtection) {
 					if err := state.Client.Update(ctx, vmd); err != nil {
 						return fmt.Errorf("error setting finalizer on a VMD %q: %w", vmd.Name, err)
@@ -360,7 +350,7 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 				}
 			}
 		default:
-			return fmt.Errorf("unexpected block device type %q. %w", bd.Type, common.ErrUnknownType)
+			return fmt.Errorf("unexpected block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}
 	}
 
@@ -369,10 +359,10 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 
 // BlockDevicesReady check if all attached images and disks are ready to use by the VM.
 func (state *VMReconcilerState) BlockDevicesReady() bool {
-	for _, bd := range state.VM.Current().Spec.BlockDevices {
-		switch bd.Type {
+	for _, bd := range state.VM.Current().Spec.BlockDeviceRefs {
+		switch bd.Kind {
 		case virtv2.ImageDevice:
-			if vmi, hasKey := state.VMIByName[bd.VirtualMachineImage.Name]; hasKey {
+			if vmi, hasKey := state.VMIByName[bd.Name]; hasKey {
 				if vmi.Status.Phase != virtv2.ImageReady {
 					return false
 				}
@@ -381,7 +371,7 @@ func (state *VMReconcilerState) BlockDevicesReady() bool {
 			}
 
 		case virtv2.ClusterImageDevice:
-			if cvmi, hasKey := state.CVMIByName[bd.ClusterVirtualMachineImage.Name]; hasKey {
+			if cvmi, hasKey := state.CVMIByName[bd.Name]; hasKey {
 				if cvmi.Status.Phase != virtv2.ImageReady {
 					return false
 				}
@@ -390,7 +380,7 @@ func (state *VMReconcilerState) BlockDevicesReady() bool {
 			}
 
 		case virtv2.DiskDevice:
-			if vmd, hasKey := state.VMDByName[bd.VirtualMachineDisk.Name]; hasKey {
+			if vmd, hasKey := state.VMDByName[bd.Name]; hasKey {
 				if vmd.Status.Phase != virtv2.DiskReady {
 					return false
 				}

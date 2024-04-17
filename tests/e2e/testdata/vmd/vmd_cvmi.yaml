@@ -19,6 +19,7 @@ spec:
   persistentVolumeClaim:
     size: 200Mi
   dataSource:
-    type: "ClusterVirtualImage"
-    clusterVirtualImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "ClusterVirtualImage"
       name: test-vmd-cvmi

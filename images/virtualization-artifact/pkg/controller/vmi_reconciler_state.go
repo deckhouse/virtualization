@@ -25,13 +25,13 @@ import (
 )
 
 type VMIReconcilerState struct {
-	*vmattachee.AttacheeState[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	*vmattachee.AttacheeState[*virtv2.VirtualImage, virtv2.VirtualImageStatus]
 
 	Client      client.Client
 	Supplements *supplements.Generator
 	Result      *reconcile.Result
 
-	VMI            *helper.Resource[*virtv2.VirtualMachineImage, virtv2.VirtualMachineImageStatus]
+	VMI            *helper.Resource[*virtv2.VirtualImage, virtv2.VirtualImageStatus]
 	DV             *cdiv1.DataVolume
 	PVC            *corev1.PersistentVolumeClaim
 	PV             *corev1.PersistentVolume
@@ -46,8 +46,8 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 		Client: client,
 		VMI: helper.NewResource(
 			name, log, client, cache,
-			func() *virtv2.VirtualMachineImage { return &virtv2.VirtualMachineImage{} },
-			func(obj *virtv2.VirtualMachineImage) virtv2.VirtualMachineImageStatus { return obj.Status },
+			func() *virtv2.VirtualImage { return &virtv2.VirtualImage{} },
+			func(obj *virtv2.VirtualImage) virtv2.VirtualImageStatus { return obj.Status },
 		),
 	}
 
@@ -88,7 +88,7 @@ func (state *VMIReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 	if state.VMI.IsEmpty() {
-		log.Info("Reconcile observe an absent VMI: it may be deleted", "vmi.name", req.Name, "vmi.namespace", req.Namespace)
+		log.Info("Reconcile observe an absent VI: it may be deleted", "vi.name", req.Name, "vi.namespace", req.Namespace)
 		return nil
 	}
 
@@ -268,8 +268,8 @@ func (state *VMIReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.ImageDevice && bda.VirtualMachineImage != nil && bda.VirtualMachineImage.Name == state.VMI.Name().Name {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.ImageDevice && bda.Name == state.VMI.Name().Name {
 			return true
 		}
 	}

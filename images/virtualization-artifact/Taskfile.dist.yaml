@@ -529,17 +529,17 @@ tasks:
   dev:update:cvmi:
     desc: "Update ClusterVirtualImage CRD"
     cmds:
-      - kubectl apply -f api/crds/clustervirtualmachineimage.yaml
+      - kubectl apply -f api/crds/clustervirtualimage.yaml
 
   dev:update:vmi:
     desc: "Update VirtualImage CRD"
     cmds:
-      - kubectl apply -f api/crds/virtualmachineimage.yaml
+      - kubectl apply -f api/crds/virtualimage.yaml
 
   dev:update:vmd:
     desc: "Update VirtualDisk CRD"
     cmds:
-      - kubectl apply -f api/crds/virtualmachinedisk.yaml
+      - kubectl apply -f api/crds/virtualdisk.yaml
 
   dev:update:vmds:
     desc: "Update VirtualDiskSnapshot CRD"

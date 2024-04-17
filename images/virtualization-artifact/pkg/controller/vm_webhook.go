@@ -37,7 +37,7 @@ func (v *VMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (a
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
 
-	v.log.Info("Validating VM", "spec.virtualMachineIPAddressClaimName", vm.Spec.VirtualMachineIPAddressClaimName)
+	v.log.Info("Validating VM", "spec.virtualMachineIPAddressClaim", vm.Spec.VirtualMachineIPAddressClaim)
 
 	var warnings admission.Warnings
 
@@ -64,8 +64,8 @@ func (v *VMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime
 	}
 
 	v.log.Info("Validating VM",
-		"old.spec.virtualMachineIPAddressClaimName", oldVM.Spec.VirtualMachineIPAddressClaimName,
-		"new.spec.virtualMachineIPAddressClaimName", newVM.Spec.VirtualMachineIPAddressClaimName,
+		"old.spec.virtualMachineIPAddressClaim", oldVM.Spec.VirtualMachineIPAddressClaim,
+		"new.spec.virtualMachineIPAddressClaim", newVM.Spec.VirtualMachineIPAddressClaim,
 	)
 
 	var warnings admission.Warnings
@@ -142,7 +142,7 @@ func newIPAMVMValidator(ipam IPAM, client client.Client) *ipamVMValidator {
 }
 
 func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	claimName := vm.Spec.VirtualMachineIPAddressClaimName
+	claimName := vm.Spec.VirtualMachineIPAddressClaim
 	if claimName == "" {
 		claimName = vm.Name
 	}
@@ -157,25 +157,25 @@ func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v1alpha2.Virtu
 		return nil, nil
 	}
 
-	if vm.Spec.VirtualMachineIPAddressClaimName == "" {
+	if vm.Spec.VirtualMachineIPAddressClaim == "" {
 		return nil, fmt.Errorf("VirtualMachineIPAddressClaim with the name of the virtual machine"+
 			" already exists: explicitly specify the name of the VirtualMachineIPAddressClaim (%s)"+
-			" in spec.virtualMachineIPAddressClaimName of virtual machine", claim.Name)
+			" in spec.virtualMachineIPAddressClaim of virtual machine", claim.Name)
 	}
 
 	return nil, v.ipam.CheckClaimAvailableForBinding(vm.Name, claim)
 }
 
 func (v *ipamVMValidator) validateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if oldVM.Spec.VirtualMachineIPAddressClaimName == newVM.Spec.VirtualMachineIPAddressClaimName {
+	if oldVM.Spec.VirtualMachineIPAddressClaim == newVM.Spec.VirtualMachineIPAddressClaim {
 		return nil, nil
 	}
 
-	if newVM.Spec.VirtualMachineIPAddressClaimName == "" {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressClaimName cannot be changed to an empty value once set")
+	if newVM.Spec.VirtualMachineIPAddressClaim == "" {
+		return nil, fmt.Errorf("spec.virtualMachineIPAddressClaim cannot be changed to an empty value once set")
 	}
 
-	claimKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddressClaimName, Namespace: newVM.Namespace}
+	claimKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddressClaim, Namespace: newVM.Namespace}
 	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v1alpha2.VirtualMachineIPAddressClaim{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get VirtualMachineIPAddressClaim %s: %w", claimKey, err)

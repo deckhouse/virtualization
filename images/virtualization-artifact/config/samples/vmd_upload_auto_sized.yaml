@@ -4,6 +4,6 @@ metadata:
   name: vmd-upload-auto-sized
 spec:
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
   dataSource:
     type: "Upload"

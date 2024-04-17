@@ -21,9 +21,9 @@ type VMDValidator struct {
 }
 
 func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmd, ok := obj.(*v1alpha2.VirtualMachineDisk)
+	vmd, ok := obj.(*v1alpha2.VirtualDisk)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineDisk but got a %T", obj)
+		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
 	}
 
 	v.log.Info("Validating VMD", "spec.pvc.size", vmd.Spec.PersistentVolumeClaim.Size)
@@ -40,14 +40,14 @@ func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (ad
 }
 
 func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newVMD, ok := newObj.(*v1alpha2.VirtualMachineDisk)
+	newVMD, ok := newObj.(*v1alpha2.VirtualDisk)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineDisk but got a %T", newObj)
+		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", newObj)
 	}
 
-	oldVMD, ok := oldObj.(*v1alpha2.VirtualMachineDisk)
+	oldVMD, ok := oldObj.(*v1alpha2.VirtualDisk)
 	if !ok {
-		return nil, fmt.Errorf("expected an old VirtualMachineDisk but got a %T", oldObj)
+		return nil, fmt.Errorf("expected an old VirtualDisk but got a %T", oldObj)
 	}
 
 	v.log.Info("Validating VMD",

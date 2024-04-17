@@ -4,7 +4,7 @@ metadata:
   name: debian-iso
 spec:
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
   dataSource:
     type: "HTTP"
     http:

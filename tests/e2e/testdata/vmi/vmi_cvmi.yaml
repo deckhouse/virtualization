@@ -16,6 +16,7 @@ metadata:
 spec:
   storage: ContainerRegistry
   dataSource:
-    type: "ClusterVirtualImage"
-    clusterVirtualImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "ClusterVirtualImage"
       name: test-vmi-cvmi

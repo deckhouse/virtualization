@@ -30,7 +30,6 @@ spec:
     cores: 2
   memory:
     size: 2Gi
-  blockDevices:
-    - type: VirtualDisk
-      virtualDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk

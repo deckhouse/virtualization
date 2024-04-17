@@ -19,7 +19,7 @@ import (
 )
 
 // getPVCSize retrieves PVC size from importer Pod final report after import is done.
-func (r *VMIReconciler) getPVCSize(vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState) (resource.Quantity, error) {
+func (r *VMIReconciler) getPVCSize(vmi *virtv2.VirtualImage, state *VMIReconcilerState) (resource.Quantity, error) {
 	var unpackedSize resource.Quantity
 
 	switch {
@@ -52,7 +52,7 @@ func (r *VMIReconciler) getPVCSize(vmi *virtv2.VirtualMachineImage, state *VMIRe
 	return size, nil
 }
 
-func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualMachineImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.VirtualImage, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// Retrieve PVC size.
 	pvcSize, err := r.getPVCSize(vmi, state)
 	if err != nil {
@@ -102,19 +102,27 @@ func (r *VMIReconciler) makeDataVolumeFromVMI(state *VMIReconcilerState, dvName 
 		// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
 		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
 		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
-	case ds.Type == virtv2.DataSourceTypeClusterVirtualMachineImage:
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ClusterVirtualMachineImage.Name)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
-	case ds.Type == virtv2.DataSourceTypeVirtualMachineImage:
-		vmiRef := ds.VirtualMachineImage
-		// NOTE: use namespace from current VMI.
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmi.Namespace)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+	case ds.Type == virtv2.DataSourceTypeObjectRef:
+		if ds.ObjectRef == nil {
+			return nil, fmt.Errorf("nil objectRef %q", vmiutil.GetDataSourceType(vmi))
+		}
+
+		switch ds.ObjectRef.Kind {
+		case virtv2.VirtualImageObjectRefKindVirtualImage:
+			// NOTE: use namespace from current VMI.
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(ds.ObjectRef.Name, vmi.Namespace)
+			dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+		case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ObjectRef.Name)
+			dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+		default:
+			return nil, fmt.Errorf("unsupported object ref kind %q", ds.ObjectRef.Kind)
+		}
 	default:
 		return nil, fmt.Errorf("unsupported dataSource type %q", vmiutil.GetDataSourceType(vmi))
 	}
 
-	dvBuilder.SetPVC(vmi.Spec.PersistentVolumeClaim.StorageClassName, pvcSize)
+	dvBuilder.SetPVC(vmi.Spec.PersistentVolumeClaim.StorageClass, pvcSize)
 
 	dvBuilder.SetOwnerRef(vmi, vmi.GetObjectKind().GroupVersionKind())
 	dvBuilder.AddFinalizer(virtv2.FinalizerDVProtection)

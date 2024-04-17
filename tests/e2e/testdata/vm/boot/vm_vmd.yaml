@@ -27,7 +27,6 @@ spec:
     cores: 1
   memory:
     size: 1Gi
-  blockDevices:
-    - type: VirtualDisk
-      virtualMachineDisk:
-        name: test-vm-boot-vmd
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: test-vm-boot-vmd

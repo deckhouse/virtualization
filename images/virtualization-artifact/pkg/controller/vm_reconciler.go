@@ -296,7 +296,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		return nil
 	}
 
-	state.VM.Changed().Status.IPAddressClaim = state.IPAddressClaim.Name
+	state.VM.Changed().Status.VirtualMachineIPAddressClaim = state.IPAddressClaim.Name
 	state.VM.Changed().Status.IPAddress = state.IPAddressClaim.Spec.Address
 
 	if !state.BlockDevicesReady() {
@@ -322,7 +322,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		// TODO We need to rerun this block because KVVMI status fields may be updated with a delay.
 		state.VM.Changed().Status.Phase = virtv2.MachineRunning
 		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
-		state.VM.Changed().Status.NodeName = state.KVVMI.Status.NodeName
+		state.VM.Changed().Status.Node = state.KVVMI.Status.NodeName
 		for _, iface := range state.KVVMI.Status.Interfaces {
 			if iface.Name == kvbuilder.NetworkInterfaceName {
 				hasClaimedIP := false
@@ -338,11 +338,11 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 				break
 			}
 		}
-		for _, bd := range state.VM.Current().Spec.BlockDevices {
-			if state.FindAttachedBlockDevice(bd) == nil {
-				if abd := state.CreateAttachedBlockDevice(bd); abd != nil {
-					state.VM.Changed().Status.BlockDevicesAttached = append(
-						state.VM.Changed().Status.BlockDevicesAttached,
+		for _, ref := range state.VM.Current().Spec.BlockDeviceRefs {
+			if state.FindAttachedBlockDevice(ref) == nil {
+				if abd := state.CreateAttachedBlockDevice(ref); abd != nil {
+					state.VM.Changed().Status.BlockDeviceRefs = append(
+						state.VM.Changed().Status.BlockDeviceRefs,
 						*abd,
 					)
 				}
@@ -386,9 +386,9 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 
 	// 2. Claim not found: create if possible or wait for the claim.
 	if state.IPAddressClaim == nil {
-		if state.VM.Current().Spec.VirtualMachineIPAddressClaimName != "" {
-			opts.Log.Info(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaimName))
-			state.SetStatusMessage(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaimName))
+		if state.VM.Current().Spec.VirtualMachineIPAddressClaim != "" {
+			opts.Log.Info(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaim))
+			state.SetStatusMessage(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", state.VM.Current().Spec.VirtualMachineIPAddressClaim))
 			state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 
 			return false, nil
@@ -404,7 +404,7 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	// 3. Check if possible to bind virtual machine with the found claim.
 	err := r.ipam.CheckClaimAvailableForBinding(state.VM.Name().Name, state.IPAddressClaim)
 	if err != nil {
-		opts.Log.Info("Claim is not available to be bound", "err", err, "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+		opts.Log.Info("Claim is not available to be bound", "err", err, "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaim)
 		state.SetStatusMessage(err.Error())
 		opts.Recorder.Event(state.VM.Current(), corev1.EventTypeWarning, virtv2.ReasonClaimNotAvailable, err.Error())
 
@@ -412,7 +412,7 @@ func (r *VMReconciler) ensureIPAddressClaim(ctx context.Context, state *VMReconc
 	}
 
 	// 4. Claim exists and available for binding with virtual machine: waiting for the claim.
-	opts.Log.Info("Waiting for the Claim to be bound to VM", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaimName)
+	opts.Log.Info("Waiting for the Claim to be bound to VM", "claimName", state.VM.Current().Spec.VirtualMachineIPAddressClaim)
 	state.SetStatusMessage("Claim not bound: waiting for the Claim")
 	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 
@@ -458,17 +458,16 @@ func (r *VMReconciler) checkBlockDevicesSanity(state *VMReconcilerState) string 
 	disks := make([]string, 0)
 	hotplugged := make(map[string]struct{})
 
-	for _, bda := range state.VM.Current().Status.BlockDevicesAttached {
-		if bda.Hotpluggable && bda.VirtualMachineDisk != nil {
-			hotplugged[bda.VirtualMachineDisk.Name] = struct{}{}
+	for _, bda := range state.VM.Current().Status.BlockDeviceRefs {
+		if bda.Hotpluggable {
+			hotplugged[bda.Name] = struct{}{}
 		}
 	}
 
-	for _, bd := range state.VM.Current().Spec.BlockDevices {
-		disk := bd.VirtualMachineDisk
-		if disk != nil {
-			if _, ok := hotplugged[disk.Name]; ok {
-				disks = append(disks, disk.Name)
+	for _, bd := range state.VM.Current().Spec.BlockDeviceRefs {
+		if bd.Kind == virtv2.DiskDevice {
+			if _, ok := hotplugged[bd.Name]; ok {
+				disks = append(disks, bd.Name)
 			}
 		}
 	}
@@ -477,7 +476,7 @@ func (r *VMReconciler) checkBlockDevicesSanity(state *VMReconcilerState) string 
 		return ""
 	}
 
-	return fmt.Sprintf("spec.blockDevices contain hotplugged disks: %s. Unplug or remove them from spec to continue.", strings.Join(disks, ", "))
+	return fmt.Sprintf("spec.blockDeviceRefs contain hotplugged disks: %s. Unplug or remove them from spec to continue.", strings.Join(disks, ", "))
 }
 
 func (r *VMReconciler) makeKVVMFromVMSpec(state *VMReconcilerState) (*virtv1.VirtualMachine, error) {
@@ -516,7 +515,7 @@ func (r *VMReconciler) makeKVVMFromVMSpec(state *VMReconcilerState) (*virtv1.Vir
 func (r *VMReconciler) createKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	kvvm, err := r.makeKVVMFromVMSpec(state)
 	if err != nil {
-		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
+		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", state.VM.Name().Name, err)
 	}
 
 	if err := opts.Client.Create(ctx, kvvm); err != nil {

@@ -28,7 +28,7 @@ func (v *ClaimValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressClaim but got a %T", obj)
 	}
 
-	v.log.Info("Validate Claim creating", "name", claim.Name, "address", claim.Spec.Address, "leaseName", claim.Spec.LeaseName)
+	v.log.Info("Validate Claim creating", "name", claim.Name, "address", claim.Spec.Address, "leaseName", claim.Spec.VirtualMachineIPAddressLease)
 
 	err := v.validateSpecFields(claim.Spec)
 	if err != nil {
@@ -37,7 +37,7 @@ func (v *ClaimValidator) ValidateCreate(ctx context.Context, obj runtime.Object)
 
 	ip := claim.Spec.Address
 	if ip == "" {
-		ip = leaseNameToIP(claim.Spec.LeaseName)
+		ip = leaseNameToIP(claim.Spec.VirtualMachineIPAddressLease)
 	}
 
 	if ip != "" {
@@ -68,14 +68,14 @@ func (v *ClaimValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtim
 
 	v.log.Info("Validate Claim updating", "name", newClaim.Name,
 		"old.address", oldClaim.Spec.Address, "new.address", newClaim.Spec.Address,
-		"old.leaseName", oldClaim.Spec.LeaseName, "new.leaseName", newClaim.Spec.LeaseName,
+		"old.leaseName", oldClaim.Spec.VirtualMachineIPAddressLease, "new.leaseName", newClaim.Spec.VirtualMachineIPAddressLease,
 	)
 
 	if oldClaim.Spec.Address != "" && oldClaim.Spec.Address != newClaim.Spec.Address {
 		return nil, errors.New("the claim address cannot be changed if allocated")
 	}
 
-	if oldClaim.Spec.LeaseName != "" && oldClaim.Spec.LeaseName != newClaim.Spec.LeaseName {
+	if oldClaim.Spec.VirtualMachineIPAddressLease != "" && oldClaim.Spec.VirtualMachineIPAddressLease != newClaim.Spec.VirtualMachineIPAddressLease {
 		return nil, errors.New("the lease name cannot be changed if allocated")
 	}
 
@@ -94,7 +94,7 @@ func (v *ClaimValidator) ValidateDelete(_ context.Context, _ runtime.Object) (ad
 }
 
 func (v *ClaimValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddressClaimSpec) error {
-	if spec.LeaseName != "" && !isValidAddressFormat(leaseNameToIP(spec.LeaseName)) {
+	if spec.VirtualMachineIPAddressLease != "" && !isValidAddressFormat(leaseNameToIP(spec.VirtualMachineIPAddressLease)) {
 		return errors.New("the lease name is not created from a valid IP address or ip prefix is missing")
 	}
 
@@ -102,7 +102,7 @@ func (v *ClaimValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddres
 		return errors.New("the claim address is not a valid textual representation of an IP address")
 	}
 
-	if spec.Address != "" && spec.LeaseName != "" && spec.Address != leaseNameToIP(spec.LeaseName) {
+	if spec.Address != "" && spec.VirtualMachineIPAddressLease != "" && spec.Address != leaseNameToIP(spec.VirtualMachineIPAddressLease) {
 		return errors.New("lease name doesn't match the address")
 	}
 

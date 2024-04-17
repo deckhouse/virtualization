@@ -17,7 +17,8 @@ metadata:
   name: test-cvmi-vmi
 spec:
   dataSource:
-    type: "VirtualImage"
-    virtualMachineImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
       name: test-cvmi-vmi
       namespace: test-d8-virtualization
