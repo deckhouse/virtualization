@@ -265,8 +265,9 @@ block-beta
 - Set KUBECONFIG variable in the main container. File should contain configuration to connect to proxy port.
   - Note: kubevirt containers use --kubeconfig flag, cdi containers use KUBECONFIG env variable.
 - Add a new sidecar container with the proxy.
-  - Set WEBHOOK_PROXY to "no" if webhook proxying is not required.
-
+  - Set WEBHOOK_ADDRESS if webhook proxying is required.
+  - Add volumeMount with a certificate and set WEBHOOK_CERT_FILE and WEBHOOK_KEY_FILE to use the certificate.
+  - Add port 24192 to the webhook Service to use the certificate without issuing new one with changed ServerName.
 
 ## API client proxying
 

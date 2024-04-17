@@ -34,6 +34,7 @@ import (
 
 const (
 	loopbackAddr              = "127.0.0.1"
+	anyAddr                   = "0.0.0.0"
 	defaultAPIClientProxyPort = "23915"
 	defaultWebhookProxyPort   = "24192"
 )
@@ -85,8 +86,8 @@ func main() {
 	}
 
 	// Register reverse proxy from Kubernetes API server to local webhook server.
-	if os.Getenv("WEBHOOK_PROXY") == "no" {
-		log.Info("Will not start webhook proxy: WEBHOOK_PROXY=no")
+	if os.Getenv("WEBHOOK_ADDRESS") == "" {
+		log.Info("Will not start webhook proxy for empty WEBHOOK_ADDRESS")
 	} else {
 		config, err := target.NewWebhookTarget()
 		if err != nil {
@@ -95,7 +96,7 @@ func main() {
 		}
 		lAddr := server.ConstructListenAddr(
 			os.Getenv("WEBHOOK_PROXY_ADDRESS"), os.Getenv("WEBHOOK_PROXY_PORT"),
-			loopbackAddr, defaultWebhookProxyPort)
+			anyAddr, defaultWebhookProxyPort)
 		rwr := &rewriter.RuleBasedRewriter{
 			Rules: rewriteRules,
 		}

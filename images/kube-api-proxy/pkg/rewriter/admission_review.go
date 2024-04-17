@@ -6,8 +6,9 @@ import (
 )
 
 // RewriteAdmissionReview rewrites AdmissionReview request and response.
-// NOTE: action is not supported yet, Restore is assumed for AdmissionReview
-// request from Kubernetes API Server. Response is passed back to server as is.
+// NOTE: only one rewrite direction is supported for now:
+// - Restore object in AdmissionReview request.
+// - Do nothing for AdmissionReview response.
 func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	response := gjson.GetBytes(obj, "response")
 	if response.Exists() {
@@ -17,7 +18,7 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 
 	request := gjson.GetBytes(obj, "request")
 	if request.Exists() {
-		newRequest, err := RewriteAdmissionReviewRequest(rules, []byte(request.Raw), origGroup)
+		newRequest, err := RestoreAdmissionReviewRequest(rules, []byte(request.Raw), origGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -32,9 +33,9 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 	return obj, nil
 }
 
-// RewriteAdmissionReviewRequest restores apiVersion, kind and other fields in an AdmissionReview request.
+// RestoreAdmissionReviewRequest restores apiVersion, kind and other fields in an AdmissionReview request.
 // Only restoring is required, as AdmissionReview request only comes from API Server.
-func RewriteAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	var err error
 
 	// Rewrite "resource" field and find rules.

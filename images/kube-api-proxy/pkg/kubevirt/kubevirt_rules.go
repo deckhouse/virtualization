@@ -14,6 +14,8 @@ var KubevirtRewriteRules = &RewriteRules{
 	Webhooks:           KubevirtWebhooks,
 }
 
+// TODO create generator in golang to produce below rules from Kubevirt and CDI sources so proxy can work with future versions.
+
 var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 	"cdi.kubevirt.io": {
 		GroupRule: GroupRule{
@@ -387,9 +389,163 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 }
 
 var KubevirtWebhooks = map[string]WebhookRule{
-	"/validate-x-virtualization-deckhouse-io-v1-virtualmachine": {
-		Path:     "/validate-kubevirt-io-v1-virtualmachine",
+	// CDI webhooks.
+	// Run this in original CDI installation:
+	// kubectl get validatingwebhookconfiguration,mutatingwebhookconfiguration -l cdi.kubevirt.io -o json | jq '.items[] | .webhooks[] | {"path": .clientConfig.service.path, "group": (.rules[]|.apiGroups|join(",")), "resource": (.rules[]|.resources|join(",")) } | "\""+.path +"\": {\nPath: \"" + .path + "\",\nGroup: \"" + .group + "\",\nResource: \"" + .resource + "\",\n}," ' -r
+	// TODO create generator in golang to extract these rules from resource definitions in the cdi-operator package.
+	"/datavolume-mutate": {
+		Path:     "/datavolume-mutate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "datavolumes",
+	},
+	"/dataimportcron-validate": {
+		Path:     "/dataimportcron-validate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "dvpinternaldataimportcrons",
+	},
+	"/datavolume-validate": {
+		Path:     "/datavolume-validate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "datavolumes",
+	},
+	"/cdi-validate": {
+		Path:     "/cdi-validate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "cdis",
+	},
+	"/objecttransfer-validate": {
+		Path:     "/objecttransfer-validate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "objecttransfers",
+	},
+	"/populator-validate": {
+		Path:     "/populator-validate",
+		Group:    "cdi.kubevirt.io",
+		Resource: "volumeimportsources", // Also, volumeuploadsources. This field for logging only.
+	},
+
+	// Kubevirt webhooks.
+	// Run this in original Kubevirt installation:
+	// kubectl get validatingwebhookconfiguration,mutatingwebhookconfiguration -l  kubevirt.io -o json | jq '.items[] | .webhooks[] | {"path": .clientConfig.service.path, "group": (.rules[]|.apiGroups|join(",")), "resource": (.rules[]|.resources|join(",")) } | "\""+.path +"\": {\nPath: \"" + .path + "\",\nGroup: \"" + .group + "\",\nResource: \"" + .resource + "\",\n}," '
+	// TODO create generator in golang to extract these rules from resource definitions in the virt-operator package.
+	"/virtualmachineinstances-validate-create": {
+		Path:     "/virtualmachineinstances-validate-create",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstances",
+	},
+	"/virtualmachineinstances-validate-update": {
+		Path:     "/virtualmachineinstances-validate-update",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstances",
+	},
+	"/virtualmachines-validate": {
+		Path:     "/virtualmachines-validate",
 		Group:    "kubevirt.io",
 		Resource: "virtualmachines",
+	},
+	"/virtualmachinereplicaset-validate": {
+		Path:     "/virtualmachinereplicaset-validate",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstancereplicasets",
+	},
+	"/virtualmachinepool-validate": {
+		Path:     "/virtualmachinepool-validate",
+		Group:    "pool.kubevirt.io",
+		Resource: "virtualmachinepools",
+	},
+	"/vmipreset-validate": {
+		Path:     "/vmipreset-validate",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstancepresets",
+	},
+	"/migration-validate-create": {
+		Path:     "/migration-validate-create",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstancemigrations",
+	},
+	"/migration-validate-update": {
+		Path:     "/migration-validate-update",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstancemigrations",
+	},
+	"/virtualmachinesnapshots-validate": {
+		Path:     "/virtualmachinesnapshots-validate",
+		Group:    "snapshot.kubevirt.io",
+		Resource: "virtualmachinesnapshots",
+	},
+	"/virtualmachinerestores-validate": {
+		Path:     "/virtualmachinerestores-validate",
+		Group:    "snapshot.kubevirt.io",
+		Resource: "virtualmachinerestores",
+	},
+	"/virtualmachineexports-validate": {
+		Path:     "/virtualmachineexports-validate",
+		Group:    "export.kubevirt.io",
+		Resource: "virtualmachineexports",
+	},
+	"/virtualmachineinstancetypes-validate": {
+		Path:     "/virtualmachineinstancetypes-validate",
+		Group:    "instancetype.kubevirt.io",
+		Resource: "virtualmachineinstancetypes",
+	},
+	"/virtualmachineclusterinstancetypes-validate": {
+		Path:     "/virtualmachineclusterinstancetypes-validate",
+		Group:    "instancetype.kubevirt.io",
+		Resource: "virtualmachineclusterinstancetypes",
+	},
+	"/virtualmachinepreferences-validate": {
+		Path:     "/virtualmachinepreferences-validate",
+		Group:    "instancetype.kubevirt.io",
+		Resource: "virtualmachinepreferences",
+	},
+	"/virtualmachineclusterpreferences-validate": {
+		Path:     "/virtualmachineclusterpreferences-validate",
+		Group:    "instancetype.kubevirt.io",
+		Resource: "virtualmachineclusterpreferences",
+	},
+	"/status-validate": {
+		Path:     "/status-validate",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachines/status,virtualmachineinstancereplicasets/status,virtualmachineinstancemigrations/status",
+	},
+	"/migration-policy-validate-create": {
+		Path:     "/migration-policy-validate-create",
+		Group:    "migrations.kubevirt.io",
+		Resource: "migrationpolicies",
+	},
+	"/vm-clone-validate-create": {
+		Path:     "/vm-clone-validate-create",
+		Group:    "clone.kubevirt.io",
+		Resource: "virtualmachineclones",
+	},
+	"/kubevirt-validate-delete": {
+		Path:     "/kubevirt-validate-delete",
+		Group:    "kubevirt.io",
+		Resource: "kubevirts",
+	},
+	"/kubevirt-validate-update": {
+		Path:     "/kubevirt-validate-update",
+		Group:    "kubevirt.io",
+		Resource: "kubevirts",
+	},
+	"/virtualmachines-mutate": {
+		Path:     "/virtualmachines-mutate",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachines",
+	},
+	"/virtualmachineinstances-mutate": {
+		Path:     "/virtualmachineinstances-mutate",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstances",
+	},
+	"/migration-mutate-create": {
+		Path:     "/migration-mutate-create",
+		Group:    "kubevirt.io",
+		Resource: "virtualmachineinstancemigrations",
+	},
+	"/vm-clone-mutate-create": {
+		Path:     "/vm-clone-mutate-create",
+		Group:    "clone.kubevirt.io",
+		Resource: "virtualmachineclones",
 	},
 }

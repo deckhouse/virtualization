@@ -62,62 +62,77 @@ spec:
     {{- if $kubeAPIProxyRewriter }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-apiserver" "yes") }}
+        patch: {{ include "cdi.apiserver_kubeproxy_patch" . }}
         type: strategic
 
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "cdi.strategic_kubeproxy_patch" (list . "cdi-controller" "no") }}
+        patch: {{ include "cdi.nowebhook_kubeproxy_patch" (list . "cdi-controller") }}
         type: strategic
 
       # Change service in webhook configurations to point to the rewriter proxy.
-      # cdi-api-webhook-proxy service is created separately.
+      # Add port to cdi-api service.
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
+          [{"op":"replace", "path":"/spec/ports/0/name", "value":"https"}]
+        type: json
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
+          {"spec":{"ports":[
+            {"name": "webhook-proxy",
+             "port": 24192,
+             "protocol": "TCP",
+             "targetPort": "webhook-proxy"}
+          ]}}
+        type: strategic
       - resourceName: cdi-api-datavolume-mutate
         resourceType: MutatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"datavolume-mutate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-dataimportcron-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"dataimportcron-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-datavolume-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"datavolume-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-populator-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"populator-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"cdi-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: objecttransfer-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"objecttransfer-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
 
