@@ -4,5 +4,5 @@ metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClassName: "local-path"
+    storageClass: "local-path"
     size: "80M"

@@ -2,10 +2,12 @@ package e2e
 
 import (
 	"fmt"
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"path"
+
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 const (
@@ -40,10 +42,12 @@ var _ = Describe("Disks", func() {
 			res := kubectl.Get(filepath, kc.GetOptions{
 				Output: "jsonpath={.status.uploadCommand}",
 			})
+
 			Expect(res.Error()).NotTo(HaveOccurred(), "get failed upload.\n%s", res.StdErr())
-			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s --image=%s -- %s", conf.Namespace, UploadHelpPod, conf.Disks.UploadHelperImage, res.StdOut())
+			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s --image=%s -- %s", conf.Namespace, UploadHelpPod, conf.Disks.UploadHelperImage, res.StdOut()+" -k")
+
 			res = kubectl.RawCommand(subCMD, LongWaitDuration)
-			Expect(res.Error()).NotTo(HaveOccurred(), "craete pod upload helper failed.\n%s", res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), "create pod upload helper failed.\n%s", res.StdErr())
 			For := "jsonpath={.status.phase}=" + PhaseSucceeded
 			WaitResource(kc.ResourcePod, UploadHelpPod, For, LongWaitDuration)
 			CheckField(kc.ResourcePod, UploadHelpPod, "jsonpath={.status.phase}", PhaseSucceeded)

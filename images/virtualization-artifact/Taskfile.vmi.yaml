@@ -10,7 +10,7 @@ tasks:
       VMI_FILE: '{{ .VMI_FILE | default "config/samples/vmi_ubuntu_registry.yaml" }}'
     cmds:
       - |
-        kubectl delete virtualmachineimage/{{ .VMI_NAME }} || true
+        kubectl delete virtualimage/{{ .VMI_NAME }} || true
         kubectl delete po/importer-{{ .VMI_NAME }} || true
         sleep 1
         kubectl apply -f local/virtualization-controller/templates/dvcr-auth-secret.yaml || true
@@ -22,10 +22,10 @@ tasks:
       VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        kubectl get virtualmachineimage -o wide | head -n1
+        kubectl get virtualimage -o wide | head -n1
         for i in `seq 1 400` ; do
-          kubectl get virtualmachineimage/{{ .VMI_NAME }} --no-headers -o wide || true
-          kubectl get virtualmachineimage/{{ .VMI_NAME }} --no-headers || true
+          kubectl get virtualimage/{{ .VMI_NAME }} --no-headers -o wide || true
+          kubectl get virtualimage/{{ .VMI_NAME }} --no-headers || true
           sleep 2
         done
 
@@ -35,9 +35,9 @@ tasks:
       VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        kubectl get virtualmachineimage/{{ .VMI_NAME }} || true
+        kubectl get virtualimage/{{ .VMI_NAME }} || true
         echo ">>> Annotations:"
-        (kubectl get virtualmachineimage/{{ .VMI_NAME }} -o json | jq '.metadata.annotations') || true
+        (kubectl get virtualimage/{{ .VMI_NAME }} -o json | jq '.metadata.annotations') || true
         echo ">>> DataVolumes"
         kubectl get datavolume
         echo ">>> PVCs"

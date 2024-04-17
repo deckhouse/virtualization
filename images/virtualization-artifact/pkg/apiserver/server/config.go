@@ -58,7 +58,7 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	vmInformer, err := informer.ForResource(virtv2.GroupVersionResource(virtv2.VMResource))
+	vmInformer, err := informer.ForResource(virtv2.GroupVersionResource(virtv2.VirtualMachineResource))
 	if err != nil {
 		return nil, err
 	}

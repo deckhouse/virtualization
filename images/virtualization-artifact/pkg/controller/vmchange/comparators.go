@@ -25,11 +25,11 @@ func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChan
 	)
 }
 
-func compareVirtualMachineIPAddressClaimName(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareVirtualMachineIPAddressClaim(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
-		"virtualMachineIPAddressClaimName",
-		current.VirtualMachineIPAddressClaimName,
-		desired.VirtualMachineIPAddressClaimName,
+		"virtualMachineIPAddressClaim",
+		current.VirtualMachineIPAddressClaim,
+		desired.VirtualMachineIPAddressClaim,
 		"",
 		ActionNone,
 	)
@@ -123,7 +123,7 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 		return fractionChanges
 	}
 
-	modelChanges := compareStrings("cpu.model", current.CPU.ModelName, desired.CPU.ModelName, DefaultCPUModelName, ActionRestart)
+	modelChanges := compareStrings("cpu.virtualMachineCPUModel", current.CPU.VirtualMachineCPUModel, desired.CPU.VirtualMachineCPUModel, DefaultCPUModelName, ActionRestart)
 	if HasChanges(modelChanges) {
 		return modelChanges
 	}
@@ -160,11 +160,11 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		}
 	}
 
-	if current.Provisioning.Type == v1alpha2.ProvisioningTypeSysprepSecret {
-		currentSecret := current.Provisioning.SysprepSecretRef
-		desiredSecret := desired.Provisioning.SysprepSecretRef
+	if current.Provisioning.Type == v1alpha2.ProvisioningTypeSysprepRef {
+		currentSecret := current.Provisioning.SysprepRef
+		desiredSecret := desired.Provisioning.SysprepRef
 		changes = compareEmpty(
-			"provisioning.sysprepSecretRef",
+			"provisioning.sysprepRef",
 			NewPtrValue(currentSecret, currentSecret == nil),
 			NewPtrValue(desiredSecret, desiredSecret == nil),
 			ActionRestart,
@@ -173,9 +173,21 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 			return changes
 		}
 
+		// SysprepSecretRef is not nil, compare kinds.
+		changes = compareStrings(
+			"provisioning.sysprepRef.kind",
+			string(currentSecret.Kind),
+			string(desiredSecret.Kind),
+			"",
+			ActionRestart,
+		)
+		if len(changes) > 0 {
+			return changes
+		}
+
 		// SysprepSecretRef is not nil, compare names.
 		return compareStrings(
-			"provisioning.sysprepSecretRef.name",
+			"provisioning.sysprepRef.name",
 			currentSecret.Name,
 			desiredSecret.Name,
 			"",
@@ -193,11 +205,11 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		)
 	}
 
-	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserDataSecret {
-		currentSecret := current.Provisioning.UserDataSecretRef
-		desiredSecret := desired.Provisioning.UserDataSecretRef
+	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserDataRef {
+		currentSecret := current.Provisioning.UserDataRef
+		desiredSecret := desired.Provisioning.UserDataRef
 		changes = compareEmpty(
-			"provisioning.userDataSecretRef",
+			"provisioning.userDataRef",
 			NewPtrValue(currentSecret, currentSecret == nil),
 			NewPtrValue(desiredSecret, desiredSecret == nil),
 			ActionRestart,
@@ -206,9 +218,21 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 			return changes
 		}
 
+		// UserDataSecretRef is not nil, compare kinds.
+		changes = compareStrings(
+			"provisioning.userDataRef.kind",
+			string(currentSecret.Kind),
+			string(desiredSecret.Kind),
+			"",
+			ActionRestart,
+		)
+		if len(changes) > 0 {
+			return changes
+		}
+
 		// UserDataSecretRef is not nil, compare names.
 		return compareStrings(
-			"provisioning.userDataSecretRef.name",
+			"provisioning.userDataRef.name",
 			currentSecret.Name,
 			desiredSecret.Name,
 			"",

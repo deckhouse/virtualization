@@ -13,8 +13,7 @@ spec:
     cores: 1
   memory:
     size: 1Gi
-  blockDevices:
-    - type: VirtualImage
-      virtualMachineImage:
-        name: test-vm-image
+  blockDeviceRefs:
+    - kind: VirtualImage
+      name: test-vm-image
   terminationGracePeriodSeconds: 5

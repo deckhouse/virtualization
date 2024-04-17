@@ -37,7 +37,7 @@ import (
 )
 
 type VMDReconciler struct {
-	*vmattachee.AttacheeReconciler[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	*vmattachee.AttacheeReconciler[*virtv2.VirtualDisk, virtv2.VirtualDiskStatus]
 
 	importerImage string
 	uploaderImage string
@@ -54,14 +54,14 @@ func NewVMDReconciler(importerImage, uploaderImage, verbose, pullPolicy string, 
 		pullPolicy:    pullPolicy,
 		dvcrSettings:  dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
-			*virtv2.VirtualMachineDisk,
-			virtv2.VirtualMachineDiskStatus,
+			*virtv2.VirtualDisk,
+			virtv2.VirtualDiskStatus,
 		](),
 	}
 }
 
 func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineDisk{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
@@ -76,7 +76,7 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		handler.EnqueueRequestForOwner(
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachineDisk{},
+			&virtv2.VirtualDisk{},
 			handler.OnlyControllerOwner(),
 		),
 	); err != nil {
@@ -88,7 +88,7 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 		handler.EnqueueRequestForOwner(
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachineDisk{},
+			&virtv2.VirtualDisk{},
 			handler.OnlyControllerOwner(),
 		), predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
@@ -104,9 +104,9 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 
 // Sync starts an importer Pod and creates a DataVolume to import image into PVC.
 func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	log := opts.Log.WithValues("vmd.name", state.VMD.Current().GetName())
+	log := opts.Log.WithValues("vd.name", state.VMD.Current().GetName())
 
-	log.V(2).Info("Sync VMD")
+	log.V(2).Info("Sync VD")
 
 	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
 		return nil
@@ -114,7 +114,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 
 	switch {
 	case state.IsDeletion():
-		log.V(1).Info("Delete VMD, remove protective finalizers")
+		log.V(1).Info("Delete VD, remove protective finalizers")
 		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
@@ -188,7 +188,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.Pod != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
-			log.V(2).Info("Requeue: wait until Pod is completed", "vmd.name", state.VMD.Current().Name)
+			log.V(2).Info("Requeue: wait until Pod is completed", "vd.name", state.VMD.Current().Name)
 			if err := r.ensurePodFinalizers(ctx, state, opts); err != nil {
 				return err
 			}
@@ -216,7 +216,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 				}
 			}
 
-			log.V(1).Info("Create DataVolume for VMD")
+			log.V(1).Info("Create DataVolume for VD")
 
 			err := r.createDataVolume(ctx, state.VMD.Current(), state, opts)
 			if err != nil {
@@ -235,7 +235,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.DV != nil:
 			// Import is in progress, force a re-reconcile in 2 seconds to update status.
-			log.V(2).Info("Requeue: wait until DataVolume is completed", "vmd.name", state.VMD.Current().Name)
+			log.V(2).Info("Requeue: wait until DataVolume is completed", "vd.name", state.VMD.Current().Name)
 
 			if state.IsDataVolumeComplete() {
 				err := r.setPVCOwnerReference(ctx, state, opts.Client)
@@ -255,7 +255,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	}
 
 	// Report unexpected state.
-	details := fmt.Sprintf("vmd.Status.Phase='%s'", state.VMD.Current().Status.Phase)
+	details := fmt.Sprintf("vd.Status.Phase='%s'", state.VMD.Current().Status.Phase)
 	if state.Pod != nil {
 		details += fmt.Sprintf(" pod.Name='%s' pod.Status.Phase='%s'", state.Pod.Name, state.Pod.Status.Phase)
 	}
@@ -271,9 +271,9 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 }
 
 func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	log := opts.Log.WithValues("vmd.name", state.VMD.Current().GetName())
+	log := opts.Log.WithValues("vd.name", state.VMD.Current().GetName())
 
-	log.V(2).Info("Update VMD status")
+	log.V(2).Info("Update VD status")
 
 	// Do nothing if object is being deleted as any update will lead to en error.
 	if state.IsDeletion() {
@@ -305,7 +305,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.IsReady():
 		if state.PVC == nil {
-			log.V(1).Info("PVC not found for ready vmd")
+			log.V(1).Info("PVC not found for ready vd")
 			vmdStatus.Phase = virtv2.DiskPVCLost
 			break
 		}
@@ -414,7 +414,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		}
 	case state.ShouldTrackDataVolume() && state.IsDataVolumeComplete():
 		if state.PVC == nil {
-			log.V(1).Info("PVC not found for completed vmd")
+			log.V(1).Info("PVC not found for completed vd")
 			vmdStatus.Phase = virtv2.DiskPVCLost
 			break
 		}
@@ -437,7 +437,7 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 		vmdStatus.DownloadSpeed.CurrentBytes = ""
 
 		// PVC name is the same as the DataVolume name.
-		vmdStatus.Target.PersistentVolumeClaimName = state.PVC.Name
+		vmdStatus.Target.PersistentVolumeClaim = state.PVC.Name
 
 		// Copy capacity from PVC if IsDataVolumeInProgress was very quick.
 		vmdStatus.Capacity = util.GetPointer(state.PVC.Status.Capacity[corev1.ResourceStorage]).String()
@@ -607,7 +607,7 @@ func (r *VMDReconciler) startPod(
 	return nil
 }
 
-func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualMachineDisk, client client.Client, state *VMDReconcilerState) error {
+func (r *VMDReconciler) cleanup(ctx context.Context, vmd *virtv2.VirtualDisk, client client.Client, state *VMDReconcilerState) error {
 	if state.DV != nil {
 		err := supplements.CleanupForDataVolume(ctx, client, state.Supplements, r.dvcrSettings)
 		if err != nil {
@@ -679,8 +679,8 @@ func (r *VMDReconciler) cleanupOnDeletion(ctx context.Context, state *VMDReconci
 }
 
 func (r *VMDReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.DiskDevice && bda.VirtualMachineDisk != nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.DiskDevice {
 			return true
 		}
 	}
@@ -691,13 +691,13 @@ func (r *VMDReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
 func (r *VMDReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type != virtv2.DiskDevice || bda.VirtualMachineDisk == nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind != virtv2.DiskDevice {
 			continue
 		}
 
 		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      bda.VirtualMachineDisk.Name,
+			Name:      bda.Name,
 			Namespace: vm.Namespace,
 		}})
 	}

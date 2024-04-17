@@ -26,11 +26,12 @@ spec:
   persistentVolumeClaim:
     size: {{ $.Values.diskSize }}
     {{- if $.Values.storageClass }}
-    storageClassName: {{ $.Values.storageClass }}
+    storageClass: {{ $.Values.storageClass }}
     {{- end }}
   dataSource:
-    type: "VirtualImage"
-    virtualMachineImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
       name: {{ $.Values.resourcesPrefix }}
 {{- end }}
 {{- end }}

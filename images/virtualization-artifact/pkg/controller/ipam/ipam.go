@@ -29,7 +29,7 @@ func (m IPAM) IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim)
 		return false
 	}
 
-	return claim.Status.VMName == vmName
+	return claim.Status.VirtualMachine == vmName
 }
 
 func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error {
@@ -37,7 +37,7 @@ func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.Virtual
 		return errors.New("cannot to bind with empty claim")
 	}
 
-	boundVMName := claim.Status.VMName
+	boundVMName := claim.Status.VirtualMachine
 	if boundVMName == "" || boundVMName == vmName {
 		return nil
 	}

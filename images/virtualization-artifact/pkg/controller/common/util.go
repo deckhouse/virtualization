@@ -307,11 +307,11 @@ func AddLabel(obj metav1.Object, key, value string) {
 }
 
 // PublishPodErr handles pod-creation errors and updates the CVMI without providing sensitive information.
-// TODO make work with VirtualMachineImage object.
+// TODO make work with VirtualImage object.
 func PublishPodErr(err error, podName string, obj client.Object, recorder record.EventRecorder, apiClient client.Client) error {
 	// Generic reason and msg to avoid providing sensitive information
 	reason := ErrStartingPod
-	msg := fmt.Sprintf(MessageErrStartingPod, podName)
+	msg := fmt.Sprintf(MessageErrStartingPod, podName) + ": " + err.Error()
 
 	// Error handling to fine-tune the event with pertinent info
 	if ErrQuotaExceeded(err) {

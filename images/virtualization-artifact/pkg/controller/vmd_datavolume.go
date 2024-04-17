@@ -24,7 +24,7 @@ var (
 	ErrPVCSizeSmallerImageVirtualSize = errors.New("persistentVolumeClaim size is smaller than image virtual size")
 )
 
-func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
+func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) (resource.Quantity, error) {
 	pvcSize := vmd.Spec.PersistentVolumeClaim.Size
 
 	if vmdutil.IsBlankPVC(vmd) {
@@ -78,7 +78,7 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualMachineDisk, state *VMDRec
 }
 
 // createDataVolume creates DataVolume resource to copy image from DVCR to PVC.
-func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.VirtualMachineDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.VirtualDisk, state *VMDReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	// Retrieve PVC size.
 	pvcSize, err := r.getPVCSize(vmd, state, opts)
 	if err != nil {
@@ -132,20 +132,28 @@ func (r *VMDReconciler) makeDataVolumeFromVMD(state *VMDReconcilerState, dvName 
 		// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
 		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMD(vmd.Name, vmd.Namespace)
 		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
-	case ds != nil && ds.Type == virtv2.DataSourceTypeClusterVirtualMachineImage:
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ClusterVirtualMachineImage.Name)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
-	case ds != nil && ds.Type == virtv2.DataSourceTypeVirtualMachineImage:
-		vmiRef := ds.VirtualMachineImage
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmd.Namespace)
-		dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+	case ds != nil && ds.Type == virtv2.DataSourceTypeObjectRef:
+		if ds.ObjectRef == nil {
+			return nil, fmt.Errorf("nil objectRef %q", vmdutil.GetDataSourceType(vmd))
+		}
+
+		switch ds.ObjectRef.Kind {
+		case virtv2.VirtualDiskObjectRefKindVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(ds.ObjectRef.Name, vmd.Namespace)
+			dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+		case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ObjectRef.Name)
+			dvBuilder.SetRegistryDataSource(dvcrSourceImageName, authSecretName, caBundleName)
+		default:
+			return nil, fmt.Errorf("unsupported object ref kind %q", ds.ObjectRef.Kind)
+		}
 	case vmdutil.IsBlankPVC(vmd):
 		dvBuilder.SetBlankDataSource()
 	default:
 		return nil, fmt.Errorf("unsupported dataSource type %q", vmdutil.GetDataSourceType(vmd))
 	}
 
-	dvBuilder.SetPVC(vmd.Spec.PersistentVolumeClaim.StorageClassName, pvcSize)
+	dvBuilder.SetPVC(vmd.Spec.PersistentVolumeClaim.StorageClass, pvcSize)
 
 	dvBuilder.SetOwnerRef(vmd, vmd.GetObjectKind().GroupVersionKind())
 	dvBuilder.AddFinalizer(virtv2.FinalizerDVProtection)

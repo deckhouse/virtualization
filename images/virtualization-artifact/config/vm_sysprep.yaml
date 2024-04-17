@@ -35,7 +35,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 50Gi
-    storageClassName: linstor-test-data-r1
+    storageClass: linstor-test-data-r1
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -46,8 +46,9 @@ metadata:
     vm: vm-sysprep
 spec:
   provisioning:
-    type: SysprepSecret
-    sysprepSecretRef:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
       name: sysprep-config
   runPolicy: AlwaysOn
   osType: Windows
@@ -58,13 +59,10 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-11-iso
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-virtio-iso
-    - type: VirtualDisk
-      virtualMachineDisk:
-        name: vm-vmd
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: vm-vmd

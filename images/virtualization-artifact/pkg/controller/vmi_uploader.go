@@ -14,7 +14,7 @@ import (
 func (r *VMIReconciler) startUploaderPod(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	vmi := state.VMI.Current()
 
-	opts.Log.V(1).Info("Creating uploader POD for VMI", "vmi.Name", vmi.Name)
+	opts.Log.V(1).Info("Creating uploader POD for VI", "vi.Name", vmi.Name)
 
 	uploaderSettings := r.createUploaderSettings(state)
 
@@ -68,7 +68,7 @@ func (r *VMIReconciler) createUploaderPodSettings(state *VMIReconcilerState) *up
 }
 
 func (r *VMIReconciler) startUploaderService(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader Service for VMI", "vmi.Name", state.VMI.Current().Name)
+	opts.Log.V(1).Info("Creating uploader Service for VI", "vi.Name", state.VMI.Current().Name)
 
 	uploaderService := uploader.NewService(r.createUploaderServiceSettings(state))
 
@@ -92,7 +92,7 @@ func (r *VMIReconciler) createUploaderServiceSettings(state *VMIReconcilerState)
 }
 
 func (r *VMIReconciler) startUploaderIngress(ctx context.Context, state *VMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader Ingress for VMI", "vmi.Name", state.VMI.Current().Name)
+	opts.Log.V(1).Info("Creating uploader Ingress for VI", "vi.Name", state.VMI.Current().Name)
 
 	uploaderIng := uploader.NewIngress(r.createUploaderIngressSettings(state))
 

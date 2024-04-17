@@ -29,7 +29,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClassName: local-path
+    storageClass: local-path
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
@@ -47,15 +47,12 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: false
-  blockDevices:
+  blockDeviceRefs:
     # deattach it after install {
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-iso
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-virtio-iso
+    - kind: ClusterVirtualImage
+      name: win-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
     # } deattach it after install
-    - type: VirtualDisk
-      virtualMachineDisk:
-        name: win-disk
+    - kind: VirtualDisk
+      name: win-disk

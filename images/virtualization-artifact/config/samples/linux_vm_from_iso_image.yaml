@@ -33,11 +33,9 @@ spec:
     coreFraction: 50%
   memory:
     size: 6Gi
-  blockDevices:
+  blockDeviceRefs:
     # deattach it after install
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: linux-iso
-    - type: VirtualDisk
-      virtualDisk:
-        name: linux-disk
+    - kind: ClusterVirtualImage
+      name: linux-iso
+    - kind: VirtualDisk
+      name: linux-disk

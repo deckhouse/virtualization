@@ -19,6 +19,7 @@ metadata:
 spec:
   storage: ContainerRegistry
   dataSource:
-    type: "VirtualImage"
-    virtualMachineImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
       name: test-vmi-vmi-old
