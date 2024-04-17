@@ -53,20 +53,6 @@ spec:
       resourceName: virt-exportproxy
       patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
       type: json
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-      type: json
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-      type: json
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-      type: json
-    {{- end }}
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment
       resourceName: virt-api
@@ -476,6 +462,54 @@ spec:
 
       type: strategic
     {{- end }}
+
+    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"virt-api", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"virt-controller", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"virt-handler", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    {{- if $kubeAPIProxyRewriter }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"proxy", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"proxy", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: |
+        {"spec":{"template":{"spec":{"containers":[
+          {"name":"proxy", "resources":{"requests":{}}}
+        ]}}}}
+      type: strategic
+    {{- end }}
+    {{- end }}
+
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: virtualization-module-registry

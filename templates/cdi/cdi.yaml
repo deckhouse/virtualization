@@ -75,7 +75,7 @@ spec:
       - resourceName: cdi-api-datavolume-mutate
         resourceType: MutatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"datavolume-mutate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
@@ -83,7 +83,7 @@ spec:
       - resourceName: cdi-api-dataimportcron-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"dataimportcron-validate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
@@ -91,7 +91,7 @@ spec:
       - resourceName: cdi-api-datavolume-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"datavolume-validate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
@@ -99,7 +99,7 @@ spec:
       - resourceName: cdi-api-populator-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"populator-validate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
@@ -107,7 +107,7 @@ spec:
       - resourceName: cdi-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"cdi-validate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
@@ -115,7 +115,7 @@ spec:
       - resourceName: objecttransfer-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
-          {"webhook":[
+          {"webhooks":[
             { "name":"objecttransfer-validate.cdi.kubevirt.io",
               "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
           ]}
