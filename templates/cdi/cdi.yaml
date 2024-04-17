@@ -121,28 +121,6 @@ spec:
           ]}
         type: strategic
 
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/1/resources/requests","value":{}}]'
-        type: json
-    {{- end }}
-
-    {{- end }}
-
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-      - resourceType: Deployment
-        resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
-      - resourceType: Deployment
-        resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests","value":{}}]'
-        type: json
     {{- end }}
 
   workload:
