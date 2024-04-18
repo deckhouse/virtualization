@@ -109,7 +109,7 @@ spec:
         terminationMessagePolicy: File
         ports:
           - containerPort: 24192
-            name: proxy-webhook
+            name: webhook-proxy
             protocol: TCP
         env:
         - name: WEBHOOK_ADDRESS

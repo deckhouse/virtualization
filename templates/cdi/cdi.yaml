@@ -71,13 +71,23 @@ spec:
         type: strategic
 
       # Change service in webhook configurations to point to the rewriter proxy.
-      # cdi-api-webhook-proxy service is created separately.
+      # Add port to cdi-api service.
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
+          {"spec":{"ports":[
+            {"name": "webhook-proxy",
+             "port": 24192,
+             "protocol": "TCP",
+             "targetPort": "webhook-proxy"}
+          ]}}
+        type: strategic
       - resourceName: cdi-api-datavolume-mutate
         resourceType: MutatingWebhookConfiguration
         patch: |
           {"webhooks":[
             { "name":"datavolume-mutate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
       - resourceName: cdi-api-dataimportcron-validate
@@ -85,7 +95,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"dataimportcron-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
       - resourceName: cdi-api-datavolume-validate
@@ -93,7 +103,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"datavolume-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
       - resourceName: cdi-api-populator-validate
@@ -101,7 +111,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"populator-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
       - resourceName: cdi-api-validate
@@ -109,7 +119,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"cdi-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
       - resourceName: objecttransfer-api-validate
@@ -117,7 +127,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"objecttransfer-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"name":"cdi-api-webhook-proxy"}}}
+              "clientConfig":{"service":{"port":"webhook-proxy"}}}
           ]}
         type: strategic
 
