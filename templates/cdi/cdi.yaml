@@ -75,6 +75,11 @@ spec:
       - resourceName: cdi-api
         resourceType: Service
         patch: |
+          [{"op":"replace", "path":"/spec/ports/0/name", "value":"https"}]
+        type: json
+      - resourceName: cdi-api
+        resourceType: Service
+        patch: |
           {"spec":{"ports":[
             {"name": "webhook-proxy",
              "port": 24192,
