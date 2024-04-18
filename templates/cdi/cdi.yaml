@@ -46,7 +46,7 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: {{ include "cdi.strategic_affinity_patch" (list "cdi-apiserver") }}
+        patch: {{ include "strategic_affinity_patch" (list "app" "cdi-apiserver") }}
         type: strategic
 
       - resourceType: Deployment
@@ -55,7 +55,7 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "cdi.strategic_affinity_patch" (list "containerized-data-importer") }}
+        patch: {{ include "strategic_affinity_patch" (list "app" "containerized-data-importer") }}
         type: strategic
     {{- end }}
 
@@ -67,7 +67,7 @@ spec:
 
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "cdi.nowebhook_kubeproxy_patch" (list . "cdi-controller") }}
+        patch: {{ include "nowebhook_kubeproxy_patch" (list . "cdi-controller") }}
         type: strategic
 
       # Change service in webhook configurations to point to the rewriter proxy.

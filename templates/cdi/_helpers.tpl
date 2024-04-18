@@ -1,24 +1,3 @@
-{{- define "cdi.strategic_affinity_patch" -}}
-  {{- $labelValue := index . 0 -}}
-  '{{ include "cdi.tmplAntiAffinity" (list $labelValue) | fromYaml | toJson }}'
-{{- end }}
-
-{{- define "cdi.tmplAntiAffinity" -}}
-{{- $labelValue := index . 0 -}}
-spec:
-  template:
-    spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - {{ $labelValue }}
-            topologyKey: kubernetes.io/hostname
-{{- end -}}
 
 {{- define "cdi.kubeproxy_resources" -}}
 cpu: 100m
