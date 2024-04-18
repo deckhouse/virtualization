@@ -107,6 +107,10 @@ spec:
             type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
+        ports:
+          - containerPort: 24192
+            name: proxy-webhook
+            protocol: TCP
         env:
         - name: WEBHOOK_ADDRESS
           value: "https://127.0.0.1:8443"
