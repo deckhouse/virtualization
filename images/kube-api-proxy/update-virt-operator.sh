@@ -77,17 +77,7 @@ patch=$(cat <<EOF
               }
             },
             "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "env": [
-              {"name": "POD_NAMESPACE",
-               "valueFrom": {
-                 "fieldRef": {"fieldPath": "metadata.namespace"}
-               }
-              },
-              {"name": "WEBHOOK_PROXY",
-                "value": "no"
-              }
-            ]
+            "terminationMessagePolicy": "File"
           }]
         }}}}
 EOF

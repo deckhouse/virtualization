@@ -86,8 +86,8 @@ func main() {
 	}
 
 	// Register reverse proxy from Kubernetes API server to local webhook server.
-	if os.Getenv("WEBHOOK_PROXY") == "no" {
-		log.Info("Will not start webhook proxy: WEBHOOK_PROXY=no")
+	if os.Getenv("WEBHOOK_ADDRESS") == "" {
+		log.Info("Will not start webhook proxy for empty WEBHOOK_ADDRESS")
 	} else {
 		config, err := target.NewWebhookTarget()
 		if err != nil {

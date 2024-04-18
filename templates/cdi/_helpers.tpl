@@ -61,9 +61,6 @@ spec:
             type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
-        env:
-        - name: WEBHOOK_PROXY
-          value: "no"
       - name: {{ $containerName }}
         env:
         - name: KUBECONFIG

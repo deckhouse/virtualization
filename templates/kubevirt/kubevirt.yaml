@@ -93,12 +93,7 @@ spec:
               }
             },
             "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "env": [
-              {"name": "WEBHOOK_PROXY",
-                "value": "no"
-              }
-            ]
+            "terminationMessagePolicy": "File"
           }]
         }}}}
       type: strategic
@@ -179,12 +174,7 @@ spec:
               }
             },
             "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "env": [
-              { "name": "WEBHOOK_PROXY",
-                "value": "no"
-              }
-            ]
+            "terminationMessagePolicy": "File"
           }]
         }}}}
       type: strategic
@@ -216,18 +206,39 @@ spec:
               }
             },
             "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "env": [
-              { "name": "WEBHOOK_PROXY",
-                "value": "no"
-              }
-            ]
+            "terminationMessagePolicy": "File"
           }]
         }}}}
       type: strategic
+    # Patch services used in webhook configurations, add webhook-proxy port 24192.
+    - resourceName: virt-api
+      resourceType: Service
+      patch: |
+        [{"op":"replace", "path":"/spec/ports/0/name", "value":"https"}]
+      type: json
+    - resourceName: virt-api
+      resourceType: Service
+      patch: |
+        {"spec":{"ports":[
+          {"name": "webhook-proxy",
+           "port": 24192,
+           "protocol": "TCP",
+           "targetPort": "webhook-proxy"}
+        ]}}
+      type: strategic
+    - resourceName: kubevirt-operator
+      resourceType: Service
+      patch: |
+        {"spec":{"ports":[
+          {"name": "webhook-proxy",
+           "port": 24192,
+           "protocol": "TCP",
+           "targetPort": "webhook-proxy"}
+        ]}}
+      type: strategic
     # Change service in webhook configuration to point to the rewriter proxy.
     # Patch was produced with this jq command:
-    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"name":"virt-api-webhook"}}}) }'
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # virt-api-webhook-proxy service is created separately.
     - resourceName: virt-api-validator
       resourceType: ValidatingWebhookConfiguration
@@ -236,162 +247,86 @@ spec:
           "webhooks": [
             {
               "name": "virt-launcher-eviction-interceptor.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineinstances-create-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineinstances-update-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachine-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinereplicaset-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinepool-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinepreset-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "migration-create-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "migration-update-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinerestore-validator.snapshot.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineexport-validator.export.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachinepreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineclusterpreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "kubevirt-crd-status-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "migration-policy-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "vm-clone-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             }
           ]
         }
       type: strategic
     # Change service in webhook configuration to point to the rewriter proxy.
     # Patch was produced with this jq command:
-    # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"name":"virt-api-webhook"}}}) }'
+    # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # virt-api-webhook-proxy service is created separately.
     - resourceName: virt-api-mutator
       resourceType: MutatingWebhookConfiguration
@@ -400,42 +335,26 @@ spec:
           "webhooks": [
             {
               "name": "virtualmachines-mutator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineinstances-mutator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "migrations-mutator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "virtualmachineclones-mutator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "virt-api-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             }
           ]
         }
       type: strategic
     # Change service in webhook configuration to point to the rewriter proxy.
     # Patch was produced with this jq command:
-    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-operator-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"name":"kubevirt-api-webhook-proxy"}}}) }'
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-operator-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # kubevirt-operator-webhook-proxy service is created separately.
     - resourceName: virt-operator-validator
       resourceType: ValidatingWebhookConfiguration
@@ -444,19 +363,11 @@ spec:
           "webhooks": [
             {
               "name": "kubevirt-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "kubevirt-operator-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             },
             {
               "name": "kubevirt-update-validator.kubevirt.io",
-              "clientConfig": {
-                "service": {
-                  "name": "kubevirt-operator-webhook-proxy"
-                }
-              }
+              "clientConfig": {"service": {"port": 24192}}
             }
           ]
         }
