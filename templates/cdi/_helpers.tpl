@@ -44,7 +44,8 @@ spec:
       containers:
       - name: proxy
         image: {{ $proxyImage }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        command: ["/proxy"]
         resources:
           requests:
           {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
@@ -89,7 +90,8 @@ spec:
       containers:
       - name: proxy
         image: {{ $proxyImage }}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
+        command: ["/proxy"]
         resources:
           requests:
           {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
