@@ -87,7 +87,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"datavolume-mutate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-dataimportcron-validate
@@ -95,7 +95,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"dataimportcron-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-datavolume-validate
@@ -103,7 +103,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"datavolume-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-populator-validate
@@ -111,7 +111,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"populator-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: cdi-api-validate
@@ -119,7 +119,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"cdi-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
       - resourceName: objecttransfer-api-validate
@@ -127,7 +127,7 @@ spec:
         patch: |
           {"webhooks":[
             { "name":"objecttransfer-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port":"webhook-proxy"}}}
+              "clientConfig":{"service":{"port":24192}}}
           ]}
         type: strategic
 
