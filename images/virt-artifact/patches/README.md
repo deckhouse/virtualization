@@ -34,3 +34,6 @@ Also, remove short names and change categories. Just in case.
 
 #### `011-virt-api-authentication.patch`
 Added the ability for virt-api to authenticate clients with certificates signed by our rootCA located in the config-map virtualization-ca.
+
+#### `012-support-kubeconfig-env.patch`
+Support `KUBECONFIG` environment variable. 

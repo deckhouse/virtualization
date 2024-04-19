@@ -88,6 +88,39 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 1
       containers:
+      - name: proxy
+        image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
+        imagePullPolicy: Always
+        resources:
+          requests:
+          {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+          {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+          {{- include "cdi_operator_resources" . | nindent 12 }}
+          {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        ports:
+          - containerPort: 24192
+            name: webhook-proxy
+            protocol: TCP
+        env:
+          - name: WEBHOOK_ADDRESS
+            value: "https://127.0.0.1:8444"
+          - name: WEBHOOK_CERT_FILE
+            value: "/etc/virt-operator/certificates/tls.crt"
+          - name: WEBHOOK_KEY_FILE
+            value: "/etc/virt-operator/certificates/tls.key"
+        volumeMounts:
+          - mountPath: /etc/virt-operator/certificates
+            name: kubevirt-operator-certs
+            readOnly: true
       - name: virt-operator
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all" . | nindent 8 }}
         args:
@@ -135,37 +168,6 @@ spec:
           name: profile-data
         - mountPath: /kubeconfig.local
           name: kube-api-proxy-kubeconfig
-      - name: proxy
-        #image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
-        image: "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest"
-        imagePullPolicy: Always
-        command:
-          - /proxy
-        resources: {}
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        ports:
-          - containerPort: 24192
-            name: webhook-proxy
-            protocol: TCP
-        env:
-          - name: WEBHOOK_ADDRESS
-            value: "https://127.0.0.1:8444"
-          - name: WEBHOOK_CERT_FILE
-            value: "/etc/virt-operator/certificates/tls.crt"
-          - name: WEBHOOK_KEY_FILE
-            value: "/etc/virt-operator/certificates/tls.key"
-        volumeMounts:
-          - mountPath: /etc/virt-operator/certificates
-            name: kubevirt-operator-certs
-            readOnly: true
       {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
