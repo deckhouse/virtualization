@@ -24,5 +24,3 @@ cat "$DIR/manifest.json" | jq -r '.[].RepoTags[0]' | \
         (set -x; tar -C "$image" --overwrite --exclude='./var/run/*' -xf "$DIR/$layer" .) || true
       done
 done
-
-echo donedone

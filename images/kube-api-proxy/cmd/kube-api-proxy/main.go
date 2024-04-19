@@ -127,6 +127,7 @@ func main() {
 	for i := range proxies {
 		proxyGroup.Add(proxies[i])
 	}
+	// Block while proxies are running.
 	proxyGroup.Start()
 
 	// Log errors for each instance and exit.

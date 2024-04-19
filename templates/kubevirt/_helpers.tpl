@@ -6,6 +6,9 @@
 
 {{- define "kubevirt.apiserver_kubeproxy_patch_tmpl" -}}
   {{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") }}
+metadata:
+  annotations:
+    kubectl.kubernetes.io/default-container: virt-api
 spec:
   template:
     spec:

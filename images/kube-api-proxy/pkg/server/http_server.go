@@ -22,25 +22,30 @@ type HTTPServer struct {
 	KeyFile      string
 	Err          error
 
-	instance *http.Server
-	stopOnce sync.Once
+	initLock sync.Mutex
 	stopped  bool
-	doneCh   chan struct{}
+
+	listener net.Listener
+	instance *http.Server
 }
 
-func (s *HTTPServer) Start() {
+// init checks if listen is possible and creates new HTTP server instance.
+// initLock is used to avoid data races with the Stop method.
+func (s *HTTPServer) init() bool {
+	s.initLock.Lock()
+	defer s.initLock.Unlock()
 	if s.stopped {
-		return
-	}
-	if s.doneCh == nil {
-		s.doneCh = make(chan struct{})
+		// Stop was called earlier.
+		return false
 	}
 
 	l, err := net.Listen("tcp", s.ListenAddr)
 	if err != nil {
 		s.Err = err
-		return
+		log.Error(fmt.Sprintf("%s: listen on %s err: %s", s.InstanceDesc, s.ListenAddr, err))
+		return false
 	}
+	s.listener = l
 	log.Info(fmt.Sprintf("%s: listen for incoming requests on %s", s.InstanceDesc, s.ListenAddr))
 
 	mux := http.NewServeMux()
@@ -49,11 +54,20 @@ func (s *HTTPServer) Start() {
 	s.instance = &http.Server{
 		Handler: mux,
 	}
+	return true
+}
 
+func (s *HTTPServer) Start() {
+	if !s.init() {
+		return
+	}
+
+	// Start serving HTTP requests, block until server instance stops or returns an error.
+	var err error
 	if s.CertFile != "" && s.KeyFile != "" {
-		err = s.instance.ServeTLS(l, s.CertFile, s.KeyFile)
+		err = s.instance.ServeTLS(s.listener, s.CertFile, s.KeyFile)
 	} else {
-		err = s.instance.Serve(l)
+		err = s.instance.Serve(s.listener)
 	}
 	// Ignore closed error: it's a consequence of stop.
 	if err != nil {
@@ -67,30 +81,35 @@ func (s *HTTPServer) Start() {
 	return
 }
 
-func (s *HTTPServer) Done() chan struct{} {
-	return s.doneCh
-}
-
+// Stop shutdowns HTTP server instance and close a done channel.
+// Stop and init may be run in parallel, so initLock is used to wait until
+// variables are initialized.
 func (s *HTTPServer) Stop() {
-	s.stopOnce.Do(func() {
-		if s.instance != nil {
-			log.Info(fmt.Sprintf("%s: stop", s.InstanceDesc))
-			err := s.instance.Shutdown(context.Background())
-			// Ignore ErrClosed.
-			if err != nil {
-				switch {
-				case errors.Is(err, http.ErrServerClosed):
-				case errors.Is(err, net.ErrClosed):
-				case s.Err != nil:
-					// log error to not reset runtime error.
-					log.Error(fmt.Sprintf("%s: stop instance", s.InstanceDesc), logutil.SlogErr(err))
-				default:
-					s.Err = err
-				}
+	s.initLock.Lock()
+	defer s.initLock.Unlock()
+
+	if s.stopped {
+		return
+	}
+	s.stopped = true
+
+	// Shutdown instance if it was initialized.
+	if s.instance != nil {
+		log.Info(fmt.Sprintf("%s: stop", s.InstanceDesc))
+		err := s.instance.Shutdown(context.Background())
+		// Ignore ErrClosed.
+		if err != nil {
+			switch {
+			case errors.Is(err, http.ErrServerClosed):
+			case errors.Is(err, net.ErrClosed):
+			case s.Err != nil:
+				// log error to not reset runtime error.
+				log.Error(fmt.Sprintf("%s: stop instance", s.InstanceDesc), logutil.SlogErr(err))
+			default:
+				s.Err = err
 			}
 		}
-		close(s.doneCh)
-	})
+	}
 }
 
 // ConstructListenAddr return ip:port with defaults.

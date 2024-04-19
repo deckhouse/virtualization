@@ -1,65 +1,74 @@
 package server
 
-import "sync"
+import (
+	"sync"
+)
 
 type Runnable interface {
 	Start()
 	Stop()
-	Done() chan struct{}
 }
 
-// RunnableGroup stops all runnables if one is stopped.
-// It also waits until all done.
+// RunnableGroup is a group of Runnables that should run until one of them stops.
 type RunnableGroup struct {
 	runnables []Runnable
-
-	stopOnce    sync.Once
-	stopped     chan struct{}
-	stopAllOnce sync.Once
 }
 
 func NewRunnableGroup() *RunnableGroup {
 	return &RunnableGroup{
 		runnables: make([]Runnable, 0),
-		stopped:   make(chan struct{}),
 	}
 }
 
+// Add register Runnable in a group.
+// Note: not designed for parallel registering.
+func (rg *RunnableGroup) Add(r Runnable) {
+	rg.runnables = append(rg.runnables, r)
+}
+
+// Start starts all Runnables and stops all of them when at least one Runnable stops.
 func (rg *RunnableGroup) Start() {
-	// Start all.
+	// Start all runnables.
+	oneStoppedCh := rg.startAll()
+
+	// Block until one runnable is stopped.
+	<-oneStoppedCh
+
+	// Wait until all Runnables stop.
+	rg.stopAll()
+}
+
+// startAll calls Start for each Runnable in separate go routines.
+// It waits until all go routines starts.
+// It returns a channel, so caller can receive event when one of the Runnables stops.
+func (rg *RunnableGroup) startAll() chan struct{} {
+	oneStopped := make(chan struct{})
+	var closeOnce sync.Once
+
 	for i := range rg.runnables {
 		r := rg.runnables[i]
 		go func() {
 			r.Start()
-			rg.stopOnce.Do(func() {
-				close(rg.stopped)
+			closeOnce.Do(func() {
+				close(oneStopped)
 			})
 		}()
 	}
 
-	// Stop all if one stopped.
-	go func() {
-		<-rg.stopped
-		for i := range rg.runnables {
-			rg.runnables[i].Stop()
-		}
-	}()
+	return oneStopped
+}
 
-	// Wait until all Done.
+// stopAll calls Stop for each Runnable in a separate go routine.
+// It waits until all go routines starts.
+func (rg *RunnableGroup) stopAll() {
 	var wg sync.WaitGroup
 	wg.Add(len(rg.runnables))
 	for i := range rg.runnables {
 		r := rg.runnables[i]
 		go func() {
-			<-r.Done()
+			r.Stop()
 			wg.Done()
 		}()
 	}
 	wg.Wait()
-}
-
-// Add register another one runnable.
-// Note: not designed for parallel registering.
-func (rg *RunnableGroup) Add(r Runnable) {
-	rg.runnables = append(rg.runnables, r)
 }

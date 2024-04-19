@@ -35,6 +35,9 @@ memory: 150Mi
   {{- $ctx := index . 0 -}}
   {{- $containerName := index . 1 -}}
   {{- $proxyImage := include "helm_lib_module_image" (list $ctx "kubeApiProxy") }}
+metadata:
+  annotations:
+    kubectl.kubernetes.io/default-container: {{ $containerName }}
 spec:
   template:
     spec:
