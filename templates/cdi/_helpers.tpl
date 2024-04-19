@@ -1,82 +1,9 @@
-{{- define "cdi.strategic_affinity_patch" -}}
-  {{- $labelValue := index . 0 -}}
-  '{{ include "cdi.tmplAntiAffinity" (list $labelValue) | fromYaml | toJson }}'
-{{- end }}
-
-{{- define "cdi.tmplAntiAffinity" -}}
-{{- $labelValue := index . 0 -}}
-spec:
-  template:
-    spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - {{ $labelValue }}
-            topologyKey: kubernetes.io/hostname
-{{- end -}}
-
-{{- define "cdi.kubeproxy_resources" -}}
-cpu: 100m
-memory: 150Mi
-{{- end -}}
-
-{{- define "cdi.nowebhook_kubeproxy_patch" -}}
-  '{{ include "cdi.nowebhook_kubeproxy_patch_tmpl" . | fromYaml | toJson }}'
-{{- end }}
-
-{{- define "cdi.nowebhook_kubeproxy_patch_tmpl" -}}
-  {{- $ctx := index . 0 -}}
-  {{- $containerName := index . 1 -}}
-  {{- $proxyImage := include "helm_lib_module_image" (list $ctx "kubeApiProxy") }}
-  {{- $proxyImage = "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest" }}
-spec:
-  template:
-    spec:
-      volumes:
-      - name: kube-api-proxy-kubeconfig
-        configMap:
-          name: kube-api-proxy-kubeconfig
-      containers:
-      - name: proxy
-        image: {{ $proxyImage }}
-        imagePullPolicy: Always
-        command: ["/proxy"]
-        resources:
-          requests:
-          {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
-          {{- if not ( $ctx.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-          {{- include "cdi.kubeproxy_resources" . | nindent 12 }}
-          {{- end }}
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-      - name: {{ $containerName }}
-        env:
-        - name: KUBECONFIG
-          value: /kubeconfig.local/proxy.kubeconfig
-        volumeMounts:
-        - name: kube-api-proxy-kubeconfig
-          mountPath: /kubeconfig.local
-{{- end -}}
-
 {{- define "cdi.apiserver_kubeproxy_patch" -}}
   '{{ include "cdi.apiserver_kubeproxy_patch_tmpl" . | fromYaml | toJson }}'
 {{- end }}
 
 {{- define "cdi.apiserver_kubeproxy_patch_tmpl" -}}
   {{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") }}
-  {{- $proxyImage = "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest" }}
 spec:
   template:
     spec:
@@ -88,12 +15,11 @@ spec:
       - name: proxy
         image: {{ $proxyImage }}
         imagePullPolicy: Always
-        command: ["/proxy"]
         resources:
           requests:
           {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
           {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-          {{- include "cdi.kubeproxy_resources" . | nindent 12 }}
+          {{- include "kubeproxy_resources" . | nindent 12 }}
           {{- end }}
         securityContext:
           allowPrivilegeEscalation: false

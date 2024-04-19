@@ -2,7 +2,9 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
 {{- $kubeAPIProxyRewriter := true }}
+{{- $webhookProxyPort :=  24192 }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: DVPInternalKubeVirt
@@ -28,6 +30,9 @@ spec:
       - Sidecar
       - VolumeSnapshotDataSource
   customizeComponents:
+    flags:
+      api: {}
+      controller: {}
     patches:
     - resourceType: Deployment
       resourceName: virt-api
@@ -56,160 +61,35 @@ spec:
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment
       resourceName: virt-api
-      patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"kubevirt.io","operator":"In","values":["virt-api"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-      type: json
+      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-api") }}
+      type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: '[{"op":"replace","path":"/spec/template/spec/affinity","value":{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchExpressions":[{"key":"kubevirt.io","operator":"In","values":["virt-controller"]}]},"topologyKey":"kubernetes.io/hostname"}]}}}]'
-      type: json
+      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-controller") }}
+      type: strategic
     {{- end }}
+
     {{- if $kubeAPIProxyRewriter }}
-    #"image": "{{ include "helm_lib_module_image" (list . "kubeApiProxy") }}",
     - resourceName: virt-controller
       resourceType: Deployment
-      patch: |
-        {"spec":{"template":{"spec":{
-          "volumes": [{
-            "name":"kube-api-proxy-kubeconfig",
-            "configMap": {"name": "kube-api-proxy-kubeconfig" }
-          }],
-          "containers":[{
-            "name":"virt-controller",
-            "command": ["virt-controller", "--kubeconfig=/kubeconfig.local/proxy.kubeconfig"],
-            "volumeMounts":[{
-              "name": "kube-api-proxy-kubeconfig",
-              "mountPath": "/kubeconfig.local"
-            }]
-          }, {
-            "name": "proxy",
-            "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-            "imagePullPolicy": "Always",
-            "command": ["/proxy"],
-            "securityContext": {
-              "allowPrivilegeEscalation": false,
-              "capabilities": {"drop": ["ALL"]},
-              "seccompProfile": {
-                "type": "RuntimeDefault"
-              }
-            },
-            "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File"
-          }]
-        }}}}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-controller") }}
       type: strategic
+
     - resourceName: virt-api
       resourceType: Deployment
-      patch: |
-        {"spec":{"template":{"spec":{
-          "volumes": [{
-            "name":"kube-api-proxy-kubeconfig",
-            "configMap": {"name": "kube-api-proxy-kubeconfig" }
-          }],
-          "containers":[{
-            "name":"virt-api",
-            "command": ["virt-api", "--kubeconfig=/kubeconfig.local/proxy.kubeconfig"],
-            "volumeMounts":[{
-              "name": "kube-api-proxy-kubeconfig",
-              "mountPath": "/kubeconfig.local"
-            }]
-          }, {
-            "name": "proxy",
-            "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-            "imagePullPolicy": "Always",
-            "command": ["/proxy"],
-            "securityContext": {
-              "allowPrivilegeEscalation": false,
-              "capabilities": {"drop": ["ALL"]},
-              "seccompProfile": {
-                "type": "RuntimeDefault"
-              }
-            },
-            "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File",
-            "ports": [{"containerPort": 24192, "name":"webhook-proxy", "protocol":"TCP"}],
-            "env": [
-              { "name": "WEBHOOK_ADDRESS",
-                "value": "https://127.0.0.1:8443"
-              },
-              { "name": "WEBHOOK_CERT_FILE",
-                "value": "/etc/virt-api/certificates/tls.crt"
-              },
-              { "name": "WEBHOOK_KEY_FILE",
-                "value": "/etc/virt-api/certificates/tls.key"
-              }
-            ],
-            "volumeMounts":[{
-              "name": "kubevirt-virt-api-certs",
-              "mountPath": "/etc/virt-api/certificates",
-              "readOnly": true
-            }]
-          }]
-        }}}}
+      patch: {{ include "kubevirt.apiserver_kubeproxy_patch" . }}
       type: strategic
+
     - resourceName: virt-handler
       resourceType: DaemonSet
-      patch: |
-        {"spec":{"template":{"spec":{
-          "volumes": [{
-            "name":"kube-api-proxy-kubeconfig",
-            "configMap": {"name": "kube-api-proxy-kubeconfig" }
-          }],
-          "containers":[{
-            "name":"virt-handler",
-            "command": ["virt-handler", "--kubeconfig=/kubeconfig.local/proxy.kubeconfig"],
-            "volumeMounts":[{
-              "name": "kube-api-proxy-kubeconfig",
-              "mountPath": "/kubeconfig.local"
-            }]
-          }, {
-            "name": "proxy",
-            "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-            "imagePullPolicy": "Always",
-            "command": ["/proxy"],
-            "securityContext": {
-              "allowPrivilegeEscalation": false,
-              "capabilities": {"drop": ["ALL"]},
-              "seccompProfile": {
-                "type": "RuntimeDefault"
-              }
-            },
-            "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File"
-          }]
-        }}}}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-handler") }}
       type: strategic
+
     - resourceName: virt-exportproxy
       resourceType: Deployment
-      patch: |
-        {"spec":{"template":{"spec":{
-          "volumes": [{
-            "name":"kube-api-proxy-kubeconfig",
-            "configMap": {"name": "kube-api-proxy-kubeconfig" }
-          }],
-          "containers":[{
-            "name":"exportproxy",
-            "args": ["--kubeconfig=/kubeconfig.local/proxy.kubeconfig"],
-            "volumeMounts":[{
-              "name": "kube-api-proxy-kubeconfig",
-              "mountPath": "/kubeconfig.local"
-            }]
-          }, {
-            "name": "proxy",
-            "image": "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest",
-            "imagePullPolicy": "Always",
-            "command": ["/proxy"],
-            "securityContext": {
-              "allowPrivilegeEscalation": false,
-              "capabilities": {"drop": ["ALL"]},
-              "seccompProfile": {
-                "type": "RuntimeDefault"
-              }
-            },
-            "terminationMessagePath": "/dev/termination-log",
-            "terminationMessagePolicy": "File"
-          }]
-        }}}}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "exportproxy") }}
       type: strategic
+
     # Patch services used in webhook configurations, add webhook-proxy port 24192.
     - resourceName: virt-api
       resourceType: Service
@@ -221,7 +101,7 @@ spec:
       patch: |
         {"spec":{"ports":[
           {"name": "webhook-proxy",
-           "port": 24192,
+           "port": {{ $webhookProxyPort }},
            "protocol": "TCP",
            "targetPort": "webhook-proxy"}
         ]}}
@@ -231,7 +111,7 @@ spec:
       patch: |
         {"spec":{"ports":[
           {"name": "webhook-proxy",
-           "port": 24192,
+           "port": {{ $webhookProxyPort }},
            "protocol": "TCP",
            "targetPort": "webhook-proxy"}
         ]}}
@@ -247,79 +127,79 @@ spec:
           "webhooks": [
             {
               "name": "virt-launcher-eviction-interceptor.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstances-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstances-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachine-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinereplicaset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinepool-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinepreset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migration-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migration-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinerestore-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineexport-validator.export.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinepreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineclusterpreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "kubevirt-crd-status-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migration-policy-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "vm-clone-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             }
           ]
         }
@@ -335,19 +215,19 @@ spec:
           "webhooks": [
             {
               "name": "virtualmachines-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstances-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migrations-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineclones-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             }
           ]
         }
@@ -363,63 +243,16 @@ spec:
           "webhooks": [
             {
               "name": "kubevirt-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "kubevirt-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": 24192}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             }
           ]
         }
 
       type: strategic
-    {{- end }}
-
-    {{- if ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"virt-api", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"virt-controller", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"virt-handler", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    {{- if $kubeAPIProxyRewriter }}
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"proxy", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"proxy", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      patch: |
-        {"spec":{"template":{"spec":{"containers":[
-          {"name":"proxy", "resources":{"requests":{}}}
-        ]}}}}
-      type: strategic
-    {{- end }}
     {{- end }}
 
   imagePullPolicy: IfNotPresent
