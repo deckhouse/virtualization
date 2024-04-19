@@ -12,7 +12,7 @@ Let's create namespace where we will create virtual machines:
 kubectl create ns vms
 ```
 
-Let's create a virtual machine disk from an external source:
+Let's create a virtual disk from an external source:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -84,7 +84,7 @@ Let's check that the virtual machine is created and running:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# NAME       PHASE     NODE       IPADDRESS    AGE
 # linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
@@ -336,7 +336,7 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachineName: linux-vm # имя виртуальной машины, к которой будет подключен диск
+  virtualMachine: linux-vm # имя виртуальной машины, к которой будет подключен диск
   blockDevice:
     type: ObjectRef
     objectRef:
@@ -462,7 +462,7 @@ After startup, the virtual machine must be in `Ready` status.
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
@@ -486,7 +486,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaimName: <claim-name>
+  virtualMachineIPAddressClaim: <claim-name>
 ```
 
 ### 2. Configuring virtual machine placement rules
@@ -511,7 +511,7 @@ After making changes to the machine configuration, nothing will happen because t
 
 How can we figure this out?
 
-Let's look at the status of the VM:
+Let's look at the status of the virtual machine:
 
 ```bash
 kubectl get linux-vm -o jsonpath='{.status}'
@@ -528,7 +528,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart
 spec:
-  virtualMachineName: linux-vm
+  virtualMachine: linux-vm
   type: Restart
 EOF
 ```
@@ -538,7 +538,7 @@ Let's look at the status of the resource that has been created:
 ```bash
 kubectl get vmops restart
 
-# NAME       PHASE       VMNAME     AGE
+# NAME       PHASE       VM         AGE
 # restart    Completed   linux-vm   1m
 ```
 
@@ -571,7 +571,7 @@ then look at the status of the virtual machine
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 

@@ -173,7 +173,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 			return changes
 		}
 
-		// SysprepSecretRef is not nil, compare kinds.
+		// SysprepRef is not nil, compare kinds.
 		changes = compareStrings(
 			"provisioning.sysprepRef.kind",
 			string(currentSecret.Kind),
@@ -185,7 +185,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 			return changes
 		}
 
-		// SysprepSecretRef is not nil, compare names.
+		// SysprepRef is not nil, compare names.
 		return compareStrings(
 			"provisioning.sysprepRef.name",
 			currentSecret.Name,

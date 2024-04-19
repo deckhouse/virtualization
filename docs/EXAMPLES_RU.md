@@ -74,10 +74,9 @@ spec:
         lock_passwd: false
         ssh_authorized_keys:
           - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
-  blockDevices:
-    - type: VirtualDisk
-      virtualDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk
 ```
 
 5. Проверьте с помощью команды, что виртуальная машина создана и запущена:
@@ -85,7 +84,7 @@ spec:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# NAME       PHASE     NODE       IPADDRESS    AGE
 # linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
@@ -344,7 +343,7 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachineName: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
+  virtualMachine: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
   blockDevice:
     type: VirtualDisk
     virtualDisk:
@@ -426,11 +425,10 @@ spec:
     cores: 1
   memory:
     size: 2Gi
-  blockDevices:
+  blockDeviceRefs:
     # Порядок дисков и образов в данном блоке определяет приоритет загрузки.
-    - type: VirtualDisk
-      virtualDisk:
-        name: ubuntu-2204-root
+    - kind: VirtualDisk
+      name: ubuntu-2204-root
 ```
 
 При наличии приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в Secret'е. Пример Secret'а приведен ниже:
@@ -463,7 +461,7 @@ spec:
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
@@ -487,7 +485,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaimName: <claim-name>
+  virtualMachineIPAddressClaim: <claim-name>
 ```
 
 ### 2. Настройка правил размещения виртуальной машины
@@ -529,7 +527,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm
 spec:
-  virtualMachineName: linux-vm
+  virtualMachine: linux-vm
   type: Restart
 EOF
 ```
@@ -539,7 +537,7 @@ EOF
 ```bash
 kubectl get vmops restart-linux-vm
 
-# NAME                PHASE       VMNAME     AGE
+# NAME                PHASE       VM         AGE
 # restart-linux-vm    Completed   linux-vm   1m
 ```
 
@@ -572,7 +570,7 @@ cloud@linux-vm$ sudo poweroff
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 

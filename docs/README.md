@@ -48,7 +48,7 @@ The API provides capabilities for creating and managing the following resources:
 - Virtual machines
 - Virtual Machine Operations
 
-### Virtual Machine Images
+### Virtual Images
 
 Images are immutable resources that allow you to create new virtual machines based on preconfigured and configured images. Depending on the type, images can be in `raw`, `qcow2`, `vmdk` and other formats for virtual machine disk images, and in `iso` format for installation images that can be attached as `cdrom devices`.
 
@@ -60,7 +60,7 @@ Images are of two types: clustered `ClusterVirtualImage`, which are available to
 
 For `ClusterVirtualImage`, images are stored only in `DVCR`, while for `VirtualImage` you can use both `DVCR` and platform-provided storage (`PVC`).
 
-### Virtual Machine Disks
+### Virtual Disks
 
 Creating disks for virtual machines is provided by the `VirtualDisk` resource. Disks are used in the virtual machine as the primary storage medium. Disks can be created from external sources, previously created images (`VirtualImage` or `ClusterVirtualImage`) or can be created `empty`.
 

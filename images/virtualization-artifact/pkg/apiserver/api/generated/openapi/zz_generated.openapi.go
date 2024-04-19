@@ -2087,7 +2087,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDevic
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineName": {
+					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -2101,7 +2101,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDevic
 						},
 					},
 				},
-				Required: []string{"virtualMachineName", "blockDevice"},
+				Required: []string{"virtualMachine", "blockDevice"},
 			},
 		},
 		Dependencies: []string{
@@ -2115,7 +2115,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineBlockDevic
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineName": {
+					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2701,7 +2701,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineIPAddressC
 				Description: "VirtualMachineIPAddressClaimStatus is the observed state of `VirtualMachineIPAddressClaim`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineName": {
+					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the virtual machine that currently uses this IP address.",
 							Type:        []string{"string"},
@@ -3299,7 +3299,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineOperationS
 							Format:  "",
 						},
 					},
-					"virtualMachineName": {
+					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -3313,7 +3313,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineOperationS
 						},
 					},
 				},
-				Required: []string{"type", "virtualMachineName"},
+				Required: []string{"type", "virtualMachine"},
 			},
 		},
 	}
@@ -3365,7 +3365,7 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualMachineSpec(ref c
 							Format:      "",
 						},
 					},
-					"virtualMachineIPAddressClaimName": {
+					"virtualMachineIPAddressClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineIPAddressClaim specifies a name for the associated `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.",
 							Type:        []string{"string"},
