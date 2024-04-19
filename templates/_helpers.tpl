@@ -34,7 +34,7 @@ memory: 150Mi
 {{- define "nowebhook_kubeproxy_patch_tmpl" -}}
   {{- $ctx := index . 0 -}}
   {{- $containerName := index . 1 -}}
-  {{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") }}
+  {{- $proxyImage := include "helm_lib_module_image" (list $ctx "kubeApiProxy") }}
 spec:
   template:
     spec:
