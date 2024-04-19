@@ -68,7 +68,7 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
+  blockDeviceRefs:
     - kind: ClusterVirtualImage
       name: win-11-iso
     - kind: ClusterVirtualImage
@@ -92,14 +92,13 @@ spec:
   # ...
   runPolicy: AlwaysON
   # ...
-  blockDevices:
+  blockDeviceRefs:
     # remove all ClusterVirtualImage resources with iso disks from this section
-    - type: VirtualDisk
-      virtualDisk:
-        name: win-disk
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
-## How to create a virtual machine image for container registry
+## How to create a virtual image for container registry
 
 The virtual machine disk image stored in the container registry must be created in a special way.
 
@@ -182,7 +181,7 @@ metadata:
 
 ## How to provide windows answer file (Sysprep)
 
-To provide Sysprep ability it's necessary to define in virtual machine with SysprepSecret provisioning.
+To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
 Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
 You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
 
@@ -209,8 +208,9 @@ metadata:
     vm: win
 spec:
   provisioning:
-    type: SysprepSecret
-    sysprepSecretRef:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
       name: sysprep-config
   runPolicy: AlwaysOn
   osType: Windows
@@ -221,14 +221,11 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-11-iso
-    - type: ClusterVirtualImage
-      clusterVirtualImage:
-        name: win-virtio-iso
-    - type: VirtualDisk
-      virtualDisk:
-        name: win-disk
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
