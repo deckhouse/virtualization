@@ -8,7 +8,7 @@ var KubevirtRewriteRules = &RewriteRules{
 	KindPrefix:         "DVPInternal", // KV
 	ResourceTypePrefix: "dvpinternal", // kv
 	ShortNamePrefix:    "dvp",
-	Categories:         []string{"kubevirt"},
+	Categories:         []string{"dvpinternal"},
 	RenamedGroup:       "internal.virtualization.deckhouse.io",
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
