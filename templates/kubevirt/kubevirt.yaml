@@ -4,6 +4,7 @@
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
 {{- $kubeAPIProxyRewriter := true }}
+{{- $webhookProxyPort :=  24192 }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: DVPInternalKubeVirt
@@ -29,6 +30,9 @@ spec:
       - Sidecar
       - VolumeSnapshotDataSource
   customizeComponents:
+    flags:
+      api: {}
+      controller: {}
     patches:
     - resourceType: Deployment
       resourceName: virt-api
@@ -69,7 +73,7 @@ spec:
     #"image": "{{ include "helm_lib_module_image" (list . "kubeApiProxy") }}",
     - resourceName: virt-controller
       resourceType: Deployment
-      patch: {{ include "kubevirt.nowebhook_kubeproxy_patch" (list . "virt-controller") }}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-controller") }}
       type: strategic
 
     - resourceName: virt-api
@@ -79,12 +83,12 @@ spec:
 
     - resourceName: virt-handler
       resourceType: DaemonSet
-      patch: {{ include "kubevirt.nowebhook_kubeproxy_patch" (list . "virt-handler") }}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-handler") }}
       type: strategic
 
     - resourceName: virt-exportproxy
       resourceType: Deployment
-      patch: {{ include "kubevirt.nowebhook_kubeproxy_patch" (list . "exportproxy") }}
+      patch: {{ include "nowebhook_kubeproxy_patch" (list . "exportproxy") }}
       type: strategic
 
     # Patch services used in webhook configurations, add webhook-proxy port 24192.
@@ -124,79 +128,79 @@ spec:
           "webhooks": [
             {
               "name": "virt-launcher-eviction-interceptor.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstances-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstances-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachine-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinereplicaset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinepool-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinepreset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migration-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "migration-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachinerestore-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineexport-validator.export.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
             },
             {
               "name": "virtualmachineinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "virtualmachinepreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "virtualmachineclusterpreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "kubevirt-crd-status-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "migration-policy-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "vm-clone-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             }
           ]
         }
@@ -212,19 +216,19 @@ spec:
           "webhooks": [
             {
               "name": "virtualmachines-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "virtualmachineinstances-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "migrations-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "virtualmachineclones-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             }
           ]
         }
@@ -240,11 +244,11 @@ spec:
           "webhooks": [
             {
               "name": "kubevirt-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             },
             {
               "name": "kubevirt-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": webhook-proxy}}
+              "clientConfig": {"service": {"port": {{ $webhookProxyPort }}}}
             }
           ]
         }
