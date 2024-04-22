@@ -24,7 +24,7 @@ rules:
   - apiGroups:
     - virtualization.deckhouse.io
     resources:
-    - virtualmachineinstances
+    - virtualmachines
     verbs:
     - get
     - list
