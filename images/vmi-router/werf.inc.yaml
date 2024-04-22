@@ -19,10 +19,9 @@ shell:
   - go mod download
   setup:
   - cd /usr/local/go/src/vmi-router
-  - export GO111MODULE=on
   - export GOOS=linux
-  - export CGO_ENABLED=0
   - export GOARCH=amd64
+  - export CGO_ENABLED=0
   - go build -v -a -o vmi-router main.go
 ---
 image: {{ $.ImageName }}

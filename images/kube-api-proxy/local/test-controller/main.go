@@ -126,7 +126,7 @@ func main() {
 	// Setup scheme for all resources
 	scheme := apiruntime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
-		err := f(scheme)
+		err = f(scheme)
 		if err != nil {
 			log.Error(err, "Failed to add to scheme")
 			os.Exit(1)

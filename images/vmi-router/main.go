@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Flant JSC
+Copyright 2023,2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,73 +21,69 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/vishvananda/netlink"
+	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
-	runtimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"vmi-router/netlinkmanager"
 
 	"vmi-router/controllers"
+	"vmi-router/netutil"
+)
+
+const (
+	defaultVerbosity = "1"
+	appName          = "vmi-router"
+	NodeNameEnv      = "NODE_NAME"
 )
 
 var (
-	log                  = ctrl.Log.WithName("vmi-router")
+	log                  = ctrl.Log.WithName(appName)
 	resourcesSchemeFuncs = []func(*runtime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		ciliumv2.AddToScheme,
-		virtv1.AddToScheme,
+		virtv1alpha2.AddToScheme,
 	}
 )
 
-const kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
-
-func init() {
-	overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
-}
-
-func overrideKubevirtCoreGroupName(groupName string) {
-	virtv1.GroupVersion.Group = groupName
-	virtv1.SchemeGroupVersion.Group = groupName
-	virtv1.StorageGroupVersion.Group = groupName
-	for i := range virtv1.GroupVersions {
-		virtv1.GroupVersions[i].Group = groupName
+func setupLogger() {
+	verbose := defaultVerbosity
+	if verboseEnvVarVal := os.Getenv("VERBOSITY"); verboseEnvVarVal != "" {
+		verbose = verboseEnvVarVal
+	}
+	// visit actual flags passed in and if passed check -v and set verbose
+	if fv := flag.Lookup("v"); fv != nil {
+		verbose = fv.Value.String()
+	}
+	if verbose == defaultVerbosity {
+		log.V(1).Info(fmt.Sprintf("Note: increase the -v level in the controller deployment for more detailed logging, eg. -v=%d or -v=%d\n", 2, 3))
+	}
+	verbosityLevel, err := strconv.Atoi(verbose)
+	debug := false
+	if err == nil && verbosityLevel > 1 {
+		debug = true
 	}
 
-	virtv1.VirtualMachineInstanceGroupVersionKind.Group = groupName
-	virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group = groupName
-	virtv1.VirtualMachineInstancePresetGroupVersionKind.Group = groupName
-	virtv1.VirtualMachineGroupVersionKind.Group = groupName
-	virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group = groupName
-	virtv1.KubeVirtGroupVersionKind.Group = groupName
-
-	virtv1.SchemeBuilder = runtime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]runtimeschema.GroupVersion{virtv1.GroupVersion}))
-	virtv1.AddToScheme = virtv1.SchemeBuilder.AddToScheme
-
-	// Also override kubecli scheme related machinery.
-	kubecli.SchemeBuilder = runtime.NewSchemeBuilder(virtv1.AddKnownTypesGenerator([]runtimeschema.GroupVersion{virtv1.GroupVersion}))
-	kubecli.SchemeBuilder.AddToScheme(kubecli.Scheme)
-	kubecli.SchemeBuilder.AddToScheme(clientgoscheme.Scheme)
-}
-
-type cidrFlag []string
-
-func (f *cidrFlag) String() string { return "" }
-func (f *cidrFlag) Set(s string) error {
-	*f = append(*f, s)
-	return nil
+	// The logger instantiated here can be changed to any logger
+	// implementing the logr.Logger interface. This logger will
+	// be propagated through the whole operator, generating
+	// uniform and structured logs.
+	logf.SetLogger(zap.New(zap.Level(zapcore.Level(-1*verbosityLevel)), zap.UseDevMode(debug)))
 }
 
 func main() {
-	var cidrs cidrFlag
+	var cidrs netutil.CIDRSet
 	var dryRun bool
 	var metricsAddr string
 	var probeAddr string
@@ -101,83 +97,99 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	setupLogger()
 
 	var parsedCIDRs []*net.IPNet
 	for _, cidr := range cidrs {
 		_, parsedCIDR, err := net.ParseCIDR(cidr)
 		if err != nil || parsedCIDR == nil {
-			fmt.Println(err, "failed to parse CIDR")
+			log.Error(err, "failed to parse passed CIDRs")
 			os.Exit(1)
 		}
 		parsedCIDRs = append(parsedCIDRs, parsedCIDR)
 	}
+	log.Info(fmt.Sprintf("Got CIDRs to manage: %+v", cidrs))
 
-	log.Info(fmt.Sprintf("managed CIDRs: %+v", cidrs))
+	if dryRun {
+		log.Info("Dry run mode is enabled, will not change network rules and routes")
+	}
 
-	// Setup scheme for all resources
+	// Load configuration to connect to Kubernetes API Server.
+	kubeCfg, err := config.GetConfig()
+	if err != nil {
+		log.Error(err, "Failed to load Kubernetes config")
+		os.Exit(1)
+	}
+
+	// Setup scheme for all used resources (needed for controller-runtime).
 	scheme := runtime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
-		err := f(scheme)
+		err = f(scheme)
 		if err != nil {
 			log.Error(err, "Failed to add to scheme")
 			os.Exit(1)
 		}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+	// This controller watches resources in all namespaces without leader election.
+	// Start metrics and health probe listeners on random ports as hostNetwork is used.
+	managerOpts := manager.Options{
+		LeaderElection: false,
+		Scheme:         scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsAddr,
+		},
 		HealthProbeBindAddress: probeAddr,
-	})
+	}
+
+	mgr, err := ctrl.NewManager(kubeCfg, managerOpts)
 	if err != nil {
-		log.Error(err, "unable to start manager")
+		log.Error(err, "Unable to create manager")
 		os.Exit(1)
 	}
 
-	clientSet, err := kubecli.GetKubevirtClientFromRESTConfig(mgr.GetConfig())
-	if err != nil {
-		log.Error(err, "unable to create clientset")
+	// Setup context to gracefully handle termination.
+	ctx := signals.SetupSignalHandler()
+
+	netlinkMgr := netlinkmanager.New(mgr.GetClient(), log, parsedCIDRs, dryRun)
+
+	// Setup main controller with its dependencies.
+	if err = controllers.NewVMRouterController(mgr, log, netlinkMgr); err != nil {
+		log.Error(err, "Unable to add vmi router controller to manager")
 		os.Exit(1)
 	}
 
-	controller := controllers.VMIRouterController{
-		RESTClient:        clientSet.RestClient(),
-		Client:            mgr.GetClient(),
-		CIDRs:             parsedCIDRs,
-		RouteGet:          netlink.RouteGet,
-		RouteDel:          netlink.RouteDel,
-		RouteReplace:      netlink.RouteReplace,
-		RuleAdd:           netlink.RuleAdd,
-		RuleDel:           netlink.RuleDel,
-		RuleListFiltered:  netlink.RuleListFiltered,
-		RouteListFiltered: netlink.RouteListFiltered,
+	if err = mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error(err, "Unable to set up health check")
+		os.Exit(1)
 	}
-	if dryRun {
-		controller.RuleAdd = func(*netlink.Rule) error { return nil }
-		controller.RuleDel = func(*netlink.Rule) error { return nil }
-		controller.RouteDel = func(*netlink.Route) error { return nil }
-		controller.RouteReplace = func(*netlink.Route) error { return nil }
-	}
-
-	if err := mgr.Add(controller); err != nil {
-		log.Error(err, "unable to add vmi router controller to manager")
+	if err = mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		log.Error(err, "Unable to set up ready check")
 		os.Exit(1)
 	}
 
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
+	// Init rules and cleanup unused routes at start.
+	go func() {
+		mgr.GetCache().WaitForCacheSync(ctx)
 
-	log.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.Error(err, "problem running manager")
+		// Do full reconcile of routes at start.
+		log.Info(fmt.Sprintf("Cache synced at start, remove unused routes on node %s", os.Getenv(NodeNameEnv)))
+		err := netlinkMgr.SyncRules()
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to create routing rules ar start"))
+			return
+		}
+
+		err = netlinkMgr.SyncRoutes(ctx)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to cleanup routes for removed VMs at start"))
+			return
+		}
+	}()
+
+	log.Info("Starting manager")
+	if err = mgr.Start(ctx); err != nil {
+		log.Error(err, "Unable to start manager")
 		os.Exit(1)
 	}
 }
