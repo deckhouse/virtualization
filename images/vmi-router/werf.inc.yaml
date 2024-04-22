@@ -1,6 +1,6 @@
 ---
 artifact: vmi-router-builder
-fromImage: base-golang-19-buster
+fromImage: base-golang-21-bookworm
 git:
 - add: /images/{{ $.ImageName }}
   to: /usr/local/go/src/vmi-router
