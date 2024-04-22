@@ -22,6 +22,14 @@ rules:
     - list
     - watch
   - apiGroups:
+    - virtualization.deckhouse.io
+    resources:
+    - virtualmachineinstances
+    verbs:
+    - get
+    - list
+    - watch
+  - apiGroups:
     - "cilium.io"
     resources:
     - ciliumnodes
