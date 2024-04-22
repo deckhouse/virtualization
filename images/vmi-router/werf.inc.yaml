@@ -32,7 +32,7 @@ shell:
 image: {{ $.ImageName }}
 fromImage: base-ubuntu-jammy
 import:
-- artifact: vmi-router-builder
+- image: vmi-router-builder
   add: /app/images/vmi-router/vmi-router
   to: /app/vmi-router
   after: install
