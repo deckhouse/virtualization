@@ -83,9 +83,8 @@ spec:
               {{- end }}
           env: {{ include "virtualization-controller.envs" . | nindent 12 }}
         - name: proxy
-          #image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
-          image: "dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest"
-          imagePullPolicy: Always
+          image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
+          imagePullPolicy: IfNotPresent
           command:
             - /proxy
           resources: {}
