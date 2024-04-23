@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"strconv"
 
+	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	apiruntimeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -40,40 +40,14 @@ var (
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
 		kvv1.AddToScheme,
+		virtv1alpha2.AddToScheme,
 	}
 )
 
 const (
-	podNamespaceVar       = "POD_NAMESPACE"
-	defaultVerbosity      = "1"
-	kubevirtCoreGroupName = "x.virtualization.deckhouse.io"
-	cdiCoreGroupName      = "x.virtualization.deckhouse.io"
+	podNamespaceVar  = "POD_NAMESPACE"
+	defaultVerbosity = "1"
 )
-
-func init() {
-	if os.Getenv("RENAME") == "yes" {
-		overrideKubevirtCoreGroupName(kubevirtCoreGroupName)
-	}
-}
-
-func overrideKubevirtCoreGroupName(groupName string) {
-	kvv1.GroupVersion.Group = groupName
-	kvv1.SchemeGroupVersion.Group = groupName
-	kvv1.StorageGroupVersion.Group = groupName
-	for i := range kvv1.GroupVersions {
-		kvv1.GroupVersions[i].Group = groupName
-	}
-
-	kvv1.VirtualMachineInstanceGroupVersionKind.Group = groupName
-	kvv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group = groupName
-	kvv1.VirtualMachineInstancePresetGroupVersionKind.Group = groupName
-	kvv1.VirtualMachineGroupVersionKind.Group = groupName
-	kvv1.VirtualMachineInstanceMigrationGroupVersionKind.Group = groupName
-	kvv1.KubeVirtGroupVersionKind.Group = groupName
-
-	kvv1.SchemeBuilder = apiruntime.NewSchemeBuilder(kvv1.AddKnownTypesGenerator([]apiruntimeschema.GroupVersion{kvv1.GroupVersion}))
-	kvv1.AddToScheme = kvv1.SchemeBuilder.AddToScheme
-}
 
 func setupLogger() {
 	verbose := defaultVerbosity
@@ -149,23 +123,80 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	log.Info("Bootstrapping the Manager.")
 
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	log.Info("Starting the Manager.")
+	// Add initial lister to sync rules and routes at start.
+	initLister := &InitialLister{
+		client: mgr.GetClient(),
+		log:    log,
+	}
+	err = mgr.Add(initLister)
+	if err != nil {
+		log.Error(err, "add initial lister to the manager")
+	}
 
+	//
 	if _, err := NewController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-	// Start the Manager
+	// Start the Manager.
 	if err := mgr.Start(ctx); err != nil {
 		log.Error(err, "manager exited non-zero")
 		os.Exit(1)
 	}
+}
+
+// InitialLister is a Runnable implementatin to access existing objects
+// before handling any event with Reconcile method.
+type InitialLister struct {
+	log    logr.Logger
+	client client.Client
+}
+
+func (i *InitialLister) Start(ctx context.Context) error {
+	cl := i.client
+
+	// List VMs, Pods, CRDs before starting manager.
+	vms := virtv1alpha2.VirtualMachineList{}
+	err := cl.List(ctx, &vms)
+	if err != nil {
+		i.log.Error(err, "list VMs")
+		return err
+	}
+	log.Info(fmt.Sprintf("List returns %d VMs", len(vms.Items)))
+	for _, vm := range vms.Items {
+		i.log.Info(fmt.Sprintf("observe VM %s/%s at start", vm.GetNamespace(), vm.GetName()))
+	}
+
+	pods := corev1.PodList{}
+	err = cl.List(ctx, &pods, client.InNamespace(""))
+	if err != nil {
+		i.log.Error(err, "list Pods")
+		return err
+	}
+	log.Info(fmt.Sprintf("List returns %d Pods", len(pods.Items)))
+	for _, pod := range pods.Items {
+		i.log.Info(fmt.Sprintf("observe Pod %s/%s at start", pod.GetNamespace(), pod.GetName()))
+	}
+
+	crds := extv1.CustomResourceDefinitionList{}
+	err = cl.List(ctx, &crds, client.InNamespace(""))
+	if err != nil {
+		i.log.Error(err, "list Pods")
+		return err
+	}
+	log.Info(fmt.Sprintf("List returns %d CRDs", len(crds.Items)))
+	for _, crd := range crds.Items {
+		i.log.Info(fmt.Sprintf("observe CRD %s/%s at start", crd.GetNamespace(), crd.GetName()))
+	}
+
+	i.log.Info("Initial listing done, proceed to manager Start")
+	return nil
 }
 
 const (
@@ -198,48 +229,68 @@ func NewController(
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachine controller")
+	log.Info("Initialized controller with test watches")
 	return c, nil
 }
 
+// SetupWatches subscripts controller to Pods, CRDs and DVP VMs.
 func SetupWatches(ctx context.Context, mgr manager.Manager, ctr controller.Controller, log logr.Logger) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &kvv1.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv1alpha2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
 		//if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				log.Info("Got CREATE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				log.Info(fmt.Sprintf("Got CREATE event for VM %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				log.Info("Got DELETE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				log.Info(fmt.Sprintf("Got DELETE event for VM %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				log.Info("Got UPDATE event for VM %s/%s", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+				log.Info(fmt.Sprintf("Got UPDATE event for VM %s/%s gvk %v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName(), e.ObjectNew.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VM: %w", err)
+		return fmt.Errorf("error setting watch on DVP VMs: %w", err)
 	}
-	//if err := ctr.Watch(source.Kind(mgr.GetCache(), &kvv1.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+
 	if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				log.Info("Got CREATE event for Pod %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				log.Info(fmt.Sprintf("Got CREATE event for Pod %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				log.Info("Got DELETE event for Pod %s/%s", e.Object.GetNamespace(), e.Object.GetName())
+				log.Info(fmt.Sprintf("Got DELETE event for Pod %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				log.Info("Got UPDATE event for Pod %s/%s", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+				log.Info(fmt.Sprintf("Got UPDATE event for Pod %s/%s gvk %v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName(), e.ObjectNew.GetObjectKind().GroupVersionKind()))
 				return true
 			},
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on Pod: %w", err)
+		return fmt.Errorf("error setting watch on Pods: %w", err)
+	}
+
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &extv1.CustomResourceDefinition{}), &handler.EnqueueRequestForObject{},
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				log.Info(fmt.Sprintf("Got CREATE event for CRD %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				log.Info(fmt.Sprintf("Got DELETE event for CRD %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				log.Info(fmt.Sprintf("Got UPDATE event for CRD %s/%s gvk %v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName(), e.ObjectNew.GetObjectKind().GroupVersionKind()))
+				return true
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on CRDs: %w", err)
 	}
 
 	return nil
