@@ -14,14 +14,6 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "vmi-router")) | nindent 2 }}
 rules:
   - apiGroups:
-    - internal.virtualization.deckhouse.io
-    resources:
-    - dvpinternalvirtualmachineinstances
-    verbs:
-    - get
-    - list
-    - watch
-  - apiGroups:
     - virtualization.deckhouse.io
     resources:
     - virtualmachines

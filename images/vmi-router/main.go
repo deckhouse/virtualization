@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -36,9 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"vmi-router/netlinkmanager"
 
 	"vmi-router/controllers"
+	"vmi-router/netlinkmanager"
 	"vmi-router/netutil"
 )
 
@@ -50,6 +51,7 @@ const (
 
 var (
 	log                  = ctrl.Log.WithName(appName)
+	nodeName             = os.Getenv(NodeNameEnv)
 	resourcesSchemeFuncs = []func(*runtime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		ciliumv2.AddToScheme,
@@ -151,11 +153,35 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
+	// Create netlink manager.
 	netlinkMgr := netlinkmanager.New(mgr.GetClient(), log, parsedCIDRs, dryRun)
 
 	// Setup main controller with its dependencies.
 	if err = controllers.NewVMRouterController(mgr, log, netlinkMgr); err != nil {
 		log.Error(err, "Unable to add vmi router controller to manager")
+		os.Exit(1)
+	}
+
+	// Init rules and cleanup unused routes at start.
+	err = mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		log.Info("Synchronize route rules at start")
+		err := netlinkMgr.SyncRules()
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to synchronize routing rules ar start"))
+			return err
+		}
+
+		log.Info("Synchronize VM routes at start")
+		err = netlinkMgr.SyncRoutes(ctx)
+		if err != nil {
+			log.Error(err, fmt.Sprintf("failed to synchronize VM routes at start"))
+			return err
+		}
+
+		return nil
+	}))
+	if err != nil {
+		log.Error(err, "Add routes synchronizer")
 		os.Exit(1)
 	}
 
@@ -167,25 +193,6 @@ func main() {
 		log.Error(err, "Unable to set up ready check")
 		os.Exit(1)
 	}
-
-	// Init rules and cleanup unused routes at start.
-	go func() {
-		mgr.GetCache().WaitForCacheSync(ctx)
-
-		// Do full reconcile of routes at start.
-		log.Info(fmt.Sprintf("Cache synced at start, remove unused routes on node %s", os.Getenv(NodeNameEnv)))
-		err := netlinkMgr.SyncRules()
-		if err != nil {
-			log.Error(err, fmt.Sprintf("failed to create routing rules ar start"))
-			return
-		}
-
-		err = netlinkMgr.SyncRoutes(ctx)
-		if err != nil {
-			log.Error(err, fmt.Sprintf("failed to cleanup routes for removed VMs at start"))
-			return
-		}
-	}()
 
 	log.Info("Starting manager")
 	if err = mgr.Start(ctx); err != nil {
