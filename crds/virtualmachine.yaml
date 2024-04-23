@@ -1029,7 +1029,14 @@ spec:
                       hotpluggable:
                         type: boolean
                         description: |
-                          Block device is available for hot plug.
+                          Block device is hot plugged.
+                      virtualMachineBlockDeviceAttachment:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            description: |
+                              The name of `VirtualMachineBlockDeviceAttachment` resource if disk is hot plugged.
                       type:
                         type: string
                         description: The type of block device.

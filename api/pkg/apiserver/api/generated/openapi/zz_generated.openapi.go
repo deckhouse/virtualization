@@ -33,6 +33,7 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceAttachmentBlockDevice":          schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentBlockDevice(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceAttachmentSpec":                 schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceAttachmentVirtualMachineDisk":   schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentVirtualMachineDisk(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceSpec":                           schema_virtualization_api_core_v1alpha2_BlockDeviceSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatus":                         schema_virtualization_api_core_v1alpha2_BlockDeviceStatus(ref),
@@ -655,6 +656,26 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentBlockDevice(re
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_BlockDeviceAttachmentVirtualMachineDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -740,13 +761,6 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatus(ref common.Refere
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DiskDeviceSpec"),
 						},
 					},
-					"hotpluggable": {
-						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
 					"target": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -761,12 +775,24 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatus(ref common.Refere
 							Format:  "",
 						},
 					},
+					"hotpluggable": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"virtualMachineBlockDeviceAttachment": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceAttachmentSpec"),
+						},
+					},
 				},
-				Required: []string{"type", "virtualMachineImage", "clusterVirtualMachineImage", "virtualMachineDisk", "hotpluggable", "target", "size"},
+				Required: []string{"type", "virtualMachineImage", "clusterVirtualMachineImage", "virtualMachineDisk", "target", "size", "hotpluggable", "virtualMachineBlockDeviceAttachment"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterImageDeviceSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskDeviceSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageDeviceSpec"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceAttachmentSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterImageDeviceSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskDeviceSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageDeviceSpec"},
 	}
 }
 
