@@ -8,7 +8,7 @@ metadata:
     app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
 spec:
   selector:
-    vm.kubevirt.io/name: {{ $.Values.resourcesPrefix }}
+    vm: {{ $.Values.resourcesPrefix }}
   ports:
     - name: metrics
       port: 9100
