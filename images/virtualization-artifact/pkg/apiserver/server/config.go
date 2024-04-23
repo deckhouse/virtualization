@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -18,7 +21,7 @@ var ErrConfigInvalid = errors.New("configuration is invalid")
 type Config struct {
 	Apiserver           *genericapiserver.Config
 	Rest                *rest.Config
-	Kubevirt            rest2.KubevirtApiServerConfig
+	Kubevirt            vmrest.KubevirtApiServerConfig
 	ProxyClientCertFile string
 	ProxyClientKeyFile  string
 }
@@ -62,12 +65,19 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	genericServer, err := c.Apiserver.Complete(nil).New("virtualziation-api", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return nil, err
 	}
-	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager); err != nil {
+	kubeclient, err := apiextensionsv1.NewForConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), virtv2.Resource(virtv2.VMResource).String(), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager, crd); err != nil {
 		return nil, err
 	}
 
