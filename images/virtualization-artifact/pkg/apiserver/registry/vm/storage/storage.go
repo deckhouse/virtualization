@@ -2,13 +2,17 @@ package storage
 
 import (
 	"context"
+	"sort"
 
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
@@ -24,7 +28,7 @@ type VirtualMachineStorage struct {
 	console       *vmrest.ConsoleREST
 	vnc           *vmrest.VNCREST
 	portforward   *vmrest.PortForwardREST
-	rest.TableConvertor
+	convertor     rest.TableConvertor
 }
 
 var (
@@ -42,13 +46,30 @@ func NewStorage(
 	vmLister cache.GenericLister,
 	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	crd *apiextensionsv1.CustomResourceDefinition,
 ) *VirtualMachineStorage {
+	var convertor rest.TableConvertor
+	if crd != nil && len(crd.Spec.Versions) > 0 {
+		newSpec := crd.Spec.DeepCopy()
+		sort.Slice(newSpec.Versions, func(i, j int) bool {
+			return version.CompareKubeAwareVersionStrings(newSpec.Versions[i].Name, newSpec.Versions[j].Name) > 0
+		})
+		for _, ver := range newSpec.Versions {
+			if ver.Served && !ver.Deprecated {
+				if c, err := tableconvertor.New(ver.AdditionalPrinterColumns); err == nil {
+					convertor = c
+					break
+				}
+			}
+		}
+	}
 	return &VirtualMachineStorage{
 		groupResource: groupResource,
 		vmLister:      vmLister,
 		console:       vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
 		vnc:           vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
 		portforward:   vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
+		convertor:     convertor,
 	}
 }
 
@@ -131,4 +152,11 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 		}
 	}
 	return filtered, nil
+}
+
+func (store VirtualMachineStorage) ConvertToTable(ctx context.Context, object, tableOptions runtime.Object) (*metav1.Table, error) {
+	if store.convertor != nil {
+		return store.convertor.ConvertToTable(ctx, object, tableOptions)
+	}
+	return rest.NewDefaultTableConvertor(store.groupResource).ConvertToTable(ctx, object, tableOptions)
 }

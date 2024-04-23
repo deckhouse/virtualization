@@ -1,6 +1,7 @@
 package api
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -9,7 +10,7 @@ import (
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
-	rest2 "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
+	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	"github.com/deckhouse/virtualization/api/subresources"
@@ -52,10 +53,11 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 func Install(
 	vmLister cache.GenericLister,
 	server *genericapiserver.GenericAPIServer,
-	kubevirt rest2.KubevirtApiServerConfig,
+	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	crd *apiextensionsv1.CustomResourceDefinition,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"), vmLister, kubevirt, proxyCertManager)
+	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"), vmLister, kubevirt, proxyCertManager, crd)
 	info := Build(vmStorage)
 	return server.InstallAPIGroup(&info)
 }
