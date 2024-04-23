@@ -203,7 +203,25 @@ func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
 	}
 
 	rwrOwnerRefs := []byte(`[]`)
+	var err error
 	for _, ownerRef := range ownerRefs {
+		apiVersion := ownerRef.Get("apiVersion").String()
+		group, _, found := strings.Cut(apiVersion, "/")
+		if !found {
+			rwrOwnerRefs, err = sjson.SetRawBytes(rwrOwnerRefs, "-1", []byte(ownerRef.Raw))
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		groupRule := rules.GroupRule(group)
+		if groupRule == nil {
+			rwrOwnerRefs, err = sjson.SetRawBytes(rwrOwnerRefs, "-1", []byte(ownerRef.Raw))
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		kind := ownerRef.Get("kind").String()
 		group, res, _ := rules.ResourceByKind(kind)
 		if group == "" && res == "" {
@@ -212,12 +230,11 @@ func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
 
 		rwrOwnerRef := []byte(ownerRef.Raw)
 
-		rwrOwnerRef, err := sjson.SetBytes(rwrOwnerRef, "kind", rules.RenameKind(kind))
+		rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "kind", rules.RenameKind(kind))
 		if err != nil {
 			return nil, err
 		}
 
-		apiVersion := ownerRef.Get("apiVersion").String()
 		rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "apiVersion", rules.RenameApiVersion(apiVersion))
 		if err != nil {
 			return nil, err
