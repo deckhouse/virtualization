@@ -248,9 +248,9 @@ func (r *VMIReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 
 	vmiStatus := state.VMI.Current().Status.DeepCopy()
 
-	if vmiStatus.Phase != virtv2.ImageReady {
-		vmiStatus.ImportDuration = helper.GetAge(state.VMI.Current()).String()
-	}
+	//if vmiStatus.Phase != virtv2.ImageReady {
+	//	vmiStatus.ImportDuration = helper.GetAge(state.VMI.Current()).String()
+	//}
 
 	switch {
 	case vmiStatus.Phase == "":

@@ -27,7 +27,7 @@ type VirtualDiskSpec struct {
 }
 
 type VirtualDiskStatus struct {
-	ImportDuration string                   `json:"importDuration,omitempty"`
+	//ImportDuration string                   `json:"importDuration,omitempty"`
 	DownloadSpeed  VirtualDiskDownloadSpeed `json:"downloadSpeed"`
 	Capacity       string                   `json:"capacity,omitempty"`
 	Target         DiskTarget               `json:"target"`

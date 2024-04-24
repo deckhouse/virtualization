@@ -105,9 +105,9 @@ spec:
             status:
               type: object
               properties:
-                importDuration:
-                  description: |
-                    Продолжительность импорта образа (от момента создания ресурса до перехода в фазу `Ready`).
+                #importDuration:
+                  #description: |
+                    #Продолжительность импорта образа (от момента создания ресурса до перехода в фазу `Ready`).
                 downloadSpeed:
                   description: |
                     Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
