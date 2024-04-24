@@ -61,6 +61,8 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virt-operator")) | nindent 2 }}
   name: virt-operator
   namespace: d8-{{ .Chart.Name }}
+  annotations:
+    kubectl.kubernetes.io/default-container: virt-operator
 spec:
   {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
   revisionHistoryLimit: 2

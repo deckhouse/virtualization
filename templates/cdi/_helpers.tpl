@@ -4,6 +4,9 @@
 
 {{- define "cdi.apiserver_kubeproxy_patch_tmpl" -}}
   {{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") }}
+metadata:
+  annotations:
+    kubectl.kubernetes.io/default-container: cdi-apiserver
 spec:
   template:
     spec:

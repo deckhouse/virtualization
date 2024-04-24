@@ -45,6 +45,8 @@ metadata:
   name: virtualization-controller
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+  annotations:
+    kubectl.kubernetes.io/default-container: virtualization-controller
 spec:
   {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
   revisionHistoryLimit: 2
@@ -60,6 +62,19 @@ spec:
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
       containers:
+        - name: proxy
+          image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
+          imagePullPolicy: IfNotPresent
+          resources: {}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
         - name: virtualization-controller
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
           imagePullPolicy: Always
@@ -82,19 +97,6 @@ spec:
               {{- include "virtualization_controller_resources" . | nindent 12 }}
               {{- end }}
           env: {{ include "virtualization-controller.envs" . | nindent 12 }}
-        - name: proxy
-          image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
-          imagePullPolicy: IfNotPresent
-          resources: {}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
 
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
