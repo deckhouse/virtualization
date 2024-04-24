@@ -106,7 +106,7 @@ spec:
            "targetPort": "webhook-proxy"}
         ]}}
       type: strategic
-    - resourceName: kubevirt-operator
+    - resourceName: kubevirt-operator-webhook
       resourceType: Service
       patch: |
         {"spec":{"ports":[
