@@ -1,13 +1,18 @@
 ---
-artifact: vmi-router-builder
-fromImage: base-golang-19-buster
+image: vmi-router-builder
+fromImage: base-golang-21-bookworm
 git:
 - add: /images/{{ $.ImageName }}
-  to: /usr/local/go/src/vmi-router
+  to: /app/images/vmi-router
   stageDependencies:
     install:
     - go.mod
     - go.sum
+    setup:
+    - "**/*.go"
+- add: /api
+  to: /app/api
+  stageDependencies:
     setup:
     - "**/*.go"
 mount:
@@ -15,24 +20,23 @@ mount:
   to: /go/pkg
 shell:
   install:
-  - cd /usr/local/go/src/vmi-router
+  - cd /app/images/vmi-router
   - go mod download
   setup:
-  - cd /usr/local/go/src/vmi-router
-  - export GO111MODULE=on
+  - cd /app/images/vmi-router
   - export GOOS=linux
-  - export CGO_ENABLED=0
   - export GOARCH=amd64
+  - export CGO_ENABLED=0
   - go build -v -a -o vmi-router main.go
 ---
 image: {{ $.ImageName }}
 fromImage: base-ubuntu-jammy
 import:
-- artifact: vmi-router-builder
-  add: /usr/local/go/src/vmi-router/vmi-router
-  to: /workspace/vmi-router
+- image: vmi-router-builder
+  add: /app/images/vmi-router/vmi-router
+  to: /app/vmi-router
   after: install
 docker:
   USER: "65532:65532"
-  WORKDIR: "/workspace"
-  ENTRYPOINT: ["/workspace/vmi-router"]
+  WORKDIR: "/app"
+  ENTRYPOINT: ["/app/vmi-router"]
