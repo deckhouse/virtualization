@@ -290,11 +290,6 @@ func (r *VMDReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, sta
 	}
 
 	vmdStatus := state.VMD.Current().Status.DeepCopy()
-
-	//if vmdStatus.Phase != virtv2.DiskReady {
-	//	vmdStatus.ImportDuration = helper.GetAge(state.VMD.Current()).String()
-	//}
-
 	if vmdStatus.Progress == "" {
 		vmdStatus.Progress = "0%"
 	}

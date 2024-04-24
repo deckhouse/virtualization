@@ -190,11 +190,6 @@ spec:
             status:
               type: object
               properties:
-                #importDuration:
-                  #type: string
-                  #example: 1m44s
-                  #description: |
-                    #The duration of the image import (from the moment of creation resource, to the moment of going to the Ready phase).
                 downloadSpeed:
                   type: object
                   description: |

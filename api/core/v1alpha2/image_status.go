@@ -13,7 +13,6 @@ const (
 )
 
 type ImageStatus struct {
-	//ImportDuration string           `json:"importDuration,omitempty"`
 	DownloadSpeed ImageStatusSpeed `json:"downloadSpeed"`
 	Size          ImageStatusSize  `json:"size"`
 	Format        string           `json:"format"`

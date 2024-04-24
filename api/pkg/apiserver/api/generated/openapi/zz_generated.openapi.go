@@ -949,12 +949,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					//"importDuration": {
-					//	SchemaProps: spec.SchemaProps{
-					//		Type:   []string{"string"},
-					//		Format: "",
-					//	},
-					//},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -1177,12 +1171,6 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					//"importDuration": {
-					//	SchemaProps: spec.SchemaProps{
-					//		Type:   []string{"string"},
-					//		Format: "",
-					//	},
-					//},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -1782,12 +1770,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					//"importDuration": {
-					//	SchemaProps: spec.SchemaProps{
-					//		Type:   []string{"string"},
-					//		Format: "",
-					//	},
-					//},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2063,12 +2045,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					//"importDuration": {
-					//	SchemaProps: spec.SchemaProps{
-					//		Type:   []string{"string"},
-					//		Format: "",
-					//	},
-					//},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},

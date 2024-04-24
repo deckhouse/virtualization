@@ -100,9 +100,6 @@ spec:
                             Имя существующего `ClusterVirtualImage`.
             status:
               properties:
-                #importDuration:
-                  #description: |
-                    #Продолжительность создания диска (от момента создания ресурса до перехода в фазу `Ready`).
                 downloadSpeed:
                   description: |
                     Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
