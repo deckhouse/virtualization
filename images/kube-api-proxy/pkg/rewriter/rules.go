@@ -105,6 +105,26 @@ func (rr *RewriteRules) GroupRule(group string) *GroupRule {
 	return nil
 }
 
+// KindRules returns rule for group and resource by apiGroup and kind.
+// apiGroup may be a group or a group with version.
+func (rr *RewriteRules) KindRules(apiGroup, kind string) (*GroupRule, *ResourceRule) {
+	group, _, _ := strings.Cut(apiGroup, "/")
+	groupRule, ok := rr.Rules[group]
+	if !ok {
+		return nil, nil
+	}
+
+	for _, resRule := range groupRule.ResourceRules {
+		if resRule.Kind == kind {
+			return &groupRule.GroupRule, &resRule
+		}
+		if resRule.ListKind == kind {
+			return &groupRule.GroupRule, &resRule
+		}
+	}
+	return nil, nil
+}
+
 func (rr *RewriteRules) ResourceRules(group, resource string) (*GroupRule, *ResourceRule) {
 	groupRule, ok := rr.Rules[group]
 	if !ok {
