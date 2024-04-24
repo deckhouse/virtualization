@@ -85,8 +85,6 @@ spec:
         - name: proxy
           image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
           imagePullPolicy: IfNotPresent
-          command:
-            - /proxy
           resources: {}
           securityContext:
             allowPrivilegeEscalation: false

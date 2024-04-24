@@ -239,7 +239,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 		return
 	}
 
-	// Get route for specific nodeIP and create similar for our VMI
+	// Get route for specific nodeIP and create similar for our Virtual Machine.
 	routes, err := m.nlWrapper.RouteGet(nodeIPx)
 	if err != nil || len(routes) == 0 {
 		m.log.Error(err, "failed to get route for node")
