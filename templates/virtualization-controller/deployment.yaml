@@ -65,7 +65,12 @@ spec:
         - name: proxy
           image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
           imagePullPolicy: IfNotPresent
-          resources: {}
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "virtualization_controller_resources" . | nindent 12 }}
+              {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
