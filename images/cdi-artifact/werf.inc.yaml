@@ -18,22 +18,17 @@ shell:
   setup:
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
   - cd /containerized-data-importer
-  - echo "Space before build"; df -h
   - |
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
       git apply ${p} || echo FAIL && echo OK
     done
   - /entrypoint.sh make bazel-build-images DOCKER=0
-  - echo "Space after bazel build images"; df -h
   - /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
-  - echo "Space after bazel build"; df -h
   - tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - mkdir -p /images && cd /images && /unpack-bundle.sh /container-images-bundle/
-  - echo "Space before cleanup"; df -h
   # reduce image size (~17Gb)
   - rm -rf /root/.cache
   - rm -rf /container-images-bundle
   - rm -rf /containerized-data-importer
   - rm -rf /tmp/*
-  - echo "Space after cleanup"; df -h
