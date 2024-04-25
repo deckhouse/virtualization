@@ -272,35 +272,6 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	{
-		hasKVVM := state.KVVM != nil
-		kvvmStatus := ""
-		if hasKVVM {
-			kvvmStatus = string(state.KVVM.Status.PrintableStatus)
-		}
-		hasKVVMI := state.KVVMI != nil
-		kvvmiPhase := ""
-		if hasKVVMI {
-			kvvmiPhase = string(state.KVVMI.Status.Phase)
-		}
-		hasClaim := state.IPAddressClaim != nil
-		claimPhase := ""
-		claimVMName := ""
-		if hasClaim {
-			claimPhase = string(state.IPAddressClaim.Status.Phase)
-			claimVMName = state.IPAddressClaim.Status.VMName
-		}
-		opts.Log.Info(fmt.Sprintf("state: kvvm? %t, status=%s, kvvmi? %t, phase=%s, claim? %t, phase=%s, nodename=%s",
-			hasKVVM,
-			kvvmStatus,
-			hasKVVMI,
-			kvvmiPhase,
-			hasClaim,
-			claimPhase,
-			claimVMName,
-		))
-	}
-
 	if state.isDeletion() {
 		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
 		return nil
