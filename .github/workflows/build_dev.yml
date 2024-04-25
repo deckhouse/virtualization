@@ -33,7 +33,7 @@ jobs:
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      
+
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
@@ -88,31 +88,31 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.21"
-      
+
       - name: Install Task
         uses: arduino/setup-task@v2
-        
+
       - uses: actions/checkout@v4
-        
+
       - name: Run lint virtualization-controller
         run: |
           task virtualization-controller:init
           task virtualization-controller:lint:go
-  
+
   lint_yaml:
     runs-on: ubuntu-latest
     name: Run yaml linter
     steps:
       - name: Install Task
         uses: arduino/setup-task@v2
-        
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Lint yaml with prettier
         run: task -p lint:prettier:yaml
-  
+
   test:
     runs-on: ubuntu-latest
     name: Run unit test
@@ -121,12 +121,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.21"
-      
+
       - name: Install Task
         uses: arduino/setup-task@v2
-      
+
       - uses: actions/checkout@v4
-      
+
       - name: Run test hooks
         run: |
           task hooks:test
@@ -139,19 +139,19 @@ jobs:
   dev_setup_build:
     runs-on: ubuntu-latest
     name: Build and Push images
-    steps:      
+    steps:
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      
+
       - name: Set vars for main
         if: ${{ github.ref_name == 'main' }}
         run: |
           MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-      
+
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -171,9 +171,9 @@ jobs:
       - uses: deckhouse/modules-actions/build@v1
 
       - run: |
-              IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
-              echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-              crane copy ${IMAGE_SRC} ${IMAGE_DST} 
+          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+          crane copy ${IMAGE_SRC} ${IMAGE_DST}
         if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main
