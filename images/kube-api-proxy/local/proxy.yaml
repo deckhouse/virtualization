@@ -1,3 +1,4 @@
+# NOTE: copy Secret/deckhouse-registry from d8-system to the target namespace.
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -23,7 +24,7 @@ spec:
         - name: "deckhouse-registry"
       containers:
         - name: proxy-only
-          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          image: dev-registry.deckhouse.io/virt/dev/{{ .USER }}/kube-api-proxy:latest
           imagePullPolicy: Always
           command:
             - /proxy
@@ -31,7 +32,7 @@ spec:
             - name: CLIENT_PROXY_PORT
               value: "23916"
         - name: proxy
-          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          image: dev-registry.deckhouse.io/virt/dev/{{ .USER }}/kube-api-proxy:latest
           imagePullPolicy: Always
           command:
             - /proxy
@@ -50,7 +51,7 @@ spec:
             - mountPath: /tmp/proxy-webhook/serving-certs
               name: test-admission-webhook
         - name: controller
-          image: dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+          image: dev-registry.deckhouse.io/virt/dev/{{ .USER }}/kube-api-proxy:latest
           imagePullPolicy: Always
           command:
             - /test-controller
@@ -76,17 +77,6 @@ spec:
         - name: test-admission-webhook
           secret:
             secretName: test-admission-webhook
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: deckhouse-registry
-type: kubernetes.io/dockerconfigjson
-data:
-  .dockerconfigjson: eyJhdXRocyI6eyJkZXYtcmVnaXN0cnkuZGVja2hvdXNlLmlvIjp7ImF1dGgiOiJiR2xqWlc1elpTMTBiMnRsYmpvNFVrZDFSR2RWVjBObGRFSkdXRUZ4UVVoWWVHOVRjR0ZRWkZsS05FcERWdz09In19fQ==
-  address: ZGV2LXJlZ2lzdHJ5LmRlY2tob3VzZS5pbw==
-  path: L3N5cy9kZWNraG91c2Utb3Nz
-  scheme: aHR0cHM=
 ---
 apiVersion: v1
 kind: ServiceAccount

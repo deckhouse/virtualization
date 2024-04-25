@@ -8,18 +8,18 @@ includes:
     optional: true
 
 vars:
-  DevRegistry: "dev-registry.deckhouse.io/virt/dev"
+  DevRegistry: "dev-registry.deckhouse.io/virt/dev/$USER"
 
 tasks:
   dev:build:
-    desc: "build local image with proxy and test-controller"
+    desc: "build latest image with proxy and test-controller"
     cmds:
       - |
-        docker build . -t dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest -f local/Dockerfile
-        docker push dev-registry.deckhouse.io/virt/dev/diafour/kube-api-proxy:latest
+        docker build . -t {{.DevRegistry}}/kube-api-proxy:latest -f local/Dockerfile
+        docker push {{.DevRegistry}}/kube-api-proxy:latest
 
   dev:deploy:
-    desc: "build local image with proxy and test-controller"
+    desc: "apply manifest with proxy and test-controller"
     cmds:
       - |
         if ! kubectl get no 2>&1 >/dev/null ; then
@@ -30,7 +30,7 @@ tasks:
         kubectl -n kproxy apply -f local/proxy.yaml
 
   dev:restart:
-    desc: "build local image with proxy and test-controller"
+    desc: "restart deployment"
     cmds:
       - |
         if ! kubectl get no 2>&1 >/dev/null ; then
@@ -42,7 +42,7 @@ tasks:
         kubectl -n kproxy scale deployment/kube-api-proxy --replicas=1
 
   dev:redeploy:
-    desc: "build local image with proxy and test-controller"
+    desc: "build, deploy, restart"
     cmds:
       - |
         if ! kubectl get no 2>&1 >/dev/null ; then
@@ -76,44 +76,7 @@ tasks:
         kubectl -n kproxy logs deployments/kube-api-proxy -c proxy-only -f
 
   logs:controller:
-    desc: "Show controller logs"
+    desc: "Show test-controller logs"
     cmds:
       - |
         kubectl -n kproxy logs deployments/kube-api-proxy -c controller -f
-
-  virt-controller:replace:
-    desc: "Run non-patched virt-controller with kube-api-proxy"
-    cmds:
-      - |
-        echo "Scale virt-operator to 0"
-        kubectl -n d8-virtualization scale deploy/virt-operator --replicas=0
-      - |
-        echo "Delete virt-controller"
-        kubectl -n d8-virtualization delete deploy/virt-controller
-      - |
-        echo "Create virt-controller with proxy"
-        kubectl -n d8-virtualization apply -f local/virt-controller.yaml
-
-  virt-controller:restart:
-    desc: "Restart deploy/virt-controller"
-    cmds:
-      - |
-        echo "Scale virt-controller to 0 and back to 1"
-        kubectl -n d8-virtualization scale deploy/virt-controller --replicas=0
-        sleep 2
-        kubectl -n d8-virtualization scale deploy/virt-controller --replicas=1
-
-  virt-controller:restore:
-    desc: "Restore virt-controller with virt-operator"
-    cmds:
-      - |
-        echo "Delete virt-controller with proxy"
-        kubectl -n d8-virtualization delete --wait=true -f local/virt-controller-proxy.yaml || true
-      - |
-        echo "Scale virt-operator to 1"
-        kubectl -n d8-virtualization scale deploy/virt-operator --replicas=0
-        sleep 2
-        kubectl -n d8-virtualization scale deploy/virt-operator --replicas=1
-      - |
-        echo "Watch for deploy/virt-controller"
-        kubectl -n d8-virtualization get --watch-only deploy/virt-controller
