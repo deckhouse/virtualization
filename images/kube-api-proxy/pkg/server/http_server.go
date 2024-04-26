@@ -2,14 +2,15 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
+	logutil "kube-api-proxy/pkg/log"
+	"kube-api-proxy/pkg/tls/certmanager"
 	log "log/slog"
 	"net"
 	"net/http"
 	"sync"
-
-	logutil "kube-api-proxy/pkg/log"
 )
 
 // HTTPServer starts HTTP server with root handler using listen address.
@@ -18,8 +19,7 @@ type HTTPServer struct {
 	InstanceDesc string
 	ListenAddr   string
 	RootHandler  http.Handler
-	CertFile     string
-	KeyFile      string
+	CertManager  certmanager.CertificateManager
 	Err          error
 
 	initLock sync.Mutex
@@ -64,8 +64,10 @@ func (s *HTTPServer) Start() {
 
 	// Start serving HTTP requests, block until server instance stops or returns an error.
 	var err error
-	if s.CertFile != "" && s.KeyFile != "" {
-		err = s.instance.ServeTLS(s.listener, s.CertFile, s.KeyFile)
+	if s.CertManager != nil {
+		s.CertManager.Start()
+		s.setupTLS()
+		err = s.instance.ServeTLS(s.listener, "", "")
 	} else {
 		err = s.instance.Serve(s.listener)
 	}
@@ -81,6 +83,18 @@ func (s *HTTPServer) Start() {
 	return
 }
 
+func (s *HTTPServer) setupTLS() {
+	s.instance.TLSConfig = &tls.Config{
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := s.CertManager.Current()
+			if cert == nil {
+				return nil, errors.New("no server certificate, server is not yet ready to receive traffic")
+			}
+			return cert, nil
+		},
+	}
+}
+
 // Stop shutdowns HTTP server instance and close a done channel.
 // Stop and init may be run in parallel, so initLock is used to wait until
 // variables are initialized.
@@ -93,6 +107,9 @@ func (s *HTTPServer) Stop() {
 	}
 	s.stopped = true
 
+	if s.CertManager != nil {
+		s.CertManager.Stop()
+	}
 	// Shutdown instance if it was initialized.
 	if s.instance != nil {
 		log.Info(fmt.Sprintf("%s: stop", s.InstanceDesc))

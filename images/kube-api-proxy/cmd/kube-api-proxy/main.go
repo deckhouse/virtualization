@@ -1,15 +1,14 @@
 package main
 
 import (
-	log "log/slog"
-	"os"
-
 	"kube-api-proxy/pkg/kubevirt"
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/proxy"
 	"kube-api-proxy/pkg/rewriter"
 	"kube-api-proxy/pkg/server"
 	"kube-api-proxy/pkg/target"
+	log "log/slog"
+	"os"
 )
 
 // This proxy is a proof-of-concept of proxying Kubernetes API requests
@@ -111,8 +110,7 @@ func main() {
 			InstanceDesc: "Webhook proxy",
 			ListenAddr:   lAddr,
 			RootHandler:  proxyHandler,
-			CertFile:     config.CertFile,
-			KeyFile:      config.KeyFile,
+			CertManager:  config.CertManager,
 		}
 		proxies = append(proxies, proxySrv)
 	}

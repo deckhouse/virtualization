@@ -2,7 +2,8 @@ package target
 
 import (
 	"crypto/tls"
-	"fmt"
+	"kube-api-proxy/pkg/tls/certmanager"
+	"kube-api-proxy/pkg/tls/certmanager/filesystem"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,10 +12,9 @@ import (
 )
 
 type Webhook struct {
-	Client   *http.Client
-	URL      *url.URL
-	CertFile string
-	KeyFile  string
+	Client      *http.Client
+	URL         *url.URL
+	CertManager certmanager.CertificateManager
 }
 
 const (
@@ -52,14 +52,7 @@ func NewWebhookTarget() (*Webhook, error) {
 	// Certificate settings.
 	certFile := os.Getenv(WebhookCertFileVar)
 	keyFile := os.Getenv(WebhookKeyFileVar)
-	if certFile == "" && keyFile != "" {
-		return nil, fmt.Errorf("should specify cert file in %s if %s is not empty", WebhookCertFileVar, WebhookKeyFileVar)
-	}
-	if certFile != "" && keyFile == "" {
-		return nil, fmt.Errorf("should specify key file in %s if %s is not empty", WebhookKeyFileVar, WebhookCertFileVar)
-	}
-	webhook.CertFile = certFile
-	webhook.KeyFile = keyFile
+	webhook.CertManager = filesystem.NewFileCertificateManager(certFile, keyFile)
 
 	// Construct TLS client without validation to connect to the local webhook server.
 	dialer := &net.Dialer{
