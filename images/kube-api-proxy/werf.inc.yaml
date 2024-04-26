@@ -1,0 +1,39 @@
+---
+image: {{ $.ImageName }}-builder
+fromImage: base-golang-21-bookworm
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /src/kube-api-proxy
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - cd /src/kube-api-proxy
+    - go mod download
+  setup:
+    - cd /src/kube-api-proxy
+    - export GO111MODULE=on
+    - export GOOS=linux
+    - export CGO_ENABLED=0
+    - export GOARCH=amd64
+    - go build -v -a -o kube-api-proxy ./cmd/kube-api-proxy
+
+---
+image: {{ $.ImageName }}
+fromImage: base-ubuntu-jammy
+import:
+  - image: {{ $.ImageName }}-builder
+    add: /src/kube-api-proxy/kube-api-proxy
+    to: /app/kube-api-proxy
+    after: install
+docker:
+  USER: "65532:65532"
+  WORKDIR: "/app"
+  ENTRYPOINT: ["/app/kube-api-proxy"]

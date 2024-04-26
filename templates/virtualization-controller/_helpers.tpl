@@ -1,5 +1,7 @@
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
+- name: KUBECONFIG
+  value: "/kubeconfig.local/proxy.kubeconfig"
 - name: VERBOSITY
   value: "3"
 - name: FORCE_BRIDGE_NETWORK_BINDING
