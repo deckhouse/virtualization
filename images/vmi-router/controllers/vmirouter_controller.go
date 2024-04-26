@@ -95,11 +95,11 @@ func (c VMIRouterController) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create routing rules: %w", err)
 	}
 
-	log.Info("running cleanup for removed VMIs")
+	log.Info("running cleanup for removed VIs")
 	if err := c.cleanupRemovedVMIs(informer); err != nil {
-		return fmt.Errorf("failed to cleanup removed VMIs: %w", err)
+		return fmt.Errorf("failed to cleanup removed VIs: %w", err)
 	}
-	log.Info("cleanup of removed VMIs completed")
+	log.Info("cleanup of removed VIs completed")
 
 	<-ctx.Done()
 	log.Info("shutting down vmi router controller")

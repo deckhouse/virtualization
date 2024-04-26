@@ -68,7 +68,7 @@ func (r *VMDReconciler) SetupController(ctx context.Context, mgr manager.Manager
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VMD: %w", err)
+		return fmt.Errorf("error setting watch on virtual disk: %w", err)
 	}
 
 	if err := ctr.Watch(
@@ -125,7 +125,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	case state.IsLost():
 		return nil
 	case state.IsReady():
-		opts.Log.Info("VMD ready: cleanup underlying resources")
+		opts.Log.Info("virtual disk ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMD.Current()) {
 			if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
@@ -163,7 +163,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 
 		return nil
 	case state.IsFailed():
-		opts.Log.Info("VMD failed: cleanup underlying resources")
+		opts.Log.Info("virtual disk failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMD.Current()) {
 			if err := r.cleanup(ctx, state.VMD.Changed(), state.Client, state); err != nil {
@@ -178,7 +178,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 		switch {
 		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
-			log.V(1).Info("Start new Pod for VMD")
+			log.V(1).Info("Start new Pod for virtual disk")
 			// Create importer/uploader pod, make sure the VMD owns it.
 			if err := r.startPod(ctx, state, opts); err != nil {
 				return err
@@ -265,7 +265,7 @@ func (r *VMDReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	if state.PVC != nil {
 		details += fmt.Sprintf(" pvc.Name='%s' pvc.Status.Phase='%s'", state.PVC.Name, state.PVC.Status.Phase)
 	}
-	opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("VMD has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.VMD.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("virtual disk has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }

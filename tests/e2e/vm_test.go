@@ -93,15 +93,15 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				GetVmStatus(name, VMStatusRunning)
 			})
 		}
-		When("VMI source", func() {
+		When("VI source", func() {
 			manifest := vmPath("boot/vm_vmi.yaml")
 			Test(manifest)
 		})
-		When("CVMI source", func() {
+		When("CVI source", func() {
 			manifest := vmPath("boot/vm_cvmi.yaml")
 			Test(manifest)
 		})
-		When("VMD source", func() {
+		When("VD source", func() {
 			manifest := vmPath("boot/vm_vmd.yaml")
 			Test(manifest)
 		})

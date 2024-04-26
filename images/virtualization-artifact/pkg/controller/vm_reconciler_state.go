@@ -158,7 +158,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 				Namespace: state.VM.Name().Namespace,
 			}, state.Client, &virtv2.VirtualImage{})
 			if err != nil {
-				return fmt.Errorf("unable to get VMI %q: %w", bd.Name, err)
+				return fmt.Errorf("unable to get VI %q: %w", bd.Name, err)
 			}
 			if vmi == nil {
 				continue
@@ -189,7 +189,7 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 				Namespace: state.VM.Name().Namespace,
 			}, state.Client, &virtv2.VirtualDisk{})
 			if err != nil {
-				return fmt.Errorf("unable to get VMD %q: %w", bd.Name, err)
+				return fmt.Errorf("unable to get virtual disk %q: %w", bd.Name, err)
 			}
 			if vmd == nil {
 				continue
@@ -329,7 +329,7 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 			if vmi, hasKey := state.VMIByName[bd.Name]; hasKey {
 				if controllerutil.AddFinalizer(vmi, virtv2.FinalizerVMIProtection) {
 					if err := state.Client.Update(ctx, vmi); err != nil {
-						return fmt.Errorf("error setting finalizer on a VMI %q: %w", vmi.Name, err)
+						return fmt.Errorf("error setting finalizer on a VI %q: %w", vmi.Name, err)
 					}
 				}
 			}
@@ -345,7 +345,7 @@ func (state *VMReconcilerState) SetFinalizersOnBlockDevices(ctx context.Context)
 			if vmd, hasKey := state.VMDByName[bd.Name]; hasKey {
 				if controllerutil.AddFinalizer(vmd, virtv2.FinalizerVMDProtection) {
 					if err := state.Client.Update(ctx, vmd); err != nil {
-						return fmt.Errorf("error setting finalizer on a VMD %q: %w", vmd.Name, err)
+						return fmt.Errorf("error setting finalizer on a virtual disk %q: %w", vmd.Name, err)
 					}
 				}
 			}

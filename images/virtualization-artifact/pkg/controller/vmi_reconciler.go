@@ -68,7 +68,7 @@ func (r *VMIReconciler) SetupController(ctx context.Context, mgr manager.Manager
 			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VMI: %w", err)
+		return fmt.Errorf("error setting watch on VI: %w", err)
 	}
 
 	if err := ctr.Watch(
@@ -114,7 +114,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 
 	switch {
 	case state.IsDeletion():
-		opts.Log.V(1).Info("Delete VMI, remove protective finalizers")
+		opts.Log.V(1).Info("Delete VI, remove protective finalizers")
 		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
@@ -123,7 +123,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		}
 	case state.IsReady():
-		opts.Log.Info("VMI ready: cleanup underlying resources")
+		opts.Log.Info("VI ready: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
 			return r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
@@ -132,7 +132,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 	case state.IsLost():
 		return nil
 	case state.IsFailed():
-		opts.Log.Info("VMI failed: cleanup underlying resources")
+		opts.Log.Info("VI failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.VMI.Current()) {
 			err := r.cleanup(ctx, state.VMI.Changed(), state.Client, state, opts)
@@ -151,7 +151,7 @@ func (r *VMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *VM
 			return nil
 		case state.CanStartPod():
 			// Create Pod using name and namespace from annotation.
-			opts.Log.V(1).Info("Start new Pod for VMI")
+			opts.Log.V(1).Info("Start new Pod for VI")
 			if err := r.verifyDataSource(state); err != nil {
 				return err
 			}

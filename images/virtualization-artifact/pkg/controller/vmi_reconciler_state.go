@@ -61,7 +61,7 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 func (state *VMIReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
 	if err := state.VMI.UpdateMeta(ctx); err != nil {
-		return fmt.Errorf("unable to update VMI %q meta: %w", state.VMI.Name(), err)
+		return fmt.Errorf("unable to update VI %q meta: %w", state.VMI.Name(), err)
 	}
 	return nil
 }

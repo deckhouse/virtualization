@@ -102,7 +102,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		}
 		return nil
 	case state.IsFailed():
-		opts.Log.Info("CVMI failed: cleanup underlying resources")
+		opts.Log.Info("CVI failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)

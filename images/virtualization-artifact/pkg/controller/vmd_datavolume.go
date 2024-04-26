@@ -29,7 +29,7 @@ func (r *VMDReconciler) getPVCSize(vmd *virtv2.VirtualDisk, state *VMDReconciler
 
 	if vmdutil.IsBlankPVC(vmd) {
 		if pvcSize == nil || pvcSize.IsZero() {
-			return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank VMD")
+			return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank virtual disk")
 		}
 
 		return *pvcSize, nil
@@ -87,14 +87,14 @@ func (r *VMDReconciler) createDataVolume(ctx context.Context, vmd *virtv2.Virtua
 
 	dv, err := r.makeDataVolumeFromVMD(state, state.Supplements.DataVolume(), pvcSize)
 	if err != nil {
-		return fmt.Errorf("apply VMD spec to DataVolume: %w", err)
+		return fmt.Errorf("apply virtual disk spec to DataVolume: %w", err)
 	}
 
 	opts.Log.V(2).Info(fmt.Sprintf("DV gvk before Create: %s", dv.GetObjectKind().GroupVersionKind().String()))
 
 	if err = opts.Client.Create(ctx, dv); err != nil {
 		opts.Log.V(2).Info("Error create new DV spec", "dv.spec", dv.Spec)
-		return fmt.Errorf("create DataVolume/%s for VMD/%s: %w", dv.GetName(), vmd.GetName(), err)
+		return fmt.Errorf("create DataVolume/%s for VD/%s: %w", dv.GetName(), vmd.GetName(), err)
 	}
 	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
 	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec, "dv.gvk", dv.GetObjectKind().GroupVersionKind())
