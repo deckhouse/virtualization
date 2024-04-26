@@ -2,16 +2,18 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"github.com/deckhouse/virtualization/tests/e2e/helper"
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"log"
+	"os"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"log"
-	"os"
-	"time"
+
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -138,13 +140,13 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	RunPolicy                        RunPolicy           `json:"runPolicy"`
-	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
-	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
-	PriorityClassName                string              `json:"priorityClassName"`
-	Tolerations                      []corev1.Toleration `json:"tolerations,omitempty"`
-	TerminationGracePeriodSeconds    *int64              `json:"terminationGracePeriodSeconds,omitempty"`
-	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
+	RunPolicy                     RunPolicy           `json:"runPolicy"`
+	VirtualMachineIPAddressClaim  string              `json:"virtualMachineIPAddressClaim,omitempty"`
+	NodeSelector                  map[string]string   `json:"nodeSelector,omitempty"`
+	PriorityClassName             string              `json:"priorityClassName"`
+	Tolerations                   []corev1.Toleration `json:"tolerations,omitempty"`
+	TerminationGracePeriodSeconds *int64              `json:"terminationGracePeriodSeconds,omitempty"`
+	EnableParavirtualization      bool                `json:"enableParavirtualization,omitempty"`
 
 	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
 }

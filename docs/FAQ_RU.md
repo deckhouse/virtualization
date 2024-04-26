@@ -12,21 +12,21 @@ title: "FAQ"
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: win-disk
   namespace: default
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClassName: local-path
+    storageClass: local-path
 ```
 
 2. Создайте ресурсы с ISO-образами ОС Windows и драйверами virtio:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-11-iso
 spec:
@@ -38,7 +38,7 @@ spec:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: win-virtio-iso
 spec:
@@ -68,16 +68,13 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 После создания ресурса виртуальная машина будет запущена. К ней необходимо подключиться, и с помощью графического установщика выполнить установку ОС и драйверов `virtio`.
@@ -97,11 +94,10 @@ spec:
   # ...
   runPolicy: AlwaysON
   # ...
-  blockDevices:
-    # Удалить из блока все ресурсы ClusterVirtualMachineImage с ISO-дисками.
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    # Удалить из блока все ресурсы ClusterVirtualImage с ISO-дисками.
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 8. После внесенных изменений виртуальная машина запустится, для продолжения работы с ней используйте команду:
@@ -199,7 +195,7 @@ metadata:
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
-{"size":"58G","storageClassName":"linstor-thick-data-r1"}
+{"size":"58G","storageClass":"linstor-thick-data-r1"}
 ```
 
 2. Задайте размер:
@@ -217,7 +213,7 @@ moduleconfig.deckhouse.io/virtualization patched
 ```shell
 kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
 #Output
-{"size":"59G","storageClassName":"linstor-thick-data-r1"}
+{"size":"59G","storageClass":"linstor-thick-data-r1"}
 
 kubectl get pvc dvcr -n d8-virtualization
 #Output
@@ -227,7 +223,7 @@ dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO     
 
 ## Как предоставить файл ответов windows (Sysprep)
 
-Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepSecret.
+Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepRef.
 
 Прежде всего необходимо создать секрет:
 
@@ -254,8 +250,9 @@ metadata:
     vm: win
 spec:
   provisioning:
-    type: SysprepSecret
-    sysprepSecretRef:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
       name: sysprep-config
   runPolicy: AlwaysOn
   osType: Windows
@@ -266,14 +263,11 @@ spec:
   memory:
     size: 8Gi
   enableParavirtualization: true
-  blockDevices:
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-11-iso
-    - type: ClusterVirtualMachineImage
-      clusterVirtualMachineImage:
-        name: win-virtio-iso
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: win-disk
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```

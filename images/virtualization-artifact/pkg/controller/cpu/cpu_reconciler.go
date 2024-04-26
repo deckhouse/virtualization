@@ -116,13 +116,13 @@ func (r *VMCPUReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 }
 
 func (r *VMCPUReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
-	return vm.Spec.CPU.ModelName != ""
+	return vm.Spec.CPU.VirtualMachineCPUModel != ""
 }
 
 func (r *VMCPUReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
-			Name: vm.Spec.CPU.ModelName,
+			Name: vm.Spec.CPU.VirtualMachineCPUModel,
 		},
 	}}
 }

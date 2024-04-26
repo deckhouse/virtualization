@@ -17,19 +17,33 @@ spec:
                         Поддерживаемые параметры для использования сценария инициализации:
 
                         * UserData — позволяет указать сценарий cloud-init в секции .spec.provisioning.UserData.
-                        * UserDataSecret — позволяет использовать существующий Secret со сценарием cloud-init.
+                        * UserDataRef — позволяет использовать существующий Secret со сценарием cloud-init.
+                        * SysprepRef — позволяет автоматизировать установку Windows.
 
                         Дополнительная информация: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
                     userData:
                       description: |
                         Сценарий cloud-init.
-                    userDataSecretRef:
+                    userDataRef:
                       description: |
-                        Ссылка на существующий Secret со сценарием cloud-init.
+                        Ссылка на существующий ресурс со сценарием cloud-init.
                       properties:
+                        kind:
+                          description: |
+                            Тип ресурса.
                         name:
                           description: |
-                            Имя Secret со сценарием cloud-init.
+                            Имя ресурса со сценарием cloud-init.
+                    sysprepRef:
+                      description: |
+                        Ссылка на существующий ресурс со сценарием автоматизации Windows.
+                      properties:
+                        kind:
+                          description: |
+                            Тип ресурса.
+                        name:
+                          description: |
+                            Имя ресурса со сценарием автоматизации.
                 runPolicy:
                   description: |
                     Этот параметр определяет политику запуска ВМ:
@@ -39,7 +53,7 @@ spec:
                     * `Manual` — после создания ВМ выключается, состояние ВМ (включение/выключение) контролируется через API-сервисы или средствами ОС.
                     * `AlwaysOnUnlessStoppedManually` — после создания ВМ всегда находится в работающем состоянии, даже в случае ее выключения средствами ОС, ВМ может быть выключена с помощью соответствующего API-сервиса.
 
-                virtualMachineIPAddressClaimName:
+                virtualMachineIPAddressClaim:
                   description: |
                     Имя для связанного ресурса `VirtualMahcineIPAddressClaim`.
 
@@ -450,42 +464,23 @@ spec:
                       description: |
                         Объем оперативной памяти.
 
-                blockDevices:
+                blockDeviceRefs:
                   description: |
                     Список блочных устройств, которые могут быть смонтированы в ВМ.
 
                     Порядок загрузки определяется порядком в списке.
                   items:
                     properties:
-                      type:
+                      kind:
                         description: |
                           Поддерживаемые типы:
 
-                          * `ClusterVirtualMachineImage` — использовать `ClusterVirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                          * `VirtualMachineImage` — использовать `VirtualMachineImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                          * `VirtualMachineDisk` — используйте `VirtualMachineDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
-                      clusterVirtualMachineImage:
+                          * `ClusterVirtualImage` — использовать `ClusterVirtualImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
+                          * `VirtualImage` — использовать `VirtualImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
+                          * `VirtualDisk` — используйте `VirtualDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
+                      name:
                         description: |
-                          Использовать `ClusterVirtualMachineImage` в качестве диска.
-                          Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                        properties:
-                          name:
-                            description: |
-                              Имя ресурса `ClusterVirtualMachineImage`.
-                      virtualMachineImage:
-                        description: |
-                          Использовать `VirtualMachineImage` в качестве диска. Образ с хранилищем ContainerRegistry будет смонтирован в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM. Образ с хранилищем Kubernetes будет смонтирован как эфемерный диск, поэтому изменения в томе будут потеряны при перезагрузке.
-                        properties:
-                          name:
-                            description: |
-                              Имя ресурса `VirtualMachineImage`.
-                      virtualMachineDisk:
-                        description: |
-                          Подключить `VirtualMachineDisk` в качестве дискового устройства в режиме RW.
-                        properties:
-                          name:
-                            description: |
-                              Имя ресурса `VirtualMachineDisk`.
+                          Имя ресурса.
                 restartApprovalID:
                   description: |
                     Хэш изменений виртуальной машины из .status.changeID.
@@ -526,7 +521,7 @@ spec:
                 ipAddress:
                   description: |
                     IP-адрес ВМ.
-                blockDevicesAttached:
+                blockDeviceRefs:
                   description: |
                     Список блочных устройств, подключенных к ВМ.
                   items:
@@ -534,24 +529,12 @@ spec:
                       hotpluggable:
                         description: |
                           Блочное устройство доступно для горячего подключения.
-                      type:
+                      kind:
                         description: |
                           Тип блочного устройства.
-                      clusterVirtualMachineImage:
-                        properties:
-                          name:
-                            description: |
-                              Имя существующего ресурса `ClusterVirtualMachineImage`.
-                      virtualMachineImage:
-                        properties:
-                          name:
-                            description: |
-                              Имя существующего ресурса `VirtualMachineImage`.
-                      virtualMachineDisk:
-                        properties:
-                          name:
-                            description: |
-                              Имя существующего ресурса `VirtualMachineDisk`.
+                        name:
+                          description: |
+                            Имя существующего ресурса.
                       target:
                         description: |
                           Название подключенного блочного устройства.

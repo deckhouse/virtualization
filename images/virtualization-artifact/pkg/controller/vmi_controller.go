@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	vmiControllerName = "vmi-controller"
-	vmiShortName      = "vmi"
+	vmiControllerName = "vi-controller"
+	vmiShortName      = "vi"
 )
 
 func NewVMIController(
@@ -55,6 +55,6 @@ func NewVMIController(
 	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
-	log.Info("Initialized VirtualMachineImage controller")
+	log.Info("Initialized VirtualImage controller")
 	return c, nil
 }

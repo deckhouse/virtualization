@@ -8,7 +8,7 @@ type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldC
 
 var specComparators = []SpecFieldsComparator{
 	compareRunPolicy,
-	compareVirtualMachineIPAddressClaimName,
+	compareVirtualMachineIPAddressClaim,
 	compareTopologySpreadConstraints,
 	compareAffinity,
 	compareNodeSelector,

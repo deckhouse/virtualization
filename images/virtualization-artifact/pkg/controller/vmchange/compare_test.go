@@ -114,147 +114,125 @@ memory:
 			),
 		},
 		{
-			"restart on blockDevices section add",
+			"restart on blockDeviceRefs section add",
 			``,
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices", ChangeAdd),
+				requirePathOperation("blockDeviceRefs", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDevices section remove",
+			"restart on blockDeviceRefs section remove",
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
 `,
 			``,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices", ChangeRemove),
+				requirePathOperation("blockDeviceRefs", ChangeRemove),
 			),
 		},
 		{
-			"restart on blockDevices add disk",
+			"restart on blockDeviceRefs add disk",
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
 `,
 			`
-blockDevices:
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices.0", ChangeAdd),
+				requirePathOperation("blockDeviceRefs.0", ChangeAdd),
 			),
 		},
 		{
-			"restart on blockDevices remove disk",
+			"restart on blockDeviceRefs remove disk",
 			`
-blockDevices:
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
 `,
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices.0", ChangeRemove),
+				requirePathOperation("blockDeviceRefs.0", ChangeRemove),
 			),
 		},
 		{
-			"restart on blockDevices change order",
+			"restart on blockDeviceRefs change order",
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+- kind: VirtualDisk
+  name: linux
 `,
 			`
-blockDevices:
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualImage
+  name: linux
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices.0", ChangeReplace),
-				requirePathOperation("blockDevices.1", ChangeReplace),
+				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
+				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
 			),
 		},
 		{
-			"restart on blockDevices change order :: bigger",
+			"restart on blockDeviceRefs change order :: bigger",
 			`
-blockDevices:
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
-- type: ClusterVirtualMachineImage
-  virtualMachineImage:
-    name: ubuntu
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: main
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: data
+blockDeviceRefs:
+- kind: VirtualImage
+  name: linux
+- kind: VirtualDisk
+  name: linux
+- kind: ClusterVirtualImage
+  name: ubuntu
+- kind: VirtualDisk
+  name: main
+- kind: VirtualDisk
+  name: data
 `,
 			// Change order: 12345 -> 25341
 			`
-blockDevices:
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: linux
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: data
-- type: ClusterVirtualMachineImage
-  virtualMachineImage:
-    name: ubuntu
-- type: VirtualMachineDisk
-  virtualMachineDisk:
-    name: main
-- type: VirtualMachineImage
-  virtualMachineImage:
-    name: linux
+blockDeviceRefs:
+- kind: VirtualDisk
+  name: linux
+- kind: VirtualDisk
+  name: data
+- kind: ClusterVirtualImage
+  name: ubuntu
+- kind: VirtualDisk
+  name: main
+- kind: VirtualImage
+  name: linux
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("blockDevices.0", ChangeReplace),
-				requirePathOperation("blockDevices.1", ChangeReplace),
-				requirePathOperation("blockDevices.4", ChangeReplace),
+				requirePathOperation("blockDeviceRefs.0", ChangeReplace),
+				requirePathOperation("blockDeviceRefs.1", ChangeReplace),
+				requirePathOperation("blockDeviceRefs.4", ChangeReplace),
 			),
 		},
 		{
@@ -276,8 +254,9 @@ provisioning:
 			"restart on provisioning remove",
 			`
 provisioning:
-  type: UserDataSecret
-  userDataSecretRef:
+  type: UserDataRef
+  userDataRef:
+    kind: Secret
     name: cloud-init-secret
 `,
 			"",
@@ -290,8 +269,9 @@ provisioning:
 			"restart on provisioning type change",
 			`
 provisioning:
-  type: UserDataSecret
-  userDataSecretRef:
+  type: UserDataRef
+  userDataRef:
+    kind: Secret
     name: cloud-init-secret
 `,
 			`
@@ -309,19 +289,21 @@ provisioning:
 			"restart on provisioning secretref name change",
 			`
 provisioning:
-  type: UserDataSecret
-  userDataSecretRef:
+  type: UserDataRef
+  userDataRef:
+    kind: Secret
     name: cloud-init-secret
 `,
 			`
 provisioning:
-  type: UserDataSecret
-  userDataSecretRef:
+  type: UserDataRef
+  userDataRef:
+    kind: Secret
     name: provisioning-secret
 `,
 			assertChanges(
 				actionRequired(ActionRestart),
-				requirePathOperation("provisioning.userDataSecretRef.name", ChangeReplace),
+				requirePathOperation("provisioning.userDataRef.name", ChangeReplace),
 			),
 		},
 		{

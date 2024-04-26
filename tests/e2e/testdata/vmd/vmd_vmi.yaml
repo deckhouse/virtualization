@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: test-vmd-vmi
   namespace: test-d8-virtualization
@@ -12,7 +12,7 @@ spec:
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: test-vmd-vmi
   namespace: test-d8-virtualization
@@ -20,6 +20,7 @@ spec:
   persistentVolumeClaim:
     size: 200Mi
   dataSource:
-    type: "VirtualMachineImage"
-    virtualMachineImage:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
       name: test-vmd-vmi

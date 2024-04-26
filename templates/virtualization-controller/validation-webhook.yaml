@@ -25,13 +25,13 @@ webhooks:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
-        resources:   ["virtualmachinedisks"]
+        resources:   ["virtualdisks"]
         scope:       "Namespaced"
     clientConfig:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller
-        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinedisk
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualdisk
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.controller.cert.ca }}

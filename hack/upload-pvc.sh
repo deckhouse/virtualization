@@ -4,7 +4,7 @@ function usage() {
    cat <<EOF
 $0 namespace name filename
 
-Program creates VirtualMachineImage resource in specified namespace
+Program creates VirtualImage resource in specified namespace
 and upload specified file using Kubernetes storage (PVC).
 
 EOF
@@ -26,13 +26,13 @@ fi
 
 cat <<EOF | kubectl -n $NS apply -f -
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: $NAME
 spec:
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClassName: linstor-thick-data-r3
+    storageClass: linstor-thick-data-r3
   dataSource:
     type: Upload
 EOF
@@ -41,7 +41,7 @@ tries=10
 
 for (( i=1 ; i<=$tries ; i-- ))
 do
-  uploadCmd=$(kubectl -n $NS get virtualmachineimage.virtualization.deckhouse.io $NAME -o json | jq '.status.uploadCommand // ""' -r)
+  uploadCmd=$(kubectl -n $NS get virtualimage.virtualization.deckhouse.io $NAME -o json | jq '.status.uploadCommand // ""' -r)
   if [[ -n $uploadCmd ]] ; then break ; fi
   sleep 1
 done

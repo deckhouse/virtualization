@@ -17,7 +17,7 @@ spec:
                     size:
                       description: |
                         Желаемый размер PVC для хранения диска. Если диск создается из образа, то размер должен быть не меньше, чем исходный образ в распакованном состоянии.
-                    storageClassName:
+                    storageClass:
                       description: |
                         Имя класса StorageClass, требуемого для PersistentVolumeClaim. Дополнительная информация — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
                 dataSource:
@@ -30,8 +30,8 @@ spec:
 
                         * `HTTP` — создать диск из файла, опубликованного на HTTP/HTTPS-сервере.
                         * `ContainerImage` — создать диск из образа в container registry.
-                        * `VirtualMachineImage` — создать диск из существующего `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — создать диск из существующего `ClusterVirtualMachineImage`.
+                        * `VirtualImage` — создать диск из существующего `VirtualImage`.
+                        * `ClusterVirtualImage` — создать диск из существующего `ClusterVirtualImage`.
                         * `Upload` — загрузить образ диска вручную, через веб-интерфейс.
                     http:
                       description: |
@@ -84,20 +84,20 @@ spec:
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualMachineImage:
+                    virtualImage:
                       description: |
-                        Используйте существующий `VirtualMachineImage`.
+                        Используйте существующий `VirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `VirtualMachineImage`.
-                    clusterVirtualMachineImage:
+                            Имя существующего `VirtualImage`.
+                    clusterVirtualImage:
                       description: |
-                        Использовать существующий `ClusterVirtualMachineImage`.
+                        Использовать существующий `ClusterVirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `ClusterVirtualMachineImage`.
+                            Имя существующего `ClusterVirtualImage`.
             status:
               properties:
                 importDuration:
@@ -124,13 +124,13 @@ spec:
                     Емкость PVC в человекочитаемом формате.
                 target:
                   properties:
-                    persistentVolumeClaimName:
+                    persistentVolumeClaim:
                       description: |
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
                   type: string
                   description: |
-                    Текущее состояние ресурса `VirtualMachineDisk`:
+                    Текущее состояние ресурса `VirtualDisk`:
 
                     * Pending — ресурс был создан и находится в очереди ожидания.
                     * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).

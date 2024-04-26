@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	cvmiControllerName = "cvmi-controller"
-	cvmiShortName      = "cvmi"
+	cvmiControllerName = "cvi-controller"
+	cvmiShortName      = "cvi"
 
 	ImporterPodVerbose    = "3"
 	ImporterPodPullPolicy = string(corev1.PullIfNotPresent)
@@ -55,6 +55,6 @@ func NewCVMIController(
 	if err := reconciler.SetupController(ctx, mgr, cvmiController); err != nil {
 		return nil, err
 	}
-	log.Info("Initialized ClusterVirtualMachineImage controller", "image", importerImage, "namespace", controllerNamespace)
+	log.Info("Initialized ClusterVirtualImage controller", "image", importerImage, "namespace", controllerNamespace)
 	return cvmiController, nil
 }

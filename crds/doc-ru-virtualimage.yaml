@@ -3,40 +3,46 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
+          type: object
           description: |
-            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualMachineDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую. Этот тип ресурса доступен для всех пространств имен в кластере.
+            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
 
             > Этот ресурс не может быть изменен после его создания.
 
-            Под капотом этого ресурса создается образ контейнера, который хранится в специальном container registry (DVCR).
+            Под капотом этого ресурса создается образ контейнера, хранящийся в специальном container registry (DVCR).
           properties:
             spec:
               properties:
+                storage:
+                  description: |
+                    Тип хранилища для хранения образа:
+
+                    * `ContainerRegistry` — использовать container registry (DVCR). В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации).
                 dataSource:
                   description: |
                     Тип источника, из которого будет создан образ.
                   properties:
                     type:
                       description: |
-                        Доступные типы источников для создания образа:
+                        Тип источника, из которого будет создан образ:
 
                         * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
                         * `ContainerImage` — создать образ из образа в container registry.
-                        * `VirtualMachineImage` — создать новый образ из существующего `VirtualMachineImage`.
-                        * `ClusterVirtualMachineImage` — создать новый образ из существующего `ClusterVirtualMachineImage`.
+                        * `VirtualImage` — создать образ из другого существующего `VirtualImage`.
+                        * `ClusterVirtualImage` — создать образ из другого существующего `ClusterVirtualImage`.
                         * `Upload` — загрузить образ вручную, через веб-интерфейс.
                     http:
                       description: |
-                        Создание образа из файла, опубликованного по URL. Поддерживаемые схемы:
+                        Создать образ из файла, опубликованного по URL. Поддерживаемые схемы:
 
                         * HTTP;
                         * HTTPS.
 
-                        Для схемы HTTPS есть возможность отключить проверку TLS.
+                        Для схемы HTTPS есть возможность пропустить проверку TLS.
                       properties:
                         url:
                           description: |
-                            Для образа расположенного по URL, поддерживаются следующие типы образов:
+                            URL с образом. Поддерживаются следующие типы образов:
                             * qcow2;
                             * vmdk;
                             * vdi;
@@ -53,20 +59,17 @@ spec:
                           description: |
                             Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
                         checksum:
+                          type: object
                           description: |
                             Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
                           properties:
                             md5:
                               description: ""
-                              example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
                               description: ""
-                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
                     containerImage:
                       description: |
-                        Использование образа, хранящегося во внешнем реестре контейнеров.
-                        Поддерживаются только реестры контейнеров с включенным TLS.
-                        При необходимости используйте поле caBundle, чтобы предоставить собственную цепочку центров сертификации.
+                        Для использования образа, хранящегося во внешнем реестре контейнеров, необходимо убедиться, что используется реестр, работающий по протоколу TLS. При необходимости предоставьте поле caBundle для передачи цепочки сертификатов.
                       properties:
                         image:
                           description: |
@@ -82,24 +85,25 @@ spec:
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualMachineImage:
+                    virtualImage:
                       description: |
-                        Использование существующего `VirtualMachineImage`.
+                        Используйте существующий `VirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `VirtualMachineImage`.
+                            Имя существующего `VirtualImage`.
                         namespace:
                           description: |
-                            Пространство имен, где `VirtualMachineImage` расположен.
-                    clusterVirtualMachineImage:
+                            Пространство имен, где `VirtualImage` расположен.
+                    clusterVirtualImage:
                       description: |
-                        Использовать существующий `ClusterVirtualMachineImage`.
+                        Использовать существующий `ClusterVirtualImage`.
                       properties:
                         name:
                           description: |
-                            Имя существующего `ClusterVirtualMachineImage`.
+                            Имя существующего `ClusterVirtualImage`.
             status:
+              type: object
               properties:
                 importDuration:
                   description: |
@@ -129,9 +133,9 @@ spec:
                   properties:
                     stored:
                       description: |
-                        Размер образа в DVCR или PVC в человекочитаемом формате.
+                        Размер образа в DVCR в человекочитаемом формате.
                     storedBytes:
-                      description: Размер образа в DVCR или PVC в байтах.
+                      description: Размер образа в DVCR в байтах.
                     unpacked:
                       description: |
                         Размер распакованного образа в человекочитаемом формате.
@@ -146,17 +150,21 @@ spec:
                     registryURL:
                       description: |
                         Образ, созданный в DVCR.
+                    persistentVolumeClaim:
+                      description: |
+                        Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
                   description: |
-                    Текущее состояние ресурса `ClusterVirtualMachineImage`:
+                    Текущее состояние ресурса `VirtualImage`:
 
-                    * Pending - Ресурс был создан и находится в очереди ожидания.
-                    * Provisioning - Идет процесс создания ресурса (копирование/загрузка/создание образа).
-                    * WaitForUserUpload - Ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
-                    * Ready - Ресурс создан и готов к использованию.
-                    * Failed - При создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
-                    * NotReady - Невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
-                    * ImageLost - Дочернее образ ресурса отсутствует. Ресурс не может быть использован.
+                    * Pending — ресурс был создан и находится в очереди ожидания.
+                    * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).
+                    * WaitForUserUpload — ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
+                    * Ready — ресурс создан и готов к использованию.
+                    * Failed — при создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
+                    * NotReady — невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
+                    * ImageLost — дочерний образ ресурса отсутствует. Ресурс не может быть использован.
+
                 progress:
                   description: |
                     Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
@@ -172,4 +180,4 @@ spec:
                     Подробное описание ошибки.
                 usedInVMs:
                   description: |
-                    Список виртуальных машин и из пространств имен, использующих этот образ
+                    Список виртуальных машин и их пространств имен, использующих этот образ

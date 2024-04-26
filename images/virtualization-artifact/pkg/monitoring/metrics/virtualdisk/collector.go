@@ -30,7 +30,7 @@ func SetupCollector(lister Lister, registerer prometheus.Registerer) *Collector 
 }
 
 type Lister interface {
-	List() ([]virtv2.VirtualMachineDisk, error)
+	List() ([]virtv2.VirtualDisk, error)
 }
 
 type Collector struct {
@@ -64,13 +64,13 @@ type scraper struct {
 	ch chan<- prometheus.Metric
 }
 
-func (s *scraper) Report(disks []virtv2.VirtualMachineDisk) {
+func (s *scraper) Report(disks []virtv2.VirtualDisk) {
 	for _, d := range disks {
 		s.updateDiskStatusPhaseMetrics(d)
 	}
 }
 
-func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualMachineDisk) {
+func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualDisk) {
 	phase := disk.Status.Phase
 	if phase == "" {
 		phase = virtv2.DiskPending
