@@ -44,9 +44,10 @@ import (
 )
 
 const (
-	defaultVerbosity = "1"
-	appName          = "vmi-router"
-	NodeNameEnv      = "NODE_NAME"
+	defaultVerbosity      = "1"
+	appName               = "vmi-router"
+	NodeNameEnv           = "NODE_NAME"
+	CiliumRouteTableIdEnv = "CILIUM_ROUTE_TABLE_ID"
 )
 
 var (
@@ -116,6 +117,18 @@ func main() {
 		log.Info("Dry run mode is enabled, will not change network rules and routes")
 	}
 
+	ciliumTableId := netlinkmanager.DefaultCiliumRouteTable
+	ciliumTableIdStr := os.Getenv(CiliumRouteTableIdEnv)
+	if ciliumTableIdStr != "" {
+		tableId, err := strconv.ParseInt(ciliumTableIdStr, 10, 32)
+		if err != nil {
+			log.Error(err, "failed to parse Cilium table id, should be integer")
+			os.Exit(1)
+		}
+		ciliumTableId = int(tableId)
+	}
+	log.Info(fmt.Sprintf("Use cilium route table id %d", ciliumTableId))
+
 	// Load configuration to connect to Kubernetes API Server.
 	kubeCfg, err := config.GetConfig()
 	if err != nil {
@@ -154,7 +167,7 @@ func main() {
 	ctx := signals.SetupSignalHandler()
 
 	// Create netlink manager.
-	netlinkMgr := netlinkmanager.New(mgr.GetClient(), log, parsedCIDRs, dryRun)
+	netlinkMgr := netlinkmanager.New(mgr.GetClient(), log, ciliumTableId, parsedCIDRs, dryRun)
 
 	// Setup main controller with its dependencies.
 	if err = controllers.NewVMRouterController(mgr, log, netlinkMgr); err != nil {

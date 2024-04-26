@@ -35,22 +35,23 @@ import (
 )
 
 const (
-	CiliumIfaceName  = "cilium_host"
-	CiliumRouteTable = 1490
-	LocalRouteTable  = 255
+	CiliumIfaceName         = "cilium_host"
+	DefaultCiliumRouteTable = 1490
+	LocalRouteTable         = 255
 )
 
 type Manager struct {
 	client    client.Client
 	log       logr.Logger
 	nlWrapper *netlinkwrap.Funcs
+	tableId   int
 	cidrs     []*net.IPNet
 	nodeName  string
 	vmIPs     map[string]string
 	vmIPsLock sync.RWMutex
 }
 
-func New(client client.Client, log logr.Logger, cidrs []*net.IPNet, dryRun bool) *Manager {
+func New(client client.Client, log logr.Logger, tableId int, cidrs []*net.IPNet, dryRun bool) *Manager {
 	nlWrapper := netlinkwrap.NewFuncs()
 	if dryRun {
 		nlWrapper = netlinkwrap.DryRunFuncs()
@@ -58,6 +59,7 @@ func New(client client.Client, log logr.Logger, cidrs []*net.IPNet, dryRun bool)
 	return &Manager{
 		client:    client,
 		log:       log,
+		tableId:   tableId,
 		cidrs:     cidrs,
 		nlWrapper: nlWrapper,
 		vmIPs:     make(map[string]string),
@@ -68,7 +70,7 @@ func New(client client.Client, log logr.Logger, cidrs []*net.IPNet, dryRun bool)
 // Also, it removes existing rules for previously configured CIDRs.
 func (m *Manager) SyncRules() error {
 	// Get rules state.
-	rules, err := m.nlWrapper.RuleListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Rule{Table: CiliumRouteTable}, netlink.RT_FILTER_TABLE)
+	rules, err := m.nlWrapper.RuleListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Rule{Table: m.tableId}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list rules: %v", err)
 	}
@@ -77,8 +79,8 @@ func (m *Manager) SyncRules() error {
 	cidrIdx := make(map[string]struct{})
 	for _, cidr := range m.cidrs {
 		rule := netlink.NewRule()
-		rule.Table = CiliumRouteTable
-		rule.Priority = CiliumRouteTable
+		rule.Table = m.tableId
+		rule.Priority = m.tableId
 		rule.Dst = cidr
 		cidrIdx[cidr.String()] = struct{}{}
 		if err := m.nlWrapper.RuleAdd(rule); err != nil && !os.IsExist(err) {
@@ -123,30 +125,24 @@ func (m *Manager) SyncRoutes(ctx context.Context) error {
 
 	// Collect managed IPs from all VirtualMachines in the cluster.
 	for _, vm := range vmList.Items {
-		// Ignore Virtual Machines on other nodes.
-		// TODO is it a correct filter? Do we need routes for all IPs in the cluster?
-		// if vm.Status.NodeName != m.nodeName {
-		//	continue
-		// }
-
 		vmIP := vm.Status.IPAddress
 		if vmIP == "" {
 			continue
 		}
 		isManaged, err := m.isManagedIP(vmIP)
 		if err != nil {
-			m.log.Error(err, "failed to parse IP address in VM status")
+			m.log.Error(err, fmt.Sprintf("failed to parse IP address from status in VM %s/%s", vm.GetNamespace(), vm.GetName()))
 			continue
 		}
 		if !isManaged {
-			m.log.Info(fmt.Sprintf("Ignore not managed IP %s assigned to VM/%s", vmIP, vm.GetName()))
+			m.log.Info(fmt.Sprintf("Ignore not managed IP %s assigned to VM %s/%s", vmIP, vm.GetNamespace(), vm.GetName()))
 		}
 		// Save managed IP to index.
 		vmIPsIdx[vmIP] = struct{}{}
 	}
 
 	// Remove routes unknown for vm IPs.
-	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Route{Table: CiliumRouteTable}, netlink.RT_FILTER_TABLE)
+	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Route{Table: m.tableId}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list node routes: %v", err)
 	}
@@ -163,9 +159,9 @@ func (m *Manager) SyncRoutes(ctx context.Context) error {
 		}
 
 		if err := m.nlWrapper.RouteDel(&route); err != nil {
-			return fmt.Errorf("failed to delete route: %v", err)
+			return fmt.Errorf("failed to delete stale route '%s': %v", fmtRoute(route), err)
 		}
-		m.log.Info(fmt.Sprintf("route %s removed", route.String()))
+		m.log.Info(fmt.Sprintf("route %s removed", fmtRoute(route)))
 	}
 	return nil
 }
@@ -246,6 +242,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 	if err != nil || len(routes) == 0 {
 		m.log.Error(err, "failed to get route for node")
 	}
+	origRoute := routes[0]
 	route := routes[0]
 
 	// Change iface to cilium if route already exists in local table.
@@ -260,13 +257,13 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 	}
 
 	route.Dst = vmRouteDst
-	route.Table = CiliumRouteTable
+	route.Table = m.tableId
 	route.Type = 1
 
 	if err := m.nlWrapper.RouteReplace(&route); err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to update route %s for vm/%s", route.String(), vmiKey))
+		m.log.Error(err, fmt.Sprintf("failed to update route '%s' to '%s' for VM %s/%s", fmtRoute(origRoute), fmtRoute(route), vm.GetNamespace(), vm.GetName()))
 	}
-	m.log.Info(fmt.Sprintf("route %s updated for vm/%s", route.String(), vmiKey))
+	m.log.Info(fmt.Sprintf("route '%s' updated for VM %s/%s", fmtRoute(route), vm.GetNamespace(), vm.GetName()))
 }
 
 func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
@@ -294,7 +291,7 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 		m.vmIPsLock.RUnlock()
 	}
 	if vmIP == "" {
-		m.log.Info("Can't retrieve IP for VM, it may lead to stale routes.")
+		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %s/%s, it may lead to stale routes.", vm.GetNamespace(), vm.GetName()))
 		return
 	}
 
@@ -302,22 +299,36 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
 	_, vmRouteDst, err := net.ParseCIDR(netutil.AppendHostNetmask(vmIP))
 	if err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for vm/%s", vmIPWithNetmask, vm.GetName()))
+		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %s/%s", vmIPWithNetmask, vm.GetNamespace(), vm.GetName()))
 		return
 	}
 
 	route := netlink.Route{
 		Dst:   vmRouteDst,
-		Table: CiliumRouteTable,
+		Table: m.tableId,
 	}
 
 	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) {
 		m.log.Error(err, "failed to delete route")
 	}
-	m.log.Info(fmt.Sprintf("route %s deleted for vm/%s", route.String(), vmKey))
+	m.log.Info(fmt.Sprintf("route %s deleted for VM %s/%s", fmtRoute(route), vmKey))
 
 	// Delete IP from the cache.
 	m.vmIPsLock.Lock()
 	delete(m.vmIPs, vmKey)
 	m.vmIPsLock.Unlock()
+}
+
+func fmtRoute(route netlink.Route) string {
+	dst := ""
+	if route.Dst != nil {
+		dst = fmt.Sprintf("dst %s", route.Dst.String())
+	}
+	via := ""
+	if route.Via != nil {
+		via = fmt.Sprintf("via %s", route.Via.String())
+	}
+	src := fmt.Sprintf("src %s", route.Src.String())
+
+	return fmt.Sprintf("%s %s %s", dst, via, src)
 }
