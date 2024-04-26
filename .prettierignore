@@ -4,6 +4,5 @@
 **/werf*.yaml
 **/werf*.yml
 **/templates
-**/workflows
 **/ISSUE_TEMPLATE
 .gitlab-ci.yml

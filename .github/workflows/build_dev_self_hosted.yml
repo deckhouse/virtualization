@@ -10,7 +10,7 @@ env:
 
 on:
   pull_request:
-    types: [ labeled ]
+    types: [labeled]
 
 defaults:
   run:
@@ -127,7 +127,6 @@ jobs:
       - name: Lint yaml with prettier
         run: task -p lint:prettier:yaml
 
-  
   test:
     needs: check_label
     if: needs.check_label.outputs.should_run
@@ -178,17 +177,17 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-      
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
-      
+
       - run: |
-            IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-            IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
-            echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-            crane copy ${IMAGE_SRC} ${IMAGE_DST} 
+          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+          crane copy ${IMAGE_SRC} ${IMAGE_DST}
         if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main
