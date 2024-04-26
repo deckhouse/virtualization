@@ -12,7 +12,7 @@ env:
 
 on:
   workflow_dispatch:
-   inputs:
+    inputs:
       version:
         description: "Select version"
         type: choice
@@ -42,7 +42,7 @@ on:
       enableBuild:
         type: boolean
         default: true
-        description: 'Set to true if build is required'
+        description: "Set to true if build is required"
 
 jobs:
   print-vars:
@@ -58,45 +58,45 @@ jobs:
           echo $RELEASE_CHANNEL
           echo $MODULES_MODULE_TAG
         shell: bash
-        
-  job-CE:
-     name: Edition CE
-     runs-on: ubuntu-latest
-     if: github.event.inputs.ce == 'true'
-     steps:
-       - run: echo "CE"
-       - name: SET VAR
-         run: |
-           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
-       - name: ECHO VAR
-         run: |
-           echo $MODULES_MODULE_SOURCE
-       - uses: actions/checkout@v4
-       - uses: deckhouse/modules-actions/setup@v1
 
-       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-         uses: deckhouse/modules-actions/build@v1
-       - name: Register the module if enableBuild
-         if: ${{ github.event.inputs.enableBuild == 'true' }}
-         run: |
-           echo "✨ Register the module ${MODULES_MODULE_NAME}"
-           crane append \
-             --oci-empty-base \
-             --new_layer "" \
-             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-         shell: bash
-       - name: Register the module
-         if: ${{ github.event.inputs.enableBuild == 'true' }}
-         run: |
-           echo "✨ Register the module ${MODULES_MODULE_NAME}"
-           crane append \
-             --oci-empty-base \
-             --new_layer "" \
-             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-         shell: bash
-        
-       - uses: deckhouse/modules-actions/deploy@v1
-  
+  job-CE:
+    name: Edition CE
+    runs-on: ubuntu-latest
+    if: github.event.inputs.ce == 'true'
+    steps:
+      - run: echo "CE"
+      - name: SET VAR
+        run: |
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
+      - name: ECHO VAR
+        run: |
+          echo $MODULES_MODULE_SOURCE
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/setup@v1
+
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v1
+      - name: Register the module if enableBuild
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+      - name: Register the module
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        run: |
+          echo "✨ Register the module ${MODULES_MODULE_NAME}"
+          crane append \
+            --oci-empty-base \
+            --new_layer "" \
+            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+
+      - uses: deckhouse/modules-actions/deploy@v1
+
   job-EE:
     name: Edition EE
     runs-on: ubuntu-latest
@@ -105,10 +105,10 @@ jobs:
       - run: echo "EE"
       - name: SET VAR
         run: |
-           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
       - name: ECHO VAR
         run: |
-           echo $MODULES_MODULE_SOURCE
+          echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
 
@@ -132,9 +132,9 @@ jobs:
             --new_layer "" \
             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
         shell: bash
-      
+
       - uses: deckhouse/modules-actions/deploy@v1
-      
+
   job-FE:
     name: Edition FE
     runs-on: ubuntu-latest
@@ -143,17 +143,17 @@ jobs:
       - run: echo "FE"
       - name: SET VAR
         run: |
-           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
       - name: ECHO VAR
         run: |
-           echo $MODULES_MODULE_SOURCE
+          echo $MODULES_MODULE_SOURCE
       - name: Validation for tag
         run: |
           echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+'
         shell: bash
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
-      
+
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v1
       - name: Register the module if enableBuild
@@ -174,5 +174,5 @@ jobs:
             --new_layer "" \
             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
         shell: bash
-        
+
       - uses: deckhouse/modules-actions/deploy@v1
