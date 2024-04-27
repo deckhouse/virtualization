@@ -14,6 +14,7 @@ defaults:
 
 jobs:
   no_cyrillic:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
     runs-on: ubuntu-latest
     name: Validation no-cyrillic
     steps:
@@ -34,6 +35,7 @@ jobs:
           task validation:no-cyrillic
 
   doc_changes:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
     runs-on: ubuntu-latest
     name: Validation doc-changes
     steps:
