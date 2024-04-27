@@ -65,7 +65,7 @@ func (s *HTTPServer) Start() {
 	// Start serving HTTP requests, block until server instance stops or returns an error.
 	var err error
 	if s.CertManager != nil {
-		s.CertManager.Start()
+		go s.CertManager.Start()
 		s.setupTLS()
 		err = s.instance.ServeTLS(s.listener, "", "")
 	} else {

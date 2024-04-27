@@ -9,7 +9,7 @@ import (
 const CertificateBlockType string = "CERTIFICATE"
 
 func ParseCertsPEM(pemCerts []byte) ([]*x509.Certificate, error) {
-	certs := []*x509.Certificate{}
+	var certs []*x509.Certificate
 	for len(pemCerts) > 0 {
 		var block *pem.Block
 		block, pemCerts = pem.Decode(pemCerts)
