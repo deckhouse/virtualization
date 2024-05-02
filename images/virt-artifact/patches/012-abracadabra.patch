@@ -1,0 +1,89 @@
+diff --git a/pkg/virt-api/webhooks/validating-webhook/admitters/migration-create-admitter.go b/pkg/virt-api/webhooks/validating-webhook/admitters/migration-create-admitter.go
+index 8a0e9c202..320ffc440 100644
+--- a/pkg/virt-api/webhooks/validating-webhook/admitters/migration-create-admitter.go
++++ b/pkg/virt-api/webhooks/validating-webhook/admitters/migration-create-admitter.go
+@@ -30,6 +30,7 @@ import (
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/labels"
+ 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
++	"kubevirt.io/client-go/log"
+
+ 	v1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/client-go/kubecli"
+@@ -78,46 +79,76 @@ func EnsureNoMigrationConflict(virtClient kubecli.KubevirtClient, vmiName string
+ }
+
+ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
++	data, err := json.Marshal(ar)
++	if err != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 000 %s", string(ar.Request.UID))
++		return webhookutils.ToAdmissionResponseError(err)
++	}
++
++	log.Log.Infof("MigrationCreateAdmitterAdmit 000 %s %s", string(ar.Request.UID), string(data))
++
+ 	migration, _, err := getAdmissionReviewMigration(ar)
+ 	if err != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 111 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponseError(err)
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 111 %s", string(ar.Request.UID))
++
+ 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 222 %s", string(ar.Request.UID))
+ 		return resp
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 222 %s", string(ar.Request.UID))
++
+ 	causes := ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &migration.Spec)
+ 	if len(causes) > 0 {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 333 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponse(causes)
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 333 %s", string(ar.Request.UID))
++
+ 	vmi, err := admitter.VirtClient.VirtualMachineInstance(migration.Namespace).Get(context.Background(), migration.Spec.VMIName, &metav1.GetOptions{})
+ 	if errors.IsNotFound(err) {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 444 %s", string(ar.Request.UID))
+ 		// ensure VMI exists for the migration
+ 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI \"%s/%s\" does not exist", migration.Namespace, migration.Spec.VMIName))
+ 	} else if err != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 555 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponseError(err)
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 444 %s", string(ar.Request.UID))
++
+ 	// Don't allow introducing a migration job for a VMI that has already finalized
+ 	if vmi.IsFinal() {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 666 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Cannot migrate VMI in finalized state."))
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 555 %s", string(ar.Request.UID))
++
+ 	// Reject migration jobs for non-migratable VMIs
+ 	err = isMigratable(vmi)
+ 	if err != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 777 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponseError(err)
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 666 %s", string(ar.Request.UID))
++
+ 	// Don't allow new migration jobs to be introduced when previous migration jobs
+ 	// are already in flight.
+ 	err = EnsureNoMigrationConflict(admitter.VirtClient, migration.Spec.VMIName, migration.Namespace)
+ 	if err != nil {
++		log.Log.Infof("MigrationCreateAdmitterAdmit ERR 888 %s", string(ar.Request.UID))
+ 		return webhookutils.ToAdmissionResponseError(err)
+ 	}
+
++	log.Log.Infof("MigrationCreateAdmitterAdmit 777 %s", string(ar.Request.UID))
++
+ 	reviewResponse := admissionv1.AdmissionResponse{}
+ 	reviewResponse.Allowed = true
+ 	return &reviewResponse
