@@ -23,22 +23,22 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ClusterVirtualMachineImages returns a ClusterVirtualMachineImageInformer.
-	ClusterVirtualMachineImages() ClusterVirtualMachineImageInformer
+	// ClusterVirtualImages returns a ClusterVirtualImageInformer.
+	ClusterVirtualImages() ClusterVirtualImageInformer
+	// VirtualDisks returns a VirtualDiskInformer.
+	VirtualDisks() VirtualDiskInformer
+	// VirtualImages returns a VirtualImageInformer.
+	VirtualImages() VirtualImageInformer
 	// VirtualMachines returns a VirtualMachineInformer.
 	VirtualMachines() VirtualMachineInformer
 	// VirtualMachineBlockDeviceAttachments returns a VirtualMachineBlockDeviceAttachmentInformer.
 	VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDeviceAttachmentInformer
 	// VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
 	VirtualMachineCPUModels() VirtualMachineCPUModelInformer
-	// VirtualMachineDisks returns a VirtualMachineDiskInformer.
-	VirtualMachineDisks() VirtualMachineDiskInformer
 	// VirtualMachineIPAddressClaims returns a VirtualMachineIPAddressClaimInformer.
 	VirtualMachineIPAddressClaims() VirtualMachineIPAddressClaimInformer
 	// VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
 	VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer
-	// VirtualMachineImages returns a VirtualMachineImageInformer.
-	VirtualMachineImages() VirtualMachineImageInformer
 	// VirtualMachineOperations returns a VirtualMachineOperationInformer.
 	VirtualMachineOperations() VirtualMachineOperationInformer
 }
@@ -54,9 +54,19 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterVirtualMachineImages returns a ClusterVirtualMachineImageInformer.
-func (v *version) ClusterVirtualMachineImages() ClusterVirtualMachineImageInformer {
-	return &clusterVirtualMachineImageInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// ClusterVirtualImages returns a ClusterVirtualImageInformer.
+func (v *version) ClusterVirtualImages() ClusterVirtualImageInformer {
+	return &clusterVirtualImageInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualDisks returns a VirtualDiskInformer.
+func (v *version) VirtualDisks() VirtualDiskInformer {
+	return &virtualDiskInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualImages returns a VirtualImageInformer.
+func (v *version) VirtualImages() VirtualImageInformer {
+	return &virtualImageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachines returns a VirtualMachineInformer.
@@ -74,11 +84,6 @@ func (v *version) VirtualMachineCPUModels() VirtualMachineCPUModelInformer {
 	return &virtualMachineCPUModelInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// VirtualMachineDisks returns a VirtualMachineDiskInformer.
-func (v *version) VirtualMachineDisks() VirtualMachineDiskInformer {
-	return &virtualMachineDiskInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // VirtualMachineIPAddressClaims returns a VirtualMachineIPAddressClaimInformer.
 func (v *version) VirtualMachineIPAddressClaims() VirtualMachineIPAddressClaimInformer {
 	return &virtualMachineIPAddressClaimInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -87,11 +92,6 @@ func (v *version) VirtualMachineIPAddressClaims() VirtualMachineIPAddressClaimIn
 // VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
 func (v *version) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer {
 	return &virtualMachineIPAddressLeaseInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// VirtualMachineImages returns a VirtualMachineImageInformer.
-func (v *version) VirtualMachineImages() VirtualMachineImageInformer {
-	return &virtualMachineImageInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineOperations returns a VirtualMachineOperationInformer.

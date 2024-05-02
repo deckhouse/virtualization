@@ -10,7 +10,7 @@ tasks:
       CVMI_FILE: '{{ .CVMI_FILE | default "config/samples/cvmi_ubuntu_iso.yaml" }}'
     cmds:
       - |
-        kubectl delete clustervirtualmachineimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} || true
+        kubectl delete clustervirtualimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} || true
         kubectl delete -n virtualization-controller po/importer-{{ .CVMI_NAME }} || true
         sleep 1
         kubectl apply -f {{ .CVMI_FILE }}
@@ -21,9 +21,9 @@ tasks:
       CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        kubectl get clustervirtualmachineimage.virtualization.deckhouse.io -o wide | head -n1
+        kubectl get clustervirtualimage.virtualization.deckhouse.io -o wide | head -n1
         for i in `seq 1 400` ; do
-          kubectl get clustervirtualmachineimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} --no-headers -o wide || true
+          kubectl get clustervirtualimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} --no-headers -o wide || true
           sleep 2
         done
 
@@ -33,9 +33,9 @@ tasks:
       CVMI_NAME: '{{ .CVMI_NAME | default "ubuntu-iso" }}'
     cmds:
       - |
-        kubectl get clustervirtualmachineimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} || true
+        kubectl get clustervirtualimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} || true
         echo ">>> Annotations:"
-        (kubectl get clustervirtualmachineimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} -o json | jq '.metadata.annotations') || true
+        (kubectl get clustervirtualimage.virtualization.deckhouse.io/{{ .CVMI_NAME }} -o json | jq '.metadata.annotations') || true
         echo ">>> Importer Pod"
         kubectl -n virtualization-controller get po/importer-{{.CVMI_NAME}} || true
 

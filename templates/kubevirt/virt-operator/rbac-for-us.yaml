@@ -86,9 +86,9 @@ metadata:
   name: d8:virtualization:kubevirt-operator
 rules:
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - kubevirts
+  - dvpinternalkubevirts
   verbs:
   - get
   - list
@@ -294,10 +294,10 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines
-  - virtualmachineinstances
+  - dvpinternalvirtualmachines
+  - dvpinternalvirtualmachineinstances
   verbs:
   - get
   - list
@@ -311,15 +311,15 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines/status
+  - dvpinternalvirtualmachines/status
   verbs:
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancemigrations
+  - dvpinternalvirtualmachineinstancemigrations
   verbs:
   - create
   - get
@@ -327,9 +327,9 @@ rules:
   - watch
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancepresets
+  - dvpinternalvirtualmachineinstancepresets
   verbs:
   - watch
   - list
@@ -357,50 +357,50 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - kubevirts
+  - dvpinternalkubevirts
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinesnapshots
-  - virtualmachinerestores
-  - virtualmachinesnapshotcontents
+  - dvpinternalvirtualmachinesnapshots
+  - dvpinternalvirtualmachinerestores
+  - dvpinternalvirtualmachinesnapshotcontents
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - datasources
-  - datavolumes
+  - dvpinternaldatasources
+  - dvpinternaldatavolumes
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - delete
   - create
@@ -408,9 +408,9 @@ rules:
   - patch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list
@@ -550,24 +550,24 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinepools
-  - virtualmachinepools/finalizers
-  - virtualmachinepools/status
-  - virtualmachinepools/scale
+  - dvpinternalvirtualmachinepools
+  - dvpinternalvirtualmachinepools/finalizers
+  - dvpinternalvirtualmachinepools/status
+  - dvpinternalvirtualmachinepools/scale
   verbs:
   - watch
   - list
@@ -577,7 +577,7 @@ rules:
   - patch
   - get
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
@@ -593,7 +593,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
@@ -648,30 +648,30 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineclones
-  - virtualmachineclones/status
-  - virtualmachineclones/finalizers
+  - dvpinternalvirtualmachineclones
+  - dvpinternalvirtualmachineclones/status
+  - dvpinternalvirtualmachineclones/finalizers
   verbs:
   - get
   - list
@@ -717,9 +717,9 @@ rules:
   - get
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstances
+  - dvpinternalvirtualmachineinstances
   verbs:
   - update
   - list
@@ -757,17 +757,17 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - kubevirts
+  - dvpinternalkubevirts
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list
@@ -781,17 +781,17 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineexports
+  - dvpinternalvirtualmachineexports
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - kubevirts
+  - dvpinternalkubevirts
   verbs:
   - list
   - watch
@@ -864,13 +864,13 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines
-  - virtualmachineinstances
-  - virtualmachineinstancepresets
-  - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
+  - dvpinternalvirtualmachines
+  - dvpinternalvirtualmachineinstances
+  - dvpinternalvirtualmachineinstancepresets
+  - dvpinternalvirtualmachineinstancereplicasets
+  - dvpinternalvirtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -881,11 +881,11 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinesnapshots
-  - virtualmachinesnapshotcontents
-  - virtualmachinerestores
+  - dvpinternalvirtualmachinesnapshots
+  - dvpinternalvirtualmachinesnapshotcontents
+  - dvpinternalvirtualmachinerestores
   verbs:
   - get
   - delete
@@ -896,9 +896,9 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineexports
+  - dvpinternalvirtualmachineexports
   verbs:
   - get
   - delete
@@ -909,9 +909,9 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineclones
+  - dvpinternalvirtualmachineclones
   verbs:
   - get
   - delete
@@ -922,12 +922,12 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - get
   - delete
@@ -938,9 +938,9 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinepools
+  - dvpinternalvirtualmachinepools
   verbs:
   - get
   - delete
@@ -951,9 +951,9 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list
@@ -1009,13 +1009,13 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines
-  - virtualmachineinstances
-  - virtualmachineinstancepresets
-  - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
+  - dvpinternalvirtualmachines
+  - dvpinternalvirtualmachineinstances
+  - dvpinternalvirtualmachineinstancepresets
+  - dvpinternalvirtualmachineinstancereplicasets
+  - dvpinternalvirtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -1025,11 +1025,11 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinesnapshots
-  - virtualmachinesnapshotcontents
-  - virtualmachinerestores
+  - dvpinternalvirtualmachinesnapshots
+  - dvpinternalvirtualmachinesnapshotcontents
+  - dvpinternalvirtualmachinerestores
   verbs:
   - get
   - delete
@@ -1039,9 +1039,9 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineexports
+  - dvpinternalvirtualmachineexports
   verbs:
   - get
   - delete
@@ -1051,9 +1051,9 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineclones
+  - dvpinternalvirtualmachineclones
   verbs:
   - get
   - delete
@@ -1063,12 +1063,12 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - get
   - delete
@@ -1078,9 +1078,9 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinepools
+  - dvpinternalvirtualmachinepools
   verbs:
   - get
   - delete
@@ -1090,16 +1090,16 @@ rules:
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - kubevirts
+  - dvpinternalkubevirts
   verbs:
   - get
   - list
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list
@@ -1120,67 +1120,67 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachines
-  - virtualmachineinstances
-  - virtualmachineinstancepresets
-  - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
+  - dvpinternalvirtualmachines
+  - dvpinternalvirtualmachineinstances
+  - dvpinternalvirtualmachineinstancepresets
+  - dvpinternalvirtualmachineinstancereplicasets
+  - dvpinternalvirtualmachineinstancemigrations
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinesnapshots
-  - virtualmachinesnapshotcontents
-  - virtualmachinerestores
+  - dvpinternalvirtualmachinesnapshots
+  - dvpinternalvirtualmachinesnapshotcontents
+  - dvpinternalvirtualmachinerestores
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineexports
+  - dvpinternalvirtualmachineexports
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineclones
+  - dvpinternalvirtualmachineclones
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachineinstancetypes
-  - virtualmachineclusterinstancetypes
-  - virtualmachinepreferences
-  - virtualmachineclusterpreferences
+  - dvpinternalvirtualmachineinstancetypes
+  - dvpinternalvirtualmachineclusterinstancetypes
+  - dvpinternalvirtualmachinepreferences
+  - dvpinternalvirtualmachineclusterpreferences
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - virtualmachinepools
+  - dvpinternalvirtualmachinepools
   verbs:
   - get
   - list
   - watch
   - deletecollection
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - migrationpolicies
+  - dvpinternalmigrationpolicies
   verbs:
   - get
   - list

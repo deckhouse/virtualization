@@ -15,10 +15,10 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-pre-delete-hook")) | nindent 2 }}
 rules:
 - apiGroups:
-  - x.virtualization.deckhouse.io
+  - internal.virtualization.deckhouse.io
   resources:
-  - cdis
-  - kubevirts
+  - dvpinternalcdis
+  - dvpinternalkubevirts
   verbs:
   - get
   - delete

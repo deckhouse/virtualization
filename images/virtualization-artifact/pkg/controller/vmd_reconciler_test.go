@@ -23,23 +23,23 @@ package controller_test
 //		var dvName string
 //
 //		{
-//			vmd := &virtv2.VirtualMachineDisk{
+//			vmd := &virtv2.VirtualDisk{
 //				ObjectMeta: metav1.ObjectMeta{
 //					Name:        "test-vmd",
 //					Namespace:   "test-ns",
 //					Labels:      nil,
 //					Annotations: nil,
 //				},
-//				Spec: virtv2.VirtualMachineDiskSpec{
-//					DataSource: &virtv2.VMDDataSource{
+//				Spec: virtv2.VirtualDiskSpec{
+//					DataSource: &virtv2.VirtualDiskDataSource{
 //						Type: virtv2.DataSourceTypeHTTP,
 //						HTTP: &virtv2.DataSourceHTTP{
 //							URL: "http://mydomain.org/image.img",
 //						},
 //					},
-//					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
+//					PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
 //						Size:             "10Gi",
-//						StorageClassName: "local-path",
+//						StorageClass: "local-path",
 //					},
 //				},
 //			}
@@ -47,8 +47,8 @@ package controller_test
 //			reconciler = controller.NewVMDReconciler(controller.TestReconcilerOptions{
 //				KnownObjects: []client.Object{
 //					&virtv2.VirtualMachine{},
-//					&virtv2.VirtualMachineDisk{},
-//					&virtv2.ClusterVirtualMachineImage{},
+//					&virtv2.VirtualDisk{},
+//					&virtv2.ClusterVirtualImage{},
 //					&cdiv1.DataVolume{},
 //				},
 //				RuntimeObjects: []runtime.Object{vmd},
@@ -60,13 +60,13 @@ package controller_test
 //			err := reconcileExecutor.Execute(ctx, reconciler)
 //			Expect(err).NotTo(HaveOccurred())
 //
-//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 //			Expect(err).NotTo(HaveOccurred())
 //			Expect(vmd).NotTo(BeNil())
 //			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 //			Expect(vmd.Status.Progress).To(Equal("N/A"))
 //			Expect(vmd.Status.Capacity).To(Equal(""))
-//			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
+//			Expect(vmd.Status.Target.PersistentVolumeClaim).To(Equal(""))
 //
 //			// UUID suffix
 //			Expect(strings.HasPrefix(vmd.Annotations[controller.AnnVMDDataVolume], "virtual-machine-disk-")).To(BeTrue(), fmt.Sprintf("unexpected DataVolume name %q", vmd.Annotations[controller.AnnVMDDataVolume]))
@@ -77,13 +77,13 @@ package controller_test
 //			err := reconcileExecutor.Execute(ctx, reconciler)
 //			Expect(err).NotTo(HaveOccurred())
 //
-//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 //			Expect(err).NotTo(HaveOccurred())
 //			Expect(vmd).NotTo(BeNil())
 //			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 //			Expect(vmd.Status.Progress).To(Equal("N/A"))
 //			Expect(vmd.Status.Capacity).To(Equal(""))
-//			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
+//			Expect(vmd.Status.Target.PersistentVolumeClaim).To(Equal(""))
 //
 //			dvName = vmd.Annotations[controller.AnnVMDDataVolume]
 //			dv, err := helper.FetchObject(ctx, types.NamespacedName{Name: dvName, Namespace: "test-ns"}, reconciler.Client, &cdiv1.DataVolume{})
@@ -102,13 +102,13 @@ package controller_test
 //			err = reconcileExecutor.Execute(ctx, reconciler)
 //			Expect(err).NotTo(HaveOccurred())
 //
-//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 //			Expect(err).NotTo(HaveOccurred())
 //			Expect(vmd).NotTo(BeNil())
 //			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskPending))
 //			Expect(vmd.Status.Progress).To(Equal("N/A"))
 //			Expect(vmd.Status.Capacity).To(Equal(""))
-//			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
+//			Expect(vmd.Status.Target.PersistentVolumeClaim).To(Equal(""))
 //		}
 //
 //		{
@@ -135,7 +135,7 @@ package controller_test
 //					Annotations: nil,
 //				},
 //				Spec: corev1.PersistentVolumeClaimSpec{
-//					StorageClassName: util.GetPointer("local-path"),
+//					StorageClass: util.GetPointer("local-path"),
 //					VolumeName:       pv.Name,
 //				},
 //				Status: corev1.PersistentVolumeClaimStatus{
@@ -159,13 +159,13 @@ package controller_test
 //			err = reconcileExecutor.Execute(ctx, reconciler)
 //			Expect(err).NotTo(HaveOccurred())
 //
-//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 //			Expect(err).NotTo(HaveOccurred())
 //			Expect(vmd).NotTo(BeNil())
 //			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
 //			Expect(vmd.Status.Progress).To(Equal("50%"))
 //			Expect(vmd.Status.Capacity).To(Equal("15Gi"))
-//			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(""))
+//			Expect(vmd.Status.Target.PersistentVolumeClaim).To(Equal(""))
 //		}
 //
 //		{
@@ -180,13 +180,13 @@ package controller_test
 //			err = reconcileExecutor.Execute(ctx, reconciler)
 //			Expect(err).NotTo(HaveOccurred())
 //
-//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+//			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 //			Expect(err).NotTo(HaveOccurred())
 //			Expect(vmd).NotTo(BeNil())
 //			Expect(vmd.Status.Phase).To(Equal(virtv2.DiskReady))
 //			Expect(vmd.Status.Progress).To(Equal("100%"))
 //			Expect(vmd.Status.Capacity).To(Equal("15Gi"))
-//			Expect(vmd.Status.Target.PersistentVolumeClaimName).To(Equal(dvName))
+//			Expect(vmd.Status.Target.PersistentVolumeClaim).To(Equal(dvName))
 //		}
 //	})
 // })

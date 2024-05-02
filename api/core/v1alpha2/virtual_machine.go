@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	VMKind     = "VirtualMachine"
-	VMResource = "virtualmachines"
+	VirtualMachineKind     = "VirtualMachine"
+	VirtualMachineResource = "virtualmachines"
 )
 
 // VirtualMachine specifies configuration of the virtual machine.
@@ -27,9 +27,9 @@ type VirtualMachineSpec struct {
 	// RunPolicy is a power-on behaviour of the VM.
 	RunPolicy RunPolicy `json:"runPolicy"`
 
-	// VirtualMachineIPAddressClaimName specifies a name for the associated
-	// `VirtualMahcineIPAddressClaim` resource. Defaults to `{vm name}`.
-	VirtualMachineIPAddressClaimName string `json:"virtualMachineIPAddressClaimName,omitempty"`
+	// VirtualMachineIPAddressClaim specifies a name for the associated
+	// `VirtualMachineIPAddressClaim` resource. Defaults to `{vm name}`.
+	VirtualMachineIPAddressClaim string `json:"virtualMachineIPAddressClaim,omitempty"`
 
 	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
@@ -57,12 +57,12 @@ type VirtualMachineSpec struct {
 	// Default value is true, so omitempty is not specified.
 	EnableParavirtualization bool `json:"enableParavirtualization"`
 
-	OsType       OsType            `json:"osType,omitempty"`
-	Bootloader   BootloaderType    `json:"bootloader,omitempty"`
-	CPU          CPUSpec           `json:"cpu"`
-	Memory       MemorySpec        `json:"memory"`
-	BlockDevices []BlockDeviceSpec `json:"blockDevices"`
-	Provisioning *Provisioning     `json:"provisioning"`
+	OsType          OsType               `json:"osType,omitempty"`
+	Bootloader      BootloaderType       `json:"bootloader,omitempty"`
+	CPU             CPUSpec              `json:"cpu"`
+	Memory          MemorySpec           `json:"memory"`
+	BlockDeviceRefs []BlockDeviceSpecRef `json:"blockDeviceRefs"`
+	Provisioning    *Provisioning        `json:"provisioning"`
 }
 
 type RunPolicy string
@@ -91,9 +91,9 @@ const (
 )
 
 type CPUSpec struct {
-	ModelName    string `json:"modelName"`
-	Cores        int    `json:"cores"`
-	CoreFraction string `json:"coreFraction"`
+	VirtualMachineCPUModel string `json:"virtualMachineCPUModel"`
+	Cores                  int    `json:"cores"`
+	CoreFraction           string `json:"coreFraction"`
 }
 
 type MemorySpec struct {
@@ -113,20 +113,42 @@ type Disruptions struct {
 }
 
 type Provisioning struct {
-	Type              ProvisioningType             `json:"type"`
-	SysprepSecretRef  *corev1.LocalObjectReference `json:"sysprepSecretRef,omitempty"`
-	UserData          string                       `json:"userData,omitempty"`
-	UserDataSecretRef *corev1.LocalObjectReference `json:"userDataSecretRef,omitempty"`
+	Type        ProvisioningType `json:"type"`
+	UserData    string           `json:"userData,omitempty"`
+	UserDataRef *UserDataRef     `json:"userDataRef,omitempty"`
+	SysprepRef  *SysprepRef      `json:"sysprepRef,omitempty"`
 }
 
+type UserDataRef struct {
+	Kind UserDataRefKind `json:"kind"`
+	Name string          `json:"name"`
+}
+
+type UserDataRefKind string
+
+const (
+	UserDataRefKindSecret UserDataRefKind = "Secret"
+)
+
+type SysprepRef struct {
+	Kind SysprepRefKind `json:"kind"`
+	Name string         `json:"name"`
+}
+
+type SysprepRefKind string
+
+const (
+	SysprepRefKindSecret SysprepRefKind = "Secret"
+)
+
 type VirtualMachineStatus struct {
-	Phase                MachinePhase                             `json:"phase"`
-	NodeName             string                                   `json:"nodeName"`
-	IPAddressClaim       string                                   `json:"ipAddressClaim"`
-	IPAddress            string                                   `json:"ipAddress"`
-	BlockDevicesAttached []BlockDeviceStatus                      `json:"blockDevicesAttached"`
-	GuestOSInfo          virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
-	Message              string                                   `json:"message"`
+	Phase                        MachinePhase                             `json:"phase"`
+	Node                         string                                   `json:"node"`
+	VirtualMachineIPAddressClaim string                                   `json:"virtualMachineIPAddressClaim"`
+	IPAddress                    string                                   `json:"ipAddress"`
+	BlockDeviceRefs              []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
+	GuestOSInfo                  virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
+	Message                      string                                   `json:"message"`
 
 	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
@@ -170,7 +192,7 @@ type VirtualMachineList struct {
 type ProvisioningType string
 
 const (
-	ProvisioningTypeSysprepSecret  ProvisioningType = "SysprepSecret"
-	ProvisioningTypeUserData       ProvisioningType = "UserData"
-	ProvisioningTypeUserDataSecret ProvisioningType = "UserDataSecret"
+	ProvisioningTypeUserData    ProvisioningType = "UserData"
+	ProvisioningTypeUserDataRef ProvisioningType = "UserDataRef"
+	ProvisioningTypeSysprepRef  ProvisioningType = "SysprepRef"
 )

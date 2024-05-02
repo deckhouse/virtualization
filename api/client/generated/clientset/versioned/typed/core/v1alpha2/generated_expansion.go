@@ -17,7 +17,11 @@ limitations under the License.
 
 package v1alpha2
 
-type ClusterVirtualMachineImageExpansion interface{}
+type ClusterVirtualImageExpansion interface{}
+
+type VirtualDiskExpansion interface{}
+
+type VirtualImageExpansion interface{}
 
 type VirtualMachineExpansion interface{}
 
@@ -25,12 +29,8 @@ type VirtualMachineBlockDeviceAttachmentExpansion interface{}
 
 type VirtualMachineCPUModelExpansion interface{}
 
-type VirtualMachineDiskExpansion interface{}
-
 type VirtualMachineIPAddressClaimExpansion interface{}
 
 type VirtualMachineIPAddressLeaseExpansion interface{}
-
-type VirtualMachineImageExpansion interface{}
 
 type VirtualMachineOperationExpansion interface{}

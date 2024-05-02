@@ -12,30 +12,30 @@ Let's create namespace where we will create virtual machines:
 kubectl create ns vms
 ```
 
-Let's create a virtual machine disk from an external source:
+Let's create a virtual disk from an external source:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: linux-disk
   namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClass: local-path
   dataSource:
     type: HTTP
     http:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-After creating `VirtualMachineDiks` in the namespace vms, the pod `importer-*` will start, which will perform the download of the given image.
+After creating `VirtualDisk` in the namespace vms, the pod `importer-*` will start, which will perform the download of the given image.
 
 Let's look at the current status of the resource:
 
 ```bash
-kubectl -n vms get virtualmachinedisk -o wide
+kubectl -n vms get virtualdisk -o wide
 
 # NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
 # linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
@@ -74,10 +74,9 @@ spec:
         lock_passwd: false
         ssh_authorized_keys:
           - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
-  blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - type: VirtualDisk
+      name: linux-disk
 ```
 
 Let's check that the virtual machine is created and running:
@@ -85,7 +84,7 @@ Let's check that the virtual machine is created and running:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# NAME       PHASE     NODE       IPADDRESS    AGE
 # linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
@@ -105,17 +104,17 @@ After running the command, the default VNC client will start. An alternative way
 
 # Images
 
-`VirtualMachineImage` and `ClusterVirtualMachineImage` are intended to store virtual machine disk images or installation images in `iso` format to create and replicate virtual machine disks in the same way. When connected to a virtual machine, these images are read-only and the `iso` format installation image will be attached as a cdrom device.
+`VirtualImage` and `ClusterVirtualImage` are intended to store virtual machine disk images or installation images in `iso` format to create and replicate virtual machine disks in the same way. When connected to a virtual machine, these images are read-only and the `iso` format installation image will be attached as a cdrom device.
 
-The `VirtualMachineImage` resource is only available in the namespace in which it was created, while `ClusterVirtualMachineImage` is available for all namespaces within the cluster.
+The `VirtualImage` resource is only available in the namespace in which it was created, while `ClusterVirtualImage` is available for all namespaces within the cluster.
 
-Depending on the configuration, the `VirtualMachineImage` resource can store data in `DVCR` or use platform-provided disk storage (PV). On the other hand, `ClusterVirtualMachineImage` stores data only in `DVCR`, providing a single access to all images for all namespaces in the cluster.
+Depending on the configuration, the `VirtualImage` resource can store data in `DVCR` or use platform-provided disk storage (PV). On the other hand, `ClusterVirtualImage` stores data only in `DVCR`, providing a single access to all images for all namespaces in the cluster.
 
 Let's look at the creation of these resources with examples:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: ubuntu-img
   namespace: vms
@@ -130,17 +129,17 @@ spec:
 Let's see what happens:
 
 ```bash
-kubectl -n vms get virtualmachineimage
+kubectl -n vms get virtualimage
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # ubuntu-img   Ready   false   100%       10m
 ```
 
-The `ClusterVirtualMachineImage` resource is created similarly, but does not require the `storage` settings to be specified:
+The `ClusterVirtualImage` resource is created similarly, but does not require the `storage` settings to be specified:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: ubuntu-img
 spec:
@@ -150,10 +149,10 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-Let's look at the status of `ClusterVirtualMachineImage`:
+Let's look at the status of `ClusterVirtualImage`:
 
 ```bash
-kubectl get clustervirtualmachineimage
+kubectl get clustervirtualimage
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # ubuntu-img   Ready   false   100%       11m
@@ -194,11 +193,11 @@ Upload the created image to the container registry:
 docker push docker.io/username/ubuntu2204:latest
 ```
 
-To use this image, let's create the `ClusterVirtualMachineImage` resource as an example:
+To use this image, let's create the `ClusterVirtualImage` resource as an example:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: ubuntu-2204
 spec:
@@ -211,16 +210,16 @@ spec:
 To look at a resource and its status, run the command:
 
 ```bash
-kubectl get clustervirtalmachineimage
+kubectl get clustervirtualimage
 ```
 
 ### Uploading an image from the command line
 
-To upload an image from the command line, we first need to create the following resource, consider `ClusterVirtualMachineImage` as an example:
+To upload an image from the command line, we first need to create the following resource, consider `ClusterVirtualImage` as an example:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: some-image
 spec:
@@ -231,7 +230,7 @@ spec:
 Once the resource is created, let's look at its status:
 
 ```bash
-kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
+kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -r
 
 > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
     -T example.iso
@@ -251,7 +250,7 @@ After the `curl` command completes, the image should be created.
 You can verify that everything was successful by checking the status of the created image:
 
 ```bash
-kubectl get clustervirtualmachineimages
+kubectl get clustervirtualimages
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       10m
@@ -275,12 +274,12 @@ The first thing to note is that we can create empty disks!
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
+    storageClass: "your-storage-class-name"
     size: 100M
 ```
 
@@ -289,7 +288,7 @@ Once the disk is created, we can use it to connect to the virtual machine.
 You can view the status of the created resource with the command:
 
 ```bash
-kubectl get virtualmachinedisk
+kubectl get virtualdisk
 
 # NAME        PHASE  CAPACITY   AGE
 # vmd-blank   Ready  100Mi      1m
@@ -299,22 +298,23 @@ kubectl get virtualmachinedisk
 
 We can create disks using existing disk images as well as external sources like images.
 
-When creating a disk resource, we can specify the desired size. If no size is specified, a disk will be created with the size corresponding to the original disk image stored in the `VirtualMachineImage` or `ClusterVirtualMachineImage` resource. If you want to create a larger disk, you must explicitly specify this.
+When creating a disk resource, we can specify the desired size. If no size is specified, a disk will be created with the size corresponding to the original disk image stored in the `VirtualImage` or `ClusterVirtualImage` resource. If you want to create a larger disk, you must explicitly specify this.
 
-As an example, we will use a previously created `ClusterVirtualMachineImage` named `ubuntu-2204`:
+As an example, we will use a previously created `ClusterVirtualImage` named `ubuntu-2204`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: ubuntu-root
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: "your-storage-class-name"
+    storageClass: "your-storage-class-name"
   dataSource:
-    type: ClusterVirtualMachineImage
-    clusterVirtualMachineImage:
+    type: ObjectRef
+    objectRef:
+      kind: ClusterVirtualImage
       name: ubuntu-img
 ```
 
@@ -336,11 +336,12 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachineName: linux-vm # имя виртуальной машины, к которой будет подключен диск
+  virtualMachine: linux-vm # Name of the virtual machine to attach disk to.
   blockDevice:
-    type: VirtualMachineDisk
-    virtualMachineDisk:
-      name: vmd-blank # имя подключаемого диска
+    type: ObjectRef
+    objectRef:
+      kind: VirtualDisk
+      name: vmd-blank # Name of the disk that should be attached.
 ```
 
 If you change the machine name in this resource to another machine name, the disk will be reconnected from one virtual machine to another.
@@ -375,7 +376,7 @@ Let's create a disk for the virtual machine:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: ubuntu-2204-root
 spec:
@@ -423,11 +424,10 @@ spec:
     cores: 1
   memory:
     size: 2Gi
-  blockDevices:
+  blockDeviceRefs:
     # the order of disks and images in this block determines the boot priority
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: ubuntu-2204-root
+    - kind: VirtualDisk
+      name: ubuntu-2204-root
 ```
 
 If there is some private data, the initial initial initialization script of the virtual machine can be created in secret.
@@ -462,7 +462,7 @@ After startup, the virtual machine must be in `Ready` status.
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
@@ -486,7 +486,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaimName: <claim-name>
+  virtualMachineIPAddressClaim: <claim-name>
 ```
 
 ### 2. Configuring virtual machine placement rules
@@ -511,7 +511,7 @@ After making changes to the machine configuration, nothing will happen because t
 
 How can we figure this out?
 
-Let's look at the status of the VM:
+Let's look at the status of the virtual machine:
 
 ```bash
 kubectl get linux-vm -o jsonpath='{.status}'
@@ -528,7 +528,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart
 spec:
-  virtualMachineName: linux-vm
+  virtualMachine: linux-vm
   type: Restart
 EOF
 ```
@@ -538,7 +538,7 @@ Let's look at the status of the resource that has been created:
 ```bash
 kubectl get vmops restart
 
-# NAME       PHASE       VMNAME     AGE
+# NAME       PHASE       VM         AGE
 # restart    Completed   linux-vm   1m
 ```
 
@@ -571,7 +571,7 @@ then look at the status of the virtual machine
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 

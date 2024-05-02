@@ -1,11 +1,11 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: linux-disk
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClass: local-path
   dataSource:
     type: HTTP
     http:
@@ -30,7 +30,6 @@ spec:
     cores: 2
   memory:
     size: 2Gi
-  blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk

@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: ubuntu
 spec:
@@ -44,7 +44,6 @@ spec:
     coreFraction: 50%
   memory:
     size: 6Gi
-  blockDevices:
-    - type: VirtualMachineImage
-      virtualMachineImage:
-        name: ubuntu
+  blockDeviceRefs:
+    - kind: VirtualImage
+      name: ubuntu

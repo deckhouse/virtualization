@@ -81,7 +81,7 @@ func (r *ClaimReconciler) enqueueRequestsFromVMs(_ context.Context, obj client.O
 		return nil
 	}
 
-	if vm.Spec.VirtualMachineIPAddressClaimName == "" {
+	if vm.Spec.VirtualMachineIPAddressClaim == "" {
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{
@@ -96,7 +96,7 @@ func (r *ClaimReconciler) enqueueRequestsFromVMs(_ context.Context, obj client.O
 		{
 			NamespacedName: types.NamespacedName{
 				Namespace: vm.Namespace,
-				Name:      vm.Spec.VirtualMachineIPAddressClaimName,
+				Name:      vm.Spec.VirtualMachineIPAddressClaim,
 			},
 		},
 	}
@@ -139,15 +139,15 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	}
 
 	switch {
-	case state.Lease == nil && state.Claim.Current().Spec.LeaseName != "":
+	case state.Lease == nil && state.Claim.Current().Spec.VirtualMachineIPAddressLease != "":
 		opts.Log.Info("Lease by name not found: waiting for the lease to be available")
 		return nil
 
 	case state.Lease == nil:
-		// Lease not found by spec.LeaseName or spec.Address: it doesn't exist.
-		opts.Log.Info("No Lease for Claim: create the new one", "address", state.Claim.Current().Spec.Address, "leaseName", state.Claim.Current().Spec.LeaseName)
+		// Lease not found by spec.virtualMachineIPAddressLease or spec.Address: it doesn't exist.
+		opts.Log.Info("No Lease for Claim: create the new one", "address", state.Claim.Current().Spec.Address, "leaseName", state.Claim.Current().Spec.VirtualMachineIPAddressLease)
 
-		leaseName := state.Claim.Current().Spec.LeaseName
+		leaseName := state.Claim.Current().Spec.VirtualMachineIPAddressLease
 
 		if state.Claim.Current().Spec.Address == "" {
 			if leaseName != "" {
@@ -195,7 +195,7 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			return err
 		}
 
-		state.Claim.Changed().Spec.LeaseName = leaseName
+		state.Claim.Changed().Spec.VirtualMachineIPAddressLease = leaseName
 
 		err = opts.Client.Update(ctx, state.Claim.Changed())
 		if err != nil {
@@ -231,7 +231,7 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			return err
 		}
 
-		state.Claim.Changed().Spec.LeaseName = state.Lease.Name
+		state.Claim.Changed().Spec.VirtualMachineIPAddressLease = state.Lease.Name
 		state.Claim.Changed().Spec.Address = leaseNameToIP(state.Lease.Name)
 
 		return opts.Client.Update(ctx, state.Claim.Changed())
@@ -246,16 +246,16 @@ func (r *ClaimReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, s
 
 	claimStatus := state.Claim.Current().Status.DeepCopy()
 
-	claimStatus.VMName = ""
+	claimStatus.VirtualMachine = ""
 	if state.VM != nil {
-		claimStatus.VMName = state.VM.Name
+		claimStatus.VirtualMachine = state.VM.Name
 	}
 
 	claimStatus.Address = ""
 	claimStatus.ConflictMessage = ""
 
 	switch {
-	case state.Lease == nil && state.Claim.Current().Spec.LeaseName != "":
+	case state.Lease == nil && state.Claim.Current().Spec.VirtualMachineIPAddressLease != "":
 		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhaseLost
 
 	case state.Lease == nil:

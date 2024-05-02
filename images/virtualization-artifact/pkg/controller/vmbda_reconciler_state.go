@@ -22,7 +22,7 @@ type VMBDAReconcilerState struct {
 	VM     *virtv2.VirtualMachine
 	KVVMI  *virtv1.VirtualMachineInstance
 
-	VMD *virtv2.VirtualMachineDisk
+	VMD *virtv2.VirtualDisk
 	PVC *corev1.PersistentVolumeClaim
 
 	Result *reconcile.Result
@@ -83,37 +83,37 @@ func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		return nil
 	}
 
-	vmKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.VMName, Namespace: state.VMBDA.Current().Namespace}
+	vmKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.VirtualMachine, Namespace: state.VMBDA.Current().Namespace}
 	state.VM, err = helper.FetchObject(ctx, vmKey, client, &virtv2.VirtualMachine{})
 	if err != nil {
 		return fmt.Errorf("unable to get VM %s: %w", vmKey, err)
 	}
 
-	kvvmiKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.VMName, Namespace: state.VMBDA.Current().Namespace}
+	kvvmiKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.VirtualMachine, Namespace: state.VMBDA.Current().Namespace}
 	state.KVVMI, err = helper.FetchObject(ctx, kvvmiKey, client, &virtv1.VirtualMachineInstance{})
 	if err != nil {
 		return fmt.Errorf("unable to get KVVMI %s: %w", kvvmiKey, err)
 	}
 
-	switch state.VMBDA.Current().Spec.BlockDevice.Type {
-	case virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk:
-		vmdKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name, Namespace: state.VMBDA.Current().Namespace}
-		state.VMD, err = helper.FetchObject(ctx, vmdKey, client, &virtv2.VirtualMachineDisk{})
+	switch state.VMBDA.Current().Spec.BlockDeviceRef.Kind {
+	case virtv2.VMBDAObjectRefKindVirtualDisk:
+		vmdKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.BlockDeviceRef.Name, Namespace: state.VMBDA.Current().Namespace}
+		state.VMD, err = helper.FetchObject(ctx, vmdKey, client, &virtv2.VirtualDisk{})
 		if err != nil {
-			return fmt.Errorf("unable to get VMD %s: %w", vmdKey, err)
+			return fmt.Errorf("unable to get virtual disk %s: %w", vmdKey, err)
 		}
 
 		if state.VMD == nil {
 			return nil
 		}
 
-		pvcKey := types.NamespacedName{Name: state.VMD.Status.Target.PersistentVolumeClaimName, Namespace: state.VMBDA.Current().Namespace}
+		pvcKey := types.NamespacedName{Name: state.VMD.Status.Target.PersistentVolumeClaim, Namespace: state.VMBDA.Current().Namespace}
 		state.PVC, err = helper.FetchObject(ctx, pvcKey, client, &corev1.PersistentVolumeClaim{})
 		if err != nil {
 			return fmt.Errorf("unable to get PVC %s: %w", pvcKey, err)
 		}
 	default:
-		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.VMName)
+		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDeviceRef.Kind)
 	}
 
 	return nil
@@ -132,15 +132,15 @@ func (state *VMBDAReconcilerState) IndexVMStatusBDA() int {
 		return -1
 	}
 
-	for i, blockDevice := range state.VM.Status.BlockDevicesAttached {
-		if blockDevice.VirtualMachineDisk != nil && blockDevice.VirtualMachineDisk.Name == state.VMD.Name {
+	for i, bda := range state.VM.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.DiskDevice && bda.Name == state.VMD.Name {
 			return i
 		}
 	}
 	return -1
 }
 
-// RemoveVMStatusBDA removes device from VM.Status.BlockDevicesAttached by its name.
+// RemoveVMStatusBDA removes device from VM.Status.BlockDeviceRefs by its name.
 func (state *VMBDAReconcilerState) RemoveVMStatusBDA() bool {
 	if state.VM == nil {
 		return false
@@ -151,9 +151,9 @@ func (state *VMBDAReconcilerState) RemoveVMStatusBDA() bool {
 		return false
 	}
 
-	state.VM.Status.BlockDevicesAttached = append(
-		state.VM.Status.BlockDevicesAttached[:blockDeviceIndex],
-		state.VM.Status.BlockDevicesAttached[blockDeviceIndex+1:]...,
+	state.VM.Status.BlockDeviceRefs = append(
+		state.VM.Status.BlockDeviceRefs[:blockDeviceIndex],
+		state.VM.Status.BlockDeviceRefs[blockDeviceIndex+1:]...,
 	)
 
 	return true

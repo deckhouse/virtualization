@@ -32,14 +32,13 @@ import (
 )
 
 type CVMIReconciler struct {
-	*vmattachee.AttacheeReconciler[*virtv2.ClusterVirtualMachineImage, virtv2.ClusterVirtualMachineImageStatus]
+	*vmattachee.AttacheeReconciler[*virtv2.ClusterVirtualImage, virtv2.ClusterVirtualImageStatus]
 
-	importerImage   string
-	uploaderImage   string
-	verbose         string
-	pullPolicy      string
-	installerLabels map[string]string
-	dvcrSettings    *dvcr.Settings
+	importerImage string
+	uploaderImage string
+	verbose       string
+	pullPolicy    string
+	dvcrSettings  *dvcr.Settings
 }
 
 func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string, dvcrSettings *dvcr.Settings) *CVMIReconciler {
@@ -50,15 +49,15 @@ func NewCVMIReconciler(importerImage, uploaderImage, verbose, pullPolicy string,
 		pullPolicy:    pullPolicy,
 		dvcrSettings:  dvcrSettings,
 		AttacheeReconciler: vmattachee.NewAttacheeReconciler[
-			*virtv2.ClusterVirtualMachineImage,
-			virtv2.ClusterVirtualMachineImageStatus,
+			*virtv2.ClusterVirtualImage,
+			virtv2.ClusterVirtualImageStatus,
 		](),
 	}
 }
 
 func (r *CVMIReconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualMachineImage{}),
+		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
 		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -74,7 +73,7 @@ func (r *CVMIReconciler) SetupController(ctx context.Context, mgr manager.Manage
 
 // Sync creates and deletes importer Pod depending on CVMI status.
 func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.Info("Reconcile required for CVMI", "cvmi.name", state.CVMI.Current().Name, "cvmi.phase", state.CVMI.Current().Status.Phase)
+	opts.Log.Info("Reconcile required for CVI", "cvi.name", state.CVMI.Current().Name, "cvi.phase", state.CVMI.Current().Status.Phase)
 
 	if r.AttacheeReconciler.Sync(ctx, state.AttacheeState, opts) {
 		return nil
@@ -83,7 +82,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 	// Change the world depending on states of CVMI and Pod.
 	switch {
 	case state.IsDeletion():
-		opts.Log.V(1).Info("Delete CVMI, remove protective finalizers")
+		opts.Log.V(1).Info("Delete CVI, remove protective finalizers")
 		return r.cleanupOnDeletion(ctx, state, opts)
 	case !state.IsProtected():
 		if err := r.verifyDataSourceRefs(ctx, opts.Client, state); err != nil {
@@ -103,7 +102,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		}
 		return nil
 	case state.IsFailed():
-		opts.Log.Info("VMI failed: cleanup underlying resources")
+		opts.Log.Info("CVI failed: cleanup underlying resources")
 		// Delete underlying importer/uploader Pod, Service and DataVolume and stop the reconcile process.
 		if cc.ShouldCleanupSubResources(state.CVMI.Current()) {
 			return r.cleanup(ctx, state.CVMI.Changed(), opts.Client, state)
@@ -111,7 +110,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		return nil
 	case state.CanStartPod():
 		// Create Pod using name and namespace from annotation.
-		opts.Log.V(1).Info("Pod for CVMI not found, create new one")
+		opts.Log.V(1).Info("Pod for CVI not found, create new one")
 
 		if cvmiutil.IsDVCRSource(state.CVMI.Current()) && !state.DVCRDataSource.IsReady() {
 			opts.Log.V(1).Info("Wait for the data source to be ready")
@@ -128,7 +127,7 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 		return nil
 	case state.IsImportInProgress(), state.IsImportInPending():
 		// Import is in progress, force a re-reconcile in 2 seconds to update status.
-		opts.Log.V(2).Info("Requeue: CVMI import is in progress", "cvmi.name", state.CVMI.Current().Name)
+		opts.Log.V(2).Info("Requeue: CVI import is in progress", "cvi.name", state.CVMI.Current().Name)
 		if err := r.ensurePodFinalizers(ctx, state, opts); err != nil {
 			return err
 		}
@@ -137,17 +136,17 @@ func (r *CVMIReconciler) Sync(ctx context.Context, _ reconcile.Request, state *C
 	}
 
 	// Report unexpected state.
-	details := fmt.Sprintf("cvmi.Status.Phase='%s'", state.CVMI.Current().Status.Phase)
+	details := fmt.Sprintf("cvi.Status.Phase='%s'", state.CVMI.Current().Status.Phase)
 	if state.Pod != nil {
 		details += fmt.Sprintf(" pod.Name='%s' pod.Status.Phase='%s'", state.Pod.Name, state.Pod.Status.Phase)
 	}
-	opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("CVMI has unexpected state, recreate it to start import again. %s", details))
+	opts.Recorder.Event(state.CVMI.Current(), corev1.EventTypeWarning, virtv2.ReasonErrUnknownState, fmt.Sprintf("CVI has unexpected state, recreate it to start import again. %s", details))
 
 	return nil
 }
 
 func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(2).Info("Update CVMI status")
+	opts.Log.V(2).Info("Update CVI status")
 
 	// Record event if Pod has error.
 	// TODO set Failed status if Pod restarts are greater than some threshold?
@@ -179,10 +178,9 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		break
 	case !state.IsPodComplete():
 		// Set CVMI status to Provisioning and copy progress metrics from importer/uploader Pod.
-		opts.Log.V(2).Info("Fetch progress", "cvmi.name", state.CVMI.Current().Name)
+		opts.Log.V(2).Info("Fetch progress", "cvi.name", state.CVMI.Current().Name)
 		cvmiStatus.Phase = virtv2.ImageProvisioning
-		t := state.CVMI.Current().Spec.DataSource.Type
-		if t == virtv2.DataSourceTypeUpload &&
+		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload &&
 			cvmiStatus.UploadCommand == "" &&
 			state.Ingress != nil &&
 			state.Ingress.GetAnnotations()[cc.AnnUploadURL] != "" {
@@ -200,7 +198,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 				return err
 			}
 			if progress != nil {
-				opts.Log.V(2).Info("Got progress", "cvmi.name", state.CVMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
+				opts.Log.V(2).Info("Got progress", "cvi.name", state.CVMI.Current().Name, "progress", progress.Progress(), "speed", progress.AvgSpeed(), "progress.raw", progress.ProgressRaw(), "speed.raw", progress.AvgSpeedRaw())
 				cvmiStatus.Progress = progress.Progress()
 				cvmiStatus.DownloadSpeed.Avg = progress.AvgSpeed()
 				cvmiStatus.DownloadSpeed.AvgBytes = strconv.FormatUint(progress.AvgSpeedRaw(), 10)
@@ -211,7 +209,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 		// Set CVMI phase.
 		if state.CVMI.Current().Spec.DataSource.Type == virtv2.DataSourceTypeUpload && (progress == nil || progress.ProgressRaw() == 0) {
 			cvmiStatus.Phase = virtv2.ImageWaitForUserUpload
-			if helper.GetAge(state.Pod) > cc.UploaderWaitDuration {
+			if state.Pod != nil && helper.GetAge(state.Pod) > cc.UploaderWaitDuration {
 				cvmiStatus.Phase = virtv2.ImageFailed
 				cvmiStatus.FailureReason = virtv2.ReasonErrUploaderWaitDurationExpired
 				cvmiStatus.FailureMessage = "uploading time expired"
@@ -267,7 +265,7 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 func (r *CVMIReconciler) verifyDataSourceRefs(ctx context.Context, client client.Client, state *CVMIReconcilerState) error {
 	cvmi := state.CVMI.Current()
 	switch cvmi.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeClusterVirtualMachineImage, virtv2.DataSourceTypeVirtualMachineImage:
+	case virtv2.DataSourceTypeObjectRef:
 		if err := state.DVCRDataSource.Validate(); err != nil {
 			return err
 		}
@@ -293,7 +291,7 @@ func (r *CVMIReconciler) verifyDataSourceRefs(ctx context.Context, client client
 	return nil
 }
 
-func (r *CVMIReconciler) cleanup(ctx context.Context, cvmi *virtv2.ClusterVirtualMachineImage, client client.Client, state *CVMIReconcilerState) error {
+func (r *CVMIReconciler) cleanup(ctx context.Context, cvmi *virtv2.ClusterVirtualImage, client client.Client, state *CVMIReconcilerState) error {
 	switch cvmi.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
 		if state.Ingress != nil {
@@ -385,8 +383,8 @@ func (r *CVMIReconciler) cleanupOnDeletion(ctx context.Context, state *CVMIRecon
 }
 
 func (r *CVMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.ClusterImageDevice && bda.ClusterVirtualMachineImage != nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.ClusterImageDevice {
 			return true
 		}
 	}
@@ -397,13 +395,13 @@ func (r *CVMIReconciler) FilterAttachedVM(vm *virtv2.VirtualMachine) bool {
 func (r *CVMIReconciler) EnqueueFromAttachedVM(vm *virtv2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type != virtv2.ClusterImageDevice || bda.ClusterVirtualMachineImage == nil {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind != virtv2.ClusterImageDevice {
 			continue
 		}
 
 		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Name: bda.ClusterVirtualMachineImage.Name,
+			Name: bda.Name,
 		}})
 	}
 

@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	VMDDiskPrefix        = "vmd-"
-	VMIDiskPrefix        = "vmi-"
-	CVMIDiskPrefix       = "cvmi-"
+	VMDDiskPrefix        = "vd-"
+	VMIDiskPrefix        = "vi-"
+	CVMIDiskPrefix       = "cvi-"
 	NetworkInterfaceName = "default"
 )
 
@@ -41,9 +41,9 @@ type HotPlugDeviceSettings struct {
 
 func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *virtv2.VirtualMachine,
-	vmdByName map[string]*virtv2.VirtualMachineDisk,
-	vmiByName map[string]*virtv2.VirtualMachineImage,
-	cvmiByName map[string]*virtv2.ClusterVirtualMachineImage,
+	vmdByName map[string]*virtv2.VirtualDisk,
+	vmiByName map[string]*virtv2.VirtualImage,
+	cvmiByName map[string]*virtv2.ClusterVirtualImage,
 	dvcrSettings *dvcr.Settings,
 	cpu virtv2.VirtualMachineCPUModelSpec,
 	ipAddress string,
@@ -91,20 +91,20 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.ClearDisks()
-	for _, bd := range vm.Spec.BlockDevices {
-		switch bd.Type {
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		switch bd.Kind {
 		case virtv2.ImageDevice:
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
-			vmi := vmiByName[bd.VirtualMachineImage.Name]
+			vmi := vmiByName[bd.Name]
 
-			name := GenerateVMIDiskName(bd.VirtualMachineImage.Name)
+			name := GenerateVMIDiskName(bd.Name)
 			switch vmi.Spec.Storage {
 			case virtv2.StorageKubernetes:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaimName),
+					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                name,
 				}); err != nil {
@@ -120,15 +120,15 @@ func ApplyVirtualMachineSpec(
 					return err
 				}
 			default:
-				return fmt.Errorf("unexpected storage type %q for vmi %s. %w", vmi.Spec.Storage, vmi.Name, common.ErrUnknownType)
+				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vmi.Spec.Storage, vmi.Name, common.ErrUnknownType)
 			}
 
 		case virtv2.ClusterImageDevice:
-			// ClusterVirtualMachineImage is attached as containerDisk.
+			// ClusterVirtualImage is attached as containerDisk.
 
-			cvmi := cvmiByName[bd.ClusterVirtualMachineImage.Name]
+			cvmi := cvmiByName[bd.Name]
 
-			name := GenerateCVMIDiskName(bd.ClusterVirtualMachineImage.Name)
+			name := GenerateCVMIDiskName(bd.Name)
 			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: util.GetPointer(dvcrImage),
@@ -139,20 +139,20 @@ func ApplyVirtualMachineSpec(
 			}
 
 		case virtv2.DiskDevice:
-			// VirtualMachineDisk is attached as regular disk.
+			// VirtualDisk is attached as regular disk.
 
-			vmd := vmdByName[bd.VirtualMachineDisk.Name]
+			vmd := vmdByName[bd.Name]
 
-			name := GenerateVMDDiskName(bd.VirtualMachineDisk.Name)
+			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaimName),
+				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaim),
 				Serial:                name,
 			}); err != nil {
 				return err
 			}
 
 		default:
-			return fmt.Errorf("unknown block device type %q. %w", bd.Type, common.ErrUnknownType)
+			return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}
 	}
 

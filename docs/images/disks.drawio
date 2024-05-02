@@ -24,13 +24,13 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="8" value="VirtualMachineDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="8" value="VirtualDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="100" y="340" width="120" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="26" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;rounded=0;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;" parent="1" source="9" target="19" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="9" value="ClusterVirtualMachineImage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="9" value="ClusterVirtualImage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="330" y="200" width="160" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="11" value="storage" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;rounded=0;strokeWidth=2;" parent="1" vertex="1">
@@ -39,7 +39,7 @@
                 <mxCell id="27" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;rounded=0;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;" parent="1" source="17" target="8" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="17" value="VirtualMachineImage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="17" value="VirtualImage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="100" y="280" width="120" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="23" style="html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;jumpStyle=arc;" parent="1" source="18" target="11" edge="1">
@@ -51,7 +51,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="18" value="VirtualMachineDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="18" value="VirtualDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="225" y="340" width="120" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="24" style="html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;jumpStyle=arc;" parent="1" source="19" target="11" edge="1">
@@ -63,7 +63,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="19" value="VirtualMachineDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="19" value="VirtualDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="350" y="340" width="120" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="25" style="html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;jumpStyle=arc;" parent="1" source="21" target="11" edge="1">
@@ -74,7 +74,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="21" value="VirtualMachineDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
+                <mxCell id="21" value="VirtualDisk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=#0066ff;strokeWidth=2;" parent="1" vertex="1">
                     <mxGeometry x="480" y="340" width="120" height="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="30" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;rounded=0;strokeColor=#0066ff;fontColor=#0066ff;strokeWidth=2;" parent="1" source="29" target="18" edge="1">

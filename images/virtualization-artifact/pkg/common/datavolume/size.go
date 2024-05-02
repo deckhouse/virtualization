@@ -8,7 +8,7 @@ import (
 //
 // Virtualization-controller calculates unpacked size while importing image
 // into DVCR. This unpacked size is used to create PVC if size is not specified,
-// i.e. VirtualMachineImage with storage: Kubernetes.
+// i.e. VirtualImage with storage: Kubernetes.
 // The unpacked size is no enough, as CDI uses scratch PVC with Filesystem mode
 // to unpack disk image from dvcr image.
 //

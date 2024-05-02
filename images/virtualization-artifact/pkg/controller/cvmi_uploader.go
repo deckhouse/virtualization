@@ -14,7 +14,7 @@ import (
 func (r *CVMIReconciler) startUploaderPod(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	cvmi := state.CVMI.Current()
 
-	opts.Log.V(1).Info("Creating uploader POD for CVMI", "cvmi.Name", cvmi.Name)
+	opts.Log.V(1).Info("Creating uploader POD for CVI", "cvi.Name", cvmi.Name)
 
 	uploaderSettings := r.createUploaderSettings(state)
 
@@ -61,13 +61,13 @@ func (r *CVMIReconciler) createUploaderPodSettings(state *CVMIReconcilerState) *
 		Namespace:       uploaderPod.Namespace,
 		OwnerReference:  cvmiutil.MakeOwnerReference(state.CVMI.Current()),
 		ControllerName:  cvmiControllerName,
-		InstallerLabels: r.installerLabels,
+		InstallerLabels: map[string]string{},
 		ServiceName:     uploaderSvc.Name,
 	}
 }
 
 func (r *CVMIReconciler) startUploaderService(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader Service for CVMI", "cvmi.Name", state.CVMI.Current().Name)
+	opts.Log.V(1).Info("Creating uploader Service for CVI", "cvi.Name", state.CVMI.Current().Name)
 
 	uploaderService := uploader.NewService(r.createUploaderServiceSettings(state))
 
@@ -91,7 +91,7 @@ func (r *CVMIReconciler) createUploaderServiceSettings(state *CVMIReconcilerStat
 }
 
 func (r *CVMIReconciler) startUploaderIngress(ctx context.Context, state *CVMIReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.V(1).Info("Creating uploader Ingress for CVMI", "cvmi.Name", state.CVMI.Current().Name)
+	opts.Log.V(1).Info("Creating uploader Ingress for CVI", "cvi.Name", state.CVMI.Current().Name)
 
 	uploaderIng := uploader.NewIngress(r.createUploaderIngressSettings(state))
 

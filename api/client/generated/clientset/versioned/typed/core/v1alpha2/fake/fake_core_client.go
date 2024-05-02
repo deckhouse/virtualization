@@ -27,8 +27,16 @@ type FakeVirtualizationV1alpha2 struct {
 	*testing.Fake
 }
 
-func (c *FakeVirtualizationV1alpha2) ClusterVirtualMachineImages() v1alpha2.ClusterVirtualMachineImageInterface {
-	return &FakeClusterVirtualMachineImages{c}
+func (c *FakeVirtualizationV1alpha2) ClusterVirtualImages() v1alpha2.ClusterVirtualImageInterface {
+	return &FakeClusterVirtualImages{c}
+}
+
+func (c *FakeVirtualizationV1alpha2) VirtualDisks(namespace string) v1alpha2.VirtualDiskInterface {
+	return &FakeVirtualDisks{c, namespace}
+}
+
+func (c *FakeVirtualizationV1alpha2) VirtualImages(namespace string) v1alpha2.VirtualImageInterface {
+	return &FakeVirtualImages{c, namespace}
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachines(namespace string) v1alpha2.VirtualMachineInterface {
@@ -43,20 +51,12 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineCPUModels() v1alpha2.VirtualM
 	return &FakeVirtualMachineCPUModels{c}
 }
 
-func (c *FakeVirtualizationV1alpha2) VirtualMachineDisks(namespace string) v1alpha2.VirtualMachineDiskInterface {
-	return &FakeVirtualMachineDisks{c, namespace}
-}
-
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressClaims(namespace string) v1alpha2.VirtualMachineIPAddressClaimInterface {
 	return &FakeVirtualMachineIPAddressClaims{c, namespace}
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressLeases() v1alpha2.VirtualMachineIPAddressLeaseInterface {
 	return &FakeVirtualMachineIPAddressLeases{c}
-}
-
-func (c *FakeVirtualizationV1alpha2) VirtualMachineImages(namespace string) v1alpha2.VirtualMachineImageInterface {
-	return &FakeVirtualMachineImages{c, namespace}
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineOperations(namespace string) v1alpha2.VirtualMachineOperationInterface {

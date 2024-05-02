@@ -21,7 +21,7 @@ func (r *VMDReconciler) startImporterPod(ctx context.Context, state *VMDReconcil
 		return nil
 	}
 
-	opts.Log.V(1).Info("Creating importer POD for VMD", "vmd.Name", vmd.Name)
+	opts.Log.V(1).Info("Creating importer POD for VD", "vd.Name", vmd.Name)
 
 	importerSettings, err := r.createImporterSettings(state)
 	if err != nil {
@@ -66,21 +66,22 @@ func (r *VMDReconciler) createImporterSettings(state *VMDReconcilerState) (*impo
 			return nil, fmt.Errorf("dataSource '%s' specified without related 'containerImage' section", ds.Type)
 		}
 		importer.ApplyRegistrySourceSettings(settings, ds.ContainerImage, state.Supplements)
-	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
-		cvmiRef := ds.ClusterVirtualMachineImage
-		if cvmiRef == nil {
-			return nil, fmt.Errorf("dataSource '%s' specified without related 'clusterVirtualMachineImage' section", ds.Type)
+	case virtv2alpha1.DataSourceTypeObjectRef:
+		if ds.ObjectRef == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'objectRef' section", ds.Type)
 		}
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(cvmiRef.Name)
-		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
-	case virtv2alpha1.DataSourceTypeVirtualMachineImage:
-		vmiRef := ds.VirtualMachineImage
-		if vmiRef == nil {
-			return nil, fmt.Errorf("dataSource '%s' specified without related 'virtualMachineImage' section", ds.Type)
+
+		switch ds.ObjectRef.Kind {
+		case virtv2alpha1.VirtualDiskObjectRefKindVirtualImage:
+			// Note: use namespace from the current VMD resource.
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(ds.ObjectRef.Name, vmd.Namespace)
+			importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
+		case virtv2alpha1.VirtualDiskObjectRefKindClusterVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ObjectRef.Name)
+			importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
+		default:
+			return nil, fmt.Errorf("unknown objectRef kind: %s", ds.ObjectRef.Kind)
 		}
-		// Note: use namespace from the current VMD resource.
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmd.Namespace)
-		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
 	default:
 		return nil, fmt.Errorf("unknown dataSource: %s", ds.Type)
 	}

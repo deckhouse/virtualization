@@ -8,7 +8,7 @@ type CABundle struct {
 	ContainerImage *virtv2.DataSourceContainerRegistry
 }
 
-func NewCABundleForCVMI(ds virtv2.CVMIDataSource) *CABundle {
+func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 	return &CABundle{
 		Type:           ds.Type,
 		HTTP:           ds.HTTP,
@@ -16,7 +16,7 @@ func NewCABundleForCVMI(ds virtv2.CVMIDataSource) *CABundle {
 	}
 }
 
-func NewCABundleForVMI(ds virtv2.VMIDataSource) *CABundle {
+func NewCABundleForVMI(ds virtv2.VirtualImageDataSource) *CABundle {
 	return &CABundle{
 		Type:           ds.Type,
 		HTTP:           ds.HTTP,
@@ -24,7 +24,7 @@ func NewCABundleForVMI(ds virtv2.VMIDataSource) *CABundle {
 	}
 }
 
-func NewCABundleForVMD(ds *virtv2.VMDDataSource) *CABundle {
+func NewCABundleForVMD(ds *virtv2.VirtualDiskDataSource) *CABundle {
 	return &CABundle{
 		Type:           ds.Type,
 		HTTP:           ds.HTTP,

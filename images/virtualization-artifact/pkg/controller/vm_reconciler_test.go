@@ -63,21 +63,21 @@ var _ = Describe("VM", func() {
 					Annotations: testVMAnno,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					VirtualMachineIPAddressClaimName: "test-vmip",
-					RunPolicy:                        virtv2.AlwaysOnPolicy,
-					EnableParavirtualization:         true,
-					OsType:                           virtv2.GenericOs,
+					VirtualMachineIPAddressClaim: "test-vmip",
+					RunPolicy:                    virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:     true,
+					OsType:                       virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						ModelName: "test-vmcpu",
-						Cores:     2,
+						VirtualMachineCPUModel: "test-vmcpu",
+						Cores:                  2,
 					},
 					Memory: virtv2.MemorySpec{
 						Size: "2Gi",
 					},
-					BlockDevices: []virtv2.BlockDeviceSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 						{
-							Type:               virtv2.DiskDevice,
-							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: "test-vmd"},
+							Kind: virtv2.DiskDevice,
+							Name: "test-vmd",
 						},
 					},
 					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Automatic},
@@ -88,8 +88,8 @@ var _ = Describe("VM", func() {
 			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
 				KnownObjects: []client.Object{
 					&virtv2.VirtualMachine{},
-					&virtv2.VirtualMachineDisk{},
-					&virtv2.ClusterVirtualMachineImage{},
+					&virtv2.VirtualDisk{},
+					&virtv2.ClusterVirtualImage{},
 					&virtv2.VirtualMachineIPAddressClaim{},
 					&virtv1.VirtualMachine{},
 					&virtv1.VirtualMachineInstance{},
@@ -146,30 +146,30 @@ var _ = Describe("VM", func() {
 
 			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when no VMD exists in the system", vm.Name))
+			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when no VD exists in the system", vm.Name))
 		}
 
 		{
 			storageClassName := "local-path"
-			vmd := &virtv2.VirtualMachineDisk{
+			vmd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace:   "test-ns",
 					Name:        "test-vmd",
 					Labels:      nil,
 					Annotations: nil,
 				},
-				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: &virtv2.VMDDataSource{
+				Spec: virtv2.VirtualDiskSpec{
+					DataSource: &virtv2.VirtualDiskDataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},
 					},
-					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
-						StorageClassName: &storageClassName,
+					PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+						Size:         resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						StorageClass: &storageClassName,
 					},
 				},
-				Status: virtv2.VirtualMachineDiskStatus{
+				Status: virtv2.VirtualDiskStatus{
 					Phase:    virtv2.DiskPending,
 					Capacity: "10Gi",
 				},
@@ -187,11 +187,11 @@ var _ = Describe("VM", func() {
 
 			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when VMD not ready yet", vm.Name))
+			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when VD not ready yet", vm.Name))
 		}
 
 		{
-			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+			vmd, err := helper.FetchObject(ctx, types.NamespacedName{Name: "test-vmd", Namespace: "test-ns"}, reconciler.Client, &virtv2.VirtualDisk{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmd).NotTo(BeNil())
 			vmd.Status.Phase = virtv2.DiskReady
@@ -329,16 +329,12 @@ var _ = Describe("VM", func() {
 			Expect(vm).NotTo(BeNil())
 			Expect(vm.Status.Phase).To(Equal(virtv2.MachineRunning))
 			Expect(reflect.DeepEqual(vm.Status.GuestOSInfo, kvvmi.Status.GuestOSInfo)).To(BeTrue(), fmt.Sprintf("unequal GuestOSInfo %#v != %#v", vm.Status.GuestOSInfo, kvvmi.Status.GuestOSInfo))
-			Expect(vm.Status.NodeName).To(Equal(kvvmi.Status.NodeName))
+			Expect(vm.Status.Node).To(Equal(kvvmi.Status.NodeName))
 			Expect(vm.Status.IPAddress).To(Equal(kvvmi.Status.Interfaces[0].IP))
-			Expect(vm.Status.BlockDevicesAttached[0].Type).To(Equal(virtv2.DiskDevice))
-			Expect(vm.Status.BlockDevicesAttached[0].VirtualMachineImage).To(BeNil())
-			Expect(reflect.DeepEqual(
-				*vm.Status.BlockDevicesAttached[0].VirtualMachineDisk,
-				virtv2.DiskDeviceSpec{Name: "test-vmd"},
-			)).To(BeTrue())
-			Expect(vm.Status.BlockDevicesAttached[0].Target).To(Equal(kvvmi.Status.VolumeStatus[0].Target))
-			Expect(vm.Status.BlockDevicesAttached[0].Size).To(Equal("10Gi"))
+			Expect(vm.Status.BlockDeviceRefs[0].Kind).To(Equal(virtv2.DiskDevice))
+			Expect(vm.Status.BlockDeviceRefs[0].Name).To(Equal("test-vmd"))
+			Expect(vm.Status.BlockDeviceRefs[0].Target).To(Equal(kvvmi.Status.VolumeStatus[0].Target))
+			Expect(vm.Status.BlockDeviceRefs[0].Size).To(Equal("10Gi"))
 		}
 
 		{
@@ -403,21 +399,21 @@ var _ = Describe("Apply VM changes", func() {
 					Name:      vmName,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					VirtualMachineIPAddressClaimName: vmipName,
-					RunPolicy:                        virtv2.AlwaysOnPolicy,
-					EnableParavirtualization:         true,
-					OsType:                           virtv2.GenericOs,
+					VirtualMachineIPAddressClaim: vmipName,
+					RunPolicy:                    virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:     true,
+					OsType:                       virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						ModelName: vmcpuName,
-						Cores:     2,
+						VirtualMachineCPUModel: vmcpuName,
+						Cores:                  2,
 					},
 					Memory: virtv2.MemorySpec{
 						Size: "2Gi",
 					},
-					BlockDevices: []virtv2.BlockDeviceSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 						{
-							Type:               virtv2.DiskDevice,
-							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
+							Kind: virtv2.DiskDevice,
+							Name: vmdName,
 						},
 					},
 					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Automatic},
@@ -425,23 +421,23 @@ var _ = Describe("Apply VM changes", func() {
 				Status: virtv2.VirtualMachineStatus{},
 			}
 
-			vmd := &virtv2.VirtualMachineDisk{
+			vmd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: nsName,
 					Name:      vmdName,
 				},
-				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: &virtv2.VMDDataSource{
+				Spec: virtv2.VirtualDiskSpec{
+					DataSource: &virtv2.VirtualDiskDataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},
 					},
-					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
-						StorageClassName: &storageClassName,
+					PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+						Size:         resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						StorageClass: &storageClassName,
 					},
 				},
-				Status: virtv2.VirtualMachineDiskStatus{
+				Status: virtv2.VirtualDiskStatus{
 					Phase:    virtv2.DiskReady,
 					Capacity: "10Gi",
 				},
@@ -450,8 +446,8 @@ var _ = Describe("Apply VM changes", func() {
 			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
 				KnownObjects: []client.Object{
 					&virtv2.VirtualMachine{},
-					&virtv2.VirtualMachineDisk{},
-					&virtv2.ClusterVirtualMachineImage{},
+					&virtv2.VirtualDisk{},
+					&virtv2.ClusterVirtualImage{},
 					&virtv1.VirtualMachine{},
 					&virtv1.VirtualMachineInstance{},
 				},
@@ -558,22 +554,22 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					Name:      vmName,
 				},
 				Spec: virtv2.VirtualMachineSpec{
-					VirtualMachineIPAddressClaimName: vmipName,
-					RunPolicy:                        virtv2.AlwaysOnPolicy,
-					EnableParavirtualization:         true,
-					OsType:                           virtv2.GenericOs,
+					VirtualMachineIPAddressClaim: vmipName,
+					RunPolicy:                    virtv2.AlwaysOnPolicy,
+					EnableParavirtualization:     true,
+					OsType:                       virtv2.GenericOs,
 					CPU: virtv2.CPUSpec{
-						ModelName:    vmcpuName,
-						Cores:        cpuStartingCores,
-						CoreFraction: cpuStartingCoreFraction,
+						VirtualMachineCPUModel: vmcpuName,
+						Cores:                  cpuStartingCores,
+						CoreFraction:           cpuStartingCoreFraction,
 					},
 					Memory: virtv2.MemorySpec{
 						Size: memoryStartingSize,
 					},
-					BlockDevices: []virtv2.BlockDeviceSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 						{
-							Type:               virtv2.DiskDevice,
-							VirtualMachineDisk: &virtv2.DiskDeviceSpec{Name: vmdName},
+							Kind: virtv2.DiskDevice,
+							Name: vmdName,
 						},
 					},
 					Disruptions: &virtv2.Disruptions{RestartApprovalMode: virtv2.Manual},
@@ -581,23 +577,23 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 				Status: virtv2.VirtualMachineStatus{},
 			}
 
-			vmd := &virtv2.VirtualMachineDisk{
+			vmd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: nsName,
 					Name:      vmdName,
 				},
-				Spec: virtv2.VirtualMachineDiskSpec{
-					DataSource: &virtv2.VMDDataSource{
+				Spec: virtv2.VirtualDiskSpec{
+					DataSource: &virtv2.VirtualDiskDataSource{
 						HTTP: &virtv2.DataSourceHTTP{
 							URL: "http://mydomain.org/image.img",
 						},
 					},
-					PersistentVolumeClaim: virtv2.VMDPersistentVolumeClaim{
-						Size:             resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
-						StorageClassName: &storageClassName,
+					PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+						Size:         resource.NewQuantity(10*1024*1024*1024, resource.BinarySI),
+						StorageClass: &storageClassName,
 					},
 				},
-				Status: virtv2.VirtualMachineDiskStatus{
+				Status: virtv2.VirtualDiskStatus{
 					Phase:    virtv2.DiskReady,
 					Capacity: "10Gi",
 				},
@@ -606,8 +602,8 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 			reconciler = controller.NewTestVMReconciler(controller.TestReconcilerOptions{
 				KnownObjects: []client.Object{
 					&virtv2.VirtualMachine{},
-					&virtv2.VirtualMachineDisk{},
-					&virtv2.ClusterVirtualMachineImage{},
+					&virtv2.VirtualDisk{},
+					&virtv2.ClusterVirtualImage{},
 					&virtv1.VirtualMachine{},
 					&virtv1.VirtualMachineInstance{},
 				},
@@ -641,7 +637,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 
 			CreateReadyVM(ctx, reconciler, reconcileExecutor, vm, vmd)
 
-			By("Emulating kubevirt: create kubevirt VMI in Ready status")
+			By("Emulating kubevirt: create kubevirt VI in Ready status")
 
 			// Ensure kubevirt VMI is present.
 			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
@@ -669,7 +665,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 		}
 
 		{
-			By("Checking kubevirt VMI was not deleted")
+			By("Checking kubevirt VI was not deleted")
 			// Check that kubevirt VMI was not deleted.
 			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -698,14 +694,14 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					"path":      Equal("cpu"),
 					"operation": Equal(string(vmchange.ChangeReplace)),
 					"currentValue": MatchAllKeys(Keys{
-						"modelName":    BeEquivalentTo(vmcpuName),
-						"cores":        BeEquivalentTo(cpuStartingCores),
-						"coreFraction": Equal(cpuStartingCoreFraction),
+						"virtualMachineCPUModel": BeEquivalentTo(vmcpuName),
+						"cores":                  BeEquivalentTo(cpuStartingCores),
+						"coreFraction":           Equal(cpuStartingCoreFraction),
 					}),
 					"desiredValue": MatchAllKeys(Keys{
-						"modelName":    BeEquivalentTo(vmcpuName),
-						"cores":        BeEquivalentTo(cpuNewCores),
-						"coreFraction": Equal(cpuNewCoreFraction),
+						"virtualMachineCPUModel": BeEquivalentTo(vmcpuName),
+						"cores":                  BeEquivalentTo(cpuNewCores),
+						"coreFraction":           Equal(cpuNewCoreFraction),
 					}),
 				}),
 				"memory.size": MatchAllKeys(Keys{
@@ -748,13 +744,13 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 	})
 })
 
-func CreateReadyVM(ctx context.Context, reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState], reconcileExecutor *testutil.ReconcileExecutor, vm *virtv2.VirtualMachine, vmd *virtv2.VirtualMachineDisk) {
+func CreateReadyVM(ctx context.Context, reconciler *two_phase_reconciler.ReconcilerCore[*controller.VMReconcilerState], reconcileExecutor *testutil.ReconcileExecutor, vm *virtv2.VirtualMachine, vmd *virtv2.VirtualDisk) {
 	// Create Disk.
 	err := reconciler.Client.Create(ctx, vmd)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Emulate CDI converge: set Ready status directly.
-	vmdObj, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmd.Name, Namespace: vmd.Namespace}, reconciler.Client, &virtv2.VirtualMachineDisk{})
+	vmdObj, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmd.Name, Namespace: vmd.Namespace}, reconciler.Client, &virtv2.VirtualDisk{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(vmd).NotTo(BeNil())
 	vmdObj.Status.Phase = virtv2.DiskReady

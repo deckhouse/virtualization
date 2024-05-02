@@ -63,13 +63,13 @@ spec:
               properties:
                 phase:
                   type: string
+                  enum: ["Pending", "InProgress", "Ready", "Failed"]
                   description: |
                     Current status of `VirtualMachineCPUModel` resource:
                     * Pending - the resource is in the queue for processing.
                     * InProgress - the resource is in the process of being created.
                     * Ready - the resource has been created successfully.
                     * Failed - an error occurred during the resource creation process.
-                  enum: ["Pending", "InProgress", "Ready", "Failed"]
                 features:
                   type: object
                   description: |

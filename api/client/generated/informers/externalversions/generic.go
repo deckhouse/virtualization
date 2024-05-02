@@ -52,22 +52,22 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=virtualization.deckhouse.io, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("clustervirtualmachineimages"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().ClusterVirtualMachineImages().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("clustervirtualimages"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().ClusterVirtualImages().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualdisks"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualDisks().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualimages"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualImages().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachines"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachines().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineblockdeviceattachments"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineBlockDeviceAttachments().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinecpumodels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineCPUModels().Informer()}, nil
-	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinedisks"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineDisks().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineipaddressclaims"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineIPAddressClaims().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineipaddressleases"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineIPAddressLeases().Informer()}, nil
-	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineimages"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineImages().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineoperations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineOperations().Informer()}, nil
 

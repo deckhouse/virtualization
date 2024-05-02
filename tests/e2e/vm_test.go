@@ -3,17 +3,18 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"io/fs"
-	corev1 "k8s.io/api/core/v1"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 const (
@@ -92,15 +93,15 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				GetVmStatus(name, VMStatusRunning)
 			})
 		}
-		When("VMI source", func() {
+		When("VI source", func() {
 			manifest := vmPath("boot/vm_vmi.yaml")
 			Test(manifest)
 		})
-		When("CVMI source", func() {
+		When("CVI source", func() {
 			manifest := vmPath("boot/vm_cvmi.yaml")
 			Test(manifest)
 		})
-		When("VMD source", func() {
+		When("VD source", func() {
 			manifest := vmPath("boot/vm_vmd.yaml")
 			Test(manifest)
 		})
@@ -182,16 +183,17 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Provisioning", func() {
-		CheckSsh := func(vmName string) {
-			GinkgoHelper()
-			res := virtctl.SshCommand(vmName, "sudo whoami", virt.SshOptions{
-				Namespace:   conf.Namespace,
-				Username:    "user",
-				IdenityFile: vmPath("provisioning/id_ed"),
-			})
-			Expect(res.Error()).To(BeNil(), "check ssh failed for %s/%s.\n%s", conf.Namespace, vmName, res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).To(Equal("root"))
-		}
+		// TODO(refactor) from virtctl to d8 virtualization.
+		// CheckSsh := func(vmName string) {
+		//	GinkgoHelper()
+		//	res := virtctl.SshCommand(vmName, "sudo whoami", virt.SshOptions{
+		//		Namespace:   conf.Namespace,
+		//		Username:    "user",
+		//		IdenityFile: vmPath("provisioning/id_ed"),
+		//	})
+		//	Expect(res.Error()).To(BeNil(), "check ssh failed for %s/%s.\n%s", conf.Namespace, vmName, res.StdErr())
+		//	Expect(strings.TrimSpace(res.StdOut())).To(Equal("root"))
+		// }
 
 		Test := func(manifest string) {
 			GinkgoHelper()
@@ -205,9 +207,10 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			It("Wait vm running", func() {
 				WaitVmStatus(name, VMStatusRunning)
 			})
-			It("Check ssh", func() {
-				CheckSsh(name)
-			})
+			// TODO(refactor) from virtctl to d8 virtualization.
+			// It("Check ssh", func() {
+			//	CheckSsh(name)
+			// })
 		}
 		AfterAll(func() {
 			By("Delete manifests")
@@ -217,7 +220,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			manifest := vmPath("provisioning/vm_provisioning_useradata.yaml")
 			Test(manifest)
 		})
-		When("UserDataSecretRef", func() {
+		When("UserDataRef", func() {
 			manifest := vmPath("provisioning/vm_provisioning_secret.yaml")
 			Test(manifest)
 		})

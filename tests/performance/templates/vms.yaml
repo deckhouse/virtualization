@@ -22,13 +22,13 @@ spec:
   memory:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: {{ $.Values.resourcesPrefix }}-{{ . }}
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: {{ $.Values.resourcesPrefix }}-{{ . }}
   provisioning:
-    type: UserDataSecret
-    userDataSecretRef:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
       name: {{ $.Values.resourcesPrefix }}-cloud-init
 {{- end }}
 {{- end }}

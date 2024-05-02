@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 fromImage: base-scratch
 import:
-- artifact: cdi-artifact
+- image: cdi-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest
   excludePaths:
   - 'sys'

@@ -25,13 +25,13 @@ import (
 )
 
 type VMDReconcilerState struct {
-	*vmattachee.AttacheeState[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	*vmattachee.AttacheeState[*virtv2.VirtualDisk, virtv2.VirtualDiskStatus]
 
 	Client      client.Client
 	Supplements *supplements.Generator
 	Result      *reconcile.Result
 
-	VMD            *helper.Resource[*virtv2.VirtualMachineDisk, virtv2.VirtualMachineDiskStatus]
+	VMD            *helper.Resource[*virtv2.VirtualDisk, virtv2.VirtualDiskStatus]
 	DV             *cdiv1.DataVolume
 	PVC            *corev1.PersistentVolumeClaim
 	PV             *corev1.PersistentVolume
@@ -46,8 +46,8 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 		Client: client,
 		VMD: helper.NewResource(
 			name, log, client, cache,
-			func() *virtv2.VirtualMachineDisk { return &virtv2.VirtualMachineDisk{} },
-			func(obj *virtv2.VirtualMachineDisk) virtv2.VirtualMachineDiskStatus { return obj.Status },
+			func() *virtv2.VirtualDisk { return &virtv2.VirtualDisk{} },
+			func(obj *virtv2.VirtualDisk) virtv2.VirtualDiskStatus { return obj.Status },
 		),
 	}
 
@@ -62,7 +62,7 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 func (state *VMDReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
 	if err := state.VMD.UpdateMeta(ctx); err != nil {
-		return fmt.Errorf("unable to update VMD %q meta: %w", state.VMD.Name(), err)
+		return fmt.Errorf("unable to update virtual disk %q meta: %w", state.VMD.Name(), err)
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func (state *VMDReconcilerState) Reload(ctx context.Context, req reconcile.Reque
 	}
 
 	if state.VMD.IsEmpty() {
-		log.Info("Reconcile observe an absent VMD: it may be deleted", "vmd.name", req.Name, "vmd.namespace", req.Namespace)
+		log.Info("Reconcile observe an absent VD: it may be deleted", "vd.name", req.Name, "vd.namespace", req.Namespace)
 		return nil
 	}
 
@@ -254,8 +254,8 @@ func (state *VMDReconcilerState) IsAttachedToVM(vm virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	for _, bda := range vm.Status.BlockDevicesAttached {
-		if bda.Type == virtv2.DiskDevice && bda.VirtualMachineDisk != nil && bda.VirtualMachineDisk.Name == state.VMD.Name().Name {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.DiskDevice && bda.Name == state.VMD.Name().Name {
 			return true
 		}
 	}

@@ -21,99 +21,107 @@ type DVCRDataSource struct {
 	isReady bool
 }
 
-func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.CVMIDataSource, client client.Client) (*DVCRDataSource, error) {
-	var dsDVCR DVCRDataSource
-
-	switch ds.Type {
-	case virtv2.DataSourceTypeVirtualMachineImage:
-		vmiName := ds.VirtualMachineImage.Name
-		vmiNS := ds.VirtualMachineImage.Namespace
-		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualMachineImage{})
-			if err != nil {
-				return nil, err
-			}
-
-			if vmi != nil {
-				dsDVCR.size = vmi.Status.Size
-				dsDVCR.format = vmi.Status.Format
-				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
-			}
-		}
-	case virtv2.DataSourceTypeClusterVirtualMachineImage:
-		cvmiName := ds.ClusterVirtualMachineImage.Name
-		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualMachineImage{})
-			if err != nil {
-				return nil, err
-			}
-
-			if cvmi != nil {
-				dsDVCR.size = cvmi.Status.Size
-				dsDVCR.meta = cvmi.GetObjectMeta()
-				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
-			}
-		}
-	}
-
-	return &dsDVCR, nil
-}
-
-func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VMIDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
-	var dsDVCR DVCRDataSource
-
-	switch ds.Type {
-	case virtv2.DataSourceTypeVirtualMachineImage:
-		vmiName := ds.VirtualMachineImage.Name
-		vmiNS := obj.GetNamespace()
-		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualMachineImage{})
-			if err != nil {
-				return nil, err
-			}
-
-			if vmi != nil {
-				dsDVCR.size = vmi.Status.Size
-				dsDVCR.format = vmi.Status.Format
-				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
-			}
-		}
-	case virtv2.DataSourceTypeClusterVirtualMachineImage:
-		cvmiName := ds.ClusterVirtualMachineImage.Name
-		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualMachineImage{})
-			if err != nil {
-				return nil, err
-			}
-
-			if cvmi != nil {
-				dsDVCR.size = cvmi.Status.Size
-				dsDVCR.meta = cvmi.GetObjectMeta()
-				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
-			}
-		}
-	}
-
-	return &dsDVCR, nil
-}
-
-func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VMDDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
-	if ds == nil {
+func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImageDataSource, client client.Client) (*DVCRDataSource, error) {
+	if ds.ObjectRef == nil {
 		return nil, nil
 	}
 
 	var dsDVCR DVCRDataSource
 
-	switch ds.Type {
-	case virtv2.DataSourceTypeVirtualMachineImage:
-		vmiName := ds.VirtualMachineImage.Name
+	switch ds.ObjectRef.Kind {
+	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
+		vmiName := ds.ObjectRef.Name
+		vmiNS := ds.ObjectRef.Namespace
+		if vmiName != "" && vmiNS != "" {
+			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if vmi != nil {
+				dsDVCR.size = vmi.Status.Size
+				dsDVCR.format = vmi.Status.Format
+				dsDVCR.meta = vmi.GetObjectMeta()
+				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
+		cvmiName := ds.ObjectRef.Name
+		if cvmiName != "" {
+			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if cvmi != nil {
+				dsDVCR.size = cvmi.Status.Size
+				dsDVCR.meta = cvmi.GetObjectMeta()
+				dsDVCR.format = cvmi.Status.Format
+				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	}
+
+	return &dsDVCR, nil
+}
+
+func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
+	if ds.ObjectRef == nil {
+		return nil, nil
+	}
+
+	var dsDVCR DVCRDataSource
+
+	switch ds.ObjectRef.Kind {
+	case virtv2.VirtualImageObjectRefKindVirtualImage:
+		vmiName := ds.ObjectRef.Name
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualMachineImage{})
+			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if vmi != nil {
+				dsDVCR.size = vmi.Status.Size
+				dsDVCR.format = vmi.Status.Format
+				dsDVCR.meta = vmi.GetObjectMeta()
+				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
+		cvmiName := ds.ObjectRef.Name
+		if cvmiName != "" {
+			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			if err != nil {
+				return nil, err
+			}
+
+			if cvmi != nil {
+				dsDVCR.size = cvmi.Status.Size
+				dsDVCR.meta = cvmi.GetObjectMeta()
+				dsDVCR.format = cvmi.Status.Format
+				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+			}
+		}
+	}
+
+	return &dsDVCR, nil
+}
+
+func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
+	if ds == nil || ds.ObjectRef == nil {
+		return nil, nil
+	}
+
+	var dsDVCR DVCRDataSource
+
+	switch ds.ObjectRef.Kind {
+	case virtv2.VirtualDiskObjectRefKindVirtualImage:
+		vmiName := ds.ObjectRef.Name
+		vmiNS := obj.GetNamespace()
+		if vmiName != "" && vmiNS != "" {
+			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
 				return nil, err
 			}
@@ -126,10 +134,10 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VMDDataSource, obj
 				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
 			}
 		}
-	case virtv2.DataSourceTypeClusterVirtualMachineImage:
-		cvmiName := ds.ClusterVirtualMachineImage.Name
+	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualMachineImage{})
+			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
 				return nil, err
 			}

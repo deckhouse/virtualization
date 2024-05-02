@@ -85,14 +85,14 @@ const NoChanges = "NoChanges"
 // current spec:
 //
 //	blockDevices:
-//	- type: ClusterVirtualMachineImage
-//	  clusterVirtualMachineImage: {name: linux-ubuntu}
+//	- type: ClusterVirtualImage
+//	  clusterVirtualImage: {name: linux-ubuntu}
 //
 // desired spec:
 //
 //	blockDevices:
-//	- type: VirtualMachineImage
-//	  virtualMachineImage: {name: jammy-ubuntu}
+//	- type: VirtualImage
+//	  virtualImage: {name: jammy-ubuntu}
 //
 // status:
 //
@@ -100,28 +100,28 @@ const NoChanges = "NoChanges"
 //	- op: replace
 //	  path: blockDevices.0
 //	  currentValue:
-//	    type: ClusterVirtualMachineImage
-//	    clusterVirtualMachineImage: {name: linux-ubuntu}
+//	    type: ClusterVirtualImage
+//	    clusterVirtualImage: {name: linux-ubuntu}
 //	  desiredValue:
-//	    type: VirtualMachineImage
-//	    virtualMachineImage: {name: jammy-ubuntu}
+//	    type: VirtualImage
+//	    virtualImage: {name: jammy-ubuntu}
 //
 // Remove, add block devices.
 // current spec:
 //
 //	blockDevices:
-//	- type: ClusterVirtualMachineImage
-//	  clusterVirtualMachineImage: {name: linux-ubuntu}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk}
+//	- type: ClusterVirtualImage
+//	  clusterVirtualImage: {name: linux-ubuntu}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk}
 //
 // desired spec:
 //
 //	blockDevices:
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk-data}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk-data}
 //
 // status:
 //
@@ -129,39 +129,39 @@ const NoChanges = "NoChanges"
 //	- operation: remove
 //	  path: blockDevices.0
 //	  currentValue:
-//	    type: ClusterVirtualMachineImage
-//	    clusterVirtualMachineImage: {name: linux-ubuntu}
+//	    type: ClusterVirtualImage
+//	    clusterVirtualImage: {name: linux-ubuntu}
 //	- operation: add
 //	  path: blockDevices.1
 //	  desiredValue:
-//	    type: VirtualMachineDisk
-//	    virtualMachineDisk: {name: vm-disk-data}
+//	    type: VirtualDisk
+//	    virtualDisk: {name: vm-disk-data}
 //
 // Multiple operations: remove, add, change order.
 // Operations are compacted by index:
 // current spec:
 //
 //	blockDevices:
-//	- type: ClusterVirtualMachineImage
-//	  clusterVirtualMachineImage: {name: linux-ubuntu}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk-big}
-//	- type: VirtualMachineImage
-//	  virtualMachineImage: {name: jammy-ubuntu}
+//	- type: ClusterVirtualImage
+//	  clusterVirtualImage: {name: linux-ubuntu}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk-big}
+//	- type: VirtualImage
+//	  virtualImage: {name: jammy-ubuntu}
 //
 // desired spec:
 //
 //	blockDevices:
-//	- type: VirtualMachineImage
-//	  virtualMachineImage: {name: jammy-ubuntu}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk-2}
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk-big}  <-- the only disk saves its index.
-//	- type: VirtualMachineDisk
-//	  virtualMachineDisk: {name: vm-disk}
+//	- type: VirtualImage
+//	  virtualImage: {name: jammy-ubuntu}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk-2}
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk-big}  <-- the only disk saves its index.
+//	- type: VirtualDisk
+//	  virtualDisk: {name: vm-disk}
 //
 // status:
 //
@@ -169,27 +169,27 @@ const NoChanges = "NoChanges"
 //	- operation: replace
 //	  path: blockDevices.0
 //	  currentValue:
-//	    type: ClusterVirtualMachineImage
-//	    clusterVirtualMachineImage: {name: linux-ubuntu}
+//	    type: ClusterVirtualImage
+//	    clusterVirtualImage: {name: linux-ubuntu}
 //	  desiredValue:
-//	    type: VirtualMachineImage
-//	    virtualMachineImage: {name: jammy-ubuntu}
+//	    type: VirtualImage
+//	    virtualImage: {name: jammy-ubuntu}
 //	- operation: replace
 //	  path: blockDevices.1
 //	  currentValue:
-//	    type: VirtualMachineDisk
-//	    virtualMachineDisk: {name: vm-disk}
+//	    type: VirtualDisk
+//	    virtualDisk: {name: vm-disk}
 //	  desiredValue:
-//	    type: VirtualMachineDisk
-//	    virtualMachineDisk: {name: vm-disk-2}
+//	    type: VirtualDisk
+//	    virtualDisk: {name: vm-disk-2}
 //	- operation: replace
 //	  path: blockDevices.3
 //	  currentValue:
-//	    type: VirtualMachineImage
-//	    virtualMachineImage: {name: jammy-ubuntu}
+//	    type: VirtualImage
+//	    virtualImage: {name: jammy-ubuntu}
 //	  desiredValue:
-//	    type: VirtualMachineDisk
-//	    virtualMachineDisk: {name: vm-disk}
+//	    type: VirtualDisk
+//	    virtualDisk: {name: vm-disk}
 type SpecChanges struct {
 	changes []FieldChange
 }

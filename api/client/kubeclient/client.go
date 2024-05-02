@@ -38,10 +38,10 @@ func init() {
 }
 
 type Client interface {
-	ClusterVirtualMachineImages() virtualizationv1alpha2.ClusterVirtualMachineImageInterface
+	ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface
 	VirtualMachines(namespace string) VirtualMachineInterface
-	VirtualMachineImages(namespace string) virtualizationv1alpha2.VirtualMachineImageInterface
-	VirtualMachineDisks(namespace string) virtualizationv1alpha2.VirtualMachineDiskInterface
+	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
+	VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface
 	VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface
 	VirtualMachineIPAddressClaims(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressClaimInterface
 	VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface
@@ -82,16 +82,16 @@ func (c client) VirtualMachines(namespace string) VirtualMachineInterface {
 	}
 }
 
-func (c client) ClusterVirtualMachineImages() virtualizationv1alpha2.ClusterVirtualMachineImageInterface {
-	return c.virtClient.VirtualizationV1alpha2().ClusterVirtualMachineImages()
+func (c client) ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface {
+	return c.virtClient.VirtualizationV1alpha2().ClusterVirtualImages()
 }
 
-func (c client) VirtualMachineImages(namespace string) virtualizationv1alpha2.VirtualMachineImageInterface {
-	return c.virtClient.VirtualizationV1alpha2().VirtualMachineImages(namespace)
+func (c client) VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualImages(namespace)
 }
 
-func (c client) VirtualMachineDisks(namespace string) virtualizationv1alpha2.VirtualMachineDiskInterface {
-	return c.virtClient.VirtualizationV1alpha2().VirtualMachineDisks(namespace)
+func (c client) VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualDisks(namespace)
 }
 
 func (c client) VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface {

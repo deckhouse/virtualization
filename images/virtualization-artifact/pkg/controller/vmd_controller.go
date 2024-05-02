@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	vmdControllerName = "vmd-controller"
-	vmdShortName      = "vmd"
+	vmdControllerName = "vd-controller"
+	vmdShortName      = "vd"
 )
 
 func NewVMDController(
@@ -63,7 +63,7 @@ func NewVMDController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachineDisk{}).
+		For(&v1alpha2.VirtualDisk{}).
 		WithValidator(NewVMDValidator(log)).
 		Complete(); err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func NewVMDController(
 
 	diskmetrics.SetupCollector(&diskLister{diskCache: mgrCache}, metrics.Registry)
 
-	log.Info("Initialized VirtualMachineDisk controller")
+	log.Info("Initialized VirtualDisk controller")
 	return c, nil
 }
 
@@ -79,8 +79,8 @@ type diskLister struct {
 	diskCache cache.Cache
 }
 
-func (l diskLister) List() ([]v1alpha2.VirtualMachineDisk, error) {
-	disks := v1alpha2.VirtualMachineDiskList{}
+func (l diskLister) List() ([]v1alpha2.VirtualDisk, error) {
+	disks := v1alpha2.VirtualDiskList{}
 	err := l.diskCache.List(context.Background(), &disks)
 	if err != nil {
 		return nil, err

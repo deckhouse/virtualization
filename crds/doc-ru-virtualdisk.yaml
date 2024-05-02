@@ -1,0 +1,156 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Описывает диск виртуальной машины, который может быть смонтирован в `VirtualMachines`. После создания ресурса изменить можно только размер диска `.spec.persistentVolumeClaim.size`, все остальные поля неизменяемы.
+
+            Под капотом ресурса создается PVC, в который заливаются данные из источника.
+          properties:
+            spec:
+              properties:
+                persistentVolumeClaim:
+                  description: |
+                    Настройки для создания PVC для хранения диска.
+                  properties:
+                    size:
+                      description: |
+                        Желаемый размер PVC для хранения диска. Если диск создается из образа, то размер должен быть не меньше, чем исходный образ в распакованном состоянии.
+                    storageClass:
+                      description: |
+                        Имя класса StorageClass, требуемого для PersistentVolumeClaim. Дополнительная информация — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+                dataSource:
+                  description: |
+                    Тип источника, из которого будет создан диск. Если источник (.spec.dataSource) отсутствует, то будет создан пустой диск.
+                  properties:
+                    type:
+                      description: |
+                        Тип источника, из которого будет создан диск:
+
+                        * `HTTP` — создать диск из файла, опубликованного на HTTP/HTTPS-сервере.
+                        * `ContainerImage` — создать диск из образа в container registry.
+                        * `VirtualImage` — создать диск из существующего `VirtualImage`.
+                        * `ClusterVirtualImage` — создать диск из существующего `ClusterVirtualImage`.
+                        * `Upload` — загрузить образ диска вручную, через веб-интерфейс.
+                    http:
+                      description: |
+                        Создать диск из файла, опубликованного по URL. Поддерживаемые схемы:
+
+                        * HTTP;
+                        * HTTPS.
+
+                        Для схемы HTTPS есть возможность пропустить проверку TLS.
+                      properties:
+                        url:
+                          description: |
+                            URL с образом. Поддерживаются следующие типы образов:
+                            * qcow2;
+                            * vmdk;
+                            * vdi;
+                            * iso;
+                            * raw.
+
+                            Для всех представленных типов образов поддерживается сжатие образов в следующих форматах:
+                            * gz;
+                            * xz.
+                        caBundle:
+                          description: |
+                            Цепочка сертификатов в формате Base64 для проверки TLS-сертификата сервера, на котором размещается образ.
+                        insecureSkipVerify:
+                          description: |
+                            Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
+                        checksum:
+                          type: object
+                          description: |
+                            Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
+                          properties:
+                            md5:
+                              description: ""
+                            sha256:
+                              description: ""
+                    containerImage:
+                      description: |
+                        Для использования образа, хранящегося во внешнем реестре контейнеров, необходимо убедиться, что используется реестр, работающий по протоколу TLS. При необходимости предоставьте поле caBundle для передачи цепочки сертификатов.
+                      properties:
+                        image:
+                          description: |
+                            Путь к образу в container registry.
+                        imagePullSecret:
+                          properties:
+                            name:
+                              description: |
+                                Имя Secret'а, содержащего учетные данные для подключения к container registry.
+                        caBundle:
+                          description: |
+                            Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
+                    virtualImage:
+                      description: |
+                        Используйте существующий `VirtualImage`.
+                      properties:
+                        name:
+                          description: |
+                            Имя существующего `VirtualImage`.
+                    clusterVirtualImage:
+                      description: |
+                        Использовать существующий `ClusterVirtualImage`.
+                      properties:
+                        name:
+                          description: |
+                            Имя существующего `ClusterVirtualImage`.
+            status:
+              properties:
+                importDuration:
+                  description: |
+                    Продолжительность создания диска (от момента создания ресурса до перехода в фазу `Ready`).
+                downloadSpeed:
+                  description: |
+                    Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
+                  properties:
+                    avg:
+                      description: |
+                        Средняя скорость загрузки.
+                    current:
+                      description: |
+                        Текущая скорость загрузки.
+                    avgBytes:
+                      description: |
+                        Средняя скорость загрузки в байтах в секунду.
+                    currentBytes:
+                      description: |
+                        Текущая скорость загрузки в байтах в секунду.
+                capacity:
+                  description: |
+                    Емкость PVC в человекочитаемом формате.
+                target:
+                  properties:
+                    persistentVolumeClaim:
+                      description: |
+                        Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
+                phase:
+                  type: string
+                  description: |
+                    Текущее состояние ресурса `VirtualDisk`:
+
+                    * Pending — ресурс был создан и находится в очереди ожидания.
+                    * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).
+                    * WaitForUserUpload — ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
+                    * Ready — ресурс создан и готов к использованию.
+                    * Failed — при создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
+                    * PVCLost — дочерний PVC ресурса отсутствует. Ресурс не может быть использован.
+                progress:
+                  description: |
+                    Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
+                uploadCommand:
+                  description: |
+                    Команда для загрузки образа для типа 'Upload'.
+                failureReason:
+                  description: |
+                    Краткое описание причины ошибки.
+                failureMessage:
+                  type: string
+                  description: |
+                    Подробное описание ошибки.
+                usedInVMs:
+                  description: |
+                    Список виртуальных машин и их пространств имен, использующих этот образ
