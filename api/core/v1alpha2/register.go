@@ -13,14 +13,14 @@ const Version = "v1alpha2"
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: Version}
 
-// ClusterVirtualMachineImageGVK is group version kind for ClusterVirtualMachineImage
-var ClusterVirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: CVMIKind}
+// ClusterVirtualImageGVK is group version kind for ClusterVirtualImage
+var ClusterVirtualImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: ClusterVirtualImageKind}
 
-// VirtualMachineImageGVK is group version kind for VirtualMachineImage
-var VirtualMachineImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VMIKind}
+// VirtualImageGVK is group version kind for VirtualImage
+var VirtualImageGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VirtualImageKind}
 
-// VirtualMachineDiskGVK is group version kind for VirtualMachineDisk
-var VirtualMachineDiskGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VMDKind}
+// VirtualDiskGVK is group version kind for VirtualDisk
+var VirtualDiskGVK = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: VirtualDiskKind}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
@@ -46,12 +46,12 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ClusterVirtualMachineImage{},
-		&ClusterVirtualMachineImageList{},
-		&VirtualMachineImage{},
-		&VirtualMachineImageList{},
-		&VirtualMachineDisk{},
-		&VirtualMachineDiskList{},
+		&ClusterVirtualImage{},
+		&ClusterVirtualImageList{},
+		&VirtualImage{},
+		&VirtualImageList{},
+		&VirtualDisk{},
+		&VirtualDiskList{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
 		&VirtualMachineBlockDeviceAttachment{},

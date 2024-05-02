@@ -1,5 +1,5 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: test-vmi-containerimage
   namespace: test-d8-virtualization

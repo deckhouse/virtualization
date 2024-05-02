@@ -76,14 +76,14 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	// Do nothing if VM not found or not running.
 	if state.VM == nil {
-		opts.Log.V(1).Info(fmt.Sprintf("VM %s is not created, do nothing", state.VMBDA.Current().Spec.VMName))
+		opts.Log.V(1).Info(fmt.Sprintf("VM %s is not created, do nothing", state.VMBDA.Current().Spec.VirtualMachine))
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is missing")
 		return nil
 	}
 
 	if state.VM.Status.Phase != virtv2.MachineRunning {
-		opts.Log.V(1).Info(fmt.Sprintf("VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VMName))
+		opts.Log.V(1).Info(fmt.Sprintf("VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VirtualMachine))
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is not Running")
 		return nil
@@ -91,7 +91,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	// Do nothing if VM not found or not running.
 	if state.KVVMI == nil {
-		opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is absent, do nothing", state.VMBDA.Current().Spec.VMName))
+		opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is absent, do nothing", state.VMBDA.Current().Spec.VirtualMachine))
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is missing")
 		return nil
@@ -99,7 +99,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	// Do nothing if KVVMI is not running.
 	if state.KVVMI.Status.Phase != virtv1.Running {
-		opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VMName))
+		opts.Log.V(1).Info(fmt.Sprintf("KVVMI for VM %s is not running yet, do nothing", state.VMBDA.Current().Spec.VirtualMachine))
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VM is not Running")
 		return nil
@@ -107,9 +107,9 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	// Do nothing if VMD not found or not running.
 	if state.VMD == nil || state.VMD.Status.Phase != virtv2.DiskReady {
-		opts.Log.V(1).Info("VMD is not ready yet, do nothing")
+		opts.Log.V(1).Info("virtual disk is not ready yet, do nothing")
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VMD is not ready")
+		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "virtual disk is not ready")
 		return nil
 	}
 
@@ -142,7 +142,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		}
 
 		// Add attached device to the VM status.
-		if r.setVMStatusBlockDevicesAttached(blockDeviceIndex, state) {
+		if r.setVMStatusBlockDeviceRefs(blockDeviceIndex, state) {
 			err = opts.Client.Status().Update(ctx, state.VM)
 			if err != nil {
 				return fmt.Errorf("failed to update VM status with hotplugged block device %s: %w", state.VMD.Name, err)
@@ -161,11 +161,11 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	if r.setVMHotpluggedFinalizer(state) {
 		err := opts.Client.Update(ctx, state.VMD)
 		if err != nil {
-			return fmt.Errorf("failed to set VMD finalizer with hotplugged block device %s: %w", state.VMD.Name, err)
+			return fmt.Errorf("failed to set virtual disk finalizer with hotplugged block device %s: %w", state.VMD.Name, err)
 		}
 	}
 
-	if r.setVMStatusBlockDevicesAttached(blockDeviceIndex, state) {
+	if r.setVMStatusBlockDeviceRefs(blockDeviceIndex, state) {
 		err := opts.Client.Status().Update(ctx, state.VM)
 		if err != nil {
 			return fmt.Errorf("failed to update VM status with hotplugged block device %s: %w", state.VMD.Name, err)
@@ -223,10 +223,11 @@ func isAttached(state *VMBDAReconcilerState) bool {
 
 // hotplugVolume requests kubevirt subresources APIService to attach volume to KVVMI.
 func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconcilerState) error {
-	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
-		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
+	if state.VMBDA.Current().Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualDisk {
+		return fmt.Errorf("unknown block device attachment kind %s", state.VMBDA.Current().Spec.BlockDeviceRef.Kind)
 	}
-	name := kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name)
+
+	name := kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDeviceRef.Name)
 	hotplugRequest := virtv1.AddVolumeOptions{
 		Name: name,
 		Disk: &virtv1.Disk{
@@ -236,7 +237,7 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 					Bus: "scsi",
 				},
 			},
-			Serial: state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name,
+			Serial: state.VMBDA.Current().Spec.BlockDeviceRef.Name,
 		},
 		VolumeSource: &virtv1.HotplugVolumeSource{
 			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
@@ -252,7 +253,7 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 		return err
 	}
 	kvApi := kvapi.New(state.Client, kv)
-	err = kvApi.AddVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &hotplugRequest)
+	err = kvApi.AddVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VirtualMachine, &hotplugRequest)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %w", err)
 	}
@@ -262,11 +263,13 @@ func (r *VMBDAReconciler) hotplugVolume(ctx context.Context, state *VMBDAReconci
 
 // unplugVolume requests kubevirt subresources APIService to detach volume from KVVMI.
 func (r *VMBDAReconciler) unplugVolume(ctx context.Context, state *VMBDAReconcilerState) error {
-	if state.VMBDA.Current().Spec.BlockDevice.Type != virtv2.BlockDeviceAttachmentTypeVirtualMachineDisk {
-		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDevice.Type)
+	if state.VMBDA.Current().Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualDisk {
+		return fmt.Errorf("unknown block device attachment type %s", state.VMBDA.Current().Spec.BlockDeviceRef.Kind)
 	}
+
+	name := kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDeviceRef.Name)
 	unplugRequest := virtv1.RemoveVolumeOptions{
-		Name: kvbuilder.GenerateVMDDiskName(state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name),
+		Name: name,
 	}
 
 	kv, err := kubevirt.New(ctx, state.Client, r.controllerNamespace)
@@ -274,7 +277,7 @@ func (r *VMBDAReconciler) unplugVolume(ctx context.Context, state *VMBDAReconcil
 		return err
 	}
 	kvApi := kvapi.New(state.Client, kv)
-	err = kvApi.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VMName, &unplugRequest)
+	err = kvApi.RemoveVolume(ctx, state.VMBDA.Current().Namespace, state.VMBDA.Current().Spec.VirtualMachine, &unplugRequest)
 	if err != nil {
 		return fmt.Errorf("error removing volume, %w", err)
 	}
@@ -286,8 +289,8 @@ func (r *VMBDAReconciler) setVMHotpluggedFinalizer(state *VMBDAReconcilerState) 
 	return controllerutil.AddFinalizer(state.VMD, virtv2.FinalizerVMDProtection)
 }
 
-// setVMStatusBlockDevicesAttached copy volume status from KVVMI for attached disk to the d8 VM block devices status.
-func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, state *VMBDAReconcilerState) bool {
+// setVMStatusBlockDeviceRefs copy volume status from KVVMI for attached disk to the d8 VM block devices status.
+func (r *VMBDAReconciler) setVMStatusBlockDeviceRefs(blockDeviceIndex int, state *VMBDAReconcilerState) bool {
 	var vs virtv1.VolumeStatus
 
 	for i := range state.KVVMI.Status.VolumeStatus {
@@ -297,12 +300,12 @@ func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, 
 	}
 
 	if blockDeviceIndex > -1 {
-		blockDevice := state.VM.Status.BlockDevicesAttached[blockDeviceIndex]
+		blockDevice := state.VM.Status.BlockDeviceRefs[blockDeviceIndex]
 		if blockDevice.Target != vs.Target || blockDevice.Size != state.VMD.Status.Capacity {
 			blockDevice.Target = vs.Target
 			blockDevice.Size = state.VMD.Status.Capacity
 
-			state.VM.Status.BlockDevicesAttached[blockDeviceIndex] = blockDevice
+			state.VM.Status.BlockDeviceRefs[blockDeviceIndex] = blockDevice
 
 			return true
 		}
@@ -310,11 +313,9 @@ func (r *VMBDAReconciler) setVMStatusBlockDevicesAttached(blockDeviceIndex int, 
 		return false
 	}
 
-	state.VM.Status.BlockDevicesAttached = append(state.VM.Status.BlockDevicesAttached, virtv2.BlockDeviceStatus{
-		Type: virtv2.DiskDevice,
-		VirtualMachineDisk: &virtv2.DiskDeviceSpec{
-			Name: state.VMD.Name,
-		},
+	state.VM.Status.BlockDeviceRefs = append(state.VM.Status.BlockDeviceRefs, virtv2.BlockDeviceStatusRef{
+		Kind:         virtv2.DiskDevice,
+		Name:         state.VMD.Name,
 		Target:       vs.Target,
 		Size:         state.VMD.Status.Capacity,
 		Hotpluggable: true,
@@ -334,17 +335,16 @@ func (r *VMBDAReconciler) checkHotplugSanity(state *VMBDAReconcilerState) (strin
 	var messages []string
 
 	// Check if disk is already in the spec of VM.
-	diskName := state.VMBDA.Current().Spec.BlockDevice.VirtualMachineDisk.Name
+	diskName := state.VMBDA.Current().Spec.BlockDeviceRef.Name
 
-	for _, bd := range state.VM.Spec.BlockDevices {
-		disk := bd.VirtualMachineDisk
-		if disk != nil && disk.Name == diskName {
-			messages = append(messages, fmt.Sprintf("disk %s is already attached to VM", diskName))
+	for _, bd := range state.VM.Spec.BlockDeviceRefs {
+		if bd.Kind == virtv2.DiskDevice && bd.Name == diskName {
+			messages = append(messages, fmt.Sprintf("disk %s is already attached to virtual machine", diskName))
 			break
 		}
 	}
 	if len(state.VM.Status.RestartAwaitingChanges) > 0 {
-		messages = append(messages, "vm waits for restart approval")
+		messages = append(messages, "virtual machine waits for restart approval")
 	}
 
 	if len(messages) == 0 {

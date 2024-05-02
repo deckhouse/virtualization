@@ -16,26 +16,26 @@ kubectl create ns vms
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: linux-disk
   namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClass: local-path
   dataSource:
     type: HTTP
     http:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-После создания `VirtualMachineDiks` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
+После создания `VirtualDisk` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
 
 3. Посмотрите текущий статус ресурса с помощью команды:
 
 ```bash
-kubectl -n vms get virtualmachinedisk -o wide
+kubectl -n vms get virtualdisk -o wide
 
 # NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
 # linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
@@ -74,10 +74,9 @@ spec:
         lock_passwd: false
         ssh_authorized_keys:
           - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
-  blockDevices:
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: linux-disk
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk
 ```
 
 5. Проверьте с помощью команды, что виртуальная машина создана и запущена:
@@ -85,7 +84,7 @@ spec:
 ```bash
 kubectl -n default get virtualmachine
 
-# NAME       PHASE     NODENAME   IPADDRESS    AGE
+# NAME       PHASE     NODE       IPADDRESS    AGE
 # linux-vm   Running   virtlab-1  10.66.10.1   5m
 ```
 
@@ -97,24 +96,24 @@ dvp console -n vms linux-vm
 
 ## Образы
 
-`VirtualMachineImage` и `ClusterVirtualMachineImage` используются для хранения образов виртуальных машин.
+`VirtualImage` и `ClusterVirtualImage` используются для хранения образов виртуальных машин.
 
 Образы могут быть следующих видов:
 
 - Образ диска виртуальной машины, который предназначен для тиражирования идентичных дисков виртуальных машин.
 - ISO-образ, содержащий файлы для установки ОС. Этот тип образа подключается к виртуальной машине как cdrom.
 
-Ресурс `VirtualMachineImage` доступен только в том пространстве имен, в котором был создан, а `ClusterVirtualMachineImage` доступен для всех пространств имен внутри кластера. Оба этих ресурсов хранят свои данные в `DVCR`.
+Ресурс `VirtualImage` доступен только в том пространстве имен, в котором был создан, а `ClusterVirtualImage` доступен для всех пространств имен внутри кластера. Оба этих ресурсов хранят свои данные в `DVCR`.
 
 Образы могут быть получены из различных источников, таких как HTTP-серверы, на которых расположены файлы образов, или контейнерные реестры (container registries), где образы сохраняются и становятся доступны для скачивания. Также существует возможность загрузить образы напрямую из командной строки, используя утилиту `curl`.
 
 ### Создание и использование образа c HTTP-ресурса
 
-1. Создайте `VirtualMachineImage`:
+1. Создайте `VirtualImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineImage
+kind: VirtualImage
 metadata:
   name: ubuntu-img
   namespace: vms
@@ -129,17 +128,17 @@ spec:
 2. Проверьте результат с помощью команды:
 
 ```bash
-kubectl -n vms get virtualmachineimage
+kubectl -n vms get virtualimage
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # ubuntu-img   Ready   false   100%       10m
 ```
 
-3. Ресурс `ClusterVirtualMachineImage` создается по аналогии, но не требует указания настроек `storage`:
+3. Ресурс `ClusterVirtualImage` создается по аналогии, но не требует указания настроек `storage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: ubuntu-img
 spec:
@@ -149,10 +148,10 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-4. Проверьте статус `ClusterVirtualMachineImage` с помощью команды:
+4. Проверьте статус `ClusterVirtualImage` с помощью команды:
 
 ```bash
-kubectl get clustervirtualmachineimage
+kubectl get clustervirtualimage
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # ubuntu-img   Ready   false   100%       11m
@@ -191,11 +190,11 @@ docker build -t docker.io/username/ubuntu2204:latest
 docker push docker.io/username/ubuntu2204:latest
 ```
 
-- Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualMachineImage`:
+- Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: ubuntu-2204
 spec:
@@ -208,16 +207,16 @@ spec:
 - Чтобы посмотреть ресурс и его статус, выполните команду:
 
 ```bash
-kubectl get clustervirtalmachineimage
+kubectl get clustervirtualimage
 ```
 
 ### Загрузка образа из командной строки
 
-1. Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `ClusterVirtualMachineImage`:
+1. Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `ClusterVirtualImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualMachineImage
+kind: ClusterVirtualImage
 metadata:
   name: some-image
 spec:
@@ -228,7 +227,7 @@ spec:
 2. После того как ресурс будет создан, проверьте его статус с помощью команды:
 
 ```bash
-kubectl get clustervirtualmachineimages some-image -o json | jq .status.uploadCommand -r
+kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -r
 
 > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
     -T example.iso
@@ -253,7 +252,7 @@ curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc 
 4. Проверьте, что статус созданного образа `Ready`:
 
 ```bash
-kubectl get clustervirtualmachineimages
+kubectl get clustervirtualimages
 
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       10m
@@ -282,12 +281,12 @@ kubectl get storageclass
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
+    storageClass: "your-storage-class-name"
     size: 100M
 ```
 
@@ -296,7 +295,7 @@ spec:
 2. Проверьте состояние созданного ресурса с помощью команды:
 
 ```bash
-kubectl get virtualmachinedisk
+kubectl get virtualdisk
 
 # NAME        PHASE  CAPACITY   AGE
 # vmd-blank   Ready  100Mi      1m
@@ -306,22 +305,23 @@ kubectl get virtualmachinedisk
 
 > Можно создать диски из существующих дисковых образов, а также из внешних ресурсов, таких как образы.
 
-При создании ресурса диска можно указать желаемый размер. Если размер не указан, то будет создан диск с размером, соответствующим исходному образу диска, который хранится в ресурсе `VirtualMachineImage` или `ClusterVirtualMachineImage`. Если необходимо создать диск большего размера, укажите необходимый размер.
+При создании ресурса диска можно указать желаемый размер. Если размер не указан, то будет создан диск с размером, соответствующим исходному образу диска, который хранится в ресурсе `VirtualImage` или `ClusterVirtualImage`. Если необходимо создать диск большего размера, укажите необходимый размер.
 
-В качестве примера рассмотрен ранее созданный `ClusterVirtualMachineImage` с именем `ubuntu-2204`:
+В качестве примера рассмотрен ранее созданный `ClusterVirtualImage` с именем `ubuntu-2204`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: ubuntu-root
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: "your-storage-class-name"
+    storageClass: "your-storage-class-name"
   dataSource:
-    type: ClusterVirtualMachineImage
-    clusterVirtualMachineImage:
+    type: ObjectRef
+    objectRef:
+      kind: ClusterVirtualImage
       name: ubuntu-img
 ```
 
@@ -343,10 +343,10 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachineName: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
+  virtualMachine: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
   blockDevice:
-    type: VirtualMachineDisk
-    virtualMachineDisk:
+    type: VirtualDisk
+    virtualDisk:
       name: vmd-blank # Имя подключаемого диска.
 ```
 
@@ -377,7 +377,7 @@ kubectl get virtualmachineblockdeviceattachments
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineDisk
+kind: VirtualDisk
 metadata:
   name: ubuntu-2204-root
 spec:
@@ -425,11 +425,10 @@ spec:
     cores: 1
   memory:
     size: 2Gi
-  blockDevices:
+  blockDeviceRefs:
     # Порядок дисков и образов в данном блоке определяет приоритет загрузки.
-    - type: VirtualMachineDisk
-      virtualMachineDisk:
-        name: ubuntu-2204-root
+    - kind: VirtualDisk
+      name: ubuntu-2204-root
 ```
 
 При наличии приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в Secret'е. Пример Secret'а приведен ниже:
@@ -462,7 +461,7 @@ spec:
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME      IPADDRESS     AGE
+# NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
@@ -486,7 +485,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaimName: <claim-name>
+  virtualMachineIPAddressClaim: <claim-name>
 ```
 
 ### 2. Настройка правил размещения виртуальной машины
@@ -528,7 +527,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm
 spec:
-  virtualMachineName: linux-vm
+  virtualMachine: linux-vm
   type: Restart
 EOF
 ```
@@ -538,7 +537,7 @@ EOF
 ```bash
 kubectl get vmops restart-linux-vm
 
-# NAME                PHASE       VMNAME     AGE
+# NAME                PHASE       VM         AGE
 # restart-linux-vm    Completed   linux-vm   1m
 ```
 
@@ -571,7 +570,7 @@ cloud@linux-vm$ sudo poweroff
 ```bash
 kubectl get virtualmachine
 
-# NAME       PHASE     NODENAME       IPADDRESS   AGE
+# NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 

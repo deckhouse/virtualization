@@ -19,7 +19,7 @@ func (r *CVMIReconciler) startImporterPod(
 	opts two_phase_reconciler.ReconcilerOptions,
 ) error {
 	cvmi := state.CVMI.Current()
-	opts.Log.V(1).Info("Creating importer POD for CVMI", "cvmi.Name", cvmi.Name)
+	opts.Log.V(1).Info("Creating importer POD for CVI", "cvi.Name", cvmi.Name)
 
 	importerSettings, err := r.createImporterSettings(state)
 	if err != nil {
@@ -64,20 +64,21 @@ func (r *CVMIReconciler) createImporterSettings(state *CVMIReconcilerState) (*im
 			return nil, fmt.Errorf("dataSource '%s' specified without related 'containerImage' section", ds.Type)
 		}
 		importer.ApplyRegistrySourceSettings(settings, ds.ContainerImage, state.Supplements)
-	case virtv2alpha1.DataSourceTypeClusterVirtualMachineImage:
-		cvmiRef := ds.ClusterVirtualMachineImage
-		if cvmiRef == nil {
-			return nil, fmt.Errorf("dataSource '%s' specified without related 'clusterVirtualMachineImage' section", ds.Type)
+	case virtv2alpha1.DataSourceTypeObjectRef:
+		if ds.ObjectRef == nil {
+			return nil, fmt.Errorf("dataSource '%s' specified without related 'objectRef' section", ds.Type)
 		}
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(cvmiRef.Name)
-		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
-	case virtv2alpha1.DataSourceTypeVirtualMachineImage:
-		vmiRef := ds.VirtualMachineImage
-		if vmiRef == nil {
-			return nil, fmt.Errorf("dataSource '%s' specified without related 'virtualMachineImage' section", ds.Type)
+
+		switch ds.ObjectRef.Kind {
+		case virtv2alpha1.ClusterVirtualImageObjectRefKindVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(ds.ObjectRef.Name, ds.ObjectRef.Namespace)
+			importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
+		case virtv2alpha1.ClusterVirtualImageObjectRefKindClusterVirtualImage:
+			dvcrSourceImageName := r.dvcrSettings.RegistryImageForCVMI(ds.ObjectRef.Name)
+			importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
+		default:
+			return nil, fmt.Errorf("unknown objectRef kind: %s", ds.ObjectRef.Kind)
 		}
-		dvcrSourceImageName := r.dvcrSettings.RegistryImageForVMI(vmiRef.Name, vmiRef.Namespace)
-		importer.ApplyDVCRSourceSettings(settings, dvcrSourceImageName)
 	default:
 		return nil, fmt.Errorf("unknown dataSource: %s", ds.Type)
 	}
@@ -100,6 +101,6 @@ func (r *CVMIReconciler) createImporterPodSettings(state *CVMIReconcilerState) *
 		Namespace:       importerPod.Namespace,
 		OwnerReference:  cvmiutil.MakeOwnerReference(state.CVMI.Current()),
 		ControllerName:  cvmiControllerName,
-		InstallerLabels: r.installerLabels,
+		InstallerLabels: map[string]string{},
 	}
 }

@@ -255,17 +255,39 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 
 	case opts.Provisioning != nil:
 		switch opts.Provisioning.Type {
-		case virtv2.ProvisioningTypeSysprepSecret:
-			vs.Sysprep = &virtv1.SysprepSource{
-				Secret: opts.Provisioning.SysprepSecretRef,
+		case virtv2.ProvisioningTypeSysprepRef:
+			if opts.Provisioning.SysprepRef == nil {
+				return fmt.Errorf("nil sysprep ref: %s", opts.Provisioning.Type)
+			}
+
+			switch opts.Provisioning.SysprepRef.Kind {
+			case virtv2.SysprepRefKindSecret:
+				vs.Sysprep = &virtv1.SysprepSource{
+					Secret: &corev1.LocalObjectReference{
+						Name: opts.Provisioning.SysprepRef.Name,
+					},
+				}
+			default:
+				return fmt.Errorf("unexpected sysprep ref kind: %s", opts.Provisioning.SysprepRef.Kind)
 			}
 		case virtv2.ProvisioningTypeUserData:
 			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
 				UserData: opts.Provisioning.UserData,
 			}
-		case virtv2.ProvisioningTypeUserDataSecret:
-			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
-				UserDataSecretRef: opts.Provisioning.UserDataSecretRef,
+		case virtv2.ProvisioningTypeUserDataRef:
+			if opts.Provisioning.UserDataRef == nil {
+				return fmt.Errorf("nil user data ref: %s", opts.Provisioning.Type)
+			}
+
+			switch opts.Provisioning.UserDataRef.Kind {
+			case virtv2.UserDataRefKindSecret:
+				vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
+					UserDataSecretRef: &corev1.LocalObjectReference{
+						Name: opts.Provisioning.UserDataRef.Name,
+					},
+				}
+			default:
+				return fmt.Errorf("unexpected user data ref kind: %s", opts.Provisioning.UserDataRef.Kind)
 			}
 		default:
 			return fmt.Errorf("unexpected provisioning type %s. %w", opts.Provisioning.Type, common.ErrUnknownType)
@@ -319,9 +341,9 @@ func (b *KVVM) SetProvisioning(p *virtv2.Provisioning) error {
 	}
 
 	switch p.Type {
-	case virtv2.ProvisioningTypeSysprepSecret:
+	case virtv2.ProvisioningTypeSysprepRef:
 		return b.SetDisk(SysprepDiskName, SetDiskOptions{Provisioning: p, IsCdrom: true})
-	case virtv2.ProvisioningTypeUserData, virtv2.ProvisioningTypeUserDataSecret:
+	case virtv2.ProvisioningTypeUserData, virtv2.ProvisioningTypeUserDataRef:
 		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
 	default:
 		return fmt.Errorf("unexpected provisioning type %s. %w", p.Type, common.ErrUnknownType)
