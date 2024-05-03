@@ -9,6 +9,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, edited, synchronize]
   push:
