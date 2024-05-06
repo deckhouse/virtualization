@@ -8,11 +8,12 @@ Usage: $0 COMMAND OPTIONS
 Commands:
   run    Run locally executed application in a cluster environment.
          Arguments:
-         --app           Path to main.go
-         --namespace     Namespace of deployment
-         --deployment    Deployment where application should be injected
-         --flags         Arguments for application.
-         
+         --app            Path to main.go
+         --namespace      Namespace of deployment
+         --deployment     Deployment where application should be injected
+         --container-name Container where application should be injected
+         --flags          Arguments for application.
+
   wipe   Stop and cleanup.
          Arguments:
          --namespace     Namespace of deployment
@@ -46,6 +47,10 @@ while [[ $# -gt 0 ]]; do
         ;;
     --namespace=*)
         NAMESPACE="${1#*=}"
+        shift
+        ;;
+    --container-name=*)
+        CONTAINER_NAME="${1#*=}"
         shift
         ;;
     --flags=*)
@@ -83,20 +88,38 @@ go build -ldflags='-linkmode external' -o "${BIN_DIR}/${BINARY}" "${APP}"
 chmod +x "${BIN_DIR}/${BINARY}"
 
 if ! kubectl -n "${NAMESPACE}" get deployment/"${NEW_NAME}" &>/dev/null; then
+  CTR_NUMBER=0
+  if [[ -n $CONTAINER_NAME ]]; then
+    for ctr in $(kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -o jsonpath='{.spec.template.spec.containers[*].name}'); do
+      if [[ "$ctr" != "$CONTAINER_NAME" ]]; then
+         CTR_NUMBER=$(("$CTR_NUMBER" + 1));
+         continue
+      fi
+      break
+    done
+  fi
+  export CTR_NUMBER
   kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -ojson | \
   jq '.metadata.name = env.NEW_NAME |
-      .spec.template.spec.containers[0].command = [ "/bin/bash", "-c", "--" ] |
-      .spec.template.spec.containers[0].args = [ "while true; do sleep 60; done;" ] |
+      .spec.template.spec.containers[env.CTR_NUMBER].command = [ "/bin/bash", "-c", "--" ] |
+      .spec.template.spec.containers[env.CTR_NUMBER].args = [ "while true; do sleep 60; done;" ] |
       .spec.replicas = 1 |
-      .spec.template.metadata.labels.mirror = "true"' | \
+      .spec.template.metadata.labels.mirror = "true" |
+      .spec.template.metadata.labels.ownerName = env.NEW_NAME' | \
   kubectl create -f -
 fi
 
-kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,app="${DEPLOYMENT}" --timeout 60s
+kubectl -n "${NAMESPACE}" wait pod --for=jsonpath='{.status.phase}'=Running -l mirror=true,ownerName="${NEW_NAME}" --timeout 60s
 kubectl -n "${NAMESPACE}" scale deployment "${DEPLOYMENT}" --replicas 0
 kubectl -n "${NAMESPACE}" wait --for=jsonpath='{.spec.replicas}'=0 deployment "${DEPLOYMENT}"
 
+TARGET="deployment/${NEW_NAME}"
+if [[ -n $CONTAINER_NAME ]]; then
+  POD_NAME=$(kubectl -n "${NAMESPACE}" get pod -l mirror=true,ownerName="${NEW_NAME}" -o jsonpath='{.items[0].metadata.name}')
+  TARGET="pod/${POD_NAME}/container/${CONTAINER_NAME}"
+fi
+
 mirrord exec --config-file "${CONFIG_MIRRORD}"  \
-  --target "deployment/${NEW_NAME}"             \
+  --target "${TARGET}"                          \
   --target-namespace "${NAMESPACE}"             \
   "${BIN_DIR}/${BINARY}" -- $(echo $FLAGS | sed 's!"!!g')
