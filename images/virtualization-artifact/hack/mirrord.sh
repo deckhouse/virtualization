@@ -98,11 +98,10 @@ if ! kubectl -n "${NAMESPACE}" get deployment/"${NEW_NAME}" &>/dev/null; then
       break
     done
   fi
-  export CTR_NUMBER
   kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -ojson | \
-  jq '.metadata.name = env.NEW_NAME |
-      .spec.template.spec.containers[env.CTR_NUMBER].command = [ "/bin/bash", "-c", "--" ] |
-      .spec.template.spec.containers[env.CTR_NUMBER].args = [ "while true; do sleep 60; done;" ] |
+  jq --argjson CTR_NUMBER $CTR_NUMBER '.metadata.name = env.NEW_NAME |
+      .spec.template.spec.containers[$CTR_NUMBER].command = [ "/bin/bash", "-c", "--" ] |
+      .spec.template.spec.containers[$CTR_NUMBER].args = [ "while true; do sleep 60; done;" ] |
       .spec.replicas = 1 |
       .spec.template.metadata.labels.mirror = "true" |
       .spec.template.metadata.labels.ownerName = env.NEW_NAME' | \
