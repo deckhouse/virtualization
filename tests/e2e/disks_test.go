@@ -56,7 +56,7 @@ var _ = Describe("Disks", func() {
 		ItChekStatusPhaseFromFile(filepath, PhaseReady)
 	}
 
-	Context("CVMI", Ordered, ContinueOnFailure, func() {
+	Context("CVI", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for cvmi tests")
 			kubectl.Delete(conf.Disks.CvmiTestDataDir, kc.DeleteOptions{})
@@ -97,7 +97,7 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VMI", Ordered, ContinueOnFailure, func() {
+	Context("VI", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for vmi tests")
 			kubectl.Delete(conf.Disks.VmiTestDataDir, kc.DeleteOptions{})
@@ -138,7 +138,7 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VMD", Ordered, ContinueOnFailure, func() {
+	Context("VD", Ordered, ContinueOnFailure, func() {
 		AfterAll(func() {
 			By("Removing resources for vmd tests")
 			kubectl.Delete(conf.Disks.VmdTestDataDir, kc.DeleteOptions{})

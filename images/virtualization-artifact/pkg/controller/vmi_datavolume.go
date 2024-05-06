@@ -66,7 +66,7 @@ func (r *VMIReconciler) createDataVolume(ctx context.Context, vmi *virtv2.Virtua
 
 	if err = opts.Client.Create(ctx, dv); err != nil {
 		opts.Log.V(2).Info("Error create new DV spec", "dv.spec", dv.Spec)
-		return fmt.Errorf("create DataVolume/%s for VMI/%s: %w", dv.GetName(), vmi.GetName(), err)
+		return fmt.Errorf("create DataVolume/%s for VI/%s: %w", dv.GetName(), vmi.GetName(), err)
 	}
 	opts.Log.Info("Created new DV", "dv.name", dv.GetName())
 	opts.Log.V(2).Info("Created new DV spec", "dv.spec", dv.Spec)

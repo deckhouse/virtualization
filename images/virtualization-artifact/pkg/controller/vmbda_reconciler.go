@@ -107,9 +107,9 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 
 	// Do nothing if VMD not found or not running.
 	if state.VMD == nil || state.VMD.Status.Phase != virtv2.DiskReady {
-		opts.Log.V(1).Info("VMD is not ready yet, do nothing")
+		opts.Log.V(1).Info("virtual disk is not ready yet, do nothing")
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
-		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "VMD is not ready")
+		state.SetStatusFailure(virtv2.ReasonHotplugPostponed, "virtual disk is not ready")
 		return nil
 	}
 
@@ -161,7 +161,7 @@ func (r *VMBDAReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 	if r.setVMHotpluggedFinalizer(state) {
 		err := opts.Client.Update(ctx, state.VMD)
 		if err != nil {
-			return fmt.Errorf("failed to set VMD finalizer with hotplugged block device %s: %w", state.VMD.Name, err)
+			return fmt.Errorf("failed to set virtual disk finalizer with hotplugged block device %s: %w", state.VMD.Name, err)
 		}
 	}
 

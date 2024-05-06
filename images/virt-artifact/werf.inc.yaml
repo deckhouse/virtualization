@@ -3,7 +3,7 @@
 {{- $builderImage := "quay.io/kubevirt/builder:2306070730-a3b45da40" }}
 {{- $version := "1.0.0" }}
 
-artifact: {{ $.ImageName }}
+image: {{ $.ImageName }}
 from: {{ $builderImage }}
 git:
   - add: /images/{{ $.ImageName }}
@@ -19,7 +19,11 @@ shell:
   setup:
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
   - cd /kubevirt
-  - git apply /patches/*.patch
+  - |
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply ${p} || echo FAIL && echo OK
+    done
   - mkdir -p _out
   - echo "========== Build kubevirt images ============"
   - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true

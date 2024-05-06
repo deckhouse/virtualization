@@ -1,0 +1,56 @@
+name: Validations
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  no_cyrillic:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
+    runs-on: ubuntu-latest
+    name: Validation no-cyrillic
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run validation "No cyrillic"
+        run: |
+          task validation:no-cyrillic
+
+  doc_changes:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
+    runs-on: ubuntu-latest
+    name: Validation doc-changes
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run validation "Doc changes"
+        run: |
+          task validation:doc-changes

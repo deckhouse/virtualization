@@ -28,11 +28,11 @@ on:
         description: "The module's tag, which must include the -dev postfix. For example: v1.21.1-dev"
         type: string
         required: true
-      
+
       enableBuild:
         type: boolean
         default: true
-        description: 'Set to true if build is required'
+        description: "Set to true if build is required"
 
 jobs:
   deploy-dev:
@@ -69,4 +69,3 @@ jobs:
         shell: bash
 
       - uses: deckhouse/modules-actions/deploy@v1
-

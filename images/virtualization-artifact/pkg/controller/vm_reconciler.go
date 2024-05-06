@@ -77,6 +77,32 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
 
+	// Subscribe on Kubevirt VirtualMachineInstances to update our VM status.
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vmi client.Object) []reconcile.Request {
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      vmi.GetName(),
+						Namespace: vmi.GetNamespace(),
+					},
+				},
+			}
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
+				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
+				return oldVM.Status.Phase != newVM.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+
 	// Watch for Pods created on behalf of VMs. Handle only changes in status.phase.
 	// Pod tracking is required to detect when Pod becomes Completed after guest initiated reset or shutdown.
 	if err := ctr.Watch(

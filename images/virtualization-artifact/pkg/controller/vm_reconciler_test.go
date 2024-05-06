@@ -146,7 +146,7 @@ var _ = Describe("VM", func() {
 
 			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when no VMD exists in the system", vm.Name))
+			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when no VD exists in the system", vm.Name))
 		}
 
 		{
@@ -187,7 +187,7 @@ var _ = Describe("VM", func() {
 
 			kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: "test-ns"}, reconciler.Client, &virtv1.VirtualMachine{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when VMD not ready yet", vm.Name))
+			Expect(kvvm).To(BeNil(), fmt.Sprintf("Unexpected KubeVirt VM %q to be existing when VD not ready yet", vm.Name))
 		}
 
 		{
@@ -637,7 +637,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 
 			CreateReadyVM(ctx, reconciler, reconcileExecutor, vm, vmd)
 
-			By("Emulating kubevirt: create kubevirt VMI in Ready status")
+			By("Emulating kubevirt: create kubevirt VI in Ready status")
 
 			// Ensure kubevirt VMI is present.
 			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
@@ -665,7 +665,7 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 		}
 
 		{
-			By("Checking kubevirt VMI was not deleted")
+			By("Checking kubevirt VI was not deleted")
 			// Check that kubevirt VMI was not deleted.
 			kvvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName, Namespace: nsName}, reconciler.Client, &virtv1.VirtualMachineInstance{})
 			Expect(err).ShouldNot(HaveOccurred())

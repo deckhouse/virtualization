@@ -4,7 +4,7 @@ silent: true
 
 tasks:
   recreate:
-    desc: "Recreate example VMI resource in default namespace"
+    desc: "Recreate example VI resource in default namespace"
     vars:
       VMI_NAME: '{{ .VMI_NAME | default "ubuntu-iso" }}'
       VMI_FILE: '{{ .VMI_FILE | default "config/samples/vmi_ubuntu_registry.yaml" }}'
@@ -46,7 +46,7 @@ tasks:
         kubectl get po/importer-{{.VMI_NAME}} || true
 
   pvc:recreate:
-    desc: "Recreate example VMI resource"
+    desc: "Recreate example VI resource"
     cmds:
       - task: vmi:recreate
         vars:

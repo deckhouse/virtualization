@@ -62,7 +62,7 @@ func NewVMDReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 func (state *VMDReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
 	if err := state.VMD.UpdateMeta(ctx); err != nil {
-		return fmt.Errorf("unable to update VMD %q meta: %w", state.VMD.Name(), err)
+		return fmt.Errorf("unable to update virtual disk %q meta: %w", state.VMD.Name(), err)
 	}
 	return nil
 }

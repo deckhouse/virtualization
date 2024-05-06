@@ -17,6 +17,18 @@ users:
       {{- range .Values.sshAuthorizeKeys }}
       - {{.}}
       {{- end }}
+apt:
+  sources_list: |
+      deb http://mirror.yandex.ru/ubuntu jammy main restricted
+      deb http://mirror.yandex.ru/ubuntu jammy-updates main restricted
+      deb http://mirror.yandex.ru/ubuntu jammy universe
+      deb http://mirror.yandex.ru/ubuntu jammy-updates universe
+      deb http://mirror.yandex.ru/ubuntu jammy multiverse
+      deb http://mirror.yandex.ru/ubuntu jammy-updates multiverse
+      deb http://mirror.yandex.ru/ubuntu jammy-backports main restricted universe multiverse
+      deb http://mirror.yandex.ru/ubuntu jammy-security main restricted
+      deb http://mirror.yandex.ru/ubuntu jammy-security universe
+      deb http://mirror.yandex.ru/ubuntu jammy-security multiverse
 package_update: true
 package_upgrade: true
 packages:

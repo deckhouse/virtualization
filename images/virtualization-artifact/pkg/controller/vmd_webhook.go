@@ -26,14 +26,14 @@ func (v *VMDValidator) ValidateCreate(_ context.Context, obj runtime.Object) (ad
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
 	}
 
-	v.log.Info("Validating VMD", "spec.pvc.size", vmd.Spec.PersistentVolumeClaim.Size)
+	v.log.Info("Validating virtual disk", "spec.pvc.size", vmd.Spec.PersistentVolumeClaim.Size)
 
 	if vmd.Spec.PersistentVolumeClaim.Size != nil && vmd.Spec.PersistentVolumeClaim.Size.IsZero() {
 		return nil, fmt.Errorf("virtual machine disk size must be greater than 0")
 	}
 
 	if vmd.Spec.DataSource == nil && (vmd.Spec.PersistentVolumeClaim.Size == nil || vmd.Spec.PersistentVolumeClaim.Size.IsZero()) {
-		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank VMD")
+		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank virtual disk")
 	}
 
 	return nil, nil
@@ -50,7 +50,7 @@ func (v *VMDValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.
 		return nil, fmt.Errorf("expected an old VirtualDisk but got a %T", oldObj)
 	}
 
-	v.log.Info("Validating VMD",
+	v.log.Info("Validating virtual disk",
 		"old.spec.pvc.size", oldVMD.Spec.PersistentVolumeClaim.Size,
 		"new.spec.pvc.size", newVMD.Spec.PersistentVolumeClaim.Size,
 	)

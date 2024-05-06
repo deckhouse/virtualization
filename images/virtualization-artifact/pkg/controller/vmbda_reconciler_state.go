@@ -100,7 +100,7 @@ func (state *VMBDAReconcilerState) Reload(ctx context.Context, req reconcile.Req
 		vmdKey := types.NamespacedName{Name: state.VMBDA.Current().Spec.BlockDeviceRef.Name, Namespace: state.VMBDA.Current().Namespace}
 		state.VMD, err = helper.FetchObject(ctx, vmdKey, client, &virtv2.VirtualDisk{})
 		if err != nil {
-			return fmt.Errorf("unable to get VMD %s: %w", vmdKey, err)
+			return fmt.Errorf("unable to get virtual disk %s: %w", vmdKey, err)
 		}
 
 		if state.VMD == nil {
