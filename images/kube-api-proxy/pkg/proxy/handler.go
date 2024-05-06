@@ -268,8 +268,15 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 				newAccept = append(newAccept, "application/json")
 				continue
 			}
+			// TODO Add rewriting support for Table format.
 			// Quickly support kubectl with simple hack
 			if strings.Contains(hdr, "application/json") && strings.Contains(hdr, "as=Table") {
+				newAccept = append(newAccept, "application/json")
+				continue
+			}
+			// TODO Add rewriting support for aggregated discovery: kind=APIGroupDiscoveryList.
+			// Quick support for "Aggregated discovery": force legacy discovery.
+			if strings.Contains(hdr, "application/json") && strings.Contains(hdr, "as=APIGroupDiscoveryList") {
 				newAccept = append(newAccept, "application/json")
 				continue
 			}
