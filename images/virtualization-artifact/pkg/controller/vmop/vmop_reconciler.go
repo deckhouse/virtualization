@@ -3,6 +3,9 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +30,46 @@ func NewReconciler() *Reconciler {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineOperation{}), &handler.EnqueueRequestForObject{})
+	err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineOperation{}), &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return fmt.Errorf("error setting watch on VMOP: %w", err)
+	}
+	// Subscribe on VirtualMachines.
+	if err = ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vm client.Object) []reconcile.Request {
+			c := mgr.GetClient()
+			var vmops virtv2.VirtualMachineOperationList
+			var requests []reconcile.Request
+			if err := c.List(ctx, &vmops, client.InNamespace(vm.GetNamespace())); err != nil {
+				return requests
+			}
+			for _, vmop := range vmops.Items {
+				if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+					requests = append(requests, reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Namespace: vmop.GetNamespace(),
+							Name:      vmop.GetName(),
+						},
+					})
+					break
+				}
+			}
+			return requests
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVM := e.ObjectOld.(*virtv2.VirtualMachine)
+				newVM := e.ObjectNew.(*virtv2.VirtualMachine)
+				return oldVM.Status.Phase != newVM.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
 func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
@@ -50,8 +92,8 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 	case state.IsFailed():
 		log.V(2).Info("VMOP failed", "namespacedName", req.String())
 		return r.removeVMFinalizers(ctx, state, opts)
+
 	case state.VmIsEmpty():
-		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 2 * time.Second})
 		return nil
 	}
 	found, err := state.OtherVMOPInProgress(ctx)
@@ -59,29 +101,33 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 		return err
 	}
 	if found {
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
+		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 15 * time.Second})
 		return nil
 	}
 	if !state.IsInProgress() {
-		state.SetInProgress()
-		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
-		return r.ensureVMFinalizers(ctx, state, opts)
-	}
-
-	if !r.isOperationAllowed(state.VMOP.Current().Spec.Type, state) {
-		return nil
-	}
-	err = r.doOperation(ctx, state.VMOP.Current().Spec, state)
-	if err != nil {
-		msg := "The operation completed with an error."
-		state.SetOperationResult(false, fmt.Sprintf("%s %s", msg, err.Error()))
-		opts.Recorder.Event(state.VMOP.Current(), corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
-		log.V(1).Error(err, msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
-	} else {
+		err = r.ensureVMFinalizers(ctx, state, opts)
+		if err != nil {
+			return err
+		}
+		if !r.isOperationAllowed(state.VMOP.Current().Spec.Type, state) {
+			return nil
+		}
+		err = r.doOperation(ctx, state.VMOP.Current().Spec, state)
+		if err != nil {
+			msg := "The operation completed with an error."
+			state.SetOperationResult(false, fmt.Sprintf("%s %s", msg, err.Error()))
+			opts.Recorder.Event(state.VMOP.Current(), corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
+			log.V(1).Error(err, msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
+			return nil
+		}
 		state.SetOperationResult(true, "")
 		msg := "The operation completed without errors."
 		opts.Recorder.Event(state.VMOP.Current(), corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
 		log.V(2).Info(msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
+		return nil
+	}
+	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
+		return r.cleanupOnDeletion(ctx, state, opts)
 	}
 	return nil
 }
@@ -97,7 +143,7 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 	vmopStatus := state.VMOP.Current().Status.DeepCopy()
 
 	switch {
-	case state.IsFailed(), state.IsCompleted():
+	case state.IsFailed(), state.IsCompleted(), state.IsInProgress():
 		// No need to update status.
 		break
 	case vmopStatus.Phase == "":
@@ -105,6 +151,8 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.VmIsEmpty():
 		vmopStatus.Phase = virtv2.VMOPPhasePending
+	case state.GetInProgress():
+		vmopStatus.Phase = virtv2.VMOPPhaseInProgress
 	case !r.isOperationAllowedForRunPolicy(state.VMOP.Current().Spec.Type, state.VM.Spec.RunPolicy):
 		vmopStatus.Phase = virtv2.VMOPPhaseFailed
 		vmopStatus.FailureReason = virtv2.ReasonErrVMOPNotPermitted
@@ -113,18 +161,19 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 		vmopStatus.Phase = virtv2.VMOPPhaseFailed
 		vmopStatus.FailureReason = virtv2.ReasonErrVMOPNotPermitted
 		vmopStatus.FailureMessage = fmt.Sprintf("operation %q not permitted for vm.status.phase=%q", state.VMOP.Current().Spec.Type, state.VM.Status.Phase)
-	case state.GetInProgress():
-		vmopStatus.Phase = virtv2.VMOPPhaseInProgress
 	}
 
 	if result := state.GetOperationResult(); result != nil {
 		if result.WasSuccessful() {
-			vmopStatus.Phase = virtv2.VMOPPhaseCompleted
+			vmopStatus.Phase = virtv2.VMOPPhaseInProgress
 		} else {
 			vmopStatus.Phase = virtv2.VMOPPhaseFailed
 			vmopStatus.FailureReason = virtv2.ReasonErrVMOPFailed
 			vmopStatus.FailureMessage = result.Message()
 		}
+	}
+	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
+		vmopStatus.Phase = virtv2.VMOPPhaseCompleted
 	}
 	state.VMOP.Changed().Status = *vmopStatus
 	return nil
@@ -161,6 +210,7 @@ func (r *Reconciler) cleanupOnDeletion(ctx context.Context, state *ReconcilerSta
 }
 
 func (r *Reconciler) doOperation(ctx context.Context, operationSpec virtv2.VirtualMachineOperationSpec, state *ReconcilerState) error {
+	state.SetInProgress()
 	switch operationSpec.Type {
 	case virtv2.VMOPOperationTypeStart:
 		return r.doOperationStart(ctx, state)
@@ -236,6 +286,17 @@ func (r *Reconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase
 			phase == virtv2.MachineFailed ||
 			phase == virtv2.MachineStarting ||
 			phase == virtv2.MachinePause
+	default:
+		return false
+	}
+}
+
+func (r *Reconciler) IsCompleted(op virtv2.VMOPOperation, phase virtv2.MachinePhase) bool {
+	switch op {
+	case virtv2.VMOPOperationTypeRestart, virtv2.VMOPOperationTypeStart:
+		return phase == virtv2.MachineRunning
+	case virtv2.VMOPOperationTypeStop:
+		return phase == virtv2.MachineStopping
 	default:
 		return false
 	}

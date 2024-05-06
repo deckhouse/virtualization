@@ -102,7 +102,10 @@ func (state *ReconcilerState) IsDeletion() bool {
 	if state.VMOP.IsEmpty() {
 		return false
 	}
-	return state.VMOP.Current().DeletionTimestamp != nil
+	if !state.VmIsEmpty() && state.VM.DeletionTimestamp != nil {
+		return true
+	}
+	return state.VMOP.Current().DeletionTimestamp != nil && !state.IsInProgress()
 }
 
 func (state *ReconcilerState) IsProtected() bool {
@@ -135,8 +138,8 @@ func (state *ReconcilerState) VmIsEmpty() bool {
 }
 
 func (state *ReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool, error) {
-	vmops := virtv2.VirtualMachineOperationList{}
-	err := state.Client.List(ctx, &vmops, &client.ListOptions{Namespace: state.VMOP.Current().Namespace})
+	var vmops virtv2.VirtualMachineOperationList
+	err := state.Client.List(ctx, &vmops, client.InNamespace(state.VMOP.Current().GetNamespace()))
 	if err != nil {
 		return false, err
 	}
