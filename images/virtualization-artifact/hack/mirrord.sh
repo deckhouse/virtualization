@@ -66,7 +66,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 NEW_NAME="mirrord-copy-${DEPLOYMENT}"
-export NEW_NAME
 
 if [[ $COMMAND == "run" ]] &&  [[ -n $DEPLOYMENT ]] && [[ -n $BINARY ]] && [[ -n $NAMESPACE ]] && [[ -n $APP ]]; then
  echo "Starting mirror..."
@@ -87,24 +86,13 @@ fi
 go build -ldflags='-linkmode external' -o "${BIN_DIR}/${BINARY}" "${APP}"
 chmod +x "${BIN_DIR}/${BINARY}"
 
-if ! kubectl -n "${NAMESPACE}" get deployment/"${NEW_NAME}" &>/dev/null; then
-  CTR_NUMBER=0
-  if [[ -n $CONTAINER_NAME ]]; then
-    for ctr in $(kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -o jsonpath='{.spec.template.spec.containers[*].name}'); do
-      if [[ "$ctr" != "$CONTAINER_NAME" ]]; then
-         CTR_NUMBER=$(echo "$CTR_NUMBER + 1" | bc)
-         continue
-      fi
-      break
-    done
-  fi
-  kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -ojson | \
-  jq --argjson CTR_NUMBER $CTR_NUMBER '.metadata.name = env.NEW_NAME |
-      .spec.template.spec.containers[$CTR_NUMBER].command = [ "/bin/bash", "-c", "--" ] |
-      .spec.template.spec.containers[$CTR_NUMBER].args = [ "while true; do sleep 60; done;" ] |
-      .spec.replicas = 1 |
-      .spec.template.metadata.labels.mirror = "true" |
-      .spec.template.metadata.labels.ownerName = env.NEW_NAME' | \
+if ! kubectl -n "${NAMESPACE}" get "deployment/${NEW_NAME}" &>/dev/null; then
+  kubectl -n "${NAMESPACE}" get "deployment/${DEPLOYMENT}" -ojson | \
+  jq --arg CONTAINER_NAME "$CONTAINER_NAME" --arg NEW_NAME "$NEW_NAME" '.metadata.name = $NEW_NAME |
+    (.spec.template.spec.containers[] | select(.name == $CONTAINER_NAME) ) |= (.command= [ "/bin/bash", "-c", "--" ] | .args = [ "while true; do sleep 60; done;" ] ) |
+    .spec.replicas = 1 |
+    .spec.template.metadata.labels.mirror = "true" |
+    .spec.template.metadata.labels.ownerName = $NEW_NAME' \
   kubectl create -f -
 fi
 
