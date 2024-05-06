@@ -92,7 +92,7 @@ if ! kubectl -n "${NAMESPACE}" get deployment/"${NEW_NAME}" &>/dev/null; then
   if [[ -n $CONTAINER_NAME ]]; then
     for ctr in $(kubectl -n "${NAMESPACE}" get deployment/"${DEPLOYMENT}" -o jsonpath='{.spec.template.spec.containers[*].name}'); do
       if [[ "$ctr" != "$CONTAINER_NAME" ]]; then
-         CTR_NUMBER=$(("$CTR_NUMBER" + 1));
+         CTR_NUMBER=$(echo "$CTR_NUMBER + 1" | bc)
          continue
       fi
       break
