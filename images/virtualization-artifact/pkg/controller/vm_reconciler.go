@@ -96,7 +96,8 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return oldVM.Status.Phase != newVM.Status.Phase
+				return oldVM.Status.Phase != newVM.Status.Phase ||
+					oldVM.Status.GuestOSInfo != newVM.Status.GuestOSInfo
 			},
 		},
 	); err != nil {
@@ -321,17 +322,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case state.vmIsRunning():
 		// TODO We need to rerun this block because KVVMI status fields may be updated with a delay.
 		state.VM.Changed().Status.Phase = virtv2.MachineRunning
-		count := 0
-		for count <= 24 {
-			if state.KVVMI.Status.GuestOSInfo.Name != "" {
-				break
-			}
-			state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
-			count++
-			opts.Log.Info(fmt.Sprintf("dlopatindebugout count=%d", count))
-			time.Sleep(5 * time.Second)
-		}
-
+		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
 		state.VM.Changed().Status.Node = state.KVVMI.Status.NodeName
 		for _, iface := range state.KVVMI.Status.Interfaces {
 			if iface.Name == kvbuilder.NetworkInterfaceName {
