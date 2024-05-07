@@ -24,7 +24,6 @@ type ReconcilerState struct {
 	VM   *virtv2.VirtualMachine
 
 	operationResult *OperationResult
-	inProgress      bool
 }
 
 type OperationResult struct {
@@ -133,6 +132,10 @@ func (state *ReconcilerState) IsInProgress() bool {
 	return state.VMOP.Current().Status.Phase == virtv2.VMOPPhaseInProgress
 }
 
+func (state *ReconcilerState) IsFinish() bool {
+	return state.IsCompleted() || state.IsFailed()
+}
+
 func (state *ReconcilerState) VmIsEmpty() bool {
 	return state.VM == nil
 }
@@ -162,14 +165,6 @@ func (state *ReconcilerState) SetOperationResult(result bool, msg string) {
 
 func (state *ReconcilerState) GetOperationResult() *OperationResult {
 	return state.operationResult
-}
-
-func (state *ReconcilerState) SetInProgress() {
-	state.inProgress = true
-}
-
-func (state *ReconcilerState) GetInProgress() bool {
-	return state.inProgress
 }
 
 func (state *ReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {

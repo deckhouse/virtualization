@@ -92,7 +92,7 @@ if ! kubectl -n "${NAMESPACE}" get "deployment/${NEW_NAME}" &>/dev/null; then
     (.spec.template.spec.containers[] | select(.name == $CONTAINER_NAME) ) |= (.command= [ "/bin/bash", "-c", "--" ] | .args = [ "while true; do sleep 60; done;" ] ) |
     .spec.replicas = 1 |
     .spec.template.metadata.labels.mirror = "true" |
-    .spec.template.metadata.labels.ownerName = $NEW_NAME' \
+    .spec.template.metadata.labels.ownerName = $NEW_NAME' | \
   kubectl create -f -
 fi
 

@@ -74,25 +74,23 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 
 func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
-
 	switch {
 	case state.IsDeletion():
 		log.V(1).Info("Delete VMOP, remove protective finalizers")
-		return r.cleanupOnDeletion(ctx, state, opts)
+		return r.removeFinalizers(ctx, state, opts)
+	case state.IsCompleted():
+		log.V(2).Info("VMOP completed", "namespacedName", req.String())
+		return r.removeFinalizers(ctx, state, opts)
+
+	case state.IsFailed():
+		log.V(2).Info("VMOP failed", "namespacedName", req.String())
+		return r.removeFinalizers(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
 		if controllerutil.AddFinalizer(state.VMOP.Changed(), virtv2.FinalizerVMOPCleanup) {
 			state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 			return nil
 		}
-	case state.IsCompleted():
-		log.V(2).Info("VMOP completed", "namespacedName", req.String())
-		return r.removeVMFinalizers(ctx, state, opts)
-
-	case state.IsFailed():
-		log.V(2).Info("VMOP failed", "namespacedName", req.String())
-		return r.removeVMFinalizers(ctx, state, opts)
-
 	case state.VmIsEmpty():
 		return nil
 	}
@@ -127,7 +125,7 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 		return nil
 	}
 	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
-		return r.cleanupOnDeletion(ctx, state, opts)
+		return nil
 	}
 	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 60 * time.Second})
 	return nil
@@ -152,8 +150,6 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 		state.SetReconcilerResult(&reconcile.Result{Requeue: true})
 	case state.VmIsEmpty():
 		vmopStatus.Phase = virtv2.VMOPPhasePending
-	case state.GetInProgress():
-		vmopStatus.Phase = virtv2.VMOPPhaseInProgress
 	case !r.isOperationAllowedForRunPolicy(state.VMOP.Current().Spec.Type, state.VM.Spec.RunPolicy):
 		vmopStatus.Phase = virtv2.VMOPPhaseFailed
 		vmopStatus.FailureReason = virtv2.ReasonErrVMOPNotPermitted
@@ -173,7 +169,7 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 			vmopStatus.FailureMessage = result.Message()
 		}
 	}
-	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
+	if state.IsInProgress() && r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
 		vmopStatus.Phase = virtv2.VMOPPhaseCompleted
 	}
 	state.VMOP.Changed().Status = *vmopStatus
@@ -202,7 +198,7 @@ func (r *Reconciler) removeVMFinalizers(ctx context.Context, state *ReconcilerSt
 	return nil
 }
 
-func (r *Reconciler) cleanupOnDeletion(ctx context.Context, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+func (r *Reconciler) removeFinalizers(ctx context.Context, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if err := r.removeVMFinalizers(ctx, state, opts); err != nil {
 		return err
 	}
@@ -211,7 +207,6 @@ func (r *Reconciler) cleanupOnDeletion(ctx context.Context, state *ReconcilerSta
 }
 
 func (r *Reconciler) doOperation(ctx context.Context, operationSpec virtv2.VirtualMachineOperationSpec, state *ReconcilerState) error {
-	state.SetInProgress()
 	switch operationSpec.Type {
 	case virtv2.VMOPOperationTypeStart:
 		return r.doOperationStart(ctx, state)
@@ -297,7 +292,7 @@ func (r *Reconciler) IsCompleted(op virtv2.VMOPOperation, phase virtv2.MachinePh
 	case virtv2.VMOPOperationTypeRestart, virtv2.VMOPOperationTypeStart:
 		return phase == virtv2.MachineRunning
 	case virtv2.VMOPOperationTypeStop:
-		return phase == virtv2.MachineStopping
+		return phase == virtv2.MachineStopped
 	default:
 		return false
 	}
