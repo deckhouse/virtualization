@@ -3,17 +3,17 @@ package vmop
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -39,11 +39,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vm client.Object) []reconcile.Request {
 			c := mgr.GetClient()
-			var vmops virtv2.VirtualMachineOperationList
-			var requests []reconcile.Request
-			if err := c.List(ctx, &vmops, client.InNamespace(vm.GetNamespace())); err != nil {
-				return requests
+			vmops := &virtv2.VirtualMachineOperationList{}
+			if err := c.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
+				return nil
 			}
+			var requests []reconcile.Request
 			for _, vmop := range vmops.Items {
 				if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
 					requests = append(requests, reconcile.Request{
@@ -129,6 +129,7 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
 		return r.cleanupOnDeletion(ctx, state, opts)
 	}
+	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 60 * time.Second})
 	return nil
 }
 
