@@ -619,7 +619,8 @@ tasks:
     cmd: |
       ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
       --deployment=virtualization-controller                                 \
-      --namespace=d8-virtualization
+      --namespace=d8-virtualization                                          \
+      --container-name=virtualization-controller
 
   mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
