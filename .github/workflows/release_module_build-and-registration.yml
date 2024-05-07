@@ -33,10 +33,11 @@ jobs:
         shell: bash
         name: Show vars
 
+      - uses: actions/checkout@v4
+
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
@@ -64,10 +65,11 @@ jobs:
         shell: bash
         name: Show vars
 
+      - uses: actions/checkout@v4
+
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
@@ -95,10 +97,11 @@ jobs:
         shell: bash
         name: Show vars
 
+      - uses: actions/checkout@v4
+
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/setup@v1
       - uses: deckhouse/modules-actions/build@v1
 
