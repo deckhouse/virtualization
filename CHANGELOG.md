@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/deckhouse/virtualization/compare/v0.10.0...v0.10.1) (2024-05-07)
+
+
+### Miscellaneous Chores
+
+* **main:** release 0.10.1 ([e06f682](https://github.com/deckhouse/virtualization/commit/e06f68264e78e1c8f4987bfb8e5e50109bb69b35))
+
 ## [0.10.0](https://github.com/deckhouse/virtualization/compare/v0.9.10...v0.10.0) (2024-05-07)
 
 
