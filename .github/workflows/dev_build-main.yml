@@ -1,0 +1,43 @@
+name: Build main every 8 hours for dev
+
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */8 * * *"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_main:
+    runs-on: ubuntu-latest
+    name: Build main
+    steps:
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Build images
+        run: |
+          source "$(werf ci-env github --as-file)"
+          werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --save-build-report --build-report-path images_tags_werf.json
+
+      - name: Pushing bundle image
+        run: |
+          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
+          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+          crane copy ${IMAGE_SRC} ${IMAGE_DST}
