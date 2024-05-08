@@ -97,7 +97,7 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return reflect.DeepEqual(oldVM, newVM)
+				return !reflect.DeepEqual(oldVM, newVM)
 			},
 		},
 	); err != nil {
