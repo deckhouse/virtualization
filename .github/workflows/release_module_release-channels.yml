@@ -72,28 +72,14 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
+      - name: Remove unwanted software
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: ./.github/actions/remove-unwanted-software
+
       - uses: deckhouse/modules-actions/setup@v1
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v1
-      - name: Register the module if enableBuild
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash
-      - name: Register the module
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash
 
       - uses: deckhouse/modules-actions/deploy@v1
 
@@ -110,20 +96,15 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
+      - name: Remove unwanted software
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: ./.github/actions/remove-unwanted-software
+
       - uses: deckhouse/modules-actions/setup@v1
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v1
       - name: Register the module if enableBuild
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash
-      - name: Register the module
         if: ${{ github.event.inputs.enableBuild == 'true' }}
         run: |
           echo "✨ Register the module ${MODULES_MODULE_NAME}"
@@ -152,27 +133,14 @@ jobs:
           echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+'
         shell: bash
       - uses: actions/checkout@v4
+
+      - name: Remove unwanted software
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: ./.github/actions/remove-unwanted-software
+
       - uses: deckhouse/modules-actions/setup@v1
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v1
-      - name: Register the module if enableBuild
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash
-      - name: Register the module
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        run: |
-          echo "✨ Register the module ${MODULES_MODULE_NAME}"
-          crane append \
-            --oci-empty-base \
-            --new_layer "" \
-            --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
-        shell: bash
 
       - uses: deckhouse/modules-actions/deploy@v1
