@@ -132,10 +132,6 @@ func (state *ReconcilerState) IsInProgress() bool {
 	return state.VMOP.Current().Status.Phase == virtv2.VMOPPhaseInProgress
 }
 
-func (state *ReconcilerState) IsFinish() bool {
-	return state.IsCompleted() || state.IsFailed()
-}
-
 func (state *ReconcilerState) VmIsEmpty() bool {
 	return state.VM == nil
 }
