@@ -163,10 +163,6 @@ func (r *CVMIReconciler) UpdateStatus(ctx context.Context, _ reconcile.Request, 
 	dvcrDestImageName := r.dvcrSettings.RegistryImageForCVMI(state.CVMI.Current().Name)
 	cvmiStatus.Target.RegistryURL = dvcrDestImageName
 
-	if cvmiStatus.Phase != virtv2.ImageReady {
-		cvmiStatus.ImportDuration = helper.GetAge(state.CVMI.Current()).String()
-	}
-
 	switch {
 	case state.CVMI.Current().Status.Phase == "":
 		cvmiStatus.Phase = virtv2.ImagePending

@@ -1014,12 +1014,6 @@ func schema_virtualization_controller_api_core_v1alpha2_ClusterVirtualImageStatu
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"importDuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -1349,12 +1343,6 @@ func schema_virtualization_controller_api_core_v1alpha2_ImageStatus(ref common.R
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"importDuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2495,12 +2483,6 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualDiskStatus(ref co
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"importDuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -3053,12 +3035,6 @@ func schema_virtualization_controller_api_core_v1alpha2_VirtualImageStatus(ref c
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"importDuration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},

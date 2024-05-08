@@ -13,10 +13,9 @@ const (
 )
 
 type ImageStatus struct {
-	ImportDuration string           `json:"importDuration,omitempty"`
-	DownloadSpeed  ImageStatusSpeed `json:"downloadSpeed"`
-	Size           ImageStatusSize  `json:"size"`
-	Format         string           `json:"format"`
+	DownloadSpeed ImageStatusSpeed `json:"downloadSpeed"`
+	Size          ImageStatusSize  `json:"size"`
+	Format        string           `json:"format"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
 	Capacity       string            `json:"capacity,omitempty"`
 	CDROM          bool              `json:"cdrom"`
