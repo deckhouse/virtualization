@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -96,8 +97,7 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return oldVM.Status.Phase != newVM.Status.Phase ||
-					oldVM.Status.GuestOSInfo != newVM.Status.GuestOSInfo
+				return reflect.DeepEqual(oldVM, newVM)
 			},
 		},
 	); err != nil {
