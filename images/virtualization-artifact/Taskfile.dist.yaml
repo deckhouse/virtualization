@@ -43,7 +43,6 @@ vars:
       done
 
   ImagePrefix:
-    desc: "This prefix is required to use one shared registry"
     sh: |
       # Image prefix may be overriden with IMAGE_PREFIX env var.
       [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
