@@ -92,6 +92,8 @@ jobs:
 
       - name: Install Task
         uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
 
       - uses: actions/checkout@v4
 
@@ -106,6 +108,8 @@ jobs:
     steps:
       - name: Install Task
         uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
 
       - uses: actions/checkout@v4
         with:
@@ -125,6 +129,8 @@ jobs:
 
       - name: Install Task
         uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
 
       - uses: actions/checkout@v4
 
