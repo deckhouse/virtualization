@@ -31,3 +31,6 @@ Added the ability for virt-api to authenticate clients with certificates signed 
 
 #### `012-support-kubeconfig-env.patch`
 Support `KUBECONFIG` environment variable. 
+
+#### `013-virt-api-rate-limiter-qps.patch`
+A patch has been added to enable the configuration of QPS for the rate limiter via an environment variable VIRT_API_RATE_LIMITER_QPS.

@@ -254,6 +254,25 @@ spec:
 
       type: strategic
     {{- end }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: |
+        {
+          "spec": {
+            "template": {
+              "spec": {
+                "containers": [{
+                  "name": "virt-api",
+                  "env": [{
+                    "name": "VIRT_API_RATE_LIMITER_QPS",
+                    "value": "5000"
+                  }]
+                }]
+              }
+            }
+          }
+        }
+      type: strategic
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
