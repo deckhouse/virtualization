@@ -275,18 +275,21 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	if state.isDeletion() {
 		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineTerminating")
 		return nil
 	}
 
 	state.VM.Changed().Status.Message = ""
 	if state.VM.Current().Status.Phase == "" {
 		state.VM.Current().Status.Phase = virtv2.MachinePending
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (not ret)")
 	}
 
 	// Ensure IP address claim.
 	if !r.ensureCPUModel(state, opts) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for CPUModel to become available"
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 292)")
 		return nil
 	}
 
@@ -294,6 +297,7 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	if !r.ipam.IsBound(state.VM.Name().Name, state.IPAddressClaim) {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for IPAddressClaim to become available"
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 300)")
 		return nil
 	}
 
@@ -303,25 +307,33 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	if !state.BlockDevicesReady() {
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for block devices to become available"
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 310)")
 		return nil
 	}
 
 	switch {
 	case state.KVVM == nil:
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 317)")
 	case state.vmIsPending():
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 320)")
 	case state.vmIsStopping():
 		state.VM.Changed().Status.Phase = virtv2.MachineStopping
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineStopping")
 	case state.vmIsStopped():
 		state.VM.Changed().Status.Phase = virtv2.MachineStopped
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineStopped")
 	case state.vmIsScheduling():
 		state.VM.Changed().Status.Phase = virtv2.MachineScheduling
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineScheduling")
 	case state.vmIsStarting():
 		state.VM.Changed().Status.Phase = virtv2.MachineStarting
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineStarting")
 	case state.vmIsRunning():
 		// TODO We need to rerun this block because KVVMI status fields may be updated with a delay.
 		state.VM.Changed().Status.Phase = virtv2.MachineRunning
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineRunning")
 		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
 		state.VM.Changed().Status.Node = state.KVVMI.Status.NodeName
 		for _, iface := range state.KVVMI.Status.Interfaces {
@@ -351,14 +363,18 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		}
 	case state.vmIsMigrating():
 		state.VM.Changed().Status.Phase = virtv2.MachineMigrating
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineMigrating")
 	case state.vmIsPaused():
 		state.VM.Changed().Status.Phase = virtv2.MachinePause
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePause")
 	case state.vmIsFailed():
 		state.VM.Changed().Status.Phase = virtv2.MachineFailed
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineFailed")
 		opts.Log.Error(errors.New(string(state.KVVM.Status.PrintableStatus)), "KVVM failure", "kvvm", state.KVVM.Name)
 	default:
 		// Unexpected state, fallback to Pending phase.
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
+		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 377)")
 		opts.Log.Error(fmt.Errorf("unexpected KVVM state: status %q, fallback VM phase to %q", state.KVVM.Status.PrintableStatus, state.VM.Changed().Status.Phase), "")
 	}
 
