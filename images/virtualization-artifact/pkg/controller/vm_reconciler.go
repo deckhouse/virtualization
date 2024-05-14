@@ -275,6 +275,7 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
+	opts.Log.Info("executing UpdateStatus")
 	if state.isDeletion() {
 		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
 		return nil
