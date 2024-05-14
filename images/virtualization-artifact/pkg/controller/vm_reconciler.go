@@ -78,6 +78,7 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
 
+	needForceUpdate := false
 	// Subscribe on Kubevirt VirtualMachineInstances to update our VM status.
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
@@ -99,6 +100,11 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
 				ctr.GetLogger().Info(fmt.Sprintf("dlopatin-debug-log: oldVM status --> %+v", oldVM.Status))
 				ctr.GetLogger().Info(fmt.Sprintf("dlopatin-debug-log: newVM status --> %+v", newVM.Status))
+				for _, cond := range newVM.Status.Conditions {
+					ctr.GetLogger().Info(fmt.Sprintf("!!! dlopatin-debug-log: Cond Reason == %s", cond.Reason))
+				}
+
+				ctr.GetLogger().Info(fmt.Sprintf("dlopatin-debug-log: needForceUpdate == %t", needForceUpdate))
 				return !reflect.DeepEqual(oldVM, newVM)
 			},
 		},
@@ -275,7 +281,7 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 }
 
 func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	opts.Log.Info("executing UpdateStatus")
+	opts.Log.Info("dlopatin-debug-log: executing UpdateStatus")
 	if state.isDeletion() {
 		state.VM.Changed().Status.Phase = virtv2.MachineTerminating
 		return nil
