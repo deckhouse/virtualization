@@ -105,6 +105,7 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 				}
 
 				ctr.GetLogger().Info(fmt.Sprintf("dlopatin-debug-log: needForceUpdate == %t", needForceUpdate))
+				ctr.GetLogger().Info(fmt.Sprintf("dlopatin-debug-log: ret value == %t", !reflect.DeepEqual(oldVM, newVM)))
 				return !reflect.DeepEqual(oldVM, newVM)
 			},
 		},
