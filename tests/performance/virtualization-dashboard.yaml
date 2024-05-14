@@ -2573,7 +2573,7 @@ spec:
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "virtual-machine-components",
+      "title": "VirtualMachines Overview",
       "uid": "a2YH1nfSz",
       "version": 8,
       "weekStart": ""
