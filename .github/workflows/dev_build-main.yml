@@ -22,22 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     name: Build main
     steps:
-      - name: Remove unwanted software
-        uses: ./.github/actions/remove-unwanted-software
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: main
 
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
+      - uses: deckhouse/modules-actions/setup@v1
+
       - name: Build images
         run: |
           source "$(werf ci-env github --as-file)"
           werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --save-build-report --build-report-path images_tags_werf.json
-
-      - name: Pushing bundle image
-        run: |
-          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
-          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-          crane copy ${IMAGE_SRC} ${IMAGE_DST}
