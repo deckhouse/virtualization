@@ -285,7 +285,6 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	if state.VM.Current().Status.Phase == "" {
 		state.VM.Current().Status.Phase = virtv2.MachinePending
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (not ret)")
-		opts.Log.Info(fmt.Sprintf("ln 286 dlopatin-debug-log: state.KVVMI.Status --> %+v", state.KVVMI.Status))
 	}
 
 	// Ensure IP address claim.
@@ -313,7 +312,6 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		state.VM.Changed().Status.Message = "Waiting for block devices to become available"
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 310)")
-		opts.Log.Info(fmt.Sprintf("ln 314 dlopatin-debug-log: state.KVVMI.Status --> %+v", state.KVVMI.Status))
 		return nil
 	}
 
@@ -321,11 +319,9 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case state.KVVM == nil:
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 317)")
-		opts.Log.Info(fmt.Sprintf("ln 322 dlopatin-debug-log: state.KVVMI.Status --> %+v", state.KVVMI.Status))
 	case state.vmIsPending():
 		state.VM.Changed().Status.Phase = virtv2.MachinePending
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachinePending (ln 320)")
-		opts.Log.Info(fmt.Sprintf("ln 326 dlopatin-debug-log: state.KVVMI.Status --> %+v", state.KVVMI.Status))
 	case state.vmIsStopping():
 		state.VM.Changed().Status.Phase = virtv2.MachineStopping
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineStopping")
@@ -333,7 +329,6 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case state.vmIsStopped():
 		state.VM.Changed().Status.Phase = virtv2.MachineStopped
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineStopped")
-		opts.Log.Info(fmt.Sprintf("ln 334 dlopatin-debug-log: state.KVVMI.Status --> %+v", state.KVVMI.Status))
 	case state.vmIsScheduling():
 		state.VM.Changed().Status.Phase = virtv2.MachineScheduling
 		opts.Log.Info("dlopatin-debug-log: .Status.Phase = virtv2.MachineScheduling")
