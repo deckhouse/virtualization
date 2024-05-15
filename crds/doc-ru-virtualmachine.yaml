@@ -77,10 +77,12 @@ spec:
                                 operator:
                                   description: ""
                                 values:
+                                  description: ""
                                   items:
                                     description: ""
-                                  description: ""
                           matchLabels:
+                            additionalProperties:
+                              description: ""
                             description: ""
                       maxSkew:
                         description: ""
@@ -525,7 +527,7 @@ spec:
                           * `VirtualDisk` — используйте `VirtualDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
                       name:
                         description: |
-                          Имя ресурса.
+                          Имя ресурса заданного типа.
             status:
               type: object
               properties:
@@ -565,9 +567,9 @@ spec:
                       kind:
                         description: |
                           Тип блочного устройства.
-                        name:
-                          description: |
-                            Имя существующего ресурса.
+                      name:
+                        description: |
+                          Имя существующего ресурса.
                       target:
                         description: |
                           Название подключенного блочного устройства.
