@@ -16,7 +16,9 @@ limitations under the License.
 
 package rewriter
 
-import "strings"
+import (
+	"strings"
+)
 
 type RewriteRules struct {
 	KindPrefix         string                  `json:"kindPrefix"`
@@ -26,6 +28,30 @@ type RewriteRules struct {
 	RenamedGroup       string                  `json:"renamedGroup"`
 	Rules              map[string]APIGroupRule `json:"rules"`
 	Webhooks           map[string]WebhookRule  `json:"webhooks"`
+	Labels             []ReplaceRule           `json:"labels"`
+	Annotations        []ReplaceRule           `json:"annotations"`
+	labelsOldToNew     map[string]string
+	labelsNewToOld     map[string]string
+	annoOldToNew       map[string]string
+	annoNewToOld       map[string]string
+}
+
+func (rr *RewriteRules) Complete() {
+	rr.labelsOldToNew = make(map[string]string, len(rr.Labels))
+	rr.labelsNewToOld = make(map[string]string, len(rr.Labels))
+
+	for _, l := range rr.Labels {
+		rr.labelsOldToNew[l.Old] = l.New
+		rr.labelsNewToOld[l.New] = l.Old
+	}
+
+	rr.annoOldToNew = make(map[string]string, len(rr.Annotations))
+	rr.annoNewToOld = make(map[string]string, len(rr.Annotations))
+
+	for _, a := range rr.Annotations {
+		rr.annoOldToNew[a.Old] = a.New
+		rr.annoNewToOld[a.New] = a.Old
+	}
 }
 
 type APIGroupRule struct {
@@ -54,6 +80,11 @@ type WebhookRule struct {
 	Path     string `json:"path"`
 	Group    string `json:"group"`
 	Resource string `json:"resource"`
+}
+
+type ReplaceRule struct {
+	Old string `json:"old"`
+	New string `json:"new"`
 }
 
 // GetAPIGroupList returns an array of groups in format applicable to use in APIGroupList:
@@ -223,4 +254,54 @@ func (rr *RewriteRules) RestoreShortNames(shortNames []string) []string {
 		newNames = append(newNames, strings.TrimPrefix(shortName, rr.ShortNamePrefix))
 	}
 	return newNames
+}
+
+func (rr *RewriteRules) RenameLabel(label string) (string, bool) {
+	v, ok := rr.labelsOldToNew[label]
+	return v, ok
+}
+
+func (rr *RewriteRules) RestoreLabel(label string) (string, bool) {
+	v, ok := rr.labelsOldToNew[label]
+	return v, ok
+}
+
+func (rr *RewriteRules) RenameLabels(labels map[string]string) map[string]string {
+	return rr.rewriteMaps(labels, rr.RenameLabel)
+}
+
+func (rr *RewriteRules) RestoreLabels(labels map[string]string) map[string]string {
+	return rr.rewriteMaps(labels, rr.RestoreLabel)
+}
+
+func (rr *RewriteRules) RenameAnnotation(anno string) (string, bool) {
+	v, ok := rr.annoOldToNew[anno]
+	return v, ok
+}
+
+func (rr *RewriteRules) RestoreAnnotation(anno string) (string, bool) {
+	v, ok := rr.annoNewToOld[anno]
+	return v, ok
+}
+
+func (rr *RewriteRules) RenameAnnotations(anno map[string]string) map[string]string {
+	return rr.rewriteMaps(anno, rr.RenameAnnotation)
+
+}
+
+func (rr *RewriteRules) RestoreAnnotations(anno map[string]string) map[string]string {
+	return rr.rewriteMaps(anno, rr.RestoreAnnotation)
+}
+
+func (rr *RewriteRules) rewriteMaps(m map[string]string, fn func(s string) (string, bool)) map[string]string {
+	result := make(map[string]string, len(m))
+	for k, v := range m {
+		newKey, found := fn(v)
+		if !found {
+			result[k] = v
+			continue
+		}
+		result[newKey] = v
+	}
+	return result
 }

@@ -357,3 +357,66 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	}
 	return sjson.SetRawBytes(obj, "metadata.managedFields", newFields)
 }
+
+func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	newObj, err := RewriteMetadataLabels(rules, obj, action)
+	if err != nil {
+		return nil, err
+	}
+	return RewriteMetadataAnnotations(rules, newObj, action)
+}
+
+func RewriteMetadataLabels(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	labels := gjson.GetBytes(obj, "metadata.labels").Map()
+	if len(labels) == 0 {
+		return obj, nil
+	}
+
+	newLabels := make(map[string]string, len(labels))
+	for k, v := range labels {
+		newLabels[k] = v.String()
+	}
+
+	switch action {
+	case Rename:
+		newLabels = rules.RenameLabels(newLabels)
+	case Restore:
+		newLabels = rules.RestoreLabels(newLabels)
+	}
+
+	rwrLabels := []byte(`{}`)
+	for k, v := range newLabels {
+		var err error
+		rwrLabels, err = sjson.SetRawBytes(rwrLabels, k, []byte(v))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sjson.SetRawBytes(obj, "metadata.labels", rwrLabels)
+}
+
+func RewriteMetadataAnnotations(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	annos := gjson.GetBytes(obj, "metadata.annotations").Map()
+	if len(annos) == 0 {
+		return obj, nil
+	}
+	newAnnos := make(map[string]string, len(annos))
+	for k, v := range annos {
+		newAnnos[k] = v.String()
+	}
+	switch action {
+	case Rename:
+		newAnnos = rules.RenameAnnotations(newAnnos)
+	case Restore:
+		newAnnos = rules.RestoreAnnotations(newAnnos)
+	}
+	rwrAnnons := []byte(`{}`)
+	for k, v := range newAnnos {
+		var err error
+		rwrAnnons, err = sjson.SetRawBytes(rwrAnnons, k, []byte(v))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sjson.SetRawBytes(obj, "metadata.annotations", rwrAnnons)
+}

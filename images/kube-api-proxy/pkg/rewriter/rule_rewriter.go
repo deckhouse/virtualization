@@ -17,6 +17,7 @@ limitations under the License.
 package rewriter
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -52,6 +53,7 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 			if strings.Contains(ep.RawQuery, "metadata.name") {
 				// Rewrite name in field selector if any.
 				newQuery := rw.rewriteFieldSelector(ep.RawQuery)
+				newQuery = rw.rewriteLabelSelector(newQuery)
 				if newQuery != "" {
 					res := ep.Clone()
 					res.RawQuery = newQuery
@@ -138,6 +140,34 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 	return metadataNameRe.ReplaceAllString(rawQuery, newSelector)
 }
 
+// rewriteLabelSelector rewrites labels in labelSelector
+// Example request:
+// https://<apiserver>/apis/apps/v1/namespaces/<namespace>/deployments?labelSelector=app%3Dsomething
+func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
+	q, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+	lsq := q.Get("labelSelector")
+	if lsq == "" {
+		return rawQuery
+	}
+	listLabels := strings.Split(lsq, ",")
+	labels := make(map[string]string, len(listLabels))
+	for _, l := range listLabels {
+		ll := strings.Split(l, "=")
+		labels[ll[0]] = ll[1]
+	}
+	labels = rw.Rules.RenameLabels(labels)
+	count := 0
+	for k, v := range labels {
+		listLabels[count] = k + "=" + v
+		count++
+	}
+	q.Set("labelSelector", strings.Join(listLabels, ","))
+	return q.Encode()
+}
+
 // RewriteJSONPayload does rewrite based on kind.
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
@@ -193,7 +223,16 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 	case RoleKind, RoleListKind:
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
-
+	case DeploymentKind, DeploymentListKind:
+		rwrBytes, err = RewriteDeploymentOrList(rw.Rules, obj, action)
+	case StatefulSetKind, StatefulSetListKind:
+		rwrBytes, err = RewriteStatefulSetOrList(rw.Rules, obj, action)
+	case DaemonSetKind, DaemonSetListKind:
+		rwrBytes, err = RewriteDaemonSetOrList(rw.Rules, obj, action)
+	case PodKind:
+		rwrBytes, err = RewritePodOrList(rw.Rules, obj, action)
+	case PodDisruptionBudgetKind:
+		rwrBytes, err = RewritePDBOrList(rw.Rules, obj, action)
 	default:
 		if targetReq.IsCore() {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
@@ -201,6 +240,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 		}
 	}
+	rwrBytes, err = RewriteMetadata(rw.Rules, obj, action)
 
 	// Return obj bytes as-is in case of the error.
 	if err != nil {
