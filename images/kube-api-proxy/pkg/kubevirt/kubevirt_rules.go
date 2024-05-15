@@ -28,6 +28,10 @@ var KubevirtRewriteRules = &RewriteRules{
 	RenamedGroup:       "internal.virtualization.deckhouse.io",
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
+	Labels: []ReplaceRule{
+		{Old: "cdi.kubevirt.io", New: "cdi.internal.virtualization.deckhouse.io"},
+	},
+	Annotations: []ReplaceRule{},
 }
 
 // TODO create generator in golang to produce below rules from Kubevirt and CDI sources so proxy can work with future versions.
