@@ -456,7 +456,7 @@ spec:
                     Некоторые настройки ВМ требуют перезагрузки ВМ при изменении конфигурации. Для перезагрузки необходимо одобрить изменения. Для этого используется параметр `approvalMode`.
 
                   properties:
-                    approvalMode:
+                    restartApprovalMode:
                       description: |
                         Режим одобрения для изменений, требующих перезагрузки ВМ:
 
@@ -536,7 +536,6 @@ spec:
 
                     Больше информации об агенте можно прочитать тут: https://www.qemu.org/docs/master/interop/qemu-ga.html.
                 phase:
-                  type: string
                   description: |
                     Текущая фаза виртуальной машины:
 
@@ -546,17 +545,10 @@ spec:
                     * `Failed` — произошла ошибка в процессе запуска или работы ВМ.
                     * `Terminating` — в настоящий момент ВМ завершает свою работу.
                     * `Stopped` — ВМ остановлена.
-                  enum:
-                    - "Scheduling"
-                    - "Pending"
-                    - "Running"
-                    - "Failed"
-                    - "Terminating"
-                    - "Stopped"
                 nodeName:
                   description: |
                     Имя узла, на котором в данный момент запущена ВМ.
-                ipAddressClaim:
+                virtualMachineIPAddressClaimName:
                   description: |
                     Имя `virtualMachineIPAddressClaimName`, содержащее IP-адрес виртуальной машины.
                 ipAddress:
@@ -602,6 +594,6 @@ spec:
                 message:
                   description: |
                     Детальное описание состояния ВМ.
-                changeID:
+                restartAwaitingChanges:
                   description: |
-                    Хэш изменений виртуальной машины. Используйте spec.restartApprovalID для утверждения разрушительных изменений, например перезапуска.
+                    Список изменений в конфигурации, требующий перезапуска ВМ.
