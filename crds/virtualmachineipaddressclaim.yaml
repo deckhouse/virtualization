@@ -39,9 +39,9 @@ spec:
                   description: |
                     The requested IP address. If omitted the next available IP address will be assigned.
                   type: string
-                virtualMachineIPAddressLease:
+                virtualMachineIPAddressLeaseName:
                   description: |
-                    The issued `VirtualMachineIPAddressLease`, managed automatically.
+                    The name of issued `VirtualMachineIPAddressLease`, managed automatically.
                   type: string
                 reclaimPolicy:
                   type: string
@@ -61,7 +61,7 @@ spec:
                   description: |
                     The assigned IP address.
                   type: string
-                virtualMachine:
+                virtualMachineName:
                   description: |
                     Represents the virtual machine that currently uses this IP address.
                   type: string
@@ -96,7 +96,7 @@ spec:
         - jsonPath: .status.phase
           name: Status
           type: string
-        - jsonPath: .status.virtualMachine
+        - jsonPath: .status.virtualMachineName
           name: VM
           type: string
         - jsonPath: .metadata.creationTimestamp
