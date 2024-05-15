@@ -27,6 +27,11 @@ jobs:
         with:
           ref: main
 
+      - name: Set vars for main
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
 
