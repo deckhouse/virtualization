@@ -910,6 +910,7 @@ spec:
               properties:
                 guestOSInfo:
                   type: object
+                  x-kubernetes-preserve-unknown-fields: true
                   description: |
                     Guest OS information obtained from the QEMU Guest Agent. The agent must be pre-installed.
 
