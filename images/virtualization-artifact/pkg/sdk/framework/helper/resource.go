@@ -126,6 +126,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating status subresource: %w", err)
 		}
+		r.log.V(4).Info("dlopatin-debug-out: UpdateStatus obj middle status update", "changedObj.Status", r.getObjStatus(r.changedObj))
 		if err := r.client.Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating: %w", err)
 		}
