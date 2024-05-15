@@ -8,7 +8,7 @@ spec:
           properties:
             spec:
               properties:
-                virtualMachine:
+                virtualMachineName:
                   description: |
                     Имя виртуальной машины, к которой подключен диск.
                 blockDeviceRef:
@@ -25,7 +25,7 @@ spec:
                         Имя блочного устройства
             status:
               properties:
-                virtualMachine:
+                virtualMachineName:
                   description: |
                     Имя виртуальной машины, к которой подключен этот диск.
                 phase:
@@ -39,6 +39,5 @@ spec:
                   description: |
                     Краткое описание причины ошибки.
                 failureMessage:
-                  type: string
                   description: |
                     Подробное описание ошибки.
