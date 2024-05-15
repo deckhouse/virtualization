@@ -98,288 +98,330 @@ spec:
                     * podAffinityTerm -> virtualMachineAndPodAffinityTerm.
                   properties:
                     nodeAffinity:
+                      description: Описывает правила affiniy узлов для ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           items:
+                            description: ""
                             properties:
                               preference:
+                                description: ""
                                 properties:
                                   matchExpressions:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
                                   matchFields:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
-                                description: ""
                               weight:
                                 description: ""
-                            description: ""
-                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           properties:
                             nodeSelectorTerms:
+                              description: ""
                               items:
+                                description: ""
                                 properties:
                                   matchExpressions:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
                                   matchFields:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
-                                description: ""
-                              description: ""
-                          description: ""
-                      description: Описывает правила планирования affiniy (близости) узлов для ВМ.
                     virtualMachineAndPodAffinity:
-                      description: Описывает правила планирования affiniy (близости) пода и ВМ.
+                      description: Описывает правила affiniy подов и ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           items:
+                            description: ""
                             properties:
                               virtualMachineAndPodAffinityTerm:
+                                description: ""
                                 properties:
                                   labelSelector:
+                                    description: ""
                                     properties:
                                       matchExpressions:
+                                        description: ""
                                         items:
+                                          description: ""
                                           properties:
                                             key:
                                               description: ""
                                             operator:
                                               description: ""
                                             values:
+                                              description: ""
                                               items:
                                                 description: ""
-                                              description: ""
-                                          description: ""
-                                        description: ""
                                       matchLabels:
                                         additionalProperties:
                                           description: ""
                                         description: ""
+                                  matchLabelKeys:
                                     description: ""
+                                    items:
+                                      description: ""
+                                  mismatchLabelKeys:
+                                    description: ""
+                                    items:
+                                      description: ""
                                   namespaceSelector:
+                                    description: ""
                                     properties:
                                       matchExpressions:
+                                        description: ""
                                         items:
+                                          description: ""
                                           properties:
                                             key:
                                               description: ""
                                             operator:
                                               description: ""
                                             values:
+                                              description: ""
                                               items:
                                                 description: ""
-                                              description: ""
+                                      matchLabels:
+                                        additionalProperties:
                                           description: ""
                                         description: ""
-                                      matchLabels:
-                                        description: ""
-                                    description: ""
                                   namespaces:
+                                    description: ""
                                     items:
                                       description: ""
-                                    description: ""
                                   topologyKey:
                                     description: ""
-                                description: ""
                               weight:
                                 description: ""
-                            description: ""
-                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           items:
+                            description: ""
                             properties:
                               labelSelector:
-                                properties:
-                                  matchExpressions:
-                                    items:
-                                      properties:
-                                        key:
-                                          description: ""
-                                        operator:
-                                          description: ""
-                                        values:
-                                          items:
-                                            description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
-                                  matchLabels:
-                                    description: ""
                                 description: ""
-                              namespaceSelector:
                                 properties:
                                   matchExpressions:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       description: ""
                                     description: ""
+                              matchLabelKeys:
                                 description: ""
-                              namespaces:
                                 items:
                                   description: ""
+                              mismatchLabelKeys:
                                 description: ""
+                                items:
+                                  description: ""
+                              namespaceSelector:
+                                description: ""
+                                properties:
+                                  matchExpressions:
+                                    description: ""
+                                    items:
+                                      description: ""
+                                      properties:
+                                        key:
+                                          description: ""
+                                        operator:
+                                          description: ""
+                                        values:
+                                          description: ""
+                                          items:
+                                            description: ""
+                                  matchLabels:
+                                    additionalProperties:
+                                      description: ""
+                                    description: ""
+                              namespaces:
+                                description: ""
+                                items:
+                                  description: ""
                               topologyKey:
                                 description: ""
-                            description: ""
-                          description: ""
                     virtualMachineAndPodAntiAffinity:
-                      description: Описывает правила планирования anti-affiniy пода и ВМ.
+                      description: Описывает правила anti-affiniy пода и ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           items:
+                            description: ""
                             properties:
                               virtualMachineAndPodAffinityTerm:
+                                description: ""
                                 properties:
                                   labelSelector:
+                                    description: ""
                                     properties:
                                       matchExpressions:
+                                        description: ""
                                         items:
+                                          description: ""
                                           properties:
                                             key:
                                               description: ""
                                             operator:
                                               description: ""
                                             values:
+                                              description: ""
                                               items:
                                                 description: ""
-                                              description: ""
+                                      matchLabels:
+                                        additionalProperties:
                                           description: ""
                                         description: ""
-                                      matchLabels:
-                                        description: ""
+                                  matchLabelKeys:
                                     description: ""
-                                  namespaceSelector:
-                                    properties:
-                                      matchExpressions:
-                                        items:
-                                          properties:
-                                            key:
-                                              description: ""
-                                            operator:
-                                              description: ""
-                                            values:
-                                              items:
-                                                description: ""
-                                              description: ""
-                                          description: ""
-                                        description: ""
-                                      matchLabels:
-                                        description: ""
-                                    description: ""
-                                  namespaces:
                                     items:
                                       description: ""
+                                  mismatchLabelKeys:
                                     description: ""
+                                    items:
+                                      description: ""
+                                  namespaceSelector:
+                                    description: ""
+                                    properties:
+                                      matchExpressions:
+                                        description: ""
+                                        items:
+                                          description: ""
+                                          properties:
+                                            key:
+                                              description: ""
+                                            operator:
+                                              description: ""
+                                            values:
+                                              description: ""
+                                              items:
+                                                description: ""
+                                      matchLabels:
+                                        additionalProperties:
+                                          description: ""
+                                        description: ""
+                                  namespaces:
+                                    description: ""
+                                    items:
+                                      description: ""
                                   topologyKey:
                                     description: ""
-                                description: ""
                               weight:
                                 description: ""
-                            description: ""
-                          description: ""
                         requiredDuringSchedulingIgnoredDuringExecution:
+                          description: ""
                           items:
+                            description: ""
                             properties:
                               labelSelector:
-                                properties:
-                                  matchExpressions:
-                                    items:
-                                      properties:
-                                        key:
-                                          description: ""
-                                        operator:
-                                          description: ""
-                                        values:
-                                          items:
-                                            description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
-                                  matchLabels:
-                                    description: ""
                                 description: ""
-                              namespaceSelector:
                                 properties:
                                   matchExpressions:
+                                    description: ""
                                     items:
+                                      description: ""
                                       properties:
                                         key:
                                           description: ""
                                         operator:
                                           description: ""
                                         values:
+                                          description: ""
                                           items:
                                             description: ""
-                                          description: ""
-                                      description: ""
-                                    description: ""
                                   matchLabels:
                                     additionalProperties:
                                       description: ""
                                     description: ""
+                              matchLabelKeys:
                                 description: ""
-                              namespaces:
                                 items:
                                   description: ""
+                              mismatchLabelKeys:
                                 description: ""
+                                items:
+                                  description: ""
+                              namespaceSelector:
+                                description: ""
+                                properties:
+                                  matchExpressions:
+                                    description: ""
+                                    items:
+                                      description: ""
+                                      properties:
+                                        key:
+                                          description: ""
+                                        operator:
+                                          description: ""
+                                        values:
+                                          description: ""
+                                          items:
+                                            description: ""
+                                  matchLabels:
+                                    additionalProperties:
+                                      description: ""
+                                    description: ""
+                              namespaces:
+                                description: ""
+                                items:
+                                  description: ""
                               topologyKey:
                                 description: ""
-                            description: ""
-                          description: ""
 
                 nodeSelector:
                   description: |
