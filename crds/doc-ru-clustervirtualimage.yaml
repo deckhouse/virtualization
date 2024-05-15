@@ -58,10 +58,8 @@ spec:
                           properties:
                             md5:
                               description: ""
-                              example: f3b59bed9f91e32fac1210184fcff6f5
                             sha256:
                               description: ""
-                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
                     containerImage:
                       description: |
                         Использование образа, хранящегося во внешнем реестре контейнеров.
@@ -82,23 +80,19 @@ spec:
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualImage:
+                    objectRef:
                       description: |
-                        Использование существующего `VirtualImage`.
+                        Используйте существующий `VirtualImage`.
                       properties:
+                        kind:
+                          description: |
+                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
                         name:
                           description: |
-                            Имя существующего `VirtualImage`.
+                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
                         namespace:
                           description: |
-                            Пространство имен, где `VirtualImage` расположен.
-                    clusterVirtualImage:
-                      description: |
-                        Использовать существующий `ClusterVirtualImage`.
-                      properties:
-                        name:
-                          description: |
-                            Имя существующего `ClusterVirtualImage`.
+                            Имя namespace'а, гда ресположен `VirtualImage`.
             status:
               properties:
                 downloadSpeed:
@@ -164,9 +158,8 @@ spec:
                   description: |
                     Краткое описание причины ошибки.
                 failureMessage:
-                  type: string
                   description: |
                     Подробное описание ошибки.
-                usedInVMs:
+                attachedToVirtualMachines:
                   description: |
-                    Список виртуальных машин и из пространств имен, использующих этот образ
+                    Список виртуальных машин, использующих этот образ
