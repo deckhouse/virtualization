@@ -155,6 +155,9 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	case "APIResourceList":
 		rwrBytes, err = RewriteAPIResourceList(rw.Rules, obj, targetReq.OrigGroup())
 
+	case "APIGroupDiscoveryList":
+		rwrBytes, err = RewriteAPIGroupDiscoveryList(rw.Rules, obj)
+
 	case "AdmissionReview":
 		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj, targetReq.OrigGroup())
 
