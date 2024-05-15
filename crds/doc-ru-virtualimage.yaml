@@ -3,7 +3,6 @@ spec:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
-          type: object
           description: |
             Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
 
@@ -59,7 +58,6 @@ spec:
                           description: |
                             Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
                         checksum:
-                          type: object
                           description: |
                             Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
                           properties:
@@ -79,29 +77,19 @@ spec:
                             name:
                               description: |
                                 Имя Secret'а, содержащего учетные данные для подключения к container registry.
-                            namespace:
-                              description: |
-                                Пространство имен, в котором находится imagePullSecret.
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualImage:
+                    objectRef:
                       description: |
                         Используйте существующий `VirtualImage`.
                       properties:
+                        kind:
+                          description: |
+                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
                         name:
                           description: |
-                            Имя существующего `VirtualImage`.
-                        namespace:
-                          description: |
-                            Пространство имен, где `VirtualImage` расположен.
-                    clusterVirtualImage:
-                      description: |
-                        Использовать существующий `ClusterVirtualImage`.
-                      properties:
-                        name:
-                          description: |
-                            Имя существующего `ClusterVirtualImage`.
+                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
             status:
               type: object
               properties:
@@ -147,9 +135,6 @@ spec:
                     registryURL:
                       description: |
                         Образ, созданный в DVCR.
-                    persistentVolumeClaim:
-                      description: |
-                        Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
                   description: |
                     Текущее состояние ресурса `VirtualImage`:
@@ -172,9 +157,8 @@ spec:
                   description: |
                     Краткое описание причины ошибки.
                 failureMessage:
-                  type: string
                   description: |
                     Подробное описание ошибки.
-                usedInVMs:
+                attachedToVirtualMachines:
                   description: |
-                    Список виртуальных машин и их пространств имен, использующих этот образ
+                    Список виртуальных машин, использующих этот образ
