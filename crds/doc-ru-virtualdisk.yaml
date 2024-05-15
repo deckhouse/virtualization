@@ -84,20 +84,17 @@ spec:
                         caBundle:
                           description: |
                             Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    virtualImage:
+                    objectRef:
                       description: |
                         Используйте существующий `VirtualImage`.
                       properties:
+                        kind:
+                          description: |
+                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
                         name:
                           description: |
-                            Имя существующего `VirtualImage`.
-                    clusterVirtualImage:
-                      description: |
-                        Использовать существующий `ClusterVirtualImage`.
-                      properties:
-                        name:
-                          description: |
-                            Имя существующего `ClusterVirtualImage`.
+                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
+
             status:
               properties:
                 downloadSpeed:
@@ -125,7 +122,6 @@ spec:
                       description: |
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:
-                  type: string
                   description: |
                     Текущее состояние ресурса `VirtualDisk`:
 
@@ -145,9 +141,8 @@ spec:
                   description: |
                     Краткое описание причины ошибки.
                 failureMessage:
-                  type: string
                   description: |
                     Подробное описание ошибки.
-                usedInVMs:
+                attachedToVirtualMachines:
                   description: |
-                    Список виртуальных машин и их пространств имен, использующих этот образ
+                    Список виртуальных машин, использующих этот диск
