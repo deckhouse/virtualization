@@ -139,13 +139,13 @@ spec:
                     * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
                     * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
 
-                virtualMachineIPAddressClaim:
+                virtualMachineIPAddressClaimName:
                   type: string
                   description: |
-                    The name for associated `VirtualMachineIPAddressClaim` resource.
+                    The name for associated `virtualMachineIPAddressClaimName` resource.
 
-                    If specified, VirtualMachineIPAddressClaim should exists on VirtualMachine creation.
-                    If not specified, a VirtualMachine name will be used to create an implicit VirtualMachineIPAddressClaim. This claim will be deleted on VirtualMachine deletion.
+                    If specified, virtualMachineIPAddressClaimName should exists on VirtualMachine creation.
+                    If not specified, a VirtualMachine name will be used to create an implicit virtualMachineIPAddressClaimName. This claim will be deleted on VirtualMachine deletion.
 
                 topologySpreadConstraints:
                   description: |
@@ -848,11 +848,11 @@ spec:
                   required:
                     - cores
                   properties:
-                    virtualMachineCPUModel:
+                    virtualMachineCPUModelName:
                       type: string
                       default: "generic-v1"
                       description: |
-                        Name of `VirtualMachineCPUModel` resource holding the CPU model of the VirtualMachine.
+                        Name of `virtualMachineCPUModelName` resource holding the CPU model of the VirtualMachine.
                     cores:
                       format: int32
                       type: integer
@@ -936,14 +936,14 @@ spec:
                     - "Starting"
                     - "Migrating"
                     - "Pause"
-                node:
+                nodeName:
                   type: string
                   description: |
                     The name of the node on which the VM is currently running.
-                virtualMachineIPAddressClaim:
+                virtualMachineIPAddressClaimName:
                   type: string
                   description: |
-                    Name of `VirtualMachineIPAddressClaim` holding the ip address of the VirtualMachine.
+                    Name of `virtualMachineIPAddressClaimName` holding the ip address of the VirtualMachine.
                 ipAddress:
                   type: string
                   description: |
@@ -1026,9 +1026,21 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Cores
+          type: string
+          jsonPath: .spec.cpu.cores
+          priority: 1
+        - name: CoreFraction
+          type: string
+          jsonPath: .spec.cpu.coreFraction
+          priority: 1
+        - name: Memory
+          type: string
+          jsonPath: .spec.memory.size
+          priority: 1
         - name: Node
           type: string
-          jsonPath: .status.node
+          jsonPath: .status.nodeName
         - name: IPAddress
           type: string
           jsonPath: .status.ipAddress

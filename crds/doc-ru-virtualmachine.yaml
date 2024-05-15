@@ -53,9 +53,9 @@ spec:
                     * `Manual` — после создания ВМ выключается, состояние ВМ (включение/выключение) контролируется через API-сервисы или средствами ОС.
                     * `AlwaysOnUnlessStoppedManually` — после создания ВМ всегда находится в работающем состоянии, даже в случае ее выключения средствами ОС, ВМ может быть выключена с помощью соответствующего API-сервиса.
 
-                virtualMachineIPAddressClaim:
+                virtualMachineIPAddressClaimName:
                   description: |
-                    Имя для связанного ресурса `VirtualMahcineIPAddressClaim`.
+                    Имя для связанного ресурса `virtualMachineIPAddressClaimName`.
 
                     Если не указано, по умолчанию используется `.metadata.name`.
 
@@ -448,6 +448,9 @@ spec:
                   description: |
                     Блок определяет настройки процессора для виртуальной машины.
                   properties:
+                    virtualMachineCPUModelName:
+                      description: |
+                        Имя ресурса `virtualMachineCPUModelName`, определяющего модель процессора для виртуальной машины.
                     cores:
                       description: |
                         Количество ядер в виртуальной машине. Значение числа ядер должно быть больше или равно 1.
@@ -481,10 +484,6 @@ spec:
                       name:
                         description: |
                           Имя ресурса.
-                restartApprovalID:
-                  description: |
-                    Хэш изменений виртуальной машины из .status.changeID.
-                    Требуется для утверждения разрушительных изменений виртуальной машины (например, перезапуск).
             status:
               type: object
               properties:
@@ -517,7 +516,7 @@ spec:
                     Имя узла, на котором в данный момент запущена ВМ.
                 ipAddressClaim:
                   description: |
-                    Имя `VirtualMachineIPAddressClaim`, содержащее IP-адрес виртуальной машины.
+                    Имя `virtualMachineIPAddressClaimName`, содержащее IP-адрес виртуальной машины.
                 ipAddress:
                   description: |
                     IP-адрес ВМ.
