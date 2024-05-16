@@ -29,7 +29,7 @@ type VirtualMachineBlockDeviceAttachmentList struct {
 }
 
 type VirtualMachineBlockDeviceAttachmentSpec struct {
-	VirtualMachine string         `json:"virtualMachine"`
+	VirtualMachine string         `json:"virtualMachineName"`
 	BlockDeviceRef VMBDAObjectRef `json:"blockDeviceRef"`
 }
 

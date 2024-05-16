@@ -29,7 +29,7 @@ type VirtualMachineSpec struct {
 
 	// VirtualMachineIPAddressClaim specifies a name for the associated
 	// `VirtualMachineIPAddressClaim` resource. Defaults to `{vm name}`.
-	VirtualMachineIPAddressClaim string `json:"virtualMachineIPAddressClaim,omitempty"`
+	VirtualMachineIPAddressClaim string `json:"virtualMachineIPAddressClaimName,omitempty"`
 
 	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
@@ -91,7 +91,7 @@ const (
 )
 
 type CPUSpec struct {
-	VirtualMachineCPUModel string `json:"virtualMachineCPUModel"`
+	VirtualMachineCPUModel string `json:"virtualMachineCPUModelName"`
 	Cores                  int    `json:"cores"`
 	CoreFraction           string `json:"coreFraction"`
 }
@@ -143,8 +143,8 @@ const (
 
 type VirtualMachineStatus struct {
 	Phase                        MachinePhase                             `json:"phase"`
-	Node                         string                                   `json:"node"`
-	VirtualMachineIPAddressClaim string                                   `json:"virtualMachineIPAddressClaim"`
+	Node                         string                                   `json:"nodeName"`
+	VirtualMachineIPAddressClaim string                                   `json:"virtualMachineIPAddressClaimName"`
 	IPAddress                    string                                   `json:"ipAddress"`
 	BlockDeviceRefs              []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
 	GuestOSInfo                  virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`

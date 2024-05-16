@@ -118,7 +118,7 @@ spec:
                     Емкость PVC в человекочитаемом формате.
                 target:
                   properties:
-                    persistentVolumeClaim:
+                    persistentVolumeClaimName:
                       description: |
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 phase:

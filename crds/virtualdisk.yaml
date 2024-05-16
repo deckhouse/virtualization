@@ -228,7 +228,7 @@ spec:
                 target:
                   type: object
                   properties:
-                    persistentVolumeClaim:
+                    persistentVolumeClaimName:
                       type: string
                       description: |
                         Created PersistentVolumeClaim name for Kubernetes storage.

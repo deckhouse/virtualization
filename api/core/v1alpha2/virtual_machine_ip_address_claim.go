@@ -26,7 +26,7 @@ type VirtualMachineIPAddressClaimList struct {
 // VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.
 type VirtualMachineIPAddressClaimSpec struct {
 	// The issued `VirtualMachineIPAddressLease`, managed automatically.
-	VirtualMachineIPAddressLease string `json:"virtualMachineIPAddressLease"`
+	VirtualMachineIPAddressLease string `json:"virtualMachineIPAddressLeaseName"`
 	// The requested IP address. If omitted the next available IP address will be assigned.
 	Address string `json:"address"`
 	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
@@ -36,11 +36,11 @@ type VirtualMachineIPAddressClaimSpec struct {
 // VirtualMachineIPAddressClaimStatus is the observed state of `VirtualMachineIPAddressClaim`.
 type VirtualMachineIPAddressClaimStatus struct {
 	// Represents the virtual machine that currently uses this IP address.
-	VirtualMachine string `json:"virtualMachine,omitempty"`
+	VirtualMachine string `json:"virtualMachineName,omitempty"`
 	// Assigned IP address.
 	Address string `json:"address,omitempty"`
 	// The issued `VirtualMachineIPAddressLease`, managed automatically.
-	Lease string `json:"virtualMachineIPAddressLease,omitempty"`
+	Lease string `json:"virtualMachineIPAddressLeaseName,omitempty"`
 	// Represents the current state of IP address claim.
 	Phase VirtualMachineIPAddressClaimPhase `json:"phase,omitempty"`
 	// Detailed description of the error.
