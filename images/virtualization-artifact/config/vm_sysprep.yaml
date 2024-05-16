@@ -35,7 +35,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 50Gi
-    storageClass: linstor-test-data-r1
+    storageClassName: linstor-test-data-r1
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine

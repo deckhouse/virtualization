@@ -5,7 +5,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClass: local-path
+    storageClassName: local-path
   dataSource:
     type: HTTP
     http:

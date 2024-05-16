@@ -32,7 +32,7 @@ metadata:
 spec:
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClass: linstor-thick-data-r3
+    storageClassName: linstor-thick-data-r3
   dataSource:
     type: Upload
 EOF

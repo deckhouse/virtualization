@@ -29,7 +29,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClass: local-path
+    storageClassName: local-path
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine

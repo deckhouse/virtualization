@@ -8,7 +8,7 @@ spec:
   # 2. Import from Registry into PVC.
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClass: "local-path"
+    storageClassName: "local-path"
   dataSource:
     type: "HTTP"
     http:

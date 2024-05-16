@@ -5,7 +5,7 @@ metadata:
 spec:
   storage: Kubernetes
   persistentVolumeClaim:
-    storageClass: "local-path"
+    storageClassName: "local-path"
   dataSource:
     type: "ContainerImage"
     containerImage:
