@@ -19,7 +19,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClass: local-path
+    storageClassName: local-path
 ```
 
 2. Создайте ресурсы с ISO-образами ОС Windows и драйверами virtio:
@@ -82,7 +82,7 @@ spec:
 Команда для подключения:
 
 ```bash
-dvp vnc -n default win-vm
+d8 v vnc -n default win-vm
 ```
 
 6. После окончания установки завершите работу виртуальной машины.
@@ -103,7 +103,7 @@ spec:
 8. После внесенных изменений виртуальная машина запустится, для продолжения работы с ней используйте команду:
 
 ```bash
-dvp vnc -n default win-vm
+d8 v vnc -n default win-vm
 ```
 
 ## Как создать образ виртуальной машины для container registry

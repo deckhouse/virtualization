@@ -279,7 +279,7 @@ metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClass: "your-storage-class-name"
+    storageClassName: "your-storage-class-name"
     size: 100M
 ```
 
@@ -310,7 +310,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClass: "your-storage-class-name"
+    storageClassName: "your-storage-class-name"
   dataSource:
     type: ObjectRef
     objectRef:
