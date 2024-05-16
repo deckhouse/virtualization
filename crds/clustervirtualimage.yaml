@@ -41,6 +41,8 @@ spec:
               properties:
                 dataSource:
                   type: object
+                  description: |
+                    An origin of the image.
                   required:
                     - type
                   properties:
@@ -151,7 +153,8 @@ spec:
                             YWFhCg==
                     objectRef:
                       type: object
-                      description: Reference to existing `VirtualImage` or `ClusterVirtualImage`.
+                      description: |
+                        Use an existing `VirtualImage` or `ClusterVirtualImage` to create an image.
                       required: ["kind", "name"]
                       properties:
                         kind:
@@ -293,10 +296,10 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error. human-readable
-                usedInVMs:
+                attachedToVirtualMachines:
                   type: array
                   description: |
-                    A list of virtual s and namespaces that use the image
+                    A list of virtual machines and namespaces that use the image
                   example:
                     [
                       { name: "VM100", namespace: "customer1" },

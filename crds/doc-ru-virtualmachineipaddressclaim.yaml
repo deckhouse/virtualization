@@ -13,9 +13,9 @@ spec:
                 address:
                   description: |
                     Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
-                virtualMachineIPAddressLease:
+                virtualMachineIPAddressLeaseName:
                   description: |
-                    Выданный `VirtualMachineIPAddressLease`, управляется автоматически.
+                    Имя выданного `VirtualMachineIPAddressLease`, управляется автоматически.
                 reclaimPolicy:
                   description: |
                     Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
@@ -30,7 +30,7 @@ spec:
                 address:
                   description: |
                     Назначенный IP-адрес.
-                virtualMachine:
+                virtualMachineName:
                   description: |
                     Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
                 phase:

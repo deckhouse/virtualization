@@ -27,7 +27,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual  disk that can be mounted in `Virtuals`. Once the resource is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
+            Describes a virtual disk that can be mounted in `VirtualMachines`. Once the resource is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
 
             A PVC is created under the hood of the resource, into which the data from the source is filled.
           required:
@@ -48,7 +48,7 @@ spec:
                       description: |
                         Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
                       pattern: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
-                    storageClass:
+                    storageClassName:
                       type: string
                       description: |
                         The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
@@ -162,7 +162,8 @@ spec:
                             YWFhCg==
                     objectRef:
                       type: object
-                      description: Reference to existing `VirtualImage` or `ClusterVirtualImage`.
+                      description: |
+                        Use an existing `VirtualImage` or `ClusterVirtualImage` to create an image.
                       required: ["kind", "name"]
                       properties:
                         kind:
@@ -267,10 +268,10 @@ spec:
                   type: string
                   description: |
                     Detailed description of the error.
-                usedInVMs:
+                attachedToVirtualMachines:
                   type: array
                   description: |
-                    A list of virtual that use the disk
+                    A list of `VirtualMachines` that use the disk
                   example: [{ name: "VM100" }, { name: "VM200" }]
                   items:
                     type: object
@@ -288,8 +289,12 @@ spec:
           type: string
           jsonPath: .status.progress
           priority: 1
-        - name: Target PVC
-          jsonPath: .status.target.persistentVolumeClaim
+        - name: StorageClass
+          jsonPath: .spec.persistentVolumeClaim.storageClassName
+          type: string
+          priority: 1
+        - name: TargetPVC
+          jsonPath: .status.target.persistentVolumeClaimName
           type: string
           priority: 1
         - name: Age
