@@ -207,7 +207,6 @@ func (state *VMReconcilerState) Reload(ctx context.Context, req reconcile.Reques
 	state.VMDByName = vmdByName
 	state.VMIByName = vmiByName
 	state.CVMIByName = cvmiByName
-	state.StatusMessage = state.VM.Current().Status.Message
 	state.RestartAwaitingChanges = state.VM.Current().Status.RestartAwaitingChanges
 
 	return nil

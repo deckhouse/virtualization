@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -96,7 +97,7 @@ func (r *VMReconciler) SetupController(_ context.Context, mgr manager.Manager, c
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return oldVM.Status.Phase != newVM.Status.Phase
+				return !reflect.DeepEqual(oldVM.Status, newVM.Status)
 			},
 		},
 	); err != nil {
@@ -319,7 +320,6 @@ func (r *VMReconciler) UpdateStatus(_ context.Context, _ reconcile.Request, stat
 	case state.vmIsStarting():
 		state.VM.Changed().Status.Phase = virtv2.MachineStarting
 	case state.vmIsRunning():
-		// TODO We need to rerun this block because KVVMI status fields may be updated with a delay.
 		state.VM.Changed().Status.Phase = virtv2.MachineRunning
 		state.VM.Changed().Status.GuestOSInfo = state.KVVMI.Status.GuestOSInfo
 		state.VM.Changed().Status.Node = state.KVVMI.Status.NodeName
