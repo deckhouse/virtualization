@@ -336,7 +336,7 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachine: linux-vm # Name of the virtual machine to attach disk to.
+  virtualMachineName: linux-vm # Name of the virtual machine to attach disk to.
   blockDevice:
     type: ObjectRef
     objectRef:
@@ -528,7 +528,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart
 spec:
-  virtualMachine: linux-vm
+  virtualMachineName: linux-vm
   type: Restart
 EOF
 ```

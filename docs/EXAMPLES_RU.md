@@ -526,7 +526,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm
 spec:
-  virtualMachine: linux-vm
+  virtualMachineName: linux-vm
   type: Restart
 EOF
 ```
