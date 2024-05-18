@@ -1,165 +1,165 @@
 spec:
   versions:
-    - name: v1alpha2
-      schema:
-        openAPIV3Schema:
-          description: |
-            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую. Этот тип ресурса доступен для всех пространств имен в кластере.
+  - name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: |
+          Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую. Этот тип ресурса доступен для всех пространств имен в кластере.
 
-            > Этот ресурс не может быть изменен после его создания.
+          > Этот ресурс не может быть изменен после его создания.
 
-            Под капотом этого ресурса создается образ контейнера, который хранится в специальном container registry (DVCR).
-          properties:
-            spec:
-              properties:
-                dataSource:
-                  description: |
-                    Тип источника, из которого будет создан образ.
-                  properties:
-                    type:
-                      description: |
-                        Доступные типы источников для создания образа:
+          Под капотом этого ресурса создается образ контейнера, который хранится в специальном container registry (DVCR).
+        properties:
+          spec:
+            properties:
+              dataSource:
+                description: |
+                  Тип источника, из которого будет создан образ.
+                properties:
+                  containerImage:
+                    description: |
+                      Использование образа, хранящегося во внешнем реестре контейнеров.
+                      Поддерживаются только реестры контейнеров с включенным TLS.
+                      При необходимости используйте поле caBundle, чтобы предоставить собственную цепочку центров сертификации.
+                    properties:
+                      caBundle:
+                        description: |
+                          Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
+                      image:
+                        description: |
+                          Путь к образу в container registry.
+                      imagePullSecret:
+                        properties:
+                          name:
+                            description: |
+                              Имя Secret'а, содержащего учетные данные для подключения к container registry.
+                          namespace:
+                            description: |
+                              Пространство имен, в котором находится imagePullSecret.
+                  http:
+                    description: |
+                      Создание образа из файла, опубликованного по URL. Поддерживаемые схемы:
 
-                        * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
-                        * `ContainerImage` — создать образ из образа в container registry.
-                        * `VirtualImage` — создать новый образ из существующего `VirtualImage`.
-                        * `ClusterVirtualImage` — создать новый образ из существующего `ClusterVirtualImage`.
-                        * `Upload` — загрузить образ вручную, через веб-интерфейс.
-                    http:
-                      description: |
-                        Создание образа из файла, опубликованного по URL. Поддерживаемые схемы:
+                      * HTTP;
+                      * HTTPS.
 
-                        * HTTP;
-                        * HTTPS.
+                      Для схемы HTTPS есть возможность отключить проверку TLS.
+                    properties:
+                      caBundle:
+                        description: |
+                          Цепочка сертификатов в формате Base64 для проверки TLS-сертификата сервера, на котором размещается образ.
+                      checksum:
+                        description: |
+                          Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
+                        properties:
+                          md5:
+                            description: ""
+                          sha256:
+                            description: ""
+                      insecureSkipVerify:
+                        description: |
+                          Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
+                      url:
+                        description: |
+                          Для образа расположенного по URL, поддерживаются следующие типы образов:
+                          * qcow2;
+                          * vmdk;
+                          * vdi;
+                          * iso;
+                          * raw.
 
-                        Для схемы HTTPS есть возможность отключить проверку TLS.
-                      properties:
-                        url:
-                          description: |
-                            Для образа расположенного по URL, поддерживаются следующие типы образов:
-                            * qcow2;
-                            * vmdk;
-                            * vdi;
-                            * iso;
-                            * raw.
+                          Для всех представленных типов образов поддерживается сжатие образов в следующих форматах:
+                          * gz;
+                          * xz.
+                  objectRef:
+                    description: |
+                      Для создания образа использовать существующий `VirtualImage` или `ClusterVirtualImage`.
+                    properties:
+                      kind:
+                        description: |
+                          Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
+                      name:
+                        description: |
+                          Имя существующего `VirtualImage` или `ClusterVirtualImage`.
+                      namespace:
+                        description: |
+                          Имя namespace'а, гда ресположен `VirtualImage`.
+                  type:
+                    description: |
+                      Доступные типы источников для создания образа:
 
-                            Для всех представленных типов образов поддерживается сжатие образов в следующих форматах:
-                            * gz;
-                            * xz.
-                        caBundle:
-                          description: |
-                            Цепочка сертификатов в формате Base64 для проверки TLS-сертификата сервера, на котором размещается образ.
-                        insecureSkipVerify:
-                          description: |
-                            Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
-                        checksum:
-                          description: |
-                            Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
-                          properties:
-                            md5:
-                              description: ""
-                            sha256:
-                              description: ""
-                    containerImage:
-                      description: |
-                        Использование образа, хранящегося во внешнем реестре контейнеров.
-                        Поддерживаются только реестры контейнеров с включенным TLS.
-                        При необходимости используйте поле caBundle, чтобы предоставить собственную цепочку центров сертификации.
-                      properties:
-                        image:
-                          description: |
-                            Путь к образу в container registry.
-                        imagePullSecret:
-                          properties:
-                            name:
-                              description: |
-                                Имя Secret'а, содержащего учетные данные для подключения к container registry.
-                            namespace:
-                              description: |
-                                Пространство имен, в котором находится imagePullSecret.
-                        caBundle:
-                          description: |
-                            Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
-                    objectRef:
-                      description: |
-                        Для создания образа использовать существующий `VirtualImage` или `ClusterVirtualImage`.
-                      properties:
-                        kind:
-                          description: |
-                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
-                        name:
-                          description: |
-                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
-                        namespace:
-                          description: |
-                            Имя namespace'а, гда ресположен `VirtualImage`.
-            status:
-              properties:
-                downloadSpeed:
-                  description: |
-                    Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
-                  properties:
-                    avg:
-                      description: |
-                        Средняя скорость загрузки.
-                    current:
-                      description: |
-                        Текущая скорость загрузки.
-                    avgBytes:
-                      description: |
-                        Средняя скорость загрузки в байтах в секунду.
-                    currentBytes:
-                      description: |
-                        Текущая скорость загрузки в байтах в секунду.
-                format:
-                  description: |
-                    Обнаруженный формат образа.
-                size:
-                  description: |
-                    Обнаруженные размеры образа.
-                  properties:
-                    stored:
-                      description: |
-                        Размер образа в DVCR или PVC в человекочитаемом формате.
-                    storedBytes:
-                      description: Размер образа в DVCR или PVC в байтах.
-                    unpacked:
-                      description: |
-                        Размер распакованного образа в человекочитаемом формате.
-                    unpackedBytes:
-                      description: |
-                        Размер распакованного образа в байтах.
-                cdrom:
-                  description: |
-                    Является ли образ форматом, который должен быть смонтирован как cdrom, например iso и т. д.
-                target:
-                  properties:
-                    registryURL:
-                      description: |
-                        Образ, созданный в DVCR.
-                phase:
-                  description: |
-                    Текущее состояние ресурса `ClusterVirtualImage`:
+                      * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
+                      * `ContainerImage` — создать образ из образа в container registry.
+                      * `VirtualImage` — создать новый образ из существующего `VirtualImage`.
+                      * `ClusterVirtualImage` — создать новый образ из существующего `ClusterVirtualImage`.
+                      * `Upload` — загрузить образ вручную, через веб-интерфейс.
+          status:
+            properties:
+              attachedToVirtualMachines:
+                description: |
+                  Список виртуальных машин, использующих этот образ
+              cdrom:
+                description: |
+                  Является ли образ форматом, который должен быть смонтирован как cdrom, например iso и т. д.
+              downloadSpeed:
+                description: |
+                  Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
+                properties:
+                  avg:
+                    description: |
+                      Средняя скорость загрузки.
+                  avgBytes:
+                    description: |
+                      Средняя скорость загрузки в байтах в секунду.
+                  current:
+                    description: |
+                      Текущая скорость загрузки.
+                  currentBytes:
+                    description: |
+                      Текущая скорость загрузки в байтах в секунду.
+              failureMessage:
+                description: |
+                  Подробное описание ошибки.
+              failureReason:
+                description: |
+                  Краткое описание причины ошибки.
+              format:
+                description: |
+                  Обнаруженный формат образа.
+              phase:
+                description: |
+                  Текущее состояние ресурса `ClusterVirtualImage`:
 
-                    * Pending - Ресурс был создан и находится в очереди ожидания.
-                    * Provisioning - Идет процесс создания ресурса (копирование/загрузка/создание образа).
-                    * WaitForUserUpload - Ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
-                    * Ready - Ресурс создан и готов к использованию.
-                    * Failed - При создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
-                    * NotReady - Невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
-                    * ImageLost - Дочернее образ ресурса отсутствует. Ресурс не может быть использован.
-                progress:
-                  description: |
-                    Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
-                uploadCommand:
-                  description: |
-                    Команда для загрузки образа для типа 'Upload'.
-                failureReason:
-                  description: |
-                    Краткое описание причины ошибки.
-                failureMessage:
-                  description: |
-                    Подробное описание ошибки.
-                attachedToVirtualMachines:
-                  description: |
-                    Список виртуальных машин, использующих этот образ
+                  * Pending - Ресурс был создан и находится в очереди ожидания.
+                  * Provisioning - Идет процесс создания ресурса (копирование/загрузка/создание образа).
+                  * WaitForUserUpload - Ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
+                  * Ready - Ресурс создан и готов к использованию.
+                  * Failed - При создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
+                  * NotReady - Невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
+                  * ImageLost - Дочернее образ ресурса отсутствует. Ресурс не может быть использован.
+              progress:
+                description: |
+                  Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
+              size:
+                description: |
+                  Обнаруженные размеры образа.
+                properties:
+                  stored:
+                    description: |
+                      Размер образа в DVCR или PVC в человекочитаемом формате.
+                  storedBytes:
+                    description: Размер образа в DVCR или PVC в байтах.
+                  unpacked:
+                    description: |
+                      Размер распакованного образа в человекочитаемом формате.
+                  unpackedBytes:
+                    description: |
+                      Размер распакованного образа в байтах.
+              target:
+                properties:
+                  registryURL:
+                    description: |
+                      Образ, созданный в DVCR.
+              uploadCommand:
+                description: |
+                  Команда для загрузки образа для типа 'Upload'.
