@@ -6,7 +6,7 @@ moduleStatus: experimental
 
 ## Description
 
-This module is designed to run and manage virtual machines and their resources on the Deckhouse platform.
+This module is designed to run and manage virtual machines and their resources on [the Deckhouse platform](https://deckhouse.io).
 
 It offers the following features:
 
@@ -44,8 +44,7 @@ The module includes the following components:
 
 - The module core, based on the KubeVirt project and uses QEMU/KVM + libvirtd to run virtual machines.
 - Deckhouse Virtualization Container Registry (DVCR) - repository for storing and caching virtual machine images.
-- Virtualization-controller - controller that implements a user API for creating and managing virtual machine resources.
-- Virtualization-API - API for interacting with virtual machines.
+- Virtualization-API - controller that implements a user API for creating and managing virtual machine resources.
 
 The API provides capabilities for creating and managing the following resources:
 
