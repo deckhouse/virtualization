@@ -694,14 +694,14 @@ var _ = Describe("Apply VM changes with manual approval", func() {
 					"path":      Equal("cpu"),
 					"operation": Equal(string(vmchange.ChangeReplace)),
 					"currentValue": MatchAllKeys(Keys{
-						"virtualMachineCPUModel": BeEquivalentTo(vmcpuName),
-						"cores":                  BeEquivalentTo(cpuStartingCores),
-						"coreFraction":           Equal(cpuStartingCoreFraction),
+						"virtualMachineCPUModelName": BeEquivalentTo(vmcpuName),
+						"cores":                      BeEquivalentTo(cpuStartingCores),
+						"coreFraction":               Equal(cpuStartingCoreFraction),
 					}),
 					"desiredValue": MatchAllKeys(Keys{
-						"virtualMachineCPUModel": BeEquivalentTo(vmcpuName),
-						"cores":                  BeEquivalentTo(cpuNewCores),
-						"coreFraction":           Equal(cpuNewCoreFraction),
+						"virtualMachineCPUModelName": BeEquivalentTo(vmcpuName),
+						"cores":                      BeEquivalentTo(cpuNewCores),
+						"coreFraction":               Equal(cpuNewCoreFraction),
 					}),
 				}),
 				"memory.size": MatchAllKeys(Keys{
