@@ -80,11 +80,18 @@ func createTestRewriter() *RuleBasedRewriter {
 		Categories:         []string{"prefixed"},
 		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
-		Labels: []ReplaceRule{
-			{Old: "original.label.io", New: "rewrite.label.io"},
+		Labels: MetadataReplace{
+			Prefixes: []MetadataReplaceRule{
+				{Old: "original.prefix", New: "rewrite.prefix"},
+			},
+			Names: []MetadataReplaceRule{
+				{Old: "original.label.io", New: "rewrite.label.io"},
+			},
 		},
-		Annotations: []ReplaceRule{
-			{Old: "original.annotation.io", New: "rewrite.annotation.io"},
+		Annotations: MetadataReplace{
+			Names: []MetadataReplaceRule{
+				{Old: "original.annotation.io", New: "rewrite.annotation.io"},
+			},
 		},
 	}
 	rules.Complete()
