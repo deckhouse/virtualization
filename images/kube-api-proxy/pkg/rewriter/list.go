@@ -19,6 +19,7 @@ package rewriter
 import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"strings"
 )
 
 // RewriteResourceOrList is a helper to transform a single resource or a list of resources.
@@ -30,6 +31,15 @@ func RewriteResourceOrList(payload []byte, listKind string, transformFn func(sin
 		return transformFn(payload)
 	}
 
+	return RewriteArray(payload, "items", transformFn)
+}
+
+// RewriteResourceOrList2 is a helper to transform a single resource or a list of resources.
+func RewriteResourceOrList2(payload []byte, transformFn func(singleObj []byte) ([]byte, error)) ([]byte, error) {
+	kind := gjson.GetBytes(payload, "kind").String()
+	if !strings.HasSuffix(kind, "List") {
+		return transformFn(payload)
+	}
 	return RewriteArray(payload, "items", transformFn)
 }
 

@@ -250,7 +250,16 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		return obj, err
 	}
 
-	rwrBytes, err = RewriteMetadata(rw.Rules, rwrBytes, action)
+	rwrBytes, err = RewriteResourceOrList2(obj, func(singleObj []byte) ([]byte, error) {
+		return RewriteMetadata(rw.Rules, singleObj, action)
+	})
+	if err != nil {
+		return obj, err
+	}
+
+	rwrBytes, err = RewriteResourceOrList2(obj, func(singleObj []byte) ([]byte, error) {
+		return RewriteFinalizers(rw.Rules, singleObj, action)
+	})
 	if err != nil {
 		return obj, err
 	}

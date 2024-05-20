@@ -29,7 +29,8 @@ func TestRewriteMetadata(t *testing.T) {
 					Name:      "foo",
 					Namespace: "bar",
 					Labels: map[string]string{
-						"original.label.io": "labelvalue",
+						"original.label.io":        "labelvalue",
+						"original.prefix/labelkey": "labelvalue",
 					},
 					Annotations: map[string]string{
 						"original.annotation.io": "annovalue",
@@ -38,7 +39,7 @@ func TestRewriteMetadata(t *testing.T) {
 			},
 			&corev1.Pod{},
 			Rename,
-			map[string]string{"rewrite.label.io": "labelvalue"},
+			map[string]string{"rewrite.label.io": "labelvalue", "rewrite.prefix/labelkey": "labelvalue"},
 			map[string]string{"rewrite.annotation.io": "annovalue"},
 		},
 	}

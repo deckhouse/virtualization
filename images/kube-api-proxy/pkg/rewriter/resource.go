@@ -17,7 +17,6 @@ limitations under the License.
 package rewriter
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -360,19 +359,6 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 }
 
 func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	items := gjson.GetBytes(obj, "items").Array()
-	if len(items) > 0 {
-		newObj, err := RewriteArray(obj, "items", func(item []byte) ([]byte, error) {
-			return RewriteMetadataLabels(rules, item, action)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return RewriteArray(newObj, "items", func(item []byte) ([]byte, error) {
-			return RewriteMetadataAnnotations(rules, item, action)
-		})
-	}
-
 	newObj, err := RewriteMetadataLabels(rules, obj, action)
 	if err != nil {
 		return nil, err
@@ -396,12 +382,8 @@ func RewriteMetadataLabels(rules *RewriteRules, obj []byte, action Action) ([]by
 	case Restore:
 		newLabels = rules.RestoreLabels(newLabels)
 	}
-	rwrLabels, err := json.Marshal(newLabels)
-	if err != nil {
-		return nil, err
-	}
 
-	return sjson.SetRawBytes(obj, "metadata.labels", rwrLabels)
+	return sjson.SetBytes(obj, "metadata.labels", newLabels)
 }
 
 func RewriteMetadataAnnotations(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
@@ -420,10 +402,24 @@ func RewriteMetadataAnnotations(rules *RewriteRules, obj []byte, action Action) 
 		newAnnos = rules.RestoreAnnotations(newAnnos)
 	}
 
-	rwrAnnons, err := json.Marshal(newAnnos)
-	if err != nil {
-		return nil, err
+	return sjson.SetBytes(obj, "metadata.annotations", newAnnos)
+}
+
+func RewriteFinalizers(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	fins := gjson.GetBytes(obj, "spec.finalizers").Array()
+	if len(fins) == 0 {
+		return obj, nil
+	}
+	newFins := make([]string, len(fins))
+	for i, f := range fins {
+		newFins[i] = f.String()
+	}
+	switch action {
+	case Rename:
+		newFins = rules.RenameFinalizers(newFins)
+	case Restore:
+		newFins = rules.RestoreFinalizers(newFins)
 	}
 
-	return sjson.SetRawBytes(obj, "metadata.annotations", rwrAnnons)
+	return sjson.SetBytes(obj, "spec.finalizers", newFins)
 }

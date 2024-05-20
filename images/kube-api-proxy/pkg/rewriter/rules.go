@@ -28,28 +28,18 @@ type RewriteRules struct {
 	RenamedGroup       string                  `json:"renamedGroup"`
 	Rules              map[string]APIGroupRule `json:"rules"`
 	Webhooks           map[string]WebhookRule  `json:"webhooks"`
-	Labels             []ReplaceRule           `json:"labels"`
-	Annotations        []ReplaceRule           `json:"annotations"`
-	labelsOldToNew     map[string]string
-	labelsNewToOld     map[string]string
-	annoOldToNew       map[string]string
-	annoNewToOld       map[string]string
+	Labels             MetadataReplace         `json:"labels"`
+	Annotations        MetadataReplace         `json:"annotations"`
+	Finalizers         MetadataReplace         `json:"finalizers"`
+	labelsIndexer      *MetadataIndexer
+	annoIndexer        *MetadataIndexer
+	finalizerIndexer   *MetadataIndexer
 }
 
 func (rr *RewriteRules) Complete() {
-	rr.labelsOldToNew = make(map[string]string, len(rr.Labels))
-	rr.labelsNewToOld = make(map[string]string, len(rr.Labels))
-	for _, l := range rr.Labels {
-		rr.labelsOldToNew[l.Old] = l.New
-		rr.labelsNewToOld[l.New] = l.Old
-	}
-	rr.annoOldToNew = make(map[string]string, len(rr.Annotations))
-	rr.annoNewToOld = make(map[string]string, len(rr.Annotations))
-
-	for _, a := range rr.Annotations {
-		rr.annoOldToNew[a.Old] = a.New
-		rr.annoNewToOld[a.New] = a.Old
-	}
+	rr.labelsIndexer = rr.Labels.Complete()
+	rr.annoIndexer = rr.Annotations.Complete()
+	rr.finalizerIndexer = rr.Finalizers.Complete()
 }
 
 type APIGroupRule struct {
@@ -80,7 +70,60 @@ type WebhookRule struct {
 	Resource string `json:"resource"`
 }
 
-type ReplaceRule struct {
+type MetadataReplace struct {
+	Prefixes []MetadataReplaceRule
+	Names    []MetadataReplaceRule
+}
+
+func (mr *MetadataReplace) Complete() *MetadataIndexer {
+	namesOldToNew := make(map[string]string, len(mr.Names))
+	namesNewToOld := make(map[string]string, len(mr.Names))
+	for _, l := range mr.Names {
+		namesOldToNew[l.Old] = l.New
+		namesNewToOld[l.New] = l.Old
+	}
+	prefixOldToNew := make(map[string]string, len(mr.Prefixes))
+	prefixNewToOld := make(map[string]string, len(mr.Prefixes))
+	for _, l := range mr.Prefixes {
+		prefixOldToNew[l.Old] = l.New
+		prefixNewToOld[l.New] = l.Old
+	}
+	return &MetadataIndexer{
+		namesOldToNew:  namesOldToNew,
+		namesNewToOld:  namesNewToOld,
+		prefixOldToNew: prefixOldToNew,
+		prefixNewToOld: prefixNewToOld,
+	}
+}
+
+type MetadataIndexer struct {
+	namesOldToNew  map[string]string
+	namesNewToOld  map[string]string
+	prefixOldToNew map[string]string
+	prefixNewToOld map[string]string
+}
+
+func (mi *MetadataIndexer) GetOld(s string) (string, bool) {
+	v, found := mi.namesNewToOld[s]
+	return v, found
+}
+
+func (mi *MetadataIndexer) GetNew(s string) (string, bool) {
+	v, found := mi.namesOldToNew[s]
+	return v, found
+}
+
+func (mi *MetadataIndexer) GetOldPrefix(s string) (string, bool) {
+	v, found := mi.prefixNewToOld[s]
+	return v, found
+}
+
+func (mi *MetadataIndexer) GetNewPrefix(s string) (string, bool) {
+	v, found := mi.prefixOldToNew[s]
+	return v, found
+}
+
+type MetadataReplaceRule struct {
 	Old string `json:"old"`
 	New string `json:"new"`
 }
@@ -254,14 +297,13 @@ func (rr *RewriteRules) RestoreShortNames(shortNames []string) []string {
 	return newNames
 }
 
-func (rr *RewriteRules) RenameLabel(label string) (string, bool) {
-	v, ok := rr.labelsOldToNew[label]
-	return v, ok
+func (rr *RewriteRules) RenameLabel(label string) string {
+	return rr.rename(label, rr.labelsIndexer)
+
 }
 
-func (rr *RewriteRules) RestoreLabel(label string) (string, bool) {
-	v, ok := rr.labelsOldToNew[label]
-	return v, ok
+func (rr *RewriteRules) RestoreLabel(label string) string {
+	return rr.restore(label, rr.labelsIndexer)
 }
 
 func (rr *RewriteRules) RenameLabels(labels map[string]string) map[string]string {
@@ -272,34 +314,86 @@ func (rr *RewriteRules) RestoreLabels(labels map[string]string) map[string]strin
 	return rr.rewriteMaps(labels, rr.RestoreLabel)
 }
 
-func (rr *RewriteRules) RenameAnnotation(anno string) (string, bool) {
-	v, ok := rr.annoOldToNew[anno]
-	return v, ok
+func (rr *RewriteRules) RenameAnnotation(anno string) string {
+	return rr.rename(anno, rr.annoIndexer)
 }
 
-func (rr *RewriteRules) RestoreAnnotation(anno string) (string, bool) {
-	v, ok := rr.annoNewToOld[anno]
-	return v, ok
+func (rr *RewriteRules) RestoreAnnotation(anno string) string {
+	return rr.restore(anno, rr.annoIndexer)
 }
 
-func (rr *RewriteRules) RenameAnnotations(anno map[string]string) map[string]string {
-	return rr.rewriteMaps(anno, rr.RenameAnnotation)
+func (rr *RewriteRules) RenameAnnotations(annotations map[string]string) map[string]string {
+	return rr.rewriteMaps(annotations, rr.RenameAnnotation)
 
 }
 
-func (rr *RewriteRules) RestoreAnnotations(anno map[string]string) map[string]string {
-	return rr.rewriteMaps(anno, rr.RestoreAnnotation)
+func (rr *RewriteRules) RestoreAnnotations(annotations map[string]string) map[string]string {
+	return rr.rewriteMaps(annotations, rr.RestoreAnnotation)
 }
 
-func (rr *RewriteRules) rewriteMaps(m map[string]string, fn func(s string) (string, bool)) map[string]string {
+func (rr *RewriteRules) RenameFinalizer(fin string) string {
+	return rr.rename(fin, rr.annoIndexer)
+}
+
+func (rr *RewriteRules) RestoreFinalizer(fin string) string {
+	return rr.restore(fin, rr.annoIndexer)
+}
+
+func (rr *RewriteRules) RenameFinalizers(fins []string) []string {
+	return rr.rewriteSlices(fins, rr.RenameFinalizer)
+
+}
+
+func (rr *RewriteRules) RestoreFinalizers(fins []string) []string {
+	return rr.rewriteSlices(fins, rr.RestoreFinalizer)
+}
+
+func (rr *RewriteRules) rewriteMaps(m map[string]string, fn func(s string) string) map[string]string {
 	result := make(map[string]string, len(m))
 	for k, v := range m {
-		newKey, found := fn(k)
-		if !found {
-			result[k] = v
-			continue
-		}
-		result[newKey] = v
+		result[fn(k)] = v
 	}
 	return result
+}
+
+func (rr *RewriteRules) rewriteSlices(s []string, fn func(s string) string) []string {
+	result := make([]string, len(s))
+	for i, ss := range s {
+		result[i] = fn(ss)
+	}
+	return result
+}
+
+func (rr *RewriteRules) rename(s string, indexer *MetadataIndexer) string {
+	if indexer == nil {
+		return s
+	}
+	if v, ok := indexer.GetNew(s); ok {
+		return v
+	}
+	prefix, _, found := strings.Cut(s, "/")
+	if !found {
+		return s
+	}
+	if v, ok := indexer.GetNewPrefix(prefix); ok {
+		return v + strings.TrimPrefix(s, prefix)
+	}
+	return s
+}
+
+func (rr *RewriteRules) restore(s string, indexer *MetadataIndexer) string {
+	if indexer == nil {
+		return s
+	}
+	if v, ok := indexer.GetOld(s); ok {
+		return v
+	}
+	prefix, _, found := strings.Cut(s, "/")
+	if !found {
+		return s
+	}
+	if v, ok := indexer.GetOldPrefix(prefix); ok {
+		return v + strings.TrimPrefix(s, prefix)
+	}
+	return s
 }
