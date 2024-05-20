@@ -39,12 +39,10 @@ type RewriteRules struct {
 func (rr *RewriteRules) Complete() {
 	rr.labelsOldToNew = make(map[string]string, len(rr.Labels))
 	rr.labelsNewToOld = make(map[string]string, len(rr.Labels))
-
 	for _, l := range rr.Labels {
 		rr.labelsOldToNew[l.Old] = l.New
 		rr.labelsNewToOld[l.New] = l.Old
 	}
-
 	rr.annoOldToNew = make(map[string]string, len(rr.Annotations))
 	rr.annoNewToOld = make(map[string]string, len(rr.Annotations))
 
@@ -296,7 +294,7 @@ func (rr *RewriteRules) RestoreAnnotations(anno map[string]string) map[string]st
 func (rr *RewriteRules) rewriteMaps(m map[string]string, fn func(s string) (string, bool)) map[string]string {
 	result := make(map[string]string, len(m))
 	for k, v := range m {
-		newKey, found := fn(v)
+		newKey, found := fn(k)
 		if !found {
 			result[k] = v
 			continue

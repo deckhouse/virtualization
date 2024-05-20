@@ -17,6 +17,7 @@ limitations under the License.
 package rewriter
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -359,6 +360,19 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 }
 
 func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	items := gjson.GetBytes(obj, "items").Array()
+	if len(items) > 0 {
+		newObj, err := RewriteArray(obj, "items", func(item []byte) ([]byte, error) {
+			return RewriteMetadataLabels(rules, item, action)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return RewriteArray(newObj, "items", func(item []byte) ([]byte, error) {
+			return RewriteMetadataAnnotations(rules, item, action)
+		})
+	}
+
 	newObj, err := RewriteMetadataLabels(rules, obj, action)
 	if err != nil {
 		return nil, err
@@ -376,22 +390,17 @@ func RewriteMetadataLabels(rules *RewriteRules, obj []byte, action Action) ([]by
 	for k, v := range labels {
 		newLabels[k] = v.String()
 	}
-
 	switch action {
 	case Rename:
 		newLabels = rules.RenameLabels(newLabels)
 	case Restore:
 		newLabels = rules.RestoreLabels(newLabels)
 	}
-
-	rwrLabels := []byte(`{}`)
-	for k, v := range newLabels {
-		var err error
-		rwrLabels, err = sjson.SetRawBytes(rwrLabels, k, []byte(v))
-		if err != nil {
-			return nil, err
-		}
+	rwrLabels, err := json.Marshal(newLabels)
+	if err != nil {
+		return nil, err
 	}
+
 	return sjson.SetRawBytes(obj, "metadata.labels", rwrLabels)
 }
 
@@ -410,13 +419,11 @@ func RewriteMetadataAnnotations(rules *RewriteRules, obj []byte, action Action) 
 	case Restore:
 		newAnnos = rules.RestoreAnnotations(newAnnos)
 	}
-	rwrAnnons := []byte(`{}`)
-	for k, v := range newAnnos {
-		var err error
-		rwrAnnons, err = sjson.SetRawBytes(rwrAnnons, k, []byte(v))
-		if err != nil {
-			return nil, err
-		}
+
+	rwrAnnons, err := json.Marshal(newAnnos)
+	if err != nil {
+		return nil, err
 	}
+
 	return sjson.SetRawBytes(obj, "metadata.annotations", rwrAnnons)
 }

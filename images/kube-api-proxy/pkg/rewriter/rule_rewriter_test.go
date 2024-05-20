@@ -80,8 +80,14 @@ func createTestRewriter() *RuleBasedRewriter {
 		Categories:         []string{"prefixed"},
 		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
+		Labels: []ReplaceRule{
+			{Old: "original.label.io", New: "rewrite.label.io"},
+		},
+		Annotations: []ReplaceRule{
+			{Old: "original.annotation.io", New: "rewrite.annotation.io"},
+		},
 	}
-
+	rules.Complete()
 	return &RuleBasedRewriter{
 		Rules: rules,
 	}
@@ -89,39 +95,52 @@ func createTestRewriter() *RuleBasedRewriter {
 
 func TestRewriteAPIEndpoint(t *testing.T) {
 	tests := []struct {
-		name   string
-		path   string
-		expect string
+		name        string
+		path        string
+		expectPath  string
+		exepctQuery string
 	}{
 		{
 			"rewritable group",
 			"/apis/original.group.io",
 			"/apis/prefixed.resources.group.io",
+			"",
 		},
 		{
 			"rewritable group and version",
 			"/apis/original.group.io/v1",
 			"/apis/prefixed.resources.group.io/v1",
+			"",
 		},
 		{
 			"rewritable resource list",
 			"/apis/original.group.io/v1/someresources",
 			"/apis/prefixed.resources.group.io/v1/prefixedsomeresources",
+			"",
 		},
 		{
 			"rewritable resource by name",
 			"/apis/original.group.io/v1/someresources/srname",
 			"/apis/prefixed.resources.group.io/v1/prefixedsomeresources/srname",
+			"",
 		},
 		{
 			"rewritable resource status",
 			"/apis/original.group.io/v1/someresources/srname/status",
 			"/apis/prefixed.resources.group.io/v1/prefixedsomeresources/srname/status",
+			"",
 		},
 		{
 			"rewritable CRD",
 			"/apis/apiextensions.k8s.io/v1/customresourcedefinitions/someresources.original.group.io",
 			"/apis/apiextensions.k8s.io/v1/customresourcedefinitions/prefixedsomeresources.prefixed.resources.group.io",
+			"",
+		},
+		{
+			"rewritable labelSelector",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=original.label.io%3Dlabelvalue&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=rewrite.label.io%3Dlabelvalue&limit=500",
 		},
 	}
 
@@ -131,18 +150,17 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			require.NoError(t, err, "should parse path '%s'", tt.path)
 
 			ep := ParseAPIEndpoint(u)
-
 			rwr := createTestRewriter()
 
 			newEp := rwr.RewriteAPIEndpoint(ep)
 
-			if tt.expect == "" {
+			if tt.expectPath == "" {
 				require.Nil(t, newEp, "should not rewrite path '%s', got %+v", tt.path, newEp)
 			}
-
 			require.NotNil(t, newEp, "should rewrite path '%s', got nil originEndpoint")
 
-			require.Equal(t, tt.expect, newEp.Path(), "expect rewrite for path '%s' to be '%s', got '%s'", tt.path, tt.expect, ep.Path())
+			require.Equal(t, tt.expectPath, newEp.Path(), "expect rewrite for path '%s' to be '%s', got '%s'", tt.path, tt.expectPath, ep.Path())
+			require.Equal(t, tt.exepctQuery, newEp.RawQuery, "expect rewrite query for path %q to be '%s', got '%s'", tt.path, tt.exepctQuery, ep.RawQuery)
 		})
 	}
 

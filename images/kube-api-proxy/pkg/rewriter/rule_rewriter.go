@@ -42,20 +42,25 @@ const (
 // Restoring of path is not implemented.
 func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 	// Leave paths /, /api, /api/*, and unknown paths as is.
+	clone := ep.Clone()
+	if strings.Contains(clone.RawQuery, "labelSelector") {
+		clone.RawQuery = rw.rewriteLabelSelector(clone.RawQuery)
+	}
 	if ep.IsRoot || ep.IsCore || ep.IsUnknown {
+		if strings.Contains(clone.RawQuery, "labelSelector") {
+			return clone
+		}
 		return nil
 	}
-
 	// Rename CRD name resourcetype.group for resources with rules.
-	if ep.IsCRD {
+	if clone.IsCRD {
 		// No endpoint rewrite for CRD list.
-		if ep.CRDGroup == "" && ep.CRDResourceType == "" {
-			if strings.Contains(ep.RawQuery, "metadata.name") {
+		if clone.CRDGroup == "" && clone.CRDResourceType == "" {
+			if strings.Contains(clone.RawQuery, "metadata.name") {
 				// Rewrite name in field selector if any.
-				newQuery := rw.rewriteFieldSelector(ep.RawQuery)
-				newQuery = rw.rewriteLabelSelector(newQuery)
+				newQuery := rw.rewriteFieldSelector(clone.RawQuery)
 				if newQuery != "" {
-					res := ep.Clone()
+					res := clone.Clone()
 					res.RawQuery = newQuery
 					return res
 				}
@@ -64,13 +69,13 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 		}
 
 		// Check if resource has rules
-		_, resourceRule := rw.Rules.ResourceRules(ep.CRDGroup, ep.CRDResourceType)
+		_, resourceRule := rw.Rules.ResourceRules(clone.CRDGroup, clone.CRDResourceType)
 		if resourceRule == nil {
 			// No rewrite for CRD without rules.
 			return nil
 		}
 		// Rewrite CRD name.
-		res := ep.Clone()
+		res := clone.Clone()
 		res.CRDGroup = rw.Rules.RenamedGroup
 		res.CRDResourceType = rw.Rules.RenameResource(res.CRDResourceType)
 		res.Name = res.CRDResourceType + "." + res.CRDGroup
@@ -79,8 +84,8 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 
 	// Rename group and resource for CR requests.
 	newGroup := ""
-	if ep.Group != "" {
-		groupRule := rw.Rules.GroupRule(ep.Group)
+	if clone.Group != "" {
+		groupRule := rw.Rules.GroupRule(clone.Group)
 		if groupRule == nil {
 			// No rewrite for group without rules.
 			return nil
@@ -89,16 +94,16 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 	}
 
 	newResource := ""
-	if ep.ResourceType != "" {
-		_, resRule := rw.Rules.ResourceRules(ep.Group, ep.ResourceType)
+	if clone.ResourceType != "" {
+		_, resRule := rw.Rules.ResourceRules(clone.Group, clone.ResourceType)
 		if resRule != nil {
-			newResource = rw.Rules.RenameResource(ep.ResourceType)
+			newResource = rw.Rules.RenameResource(clone.ResourceType)
 		}
 	}
 
 	// Return rewritten endpoint if group or resource are changed.
 	if newGroup != "" || newResource != "" {
-		res := ep.Clone()
+		res := clone.Clone()
 		if newGroup != "" {
 			res.Group = newGroup
 		}
@@ -240,9 +245,12 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 		}
 	}
-	rwrBytes, err = RewriteMetadata(rw.Rules, obj, action)
-
 	// Return obj bytes as-is in case of the error.
+	if err != nil {
+		return obj, err
+	}
+
+	rwrBytes, err = RewriteMetadata(rw.Rules, rwrBytes, action)
 	if err != nil {
 		return obj, err
 	}
