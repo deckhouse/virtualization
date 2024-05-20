@@ -266,6 +266,9 @@ spec:
                   "env": [{
                     "name": "VIRT_API_RATE_LIMITER_QPS",
                     "value": "5000"
+                  },{
+                    "name": "VIRT_API_RATE_LIMITER_BURST",
+                    "value": "6000"
                   }]
                 }]
               }
