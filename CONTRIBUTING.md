@@ -102,6 +102,7 @@ Supported scopes are the following:
     - api-service
     - vmi-router
     - kubevirt
+    - kube-api-rewriter
     - cdi
     - dvcr
 
