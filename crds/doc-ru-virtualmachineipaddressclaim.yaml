@@ -1,46 +1,46 @@
 spec:
   versions:
-  - name: v1alpha2
-    schema:
-      openAPIV3Schema:
-        description: |
-          Ресурс, определяющий IP-адрес для виртуальной машины.
-        properties:
-          spec:
-            description: |
-              Настройки `VirtualMachineIPAddressClaim`.
-            properties:
-              address:
-                description: |
-                  Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
-              reclaimPolicy:
-                description: |
-                  Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Ресурс, определяющий IP-адрес для виртуальной машины.
+          properties:
+            spec:
+              description: |
+                Настройки `VirtualMachineIPAddressClaim`.
+              properties:
+                address:
+                  description: |
+                    Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
+                reclaimPolicy:
+                  description: |
+                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
 
-                  * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
+                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
 
-                  * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
-              virtualMachineIPAddressLeaseName:
-                description: |
-                  Имя выданного `VirtualMachineIPAddressLease`, управляется автоматически.
-          status:
-            description: |
-              Состояние ресурса `VirtualMachineIPAddressClaim`.
-            properties:
-              address:
-                description: |
-                  Назначенный IP-адрес.
-              conflictMessage:
-                description: |
-                  Подробное описание ошибки.
-              phase:
-                description: |
-                  Представляет текущее состояние ресурса `VirtualMachineIPAddressClaim`.
+                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                virtualMachineIPAddressLeaseName:
+                  description: |
+                    Имя выданного `VirtualMachineIPAddressLease`, управляется автоматически.
+            status:
+              description: |
+                Состояние ресурса `VirtualMachineIPAddressClaim`.
+              properties:
+                address:
+                  description: |
+                    Назначенный IP-адрес.
+                conflictMessage:
+                  description: |
+                    Подробное описание ошибки.
+                phase:
+                  description: |
+                    Представляет текущее состояние ресурса `VirtualMachineIPAddressClaim`.
 
-                  * Pending - создание ресурса находится в процессе выполнения.
-                  * Bound - ресурс `VirtualMachineIPAddressClaim` привязан к ресурсу `VirtualMachineIPAddressLease`.
-                  * Lost - ресурс `VirtualMachineIPAddressClaim` потерял свойю связку с `VirtualMachineIPAddressLease`.
-                  * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddressClaim`.
-              virtualMachineName:
-                description: |
-                  Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
+                    * Pending - создание ресурса находится в процессе выполнения.
+                    * Bound - ресурс `VirtualMachineIPAddressClaim` привязан к ресурсу `VirtualMachineIPAddressLease`.
+                    * Lost - ресурс `VirtualMachineIPAddressClaim` потерял свойю связку с `VirtualMachineIPAddressLease`.
+                    * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddressClaim`.
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
