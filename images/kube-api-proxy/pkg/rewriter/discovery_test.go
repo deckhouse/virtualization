@@ -3,8 +3,10 @@ package rewriter
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,7 +45,7 @@ func createRewriterForDiscoveryTest() *RuleBasedRewriter {
 		},
 		"other.group.io": {
 			GroupRule: GroupRule{
-				Group:            "original.group.io",
+				Group:            "other.group.io",
 				Versions:         []string{"v2alpha3"},
 				PreferredVersion: "v2alpha3",
 			},
@@ -124,7 +126,7 @@ Host: 127.0.0.1
      "shortNames":["por"],
      "categories":["prefixed"],
      "storageVersionHash":"Nwlto9QquX0="},
-   
+
     {"name":"prefixedotherresources/status",
      "singularName":"",
      "namespaced":true,
@@ -152,6 +154,200 @@ Host: 127.0.0.1
 	require.Contains(t, actual, `"someresources/status"`, "should contains original someresources/status, got: %s", actual)
 	require.NotContains(t, actual, `"otherresources"`, "should not contains not requested otherresources, got: %s", actual)
 	require.NotContains(t, actual, `"otherresources/status"`, "should not contains not requested otherresources/status, got: %s", actual)
+}
+
+func TestRewriteRequestAPIGroupDiscoveryList(t *testing.T) {
+	// Request aggregated discovery as APIGroupDiscoveryList kind.
+	request := `GET /apis HTTP/1.1
+Host: 127.0.0.1
+Accept: application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList
+
+`
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(request)))
+	require.NoError(t, err, "should read hardcoded request")
+
+	// This group contains resources from 2 original groups:
+	// - someresources.original.group.io with v1 and v1alpha1 version
+	// - otherresources.other.group.io of v2alpha3 version
+	// Restored list should contain 2 APIGroupDiscovery.
+	renamedAPIGroupDiscovery := `{
+	"metadata":{
+      "name": "prefixed.resources.group.io",
+      "creationTimestamp": null
+    },
+    "versions":[
+    { "version": "v1",
+      "freshness": "Current",
+      "resources": [
+        { "resource": "prefixedsomeresources",
+          "responseKind": {"group": "prefixed.resources.group.io", "version": "v1", "kind": "PrefixedSomeResource"},
+          "scope": "Namespaced",
+          "singularResource": "prefixedsomeresource",
+          "shortNames": ["psr"],
+          "categories": ["prefixed"],
+          "verbs": ["create", "patch"],
+          "subresources": [
+            { "subresource": "status",
+              "responseKind": {"group": "prefixed.resources.group.io", "version": "v1", "kind": "PrefixedSomeResource"},
+              "verbs": ["get", "patch"]
+            }
+          ]
+        }
+      ]
+    },
+    { "version": "v1alpha1",
+      "resources": [
+        { "resource": "prefixedsomeresources",
+          "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedSomeResource"},
+          "scope": "Namespaced",
+          "singularResource": "prefixedsomeresource",
+          "verbs": ["create", "patch"],
+          "subresources": [
+            { "subresource": "status",
+              "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedSomeResource"},
+              "verbs": ["get", "patch"]
+            }
+          ]
+        }
+      ]
+    },
+    { "version": "v2alpha3",
+      "resources": [
+        { "resource": "prefixedotherresources",
+          "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
+          "scope": "Namespaced",
+          "singularResource": "prefixedotherresource",
+          "verbs": ["create", "patch"],
+          "subresources": [
+            { "subresource": "status",
+              "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
+              "verbs": ["get", "patch"]
+            }
+          ]
+        }
+      ]
+    }
+    ]
+}`
+	// This groups should not be rewritten.
+	appsAPIGroupDiscovery := `{
+  "metadata": {
+    "name": "apps",
+    "creationTimestamp": null
+  },
+  "versions": [
+    {"version": "v1",
+     "freshness": "Current",
+     "resources": [
+      {"resource": "deployments",
+       "responseKind": {"group": "", "version": "", "kind": "Deployment"},
+       "scope": "Namespaced",
+       "singularResource": "deployment",
+       "verbs": ["create", "patch"]
+      }
+     ]}
+  ]
+}`
+	// This groups should not be rewritten.
+	nonRewritableAPIGroupDiscovery := `{
+  "metadata": {
+    "name": "custom.resources.io",
+    "creationTimestamp": null
+  },
+  "versions": [
+    {"version": "v1",
+     "freshness": "Current",
+     "resources": [
+      {"resource": "somecustomresources",
+       "responseKind": {"group": "custom.resources.io", "version": "v1", "kind": "SomeCustomResource"},
+       "scope": "Namespaced",
+       "singularResource": "somecustomresource",
+       "verbs": ["create", "patch"]
+      }
+     ]}
+  ]
+}`
+
+	// Response body with renamed APIGroupDiscoveryList
+	apiGroupDiscoveryListPayload := fmt.Sprintf(`{
+  "kind": "APIGroupDiscoveryList",
+  "apiVersion": "apidiscovery.k8s.io/v2beta1",
+  "metadata": {},
+  "items": [ %s ]
+}`, strings.Join([]string{
+		appsAPIGroupDiscovery,
+		renamedAPIGroupDiscovery,
+		nonRewritableAPIGroupDiscovery,
+	}, ","))
+
+	// Initialize rewriter using hard-coded client http request.
+	rwr := createRewriterForDiscoveryTest()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(apiGroupDiscoveryListPayload), Restore)
+	if err != nil {
+		t.Fatalf("should rewrite body with renamed resources: %v", err)
+	}
+
+	// Get rules for rewritable resource.
+	groupRule, resRule := rwr.Rules.GroupResourceRules("someresources")
+	require.NotNil(t, groupRule, "should get groupRule for hardcoded resourceType")
+	require.NotNil(t, resRule, "should get resourceRule for hardcoded resourceType")
+
+	// Expect renamed groups present in the restored object.
+	{
+		expected := []string{
+			"apps",
+			"original.group.io",
+			"other.group.io",
+			"custom.resources.io",
+		}
+
+		groups := gjson.GetBytes(resultBytes, `items.#.metadata.name`).Array()
+
+		actual := []string{}
+		for _, group := range groups {
+			actual = append(actual, group.String())
+		}
+
+		require.Equal(t, len(expected), len(groups), "restored object should have %d groups, got %d: %#v", len(expected), len(groups), actual)
+		for _, expect := range expected {
+			require.Contains(t, actual, expect, "restored object should have group %s, got %v", expect, actual)
+		}
+	}
+
+	// Test renamed fields for someresources in original.group.io.
+	{
+		group := gjson.GetBytes(resultBytes, `items.#(metadata.name=="original.group.io")`)
+		groupRule, resRule := rwr.Rules.GroupResourceRules("someresources")
+
+		require.NotNil(t, resRule, "should get rule for hard-coded resource type someresources")
+
+		tests := []struct {
+			path     string
+			expected string
+		}{
+			{"versions.0.resources.0.resource", resRule.Plural},
+			{"versions.0.resources.0.responseKind.group", groupRule.Group},
+			{"versions.0.resources.0.responseKind.kind", resRule.Kind},
+			{"versions.0.resources.0.singularResource", resRule.Singular},
+			{"versions.0.resources.0.categories.0", resRule.Categories[0]},
+			{"versions.0.resources.0.shortNames.0", resRule.ShortNames[0]},
+			{"versions.0.resources.0.subresources.0.responseKind.group", groupRule.Group},
+			{"versions.0.resources.0.subresources.0.responseKind.kind", resRule.Kind},
+		}
+
+		groupBytes := []byte(group.Raw)
+		for _, tt := range tests {
+			t.Run(tt.path, func(t *testing.T) {
+				actual := gjson.GetBytes(groupBytes, tt.path).String()
+				if actual != tt.expected {
+					t.Fatalf("%s value should be %s, got '%s', rewritten APIGroupDiscovery: %s", tt.path, tt.expected, actual, string(groupBytes))
+				}
+			})
+		}
+	}
 }
 
 func TestRewriteAdmissionReviewRequestForResource(t *testing.T) {
