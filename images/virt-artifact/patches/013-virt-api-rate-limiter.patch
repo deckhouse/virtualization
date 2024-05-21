@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
-index 120f2d68f..81fe39f66 100644
+index 120f2d68f..5a92cbaa4 100644
 --- a/pkg/virt-api/api.go
 +++ b/pkg/virt-api/api.go
 @@ -27,6 +27,7 @@ import (
@@ -29,7 +29,7 @@ index 120f2d68f..81fe39f66 100644
 +	if os.Getenv(VirtAPIRateLimiterQPSEnvVar) != "" {
 +		qpsFromEnv, err := strconv.ParseFloat(os.Getenv(VirtAPIRateLimiterQPSEnvVar), 32)
 +		if err != nil {
-+			log.Log.Errorf("failed to parse %s: %s", VirtAPIRateLimiterQPSEnvVar, err)
++			log.Log.Errorf("failed to parse %s: %s, will use default QPS burst %v", VirtAPIRateLimiterQPSEnvVar, err, qps)
 +		} else {
 +			qps = float32(qpsFromEnv)
 +			log.Log.V(2).Infof("use rate limiter QPS %v from %s", qps, VirtAPIRateLimiterQPSEnvVar)
@@ -40,7 +40,7 @@ index 120f2d68f..81fe39f66 100644
 +	if os.Getenv(VirtAPIRateLimiterBurstEnvVar) != "" {
 +		burstFromEnv, err := strconv.ParseInt(os.Getenv(VirtAPIRateLimiterBurstEnvVar), 10, 32)
 +		if err != nil {
-+			log.Log.Errorf("failed to parse %s: %s", VirtAPIRateLimiterBurstEnvVar, err)
++			log.Log.Errorf("failed to parse %s: %s, will use default burst %d", VirtAPIRateLimiterBurstEnvVar, err, burst)
 +		} else {
 +			burst = int(burstFromEnv)
 +			log.Log.V(2).Infof("use rate limiter burst %v from %s", burst, VirtAPIRateLimiterBurstEnvVar)
