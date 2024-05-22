@@ -1,4 +1,4 @@
-name: Build main every 8 hours for dev
+name: Build main and pre-alpha every 8 hours for dev
 
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
@@ -28,6 +28,30 @@ jobs:
           ref: main
 
       - name: Set vars for main
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
+      - uses: deckhouse/modules-actions/setup@v1
+
+      - name: Build images
+        run: |
+          source "$(werf ci-env github --as-file)"
+          werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
+
+  build_pre-alpha:
+    runs-on: ubuntu-latest
+    name: Build pre-alpha
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: pre-alpha
+
+      - name: Set vars for pre-alpha
         run: |
           MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"

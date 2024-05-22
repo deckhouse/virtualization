@@ -15,6 +15,7 @@ on:
   push:
     branches:
       - main
+      - pre-alpha
 
 defaults:
   run:
@@ -29,6 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Show manifest
     steps:
+      - name: Set vars for pre-alpha
+        if: ${{ github.ref_name == 'pre-alpha' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
@@ -147,6 +154,12 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Push images
     steps:
+      - name: Set vars for pre-alpha
+        if: ${{ github.ref_name == 'pre-alpha' }}
+        run: |
+          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
       - name: Set vars for PR
         if: ${{ github.ref_name != 'main' }}
         run: |
@@ -185,3 +198,11 @@ jobs:
           crane copy ${IMAGE_SRC} ${IMAGE_DST}
         if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main
+
+      - run: |
+          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):pre-alpha"
+          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+          crane copy ${IMAGE_SRC} ${IMAGE_DST}
+        if: ${{ github.ref_name == 'pre-alpha' }}
+        name: Bundle image tag pre-alpha
