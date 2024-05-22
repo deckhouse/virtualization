@@ -188,6 +188,16 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		return obj, err
 	}
 
+	switch kind {
+	case RoleKind, RoleListKind, "RoleBinding", "RoleBindingList":
+		rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
+	}
+
+	// Return obj bytes as-is in case of the error.
+	if err != nil {
+		return obj, err
+	}
+
 	return rwrBytes, nil
 }
 
