@@ -1,6 +1,7 @@
 package rewriter
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -196,7 +197,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
-func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) ([]byte, error) {
+func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	if targetReq.IsCRD() {
 		// Check if CRD is known.
 		_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
@@ -205,6 +206,16 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) 
 		}
 
 		return RenameCRDPatch(rw.Rules, resRule, obj)
+	} else if targetReq.IsCore() {
+		fmt.Println("dlopatin-debug-out: exex RewritePatch(  . . . ", string(obj))
+		rwrBytes, err := RewriteOwnerReferences(rw.Rules, obj, action)
+
+		// Return obj bytes as-is in case of the error.
+		if err != nil {
+			return obj, err
+		}
+
+		return rwrBytes, nil
 	}
 
 	return obj, nil
