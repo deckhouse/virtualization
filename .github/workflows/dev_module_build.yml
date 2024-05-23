@@ -26,28 +26,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  set_vars:
+    runs-on: ubuntu-latest
+    name: Set MODULES_MODULE_TAG
+    outputs:
+      modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+    steps:
+      - name: Set vars
+        id: modules_module_tag
+        run: |
+          if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          else
+            MODULES_MODULE_TAG="$(echo pr${{ github.event.pull_request.number }})"
+          fi
+
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+
   show_dev_manifest:
     runs-on: ubuntu-latest
     name: Show manifest
+    needs: set_vars
+    env:
+      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
     steps:
-      - name: Set vars for pre-alpha
-        if: ${{ github.ref_name == 'pre-alpha' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-      - name: Set vars for PR
-        if: ${{ github.ref_name != 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-      - name: Set vars for main
-        if: ${{ github.ref_name == 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
       - name: Show dev config
         run: |
           cat << OUTER
@@ -153,25 +156,10 @@ jobs:
   dev_setup_build:
     runs-on: ubuntu-latest
     name: Build and Push images
+    needs: set_vars
+    env:
+      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
     steps:
-      - name: Set vars for pre-alpha
-        if: ${{ github.ref_name == 'pre-alpha' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-      - name: Set vars for PR
-        if: ${{ github.ref_name != 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-      - name: Set vars for main
-        if: ${{ github.ref_name == 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -193,16 +181,16 @@ jobs:
 
       - run: |
           IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
+          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):v0.0.0-main"
           echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
           crane copy ${IMAGE_SRC} ${IMAGE_DST}
         if: ${{ github.ref_name == 'main' }}
         name: Bundle image tag main
 
-      - run: |
-          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):pre-alpha"
-          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-          crane copy ${IMAGE_SRC} ${IMAGE_DST}
-        if: ${{ github.ref_name == 'pre-alpha' }}
-        name: Bundle image tag pre-alpha
+      # - run: |
+      #     IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+      #     IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):pre-alpha"
+      #     echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+      #     crane copy ${IMAGE_SRC} ${IMAGE_DST}
+      #   if: ${{ github.ref_name == 'pre-alpha' }}
+      #   name: Bundle image tag pre-alpha
