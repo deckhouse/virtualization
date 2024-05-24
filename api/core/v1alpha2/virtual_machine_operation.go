@@ -20,7 +20,7 @@ type VirtualMachineOperation struct {
 
 type VirtualMachineOperationSpec struct {
 	Type           VMOPOperation `json:"type"`
-	VirtualMachine string        `json:"virtualMachine"`
+	VirtualMachine string        `json:"virtualMachineName"`
 	Force          bool          `json:"force,omitempty"`
 }
 

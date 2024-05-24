@@ -3,7 +3,7 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachine: linux-vm
+  virtualMachineName: linux-vm
   blockDevice:
     type: VirtualDisk
     virtualDisk:

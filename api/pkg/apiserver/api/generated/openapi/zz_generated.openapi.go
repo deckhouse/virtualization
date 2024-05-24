@@ -707,7 +707,7 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineCPUModel": {
+					"virtualMachineCPUModelName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -729,7 +729,7 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"virtualMachineCPUModel", "cores", "coreFraction"},
+				Required: []string{"virtualMachineCPUModelName", "cores", "coreFraction"},
 			},
 		},
 	}
@@ -1103,7 +1103,7 @@ func schema_virtualization_api_core_v1alpha2_DiskTarget(ref common.ReferenceCall
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"persistentVolumeClaim": {
+					"persistentVolumeClaimName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -1111,7 +1111,7 @@ func schema_virtualization_api_core_v1alpha2_DiskTarget(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"persistentVolumeClaim"},
+				Required: []string{"persistentVolumeClaimName"},
 			},
 		},
 	}
@@ -1719,7 +1719,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(re
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"storageClass": {
+					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2432,7 +2432,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachine": {
+					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -2446,7 +2446,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 						},
 					},
 				},
-				Required: []string{"virtualMachine", "blockDeviceRef"},
+				Required: []string{"virtualMachineName", "blockDeviceRef"},
 			},
 		},
 		Dependencies: []string{
@@ -2814,7 +2814,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimSpec(re
 				Description: "VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineIPAddressLease": {
+					"virtualMachineIPAddressLeaseName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
 							Default:     "",
@@ -2838,7 +2838,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimSpec(re
 						},
 					},
 				},
-				Required: []string{"virtualMachineIPAddressLease", "address"},
+				Required: []string{"virtualMachineIPAddressLeaseName", "address"},
 			},
 		},
 	}
@@ -2851,7 +2851,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimStatus(
 				Description: "VirtualMachineIPAddressClaimStatus is the observed state of `VirtualMachineIPAddressClaim`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachine": {
+					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the virtual machine that currently uses this IP address.",
 							Type:        []string{"string"},
@@ -2865,7 +2865,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimStatus(
 							Format:      "",
 						},
 					},
-					"virtualMachineIPAddressLease": {
+					"virtualMachineIPAddressLeaseName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
 							Type:        []string{"string"},
@@ -3224,7 +3224,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref com
 							Format:  "",
 						},
 					},
-					"virtualMachine": {
+					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -3238,7 +3238,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref com
 						},
 					},
 				},
-				Required: []string{"type", "virtualMachine"},
+				Required: []string{"type", "virtualMachineName"},
 			},
 		},
 	}
@@ -3290,7 +3290,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 							Format:      "",
 						},
 					},
-					"virtualMachineIPAddressClaim": {
+					"virtualMachineIPAddressClaimName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineIPAddressClaim specifies a name for the associated `VirtualMachineIPAddressClaim` resource. Defaults to `{vm name}`.",
 							Type:        []string{"string"},
@@ -3440,14 +3440,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Format:  "",
 						},
 					},
-					"node": {
+					"nodeName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
 						},
 					},
-					"virtualMachineIPAddressClaim": {
+					"virtualMachineIPAddressClaimName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -3501,7 +3501,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"phase", "node", "virtualMachineIPAddressClaim", "ipAddress", "blockDeviceRefs", "guestOSInfo", "message"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressClaimName", "ipAddress", "blockDeviceRefs", "guestOSInfo", "message"},
 			},
 		},
 		Dependencies: []string{

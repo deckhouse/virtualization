@@ -10,13 +10,6 @@ spec:
               description: |
                 Параметры конфигурации `VirtualMachineIPAddressLease`.
               properties:
-                reclaimPolicy:
-                  description: |
-                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
-
-                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
-
-                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
                 claimRef:
                   description: |
                     Ссылка на существующие `VirtualMachineIPAddressClaim`.
@@ -27,6 +20,13 @@ spec:
                     namespace:
                       description: |
                         Пространство имен ссылающегося `VirtualMachineIPAddressClaim`.
+                reclaimPolicy:
+                  description: |
+                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
+
+                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
+
+                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
             status:
               description: |
                 Состояние ресурса `VirtualMachineIPAddressLease`.

@@ -35,10 +35,10 @@ spec:
             spec:
               type: object
               required:
-                - virtualMachine
+                - virtualMachineName
                 - blockDeviceRef
               properties:
-                virtualMachine:
+                virtualMachineName:
                   type: string
                   description: |
                     The name of the virtual machine to which the disk or image is connected.
@@ -63,7 +63,7 @@ spec:
             status:
               type: object
               properties:
-                virtualMachine:
+                virtualMachineName:
                   type: string
                   description: |
                     The name of the virtual machine to which this disk is attached.
@@ -91,9 +91,9 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
-        - name: VirtualMachine
+        - name: virtualMachineName
           type: string
-          jsonPath: .status.virtualMachine
+          jsonPath: .status.virtualMachineName
           priority: 1
         - name: FailureReason
           type: string

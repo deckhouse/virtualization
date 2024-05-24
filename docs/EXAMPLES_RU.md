@@ -23,7 +23,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClass: local-path
+    storageClassName: local-path
   dataSource:
     type: HTTP
     http:
@@ -286,7 +286,7 @@ metadata:
   name: vmd-blank
 spec:
   persistentVolumeClaim:
-    storageClass: "your-storage-class-name"
+    storageClassName: "your-storage-class-name"
     size: 100M
 ```
 
@@ -317,7 +317,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClass: "your-storage-class-name"
+    storageClassName: "your-storage-class-name"
   dataSource:
     type: ObjectRef
     objectRef:
@@ -343,11 +343,10 @@ kind: VirtualMachineBlockDeviceAttachment
 metadata:
   name: vmd-blank-attachment
 spec:
-  virtualMachine: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
-  blockDevice:
-    type: VirtualDisk
-    virtualDisk:
-      name: vmd-blank # Имя подключаемого диска.
+  virtualMachineName: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
+  blockDeviceRef:
+    kind: VirtualDisk
+    name: vmd-blank # Имя подключаемого диска.
 ```
 
 При удалении ресурса `VirtualMachineBlockDeviceAttachment` диск от виртуальной машины будет отключен.
@@ -527,7 +526,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm
 spec:
-  virtualMachine: linux-vm
+  virtualMachineName: linux-vm
   type: Restart
 EOF
 ```

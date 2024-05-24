@@ -64,11 +64,11 @@ type VirtualDiskDownloadSpeed struct {
 }
 
 type DiskTarget struct {
-	PersistentVolumeClaim string `json:"persistentVolumeClaim"`
+	PersistentVolumeClaim string `json:"persistentVolumeClaimName"`
 }
 
 type VirtualDiskPersistentVolumeClaim struct {
-	StorageClass *string            `json:"storageClass,omitempty"`
+	StorageClass *string            `json:"storageClassName,omitempty"`
 	Size         *resource.Quantity `json:"size,omitempty"`
 }
 

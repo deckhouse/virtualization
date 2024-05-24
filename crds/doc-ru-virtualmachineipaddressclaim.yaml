@@ -13,9 +13,6 @@ spec:
                 address:
                   description: |
                     Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
-                virtualMachineIPAddressLease:
-                  description: |
-                    Выданный `VirtualMachineIPAddressLease`, управляется автоматически.
                 reclaimPolicy:
                   description: |
                     Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
@@ -23,6 +20,9 @@ spec:
                     * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
 
                     * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                virtualMachineIPAddressLeaseName:
+                  description: |
+                    Имя выданного `VirtualMachineIPAddressLease`, управляется автоматически.
             status:
               description: |
                 Состояние ресурса `VirtualMachineIPAddressClaim`.
@@ -30,9 +30,9 @@ spec:
                 address:
                   description: |
                     Назначенный IP-адрес.
-                virtualMachine:
+                conflictMessage:
                   description: |
-                    Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
+                    Подробное описание ошибки.
                 phase:
                   description: |
                     Представляет текущее состояние ресурса `VirtualMachineIPAddressClaim`.
@@ -41,6 +41,6 @@ spec:
                     * Bound - ресурс `VirtualMachineIPAddressClaim` привязан к ресурсу `VirtualMachineIPAddressLease`.
                     * Lost - ресурс `VirtualMachineIPAddressClaim` потерял свойю связку с `VirtualMachineIPAddressLease`.
                     * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddressClaim`.
-                conflictMessage:
+                virtualMachineName:
                   description: |
-                    Подробное описание ошибки.
+                    Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.

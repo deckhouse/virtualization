@@ -19,7 +19,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 100Gi
-    storageClass: local-path
+    storageClassName: local-path
 ```
 
 Let's create resources with iso-images of Windows OS and virtio drivers:
@@ -80,7 +80,7 @@ spec:
 Once the resource is created, the virtual machine will be started. You need to connect to it and use the graphical wizard to add the `virtio` drivers and perform the OS installation.
 
 ```bash
-dvp vnc -n default win-vm
+d8 v vnc -n default win-vm
 ```
 
 After the installation is complete, shut down the virtual machine.
@@ -193,7 +193,7 @@ kind: Secret
 metadata:
   name: sysprep-config
 data:
-  unattend.xml: XXXx # base64 of answer file 
+  unattend.xml: XXXx # base64 of answer file
 ```
 
 Then create a virtual machine with unattended installation:

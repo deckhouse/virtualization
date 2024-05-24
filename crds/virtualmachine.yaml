@@ -28,7 +28,7 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Handles the VM according to its configuration and run policy.
+            Virtual Machine (VM) Configuration.
           required:
             - spec
           properties:
@@ -48,11 +48,11 @@ spec:
                       description: |
                         This parameter defines the type of provisioning script:
 
-                        * UserData - allows the use of inline cloud-init userdata in the .spec.provisioning.UserData section.
+                        Parameters supported for using the provisioning script:
 
-                        * UserDataRef - allows tto automate OS installation with cloud-init userdata.
-
-                        * SysprepRef - allows to automate Windows installation, setup, and custom software provisioning.
+                        * UserData - use the cloud-init in the .spec.provisioning.UserData section.
+                        * UserDataRef - use a cloud-init script that resides in a different resource.
+                        * SysprepRef - Use a Windows Automation script that resides in a different resource.
 
                         More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
                       type: string
@@ -66,11 +66,16 @@ spec:
                       type: string
                     userDataRef:
                       description: |
-                        Reference to an existing Secret with a cloud-init userdata script.
+                        A reference to an existing resource with a cloud-init script.
+
+                        Resource structure for userDataRef type:
+
+                        * `.data.userData`.
                       type: object
                       properties:
                         kind:
-                          description: The kind of an existing Windows sysprep automation.
+                          description: |
+                            The kind of an existing cloud-init automation resource.
                           default: "Secret"
                           type: string
                           enum:
@@ -78,15 +83,21 @@ spec:
                         name:
                           type: string
                           description: |
-                            Secret name.
+                            The name of the resource.
                       required: ["name", "kind"]
                     sysprepRef:
                       description: |
                         Reference to an existing Windows sysprep automation.
+
+                        Resource structure for the SysprepRef type:
+
+                        * `.data.autounattend.xml`.
+                        * `.data.unattend.xml`.
                       type: object
                       properties:
                         kind:
-                          description: The kind of an existing Windows sysprep automation.
+                          description: |
+                            The kind of an existing Windows sysprep automation resource.
                           default: "Secret"
                           type: string
                           enum:
@@ -139,13 +150,14 @@ spec:
                     * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
                     * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
 
-                virtualMachineIPAddressClaim:
+                virtualMachineIPAddressClaimName:
                   type: string
                   description: |
-                    The name for associated `VirtualMachineIPAddressClaim` resource.
+                    Name for the associated `virtualMachineIPAddressClaim` resource.
 
-                    If specified, VirtualMachineIPAddressClaim should exists on VirtualMachine creation.
-                    If not specified, a VirtualMachine name will be used to create an implicit VirtualMachineIPAddressClaim. This claim will be deleted on VirtualMachine deletion.
+                    Specified when it is necessary to use a previously created IP address of the VM.
+
+                    If not explicitly specified, by default a `virtualMachineIPAddressClaim` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
 
                 topologySpreadConstraints:
                   description: |
@@ -790,16 +802,17 @@ spec:
                   default:
                     restartApprovalMode: Manual
                   description: |
-                    Disruptions settings for virtual machine.
+                    Describing the policy for applying changes that require rebooting the VM.
 
-                    Some virtual machine settings require a reboot of the virtual machine when changing the configuration. To reboot, it is necessary to approve the changes. The `approvalMode` parameter is used for this purpose.
+                    Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.
                   properties:
                     restartApprovalMode:
                       type: string
                       description: |
-                        The approval mode for disruptive updates:
-                        - `Manual` — restart virtual machine manually to apply disruptive updates.
-                        - `Automatic` — virtual machine will restart automatically to apply disruptive updates.
+                        Approval mode for changes that require rebooting the VM:
+
+                        * `Manual` - changes will not be applied until the user reboots the VM himself.
+                        * `Automatic` - the VM will be rebooted immediately after saving the parameters that require rebooting the VM.
                       enum:
                         - Manual
                         - Automatic
@@ -815,7 +828,9 @@ spec:
                   type: boolean
                   default: true
                   description: |
-                    Use the `virtio` bus to attach disk devices. Set to false to disable `virtio` for this VM.
+                    Use the `virtio` bus to connect virtual devices of the VM. Set to false to disable `virtio` for this VM.
+
+                    Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.
 
                 osType:
                   type: string
@@ -824,9 +839,9 @@ spec:
                     - "Generic"
                   default: "Generic"
                   description: |
-                    For the selected type of operating system, determines the set of devices and other parameters required for correct operation will be applied to VM.
+                    The parameter allows you to select the type of used OS, for which a VM with an optimal set of required virtual devices and parameters will be created.
 
-                    * Windows - for the Microsoft Windows family of OS.
+                    * Windows - for Microsoft Windows family operating systems.
                     * Generic - for other types of OS.
 
                 bootloader:
@@ -848,11 +863,11 @@ spec:
                   required:
                     - cores
                   properties:
-                    virtualMachineCPUModel:
+                    virtualMachineCPUModelName:
                       type: string
                       default: "generic-v1"
                       description: |
-                        Name of `VirtualMachineCPUModel` resource holding the CPU model of the VirtualMachine.
+                        Name of `virtualMachineCPUModelName` resource holding the CPU model of the VirtualMachine.
                     cores:
                       format: int32
                       type: integer
@@ -864,7 +879,6 @@ spec:
                       enum: ["5%", "10%", "25%", "50%", "100%"]
                       description: |
                         Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
-                        Supported values: `5%`, `10%`, `25%`, `50%`, `100%`.
 
                 memory:
                   type: object
@@ -937,14 +951,14 @@ spec:
                     - "Starting"
                     - "Migrating"
                     - "Pause"
-                node:
+                nodeName:
                   type: string
                   description: |
                     The name of the node on which the VM is currently running.
-                virtualMachineIPAddressClaim:
+                virtualMachineIPAddressClaimName:
                   type: string
                   description: |
-                    Name of `VirtualMachineIPAddressClaim` holding the ip address of the VirtualMachine.
+                    Name of `virtualMachineIPAddressClaimName` holding the ip address of the VirtualMachine.
                 ipAddress:
                   type: string
                   description: |
@@ -1027,9 +1041,21 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Cores
+          type: string
+          jsonPath: .spec.cpu.cores
+          priority: 1
+        - name: CoreFraction
+          type: string
+          jsonPath: .spec.cpu.coreFraction
+          priority: 1
+        - name: Memory
+          type: string
+          jsonPath: .spec.memory.size
+          priority: 1
         - name: Node
           type: string
-          jsonPath: .status.node
+          jsonPath: .status.nodeName
         - name: IPAddress
           type: string
           jsonPath: .status.ipAddress

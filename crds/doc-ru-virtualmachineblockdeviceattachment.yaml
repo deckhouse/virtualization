@@ -8,9 +8,6 @@ spec:
           properties:
             spec:
               properties:
-                virtualMachine:
-                  description: |
-                    Имя виртуальной машины, к которой подключен диск.
                 blockDeviceRef:
                   description: |
                     Блочное устройство, которое будет подключено к ВМ в качестве диска hotPlug.
@@ -23,11 +20,17 @@ spec:
                     name:
                       description: |
                         Имя блочного устройства
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, к которой подключен диск.
             status:
               properties:
-                virtualMachine:
+                failureMessage:
                   description: |
-                    Имя виртуальной машины, к которой подключен этот диск.
+                    Подробное описание ошибки.
+                failureReason:
+                  description: |
+                    Краткое описание причины ошибки.
                 phase:
                   description: |
                     Фаза ресурса:
@@ -35,10 +38,6 @@ spec:
                     * InProgress — диск в процессе подключения к ВМ.
                     * Attached — диск подключен к ВМ.
                     * Failed — возникла проблема с подключением диска. Смотрите `.status.failureReason`.
-                failureReason:
+                virtualMachineName:
                   description: |
-                    Краткое описание причины ошибки.
-                failureMessage:
-                  type: string
-                  description: |
-                    Подробное описание ошибки.
+                    Имя виртуальной машины, к которой подключен этот диск.
