@@ -128,7 +128,12 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 
 			if tr.originEndpoint.IsCore {
 				switch tr.originEndpoint.ResourceType {
-				case "pods", "configmaps", "secrets", "services":
+				case "pods",
+					"configmaps",
+					"secrets",
+					"services",
+					"serviceaccounts":
+
 					return true
 				}
 			}
@@ -143,7 +148,8 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 				"deployments",
 				"statefulsets",
 				"daemonsets",
-				"poddisruptionbudgets":
+				"poddisruptionbudgets",
+				"controllerrevisions":
 
 				return true
 			}
