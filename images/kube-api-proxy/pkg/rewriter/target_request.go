@@ -190,9 +190,13 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 	// Some core resources should be rewritten.
 	if tr.originEndpoint.IsCore {
 		switch tr.originEndpoint.ResourceType {
-		case "pods":
+		case "pods",
+			"configmaps",
+			"secrets",
+			"services",
+			"serviceaccounts":
+
 			return true
-			// pods should be rewritten
 		}
 		return false
 	}
@@ -221,10 +225,18 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 
 	// Rewrite special resources.
 	switch tr.originEndpoint.ResourceType {
-	// Webhook configurations should be rewritten.
 	case "mutatingwebhookconfigurations",
 		"validatingwebhookconfigurations",
-		"clusterroles":
+		"clusterroles",
+		"roles",
+		"rolebindings",
+		"clusterrolebindings",
+		"deployments",
+		"statefulsets",
+		"daemonsets",
+		"poddisruptionbudgets",
+		"controllerrevisions":
+
 		return true
 	}
 
