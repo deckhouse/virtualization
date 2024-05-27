@@ -1,6 +1,7 @@
 package rewriter
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -113,6 +114,8 @@ func (tr *TargetRequest) RawQuery() string {
 // ShouldRewriteRequest returns true if incoming payload should
 // be rewritten.
 func (tr *TargetRequest) ShouldRewriteRequest() bool {
+	fmt.Println("dlopatin :: ShouldRewriteRequest() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
+
 	// Consider known webhook should be rewritten. Unknown paths will be passed as-is.
 	if tr.webhookRule != nil {
 		return true
