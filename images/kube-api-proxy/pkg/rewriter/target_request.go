@@ -114,7 +114,6 @@ func (tr *TargetRequest) RawQuery() string {
 // ShouldRewriteRequest returns true if incoming payload should
 // be rewritten.
 func (tr *TargetRequest) ShouldRewriteRequest() bool {
-	fmt.Println("dlopatin :: ShouldRewriteRequest() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
 
 	// Consider known webhook should be rewritten. Unknown paths will be passed as-is.
 	if tr.webhookRule != nil {
@@ -122,6 +121,7 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 	}
 
 	if tr.originEndpoint != nil {
+		fmt.Println("dlopatin :: ShouldRewriteRequest() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
 		if tr.originEndpoint.IsRoot || tr.originEndpoint.IsUnknown {
 			return false
 		}
