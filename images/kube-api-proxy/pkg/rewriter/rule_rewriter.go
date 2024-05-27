@@ -1,6 +1,7 @@
 package rewriter
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 

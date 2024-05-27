@@ -187,6 +187,7 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 		return false
 	}
 
+	fmt.Println("dlopatin :: ShouldRewriteResponse() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
 	// Some core resources should be rewritten.
 	if tr.originEndpoint.IsCore {
 		switch tr.originEndpoint.ResourceType {
