@@ -127,7 +127,7 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
-
+	fmt.Println("dlopatin -- kind", kind)
 	var rwrBytes []byte
 	var err error
 
