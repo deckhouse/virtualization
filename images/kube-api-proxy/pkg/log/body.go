@@ -6,6 +6,10 @@ import (
 	"io"
 )
 
+// ReaderLogger is ReadCloser implementation that catches content
+// while underlying Reader is being read, e.g. with io.Copy.
+// Content is copied into the buffer and may be used after copying
+// for logging or other handling.
 type ReaderLogger struct {
 	wrappedReader io.ReadCloser
 	buf           bytes.Buffer
