@@ -35,8 +35,7 @@ class ManageTenantSecretsHook(Hook):
         self.source_secret_name = source_secret_name
         self.pod_labels_to_follow = pod_labels_to_follow
         self.destination_secret_labels = destination_secret_labels
-        self.module_name = module_name
-        self.queue = f"/modules/{module_name}/manage-tenant-secrets"
+        self.queue = f"/modules/{self.module_name}/manage-tenant-secrets"
 
     def generate_config(self) -> dict:
         return {
