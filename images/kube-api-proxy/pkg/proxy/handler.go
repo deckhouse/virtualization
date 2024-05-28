@@ -239,7 +239,7 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 		var newBody []byte
 		switch req.Method {
 		case http.MethodPatch:
-			newBody, err = h.Rewriter.RewritePatch(targetReq, bodyBytes, ToTargetAction(h.ProxyMode))
+			newBody, err = h.Rewriter.RewritePatch(targetReq, bodyBytes)
 		default:
 			newBody, err = h.Rewriter.RewriteJSONPayload(targetReq, bodyBytes, ToTargetAction(h.ProxyMode))
 		}
