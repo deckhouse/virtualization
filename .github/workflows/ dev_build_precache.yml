@@ -1,4 +1,4 @@
-name: Build main every 8 hours for dev
+name: Build main, pre-alpha every 8 hours for dev
 
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
@@ -18,19 +18,17 @@ defaults:
     shell: bash
 
 jobs:
-  build_main:
-    runs-on: ubuntu-latest
+  build_branches:
     name: Build main
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        branch: [main, pre-alpha]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main
-
-      - name: Set vars for main
-        run: |
-          MODULES_MODULE_TAG="$(echo ${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+          ref: ${{ matrix.branch }}
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
@@ -39,5 +37,9 @@ jobs:
 
       - name: Build images
         run: |
+          # MODULES_MODULE_TAG env is required by release-channel image.
+          # This image is not significant for development environments, so we use fake value for it.
+          echo "Warmup cache using MODULES_MODULE_TAG=dev"
+          export MODULES_MODULE_TAG=dev
           source "$(werf ci-env github --as-file)"
           werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
