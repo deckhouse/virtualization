@@ -37,7 +37,9 @@ jobs:
 
       - name: Build images
         run: |
-          echo "Fake MODULES_MODULE_TAG var"
+          # MODULES_MODULE_TAG env is required by release-channel image.
+          # This image is not significant for development environments, so we use fake value for it.
+          echo "Warmup cache using MODULES_MODULE_TAG=dev"
           export MODULES_MODULE_TAG=dev
           source "$(werf ci-env github --as-file)"
           werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
