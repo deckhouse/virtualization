@@ -17,6 +17,7 @@ limitations under the License.
 package rewriter
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -126,10 +127,18 @@ func (tr *TargetRequest) RawQuery() string {
 	return ""
 }
 
+func (tr *TargetRequest) RequestURI() string {
+	path := tr.Path()
+	query := tr.RawQuery()
+	if query == "" {
+		return path
+	}
+	return fmt.Sprint(path, "?", query)
+}
+
 // ShouldRewriteRequest returns true if incoming payload should
 // be rewritten.
 func (tr *TargetRequest) ShouldRewriteRequest() bool {
-
 	// Consider known webhook should be rewritten. Unknown paths will be passed as-is.
 	if tr.webhookRule != nil {
 		return true

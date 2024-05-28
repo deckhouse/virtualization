@@ -77,7 +77,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Parse request url, prepare path rewrite.
+	// Step 1. Parse request url, prepare path rewrite.
 	targetReq := rewriter.NewTargetRequest(h.Rewriter, req)
 
 	resource := targetReq.ResourceForLog()
@@ -102,8 +102,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if targetReq.ShouldRewriteResponse() {
 		rwrResp = "RESP"
 	}
-	if targetReq.Path() != req.URL.Path {
-		logger.Info(fmt.Sprintf("%s [%s,%s] %s -> %s", req.Method, rwrReq, rwrResp, req.URL.String(), targetReq.Path()))
+	if targetReq.Path() != req.URL.Path || targetReq.RawQuery() != req.URL.RawQuery {
+		logger.Info(fmt.Sprintf("%s [%s,%s] %s -> %s", req.Method, rwrReq, rwrResp, req.URL.RequestURI(), targetReq.RequestURI()))
 	} else {
 		logger.Info(fmt.Sprintf("%s [%s,%s] %s", req.Method, rwrReq, rwrResp, req.URL.String()))
 	}
@@ -129,26 +129,29 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	logger.Info(fmt.Sprintf("Request: orig headers: %+v", req.Header))
 
-	// Modify req to send it to target.
-	err := h.transformRequest(targetReq, req)
-	//targetReq, err := p.Rewriter.RewriteToTarget(req)
+	// Step 2. Modify request endpoint, headers and body bytes before send it to the target.
+	origRequestBytes, rwrRequestBytes, err := h.transformRequest(targetReq, req)
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error rewriting request: %s", req.URL.String()), logutil.SlogErr(err))
+		logger.Error(fmt.Sprintf("Error transforming request: %s", req.URL.String()), logutil.SlogErr(err))
 		http.Error(w, "can't rewrite request", http.StatusBadRequest)
 		return
 	}
 
 	logger.Info(fmt.Sprintf("Request: target headers: %+v", req.Header))
 
-	// Wrap reader to log content after transferring request Body.
-	if req.Body != nil {
-		req.Body = logutil.NewReaderLogger(req.Body)
+	// Restore req.Body as this reader was read earlier by the transformRequest.
+	if rwrRequestBytes != nil {
+		req.Body = io.NopCloser(bytes.NewBuffer(rwrRequestBytes))
+	} else if origRequestBytes != nil {
+		// Fallback to origRequestBytes if body was not rewritten.
+		req.Body = io.NopCloser(bytes.NewBuffer(origRequestBytes))
 	}
 
+	// Step 3. Send request to the target.
 	resp, err := h.TargetClient.Do(req)
 	if err != nil {
-		logger.Error("Proxy pass request error", logutil.SlogErr(err))
-		http.Error(w, "Proxy pass request error", http.StatusInternalServerError)
+		logger.Error("Error passing request to the target", logutil.SlogErr(err))
+		http.Error(w, "Error passing request to the target", http.StatusInternalServerError)
 		// TODO return apimachinery NewInternalError
 		// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/errors/errors.go
 		return
@@ -157,39 +160,37 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// TODO handle resp.Status 3xx, 4xx, 5xx, etc.
 
-	// TODO delete after development: Log head of the request body.
-	if logutil.HasData(req.Body) {
-		limit := 512
-		switch resource {
-		case "virtualmachines",
-			"virtualmachines/status",
-			"virtualmachineinstances",
-			"virtualmachineinstances/status",
-			"clustervirtualmachineimages",
-			"clustervirtualmachineimages/status",
-			"clusterrolebindings",
-			"customresourcedefinitions":
-			limit = 32000
+	if req.Method == http.MethodPatch {
+		logutil.DebugBodyHead(logger, "Request PATCH", "patch", origRequestBytes)
+		if len(rwrRequestBytes) > 0 {
+			logutil.DebugBodyChanges(logger, "Request PATCH", "patch", origRequestBytes, rwrRequestBytes)
 		}
-		logger.Info(fmt.Sprintf("Request: Rewritten body: %s", logutil.HeadStringEx(req.Body, limit)))
+	} else {
+		logutil.DebugBodyChanges(logger, "Request", resource, origRequestBytes, rwrRequestBytes)
 	}
+
+	// Step 5. Handle response: pass through, transform resp.Body, or run stream transformer.
 
 	if !targetReq.ShouldRewriteResponse() {
 		// Pass response as-is without rewriting.
-		logger.Info(fmt.Sprintf("RESPONSE PASS: Status %s, Headers %+v", resp.Status, resp.Header))
-		passResponse(w, resp, logger)
+		if targetReq.IsWatch() {
+			logger.Debug(fmt.Sprintf("Response decision: PASS STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
+		} else {
+			logger.Debug(fmt.Sprintf("Response decision: PASS, Status %s, Headers %+v", resp.Status, resp.Header))
+		}
+		passResponse(targetReq, w, resp, logger)
 		return
 	}
 
 	if targetReq.IsWatch() {
-		logger.Info(fmt.Sprintf("RESPONSE REWRITE STREAM Status %s, Headers %+v", resp.Status, resp.Header))
+		logger.Debug(fmt.Sprintf("Response decision: REWRITE STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
 
 		h.transformStream(targetReq, w, resp, logger)
 		return
 	}
 
 	// One-time rewrite is required for client or webhook requests.
-	logger.Info(fmt.Sprintf("RESPONSE REWRITE ONCE Status %s, Headers %+v", resp.Status, resp.Header))
+	logger.Debug(fmt.Sprintf("Response decision: REWRITE, Status %s, Headers %+v", resp.Status, resp.Header))
 
 	h.transformResponse(targetReq, w, resp, logger)
 	return
@@ -239,47 +240,56 @@ func encodingAwareBodyReader(resp *http.Response) (io.ReadCloser, error) {
 // TargetMode field defines either transformer should rename resources
 // if request is from the client, or restore resources if it is a call
 // from the API Server to the webhook.
-func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.Request) error {
+func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.Request) ([]byte, []byte, error) {
 	if req == nil || req.URL == nil {
-		return fmt.Errorf("request to rewrite is empty")
+		return nil, nil, fmt.Errorf("http request and URL should not be nil")
+	}
+
+	var origBodyBytes []byte
+	var rwrBodyBytes []byte
+	var err error
+
+	hasPayload := req.Body != nil
+
+	if hasPayload {
+		origBodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read request body: %w", err)
+		}
 	}
 
 	// Rewrite incoming payload, e.g. create, put, etc.
-	if targetReq.ShouldRewriteRequest() && req.Body != nil {
-		// Read whole request body to rewrite.
-		bodyBytes, err := io.ReadAll(req.Body)
-		if err != nil {
-			return fmt.Errorf("read request body: %w", err)
-		}
-
-		var newBody []byte
+	if targetReq.ShouldRewriteRequest() && hasPayload {
 		switch req.Method {
 		case http.MethodPatch:
-			newBody, err = h.Rewriter.RewritePatch(targetReq, bodyBytes)
+			rwrBodyBytes, err = h.Rewriter.RewritePatch(targetReq, origBodyBytes)
 		default:
-			newBody, err = h.Rewriter.RewriteJSONPayload(targetReq, bodyBytes, ToTargetAction(h.ProxyMode))
+			rwrBodyBytes, err = h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, ToTargetAction(h.ProxyMode))
 		}
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 
 		// Put new Body reader to req and fix Content-Length header.
-		newBodyLen := len(newBody)
-		if newBodyLen > 0 {
+		rwrBodyLen := len(rwrBodyBytes)
+		if rwrBodyLen > 0 {
 			// Fix content-length if needed.
-			req.ContentLength = int64(newBodyLen)
+			req.ContentLength = int64(rwrBodyLen)
 			if req.Header.Get("Content-Length") != "" {
-				req.Header.Set("Content-Length", strconv.Itoa(newBodyLen))
+				req.Header.Set("Content-Length", strconv.Itoa(rwrBodyLen))
 			}
-			req.Body = io.NopCloser(bytes.NewBuffer(newBody))
+			//req.Body = io.NopCloser(bytes.NewBuffer(newBody))
 		}
 	}
 
+	// TODO Implement protobuf and table rewriting to remove these manipulations with Accept header.
+	// TODO Move out to a separate method forceApplicationJSONContent.
 	if targetReq.ShouldRewriteResponse() {
-		// Rewriter not work with protobuf, force JSON
-		// in Accept header.
 		newAccept := make([]string, 0)
 		for _, hdr := range req.Header.Values("Accept") {
+			// Rewriter doesn't work with protobuf, force JSON in Accept header.
+			// This workaround is suitable only for empty body requests: Get, List, etc.
+			// A client should be patched to send JSON requests.
 			if strings.Contains(hdr, "application/vnd.kubernetes.protobuf") {
 				newAccept = append(newAccept, "application/json")
 				continue
@@ -294,9 +304,7 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 
 			newAccept = append(newAccept, hdr)
 		}
-		//req.Header.Set("Accept", newAccept)
 
-		//req.Header.Del("Accept")
 		req.Header["Accept"] = newAccept
 
 		// Force JSON for watches of core resources and CRDs.
@@ -311,26 +319,36 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	req.URL.Path = targetReq.Path()
 	req.URL.RawQuery = targetReq.RawQuery()
 
-	return nil
+	return origBodyBytes, rwrBodyBytes, nil
 }
 
-func passResponse(w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 
-	if resp.StatusCode != http.StatusOK {
-		resp.Body = logutil.NewReaderLogger(resp.Body)
+	dst := &immediateWriter{dst: w}
+
+	if logger.Enabled(nil, slog.LevelDebug) {
+		if targetReq.IsWatch() {
+			dst.chunkFn = func(chunk []byte) {
+				logger.Debug(fmt.Sprintf("Pass through response chunk: %s", string(chunk)))
+			}
+		} else {
+			resp.Body = logutil.NewReaderLogger(resp.Body)
+		}
 	}
 
-	dst := &immediateWriter{dst: w}
 	_, err := io.Copy(dst, resp.Body)
 	if err != nil {
-		logger.Error(fmt.Sprintf("copy response: %v", err))
+		logger.Error(fmt.Sprintf("copy target response back to client: %v", err))
 	}
 
-	if logutil.HasData(resp.Body) {
-		limit := 1024
-		logger.Info(fmt.Sprintf("Pass through non 200 response: status %d %s", resp.StatusCode, logutil.HeadStringEx(resp.Body, limit)))
+	if logger.Enabled(nil, slog.LevelDebug) && !targetReq.IsWatch() {
+		logutil.DebugBodyHead(logger,
+			fmt.Sprintf("Pass through response: status %d, content-length: '%s'", resp.StatusCode, resp.Header.Get("Content-Length")),
+			"",
+			logutil.Bytes(resp.Body),
+		)
 	}
 
 	return
@@ -345,7 +363,7 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "application/json") {
 		logger.Warn(fmt.Sprintf("Will not transform non JSON response from target: Content-type=%s", contentType))
-		passResponse(w, resp, logger)
+		passResponse(targetReq, w, resp, logger)
 		return
 	}
 
@@ -358,51 +376,40 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 		return
 	}
 
-	// Read response body to buffer. Wrap Body to log it later.
-	bodyReader := logutil.NewReaderLogger(resp.Body)
-	bodyBytes, err := io.ReadAll(bodyReader)
+	// Step 1. Read response body to buffer.
+	origBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error("Error reading response payload", logutil.SlogErr(err))
 		http.Error(w, "Error reading response payload", http.StatusBadGateway)
 		return
 	}
 
-	{
-		limit := 1024
-		logger.Info(fmt.Sprintf("Response: original body: [%d] %s", len(bodyBytes), logutil.HeadStringEx(bodyReader, limit)))
-	}
-
-	//return tr.Rewriter.RewriteJSONPayload(tr.TargetReq, bodyBytes, FromTargetAction(tr.ProxyMode))
-	//bodyBytes, err := h.Rewriter.RewriteFromTarget(targetReq, resp, logger)
-	bodyBytes, err = h.Rewriter.RewriteJSONPayload(targetReq, bodyBytes, FromTargetAction(h.ProxyMode))
+	// Step 2. Rewrite response JSON.
+	rwrBodyBytes, err := h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, FromTargetAction(h.ProxyMode))
 	if err != nil {
 		logger.Error("Error rewriting response", logutil.SlogErr(err))
 		http.Error(w, "can't rewrite response", http.StatusInternalServerError)
 		return
 	}
 
-	{
-		limit := 1024
-		if len(bodyBytes) < limit {
-			limit = len(bodyBytes)
-		}
-		logger.Info(fmt.Sprintf("Response: rewritten bytes: [%d] %s", len(bodyBytes), string(bodyBytes[:limit])))
-	}
+	logutil.DebugBodyChanges(logger, "Response", targetReq.OrigResourceType(), origBodyBytes, rwrBodyBytes)
 
+	// Step 3. Fix headers before sending response back to the client.
 	copyHeader(w.Header(), resp.Header)
 	// Fix Content headers.
-	// bodyBytes are always decoded from gzip. Delete header to not break our client.
+	// rwrBodyBytes are always decoded from gzip. Delete header to not break our client.
 	w.Header().Del("Content-Encoding")
-	if bodyBytes != nil {
-		w.Header().Set("Content-Length", strconv.Itoa(len(bodyBytes)))
+	if rwrBodyBytes != nil {
+		w.Header().Set("Content-Length", strconv.Itoa(len(rwrBodyBytes)))
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	if bodyBytes != nil {
-		resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	// Step 4. Write non-empty rewritten body to the client.
+	if rwrBodyBytes != nil {
+		resp.Body = io.NopCloser(bytes.NewBuffer(rwrBodyBytes))
 		_, err := io.Copy(w, resp.Body)
 		if err != nil {
-			logger.Error(fmt.Sprintf("error writing response from target: %v", err))
+			logger.Error(fmt.Sprintf("error writing response from target to the client: %v", err))
 		}
 	}
 
@@ -425,11 +432,16 @@ func (h *Handler) transformStream(targetReq *rewriter.TargetRequest, w http.Resp
 }
 
 type immediateWriter struct {
-	dst io.Writer
+	dst     io.Writer
+	chunkFn func([]byte)
 }
 
 func (iw *immediateWriter) Write(p []byte) (n int, err error) {
 	n, err = iw.dst.Write(p)
+
+	if iw.chunkFn != nil {
+		iw.chunkFn(p)
+	}
 
 	if flusher, ok := iw.dst.(http.Flusher); ok {
 		flusher.Flush()

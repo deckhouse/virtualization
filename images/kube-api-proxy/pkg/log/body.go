@@ -22,6 +22,10 @@ import (
 	"io"
 )
 
+// ReaderLogger is ReadCloser implementation that catches content
+// while underlying Reader is being read, e.g. with io.Copy.
+// Content is copied into the buffer and may be used after copying
+// for logging or other handling.
 type ReaderLogger struct {
 	wrappedReader io.ReadCloser
 	buf           bytes.Buffer
@@ -68,4 +72,12 @@ func HasData(obj interface{}) bool {
 		return false
 	}
 	return readLog.buf.Len() > 0
+}
+
+func Bytes(obj interface{}) []byte {
+	readLog, ok := obj.(*ReaderLogger)
+	if !ok {
+		return nil
+	}
+	return readLog.buf.Bytes()
 }
