@@ -180,7 +180,11 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
 
 	default:
-		if targetReq.IsCore() {
+		if targetReq.IsCore() ||
+			kind == "PodDisruptionBudget" ||
+			kind == "PodDisruptionBudgetList" ||
+			kind == "ControllerRevision" ||
+			kind == "ControllerRevisionList" {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
 		} else {
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
