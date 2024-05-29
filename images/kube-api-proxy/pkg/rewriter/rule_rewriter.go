@@ -1,6 +1,7 @@
 package rewriter
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -124,6 +125,7 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 
 // RewriteJSONPayload does rewrite based on kind.
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
+	fmt.Println("dlopatin exec RewriteJSONPayload with obj - ", string(obj))
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
 	var rwrBytes []byte
@@ -196,6 +198,8 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
 func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) ([]byte, error) {
+	fmt.Println("dlopatin exec RewritePatch with body - ", string(obj))
+
 	if targetReq.IsCRD() {
 		// Check if CRD is known.
 		_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())

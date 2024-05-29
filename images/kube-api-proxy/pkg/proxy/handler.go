@@ -227,11 +227,12 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	if req == nil || req.URL == nil {
 		return fmt.Errorf("request to rewrite is empty")
 	}
-
+	fmt.Println("dlopatin exec transformRequest()")
 	// Rewrite incoming payload, e.g. create, put, etc.
 	if targetReq.ShouldRewriteRequest() && req.Body != nil {
 		// Read whole request body to rewrite.
 		bodyBytes, err := io.ReadAll(req.Body)
+		fmt.Println("dlopatin func transformRequest():ShouldRewriteRequest true; body - ", string(bodyBytes))
 		if err != nil {
 			return fmt.Errorf("read request body: %w", err)
 		}
@@ -260,6 +261,8 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	}
 
 	if targetReq.ShouldRewriteResponse() {
+		fmt.Println("dlopatin func transformRequest():ShouldRewriteResponse true")
+
 		// Rewriter not work with protobuf, force JSON
 		// in Accept header.
 		newAccept := make([]string, 0)
