@@ -198,6 +198,12 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		} else {
 			fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 199")
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
+			if err != nil {
+				return obj, err
+			}
+
+			fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 205")
+			rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 		}
 	}
 
