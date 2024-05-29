@@ -128,7 +128,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
 	name := gjson.GetBytes(obj, "metadata.name").String()
-	fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name)
+	fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, " obj:", string(obj))
 	var rwrBytes []byte
 	var err error
 
