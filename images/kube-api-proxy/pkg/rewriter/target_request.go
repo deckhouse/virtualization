@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -121,7 +120,6 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 	}
 
 	if tr.originEndpoint != nil {
-		fmt.Println("dlopatin :: ShouldRewriteRequest() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
 		if tr.originEndpoint.IsRoot || tr.originEndpoint.IsUnknown {
 			return false
 		}
@@ -129,41 +127,12 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 		if tr.targetEndpoint == nil {
 			// Pass resources without rules as is, except some special types.
 
-			if tr.originEndpoint.IsCore {
-				switch tr.originEndpoint.ResourceType {
-				case "pods",
-					"configmaps",
-					"secrets",
-					"services",
-					"serviceaccounts":
-
-					return true
-				}
-			}
-
-			switch tr.originEndpoint.ResourceType {
-			case "mutatingwebhookconfigurations",
-				"validatingwebhookconfigurations",
-				"clusterroles",
-				"roles",
-				"rolebindings",
-				"clusterrolebindings",
-				"deployments",
-				"statefulsets",
-				"daemonsets",
-				"poddisruptionbudgets",
-				"controllerrevisions":
-
-				return true
-			}
-
 			// Rewrite request body when creating CRD.
 			if tr.originEndpoint.ResourceType == "customresourcedefinitions" && tr.originEndpoint.Name == "" {
 				return true
 			}
 
-			// Should not rewrite request if path is not rewritten.
-			return false
+			return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
 		}
 	}
 
@@ -184,21 +153,6 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 	}
 
 	if tr.originEndpoint.IsRoot || tr.originEndpoint.IsUnknown {
-		return false
-	}
-
-	fmt.Println("dlopatin :: ShouldRewriteResponse() -- tr.originEndpoint.ResourceType=", tr.originEndpoint.ResourceType)
-	// Some core resources should be rewritten.
-	if tr.originEndpoint.IsCore {
-		switch tr.originEndpoint.ResourceType {
-		case "pods",
-			"configmaps",
-			"secrets",
-			"services",
-			"serviceaccounts":
-
-			return true
-		}
 		return false
 	}
 
@@ -224,24 +178,7 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 		return true
 	}
 
-	// Rewrite special resources.
-	switch tr.originEndpoint.ResourceType {
-	case "mutatingwebhookconfigurations",
-		"validatingwebhookconfigurations",
-		"clusterroles",
-		"roles",
-		"rolebindings",
-		"clusterrolebindings",
-		"deployments",
-		"statefulsets",
-		"daemonsets",
-		"poddisruptionbudgets",
-		"controllerrevisions":
-
-		return true
-	}
-
-	return false
+	return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
 }
 
 func (tr *TargetRequest) ResourceForLog() string {
@@ -304,4 +241,39 @@ func (tr *TargetRequest) ResourceForLog() string {
 	}
 
 	return "UNKNOWN"
+}
+
+func shouldRewriteResource(kind string, isCore bool) bool {
+	// Some core resources should be rewritten.
+	if isCore {
+		switch kind {
+		case "pods",
+			"configmaps",
+			"secrets",
+			"services",
+			"serviceaccounts":
+
+			return true
+		}
+		return false
+	}
+
+	// Rewrite special resources.
+	switch kind {
+	case "mutatingwebhookconfigurations",
+		"validatingwebhookconfigurations",
+		"clusterroles",
+		"roles",
+		"rolebindings",
+		"clusterrolebindings",
+		"deployments",
+		"statefulsets",
+		"daemonsets",
+		"poddisruptionbudgets",
+		"controllerrevisions":
+
+		return true
+	}
+
+	return false
 }

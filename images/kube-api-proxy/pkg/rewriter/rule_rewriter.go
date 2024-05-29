@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -127,7 +126,6 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
-	fmt.Println("dlopatin -- kind", kind)
 	var rwrBytes []byte
 	var err error
 
@@ -180,11 +178,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
 
 	default:
-		if targetReq.IsCore() ||
-			kind == "PodDisruptionBudget" ||
-			kind == "PodDisruptionBudgetList" ||
-			kind == "ControllerRevision" ||
-			kind == "ControllerRevisionList" {
+		if targetReq.IsCore() || mustRewriteResource(kind) {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
 		} else {
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
@@ -213,4 +207,14 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) 
 	}
 
 	return obj, nil
+}
+
+func mustRewriteResource(kind string) bool {
+	switch kind {
+	case "PodDisruptionBudget", "PodDisruptionBudgetList",
+		"ControllerRevision", "ControllerRevisionList":
+		return true
+	}
+
+	return false
 }
