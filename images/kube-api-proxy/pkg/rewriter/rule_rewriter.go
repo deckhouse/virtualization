@@ -161,7 +161,11 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 	labels := make(map[string]string, len(listLabels))
 	for _, l := range listLabels {
 		ll := strings.Split(l, "=")
-		labels[ll[0]] = ll[1]
+		if (len(ll)>1) {
+			labels[ll[0]] = ll[1]
+		} else {
+			labels[ll[0]] = ""
+		}
 	}
 	labels = rw.Rules.RenameLabels(labels)
 	count := 0
