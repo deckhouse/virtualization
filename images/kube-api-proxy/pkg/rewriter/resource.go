@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -141,7 +140,6 @@ func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName str
 
 func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
-	fmt.Println("111dlopatin -- exec RewriteOwnerReferences -- orig ownerRefs:", ownerRefs, " action:", action)
 	if len(ownerRefs) == 0 {
 		return obj, nil
 	}
@@ -190,7 +188,6 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 		rwrOwnerRefs, err = sjson.SetRawBytes(rwrOwnerRefs, "-1", rwrOwnerRef)
 		rewritten = true
 	}
-	fmt.Println("111dlopatin -- exec RewriteOwnerReferences -- rwr ownerRefs:", rwrOwnerRefs, " action:", action)
 	if rewritten {
 		return sjson.SetRawBytes(obj, "metadata.ownerReferences", rwrOwnerRefs)
 	}

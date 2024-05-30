@@ -8,10 +8,18 @@ import (
 )
 
 const (
-	ClusterRoleKind     = "ClusterRole"
-	ClusterRoleListKind = "ClusterRoleList"
-	RoleKind            = "Role"
-	RoleListKind        = "RoleList"
+	ClusterRoleKind             = "ClusterRole"
+	ClusterRoleListKind         = "ClusterRoleList"
+	RoleKind                    = "Role"
+	RoleListKind                = "RoleList"
+	RoleBindingKind             = "RoleBinding"
+	RoleBindingListKind         = "RoleBindingList"
+	PodDisruptionBudgetKind     = "PodDisruptionBudget"
+	PodDisruptionBudgetListKind = "PodDisruptionBudgetList"
+	ControllerRevisionKind      = "ControllerRevision"
+	ControllerRevisionListKind  = "ControllerRevisionList"
+	DeploymentKind              = "Deployment"
+	DeploymentListKind          = "DeploymentList"
 )
 
 func RewriteClusterRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {

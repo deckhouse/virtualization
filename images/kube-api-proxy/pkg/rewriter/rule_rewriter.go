@@ -1,7 +1,6 @@
 package rewriter
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -127,8 +126,6 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
-	name := gjson.GetBytes(obj, "metadata.name").String()
-	fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, " obj:", string(obj))
 	var rwrBytes []byte
 	var err error
 
@@ -149,66 +146,50 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 	switch kind {
 	case "APIGroupList":
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 152")
 		rwrBytes, err = RewriteAPIGroupList(rw.Rules, obj)
 
 	case "APIGroup":
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 156")
 		rwrBytes, err = RewriteAPIGroup(rw.Rules, obj, targetReq.OrigGroup())
 
 	case "APIResourceList":
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 160")
 		rwrBytes, err = RewriteAPIResourceList(rw.Rules, obj, targetReq.OrigGroup())
 
 	case "APIGroupDiscoveryList":
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 164")
 		rwrBytes, err = RewriteAPIGroupDiscoveryList(rw.Rules, obj)
 
 	case "AdmissionReview":
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 168")
 		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj, targetReq.OrigGroup())
 
 	case CRDKind, CRDListKind:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 172")
 		rwrBytes, err = RewriteCRDOrList(rw.Rules, obj, action)
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 174")
-		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 
 	case MutatingWebhookConfigurationKind,
 		MutatingWebhookConfigurationListKind:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 177")
 		rwrBytes, err = RewriteMutatingOrList(rw.Rules, obj, action)
 
 	case ValidatingWebhookConfigurationKind,
 		ValidatingWebhookConfigurationListKind:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 182")
 		rwrBytes, err = RewriteValidatingOrList(rw.Rules, obj, action)
 
 	case ClusterRoleKind, ClusterRoleListKind:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 186")
 		rwrBytes, err = RewriteClusterRoleOrList(rw.Rules, obj, action)
 
 	case RoleKind, RoleListKind:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 190")
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 192")
-		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 
 	default:
-		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 194")
-		if targetReq.IsCore() || mustRewriteResource(kind) {
-			fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 196")
-			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
-		} else {
-			fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 199")
+		if !targetReq.IsCore() {
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
-			if err != nil {
-				return obj, err
-			}
-
-			fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 205")
-			rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 		}
+	}
+
+	// Return obj bytes as-is in case of the error.
+	if err != nil {
+		return obj, err
+	}
+
+	if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
+		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 	}
 
 	// Return obj bytes as-is in case of the error.
@@ -222,8 +203,6 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
 func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) ([]byte, error) {
-	fmt.Println("dlopatin -- exec RewritePatch() for obj - ", string(obj))
-
 	if targetReq.IsCRD() {
 		// Check if CRD is known.
 		_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
@@ -237,10 +216,14 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) 
 	return obj, nil
 }
 
-func mustRewriteResource(kind string) bool {
+func shouldRewriteOwnerReferences(kind string) bool {
 	switch kind {
-	case "PodDisruptionBudget", "PodDisruptionBudgetList",
-		"ControllerRevision", "ControllerRevisionList":
+	case CRDKind, CRDListKind,
+		RoleKind, RoleListKind,
+		RoleBindingKind, RoleBindingListKind,
+		PodDisruptionBudgetKind, PodDisruptionBudgetListKind,
+		ControllerRevisionKind, ControllerRevisionListKind,
+		DeploymentKind, DeploymentListKind:
 		return true
 	}
 
