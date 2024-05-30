@@ -171,6 +171,8 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	case CRDKind, CRDListKind:
 		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 172")
 		rwrBytes, err = RewriteCRDOrList(rw.Rules, obj, action)
+		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 174")
+		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 
 	case MutatingWebhookConfigurationKind,
 		MutatingWebhookConfigurationListKind:
@@ -189,6 +191,8 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	case RoleKind, RoleListKind:
 		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 190")
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
+		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 192")
+		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 
 	default:
 		fmt.Println("111dlopatin -- exec RewriteJSONPayload -- kind:", kind, " name:", name, "line 194")
