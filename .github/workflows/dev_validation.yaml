@@ -58,3 +58,26 @@ jobs:
       - name: Run validation "Doc changes"
         run: |
           task validation:doc-changes
+  
+  copyright:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/copyright')"
+    runs-on: ubuntu-latest
+    name: Validation copyright
+    steps:
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run validation "Doc changes"
+        run: |
+          task validation:copyright

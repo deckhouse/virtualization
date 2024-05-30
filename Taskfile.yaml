@@ -86,12 +86,12 @@ tasks:
   validation:no-cyrillic:
     desc: "No cyrillic"
     cmds:
-      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type no-cyrillic
+      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go --type no-cyrillic
 
   validation:doc-changes:
     desc: "Doc-changes"
     cmds:
-      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type doc-changes
+      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go --type doc-changes
 
   validation:copyright:
     desc: "Check copyright"
