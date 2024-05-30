@@ -227,6 +227,7 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	if req == nil || req.URL == nil {
 		return fmt.Errorf("request to rewrite is empty")
 	}
+
 	// Rewrite incoming payload, e.g. create, put, etc.
 	if targetReq.ShouldRewriteRequest() && req.Body != nil {
 		// Read whole request body to rewrite.

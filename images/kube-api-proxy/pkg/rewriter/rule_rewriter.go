@@ -126,6 +126,7 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
+
 	var rwrBytes []byte
 	var err error
 
@@ -178,7 +179,9 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
 
 	default:
-		if !targetReq.IsCore() {
+		if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
+			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
+		} else {
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 		}
 	}
@@ -188,14 +191,9 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		return obj, err
 	}
 
-	if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
-		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
-	}
-
-	// Return obj bytes as-is in case of the error.
-	if err != nil {
-		return obj, err
-	}
+	// if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
+	// 	rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
+	// }
 
 	return rwrBytes, nil
 }
