@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Flant JSC
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,7 +37,9 @@ var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 202[1-9] Flant 
 [/#{!-]*(\s)*limitations under the License.[-!}\n]*`)
 
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.lua$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
-var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.github/CODEOWNERS|Dockerfile$|Makefile$|/docs/documentation/|/docs/site/|bashrc$|inputrc$|modules_menu_skip$|LICENSE$`)
+var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
+github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
+|LICENSE$`)
 
 func RunCopyrightValidation(info *DiffInfo) (exitCode int) {
 	fmt.Printf("Run 'copyright' validation ...\n")
