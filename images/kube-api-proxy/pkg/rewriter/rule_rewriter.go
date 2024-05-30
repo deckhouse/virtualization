@@ -179,11 +179,20 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
 
 	default:
-		if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
+		if targetReq.IsCore() {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
 		} else {
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 		}
+	}
+
+	// Return obj bytes as-is in case of the error.
+	if err != nil {
+		return obj, err
+	}
+
+	if shouldRewriteOwnerReferences(kind) {
+		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
 	}
 
 	// Return obj bytes as-is in case of the error.
