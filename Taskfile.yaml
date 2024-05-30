@@ -92,3 +92,8 @@ tasks:
     desc: "Doc-changes"
     cmds:
       - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type doc-changes
+
+  validation:copyright:
+    desc: "Check copyright"
+    cmds:
+      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go --type copyright
