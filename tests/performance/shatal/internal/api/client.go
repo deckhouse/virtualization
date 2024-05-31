@@ -176,16 +176,18 @@ func (c *Client) UnCordonNode(ctx context.Context, nodeName string) error {
 	}, &node, false)
 }
 
-func (c *Client) GetNodes(ctx context.Context) ([]corev1.Node, error) {
-	selector, err := labels.Parse("!node-role.kubernetes.io/master")
-	if err != nil {
-		return nil, err
+func (c *Client) GetNodes(ctx context.Context, labelSelector string) ([]corev1.Node, error) {
+	var options client.ListOptions
+	if len(labelSelector) > 0 {
+		var err error
+		options.LabelSelector, err = labels.Parse(labelSelector)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var nodes corev1.NodeList
-	err = c.crClient.List(ctx, &nodes, &client.ListOptions{
-		LabelSelector: selector,
-	})
+	err := c.crClient.List(ctx, &nodes, &options)
 	if err != nil {
 		return nil, err
 	}

@@ -18,7 +18,6 @@ import (
 type Drainer struct {
 	api             *api.Client
 	once            bool
-	node            string
 	interval        time.Duration
 	nodes           map[string]*sync.Mutex
 	sortedNodes     []string
@@ -26,7 +25,7 @@ type Drainer struct {
 	logger          *slog.Logger
 }
 
-func NewDrainer(api *api.Client, interval time.Duration, once bool, node string, nodes map[string]*sync.Mutex, log *slog.Logger) *Drainer {
+func NewDrainer(api *api.Client, interval time.Duration, once bool, nodes map[string]*sync.Mutex, log *slog.Logger) *Drainer {
 	sortedNodes := make([]string, 0, len(nodes))
 	for n := range nodes {
 		sortedNodes = append(sortedNodes, n)
@@ -36,7 +35,6 @@ func NewDrainer(api *api.Client, interval time.Duration, once bool, node string,
 		api:         api,
 		interval:    interval,
 		nodes:       nodes,
-		node:        node,
 		once:        once,
 		sortedNodes: sortedNodes,
 		logger:      log.With("type", "drainer"),
@@ -80,10 +78,6 @@ func (s *Drainer) Run(ctx context.Context) {
 }
 
 func (s *Drainer) getNodeName() (string, error) {
-	if s.node != "" {
-		return s.node, nil
-	}
-
 	for i := 0; i < len(s.sortedNodes); i++ {
 		if i == len(s.sortedNodes)-1 {
 			return s.sortedNodes[0], nil

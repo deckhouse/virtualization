@@ -31,7 +31,7 @@ func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error)
 		exit:   make(chan struct{}),
 	}
 
-	nodes, err := api.GetNodes(context.Background())
+	nodes, err := api.GetNodes(context.Background(), conf.Drainer.LabelSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -45,13 +45,13 @@ func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error)
 	shatal.runners = append(shatal.runners, watcher)
 
 	if conf.Drainer.Enabled {
-		if len(nodes) < 2 {
-			return nil, errors.New("cannot drain node in one-node cluster")
+		if len(nodes) < 1 {
+			return nil, errors.New("no node to drain")
 		}
 
-		shatal.logger.Info("With drainer")
+		shatal.logger.Info("With drainer", "selector", conf.Drainer.LabelSelector)
 
-		drainer := NewDrainer(api, conf.Drainer.Interval, conf.Drainer.Once, conf.Drainer.Node, nodeLocks, log)
+		drainer := NewDrainer(api, conf.Drainer.Interval, conf.Drainer.Once, nodeLocks, log)
 		shatal.runners = append(shatal.runners, drainer)
 	}
 

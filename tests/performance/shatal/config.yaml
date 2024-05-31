@@ -7,6 +7,7 @@ debug: true
 drainer:
   enabled: true
   interval: "10s"
+  labelSelector: "!node-role.kubernetes.io/master"
 creator:
   enabled: true
   interval: "5s"

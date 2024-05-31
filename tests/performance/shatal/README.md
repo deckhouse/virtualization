@@ -39,12 +39,12 @@ drainer:
   # The flag to enable node draining.
   # Corresponds to the DRAINER_ENABLED environment variable.
   enabled: true
-  # The flag to specify node name to drain
-  # Corresponds to the DRAINER_NODE environment variable.
-  node: true
   # Flag to drain the node only once.
   # Corresponds to the DRAINER_ONCE environment variable.
   once: true
+  # The selector to specify nodes to drain
+  # Corresponds to the DRAINER_LABEL_SELECTOR environment variable.
+  labelSelector: true
   # The interval between draining operations.
   # Corresponds to the DRAINER_INTERVAL environment variable.
   interval: "10s"

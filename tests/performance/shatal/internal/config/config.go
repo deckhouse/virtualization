@@ -21,10 +21,10 @@ type Config struct {
 }
 
 type DrainerFeature struct {
-	Enabled  bool          `yaml:"enabled" env:"DRAINER_ENABLED" env-default:"false"`
-	Node     string        `yaml:"node" env:"DRAINER_NODE"`
-	Once     bool          `yaml:"once" env:"DRAINER_ONCE" env-default:"false"`
-	Interval time.Duration `yaml:"interval" env:"DRAINER_INTERVAL" env-default:"1s"`
+	Enabled       bool          `yaml:"enabled" env:"DRAINER_ENABLED" env-default:"false"`
+	Once          bool          `yaml:"once" env:"DRAINER_ONCE" env-default:"false"`
+	LabelSelector string        `yaml:"labelSelector" env:"DRAINER_LABEL_SELECTOR" env-default:"!node-role.kubernetes.io/master"`
+	Interval      time.Duration `yaml:"interval" env:"DRAINER_INTERVAL" env-default:"1s"`
 }
 
 type CreatorFeature struct {
