@@ -200,10 +200,6 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		return obj, err
 	}
 
-	// if targetReq.IsCore() || shouldRewriteOwnerReferences(kind) {
-	// 	rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
-	// }
-
 	return rwrBytes, nil
 }
 
@@ -223,8 +219,8 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) 
 	return obj, nil
 }
 
-func shouldRewriteOwnerReferences(kind string) bool {
-	switch kind {
+func shouldRewriteOwnerReferences(resourceType string) bool {
+	switch resourceType {
 	case CRDKind, CRDListKind,
 		RoleKind, RoleListKind,
 		RoleBindingKind, RoleBindingListKind,
