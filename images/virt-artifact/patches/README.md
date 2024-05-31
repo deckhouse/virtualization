@@ -37,3 +37,6 @@ A patch has been added to enable the configuration of the rate limiter via the e
 
 #### `014-delete-apiserver.patch`
 Do not create Kubevirt APIService.
+
+#### `015-pdb-rename.patch`
+Create a PodDisruptionBudgets with generateName "dvpinternal-disruption-budget-"

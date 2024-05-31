@@ -1,0 +1,16 @@
+diff --git a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+index 228518871..e38590c07 100644
+--- a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
++++ b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+@@ -485,7 +485,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
+ 			OwnerReferences: []v1.OwnerReference{
+ 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+ 			},
+-			GenerateName: "kubevirt-disruption-budget-",
++			GenerateName: "dvpinternal-disruption-budget-",
++			Labels: map[string]string{
++				virtv1.VirtualMachineNameLabel: vmi.GetName(),
++			},
+ 		},
+ 		Spec: policyv1.PodDisruptionBudgetSpec{
+ 			MinAvailable: &minAvailable,
