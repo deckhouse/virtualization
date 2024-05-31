@@ -113,6 +113,7 @@ func (tr *TargetRequest) RawQuery() string {
 // ShouldRewriteRequest returns true if incoming payload should
 // be rewritten.
 func (tr *TargetRequest) ShouldRewriteRequest() bool {
+
 	// Consider known webhook should be rewritten. Unknown paths will be passed as-is.
 	if tr.webhookRule != nil {
 		return true
@@ -126,28 +127,12 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 		if tr.targetEndpoint == nil {
 			// Pass resources without rules as is, except some special types.
 
-			if tr.originEndpoint.IsCore {
-				switch tr.originEndpoint.ResourceType {
-				case "pods":
-					return true
-				}
-			}
-
-			switch tr.originEndpoint.ResourceType {
-			case "mutatingwebhookconfigurations",
-				"validatingwebhookconfigurations",
-				"clusterroles",
-				"roles":
-				return true
-			}
-
 			// Rewrite request body when creating CRD.
 			if tr.originEndpoint.ResourceType == "customresourcedefinitions" && tr.originEndpoint.Name == "" {
 				return true
 			}
 
-			// Should not rewrite request if path is not rewritten.
-			return false
+			return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
 		}
 	}
 
@@ -168,16 +153,6 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 	}
 
 	if tr.originEndpoint.IsRoot || tr.originEndpoint.IsUnknown {
-		return false
-	}
-
-	// Some core resources should be rewritten.
-	if tr.originEndpoint.IsCore {
-		switch tr.originEndpoint.ResourceType {
-		case "pods":
-			return true
-			// pods should be rewritten
-		}
 		return false
 	}
 
@@ -203,16 +178,7 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 		return true
 	}
 
-	// Rewrite special resources.
-	switch tr.originEndpoint.ResourceType {
-	// Webhook configurations should be rewritten.
-	case "mutatingwebhookconfigurations",
-		"validatingwebhookconfigurations",
-		"clusterroles":
-		return true
-	}
-
-	return false
+	return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
 }
 
 func (tr *TargetRequest) ResourceForLog() string {
@@ -275,4 +241,39 @@ func (tr *TargetRequest) ResourceForLog() string {
 	}
 
 	return "UNKNOWN"
+}
+
+func shouldRewriteResource(kind string, isCore bool) bool {
+	// Some core resources should be rewritten.
+	if isCore {
+		switch kind {
+		case "pods",
+			"configmaps",
+			"secrets",
+			"services",
+			"serviceaccounts":
+
+			return true
+		}
+		return false
+	}
+
+	// Rewrite special resources.
+	switch kind {
+	case "mutatingwebhookconfigurations",
+		"validatingwebhookconfigurations",
+		"clusterroles",
+		"roles",
+		"rolebindings",
+		"clusterrolebindings",
+		"deployments",
+		"statefulsets",
+		"daemonsets",
+		"poddisruptionbudgets",
+		"controllerrevisions":
+
+		return true
+	}
+
+	return false
 }
