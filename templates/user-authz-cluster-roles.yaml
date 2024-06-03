@@ -10,14 +10,14 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualdisks
-  - virtualimages
-  - virtualmachinecpumodels
-  - virtualmachineipaddressleases
-  - virtualmachineipaddressclaims
-  - virtualmachineblockdeviceattachments
   - virtualmachines
   - clustervirtualimages
+  - virtualdisks
+  - virtualimages
+  - virtualmachineblockdeviceattachments
+  - virtualmachineipaddressclaims
+  - virtualmachinecpumodels
+  - virtualmachineoperations
   verbs:
   - get
   - list
@@ -31,31 +31,21 @@ metadata:
   name: d8:user-authz:virtualization:privileged-user
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
 rules:
-
 - apiGroups:
-  - subresources.kubevirt.io
+  - virtualization.deckhouse.io
   resources:
-  - virtualmachineinstances/console
-  - virtualmachineinstances/vnc
-  - virtualmachineinstances/vnc/screenshot
-  - virtualmachineinstances/guestosinfo
-  - virtualmachineinstances/filesystemlist
-  - virtualmachineinstances/userlist
+  - virtualmachineoperations
+  verbs:
+  - create
+- apiGroups:
+  - subresources.virtualization.deckhouse.io
+  resources:
+  - virtualmachines/console
+  - virtualmachines/vnc
+  - virtualmachines/portforward
   verbs:
   - get
-- apiGroups:
-  - subresources.kubevirt.io
-  resources:
-  - virtualmachineinstances/softreboot
-  - virtualmachineinstances/pause
-  - virtualmachineinstances/unpause
-  - virtualmachines/restart
-  - virtualmachines/start
-  - virtualmachines/stop
-  - virtualmachineinstances/addvolume
-  - virtualmachineinstances/removevolume
-  - virtualmachineinstances/freeze
-  verbs:
+  - create
   - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -69,12 +59,29 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
+  - virtualmachines
   - virtualdisks
-  - virtualimages
-  - virtualmachinecpumodels
-  - virtualmachineipaddressleases
-  - virtualmachineipaddressclaims
   - virtualmachineblockdeviceattachments
+  - virtualmachineipaddressclaims
+  - virtualmachineoperations
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: Admin
+  name: d8:user-authz:virtualization:admin
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
   - virtualmachines
   verbs:
   - create
@@ -82,6 +89,14 @@ rules:
   - deletecollection
   - patch
   - update
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachineipaddressleases
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -95,6 +110,26 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - clustervirtualimages
+  - virtualmachinecpumodels
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    user-authz.deckhouse.io/access-level: ClusterAdmin
+  name: d8:user-authz:virtualization:cluster-admin
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachineipaddressleases
   verbs:
   - create
   - delete
