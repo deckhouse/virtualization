@@ -228,6 +228,7 @@ func shouldRewriteOwnerReferences(resourceType string) bool {
 		ControllerRevisionKind, ControllerRevisionListKind,
 		ClusterRoleKind, ClusterRoleListKind,
 		ClusterRoleBindingKind, ClusterRoleBindingListKind,
+		APIServiceKind, APIServiceListKind,
 		DeploymentKind, DeploymentListKind,
 		ValidatingWebhookConfigurationKind,
 		ValidatingWebhookConfigurationListKind,

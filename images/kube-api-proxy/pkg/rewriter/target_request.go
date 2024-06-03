@@ -270,8 +270,8 @@ func shouldRewriteResource(kind string, isCore bool) bool {
 		"statefulsets",
 		"daemonsets",
 		"poddisruptionbudgets",
-		"controllerrevisions":
-
+		"controllerrevisions",
+		"apiservices":
 		return true
 	}
 
