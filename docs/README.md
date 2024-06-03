@@ -88,3 +88,41 @@ The virtual machine runs inside the Pod, which allows you to manage virtual mach
 ### Virtual Machine Operations
 
 The `VirtualMachineOperations` resource is intended for declarative control of virtual machine state changes. The resource allows you to perform the following actions on virtual machines: Start, Stop, Restart.
+
+## Role Model
+
+The following user roles are provided for managing module resources:
+
+- User
+- PrivilegedUser
+- Editor
+- Admin
+- ClusterEditor
+- ClusterAdmin.
+
+The following table shows the access matrix for these roles
+
+| Abbreviation | Verb   | Kubernetes verbs         |
+| ------------ | ------ | ------------------------ |
+| C            | create | create                   |
+| R            | read   | get,list,watch           |
+| U            | update | patch, update            |
+| D            | delete | delete, deletecollection |
+
+| Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
+| ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
+| virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachinedisks                  | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineimages                 | R    | R              | R      | CRUD  | CRUD          | CRUD         |
+| clustervirtualmachineimages          | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualmachineblockdeviceattachments | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineipaddressclaims        | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
+| virtualmachinecpumodel               | R    | R              | R      | R     | CRUD          | CRUD         |
+
+| d8 cli                        | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
+| ----------------------------- | ---- | -------------- | ------ | ----- | ------------- | ------------ |
+| d8 v console                  | N    | Y              | Y      | Y     | Y             | Y            |
+| d8 v ssh / scp / port-forward | N    | Y              | Y      | Y     | Y             | Y            |
+| d8 v vnc                      | N    | Y              | Y      | Y     | Y             | Y            |
