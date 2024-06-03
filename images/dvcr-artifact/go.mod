@@ -2,6 +2,8 @@ module github.com/deckhouse/virtualization-controller/dvcr-importers
 
 go 1.21
 
+toolchain go1.21.0
+
 require (
 	github.com/containers/image/v5 v5.19.1
 	github.com/distribution/reference v0.5.0
@@ -15,6 +17,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
+	golang.org/x/net v0.9.0
 	golang.org/x/sync v0.1.0
 	k8s.io/klog/v2 v2.90.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
@@ -96,7 +99,6 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
-	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/term v0.7.0 // indirect

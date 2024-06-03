@@ -1,6 +1,6 @@
 ---
 artifact: {{ $.ImageName }}-builder
-fromImage: base-golang-20-bookworm
+fromImage: base-golang-21-bookworm
 git:
 - add: /images/{{ $.ImageName }}
   to: /usr/local/go/src/dvcr_importers

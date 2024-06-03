@@ -2,15 +2,17 @@ module github.com/deckhouse/virtualization-controller
 
 go 1.21
 
+toolchain go1.21.0
+
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20240321085500-118bb9c256f6
 	github.com/distribution/reference v0.5.0
 	github.com/docker/cli v23.0.5+incompatible
-	github.com/dustin/go-humanize v1.0.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/logr v1.4.1
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
+	github.com/prometheus/client_golang v1.18.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/zap v1.26.0
@@ -82,7 +84,6 @@ require (
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
@@ -133,6 +134,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-replace (
-	github.com/deckhouse/virtualization/api => ./../../api
-)
+replace github.com/deckhouse/virtualization/api => ./../../api

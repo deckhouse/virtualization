@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-golang-20-bookworm
+fromImage: base-golang-21-bookworm
 git:
 - add: /api
   to: /usr/local/go/api
