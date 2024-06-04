@@ -96,3 +96,41 @@ Cоздание дисков для виртуальных машины обес
 ### Операции над виртуальными машинами
 
 Ресурс `VirtualMachineOperations` предназначен для декларативного управления изменением состоянием виртуальной машины. Ресурс позволяет выполнять следующие действия над виртуальными машинами: Запуск (Start), Остановка(Stop), Рестарт(Restart).
+
+## Ролевая модель
+
+Для управления ресурсами модуля предусмотрены следующие роли пользователей:
+
+- Пользователь (User)
+- Привилегированный пользователь (PrivilegedUser)
+- Редактор (Editor)
+- Администратор (Admin)
+- Редактор кластера (ClusterEditor)
+- Администратор кластера (ClusterAdmin)
+
+Далее таблице представлены матрица доступа для данных ролей
+
+| Сокращение | Операция | Соответствующая операция Kubernetes |
+| ---------- | -------- | ----------------------------------- |
+| C          | create   | create                              |
+| R          | read     | get,list,watch                      |
+| U          | update   | patch, update                       |
+| D          | delete   | delete, deletecollection            |
+
+| Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
+| ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
+| virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachinedisks                  | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineimages                 | R    | R              | R      | CRUD  | CRUD          | CRUD         |
+| clustervirtualmachineimages          | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualmachineblockdeviceattachments | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineipaddressclaims        | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
+| virtualmachinecpumodel               | R    | R              | R      | R     | CRUD          | CRUD         |
+
+| d8 cli                        | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
+| ----------------------------- | ---- | -------------- | ------ | ----- | ------------- | ------------ |
+| d8 v console                  | N    | Y              | Y      | Y     | Y             | Y            |
+| d8 v ssh / scp / port-forward | N    | Y              | Y      | Y     | Y             | Y            |
+| d8 v vnc                      | N    | Y              | Y      | Y     | Y             | Y            |
