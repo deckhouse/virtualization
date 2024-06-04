@@ -20,6 +20,10 @@ const (
 	ControllerRevisionListKind  = "ControllerRevisionList"
 	DeploymentKind              = "Deployment"
 	DeploymentListKind          = "DeploymentList"
+	ClusterRoleBindingKind      = "ClusterRoleBinding"
+	ClusterRoleBindingListKind  = "ClusterRoleBindingList"
+	APIServiceKind              = "APIService"
+	APIServiceListKind          = "APIServiceList"
 )
 
 func RewriteClusterRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
