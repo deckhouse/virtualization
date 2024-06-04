@@ -23,7 +23,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClassName: i-linstor-thin-r2 # Replace with your's SC
   dataSource:
     type: HTTP
     http:
@@ -37,8 +37,8 @@ Let's look at the current status of the resource:
 ```bash
 kubectl -n vms get virtualdisk -o wide
 
-# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
-# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
+# NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+# linux-disk   Ready   10Gi       100%       i-linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
 ```
 
 Next, let's create a virtual machine from the following specification:
@@ -91,16 +91,16 @@ kubectl -n default get virtualmachine
 Let's connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
 
 ```bash
-./dvp-connect -n vms --vm linux-vm
+d8 v console -n vms linux-vm
 ```
 
 Let's connect to the machine using VNC:
 
 ```bash
-./dvp-connect -n vms --vm linux-vm -c vnc
+d8 v vnc -n vms linux-vm
 ```
 
-After running the command, the default VNC client will start. An alternative way to connect is to use the `--proxy-only` parameter to forward the VNC port to a local machine:
+After running the command, the default VNC client will start. An alternative way to connect is to use the `--proxy-only` parameter to forward the VNC port to a local machine.
 
 # Images
 
@@ -264,6 +264,12 @@ To see the available options, run the command:
 
 ```bash
 kubectl get storageclass
+
+# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd          rbd.csi.ceph.com         Delete          WaitForFirstConsumer   true                   85d
+# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
 ```
 
 Let's look at the options of what disks we can create:
@@ -343,8 +349,6 @@ spec:
       kind: VirtualDisk
       name: vmd-blank # Name of the disk that should be attached.
 ```
-
-If you change the machine name in this resource to another machine name, the disk will be reconnected from one virtual machine to another.
 
 If you delete the `VirtualMachineBlockDeviceAttachment` resource - the disk will be disconnected from the virtual machine.
 
@@ -450,8 +454,9 @@ What it would look like in a virtual machine specification:
 ```yaml
 spec:
   provisioning:
-    type: UserDataSecret
-    userDataSercertRef:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
       name: linux-vm-cloud-init
 ```
 
@@ -486,7 +491,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaim: <claim-name>
+  virtualMachineIPAddressClaimName: <claim-name>
 ```
 
 ### 2. Configuring virtual machine placement rules
@@ -557,7 +562,7 @@ spec:
 Let's connect to the virtual machine using the serial console:
 
 ```bash
-./dvp-connect -n default --vm linux-vm
+d8 v console -n default linux-vm
 ```
 
 terminate the virtual machine:

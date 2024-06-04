@@ -1,42 +1,43 @@
 ---
 title: "The virtualization module"
 menuTitle: "Virtualization"
-moduleStatus: experimental
+moduleStatus: preview
 ---
 
 ## Description
 
-This module is designed to run and manage virtual machines and their resources on [the Deckhouse platform](https://deckhouse.io).
+The module allows you to declaratively create, run, and manage virtual machines and their resources on the [Deckhouse platform](https://deckhouse.io).
 
-It offers the following features:
+Scenarios of using the module:
 
-- A simple and intuitive interface for declarative creation and management of virtual machines and their resources.
-- The ability to run legacy applications that for some reason cannot or are difficult to run in a container.
-- Ability to run applications that require non-Linux operating systems.
-- Ability to run virtual machines and containerized applications in the same environment.
-- Integration with the existing Deckhouse ecosystem to leverage its capabilities for virtual machines.
+- Running virtual machines with x86_64 compatible OS.
+- Running virtual machines and containerized applications in the same environment.
 
 ## Requirements
 
-The following conditions are required to run the module:
+The virtualization module requires a Deckhouse Kubernetes Platform cluster for its operation.
 
-- A processor with x86_64 architecture and support for Intel-VT or AMD-V instructions.
-- Cluster resource requirements and configuration specifics are available for reading on [this](https://deckhouse.io/guides/production.html) page.
-- Any [compatible](https://deckhouse.io/documentation/v1/supported_versions.html#linux) Linux-based OS is supported for installation.
-- The Linux kernel on the cluster nodes must be version 5.7 or newer.
-- The [CNI Cilium](/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for virtual machines.
-- Modules [SDS-DRBD](https://deckhouse.io/modules/sds-drbd/stable/) or [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/) for storing virtual machine data. It is also possible to use other storage options that support the creation of block devices with `RWX` (`ReadWriteMany`) access mode.
+- The processor requirements for the cluster nodes on which the virtual machines are to run include x86_64 architecture and support for Intel-VT or AMD-V instructions.
+- Other cluster node requirements are described in the document: [Going to Production
+](https://deckhouse.io/guides/production.html)
+- Any [compatible](https://deckhouse.io/documentation/v1/supported_versions.html#linux) Linux-based operating system is supported on the cluster nodes.
+- The Linux kernel on cluster nodes must be version 5.7 or newer.
 
-The command line utility [d8](https://github.com/deckhouse/deckhouse-cli) is used to create cluster resources and connect to virtual machines. For users of the EE-version the ability to manage resources via UI is available.
+The [d8](https://github.com/deckhouse/deckhouse-cli) command line utility is used to connect to virtual machines using serial port, VNC, or ssh protocol. For EE-version users, the ability to manage resources via UI is available.
 
-## What do I need to enable the module?
+## How to enable the module
 
-Procedure for enabling the module
+To enable the module, you need a Deckhouse Kubernetes Platform cluster deployed according to [requirements](#Requirements). To deploy Deckhouse Kubernetes Platform, follow [instructions](https://deckhouse.io/gs/#other-options).
 
-1. Configure the deckhouse cluster
-2. Enable the [CNI Cilium](/documentation/v1/modules/021-cni-cilium/) module
-3. Install and configure SDS-DRBD/CEPH/etc storage
-4. Enable the virtualization module
+1. Enable the [CNI Cilium](/documentation/v1/modules/021-cni-cilium/) module to provide network connectivity for cluster resources.
+2. To store virtual machine data, you must enable one of the following modules according to their installation instructions:
+
+- [SDS-Replicated-volume](https://deckhouse.io/modules/sds-replicated-volume/stable/)
+- [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/)
+
+It is also possible to use other storage options that support block device creation with `RWX` (`ReadWriteMany`) access mode.
+
+4. Enable [module](./CONFIGURATION.md)
 
 ## Architecture
 
@@ -112,14 +113,14 @@ The following table shows the access matrix for these roles
 | Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
 | ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
 | virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
-| virtualmachinedisks                  | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
-| virtualmachineimages                 | R    | R              | R      | CRUD  | CRUD          | CRUD         |
-| clustervirtualmachineimages          | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualdisks                         | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualimages                        | R    | R              | R      | CRUD  | CRUD          | CRUD         |
+| clustervirtualimages                 | R    | R              | R      | R     | CRUD          | CRUD         |
 | virtualmachineblockdeviceattachments | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddressclaims        | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
-| virtualmachinecpumodel               | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualmachinecpumodels              | R    | R              | R      | R     | CRUD          | CRUD         |
 
 | d8 cli                        | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
 | ----------------------------- | ---- | -------------- | ------ | ----- | ------------- | ------------ |
