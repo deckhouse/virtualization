@@ -12,6 +12,14 @@ metadata:
 spec:
   runPolicy: AlwaysOn
   enableParavirtualization: true
+  disruptions:
+    # To ensure an equal amount of virtual machines with Manual and Automatic modes during testing,
+    # we create every second machine with Automatic mode.
+    {{- if eq (mod . 2) 0 }}
+    restartApprovalMode: Automatic
+    {{- else }}
+    restartApprovalMode: Manual
+    {{- end }}
   osType: Generic
   bootloader: BIOS
   {{- with $.Values.spec.cpu }}
