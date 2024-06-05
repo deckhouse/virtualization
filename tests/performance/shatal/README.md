@@ -9,7 +9,8 @@
 ## How to run
 
 ```shell
-task run
+KUBECONFIG=$(cat ~/.kube/config | base64 -w 0)
+KUBECONFIG_BASE64=$KUBECONFIG task run
 ```
 
 ## How to configure
