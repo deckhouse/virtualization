@@ -1,0 +1,7 @@
+- name: Run
+  hosts: all
+
+  tasks:
+    - name: Print hostname and ip address
+      ansible.builtin.debug:
+        msg: "{{ ansible_host }} | {{ ansible_hostname }} - {{ ansible_default_ipv4.address }}"

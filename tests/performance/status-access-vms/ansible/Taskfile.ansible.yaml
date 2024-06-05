@@ -1,0 +1,21 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+vars:
+  SSK_KEY: '{{.SSK_KEY | default "../../ssh/id_ed"}}'
+  ANSIBLE_CFG: '{{.ANSIBLE_CFG | default ".ansible.cfg"}}'
+  INVENTORY_FILE: '{{.INVENTORY_FILE | default "inventory/hosts.yml"}}'
+
+tasks:
+  help:
+    desc: "Help about run_tank"
+    cmds:
+      - ./run.sh -h
+
+  run:
+    desc: "Start endless fact-gathering and checks vms availability (need pass namespace like 'run -- -n testnamespace')"
+    cmds:
+      - ./run.sh {{.CLI_ARGS}}

@@ -1,0 +1,24 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+vars:
+  TANK_TEST_RUN: '{{ .TANK_TEST_RUN | default "-t ya.ru -c load.yaml" }}'
+
+tasks:
+  help:
+    desc: Help about run_tank
+    cmds:
+      - ./run_tank.sh -h
+
+  run:
+    desc: Start stress testing for site or ip (use run -- -t site.com -c load.yaml)
+    cmds:
+      - ./run_tank.sh {{.CLI_ARGS | default .TANK_TEST_RUN}}
+
+  test_run:
+    desc: Start stress testing for ya.ru
+    cmds:
+      - ./run_tank.sh {{.TANK_TEST_RUN}}
