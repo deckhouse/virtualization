@@ -1,13 +1,23 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-scratch
+fromImage: base-alt-p10
 import:
 - image: cdi-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest
-  excludePaths:
-  - 'sys'
-  to: /
+  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+  to: /usr/bin
   before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/main/cmd/cdi-cloner/BUILD.bazel
+  includePaths:
+  - cdi-cloner
+  - cloner_startup.sh
+shell:
+  install:
+  # Install packages from Sisyphus repository because p10 repository does not have required versions.
+  - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/sisyphus.list
+  - |
+    apt-get update && apt-get install --yes \
+    glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1
+  - apt-get clean
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-cloner/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cloner_startup.sh"]

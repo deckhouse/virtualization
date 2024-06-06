@@ -1,0 +1,7 @@
+---
+image: {{ $.ImageName }}
+from: docker.io/alt:p10@sha256:aaddacc787afa546cc03a252adf9799d48f7a0498ecb46ea0d477642b03018eb
+shell:
+  setup:
+  # Create nonroot-user group and user.
+  - groupadd --gid 1001 nonroot-user && useradd nonroot-user --uid 1001 --gid 1001 --shell /bin/bash --create-home
