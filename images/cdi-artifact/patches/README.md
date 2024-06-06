@@ -18,3 +18,6 @@ https://github.com/kubevirt/containerized-data-importer/pull/3070
 
 #### `007-content-type-json.patch`
 set ContentTypeJson for kubernetes clients.
+
+#### `008-rename-core-resources.patch`
+Replace "cdi" with "cdi-internal-virtualziation" in the core resource names.
