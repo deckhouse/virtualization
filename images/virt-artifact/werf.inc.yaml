@@ -22,7 +22,7 @@ shell:
   - |
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
-      git apply ${p} || echo FAIL && echo OK
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
   - mkdir -p _out
   - echo "========== Build kubevirt images ============"
