@@ -95,10 +95,9 @@ func (s *scraper) updateVMStatusPhaseMetrics(vm virtv2.VirtualMachine) {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.MachineScheduling, string(virtv2.MachineScheduling)},
 		{phase == virtv2.MachinePending, string(virtv2.MachinePending)},
 		{phase == virtv2.MachineRunning, string(virtv2.MachineRunning)},
-		{phase == virtv2.MachineFailed, string(virtv2.MachineFailed)},
+		{phase == virtv2.MachineDegraded, string(virtv2.MachineDegraded)},
 		{phase == virtv2.MachineTerminating, string(virtv2.MachineTerminating)},
 		{phase == virtv2.MachineStopped, string(virtv2.MachineStopped)},
 		{phase == virtv2.MachineStopping, string(virtv2.MachineStopping)},

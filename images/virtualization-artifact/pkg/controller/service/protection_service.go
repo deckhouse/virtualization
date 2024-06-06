@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,13 +75,14 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(obj.GetFinalizers())
+			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
 			}
 
 			err = s.client.Patch(ctx, obj, patch)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to add finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
 			}
 		}
 	}
@@ -96,13 +98,14 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 
 		if controllerutil.RemoveFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(obj.GetFinalizers())
+			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
 			}
 
 			err = s.client.Patch(ctx, obj, patch)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to remove finalizer %q on the %q, %q: %w", s.finalizer, kind, obj.GetName(), err)
 			}
 		}
 	}

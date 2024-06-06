@@ -69,7 +69,7 @@ func NewVMIReconcilerState(name types.NamespacedName, log logr.Logger, client cl
 
 	state.AttacheeState = vmattachee.NewAttacheeState(
 		state,
-		virtv2.FinalizerVMIProtection,
+		virtv2.FinalizerVIProtection,
 		state.VMI,
 	)
 	return state

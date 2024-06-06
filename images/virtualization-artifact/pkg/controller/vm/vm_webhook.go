@@ -14,40 +14,44 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package vm
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"kubevirt.io/api/core"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VMValidator struct {
+type Validator struct {
 	validators []vmValidator
-	log        logr.Logger
+	log        *slog.Logger
 }
 
-func NewVMValidator(ipam IPAM, client client.Client, log logr.Logger) *VMValidator {
-	return &VMValidator{
+func NewValidator(ipam internal.IPAM, client client.Client, log *slog.Logger) *Validator {
+	if log == nil {
+		log = slog.Default().With("controller", controllerName)
+	}
+	return &Validator{
 		validators: []vmValidator{
 			newMetaVMValidator(client),
 			newIPAMVMValidator(ipam, client),
 		},
-		log: log.WithName(vmControllerName).WithValues("webhook", "validation"),
+		log: log.With("webhook", "validation"),
 	}
 }
 
-func (v *VMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vm, ok := obj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
@@ -68,7 +72,7 @@ func (v *VMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (a
 	return warnings, nil
 }
 
-func (v *VMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldVM, ok := oldObj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachine but got a %T", oldObj)
@@ -97,9 +101,9 @@ func (v *VMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime
 	return warnings, nil
 }
 
-func (v *VMValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
 	return nil, nil
 }
 
@@ -149,11 +153,11 @@ func (v *metaVMValidator) validateUpdate(_ context.Context, _, newVM *v1alpha2.V
 }
 
 type ipamVMValidator struct {
-	ipam   IPAM
+	ipam   internal.IPAM
 	client client.Client
 }
 
-func newIPAMVMValidator(ipam IPAM, client client.Client) *ipamVMValidator {
+func newIPAMVMValidator(ipam internal.IPAM, client client.Client) *ipamVMValidator {
 	return &ipamVMValidator{ipam: ipam, client: client}
 }
 

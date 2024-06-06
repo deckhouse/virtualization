@@ -96,12 +96,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseList":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseStatus":        schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration":          schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineList":                        schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":              schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                   schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
@@ -3136,6 +3141,35 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"waitingForDependencies": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"virtualMachineStarting": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"guestOSAgentStarting": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3182,6 +3216,72 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachine", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"node": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"pod": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation"),
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation"),
+						},
+					},
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -3347,6 +3447,33 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref c
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachinePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vm.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"timestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PhaseTransitionTimestamp is the timestamp of when the phase change occurred",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3498,6 +3625,39 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phasesTransitions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp"),
+									},
+								},
+							},
+						},
+					},
+					"launchTimeDuration": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3551,11 +3711,27 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Ref:     ref("kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"),
 						},
 					},
-					"message": {
+					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"stats": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats"),
+						},
+					},
+					"migrationState": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState"),
 						},
 					},
 					"restartAwaitingChanges": {
@@ -3572,11 +3748,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"phase", "nodeName", "virtualMachineIPAddressClaimName", "ipAddress", "blockDeviceRefs", "guestOSInfo", "message"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressClaimName", "ipAddress", "blockDeviceRefs", "guestOSInfo"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
 	}
 }
 
