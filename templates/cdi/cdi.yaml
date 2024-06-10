@@ -88,7 +88,7 @@ spec:
              "targetPort": "webhook-proxy"}
           ]}}
         type: strategic
-      - resourceName: cdi-api-datavolume-mutate
+      - resourceName: cdi-internal-virtualization-api-datavolume-mutate
         resourceType: MutatingWebhookConfiguration
         patch: |
           {"webhooks":[
@@ -96,7 +96,7 @@ spec:
               "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
           ]}
         type: strategic
-      - resourceName: cdi-api-dataimportcron-validate
+      - resourceName: cdi-internal-virtualization-api-dataimportcron-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
           {"webhooks":[
@@ -104,7 +104,7 @@ spec:
               "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
           ]}
         type: strategic
-      - resourceName: cdi-api-datavolume-validate
+      - resourceName: cdi-internal-virtualization-api-datavolume-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
           {"webhooks":[
@@ -112,7 +112,7 @@ spec:
               "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
           ]}
         type: strategic
-      - resourceName: cdi-api-populator-validate
+      - resourceName: cdi-internal-virtualization-api-populator-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
           {"webhooks":[
@@ -120,7 +120,7 @@ spec:
               "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
           ]}
         type: strategic
-      - resourceName: cdi-api-validate
+      - resourceName: cdi-internal-virtualization-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
           {"webhooks":[
@@ -128,7 +128,7 @@ spec:
               "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
           ]}
         type: strategic
-      - resourceName: objecttransfer-api-validate
+      - resourceName: cdi-internal-virtualization-objecttransfer-api-validate
         resourceType: ValidatingWebhookConfiguration
         patch: |
           {"webhooks":[
