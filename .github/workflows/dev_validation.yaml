@@ -92,6 +92,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run validation "Doc changes"
+      - name: Run validation "Copyright"
         run: |
           task validation:copyright
