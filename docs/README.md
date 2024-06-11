@@ -13,17 +13,23 @@ Scenarios of using the module:
 - Running virtual machines with x86_64 compatible OS.
 - Running virtual machines and containerized applications in the same environment.
 
+![](./images/cases-vms.png)
+
+![](./images/cases-pods-and-vms.png)
+
 ## Requirements
 
 The virtualization module requires a Deckhouse Kubernetes Platform cluster for its operation.
 
 - The processor requirements for the cluster nodes on which the virtual machines are to run include x86_64 architecture and support for Intel-VT or AMD-V instructions.
 - Other cluster node requirements are described in the document: [Going to Production
-](https://deckhouse.io/guides/production.html)
+  ](https://deckhouse.io/guides/production.html)
 - Any [compatible](https://deckhouse.io/documentation/v1/supported_versions.html#linux) Linux-based operating system is supported on the cluster nodes.
 - The Linux kernel on cluster nodes must be version 5.7 or newer.
 
 The [d8](https://github.com/deckhouse/deckhouse-cli) command line utility is used to connect to virtual machines using serial port, VNC, or ssh protocol. For EE-version users, the ability to manage resources via UI is available.
+
+You can view the resource documentation locally from the console using the standard functionality of the command utility: `d8 kubectl explain <resource name>`
 
 ## How to enable the module
 
@@ -38,6 +44,27 @@ To enable the module, you need a Deckhouse Kubernetes Platform cluster deployed 
 It is also possible to use other storage options that support block device creation with `RWX` (`ReadWriteMany`) access mode.
 
 4. Enable [module](./CONFIGURATION.md)
+5. Install d8 command line utility:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh | sudo bash -s
+```
+
+## Updating the module
+
+The virtualization module uses five update channels designed for use in different environments, to which different requirements apply in terms of reliability:
+
+| Update Channel | Description                                                                                                                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Alpha          | The least stable update channel with the most frequent appearance of new versions. It is focused on development clusters with a small number of developers.                                                                                                                                        |
+| Beta           | is focused on development clusters, as is the Alpha update channel. Receives versions previously tested on the Alpha update channel.                                                                                                                                                               |
+| Early Access   | Recommended update channel if you are not sure about the choice. It is suitable for clusters in which active work is underway (new applications are being launched, finalized, etc.). Functional updates reach this update channel no earlier than one week after their appearance in the release. |
+| Stable         | Stable update channel for clusters in which active work has been completed and operation is mainly carried out. Functional updates reach this update channel no earlier than two weeks after they appear in the release.                                                                           |
+| Rock Solid     | The most stable update channel. It is suitable for clusters that need to provide an increased level of stability. Functional updates to this channel do not reach earlier than a month after their appearance in the release.                                                                      |
+
+Module components can be updated automatically, or with manual confirmation as updates are released in the update channels.
+
+Information on the versions available on the update channels can be obtained on this website https://releases.deckhouse.io/
 
 ## Architecture
 
@@ -46,6 +73,7 @@ The module includes the following components:
 - The module core, based on the KubeVirt project and uses QEMU/KVM + libvirtd to run virtual machines.
 - Deckhouse Virtualization Container Registry (DVCR) - repository for storing and caching virtual machine images.
 - Virtualization-API - controller that implements a user API for creating and managing virtual machine resources.
+- Routing Controller (ROUTER) - A controller that manages routes to provide network connectivity for virtual machines.
 
 The API provides capabilities for creating and managing the following resources:
 
@@ -53,6 +81,8 @@ The API provides capabilities for creating and managing the following resources:
 - Virtual Disks
 - Virtual machines
 - Virtual Machine Operations
+
+## Description of functional features
 
 ### Virtual Images
 

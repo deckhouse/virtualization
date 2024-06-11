@@ -6,13 +6,13 @@ title: "Configuration examples"
 
 Example of creating a virtual machine with Ubuntu 22.04.
 
-Let's create namespace where we will create virtual machines:
+1. Create a namespace for virtual machines using the commands:
 
 ```bash
 kubectl create ns vms
 ```
 
-Let's create a virtual disk from an external source:
+2. Let's create a virtual disk from an external source:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -23,16 +23,16 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: i-linstor-thin-r2 # Replace with your's SC
+    storageClassName: i-linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
   dataSource:
     type: HTTP
     http:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-After creating `VirtualDisk` in the namespace vms, the pod `importer-*` will start, which will perform the download of the given image.
+After creating a `VirtualDisk` in the vms namespace, a `pod` named `vd-importer-*` will start, which will load the specified image.
 
-Let's look at the current status of the resource:
+3. View the current status of the resource using the command:
 
 ```bash
 kubectl -n vms get virtualdisk -o wide
@@ -41,7 +41,7 @@ kubectl -n vms get virtualdisk -o wide
 # linux-disk   Ready   10Gi       100%       i-linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
 ```
 
-Next, let's create a virtual machine from the following specification:
+4. Create a virtual machine from the following specification:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -52,16 +52,16 @@ metadata:
   labels:
     vm: linux
 spec:
-  runPolicy: AlwaysOn # the virtual machine should always be on
-  enableParavirtualization: true # use paravirtualization (virtio)
+  runPolicy: AlwaysOn # The virtual machine must always be powered on.
+  enableParavirtualization: true # Use paravirtualization (virtio).
   osType: Generic
   bootloader: BIOS
   cpu:
     cores: 1
-    coreFraction: 10% # request 10% of the CPU time of one core
+    coreFraction: 10% # Request 10% of one core's CPU time.
   memory:
     size: 1Gi
-  provisioning: # example cloud-init script to create a cloud user with cloud password
+  provisioning: # Example cloud-init script to create a `cloud` user with the password `cloud`.
     type: UserData
     userData: |
       #cloud-config
@@ -75,34 +75,33 @@ spec:
         ssh_authorized_keys:
           - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
   blockDeviceRefs:
-    - type: VirtualDisk
+    - kind: VirtualDisk
       name: linux-disk
 ```
 
-Let's check that the virtual machine is created and running:
+5. Check with the command that the virtual machine is created and running:
 
 ```bash
-kubectl -n default get virtualmachine
+kubectl -n vms get virtualmachine -o wide
 
-# NAME       PHASE     NODE       IPADDRESS    AGE
-# linux-vm   Running   virtlab-1  10.66.10.1   5m
+# NAME       PHASE     CORES   COREFRACTION   MEMORY   NODE           IPADDRESS    AGE
+# linux-vm   Running   1       10%            1Gi      virtlab-pt-1   10.66.10.2   61s
 ```
 
-Let's connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+6. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
 
 ```bash
 d8 v console -n vms linux-vm
+
+# Successfully connected to linux-vm console. The escape sequence is ^]
+#
+# linux-vm login: cloud
+# Password: cloud
+# ...
+# cloud@linux-vm:~$
 ```
 
-Let's connect to the machine using VNC:
-
-```bash
-d8 v vnc -n vms linux-vm
-```
-
-After running the command, the default VNC client will start. An alternative way to connect is to use the `--proxy-only` parameter to forward the VNC port to a local machine.
-
-# Images
+## Images
 
 `VirtualImage` and `ClusterVirtualImage` are intended to store virtual machine disk images or installation images in `iso` format to create and replicate virtual machine disks in the same way. When connected to a virtual machine, these images are read-only and the `iso` format installation image will be attached as a cdrom device.
 
@@ -110,7 +109,9 @@ The `VirtualImage` resource is only available in the namespace in which it was c
 
 Depending on the configuration, the `VirtualImage` resource can store data in `DVCR` or use platform-provided disk storage (PV). On the other hand, `ClusterVirtualImage` stores data only in `DVCR`, providing a single access to all images for all namespaces in the cluster.
 
-Let's look at the creation of these resources with examples:
+### Creating and using an image from an HTTP
+
+1. Create `VirtualImage`:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -126,16 +127,16 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-Let's see what happens:
+2. Check the result with the command:
 
 ```bash
-kubectl -n vms get virtualimage
+kubectl -n vms get virtualimage -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# ubuntu-img   Ready   false   100%       10m
+# NAME         PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                   AGE
+# ubuntu-img   Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/ubuntu-img   29s
 ```
 
-The `ClusterVirtualImage` resource is created similarly, but does not require the `storage` settings to be specified:
+3. The `ClusterVirtualImage` resource is created similarly, but does not require the `storage` parameters to be specified:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -149,51 +150,49 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-Let's look at the status of `ClusterVirtualImage`:
+4. Check the status of `ClusterVirtualImage` with the command:
 
 ```bash
-kubectl get clustervirtualimage
+kubectl get clustervirtualimage -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# ubuntu-img   Ready   false   100%       11m
+# NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
+# ubuntu-img    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-img    52s
 ```
 
-Images can be created from a variety of external sources, such as an HTTP server where the image files are hosted or a container registry where images are stored and available for download. It is also possible to download images directly from the command line using the curl utility. Let's take a closer look at each of these options.
+### Creating and using an image from container registry
 
-### Create and use an image from the container registry
+1. Create an image to store in the `container registry`.
 
-The first thing to do is to generate the image itself for storage in the container registry.
+Below is an example of creating an image with an Ubuntu 22.04 disk.
 
-As an example, let's consider creating a docker image with the ubuntu 22.04 disk:
-
-Load the image locally:
+- Download the image locally:
 
 ```bash
 curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
 ```
 
-Create a Dockerfile with the following contents:
+- Create a Dockerfile with the following contents:
 
 ```Dockerfile
 FROM scratch
 COPY ubuntu2204.img /disk/ubuntu2204.img
 ```
 
-Let's build an image and push it into the container registry. We will use docker.io as container registry, for this you need to have a service account and a configured environment.
+- Build the image and load it into the `container registry`. The `container registry` in the example below uses `docker.io`. To execute, you must have a user account and a configured environment.
 
 ```bash
 docker build -t docker.io/username/ubuntu2204:latest
 ```
 
-where, `username` is your username specified when registering with docker.io
+where `username` is the username specified when registering with docker.io.
 
-Upload the created image to the container registry:
+- Load the created image into the `container registry` using the command:
 
 ```bash
 docker push docker.io/username/ubuntu2204:latest
 ```
 
-To use this image, let's create the `ClusterVirtualImage` resource as an example:
+- To use this image, create a `ClusterVirtualImage` resource as an example:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -207,15 +206,15 @@ spec:
       image: docker.io/username/ubuntu2204:latest
 ```
 
-To look at a resource and its status, run the command:
+- To view the resource and its status, run the command:
 
 ```bash
 kubectl get clustervirtualimage
 ```
 
-### Uploading an image from the command line
+### Downloading the image from the command line
 
-To upload an image from the command line, we first need to create the following resource, consider `ClusterVirtualImage` as an example:
+1. To load an image from the command line, first create the following resource as shown below with the `ClusterVirtualImage` example:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -227,40 +226,44 @@ spec:
     type: Upload
 ```
 
-Once the resource is created, let's look at its status:
+2. After the resource is created, check its status using the command:
 
 ```bash
 kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -r
 
-> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
-    -T example.iso
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
 ```
 
-> It is worth noting that CVMI with the Upload type waits 15 minutes after the image is created for the upload to begin. After this timeout expires, the resource will enter the Failed state.
+> CVMI with the **Upload** type waits for the image to start downloading for 15 minutes after creation. After this time has elapsed, the resource will enter the **Failed** state.
 
-Let's download the Cirros image for an example and boot it:
+3. Upload the Cirros image (shown as an example):
 
 ```bash
 curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
+```
+
+4. Download the image:
+
+```bash
+curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
 ```
 
 After the `curl` command completes, the image should be created.
 
-You can verify that everything was successful by checking the status of the created image:
+4. Check that the status of the created image is `Ready`:
 
 ```bash
-kubectl get clustervirtualimages
+kubectl get clustervirtualimages -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       10m
+# NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
+# some-image    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/some-image    2m21s
 ```
 
 ## Disks
 
 Disks are used in virtual machines to write and store data. The storage provided by the platform is used to store disks.
 
-To see the available options, run the command:
+1. To see the available options, run the command:
 
 ```bash
 kubectl get storageclass
@@ -272,90 +275,115 @@ kubectl get storageclass
 # linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
 ```
 
-Let's look at the options of what disks we can create:
-
 ### Creating a blank disk
 
-The first thing to note is that we can create empty disks!
+> It is possible to create blank disks.
+
+1. Create a disk:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vmd-blank
+  name: vd-blank
+  namespace: vms
 spec:
   persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
+    storageClassName: linstor-thin-r2
     size: 100M
 ```
 
-Once the disk is created, we can use it to connect to the virtual machine.
+The created disk can be used to connect to the virtual machine.
 
-You can view the status of the created resource with the command:
+2. Check the status of the created resource using the command:
 
 ```bash
-kubectl get virtualdisk
+kubectl -n vms  get virtualdisk -o wide
 
-# NAME        PHASE  CAPACITY   AGE
-# vmd-blank   Ready  100Mi      1m
+#NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+#vd-blank     Ready   97657Ki    100%       linstor-thin-r1     vd-vd-blank-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
 ```
 
 ### Creating a disk from an image
 
-We can create disks using existing disk images as well as external sources like images.
+> You can create disks from existing disk images as well as from external resources such as images.
 
-When creating a disk resource, we can specify the desired size. If no size is specified, a disk will be created with the size corresponding to the original disk image stored in the `VirtualImage` or `ClusterVirtualImage` resource. If you want to create a larger disk, you must explicitly specify this.
+When creating a disk share, you can specify the desired size. If no size is specified, a disk will be created with a size corresponding to the original disk image stored in the `VirtualImage` or `ClusterVirtualImage` resource. If you want to create a larger disk, specify the required size.
 
-As an example, we will use a previously created `ClusterVirtualImage` named `ubuntu-2204`:
+As an example, the previously created `ClusterVirtualImage` with the name `ubuntu-2204` is considered:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: ubuntu-root
+  namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: "your-storage-class-name"
+    storageClassName: linstor-thin-r2
   dataSource:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
       name: ubuntu-img
+
 ```
 
-### Changing disk size
+### Change disk size
 
-Disks can be resized (only upwards for now) even if they are attached to a virtual machine, by editing the `spec.persistentVolumeClame.size` field:
+Disks can only be resized upwards, even if they are attached to a virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
 
-```yaml
-kubectl patch ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+Check the size before the change:
+
+```bash
+kubectl -n vms  get virtualdisk ubuntu-root -o wide
+
+# NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
+# ubuntu-root   Ready   10Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   2m25s
+```
+
+Let's apply the changes:
+
+```bash
+kubectl -n vms patch virtualdisk ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+```
+
+Let's check the size after the change:
+
+```bash
+kubectl -n vms get virtualdisk ubuntu-root -o wide
+
+# NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
+# ubuntu-root   Ready   11Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   4m13s
 ```
 
 ### Connecting disks to running virtual machines
 
-Disks can be attached "live" to an already running virtual machine by using the `VirtualMachineBlockDeviceAttachment` resource, for example:
+Disks can be attached in a running virtual machine using the `VirtualMachineBlockDeviceAttachment` resource:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
-  name: vmd-blank-attachment
+  name: vd-blank-attachment
+  namespace: vms
 spec:
-  virtualMachineName: linux-vm # Name of the virtual machine to attach disk to.
-  blockDevice:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualDisk
-      name: vmd-blank # Name of the disk that should be attached.
+  virtualMachineName: linux-vm # The name of the virtual machine to which the disk will be attached.
+  blockDeviceRef:
+    kind: VirtualDisk
+    name: vd-blank # The name of the disk to be attached.
 ```
 
-If you delete the `VirtualMachineBlockDeviceAttachment` resource - the disk will be disconnected from the virtual machine.
+If you delete the `VirtualMachineBlockDeviceAttachment` resource, the disk will be disconnected from the virtual machine.
 
-To see the list of live connected disks, run the command:
+To see the list of attached disks in a running virtual machine, run the command:
 
 ```bash
-kubectl get virtualmachineblockdeviceattachments
+kubectl -n vms get virtualmachineblockdeviceattachments
+
+# NAME                       PHASE
+# vd-blank-attachment       Attached
 ```
 
 ## Virtual Machines
@@ -370,9 +398,7 @@ To create a virtual machine, the `VirtualMachine` resource is used, its paramete
 - virtual machine startup policy and policy for applying changes;
 - initial configuration scenarios (cloud-init).
 
-Let's create a virtual machine and configure it step by step:
-
-### 0. Creating a disk for the virtual machine
+### Creating a disk for the virtual machine
 
 The first thing we need to do before creating a virtual machine resource is to create a disk with the installed OS.
 
@@ -383,6 +409,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: ubuntu-2204-root
+  namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
@@ -392,7 +419,7 @@ spec:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-### 1. Creating a virtual machine
+### Creating a virtual machine
 
 Below is an example of a simple virtual machine configuration running Ubuntu 22.04. The example uses the cloud-init script, which installs the nginx package and creates the user `cloud`, with the password `cloud`:
 
@@ -401,7 +428,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
-  namespace: default
+  namespace: vms
   labels:
     vm: linux
 spec:
@@ -429,7 +456,7 @@ spec:
   memory:
     size: 2Gi
   blockDeviceRefs:
-    # the order of disks and images in this block determines the boot priority
+    # The order of disks and images in this block determines the boot priority.
     - kind: VirtualDisk
       name: ubuntu-2204-root
 ```
@@ -443,9 +470,9 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: linux-vm-cloud-init
-  namespace: default
+  namespace: vms
 data:
-  userData: # here cloud-init config in base64
+  userData: # Here's the cloud-init-config in Base64.
 type: Opaque
 ```
 
@@ -460,43 +487,45 @@ spec:
       name: linux-vm-cloud-init
 ```
 
-Let's create the virtual machine from the manifest above.
+1. Let's create the virtual machine from the manifest above.
 
 After startup, the virtual machine must be in `Ready` status.
 
 ```bash
-kubectl get virtualmachine
+kubectl -n vms get virtualmachine
 
 # NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
 ```
 
-After creation, the virtual machine will automatically obtain an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
+After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
 
-If we want to bind a specific IP address for the machine before it is started, the following steps must be performed:
+2. To commit the IP address of the virtual machine before it starts, perform the following steps:
 
-1. Create a `VirtualMachineIPAddressClaim` resource in which to bind the desired ip address of the virtual machine:
+- Create a `VirtualMachineIPAddress` resource that commits the desired IP address of the virtual machine. The requested address must be from the address range specified in the `kubectl get mc virtualization -o jsonpath=“{.spec.settings.virtualMachineCIDRs}”` module settings.
+
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddressClaim
+kind: VirtualMachineIPAddress
 metadata:
   name: <claim-name>
   namespace: <namespace>
 spec:
-  address: "W.X.Y.Z"
+  type: Static
+  staticIP: "W.X.Y.Z"
 ```
 
-2. Commit the changes to the virtual machine specification accordingly:
+- Commit the changes to the virtual machine specification accordingly:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaimName: <claim-name>
+  virtualMachineIPAddressName: <claim-name>
 ```
 
 ### 2. Configuring virtual machine placement rules
 
-Let's assume that we need the virtual machine to run on a given set of nodes, for example on the `system` node group, the following configuration fragment will help us to do this:
+1. Let's assume that we need the virtual machine to run on a given set of nodes, for example on the `system` node group, the following configuration fragment will help us to do this:
 
 ```yaml
 spec:
@@ -508,48 +537,47 @@ spec:
     node-role.kubernetes.io/system: ""
 ```
 
-Make changes to the previously created virtual machine specification.
+2. Make changes to the previously created virtual machine specification.
 
-### 3. Customize how the changes are applied
+### 3. Configuring how changes are applied
 
-After making changes to the machine configuration, nothing will happen because the `Manual` change application policy is applied by default, which means that the changes need to be validated.
+Changes made to the virtual machine configuration will not be displayed because the `Manual` change policy is applied by default. The virtual machine must be rebooted to apply the changes.
 
-How can we figure this out?
-
-Let's look at the status of the virtual machine:
+1. To check the status of the virtual machine, enter the command:
 
 ```bash
-kubectl get linux-vm -o jsonpath='{.status}'
+kubectl -n vms get linux-vm -o jsonpath='{.status}'
 ```
 
-In the `.status.pendingChanges` field, we will see the changes that need to be applied. In the `.status.message` field, we will see a message that a restart of the virtual machine is required to apply the required changes.
+The `.status.restartAwaitingChanges` field will display the changes that need to be confirmed.
 
-Let's create and apply the following resource, which is responsible for the declarative way of managing the state of the virtual machine:
+2. Create and apply the resource that is responsible for the declarative way of managing the state of the virtual machine, as presented in the example below:
 
 ```bash
 cat <<EOF | kubectl apply -f -
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: restart
+  name: restart-linux-vm
+  namespace: vms
 spec:
   virtualMachineName: linux-vm
   type: Restart
 EOF
 ```
 
-Let's look at the status of the resource that has been created:
+3. Check the status of the created resource:
 
 ```bash
-kubectl get vmops restart
+kubectl -n vms get virtualmachineoperations restart-linux-vm
 
-# NAME       PHASE       VM         AGE
-# restart    Completed   linux-vm   1m
+# NAME                PHASE       VM         AGE
+# restart-linux-vm    Completed   linux-vm   1m
 ```
 
-Once it goes to the `Completed` state, the virtual machine reboot is complete and the new virtual machine configuration settings are applied.
+If the created resource is in the `Completed` state, the virtual machine restart has completed and the new virtual machine configuration settings have been applied.
 
-What if we want the changes required to reboot the virtual machine to be applied automatically? To do this, we need to configure the change application policy as follows:
+To apply changes to the virtual machine configuration automatically when the virtual machine restarts, configure the change application policy as follows (example below):
 
 ```yaml
 spec:
@@ -557,33 +585,33 @@ spec:
     approvalMode: Automatic
 ```
 
-### 4. Virtual Machine Startup Policy
+### 4. Virtual machine startup policy
 
-Let's connect to the virtual machine using the serial console:
+1. Connect to the virtual machine using the serial console using the command:
 
 ```bash
-d8 v console -n default linux-vm
+d8 v console -n vms linux-vm
 ```
 
-terminate the virtual machine:
+2. Terminate the virtual machine using the command:
 
 ```bash
 cloud@linux-vm$ sudo poweroff
 ```
 
-then look at the status of the virtual machine
+Next, look at the status of the virtual machine using the command:
 
 ```bash
-kubectl get virtualmachine
+kubectl -n vms get virtualmachine
 
 # NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
 ```
 
-the virtual machine is up and running again! But why did this happen?
+Even though the virtual machine was shut down, it restarted again. Reason for restarting:
 
-Unlike classic virtualization systems, to determine the state of a virtual machine, we use a run policy that defines the desired state of the virtual machine at any given time.
+> Unlike traditional virtualization systems, we use a run policy to define the state of the virtual machine, which defines the required state of the virtual machine at any time.
 
-When creating the virtual machine, we specified the `runPolicy: AlwaysOn` parameter, which means that the virtual machine should be started even if for some reason it is shut down, restarted or crashed.
+> When a virtual machine is created, the `runPolicy: AlwaysOn` parameter is used. This means that the virtual machine will run even if for some reason there is a shutdown, restart, or failure that causes the virtual machine to stop running.
 
-To shut down the machine, change the policy value to `AlwaysOff` and the virtual machine will be shut down correctly.
+To shut down the virtual machine, change the policy value to `AlwaysOff`. This will correctly shut down the virtual machine.
