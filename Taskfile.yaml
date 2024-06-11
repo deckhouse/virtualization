@@ -79,7 +79,7 @@ tasks:
   dev:addlicense:
     desc: "Add Flant CE license to files sh,go,py"
     cmds:
-      - go run tools/addlicense/main.go -directory ./
+      - go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
 
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."
