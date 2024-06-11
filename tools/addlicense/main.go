@@ -12,14 +12,13 @@ import (
 	"time"
 )
 
-var licenseText = fmt.Sprintf(`
-Copyright %d Flant JSC
+var licenseText = fmt.Sprintf(`Copyright %d Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,6 +33,17 @@ var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.py$|^\.github/(sc
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
 github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
 |LICENSE$`)
+
+var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 20[2-9][1-9] Flant JSC[-!}\s\n#/]*
+[/#{!-]*(\s)*Licensed under the Apache License, Version 2.0 \(the "License"\);[-!}\n]*
+[/#{!-]*(\s)*you may not use this file except in compliance with the License.[-!}\n]*
+[/#{!-]*(\s)*You may obtain a copy of the License at[-!}\n\s#/]*
+[/#{!-]*(\s)*http://www.apache.org/licenses/LICENSE-2.0[-!}\n\s#/]*
+[/#{!-]*(\s)*Unless required by applicable law or agreed to in writing, software[-!}\n]*
+[/#{!-]*(\s)*distributed under the License is distributed on an "AS IS" BASIS,[-!}\n]*
+[/#{!-]*(\s)*WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.[-!}\n]*
+[/#{!-]*(\s)*See the License for the specific language governing permissions and[-!}\n]*
+[/#{!-]*(\s)*limitations under the License.[-!}\n]{0,1}`)
 
 func isShebangLine(line string) bool {
 	return strings.HasPrefix(line, "#!")
@@ -66,11 +76,12 @@ func addLicenseToFile(filePath, license string) error {
 	}
 
 	fullContent := append([]byte(firstLine), restOfFile...)
-	if strings.Contains(string(fullContent), license) {
+	if CELicenseRe.MatchString(string(fullContent)) {
+		//if strings.Contains(string(fullContent), license) {
 		fmt.Printf("File %s already contains the license. Skipping.\n", filePath)
 		return nil
 	} else {
-		fmt.Println("wow")
+		fmt.Printf("Add lic %s\n", filePath)
 	}
 
 	var newContent []byte
@@ -109,15 +120,17 @@ func main() {
 	// Ensure the directory is provided
 	if *dirArg == "" {
 		fmt.Println("No directory provided. Use the -directory flag to specify the directory.")
-		directory = "./example/"
-		//return
+		//directory = "./example/"
+		return
 	} else {
 		fmt.Println("Directory provided:", *dirArg)
 	}
 
-	//directory, err := filepath.Abs(*dirArg)
-
-	err := filepath.Walk(directory, func(filePath string, info os.FileInfo, err error) error {
+	directory, err := filepath.Abs(*dirArg)
+	if err != nil {
+		fmt.Println("Cannot get absolute path of directory:", err)
+	}
+	err = filepath.Walk(directory, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
