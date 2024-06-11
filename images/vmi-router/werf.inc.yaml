@@ -30,7 +30,7 @@ shell:
   - go build -v -a -o vmi-router main.go
 ---
 image: {{ $.ImageName }}
-fromImage: base-ubuntu-jammy
+fromImage: base-alt-p10
 import:
 - image: vmi-router-builder
   add: /app/images/vmi-router/vmi-router

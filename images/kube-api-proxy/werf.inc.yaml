@@ -27,7 +27,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-fromImage: base-ubuntu-jammy
+fromImage: base-alt-p10
 import:
   - image: {{ $.ImageName }}-builder
     add: /src/kube-api-proxy/kube-api-proxy

@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-ubuntu-jammy
+fromImage: base-alt-p10
 git:
 - add: /images/{{ $.ImageName }}/entrypoint.sh
   to: /usr/local/bin/entrypoint.sh
