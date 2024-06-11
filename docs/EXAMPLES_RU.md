@@ -23,7 +23,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: i-linstor-thin-r2 # Подставьте ваше название SC.
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
   dataSource:
     type: HTTP
     http:
@@ -38,7 +38,7 @@ spec:
 kubectl -n vms get virtualdisk -o wide
 
 # NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
-# linux-disk   Ready   10Gi       100%       i-linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
+# linux-disk   Ready   10Gi       100%       linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
 ```
 
 4. Создайте виртуальную машину из следующей спецификации:
@@ -239,7 +239,7 @@ kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -
 > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
 ```
 
-> CVMI с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
+> ClusterVirtualImage с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
 
 3. Загрузите образ Cirros (представлено в качестве примера):
 
@@ -294,7 +294,7 @@ metadata:
   namespace: vms
 spec:
   persistentVolumeClaim:
-    storageClassName: linstor-thin-r2
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
     size: 100M
 ```
 
@@ -326,7 +326,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: linstor-thin-r2
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
   dataSource:
     type: ObjectRef
     objectRef:

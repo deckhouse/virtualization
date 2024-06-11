@@ -23,7 +23,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: i-linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
+    storageClassName: linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
   dataSource:
     type: HTTP
     http:
@@ -38,7 +38,7 @@ After creating a `VirtualDisk` in the vms namespace, a `pod` named `vd-importer-
 kubectl -n vms get virtualdisk -o wide
 
 # NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
-# linux-disk   Ready   10Gi       100%       i-linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
+# linux-disk   Ready   10Gi       100%       linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
 ```
 
 4. Create a virtual machine from the following specification:
@@ -234,7 +234,7 @@ kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -
 > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
 ```
 
-> CVMI with the **Upload** type waits for the image to start downloading for 15 minutes after creation. After this time has elapsed, the resource will enter the **Failed** state.
+> ClusterVirtualImage with the **Upload** type waits for the image to start downloading for 15 minutes after creation. After this time has elapsed, the resource will enter the **Failed** state.
 
 3. Upload the Cirros image (shown as an example):
 
@@ -289,7 +289,7 @@ metadata:
   namespace: vms
 spec:
   persistentVolumeClaim:
-    storageClassName: linstor-thin-r2
+    storageClassName: linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
     size: 100M
 ```
 
@@ -321,7 +321,7 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: linstor-thin-r2
+    storageClassName: linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
   dataSource:
     type: ObjectRef
     objectRef:
