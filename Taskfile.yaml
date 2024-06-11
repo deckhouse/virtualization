@@ -77,9 +77,9 @@ tasks:
           sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
 
   dev:addlicense:
-      desc: "Add Flant CE license to files sh,go,py"
-      cmds:
-        - go run tools/addlicense/main.go -directory ./
+    desc: "Add Flant CE license to files sh,go,py"
+    cmds:
+      - go run tools/addlicense/main.go -directory ./
 
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."

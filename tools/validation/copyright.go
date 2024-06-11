@@ -25,16 +25,26 @@ import (
 
 var EELicenseRe = regexp.MustCompile(`(?s)Copyright 202[1-9] Flant JSC.*Licensed under the Deckhouse Platform Enterprise Edition \(EE\) license.*See https://github.com/deckhouse/deckhouse/blob/main/ee/LICENSE`)
 
-var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 202[1-9] Flant JSC[-!}\n#/]*
-[/#{!-]*(\s)*Licensed under the Apache License, Version 2.0 \(the \"License\"\);[-!}\n]*
+// var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 202[1-9] Flant JSC[-!}\n#/]*
+// [/#{!-]*(\s)*Licensed under the Apache License, Version 2.0 \(the \"License\"\);[-!}\n]*
+// [/#{!-]*(\s)*you may not use this file except in compliance with the License.[-!}\n]*
+// [/#{!-]*(\s)*You may obtain a copy of the License at[-!}\n#/]*
+// [/#{!-]*(\s)*http://www.apache.org/licenses/LICENSE-2.0[-!}\n#/]*
+// [/#{!-]*(\s)*Unless required by applicable law or agreed to in writing, software[-!}\n]*
+// [/#{!-]*(\s)*distributed under the License is distributed on an \"AS IS\" BASIS,[-!}\n]*
+// [/#{!-]*(\s)*WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.[-!}\n]*
+// [/#{!-]*(\s)*See the License for the specific language governing permissions and[-!}\n]*
+// [/#{!-]*(\s)*limitations under the License.[-!}\n]*`)
+var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 20[2-9][1-9] Flant JSC[-!}\s\n#/]*
+[/#{!-]*(\s)*Licensed under the Apache License, Version 2.0 \(the "License"\);[-!}\n]*
 [/#{!-]*(\s)*you may not use this file except in compliance with the License.[-!}\n]*
-[/#{!-]*(\s)*You may obtain a copy of the License at[-!}\n#/]*
-[/#{!-]*(\s)*http://www.apache.org/licenses/LICENSE-2.0[-!}\n#/]*
+[/#{!-]*(\s)*You may obtain a copy of the License at[-!}\n\s#/]*
+[/#{!-]*(\s)*http://www.apache.org/licenses/LICENSE-2.0[-!}\n\s#/]*
 [/#{!-]*(\s)*Unless required by applicable law or agreed to in writing, software[-!}\n]*
-[/#{!-]*(\s)*distributed under the License is distributed on an \"AS IS\" BASIS,[-!}\n]*
+[/#{!-]*(\s)*distributed under the License is distributed on an "AS IS" BASIS,[-!}\n]*
 [/#{!-]*(\s)*WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.[-!}\n]*
 [/#{!-]*(\s)*See the License for the specific language governing permissions and[-!}\n]*
-[/#{!-]*(\s)*limitations under the License.[-!}\n]*`)
+[/#{!-]*(\s)*limitations under the License.[-!}\n]{0,1}`)
 
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.lua$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
