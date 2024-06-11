@@ -12,7 +12,7 @@ title: "Примеры конфигурации"
 kubectl create ns vms
 ```
 
-2. Создайте диск виртуальной машины из внешнего источника:
+2. Создайте диск виртуальной машины из внешнего источника. Пример:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -23,22 +23,22 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: local-path
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
   dataSource:
     type: HTTP
     http:
       url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
 ```
 
-После создания `VirtualDisk` в namespace vms, запустится под с именем `importer-*`, который осуществит загрузку заданного образа.
+После создания `VirtualDisk` в namespace vms, запустится `pod` с именем `vd-importer-*`, который осуществит загрузку заданного образа.
 
 3. Посмотрите текущий статус ресурса с помощью команды:
 
 ```bash
 kubectl -n vms get virtualdisk -o wide
 
-# NAME            PHASE   CAPACITY    PROGRESS   TARGET PVC                                               AGE
-# linux-disk      Ready   10Gi        100%       vmd-vmd-blank-001-10c7616b-ba9c-4531-9874-ebcb3a2d83ad   1m
+# NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+# linux-disk   Ready   10Gi       100%       linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
 ```
 
 4. Создайте виртуальную машину из следующей спецификации:
@@ -82,16 +82,23 @@ spec:
 5. Проверьте с помощью команды, что виртуальная машина создана и запущена:
 
 ```bash
-kubectl -n default get virtualmachine
+kubectl -n vms get virtualmachine -o wide
 
-# NAME       PHASE     NODE       IPADDRESS    AGE
-# linux-vm   Running   virtlab-1  10.66.10.1   5m
+# NAME       PHASE     CORES   COREFRACTION   MEMORY   NODE           IPADDRESS    AGE
+# linux-vm   Running   1       10%            1Gi      virtlab-pt-1   10.66.10.2   61s
 ```
 
 6. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
 
 ```bash
-dvp console -n vms linux-vm
+d8 v console -n vms linux-vm
+
+# Successfully connected to linux-vm console. The escape sequence is ^]
+#
+# linux-vm login: cloud
+# Password: cloud
+# ...
+# cloud@linux-vm:~$
 ```
 
 ## Образы
@@ -128,10 +135,10 @@ spec:
 2. Проверьте результат с помощью команды:
 
 ```bash
-kubectl -n vms get virtualimage
+kubectl -n vms get virtualimage -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# ubuntu-img   Ready   false   100%       10m
+# NAME         PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                   AGE
+# ubuntu-img   Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/ubuntu-img   29s
 ```
 
 3. Ресурс `ClusterVirtualImage` создается по аналогии, но не требует указания настроек `storage`:
@@ -151,10 +158,10 @@ spec:
 4. Проверьте статус `ClusterVirtualImage` с помощью команды:
 
 ```bash
-kubectl get clustervirtualimage
+kubectl get clustervirtualimage -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# ubuntu-img   Ready   false   100%       11m
+# NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
+# ubuntu-img    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-img    52s
 ```
 
 ### Создание и использование образа из container registry
@@ -229,11 +236,10 @@ spec:
 ```bash
 kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -r
 
-> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc
-    -T example.iso
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
 ```
 
-> CVMI с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
+> ClusterVirtualImage с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
 
 3. Загрузите образ Cirros (представлено в качестве примера):
 
@@ -252,10 +258,10 @@ curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc 
 4. Проверьте, что статус созданного образа `Ready`:
 
 ```bash
-kubectl get clustervirtualimages
+kubectl get clustervirtualimages -o wide
 
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       10m
+# NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
+# some-image    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/some-image    2m21s
 ```
 
 ## Диски
@@ -268,6 +274,7 @@ kubectl get clustervirtualimages
 kubectl get storageclass
 
 # NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd          rbd.csi.ceph.com         Delete          WaitForFirstConsumer   true                   85d
 # linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
 # linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
 # linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
@@ -283,10 +290,11 @@ kubectl get storageclass
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vmd-blank
+  name: vd-blank
+  namespace: vms
 spec:
   persistentVolumeClaim:
-    storageClassName: "your-storage-class-name"
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
     size: 100M
 ```
 
@@ -295,10 +303,10 @@ spec:
 2. Проверьте состояние созданного ресурса с помощью команды:
 
 ```bash
-kubectl get virtualdisk
+kubectl -n vms  get virtualdisk -o wide
 
-# NAME        PHASE  CAPACITY   AGE
-# vmd-blank   Ready  100Mi      1m
+#NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+#vd-blank     Ready   97657Ki    100%       linstor-thin-r1     vd-vd-blank-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
 ```
 
 ### Создание диска из образа
@@ -314,23 +322,45 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: ubuntu-root
+  namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: "your-storage-class-name"
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
   dataSource:
     type: ObjectRef
     objectRef:
       kind: ClusterVirtualImage
       name: ubuntu-img
+
 ```
 
 ### Изменение размера диска
 
-Размер дисков можно изменить только в сторону увеличения, даже если они подключены к виртуальной машине. Для этого отредактируйте поле `spec.persistentVolumeClame.size`:
+Размер дисков можно изменить только в сторону увеличения, даже если они подключены к виртуальной машине. Для этого отредактируйте поле `spec.persistentVolumeClaim.size`:
 
-```yaml
-kubectl patch ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+Проверим размер до изменения:
+
+```bash
+kubectl -n vms  get virtualdisk ubuntu-root -o wide
+
+# NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
+# ubuntu-root   Ready   10Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   2m25s
+```
+
+Применим изменения:
+
+```bash
+kubectl -n vms patch virtualdisk ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+```
+
+Проверим размер после изменения:
+
+```bash
+kubectl -n vms get virtualdisk ubuntu-root -o wide
+
+# NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
+# ubuntu-root   Ready   11Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   4m13s
 ```
 
 ### Подключение дисков к запущенным виртуальным машинам
@@ -341,12 +371,13 @@ kubectl patch ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"si
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
-  name: vmd-blank-attachment
+  name: vd-blank-attachment
+  namespace: vms
 spec:
   virtualMachineName: linux-vm # Имя виртуальной машины, к которой будет подключен диск.
   blockDeviceRef:
     kind: VirtualDisk
-    name: vmd-blank # Имя подключаемого диска.
+    name: vd-blank # Имя подключаемого диска.
 ```
 
 При удалении ресурса `VirtualMachineBlockDeviceAttachment` диск от виртуальной машины будет отключен.
@@ -354,10 +385,10 @@ spec:
 Чтобы посмотреть список подключенных дисков в работающей виртуальной машине, выполните команду:
 
 ```bash
-kubectl get virtualmachineblockdeviceattachments
+kubectl -n vms get virtualmachineblockdeviceattachments
 
 # NAME                       PHASE
-# vmd-blank-attachment       Attached
+# vd-blank-attachment       Attached
 ```
 
 ## Виртуальные машины
@@ -379,6 +410,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: ubuntu-2204-root
+  namespace: vms
 spec:
   persistentVolumeClaim:
     size: 10Gi
@@ -397,7 +429,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
   name: linux-vm
-  namespace: default
+  namespace: vms
   labels:
     vm: linux
 spec:
@@ -437,7 +469,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: linux-vm-cloud-init
-  namespace: default
+  namespace: vms
 data:
   userData: # Тут cloud-init-конфиг в Base64.
 type: Opaque
@@ -448,8 +480,9 @@ type: Opaque
 ```yaml
 spec:
   provisioning:
-    type: UserDataSecret
-    userDataSercertRef:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
       name: linux-vm-cloud-init
 ```
 
@@ -458,7 +491,7 @@ spec:
 После запуска виртуальная машина должна иметь статус `Ready`.
 
 ```bash
-kubectl get virtualmachine
+kubectl -n vms get virtualmachine
 
 # NAME       PHASE     NODE          IPADDRESS     AGE
 # linux-vm   Running   node-name-x   10.66.10.1    5m
@@ -468,23 +501,25 @@ kubectl get virtualmachine
 
 2. Чтобы зафиксировать IP-адрес виртуальной машины перед ее запуском, выполните следующие шаги:
 
-- Создайте ресурс `VirtualMachineIPAddressClaim`, в котором зафиксирован желаемый IP-адрес виртуальной машины:
+- Создайте ресурс `VirtualMachineIPAddress`, в котором зафиксирован желаемый IP-адрес виртуальной машины. Запрашиваемый адрес должен быть из диапазона адресов, указанных в настройках модуля `kubectl get mc virtualization -o jsonpath="{.spec.settings.virtualMachineCIDRs}"`.
+
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddressClaim
+kind: VirtualMachineIPAddress
 metadata:
   name: <claim-name>
   namespace: <namespace>
 spec:
-  address: "W.X.Y.Z"
+  type: Static
+  staticIP: "W.X.Y.Z"
 ```
 
 - Зафиксируйте изменения в спецификации виртуальной машины:
 
 ```yaml
 spec:
-  virtualMachineIPAddressClaim: <claim-name>
+  virtualMachineIPAddressName: <claim-name>
 ```
 
 ### 2. Настройка правил размещения виртуальной машины
@@ -510,12 +545,10 @@ spec:
 1. Чтобы проверить статус виртуальной машины, введите командую:
 
 ```bash
-kubectl get linux-vm -o jsonpath='{.status}'
+kubectl -n vms get linux-vm -o jsonpath='{.status}'
 ```
 
-В поле `.status.pendingChanges` отобразятся изменения, которые требуют подтверждения.
-
-В поле `.status.message` появится сообщение: для применения изменений, необходимо перезапустить виртуальную машину.
+В поле `.status.restartAwaitingChanges` отобразятся изменения, которые требуют подтверждения.
 
 2. Создайте и примените ресурс, который отвечает за декларативный способ управления состоянием виртуальной машины, как представлено на примере ниже:
 
@@ -525,6 +558,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm
+  namespace: vms
 spec:
   virtualMachineName: linux-vm
   type: Restart
@@ -534,7 +568,7 @@ EOF
 3. Проверьте состояние созданного ресурса:
 
 ```bash
-kubectl get vmops restart-linux-vm
+kubectl -n vms get virtualmachineoperations restart-linux-vm
 
 # NAME                PHASE       VM         AGE
 # restart-linux-vm    Completed   linux-vm   1m
@@ -552,10 +586,10 @@ spec:
 
 ### 4. Политика запуска виртуальной машины
 
-1. Подключитесь к виртуальной машине с использованием серийной консоли с помощью комнды:
+1. Подключитесь к виртуальной машине с использованием серийной консоли с помощью команды:
 
 ```bash
-dvp console -n default linux-vm
+d8 v console -n vms linux-vm
 ```
 
 2. Завершите работу виртуальной машины с помощью команды:
@@ -567,7 +601,7 @@ cloud@linux-vm$ sudo poweroff
 Далее посмотрим на статус виртуальной машины с помощью команды:
 
 ```bash
-kubectl get virtualmachine
+kubectl -n vms get virtualmachine
 
 # NAME       PHASE     NODE           IPADDRESS   AGE
 # linux-vm   Running   node-name-x    10.66.10.1  5m
