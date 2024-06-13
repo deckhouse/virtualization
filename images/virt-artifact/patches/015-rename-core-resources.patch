@@ -118,7 +118,7 @@ index 932f7391e..76c79d452 100644
  				virtv1.AppLabel: "",
  			},
 diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
-index 6ba13c849..a178aea39 100644
+index 6ba13c849..12b7ccaa2 100644
 --- a/pkg/virt-operator/resource/generate/rbac/cluster.go
 +++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
 @@ -37,7 +37,7 @@ const (
@@ -135,7 +135,7 @@ index 6ba13c849..a178aea39 100644
  		},
  		ObjectMeta: metav1.ObjectMeta{
 -			Name: "kubevirt.io:admin",
-+			Name: "kubevirt-internal-virtualization:admin",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:admin",
  			Labels: map[string]string{
  				virtv1.AppLabel: "",
  				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
@@ -144,7 +144,7 @@ index 6ba13c849..a178aea39 100644
  		},
  		ObjectMeta: metav1.ObjectMeta{
 -			Name: "kubevirt.io:edit",
-+			Name: "kubevirt-internal-virtualization::edit",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:edit",
  			Labels: map[string]string{
  				virtv1.AppLabel: "",
  				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
@@ -153,7 +153,7 @@ index 6ba13c849..a178aea39 100644
  		},
  		ObjectMeta: metav1.ObjectMeta{
 -			Name: "kubevirt.io:view",
-+			Name: "kubevirt-internal-virtualization:view",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:view",
  			Labels: map[string]string{
  				virtv1.AppLabel: "",
  				"rbac.authorization.k8s.io/aggregate-to-view": "true",
