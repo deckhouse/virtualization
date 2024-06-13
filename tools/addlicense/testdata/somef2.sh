@@ -1,3 +1,4 @@
+#!/bin/bash
 
 # Copyright 2024 Flant JSC
 # 

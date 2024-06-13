@@ -23,7 +23,8 @@ limitations under the License.
 `, time.Now().Year())
 
 var goLicense = "/*\n" + licenseText + "*/\n\n"
-var bashPythonLicense = "\n# " + strings.ReplaceAll(strings.TrimSpace(licenseText), "\n", "\n# ") + "\n\n"
+var bashPythonLicense = "# " + strings.ReplaceAll(strings.TrimSpace(licenseText), "\n", "\n# ") + "\n\n"
+
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
 github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
