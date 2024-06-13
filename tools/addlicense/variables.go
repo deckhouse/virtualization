@@ -25,7 +25,16 @@ limitations under the License.
 var goLicense = "/*\n" + licenseText + "*/\n\n"
 var bashPythonLicense = "# " + strings.ReplaceAll(strings.TrimSpace(licenseText), "\n", "\n# ") + "\n\n"
 
+// fileToCheckRe matches files that will be checked for adding license, meet the following conditions:
+//   - Ends with .go, .sh, .py
+//   - Is inside a .github directory: scripts, workflows, or workflow_templates subdirectories,
+//     and ends with .js, .yml, .yaml, or .sh
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
+
+// fileToSkipRe matches filenames that will be skipped for adding license, meet the following conditions:
+//   - Directories .github/CODEOWNERS, /docs/
+//   - Filename contains Dockerfile, Makefile, Taskfile, LICENSE
+//   - Ends with geohash.lua, bashrc, inputrc, modules_menu_skip
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
 github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
 |LICENSE$`)

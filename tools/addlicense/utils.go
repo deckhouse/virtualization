@@ -66,11 +66,6 @@ func addLicenseToFile(filePath, license string) Message {
 	defer closeFile(f)
 
 	reader := bufio.NewReader(f)
-	//firstLine, err := reader.ReadString('\n')
-	//if err != nil && err.Error() != "EOF" {
-	//	message := NewError(filepath.Base(filePath), "Failed to read first line", err.Error())
-	//	return message
-	//}
 
 	fullContent, err := io.ReadAll(reader)
 	if err != nil {
@@ -79,24 +74,15 @@ func addLicenseToFile(filePath, license string) Message {
 	}
 
 	firstLine, restOfFile, _ := strings.Cut(string(fullContent), "\n")
-	//fullContent := append([]byte(firstLine), restOfFile...)
 
 	message, lic := checkLicense(fullContent, filePath)
-	//var newContent []byte
 	var newContent bytes.Buffer
 
 	if !lic {
 		if isShebangLine(firstLine) {
-			newContent.Write([]byte(firstLine + "\n\n"))
-			newContent.Write([]byte(license))
-			newContent.Write([]byte(restOfFile))
-			//newContent = append([]byte(firstLine+"\n"), append([]byte(license), restOfFile...)...)
+			newContent.Write([]byte(firstLine + "\n\n" + license + restOfFile))
 		} else {
-			newContent.Write([]byte(license))
-			newContent.Write([]byte(restOfFile))
-			//newContent.Write([]byte(firstLine + "\n"))
-			//newContent = append([]byte(license), append([]byte(firstLine+"\n"), restOfFile...)...)
-			//newContent = append([]byte(license), append([]byte(firstLine+"\n"), restOfFile...)...)
+			newContent.Write([]byte(license + restOfFile))
 		}
 	} else {
 		return message
@@ -105,10 +91,8 @@ func addLicenseToFile(filePath, license string) Message {
 	err = os.WriteFile(filePath, newContent.Bytes(), 0644)
 
 	if err != nil {
-		message = NewError(filepath.Base(filePath), "Failed to write file", err.Error())
-		return message
+		return NewError(filepath.Base(filePath), "Failed to write file", err.Error())
 	}
 
 	return NewAdd(filepath.Base(filePath))
-	//return os.WriteFile(filePath, newContent, 0644)
 }
