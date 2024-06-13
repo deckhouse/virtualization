@@ -169,7 +169,7 @@ func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state 
 			vmopStatus.FailureMessage = result.Message()
 		}
 	}
-	if state.IsInProgress() && r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
+	if !state.VmIsEmpty() && state.IsInProgress() && r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
 		vmopStatus.Phase = virtv2.VMOPPhaseCompleted
 	}
 	state.VMOP.Changed().Status = *vmopStatus
