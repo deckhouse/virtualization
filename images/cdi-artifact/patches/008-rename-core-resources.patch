@@ -121,7 +121,7 @@ index 71b2fa0f7..bf45a6480 100644
 +	return utils.ResourceBuilder.CreateClusterRole(cronJobWrapName, getCronJobClusterPolicyRules())
  }
 diff --git a/pkg/operator/resources/cluster/rbac.go b/pkg/operator/resources/cluster/rbac.go
-index 264b83891..786a4f501 100644
+index 264b83891..a2a968b41 100644
 --- a/pkg/operator/resources/cluster/rbac.go
 +++ b/pkg/operator/resources/cluster/rbac.go
 @@ -26,11 +26,11 @@ import (
@@ -133,11 +133,11 @@ index 264b83891..786a4f501 100644
 -		utils.ResourceBuilder.CreateAggregateClusterRole("cdi.kubevirt.io:view", "view", getViewPolicyRules()),
 -		createConfigReaderClusterRole("cdi.kubevirt.io:config-reader"),
 -		createConfigReaderClusterRoleBinding("cdi.kubevirt.io:config-reader"),
-+		utils.ResourceBuilder.CreateAggregateClusterRole("cdi-internal-virtualization:admin", "admin", getAdminPolicyRules()),
-+		utils.ResourceBuilder.CreateAggregateClusterRole("cdi-internal-virtualization:edit", "edit", getEditPolicyRules()),
-+		utils.ResourceBuilder.CreateAggregateClusterRole("cdi-internal-virtualization:view", "view", getViewPolicyRules()),
-+		createConfigReaderClusterRole("cdi-internal-virtualization:config-reader"),
-+		createConfigReaderClusterRoleBinding("cdi-internal-virtualization:config-reader"),
++		utils.ResourceBuilder.CreateAggregateClusterRole("cdi.internal.virtualization.deckhouse.io:admin", "admin", getAdminPolicyRules()),
++		utils.ResourceBuilder.CreateAggregateClusterRole("cdi.internal.virtualization.deckhouse.io:edit", "edit", getEditPolicyRules()),
++		utils.ResourceBuilder.CreateAggregateClusterRole("cdi.internal.virtualization.deckhouse.io:view", "view", getViewPolicyRules()),
++		createConfigReaderClusterRole("cdi.internal.virtualization.deckhouse.io:config-reader"),
++		createConfigReaderClusterRoleBinding("cdi.internal.virtualization.deckhouse.io:config-reader"),
  	}
  }
  

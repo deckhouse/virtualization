@@ -36,7 +36,7 @@ index 6ac36d99b..d7bfbd010 100644
  globalDefault: false
  description: "This priority class should be used for core kubevirt components only."
 diff --git a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
-index 228518871..0796b1877 100644
+index 228518871..55ce72b6c 100644
 --- a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
 +++ b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
 @@ -485,7 +485,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
@@ -44,7 +44,7 @@ index 228518871..0796b1877 100644
  				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
  			},
 -			GenerateName: "kubevirt-disruption-budget-",
-+			GenerateName: "virtualization-disruption-budget-",
++			GenerateName: "kubevirt-internal-virtualization-disruption-budget-",
 +			Labels: map[string]string{
 +				virtv1.VirtualMachineNameLabel: vmi.GetName(),
 +			},
@@ -118,7 +118,7 @@ index 932f7391e..76c79d452 100644
  				virtv1.AppLabel: "",
  			},
 diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
-index 6ba13c849..3d69923b8 100644
+index 6ba13c849..a178aea39 100644
 --- a/pkg/virt-operator/resource/generate/rbac/cluster.go
 +++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
 @@ -37,7 +37,7 @@ const (
@@ -126,7 +126,7 @@ index 6ba13c849..3d69923b8 100644
  	GroupNameInstancetype  = "instancetype.kubevirt.io"
  	GroupNamePool          = "pool.kubevirt.io"
 -	NameDefault            = "kubevirt.io:default"
-+	NameDefault            = "virtualization.internal.kubevirt.io:default"
++	NameDefault            = "kubevirt.internal.virtualization.deckhouse.io:default"
  	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
  	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
  	VMInstancesUserList    = "virtualmachineinstances/userlist"
