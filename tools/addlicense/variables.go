@@ -22,7 +22,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 `, time.Now().Year())
 
-var goLicense = "/*" + licenseText + " */\n\n"
+var goLicense = "/*\n" + licenseText + "*/\n\n"
 var bashPythonLicense = "\n# " + strings.ReplaceAll(strings.TrimSpace(licenseText), "\n", "\n# ") + "\n\n"
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
