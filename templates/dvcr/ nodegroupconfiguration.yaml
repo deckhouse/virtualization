@@ -11,7 +11,7 @@ metadata:
   name: containerd-dvcr-config.sh
   {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr" )) | nindent 2 }}
 spec:
-  weight: 49
+  weight: 31
   nodeGroups: ["*"]
   bundles: ["*"]
   content: |
@@ -28,7 +28,7 @@ spec:
     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     # See the License for the specific language governing permissions and
     # limitations under the License.
-    
+
     mkdir -p /etc/containerd/conf.d
     bb-event-on 'registry-ca-changed' '_restart_containerd'
     bb-event-on 'containerd-config-changed' '_restart_containerd'
