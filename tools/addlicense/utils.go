@@ -25,13 +25,7 @@ func getLicenseForFile(filePath string) string {
 	switch filepath.Ext(filePath) {
 	case ".go":
 		return goLicense
-	case ".sh":
-		fallthrough
-	case ".py":
-		fallthrough
-	case ".bash":
-		fallthrough
-	case ".zsh":
+	case ".py", ".sh", ".bash", ".zsh":
 		return bashPythonLicense
 	default:
 		return ""
