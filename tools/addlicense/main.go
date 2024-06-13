@@ -36,7 +36,11 @@ func main() {
 			return nil
 		}
 
-		if fileToCheckRe.MatchString(filePath) && !fileToSkipRe.MatchString(filePath) {
+		if fileToSkipRe.MatchString(filePath) {
+			return nil
+		}
+
+		if fileToCheckRe.MatchString(filePath) {
 			lic := getLicenseForFile(filePath)
 			msg := addLicenseToFile(filePath, lic)
 			msgs.Add(msg)
