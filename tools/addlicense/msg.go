@@ -1,10 +1,28 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import "fmt"
 
-const TypeAdd = "Add"
-const TypeSkip = "Skip"
-const TypeError = "ERROR"
+const (
+	TypeAdd   = "Add"
+	TypeSkip  = "Skip"
+	TypeError = "ERROR"
+)
 
 type Message struct {
 	Type     string
@@ -20,7 +38,7 @@ func NewAdd(fileName string) Message {
 	}
 }
 
-func NewSkip(fileName string, msg string) Message {
+func NewSkip(fileName, msg string) Message {
 	return Message{
 		Type:     TypeSkip,
 		FileName: fileName,
@@ -28,7 +46,7 @@ func NewSkip(fileName string, msg string) Message {
 	}
 }
 
-func NewError(fileName string, msg string, details string) Message {
+func NewError(fileName, msg, details string) Message {
 	return Message{
 		Type:     TypeError,
 		FileName: fileName,
