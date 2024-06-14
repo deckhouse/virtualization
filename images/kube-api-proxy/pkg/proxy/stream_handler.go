@@ -103,15 +103,20 @@ func (s *StreamHandler) proxy() {
 			s.log.Warn(fmt.Sprintf("unable to decode to metav1.Event: res=%#v, got=%#v", res, got))
 			// There is nothing to send to the client: no event decoded.
 		} else {
-			rwrEvent = s.transformWatchEvent(&got)
+			rwrEvent, err = s.transformWatchEvent(&got)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("Watch event '%s': transform error", got.Type), logutil.SlogErr(err))
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
+			}
 			if rwrEvent == nil {
 				// No rewrite, pass original event as-is.
 				rwrEvent = &got
 			} else {
 				// Log changes after rewrite.
-				logutil.DebugBodyChanges(s.log, "Watch event", "", got.Object.Raw, rwrEvent.Object.Raw)
+				logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.OrigResourceType(), got.Object.Raw, rwrEvent.Object.Raw)
 			}
 			// Pass event to the client.
+			logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.OrigResourceType(), rwrEvent.Object.Raw)
 			s.writeEvent(rwrEvent)
 		}
 
@@ -165,12 +170,11 @@ func (s *StreamHandler) createWatchDecoder(contentType string) (streaming.Decode
 	return streamingDecoder, nil
 }
 
-func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) *metav1.WatchEvent {
+func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.WatchEvent, error) {
 	switch ev.Type {
 	case string(watch.Added), string(watch.Modified), string(watch.Deleted), string(watch.Error), string(watch.Bookmark):
 	default:
-		s.log.Error(fmt.Sprintf("got invalid watch event type: %v", ev.Type))
-		return nil
+		return nil, fmt.Errorf("got unknown type: %v", ev.Type)
 	}
 
 	group := gjson.GetBytes(ev.Object.Raw, "apiVersion").String()
@@ -181,16 +185,14 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) *metav1.Watch
 	// TODO add pass-as-is for non rewritable objects.
 	if group == "" && kind == "" {
 		// Object in event is undetectable, pass this event as-is.
-		s.log.Error(fmt.Sprintf("Watch event: got object without apiVersion and kind, pass as-is"))
-		return nil
+		return nil, fmt.Errorf("object has no apiVersion and kind")
 	}
 	s.log.Debug(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", ev.Type, group, kind, ns, name))
 
 	// Restore object in the event. Watch responses are always from the Kubernetes API server, so rename is not needed.
 	rwrObjBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
 	if err != nil {
-		s.log.Error(fmt.Sprintf("Watch event: rewrite error for '%s'", ev.Type), logutil.SlogErr(err))
-		return nil
+		return nil, fmt.Errorf("error rewriting object: %w", err)
 	}
 
 	// Prepare rewritten event bytes.
@@ -199,7 +201,7 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) *metav1.Watch
 		Object: runtime.RawExtension{
 			Raw: rwrObjBytes,
 		},
-	}
+	}, nil
 }
 
 func (s *StreamHandler) writeEvent(ev *metav1.WatchEvent) {

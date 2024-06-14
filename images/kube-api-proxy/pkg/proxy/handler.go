@@ -86,8 +86,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if targetReq.ShouldRewriteResponse() {
 		rwrResp = "RESP"
 	}
-	if targetReq.Path() != req.URL.Path {
-		logger.Info(fmt.Sprintf("%s [%s,%s] %s -> %s", req.Method, rwrReq, rwrResp, req.URL.String(), targetReq.Path()))
+	if targetReq.Path() != req.URL.Path || targetReq.RawQuery() != req.URL.RawQuery {
+		logger.Info(fmt.Sprintf("%s [%s,%s] %s -> %s", req.Method, rwrReq, rwrResp, req.URL.RequestURI(), targetReq.RequestURI()))
 	} else {
 		logger.Info(fmt.Sprintf("%s [%s,%s] %s", req.Method, rwrReq, rwrResp, req.URL.String()))
 	}
@@ -144,14 +144,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// TODO handle resp.Status 3xx, 4xx, 5xx, etc.
 
-	logutil.DebugBodyChanges(logger, "Request", resource, origRequestBytes, rwrRequestBytes)
+	if req.Method == http.MethodPatch {
+		logutil.DebugBodyHead(logger, "Request PATCH", "patch", origRequestBytes)
+		if len(rwrRequestBytes) > 0 {
+			logutil.DebugBodyChanges(logger, "Request PATCH", "patch", origRequestBytes, rwrRequestBytes)
+		}
+	} else {
+		logutil.DebugBodyChanges(logger, "Request", resource, origRequestBytes, rwrRequestBytes)
+	}
 
 	// Step 5. Handle response: pass through, transform resp.Body, or run stream transformer.
 
 	if !targetReq.ShouldRewriteResponse() {
 		// Pass response as-is without rewriting.
-		logger.Debug(fmt.Sprintf("Response decision: PASS, Status %s, Headers %+v", resp.Status, resp.Header))
-		passResponse(w, resp, logger)
+		if targetReq.IsWatch() {
+			logger.Debug(fmt.Sprintf("Response decision: PASS STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
+		} else {
+			logger.Debug(fmt.Sprintf("Response decision: PASS, Status %s, Headers %+v", resp.Status, resp.Header))
+		}
+		passResponse(targetReq, w, resp, logger)
 		return
 	}
 
@@ -222,14 +233,17 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	var rwrBodyBytes []byte
 	var err error
 
-	// Rewrite incoming payload, e.g. create, put, etc.
-	if targetReq.ShouldRewriteRequest() && req.Body != nil {
-		// Read whole request body to rewrite.
+	hasPayload := req.Body != nil
+
+	if hasPayload {
 		origBodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, nil, fmt.Errorf("read request body: %w", err)
 		}
+	}
 
+	// Rewrite incoming payload, e.g. create, put, etc.
+	if targetReq.ShouldRewriteRequest() && hasPayload {
 		switch req.Method {
 		case http.MethodPatch:
 			rwrBodyBytes, err = h.Rewriter.RewritePatch(targetReq, origBodyBytes)
@@ -292,23 +306,33 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	return origBodyBytes, rwrBodyBytes, nil
 }
 
-func passResponse(w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
 
-	if logger.Enabled(nil, slog.LevelDebug) && resp.StatusCode != http.StatusOK {
-		resp.Body = logutil.NewReaderLogger(resp.Body)
+	dst := &immediateWriter{dst: w}
+
+	if logger.Enabled(nil, slog.LevelDebug) {
+		if targetReq.IsWatch() {
+			dst.chunkFn = func(chunk []byte) {
+				logger.Debug(fmt.Sprintf("Pass through response chunk: %s", string(chunk)))
+			}
+		} else {
+			resp.Body = logutil.NewReaderLogger(resp.Body)
+		}
 	}
 
-	dst := &immediateWriter{dst: w}
 	_, err := io.Copy(dst, resp.Body)
 	if err != nil {
-		logger.Error(fmt.Sprintf("copy response: %v", err))
+		logger.Error(fmt.Sprintf("copy target response back to client: %v", err))
 	}
 
-	if logger.Enabled(nil, slog.LevelDebug) && logutil.HasData(resp.Body) {
-		limit := 1024
-		logger.Debug(fmt.Sprintf("Pass through non 200 response: status %d, body: %s", resp.StatusCode, logutil.HeadStringEx(resp.Body, limit)))
+	if logger.Enabled(nil, slog.LevelDebug) && !targetReq.IsWatch() {
+		logutil.DebugBodyHead(logger,
+			fmt.Sprintf("Pass through response: status %d, content-length: '%s'", resp.StatusCode, resp.Header.Get("Content-Length")),
+			"",
+			logutil.Bytes(resp.Body),
+		)
 	}
 
 	return
@@ -323,7 +347,7 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "application/json") {
 		logger.Warn(fmt.Sprintf("Will not transform non JSON response from target: Content-type=%s", contentType))
-		passResponse(w, resp, logger)
+		passResponse(targetReq, w, resp, logger)
 		return
 	}
 
@@ -392,11 +416,16 @@ func (h *Handler) transformStream(targetReq *rewriter.TargetRequest, w http.Resp
 }
 
 type immediateWriter struct {
-	dst io.Writer
+	dst     io.Writer
+	chunkFn func([]byte)
 }
 
 func (iw *immediateWriter) Write(p []byte) (n int, err error) {
 	n, err = iw.dst.Write(p)
+
+	if iw.chunkFn != nil {
+		iw.chunkFn(p)
+	}
 
 	if flusher, ok := iw.dst.(http.Flusher); ok {
 		flusher.Flush()

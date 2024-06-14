@@ -57,3 +57,11 @@ func HasData(obj interface{}) bool {
 	}
 	return readLog.buf.Len() > 0
 }
+
+func Bytes(obj interface{}) []byte {
+	readLog, ok := obj.(*ReaderLogger)
+	if !ok {
+		return nil
+	}
+	return readLog.buf.Bytes()
+}

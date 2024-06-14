@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	jd "github.com/josephburnett/jd/lib"
+	"github.com/tidwall/gjson"
 )
 
 // DebugBodyChanges logs debug message with diff between 2 bodies.
@@ -39,11 +40,18 @@ func DebugBodyChanges(logger *slog.Logger, msg string, resourceType string, inBy
 		DebugBodyHead(logger, msg, resourceType, rwrBytes)
 		return
 	}
-	logger.Debug(fmt.Sprintf("%s: changes after rewrite", msg), BodyDiff(diffContent))
+
+	// TODO pass ns/name as arguments for patches.
+	apiVersion := gjson.GetBytes(inBytes, "apiVersion")
+	kind := gjson.GetBytes(inBytes, "kind")
+	ns := gjson.GetBytes(inBytes, "metadata.namespace")
+	name := gjson.GetBytes(inBytes, "metadata.name")
+	logger.Debug(fmt.Sprintf("%s: changes after rewrite for %s/%s/%s/%s", msg, ns, apiVersion, kind, name), BodyDiff(diffContent))
 }
 
+// DebugBodyHead logs head of input slice.
 func DebugBodyHead(logger *slog.Logger, msg, resourceType string, obj []byte) {
-	limit := 512
+	limit := 1024
 	switch resourceType {
 	case "virtualmachines",
 		"virtualmachines/status",
@@ -54,6 +62,9 @@ func DebugBodyHead(logger *slog.Logger, msg, resourceType string, obj []byte) {
 		"clusterrolebindings",
 		"customresourcedefinitions":
 		limit = 32000
+	}
+	if resourceType == "patch" {
+		limit = len(obj)
 	}
 	logger.Debug(fmt.Sprintf("%s: dump rewritten body", msg), BodyDump(headBytes(obj, limit)))
 }
