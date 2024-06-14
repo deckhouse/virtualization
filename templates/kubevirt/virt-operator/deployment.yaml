@@ -25,7 +25,7 @@ kind: VerticalPodAutoscaler
 metadata:
   name: virt-operator
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "kubevirt.io" "virt-operator" "workload-resource-policy.deckhouse.io" "master")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "kubevirt.internal.virtualization.deckhouse.io" "virt-operator" "workload-resource-policy.deckhouse.io" "master")) | nindent 2 }}
 spec:
   targetRef:
     apiVersion: "apps/v1"
@@ -69,12 +69,14 @@ spec:
   selector:
     matchLabels:
       app: virt-operator
-      kubevirt.io: virt-operator
+      kubevirt.internal.virtualization.deckhouse.io: virt-operator
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: virt-operator
       labels:
         app: virt-operator
-        kubevirt.io: virt-operator
+        kubevirt.internal.virtualization.deckhouse.io: virt-operator
       name: virt-operator
     spec:
       affinity:
@@ -83,7 +85,7 @@ spec:
           - podAffinityTerm:
               labelSelector:
                 matchExpressions:
-                - key: kubevirt.io
+                - key: kubevirt.internal.virtualization.deckhouse.io
                   operator: In
                   values:
                   - virt-operator
@@ -119,6 +121,7 @@ spec:
             value: "/etc/virt-operator/certificates/tls.crt"
           - name: WEBHOOK_KEY_FILE
             value: "/etc/virt-operator/certificates/tls.key"
+          {{- include "kube_api_rewriter.env" . | nindent 10 }}
         volumeMounts:
           - mountPath: /etc/virt-operator/certificates
             name: kubevirt-operator-certs

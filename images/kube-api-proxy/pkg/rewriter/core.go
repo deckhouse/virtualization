@@ -16,18 +16,100 @@ limitations under the License.
 
 package rewriter
 
+import (
+	"github.com/tidwall/gjson"
+)
+
 const (
-	PodKind     = "Pod"
-	PodListKind = "PodList"
+	PodKind                       = "Pod"
+	PodListKind                   = "PodList"
+	ServiceKind                   = "Service"
+	ServiceListKind               = "ServiceList"
+	JobKind                       = "Job"
+	JobListKind                   = "JobList"
+	PersistentVolumeClaimKind     = "PersistentVolumeClaim"
+	PersistentVolumeClaimListKind = "PersistentVolumeClaimList"
 )
 
 func RewritePodOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, PodListKind, func(singleObj []byte) ([]byte, error) {
-			return RewriteMapOfStrings(singleObj, "spec.nodeSelector", rules.RenameLabels)
-		})
-	}
 	return RewriteResourceOrList(obj, PodListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteMapOfStrings(singleObj, "spec.nodeSelector", rules.RestoreLabels)
+		singleObj, err := RewriteLabelsMap(rules, singleObj, "spec.nodeSelector", action)
+		if err != nil {
+			return nil, err
+		}
+		return RewriteAffinity(rules, singleObj, "spec.affinity", action)
+	})
+}
+
+func RewriteServiceOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	return RewriteResourceOrList(obj, ServiceListKind, func(singleObj []byte) ([]byte, error) {
+		return RewriteLabelsMap(rules, singleObj, "spec.selector", action)
+	})
+}
+
+// RewriteJobOrList transforms known fields in the Job manifest.
+func RewriteJobOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	return RewriteResourceOrList(obj, JobListKind, func(singleObj []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
+	})
+}
+
+// RewritePVCOrList transforms known fields in the PersistentVolumeClaim manifest.
+func RewritePVCOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	return RewriteResourceOrList(obj, PersistentVolumeClaimListKind, func(singleObj []byte) ([]byte, error) {
+		singleObj, err := TransformObject(singleObj, "spec.dataSource", func(specDataSource []byte) ([]byte, error) {
+			return RewriteAPIGroupAndKind(rules, specDataSource, action)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return TransformObject(singleObj, "spec.dataSourceRef", func(specDataSourceRef []byte) ([]byte, error) {
+			return RewriteAPIGroupAndKind(rules, specDataSourceRef, action)
+		})
+	})
+}
+
+func RenameServicePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameMetadataPatch(rules, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	// Also rename patch on spec field.
+	return TransformPatch(obj, nil, func(jsonPatch []byte) ([]byte, error) {
+		path := gjson.GetBytes(jsonPatch, "path").String()
+		switch path {
+		case "/spec":
+			return RewriteLabelsMap(rules, jsonPatch, "value.selector", Rename)
+		}
+		return jsonPatch, nil
+	})
+}
+
+func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	var err error
+	kind := gjson.GetBytes(obj, "kind").String()
+
+	obj, err = TransformString(obj, "kind", func(field string) string {
+		if action == Rename {
+			return rules.RenameKind(field)
+		}
+		return rules.RestoreKind(field)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return TransformString(obj, "apiGroup", func(apiGroup string) string {
+		if action == Rename {
+			return rules.RenamedGroup
+		}
+		// Renamed to original is a one-to-many relation, so we
+		// need an original kind to get proper group for Restore action.
+		groupRule, _ := rules.KindRules(apiGroup, rules.RestoreKind(kind))
+		if groupRule == nil {
+			return apiGroup
+		}
+		return groupRule.Group
 	})
 }

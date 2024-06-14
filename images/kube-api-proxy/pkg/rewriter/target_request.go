@@ -157,7 +157,7 @@ func (tr *TargetRequest) ShouldRewriteRequest() bool {
 				return true
 			}
 
-			return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
+			return shouldRewriteResource(tr.originEndpoint.ResourceType)
 		}
 	}
 
@@ -203,7 +203,7 @@ func (tr *TargetRequest) ShouldRewriteResponse() bool {
 		return true
 	}
 
-	return shouldRewriteResource(tr.originEndpoint.ResourceType, tr.originEndpoint.IsCore)
+	return shouldRewriteResource(tr.originEndpoint.ResourceType)
 }
 
 func (tr *TargetRequest) ResourceForLog() string {
@@ -268,24 +268,15 @@ func (tr *TargetRequest) ResourceForLog() string {
 	return "UNKNOWN"
 }
 
-func shouldRewriteResource(kind string, isCore bool) bool {
-	// Some core resources should be rewritten.
-	if isCore {
-		switch kind {
-		case "pods",
-			"configmaps",
-			"secrets",
-			"services",
-			"serviceaccounts":
-
-			return true
-		}
-		return false
-	}
-
-	// Rewrite special resources.
-	switch kind {
-	case "mutatingwebhookconfigurations",
+func shouldRewriteResource(resourceType string) bool {
+	switch resourceType {
+	case "nodes",
+		"pods",
+		"configmaps",
+		"secrets",
+		"services",
+		"serviceaccounts",
+		"mutatingwebhookconfigurations",
 		"validatingwebhookconfigurations",
 		"clusterroles",
 		"roles",
@@ -294,6 +285,10 @@ func shouldRewriteResource(kind string, isCore bool) bool {
 		"deployments",
 		"statefulsets",
 		"daemonsets",
+		"jobs",
+		"persistentvolumeclaims",
+		"prometheusrules",
+		"servicemonitors",
 		"poddisruptionbudgets",
 		"controllerrevisions",
 		"apiservices":

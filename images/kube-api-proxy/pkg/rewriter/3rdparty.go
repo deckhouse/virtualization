@@ -16,13 +16,17 @@ limitations under the License.
 
 package rewriter
 
+// Rewrite routines for 3rd party resources, i.e. ServiceMonitor.
+
 const (
-	PodDisruptionBudgetKind     = "PodDisruptionBudget"
-	PodDisruptionBudgetListKind = "PodDisruptionBudgetList"
+	PrometheusRuleKind     = "PrometheusRule"
+	PrometheusRuleListKind = "PrometheusRuleList"
+	ServiceMonitorKind     = "ServiceMonitor"
+	ServiceMonitorListKind = "ServiceMonitorList"
 )
 
-func RewritePDBOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, PodDisruptionBudgetListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteLabelsMap(rules, singleObj, "spec.selector", action)
+func RewriteServiceMonitorOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	return TransformObject(obj, "spec.selector", func(obj []byte) ([]byte, error) {
+		return rewriteLabelSelector(rules, obj, action)
 	})
 }

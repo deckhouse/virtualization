@@ -16,6 +16,8 @@ limitations under the License.
 
 package rewriter
 
+import "github.com/tidwall/gjson"
+
 const (
 	DeploymentKind      = "Deployment"
 	DeploymentListKind  = "DeploymentList"
@@ -26,58 +28,64 @@ const (
 )
 
 func RewriteDeploymentOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, DeploymentListKind, renameSpecLabelsAnno(rules))
-	}
-	return RewriteResourceOrList(obj, DeploymentListKind, restoreSpecLabelsAnno(rules))
+	return RewriteResourceOrList(obj, DeploymentListKind, func(singleObj []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
+	})
 }
 
 func RewriteDaemonSetOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, DaemonSetListKind, renameSpecLabelsAnno(rules))
-	}
-	return RewriteResourceOrList(obj, DaemonSetListKind, restoreSpecLabelsAnno(rules))
+	return RewriteResourceOrList(obj, DaemonSetListKind, func(singleObj []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
+	})
 }
 
 func RewriteStatefulSetOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, StatefulSetListKind, renameSpecLabelsAnno(rules))
-	}
-	return RewriteResourceOrList(obj, StatefulSetListKind, restoreSpecLabelsAnno(rules))
+	return RewriteResourceOrList(obj, StatefulSetListKind, func(singleObj []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
+	})
 }
 
-func renameSpecLabelsAnno(rules *RewriteRules) func(singleObj []byte) ([]byte, error) {
-	return func(singleObj []byte) ([]byte, error) {
-		singleObj, err := RewriteMapOfStrings(singleObj, "spec.template.metadata.labels", rules.RenameLabels)
-		if err != nil {
-			return nil, err
-		}
-		singleObj, err = RewriteMapOfStrings(singleObj, "spec.selector.matchLabels", rules.RenameLabels)
-		if err != nil {
-			return nil, err
-		}
-		singleObj, err = RewriteMapOfStrings(singleObj, "spec.template.spec.nodeSelector", rules.RenameLabels)
-		if err != nil {
-			return nil, err
-		}
-		return RewriteMapOfStrings(singleObj, "spec.template.metadata.annotations", rules.RenameAnnotations)
+func RenameSpecTemplatePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameMetadataPatch(rules, obj)
+	if err != nil {
+		return nil, err
 	}
+
+	return TransformPatch(obj, func(mergePatch []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rules, mergePatch, "spec", Rename)
+	}, func(jsonPatch []byte) ([]byte, error) {
+		path := gjson.GetBytes(jsonPatch, "path").String()
+		if path == "/spec" {
+			return RewriteSpecTemplateLabelsAnno(rules, jsonPatch, "value", Rename)
+		}
+		return jsonPatch, nil
+	})
 }
 
-func restoreSpecLabelsAnno(rules *RewriteRules) func(singleObj []byte) ([]byte, error) {
-	return func(singleObj []byte) ([]byte, error) {
-		singleObj, err := RewriteMapOfStrings(singleObj, "spec.template.metadata.labels", rules.RestoreLabels)
+// RewriteSpecTemplateLabelsAnno transforms labels and annotations in spec fields:
+// - selector as LabelSelector
+// - template.metadata.labels as labels map
+// - template.metadata.annotations as annotations map
+// - template.affinity as Affinity
+// - template.nodeSelector as labels map.
+func RewriteSpecTemplateLabelsAnno(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
+	return TransformObject(obj, path, func(obj []byte) ([]byte, error) {
+		obj, err := RewriteLabelsMap(rules, obj, "template.metadata.labels", action)
 		if err != nil {
 			return nil, err
 		}
-		singleObj, err = RewriteMapOfStrings(singleObj, "spec.selector.matchLabels", rules.RestoreLabels)
+		obj, err = RewriteLabelsMap(rules, obj, "selector.matchLabels", action)
 		if err != nil {
 			return nil, err
 		}
-		singleObj, err = RewriteMapOfStrings(singleObj, "spec.template.spec.nodeSelector", rules.RestoreLabels)
+		obj, err = RewriteLabelsMap(rules, obj, "template.spec.nodeSelector", action)
 		if err != nil {
 			return nil, err
 		}
-		return RewriteMapOfStrings(singleObj, "spec.template.metadata.annotations", rules.RestoreAnnotations)
-	}
+		obj, err = RewriteAffinity(rules, obj, "template.spec.affinity", action)
+		if err != nil {
+			return nil, err
+		}
+		return RewriteAnnotationsMap(rules, obj, "template.metadata.annotations", action)
+	})
 }

@@ -34,5 +34,5 @@ spec:
     - d8-{{ .Chart.Name }}
   selector:
     matchLabels:
-      prometheus.kubevirt.io: "true"
+      prometheus.kubevirt.internal.virtualization.deckhouse.io: "true"
 {{- end }}

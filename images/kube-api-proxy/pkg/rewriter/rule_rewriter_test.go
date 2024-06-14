@@ -82,19 +82,20 @@ func createTestRewriter() *RuleBasedRewriter {
 		Rules:              apiGroupRules,
 		Labels: MetadataReplace{
 			Prefixes: []MetadataReplaceRule{
-				{Old: "original.prefix", New: "rewrite.prefix"},
+				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
+				{Original: "component.labelgroup.io", Renamed: "component.replacedlabelgroup.io"},
 			},
 			Names: []MetadataReplaceRule{
-				{Old: "original.label.io", New: "rewrite.label.io"},
+				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
 			},
 		},
 		Annotations: MetadataReplace{
 			Names: []MetadataReplaceRule{
-				{Old: "original.annotation.io", New: "rewrite.annotation.io"},
+				{Original: "annogroup.io", Renamed: "replacedanno.io"},
 			},
 		},
 	}
-	rules.Complete()
+	rules.Init()
 	return &RuleBasedRewriter{
 		Rules: rules,
 	}
@@ -105,7 +106,7 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 		name        string
 		path        string
 		expectPath  string
-		exepctQuery string
+		expectQuery string
 	}{
 		{
 			"rewritable group",
@@ -144,10 +145,34 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			"",
 		},
 		{
-			"rewritable labelSelector",
-			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=original.label.io%3Dlabelvalue&limit=500",
+			"labelSelector one label name",
+			"/api/v1/namespaces/nsname/pods?labelSelector=labelgroup.io&limit=0",
+			"/api/v1/namespaces/nsname/pods",
+			"labelSelector=replacedlabelgroup.io&limit=0",
+		},
+		{
+			"labelSelector one prefixed label",
+			"/api/v1/pods?labelSelector=labelgroup.io%2Fsome-attr&limit=500",
+			"/api/v1/pods",
+			"labelSelector=replacedlabelgroup.io%2Fsome-attr&limit=500",
+		},
+		{
+			"labelSelector label name and value",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io%3Dlabelvalue&limit=500",
 			"/api/v1/namespaces/d8-virtualization/pods",
-			"labelSelector=rewrite.label.io%3Dlabelvalue&limit=500",
+			"labelSelector=replacedlabelgroup.io%3Dlabelvalue&limit=500",
+		},
+		{
+			"labelSelector prefixed label and value",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=component.labelgroup.io%2Fsome-attr%3Dlabelvalue&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=component.replacedlabelgroup.io%2Fsome-attr%3Dlabelvalue&limit=500",
+		},
+		{
+			"labelSelector label name not in values",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io+notin+%28value-one%2Cvalue-two%29&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=replacedlabelgroup.io+notin+%28value-one%2Cvalue-two%29&limit=500",
 		},
 	}
 
@@ -164,10 +189,10 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			if tt.expectPath == "" {
 				require.Nil(t, newEp, "should not rewrite path '%s', got %+v", tt.path, newEp)
 			}
-			require.NotNil(t, newEp, "should rewrite path '%s', got nil originEndpoint")
+			require.NotNil(t, newEp, "should rewrite path '%s', got nil endpoint. Original ep: %#v", ep)
 
-			require.Equal(t, tt.expectPath, newEp.Path(), "expect rewrite for path '%s' to be '%s', got '%s'", tt.path, tt.expectPath, ep.Path())
-			require.Equal(t, tt.exepctQuery, newEp.RawQuery, "expect rewrite query for path %q to be '%s', got '%s'", tt.path, tt.exepctQuery, ep.RawQuery)
+			require.Equal(t, tt.expectPath, newEp.Path(), "expect rewrite for path '%s' to be '%s', got '%s', newEp: %#v", tt.path, tt.expectPath, newEp.Path(), newEp)
+			require.Equal(t, tt.expectQuery, newEp.RawQuery, "expect rewrite query for path %q to be '%s', got '%s', newEp: %#v", tt.path, tt.expectQuery, newEp.RawQuery, newEp)
 		})
 	}
 

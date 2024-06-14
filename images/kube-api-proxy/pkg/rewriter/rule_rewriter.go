@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RuleBasedRewriter struct {
@@ -157,23 +158,39 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 	if lsq == "" {
 		return rawQuery
 	}
-	listLabels := strings.Split(lsq, ",")
-	labels := make(map[string]string, len(listLabels))
-	for _, l := range listLabels {
-		ll := strings.Split(l, "=")
-		if (len(ll)>1) {
-			labels[ll[0]] = ll[1]
-		} else {
-			labels[ll[0]] = ""
-		}
+
+	labelSelector, err := metav1.ParseToLabelSelector(lsq)
+	if err != nil {
+		// The labelSelector is not well-formed. We pass it through, so
+		// API Server will return an error.
+		return rawQuery
 	}
-	labels = rw.Rules.RenameLabels(labels)
-	count := 0
-	for k, v := range labels {
-		listLabels[count] = k + "=" + v
-		count++
+
+	// Return early if labelSelector is empty, e.g. ?labelSelector=&limit=500
+	if labelSelector == nil {
+		return rawQuery
 	}
-	q.Set("labelSelector", strings.Join(listLabels, ","))
+
+	rwrMatchLabels := rw.Rules.LabelsRewriter().RenameMap(labelSelector.MatchLabels)
+
+	rwrMatchExpressions := make([]metav1.LabelSelectorRequirement, 0)
+	for _, expr := range labelSelector.MatchExpressions {
+		rwrExpr := expr
+		rwrExpr.Key = rw.Rules.LabelsRewriter().Rename(rwrExpr.Key)
+		rwrMatchExpressions = append(rwrMatchExpressions, rwrExpr)
+	}
+
+	rwrLabelSelector := &metav1.LabelSelector{
+		MatchLabels:      rwrMatchLabels,
+		MatchExpressions: rwrMatchExpressions,
+	}
+
+	res, err := metav1.LabelSelectorAsSelector(rwrLabelSelector)
+	if err != nil {
+		return rawQuery
+	}
+
+	q.Set("labelSelector", res.String())
 	return q.Encode()
 }
 
@@ -238,10 +255,20 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteStatefulSetOrList(rw.Rules, obj, action)
 	case DaemonSetKind, DaemonSetListKind:
 		rwrBytes, err = RewriteDaemonSetOrList(rw.Rules, obj, action)
-	case PodKind:
+	case PodKind, PodListKind:
 		rwrBytes, err = RewritePodOrList(rw.Rules, obj, action)
-	case PodDisruptionBudgetKind:
+	case PodDisruptionBudgetKind, PodDisruptionBudgetListKind:
 		rwrBytes, err = RewritePDBOrList(rw.Rules, obj, action)
+	case JobKind, JobListKind:
+		rwrBytes, err = RewriteJobOrList(rw.Rules, obj, action)
+	case ServiceKind, ServiceListKind:
+		rwrBytes, err = RewriteServiceOrList(rw.Rules, obj, action)
+	case PersistentVolumeClaimKind, PersistentVolumeClaimListKind:
+		rwrBytes, err = RewritePVCOrList(rw.Rules, obj, action)
+
+	case ServiceMonitorKind, ServiceMonitorListKind:
+		rwrBytes, err = RewriteServiceMonitorOrList(rw.Rules, obj, action)
+
 	default:
 		if targetReq.IsCore() {
 			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
@@ -261,20 +288,11 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		return obj, err
 	}
 
-	rwrBytes, err = RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
-		return RewriteFinalizers(rw.Rules, singleObj, action)
-	})
-	if err != nil {
-		return obj, err
-	}
-
 	if shouldRewriteOwnerReferences(kind) {
 		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
-	}
-
-	// Return obj bytes as-is in case of the error.
-	if err != nil {
-		return obj, err
+		if err != nil {
+			return obj, err
+		}
 	}
 
 	return rwrBytes, nil
@@ -282,18 +300,33 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
-func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) ([]byte, error) {
-	if targetReq.IsCRD() {
-		// Check if CRD is known.
-		_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
-		if resRule == nil {
-			return obj, nil
+func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes []byte) ([]byte, error) {
+	_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
+	if resRule != nil {
+		if targetReq.IsCRD() {
+			return RenameCRDPatch(rw.Rules, resRule, patchBytes)
 		}
-
-		return RenameCRDPatch(rw.Rules, resRule, obj)
+		return RenameResourcePatch(rw.Rules, patchBytes)
 	}
 
-	return obj, nil
+	switch targetReq.OrigResourceType() {
+	case "services":
+		return RenameServicePatch(rw.Rules, patchBytes)
+	case "deployments",
+		"daemonsets",
+		"statefulsets":
+		return RenameSpecTemplatePatch(rw.Rules, patchBytes)
+	case "validatingwebhookconfigurations",
+		"mutatingwebhookconfigurations":
+		return RenameWebhookConfigurationPatch(rw.Rules, patchBytes)
+	case "nodes",
+		"apiservices",
+		"secrets",
+		"configmaps":
+		return RenameMetadataPatch(rw.Rules, patchBytes)
+	}
+
+	return patchBytes, nil
 }
 
 func shouldRewriteOwnerReferences(resourceType string) bool {
@@ -307,10 +340,18 @@ func shouldRewriteOwnerReferences(resourceType string) bool {
 		ClusterRoleBindingKind, ClusterRoleBindingListKind,
 		APIServiceKind, APIServiceListKind,
 		DeploymentKind, DeploymentListKind,
+		DaemonSetKind, DaemonSetListKind,
+		StatefulSetKind, StatefulSetListKind,
+		PodKind, PodListKind,
+		JobKind, JobListKind,
 		ValidatingWebhookConfigurationKind,
 		ValidatingWebhookConfigurationListKind,
 		MutatingWebhookConfigurationKind,
-		MutatingWebhookConfigurationListKind:
+		MutatingWebhookConfigurationListKind,
+		ServiceKind, ServiceListKind,
+		PersistentVolumeClaimKind, PersistentVolumeClaimListKind,
+		PrometheusRuleKind, PrometheusRuleListKind,
+		ServiceMonitorKind, ServiceMonitorListKind:
 		return true
 	}
 
