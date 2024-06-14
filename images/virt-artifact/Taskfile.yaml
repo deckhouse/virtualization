@@ -1,0 +1,58 @@
+version: "3"
+
+silent: true
+
+env:
+  KUBEVIRT_REPO: "https://github.com/kubevirt/kubevirt.git"
+  KUBEVIRT_VERSION: "v1.0.0"
+
+tasks:
+  default:
+    cmds:
+      - task: status
+
+  status:
+    cmds:
+      - |
+        dir=$(find . -type d -name __kubevirt_\* -depth 1 | head -n1)
+
+        if [[ -z $dir ]] ; then
+          echo "KubeVirt not cloned, run 'task patch:new' to start working on a new patch."
+          exit 0
+        fi
+
+        cd $dir
+        git status
+
+  cleanup:
+    cmds:
+      - |
+        find . -type d -name __kubevirt_\* -depth 1
+        read -p "Delete these directories? [y/N] " answer
+
+        if [[ "${answer}" != "${answer#[Yy]}" ]] ; then
+          rm -rf __kubevirt_*
+        fi
+
+  patch:new:
+    desc: "Checkout KubeVirt sources, create temp branch, apply all patches as individual commits"
+    cmds:
+      - |
+        ../../hack/patch_helper.sh --repo ${KUBEVIRT_REPO} \
+          --ref ${KUBEVIRT_VERSION} \
+          --patches-dir ./patches
+
+  patch:edit:
+    desc: "Checkout KubeVirt sources, create temp branch, apply patches with commits, leave specified patch uncommitted"
+    cmds:
+      - |
+        patchName="{{.CLI_ARGS}}"
+        if [[ -z ${patchName} ]] ; then
+          echo "Specify patch name, e.g.: task patch:edit -- 001-feature-name.patch"
+          exit 1
+        fi
+
+        ../../hack/patch_helper.sh --repo ${KUBEVIRT_REPO} \
+          --ref ${KUBEVIRT_VERSION} \
+          --patches-dir ./patches \
+          --stop-at ${patchName}

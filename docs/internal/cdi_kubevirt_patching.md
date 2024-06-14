@@ -18,6 +18,20 @@ cd ../../
 rm -rf tmp/cdi
 ```
 
+### Work with patches
+
+Use task to start working on a new patch:
+
+```bash
+task patch:new
+```
+
+Use task to change an existing patch:
+
+```bash
+task patch:edit -- 006-customizer.patch
+```
+
 
 ### Porting patches to newer version of CDI
 
