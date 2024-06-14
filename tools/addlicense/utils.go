@@ -60,7 +60,7 @@ func checkLicense(fullContent []byte, filePath string) (Message, bool) {
 func addLicenseToFile(filePath, license string) Message {
 	f, err := os.Open(filePath)
 	if err != nil {
-		message := NewError(filepath.Base(filePath), "Error opening file", err.Error())
+		message := NewError(filePath, "Error opening file", err.Error())
 		return message
 	}
 	defer closeFile(f)
@@ -69,7 +69,7 @@ func addLicenseToFile(filePath, license string) Message {
 
 	fullContent, err := io.ReadAll(reader)
 	if err != nil {
-		message := NewError(filepath.Base(filePath), "Failed to read rest of file", err.Error())
+		message := NewError(filePath, "Failed to read rest of file", err.Error())
 		return message
 	}
 
@@ -85,7 +85,10 @@ func addLicenseToFile(filePath, license string) Message {
 			newContent.WriteString(license)
 			newContent.WriteString(restOfFile)
 		} else {
-			newContent.Write([]byte(license + restOfFile))
+			newContent.WriteString(license)
+			newContent.WriteString("\n\n")
+			newContent.WriteString(firstLine)
+			newContent.WriteString(restOfFile)
 		}
 	} else {
 		return message
@@ -94,8 +97,8 @@ func addLicenseToFile(filePath, license string) Message {
 	err = os.WriteFile(filePath, newContent.Bytes(), 0644)
 
 	if err != nil {
-		return NewError(filepath.Base(filePath), "Failed to write file", err.Error())
+		return NewError(filePath, "Failed to write file", err.Error())
 	}
 
-	return NewAdd(filepath.Base(filePath))
+	return NewAdd(filePath)
 }

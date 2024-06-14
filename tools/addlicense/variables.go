@@ -35,7 +35,7 @@ var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.py$|^\.github/(sc
 //   - Directories .github/CODEOWNERS, /docs/
 //   - Filename contains Dockerfile, Makefile, Taskfile, LICENSE
 //   - Ends with geohash.lua, bashrc, inputrc, modules_menu_skip
-var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
+var fileToSkipRe = regexp.MustCompile(`geohash.lua$|.git/|\.
 github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
 |LICENSE$`)
 

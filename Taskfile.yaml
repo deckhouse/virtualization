@@ -77,9 +77,15 @@ tasks:
           sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
 
   dev:addlicense:
-    desc: "Add Flant CE license to files sh,go,py"
+    desc: |-
+      Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
     cmds:
-      - go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
+      - |
+        {{if .CLI_ARGS}}
+          go run tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
+        {{else}}
+          go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
+        {{end}}
 
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."
