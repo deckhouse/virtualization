@@ -80,7 +80,10 @@ func addLicenseToFile(filePath, license string) Message {
 
 	if !lic {
 		if isShebangLine(firstLine) {
-			newContent.Write([]byte(firstLine + "\n\n" + license + restOfFile))
+			newContent.WriteString(firstLine)
+			newContent.WriteString("\n\n")
+			newContent.WriteString(license)
+			newContent.WriteString(restOfFile)
 		} else {
 			newContent.Write([]byte(license + restOfFile))
 		}
