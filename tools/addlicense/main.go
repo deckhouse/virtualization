@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
 package main
+
 import (
 	"flag"
 	"fmt"
@@ -24,7 +24,6 @@ import (
 )
 
 func main() {
-	var directory string
 	msgs := NewMessages()
 
 	dirArg := flag.String("directory", "", "The directory containing the files")
@@ -57,8 +56,13 @@ func main() {
 		}
 
 		if fileToCheckRe.MatchString(filePath) {
-			lic := getLicenseForFile(filePath)
-			msg := addLicenseToFile(filePath, lic)
+			licenseFileText := getLicenseForFile(filePath)
+			if licenseFileText == "" {
+				msgs.Add(NewError(filePath, "Unsupported file for adding license",
+					"If a license is required, add it manually."))
+				return nil
+			}
+			msg := addLicenseToFile(filePath, licenseFileText)
 			msgs.Add(msg)
 		}
 
@@ -68,5 +72,4 @@ func main() {
 		fmt.Println(err)
 	}
 	msgs.PrintReport()
-	fmt.Println("script done")
 }

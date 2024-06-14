@@ -73,7 +73,7 @@ func checkLicense(fullContent []byte, filePath string) (Message, bool) {
 	return Message{}, false
 }
 
-func addLicenseToFile(filePath, license string) Message {
+func addLicenseToFile(filePath, licenseFileText string) Message {
 	f, err := os.Open(filePath)
 	if err != nil {
 		message := NewError(filePath, "Error opening file", err.Error())
@@ -91,20 +91,19 @@ func addLicenseToFile(filePath, license string) Message {
 
 	firstLine, restOfFile, _ := strings.Cut(string(fullContent), "\n")
 
-	message, lic := checkLicense(fullContent, filePath)
+	message, license := checkLicense(fullContent, filePath)
 	var newContent bytes.Buffer
 
-	if !lic {
+	if !license && (Message{}) == message {
 		if isShebangLine(firstLine) {
 			newContent.WriteString(firstLine)
 			newContent.WriteString("\n\n")
-			newContent.WriteString(license)
+			newContent.WriteString(licenseFileText)
 			newContent.WriteString(restOfFile)
 		} else {
-			newContent.WriteString(license)
+			newContent.WriteString(licenseFileText)
 			newContent.WriteString("\n")
-			newContent.WriteString(firstLine)
-			newContent.WriteString(restOfFile)
+			newContent.WriteString(string(fullContent))
 		}
 	} else {
 		return message

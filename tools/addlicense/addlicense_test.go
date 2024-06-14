@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_copyright_re(t *testing.T) {
+func Test_CELicenseRe(t *testing.T) {
 	validCases := []struct {
 		title   string
 		content string

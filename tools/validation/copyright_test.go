@@ -18,7 +18,7 @@ package main
 
 import "testing"
 
-func Test_copyright_re(t *testing.T) {
+func Test_CopyrightRegexes(t *testing.T) {
 	in := `package main
 
 no license
