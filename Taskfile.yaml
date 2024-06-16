@@ -24,6 +24,7 @@ includes:
 vars:
   deckhouse_lib_helm_ver: 1.7.0
   target: ""
+  VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go"
 
 tasks:
   check-werf:
@@ -75,6 +76,17 @@ tasks:
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
           sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
 
+  dev:addlicense:
+    desc: |-
+      Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
+    cmds:
+      - |
+        {{if .CLI_ARGS}}
+          go run tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
+        {{else}}
+          go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
+        {{end}}
+
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."
     cmds:
@@ -86,9 +98,14 @@ tasks:
   validation:no-cyrillic:
     desc: "No cyrillic"
     cmds:
-      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type no-cyrillic
+      - go run {{ .VALIDATION_FILES }} --type no-cyrillic
 
   validation:doc-changes:
     desc: "Doc-changes"
     cmds:
-      - go run tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go --type doc-changes
+      - go run {{ .VALIDATION_FILES }} --type doc-changes
+
+  validation:copyright:
+    desc: "Check copyright"
+    cmds:
+      - go run {{ .VALIDATION_FILES }} --type copyright

@@ -56,6 +56,8 @@ func main() {
 
 	exitCode := 0
 	switch validationType {
+	case "copyright":
+		exitCode = RunCopyrightValidation(diffInfo)
 	case "no-cyrillic":
 		exitCode = RunNoCyrillicValidation(diffInfo, title, description)
 	case "doc-changes":
