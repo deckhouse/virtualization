@@ -49,6 +49,9 @@ spec:
       - name: proxy
         image: {{ $proxyImage }}
         imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_LEVEL
+          value: Debug
         resources:
           requests:
           {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}

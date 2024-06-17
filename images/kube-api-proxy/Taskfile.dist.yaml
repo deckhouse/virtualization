@@ -56,6 +56,11 @@ tasks:
         sleep 3
         kubectl -n kproxy get all
 
+  dev:status:
+    cmds:
+      - |
+        kubectl -n kproxy get po,deploy
+
   dev:curl:
     desc: "run curl in proxy deployment"
     cmds:
@@ -66,17 +71,23 @@ tasks:
     desc: "run kubectl in proxy deployment"
     cmds:
       - |
-        kubectl -n kproxy exec -ti deploy/kube-api-proxy -- kubectl -s 127.0.0.1:23916 {{.CLI_ARGS}}
+        kubectl -n kproxy exec -ti deploy/kube-api-proxy -c proxy-only -- kubectl -s 127.0.0.1:23916 {{.CLI_ARGS}}
         #kubectl -n d8-virtualization exec -ti deploy/virt-operator -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
 
   logs:proxy:
-    desc: "Show proxy logs"
+    desc: "Logs for proxy container"
+    cmds:
+      - |
+        kubectl -n kproxy logs deployments/kube-api-proxy -c proxy -f
+
+  logs:proxy-only:
+    desc: "Logs for proxy-only container"
     cmds:
       - |
         kubectl -n kproxy logs deployments/kube-api-proxy -c proxy-only -f
 
   logs:controller:
-    desc: "Show test-controller logs"
+    desc: "Logs for test-controller container"
     cmds:
       - |
         kubectl -n kproxy logs deployments/kube-api-proxy -c controller -f

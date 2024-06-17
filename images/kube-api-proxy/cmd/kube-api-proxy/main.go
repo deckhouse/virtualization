@@ -17,14 +17,15 @@ limitations under the License.
 package main
 
 import (
+	log "log/slog"
+	"os"
+
 	"kube-api-proxy/pkg/kubevirt"
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/proxy"
 	"kube-api-proxy/pkg/rewriter"
 	"kube-api-proxy/pkg/server"
 	"kube-api-proxy/pkg/target"
-	log "log/slog"
-	"os"
 )
 
 // This proxy is a proof-of-concept of proxying Kubernetes API requests
@@ -54,8 +55,19 @@ const (
 	defaultWebhookProxyPort   = "24192"
 )
 
+const (
+	logLevelEnv  = "LOG_LEVEL"
+	logFormatEnv = "LOG_FORMAT"
+	logOutputEnv = "LOG_OUTPUT"
+)
+
 func main() {
-	log.Info("Start proxy 20240404.01")
+	// Set options for the default logger: level, format and output.
+	logutil.SetupDefaultLoggerFromEnv(logutil.Options{
+		Level:  os.Getenv(logLevelEnv),
+		Format: os.Getenv(logFormatEnv),
+		Output: os.Getenv(logOutputEnv),
+	})
 
 	// Load rules from file or use default kubevirt rules.
 	rewriteRules := kubevirt.KubevirtRewriteRules
