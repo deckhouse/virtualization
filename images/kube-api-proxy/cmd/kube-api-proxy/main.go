@@ -79,7 +79,7 @@ func main() {
 		}
 		rewriteRules = rulesFromFile
 	}
-	rewriteRules.Complete()
+	rewriteRules.Init()
 
 	proxies := make([]*server.HTTPServer, 0)
 
