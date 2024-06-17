@@ -1,12 +1,12 @@
 ---
 image: {{ $.ImageName }}
-fromArtifact: dvcr-artifact
+fromImage: dvcr-artifact
 import:
-- artifact: dvcr-artifact-builder
+- image: dvcr-artifact-builder
   add: /usr/local/go/src/dvcr_importers/dvcr_importer
   to: /usr/local/bin/dvcr_importer
   after: install
-- artifact: dvcr-artifact-builder
+- image: dvcr-artifact-builder
   add: /usr/local/go/src/dvcr_importers/build/importer_entrypoint.sh
   to: /importer_entrypoint.sh
   after: install

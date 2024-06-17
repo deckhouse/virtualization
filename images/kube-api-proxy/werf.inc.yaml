@@ -27,7 +27,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+fromImage: base-scratch
 import:
   - image: {{ $.ImageName }}-builder
     add: /src/kube-api-proxy/kube-api-proxy

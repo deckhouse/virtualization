@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+fromImage: base-scratch
 import:
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
@@ -14,16 +14,8 @@ import:
   - .version
   to: /
   before: setup
-shell:
-  install:
-  # Install packages from Sisyphus repository because p10 repository does not have required versions.
-  - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/sisyphus.list
-  - |
-    apt-get update && apt-get install --yes \
-    glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-exportproxy/BUILD.bazel
 docker:
+  WORKDIR: /usr/bin/
   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
   USER: 1001

@@ -1,4 +1,12 @@
 ---
+image: {{ $.ImageName }}-builder
+fromImage: base-alt-p10
+shell:
+  beforeInstall:
+  - apt-get update -q && apt-get install -yq curl
+  install:
+  - curl -L "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+---
 image: {{ $.ImageName }}
 fromImage: base-alt-p10
 git:
@@ -7,11 +15,15 @@ git:
   stageDependencies:
     setup:
     - "*.sh"
+import:
+- image: {{ $.ImageName }}-builder
+  add: /usr/local/bin
+  includePaths:
+  - kubectl
+  to: /usr/local/bin
+  before: install
 shell:
-  beforeInstall:
-  - apt-get update -q && apt-get install -yq curl && rm -rf /var/lib/apt/lists/*
   install:
-  - curl -L "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
   - chmod +x /usr/local/bin/kubectl /usr/local/bin/entrypoint.sh
 docker:
   USER: "64535:64535"

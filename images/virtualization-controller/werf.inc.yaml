@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+fromImage: base-scratch
 import:
   - image: virtualization-artifact
     add: /usr/local/go/src/virtualization-controller/virtualization-controller
