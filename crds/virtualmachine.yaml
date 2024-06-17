@@ -895,6 +895,8 @@ spec:
 
                 blockDeviceRefs:
                   type: array
+                  minItems: 1
+                  maxItems: 16
                   description: |
                     List of block devices that can be mounted by disks belonging to the virtual machine.
                     The order of booting is determined by the order in the list.
