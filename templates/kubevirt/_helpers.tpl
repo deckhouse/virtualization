@@ -46,6 +46,7 @@ spec:
               value: /etc/virt-api/certificates/tls.crt
             - name: WEBHOOK_KEY_FILE
               value: /etc/virt-api/certificates/tls.key
+            {{- include "kube_api_rewriter.env" . | nindent 12 }}
           volumeMounts:
             - name: kubevirt-virt-api-certs
               mountPath: /etc/virt-api/certificates

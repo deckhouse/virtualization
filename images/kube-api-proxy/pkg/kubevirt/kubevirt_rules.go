@@ -20,6 +20,12 @@ import (
 	. "kube-api-proxy/pkg/rewriter"
 )
 
+const (
+	internalPrefix = "internal.virtualization.deckhouse.io"
+	nodePrefix     = "node.virtualization.deckhouse.io"
+	dvpPrefix      = "virtualization.deckhouse.io"
+)
+
 var KubevirtRewriteRules = &RewriteRules{
 	KindPrefix:         "DVPInternal", // KV
 	ResourceTypePrefix: "dvpinternal", // kv
@@ -30,16 +36,54 @@ var KubevirtRewriteRules = &RewriteRules{
 	Webhooks:           KubevirtWebhooks,
 	Labels: MetadataReplace{
 		Names: []MetadataReplaceRule{
-			{Old: "cdi.kubevirt.io", New: "cdi.internal.virtualization.deckhouse.io"},
-			{Old: "kubevirt.io", New: "kubevirt.internal.virtualization.deckhouse.io"},
+			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
+			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
+			{Original: "prometheus.kubevirt.io", Renamed: "prometheus.kubevirt." + internalPrefix},
+			{Original: "prometheus.cdi.kubevirt.io", Renamed: "prometheus.cdi." + internalPrefix},
+			// Special cases.
+			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + dvpPrefix + "/skip-node"},
+			{Original: "node-labeller.kubevirt.io/obsolete-host-model", Renamed: "node-labeller." + internalPrefix + "/obsolete-host-model"},
 		},
 		Prefixes: []MetadataReplaceRule{
-			{Old: "cdi.kubevirt.io", New: "cdi.internal.virtualization.deckhouse.io"},
-			{Old: "upload.cdi.kubevirt.io", New: "upload.cdi.internal.virtualization.deckhouse.io"},
-			{Old: "kubevirt.io", New: "kubevirt.internal.virtualization.deckhouse.io"},
+			// CDI related labels.
+			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
+			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
+			{Original: "prometheus.cdi.kubevirt.io", Renamed: "prometheus.cdi." + internalPrefix},
+			{Original: "upload.cdi.kubevirt.io", Renamed: "upload.cdi." + internalPrefix},
+			// KubeVirt related labels.
+			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
+			{Original: "prometheus.kubevirt.io", Renamed: "prometheus.kubevirt." + internalPrefix},
+			{Original: "operator.kubevirt.io", Renamed: "operator.kubevirt." + internalPrefix},
+			{Original: "vm.kubevirt.io", Renamed: "vm.kubevirt." + internalPrefix},
+			// Node features related labels.
+			// Note: these labels are not "internal".
+			{Original: "cpu-feature.node.kubevirt.io", Renamed: "cpu-feature." + nodePrefix},
+			{Original: "cpu-model-migration.node.kubevirt.io", Renamed: "cpu-model-migration." + nodePrefix},
+			{Original: "cpu-model.node.kubevirt.io", Renamed: "cpu-model." + nodePrefix},
+			{Original: "cpu-timer.node.kubevirt.io", Renamed: "cpu-timer." + nodePrefix},
+			{Original: "cpu-vendor.node.kubevirt.io", Renamed: "cpu-vendor." + nodePrefix},
+			{Original: "scheduling.node.kubevirt.io", Renamed: "scheduling." + nodePrefix},
+			{Original: "host-model-cpu.node.kubevirt.io", Renamed: "host-model-cpu." + nodePrefix},
+			{Original: "host-model-required-features.node.kubevirt.io", Renamed: "host-model-required-features." + nodePrefix},
+			{Original: "hyperv.node.kubevirt.io", Renamed: "hyperv." + nodePrefix},
 		},
 	},
-	Annotations: MetadataReplace{},
+	Annotations: MetadataReplace{
+		Prefixes: []MetadataReplaceRule{
+			// CDI related annotations.
+			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
+			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
+			// KubeVirt related annotations.
+			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
+			{Original: "certificates.kubevirt.io", Renamed: "certificates.kubevirt." + internalPrefix},
+		},
+	},
+	Finalizers: MetadataReplace{
+		Prefixes: []MetadataReplaceRule{
+			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
+			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
+		},
+	},
 }
 
 // TODO create generator in golang to produce below rules from Kubevirt and CDI sources so proxy can work with future versions.

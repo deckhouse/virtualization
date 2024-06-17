@@ -16,6 +16,8 @@ limitations under the License.
 
 package rewriter
 
+import "github.com/tidwall/gjson"
+
 const (
 	ValidatingWebhookConfigurationKind     = "ValidatingWebhookConfiguration"
 	ValidatingWebhookConfigurationListKind = "ValidatingWebhookConfigurationList"
@@ -58,5 +60,30 @@ func RewriteMutatingOrList(rules *RewriteRules, obj []byte, action Action) ([]by
 				return restoreRoleRule(rules, item)
 			})
 		})
+	})
+}
+
+func RenameWebhookConfigurationPatch(rules *RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameMetadataPatch(rules, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return TransformPatch(obj, func(mergePatch []byte) ([]byte, error) {
+		return RewriteArray(mergePatch, "webhooks", func(webhook []byte) ([]byte, error) {
+			return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
+				return restoreRoleRule(rules, item)
+			})
+		})
+	}, func(jsonPatch []byte) ([]byte, error) {
+		path := gjson.GetBytes(jsonPatch, "path").String()
+		if path == "/webhooks" {
+			return RewriteArray(jsonPatch, "value", func(webhook []byte) ([]byte, error) {
+				return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
+					return renameRoleRule(rules, item)
+				})
+			})
+		}
+		return jsonPatch, nil
 	})
 }

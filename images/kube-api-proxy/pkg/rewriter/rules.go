@@ -31,15 +31,18 @@ type RewriteRules struct {
 	Labels             MetadataReplace         `json:"labels"`
 	Annotations        MetadataReplace         `json:"annotations"`
 	Finalizers         MetadataReplace         `json:"finalizers"`
-	labelsIndexer      *MetadataIndexer
-	annoIndexer        *MetadataIndexer
-	finalizerIndexer   *MetadataIndexer
+
+	// TODO move these indexed rewriters into the RuleBasedRewriter.
+	labelsRewriter      *PrefixedNameRewriter
+	annotationsRewriter *PrefixedNameRewriter
+	finalizersRewriter  *PrefixedNameRewriter
 }
 
-func (rr *RewriteRules) Complete() {
-	rr.labelsIndexer = rr.Labels.Complete()
-	rr.annoIndexer = rr.Annotations.Complete()
-	rr.finalizerIndexer = rr.Finalizers.Complete()
+// Init should be called before using rules in the RuleBasedRewriter.
+func (rr *RewriteRules) Init() {
+	rr.labelsRewriter = NewPrefixedNameRewriter(rr.Labels)
+	rr.annotationsRewriter = NewPrefixedNameRewriter(rr.Annotations)
+	rr.finalizersRewriter = NewPrefixedNameRewriter(rr.Finalizers)
 }
 
 type APIGroupRule struct {
@@ -75,57 +78,9 @@ type MetadataReplace struct {
 	Names    []MetadataReplaceRule
 }
 
-func (mr *MetadataReplace) Complete() *MetadataIndexer {
-	namesOldToNew := make(map[string]string, len(mr.Names))
-	namesNewToOld := make(map[string]string, len(mr.Names))
-	for _, l := range mr.Names {
-		namesOldToNew[l.Old] = l.New
-		namesNewToOld[l.New] = l.Old
-	}
-	prefixOldToNew := make(map[string]string, len(mr.Prefixes))
-	prefixNewToOld := make(map[string]string, len(mr.Prefixes))
-	for _, l := range mr.Prefixes {
-		prefixOldToNew[l.Old] = l.New
-		prefixNewToOld[l.New] = l.Old
-	}
-	return &MetadataIndexer{
-		namesOldToNew:  namesOldToNew,
-		namesNewToOld:  namesNewToOld,
-		prefixOldToNew: prefixOldToNew,
-		prefixNewToOld: prefixNewToOld,
-	}
-}
-
-type MetadataIndexer struct {
-	namesOldToNew  map[string]string
-	namesNewToOld  map[string]string
-	prefixOldToNew map[string]string
-	prefixNewToOld map[string]string
-}
-
-func (mi *MetadataIndexer) GetOld(s string) (string, bool) {
-	v, found := mi.namesNewToOld[s]
-	return v, found
-}
-
-func (mi *MetadataIndexer) GetNew(s string) (string, bool) {
-	v, found := mi.namesOldToNew[s]
-	return v, found
-}
-
-func (mi *MetadataIndexer) GetOldPrefix(s string) (string, bool) {
-	v, found := mi.prefixNewToOld[s]
-	return v, found
-}
-
-func (mi *MetadataIndexer) GetNewPrefix(s string) (string, bool) {
-	v, found := mi.prefixOldToNew[s]
-	return v, found
-}
-
 type MetadataReplaceRule struct {
-	Old string `json:"old"`
-	New string `json:"new"`
+	Original string `json:"original"`
+	Renamed  string `json:"renamed"`
 }
 
 // GetAPIGroupList returns an array of groups in format applicable to use in APIGroupList:
@@ -236,6 +191,17 @@ func (rr *RewriteRules) GroupResourceRules(resourceType string) (*GroupRule, *Re
 	return nil, nil
 }
 
+func (rr *RewriteRules) GroupResourceRulesByKind(kind string) (*GroupRule, *ResourceRule) {
+	for _, group := range rr.Rules {
+		for _, res := range group.ResourceRules {
+			if res.Kind == kind {
+				return &group.GroupRule, &res
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (rr *RewriteRules) RenameResource(resource string) string {
 	return rr.ResourceTypePrefix + resource
 }
@@ -259,6 +225,11 @@ func (rr *RewriteRules) RestoreApiVersion(apiVersion string, group string) strin
 }
 
 func (rr *RewriteRules) RenameApiVersion(apiVersion string) string {
+	// Check if apiVersion is just a group name.
+	if !strings.Contains(apiVersion, "/") && rr.HasGroup(apiVersion) {
+		return rr.RenamedGroup
+	}
+
 	// Replace group, keep version.
 	apiVerParts := strings.Split(apiVersion, "/")
 	if len(apiVerParts) != 2 {
@@ -297,103 +268,14 @@ func (rr *RewriteRules) RestoreShortNames(shortNames []string) []string {
 	return newNames
 }
 
-func (rr *RewriteRules) RenameLabel(label string) string {
-	return rr.rename(label, rr.labelsIndexer)
-
+func (rr *RewriteRules) LabelsRewriter() *PrefixedNameRewriter {
+	return rr.labelsRewriter
 }
 
-func (rr *RewriteRules) RestoreLabel(label string) string {
-	return rr.restore(label, rr.labelsIndexer)
+func (rr *RewriteRules) AnnotationsRewriter() *PrefixedNameRewriter {
+	return rr.annotationsRewriter
 }
 
-func (rr *RewriteRules) RenameLabels(labels map[string]string) map[string]string {
-	return rr.rewriteMaps(labels, rr.RenameLabel)
-}
-
-func (rr *RewriteRules) RestoreLabels(labels map[string]string) map[string]string {
-	return rr.rewriteMaps(labels, rr.RestoreLabel)
-}
-
-func (rr *RewriteRules) RenameAnnotation(anno string) string {
-	return rr.rename(anno, rr.annoIndexer)
-}
-
-func (rr *RewriteRules) RestoreAnnotation(anno string) string {
-	return rr.restore(anno, rr.annoIndexer)
-}
-
-func (rr *RewriteRules) RenameAnnotations(annotations map[string]string) map[string]string {
-	return rr.rewriteMaps(annotations, rr.RenameAnnotation)
-
-}
-
-func (rr *RewriteRules) RestoreAnnotations(annotations map[string]string) map[string]string {
-	return rr.rewriteMaps(annotations, rr.RestoreAnnotation)
-}
-
-func (rr *RewriteRules) RenameFinalizer(fin string) string {
-	return rr.rename(fin, rr.annoIndexer)
-}
-
-func (rr *RewriteRules) RestoreFinalizer(fin string) string {
-	return rr.restore(fin, rr.annoIndexer)
-}
-
-func (rr *RewriteRules) RenameFinalizers(fins []string) []string {
-	return rr.rewriteSlices(fins, rr.RenameFinalizer)
-
-}
-
-func (rr *RewriteRules) RestoreFinalizers(fins []string) []string {
-	return rr.rewriteSlices(fins, rr.RestoreFinalizer)
-}
-
-func (rr *RewriteRules) rewriteMaps(m map[string]string, fn func(s string) string) map[string]string {
-	result := make(map[string]string, len(m))
-	for k, v := range m {
-		result[fn(k)] = v
-	}
-	return result
-}
-
-func (rr *RewriteRules) rewriteSlices(s []string, fn func(s string) string) []string {
-	result := make([]string, len(s))
-	for i, ss := range s {
-		result[i] = fn(ss)
-	}
-	return result
-}
-
-func (rr *RewriteRules) rename(s string, indexer *MetadataIndexer) string {
-	if indexer == nil {
-		return s
-	}
-	if v, ok := indexer.GetNew(s); ok {
-		return v
-	}
-	prefix, _, found := strings.Cut(s, "/")
-	if !found {
-		return s
-	}
-	if v, ok := indexer.GetNewPrefix(prefix); ok {
-		return v + strings.TrimPrefix(s, prefix)
-	}
-	return s
-}
-
-func (rr *RewriteRules) restore(s string, indexer *MetadataIndexer) string {
-	if indexer == nil {
-		return s
-	}
-	if v, ok := indexer.GetOld(s); ok {
-		return v
-	}
-	prefix, _, found := strings.Cut(s, "/")
-	if !found {
-		return s
-	}
-	if v, ok := indexer.GetOldPrefix(prefix); ok {
-		return v + strings.TrimPrefix(s, prefix)
-	}
-	return s
+func (rr *RewriteRules) FinalizersRewriter() *PrefixedNameRewriter {
+	return rr.finalizersRewriter
 }
