@@ -1,14 +1,31 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
+	log "log/slog"
+	"os"
+
 	"kube-api-proxy/pkg/kubevirt"
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/proxy"
 	"kube-api-proxy/pkg/rewriter"
 	"kube-api-proxy/pkg/server"
 	"kube-api-proxy/pkg/target"
-	log "log/slog"
-	"os"
 )
 
 // This proxy is a proof-of-concept of proxying Kubernetes API requests
@@ -38,8 +55,19 @@ const (
 	defaultWebhookProxyPort   = "24192"
 )
 
+const (
+	logLevelEnv  = "LOG_LEVEL"
+	logFormatEnv = "LOG_FORMAT"
+	logOutputEnv = "LOG_OUTPUT"
+)
+
 func main() {
-	log.Info("Start proxy 20240404.01")
+	// Set options for the default logger: level, format and output.
+	logutil.SetupDefaultLoggerFromEnv(logutil.Options{
+		Level:  os.Getenv(logLevelEnv),
+		Format: os.Getenv(logFormatEnv),
+		Output: os.Getenv(logOutputEnv),
+	})
 
 	// Load rules from file or use default kubevirt rules.
 	rewriteRules := kubevirt.KubevirtRewriteRules

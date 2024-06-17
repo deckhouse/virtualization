@@ -1,3 +1,19 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package proxy
 
 import (
@@ -98,77 +114,29 @@ func (s *StreamHandler) proxy() {
 			return
 		}
 
+		var rwrEvent *metav1.WatchEvent
 		if res != &got {
-			s.log.Error("unable to decode to metav1.Event")
-			continue
+			s.log.Warn(fmt.Sprintf("unable to decode to metav1.Event: res=%#v, got=%#v", res, got))
+			// There is nothing to send to the client: no event decoded.
+		} else {
+			rwrEvent, err = s.transformWatchEvent(&got)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("Watch event '%s': transform error", got.Type), logutil.SlogErr(err))
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
+			}
+			if rwrEvent == nil {
+				// No rewrite, pass original event as-is.
+				rwrEvent = &got
+			} else {
+				// Log changes after rewrite.
+				logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.OrigResourceType(), got.Object.Raw, rwrEvent.Object.Raw)
+			}
+			// Pass event to the client.
+			logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.OrigResourceType(), rwrEvent.Object.Raw)
+			s.writeEvent(rwrEvent)
 		}
 
-		switch got.Type {
-		case string(watch.Added), string(watch.Modified), string(watch.Deleted), string(watch.Error), string(watch.Bookmark):
-		default:
-			s.log.Error(fmt.Sprintf("got invalid watch event type: %v", got.Type))
-			continue
-		}
-
-		{
-			group := gjson.GetBytes(got.Object.Raw, "apiVersion").String()
-			kind := gjson.GetBytes(got.Object.Raw, "kind").String()
-			name := gjson.GetBytes(got.Object.Raw, "metadata.name").String()
-			ns := gjson.GetBytes(got.Object.Raw, "metadata.namespace").String()
-			s.log.Info(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", got.Type, group, kind, ns, name))
-		}
-
-		// TODO add pass-as-is for non rewritable objects.
-
-		// Restore object. Watch responses are always from the Kubernetes API server, no need to rename.
-		objBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, got.Object.Raw, rewriter.Restore)
-		//var objBytes []byte
-		//switch {
-		//case s.targetReq.IsCore():
-		//	s.log.Info(fmt.Sprintf("Watch REWRITE CORE event '%s'", got.Type))
-		//	objBytes, err = rewriter.RewriteOwnerReferences(s.rewriter.Rules, got.Object.Raw, rewriter.Restore)
-		//case s.targetReq.IsCRD():
-		//	s.log.Info(fmt.Sprintf("Watch REWRITE CRD event '%s'", got.Type))
-		//	objBytes, err = rewriter.RewriteCRDOrList(s.rewriter.Rules, got.Object.Raw, rewriter.Restore, s.targetReq.OrigGroup())
-		//case s.targetReq.OrigResourceType() != "":
-		//	s.log.Info(fmt.Sprintf("Watch REWRITE event '%s'", got.Type))
-		//	objBytes, err = rewriter.RestoreResource(s.rewriter.Rules, got.Object.Raw, s.targetReq.OrigGroup())
-		//default:
-		//	objBytes = got.Object.Raw
-		//}
-		if err != nil {
-			s.log.Error(fmt.Sprintf("rewrite event '%s'", got.Type), logutil.SlogErr(err))
-			continue
-		}
-
-		// Write event to the client.
-		ev := metav1.WatchEvent{
-			Type: got.Type,
-			Object: runtime.RawExtension{
-				Raw: objBytes,
-			},
-		}
-		evBytes, err := json.Marshal(ev)
-		if err != nil {
-			s.log.Error("encode restored event to bytes", logutil.SlogErr(err))
-			continue
-		}
-		l := len(evBytes)
-		if l > 1300 {
-			l = 1300
-		}
-		s.log.Info(fmt.Sprintf("restored event: %s", string(evBytes)[0:l]))
-
-		_, err = io.Copy(s.w, io.NopCloser(bytes.NewBuffer(evBytes)))
-		if err != nil {
-			s.log.Error("write event", logutil.SlogErr(err))
-		}
-		// Flush to send buffered content to the client.
-		if wr, ok := s.w.(http.Flusher); ok {
-			wr.Flush()
-		}
-
-		// Check if application is stopped.
+		// Check if application is stopped before waiting for the next event.
 		select {
 		case <-s.done:
 			return
@@ -216,4 +184,56 @@ func (s *StreamHandler) createWatchDecoder(contentType string) (streaming.Decode
 	frameReader := info.StreamSerializer.Framer.NewFrameReader(s.r)
 	streamingDecoder := streaming.NewDecoder(frameReader, info.StreamSerializer.Serializer)
 	return streamingDecoder, nil
+}
+
+func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.WatchEvent, error) {
+	switch ev.Type {
+	case string(watch.Added), string(watch.Modified), string(watch.Deleted), string(watch.Error), string(watch.Bookmark):
+	default:
+		return nil, fmt.Errorf("got unknown type: %v", ev.Type)
+	}
+
+	group := gjson.GetBytes(ev.Object.Raw, "apiVersion").String()
+	kind := gjson.GetBytes(ev.Object.Raw, "kind").String()
+	name := gjson.GetBytes(ev.Object.Raw, "metadata.name").String()
+	ns := gjson.GetBytes(ev.Object.Raw, "metadata.namespace").String()
+
+	// TODO add pass-as-is for non rewritable objects.
+	if group == "" && kind == "" {
+		// Object in event is undetectable, pass this event as-is.
+		return nil, fmt.Errorf("object has no apiVersion and kind")
+	}
+	s.log.Debug(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", ev.Type, group, kind, ns, name))
+
+	// Restore object in the event. Watch responses are always from the Kubernetes API server, so rename is not needed.
+	rwrObjBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
+	if err != nil {
+		return nil, fmt.Errorf("error rewriting object: %w", err)
+	}
+
+	// Prepare rewritten event bytes.
+	return &metav1.WatchEvent{
+		Type: ev.Type,
+		Object: runtime.RawExtension{
+			Raw: rwrObjBytes,
+		},
+	}, nil
+}
+
+func (s *StreamHandler) writeEvent(ev *metav1.WatchEvent) {
+	rwrEventBytes, err := json.Marshal(ev)
+	if err != nil {
+		s.log.Error("encode restored event to bytes", logutil.SlogErr(err))
+		return
+	}
+
+	// Send rewritten event to the client.
+	_, err = io.Copy(s.w, io.NopCloser(bytes.NewBuffer(rwrEventBytes)))
+	if err != nil {
+		s.log.Error("Watch event: error writing event to the client", logutil.SlogErr(err))
+	}
+	// Flush to send buffered content to the client.
+	if wr, ok := s.w.(http.Flusher); ok {
+		wr.Flush()
+	}
 }
