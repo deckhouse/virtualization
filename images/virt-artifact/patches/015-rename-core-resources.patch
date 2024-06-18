@@ -1,0 +1,172 @@
+diff --git a/manifests/generated/kubevirt-priority-class.yaml b/manifests/generated/kubevirt-priority-class.yaml
+index e8dfe36c2..0f57dd6a8 100644
+--- a/manifests/generated/kubevirt-priority-class.yaml
++++ b/manifests/generated/kubevirt-priority-class.yaml
+@@ -3,5 +3,5 @@ apiVersion: scheduling.k8s.io/v1
+ description: This priority class should be used for KubeVirt core components only.
+ kind: PriorityClass
+ metadata:
+-  name: kubevirt-cluster-critical
++  name: kubevirt-internal-virtualization-cluster-critical
+ value: 1000000000
+diff --git a/manifests/generated/operator-csv.yaml.in b/manifests/generated/operator-csv.yaml.in
+index b0a4b48e9..245e32dfb 100644
+--- a/manifests/generated/operator-csv.yaml.in
++++ b/manifests/generated/operator-csv.yaml.in
+@@ -1356,7 +1356,7 @@ spec:
+                   name: profile-data
+               nodeSelector:
+                 kubernetes.io/os: linux
+-              priorityClassName: kubevirt-cluster-critical
++              priorityClassName: kubevirt-internal-virtualization-cluster-critical
+               securityContext:
+                 runAsNonRoot: true
+                 seccompProfile:
+diff --git a/manifests/release/kubevirt-operator.yaml.in b/manifests/release/kubevirt-operator.yaml.in
+index 6ac36d99b..d7bfbd010 100644
+--- a/manifests/release/kubevirt-operator.yaml.in
++++ b/manifests/release/kubevirt-operator.yaml.in
+@@ -11,7 +11,7 @@ metadata:
+ apiVersion: scheduling.k8s.io/v1
+ kind: PriorityClass
+ metadata:
+-  name: kubevirt-cluster-critical
++  name: kubevirt-internal-virtualization-cluster-critical
+ value: 1000000000
+ globalDefault: false
+ description: "This priority class should be used for core kubevirt components only."
+diff --git a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+index 228518871..55ce72b6c 100644
+--- a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
++++ b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+@@ -485,7 +485,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
+ 			OwnerReferences: []v1.OwnerReference{
+ 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+ 			},
+-			GenerateName: "kubevirt-disruption-budget-",
++			GenerateName: "kubevirt-internal-virtualization-disruption-budget-",
++			Labels: map[string]string{
++				virtv1.VirtualMachineNameLabel: vmi.GetName(),
++			},
+ 		},
+ 		Spec: policyv1.PodDisruptionBudgetSpec{
+ 			MinAvailable: &minAvailable,
+diff --git a/pkg/virt-operator/resource/generate/components/crds.go b/pkg/virt-operator/resource/generate/components/crds.go
+index 822f3d82b..36126ef43 100644
+--- a/pkg/virt-operator/resource/generate/components/crds.go
++++ b/pkg/virt-operator/resource/generate/components/crds.go
+@@ -862,7 +862,7 @@ func NewKubeVirtPriorityClassCR() *schedulingv1.PriorityClass {
+ 			Kind:       "PriorityClass",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt-cluster-critical",
++			Name: "kubevirt-internal-virtualization-cluster-critical",
+ 		},
+ 		// 1 billion is the highest value we can set
+ 		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+diff --git a/pkg/virt-operator/resource/generate/components/deployments.go b/pkg/virt-operator/resource/generate/components/deployments.go
+index 4d00a423a..ced56e776 100644
+--- a/pkg/virt-operator/resource/generate/components/deployments.go
++++ b/pkg/virt-operator/resource/generate/components/deployments.go
+@@ -166,7 +166,7 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
+ 			Name: podName,
+ 		},
+ 		Spec: corev1.PodSpec{
+-			PriorityClassName: "kubevirt-cluster-critical",
++			PriorityClassName: "kubevirt-internal-virtualization-cluster-critical",
+ 			Affinity:          podAffinity,
+ 			Tolerations:       criticalAddonsToleration(),
+ 			Containers: []corev1.Container{
+@@ -529,7 +529,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
+ 					Name: VirtOperatorName,
+ 				},
+ 				Spec: corev1.PodSpec{
+-					PriorityClassName:  "kubevirt-cluster-critical",
++					PriorityClassName:  "kubevirt-internal-virtualization-cluster-critical",
+ 					Tolerations:        criticalAddonsToleration(),
+ 					Affinity:           podAntiAffinity,
+ 					ServiceAccountName: "kubevirt-operator",
+diff --git a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+index 0948629bb..9aca3b3bd 100644
+--- a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
++++ b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+@@ -1,9 +1,9 @@
+ package components
+ 
+ const (
+-	ApiServiceAccountName         = "kubevirt-apiserver"
+-	ControllerServiceAccountName  = "kubevirt-controller"
+-	ExportProxyServiceAccountName = "kubevirt-exportproxy"
+-	HandlerServiceAccountName     = "kubevirt-handler"
++	ApiServiceAccountName         = "kubevirt-internal-virtualization-apiserver"
++	ControllerServiceAccountName  = "kubevirt-internal-virtualization-controller"
++	ExportProxyServiceAccountName = "kubevirt-internal-virtualization-exportproxy"
++	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
+ 	OperatorServiceAccountName    = "kubevirt-operator"
+ )
+diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+index 932f7391e..76c79d452 100644
+--- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
++++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+@@ -294,7 +294,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
+ 			Kind:       "ClusterRoleBinding",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt-apiserver-auth-delegator",
++			Name: "kubevirt-internal-virtualization-apiserver-auth-delegator",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 			},
+diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
+index 6ba13c849..12b7ccaa2 100644
+--- a/pkg/virt-operator/resource/generate/rbac/cluster.go
++++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
+@@ -37,7 +37,7 @@ const (
+ 	GroupNameClone         = "clone.kubevirt.io"
+ 	GroupNameInstancetype  = "instancetype.kubevirt.io"
+ 	GroupNamePool          = "pool.kubevirt.io"
+-	NameDefault            = "kubevirt.io:default"
++	NameDefault            = "kubevirt.internal.virtualization.deckhouse.io:default"
+ 	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
+ 	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
+ 	VMInstancesUserList    = "virtualmachineinstances/userlist"
+@@ -128,7 +128,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:admin",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:admin",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+@@ -307,7 +307,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:edit",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:edit",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
+@@ -497,7 +497,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:view",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:view",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-view": "true",
+diff --git a/pkg/virt-operator/resource/generate/rbac/operator.go b/pkg/virt-operator/resource/generate/rbac/operator.go
+index 4eca946a4..061135fd9 100644
+--- a/pkg/virt-operator/resource/generate/rbac/operator.go
++++ b/pkg/virt-operator/resource/generate/rbac/operator.go
+@@ -435,7 +435,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
+ 			Kind:       "RoleBinding",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name:      "kubevirt-operator-rolebinding",
++			Name:      components.OperatorServiceAccountName,
+ 			Namespace: namespace,
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
