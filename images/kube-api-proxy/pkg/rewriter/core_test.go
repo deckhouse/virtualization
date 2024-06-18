@@ -207,3 +207,109 @@ Host: 127.0.0.1
 	}
 
 }
+
+func TestRewritePVC(t *testing.T) {
+	pvcReq := `POST /api/v1/namespaces/vm/persistentvolumeclaims HTTP/1.1
+Host: 127.0.0.1
+
+`
+	pvcPayload := `{
+  "kind": "PersistentVolumeClaim",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "some-pvc-name",
+    "namespace": "vm",
+	"labels":{
+		"labelgroup.io": "labelValue",
+		"labelgroup.io/labelName": "labelValue",
+		"component.labelgroup.io/labelName": "labelValue"
+	},
+	"annotations": {
+		"annogroup.io": "annoValue",
+		"annogroup.io/annoName": "annoValue",
+		"component.annogroup.io/annoName": "annoValue"
+	}
+  },
+  "spec": {
+    "accessModes": [
+      "ReadWriteMany"
+    ],
+    "resources": {
+      "requests": {
+        "storage": "40Gi"
+      }
+    },
+    "storageClassName": "some-storage-class-name",
+    "volumeMode": "Block",
+    "dataSourceRef": {
+      "apiGroup": "original.group.io",
+      "kind": "SomeResource",
+      "name": "some-name"
+    }
+  }
+}`
+
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(pvcReq + pvcPayload)))
+	require.NoError(t, err, "should parse hardcoded http request")
+	require.NotNil(t, req.URL, "should parse url in hardcoded http request")
+
+	rwr := createTestRewriterForCore()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.True(t, targetReq.ShouldRewriteRequest(), "should rewrite request")
+	require.True(t, targetReq.ShouldRewriteResponse(), "should rewrite response")
+	// require.Equal(t, origGroup, targetReq.OrigGroup(), "should set proper orig group")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(pvcPayload), Rename)
+	if err != nil {
+		t.Fatalf("should rename PVC without error: %v", err)
+	}
+	if resultBytes == nil {
+		t.Fatalf("should rename PVC: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{`spec.dataSourceRef.kind`, "PrefixedSomeResource"},
+		{`spec.dataSourceRef.apiGroup`, "prefixed.resources.group.io"},
+		{`spec.dataSource`, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got %s", tt.path, tt.expected, actual)
+			}
+		})
+	}
+
+	// Restore.
+	resultBytes, err = rwr.RewriteJSONPayload(targetReq, []byte(pvcPayload), Restore)
+	if err != nil {
+		t.Fatalf("should restore PVC without error: %v", err)
+	}
+	if resultBytes == nil {
+		t.Fatalf("should restore PVC: %v", err)
+	}
+
+	tests = []struct {
+		path     string
+		expected string
+	}{
+		{`spec.dataSourceRef.kind`, "SomeResource"},
+		{`spec.dataSourceRef.apiGroup`, "original.group.io"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got %s", tt.path, tt.expected, actual)
+			}
+		})
+	}
+
+}
