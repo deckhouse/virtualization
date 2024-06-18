@@ -47,6 +47,14 @@ func (r *Resource) GetGVR() string {
 	return fmt.Sprintf("%s %s/%s", r.GVR.Resource, r.GVR.Group, r.GVR.Version)
 }
 
+func logInfo(msg string, r *Resource) {
+	slog.Info(msg, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
+}
+
+func logError(msg string, err error, r *Resource) {
+	slog.Error(msg, err, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), slog.Any("err", err))
+}
+
 type PreDeleteHook struct {
 	dynamicClient   dynamic.Interface
 	resources       []Resource
@@ -97,7 +105,7 @@ func (p *PreDeleteHook) Run() {
 	var wg sync.WaitGroup
 	for _, resource := range p.resources {
 
-		slog.Info("Deleting resource ...", slog.String("gvr", resource.GetGVR()), slog.String("namespace", resource.Namespace), slog.String("name", resource.Name))
+		logInfo("Deleting resource ...", &resource)
 		wg.Add(1)
 
 		go func(r *Resource) {
@@ -105,10 +113,10 @@ func (p *PreDeleteHook) Run() {
 			err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Delete(context.TODO(), r.Name, metav1.DeleteOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					slog.Warn("Resource not found", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
+					logInfo("Resource not found", r)
 					return
 				}
-				slog.Error("Can't' delete resource", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), "err", err)
+				logError("Can't' delete resource", err, r)
 				return
 			}
 
@@ -116,15 +124,14 @@ func (p *PreDeleteHook) Run() {
 			for time.Now().Before(deadline) {
 				_, err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
-					slog.Info("Resource is deleted...", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
+					logInfo("Resource is deleted", r)
 					return
 				}
 				if err != nil {
-					slog.Error("Failed to check resource", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), "err", err)
+					logError("Failed to check resource", err, r)
 					return
 				}
-
-				slog.Info("Waiting for resource to be deleted...", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
+				logInfo("Waiting for resource to be deleted...", r)
 				time.Sleep(2 * time.Second)
 			}
 		}(&resource)
@@ -137,7 +144,7 @@ func (p *PreDeleteHook) Run() {
 func main() {
 	hook, err := NewPreDeleteHook()
 	if err != nil {
-		slog.Error("Can't create PreDeleteHook", "err", err)
+		slog.Error("Can't create PreDeleteHook", slog.Any("err", err))
 		os.Exit(0)
 	}
 	hook.Run()
