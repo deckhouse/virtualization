@@ -20,12 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 	_ "github.com/joho/godotenv/autoload"
-	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,11 +43,8 @@ type Resource struct {
 	Namespace string                      `json:"namespace,omitempty"`
 }
 
-func (r *Resource) ShowName() string {
-	if r.Namespace == "" {
-		return fmt.Sprintf("%s %s/%s %s", r.GVR.Resource, r.GVR.Group, r.GVR.Version, r.Name)
-	}
-	return fmt.Sprintf("%s %s/%s %s/%s", r.GVR.Resource, r.GVR.Group, r.GVR.Version, r.Namespace, r.Name)
+func (r *Resource) GetGVR() string {
+	return fmt.Sprintf("%s %s/%s", r.GVR.Resource, r.GVR.Group, r.GVR.Version)
 }
 
 type PreDeleteHook struct {
@@ -99,19 +97,18 @@ func (p *PreDeleteHook) Run() {
 	var wg sync.WaitGroup
 	for _, resource := range p.resources {
 
-		log.Infof("Deleting resource %s ...", resource.ShowName())
+		slog.Info("Deleting resource ...", slog.String("gvr", resource.GetGVR()), slog.String("namespace", resource.Namespace), slog.String("name", resource.Name))
 		wg.Add(1)
 
 		go func(r *Resource) {
 			defer wg.Done()
 			err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Delete(context.TODO(), r.Name, metav1.DeleteOptions{})
-
 			if err != nil {
 				if errors.IsNotFound(err) {
-					log.Warnf("Resource %s not found", r.ShowName())
+					slog.Warn("Resource not found", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
 					return
 				}
-				log.Errorf("Can't' delete resource %s: %v", r.ShowName(), err)
+				slog.Error("Can't' delete resource", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), "err", err)
 				return
 			}
 
@@ -119,15 +116,15 @@ func (p *PreDeleteHook) Run() {
 			for time.Now().Before(deadline) {
 				_, err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
-					log.Infof("Resource %s is deleted...", r.ShowName())
+					slog.Info("Resource is deleted...", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
 					return
 				}
 				if err != nil {
-					log.Errorf("Failed to check resource %s: %v", r.ShowName(), err)
+					slog.Error("Failed to check resource", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), "err", err)
 					return
 				}
 
-				log.Infof("Waiting for resource %s to be deleted...", r.ShowName())
+				slog.Info("Waiting for resource to be deleted...", slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name))
 				time.Sleep(2 * time.Second)
 			}
 		}(&resource)
@@ -140,7 +137,8 @@ func (p *PreDeleteHook) Run() {
 func main() {
 	hook, err := NewPreDeleteHook()
 	if err != nil {
-		log.Fatalf("Can't create PreDeleteHook:  %v", err)
+		slog.Error("Can't create PreDeleteHook", "err", err)
+		os.Exit(0)
 	}
 	hook.Run()
 }

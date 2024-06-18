@@ -30,14 +30,14 @@ import (
 )
 
 const (
-	resourcePlural   = "resources"
-	resourceSingular = "resource"
+	resourceName = "resources"
+	resourceKind = "resource"
 )
 
 var resourcesJsons = []string{
 	`{
 	"apiVersion": "group.io/v1",
-	"kind": "` + resourceSingular + `",
+	"kind": "` + resourceKind + `",
 	"metadata": {
 		  "namespace":  "default",
 			"name": "resource-to-delete"
@@ -45,7 +45,7 @@ var resourcesJsons = []string{
 }`,
 	`{
 	"apiVersion": "group.io/v1",
-	"kind": "` + resourceSingular + `",
+	"kind": "` + resourceKind + `",
 	"metadata": {
 		  "namespace":  "default",
 			"name": "resource-to-keep"
@@ -56,7 +56,7 @@ var resourcesJsons = []string{
 var resourceGVR = schema.GroupVersionResource{
 	Group:    "group.io",
 	Version:  "v1",
-	Resource: resourcePlural,
+	Resource: resourceName,
 }
 
 var resources = []Resource{
@@ -73,7 +73,6 @@ var resources = []Resource{
 }
 
 var _ = Describe("Pre delete hook tests", func() {
-
 	var (
 		fake *dynamicfake.FakeDynamicClient
 		p    PreDeleteHook
@@ -87,7 +86,6 @@ var _ = Describe("Pre delete hook tests", func() {
 	})
 
 	Describe("Run", func() {
-
 		Context("Only the required resource should be deleted", func() {
 			It("should return no error", func() {
 				var err error
@@ -108,10 +106,8 @@ var _ = Describe("Pre delete hook tests", func() {
 
 				_, err = fake.Tracker().Get(resourceGVR, "default", "resource-to-keep")
 				Expect(err).Should(Succeed())
-
 			})
 		})
-
 	})
 })
 
