@@ -106,7 +106,7 @@ func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]b
 		}
 		// Renamed to original is a one-to-many relation, so we
 		// need an original kind to get proper group for Restore action.
-		groupRule, _ := rules.KindRules(apiGroup, rules.RestoreKind(kind))
+		groupRule, _ := rules.GroupResourceRulesByKind(rules.RestoreKind(kind))
 		if groupRule == nil {
 			return apiGroup
 		}
