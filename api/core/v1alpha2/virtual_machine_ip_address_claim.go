@@ -60,7 +60,9 @@ type VirtualMachineIPAddressClaimStatus struct {
 	// Represents the current state of IP address claim.
 	Phase VirtualMachineIPAddressClaimPhase `json:"phase,omitempty"`
 	// Detailed description of the error.
-	ConflictMessage string `json:"conflictMessage,omitempty"`
+	ConflictMessage    string             `json:"conflictMessage,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type VirtualMachineIPAddressClaimPhase string

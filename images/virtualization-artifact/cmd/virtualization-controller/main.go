@@ -43,10 +43,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cpu"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -203,7 +203,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := ipam.NewClaimController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
+	if _, err := vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
