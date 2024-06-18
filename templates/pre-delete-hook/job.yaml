@@ -20,6 +20,30 @@ spec:
       containers:
       - name: virtualization-pre-delete-hook
         image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
+        env:
+        - name: WAIT_TIMEOUT
+          value: 1200s
+        - name: RESOURCES
+          value: |
+            [
+              {
+                "gvr": {
+                  "Group": "internal.virtualization.deckhouse.io",
+                  "Version": "v1",
+                  "Resource": "dvpinternalkubevirts"
+                },
+                "namespace": "d8-{{ .Chart.Name }}",
+                "name": "config"
+              },
+              {
+                "gvr": {
+                  "Group": "internal.virtualization.deckhouse.io",
+                  "Version": "v1beta1",
+                  "Resource": "dvpinternalcdis"
+                },
+                "name": "config"
+              }
+            ]
         resources:
           requests:
             cpu: 10m
