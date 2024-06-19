@@ -46,24 +46,31 @@ jobs:
         name: Check label
         run: echo "should_run=true"  >> $GITHUB_OUTPUT
 
-  show_dev_manifest:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
-    name: Show manifest
+  set_vars:
+    runs-on: ubuntu-latest
+    name: Set MODULES_MODULE_TAG
+    outputs:
+      modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
     steps:
-      - name: Set vars for PR
-        if: ${{ github.ref_name != 'main' }}
+      - name: Set vars
+        id: modules_module_tag
         run: |
-          MODULES_MODULE_TAG="$(echo ${{github.event.pull_request.number}})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+          if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          else
+            MODULES_MODULE_TAG="$(echo pr${{ github.event.pull_request.number }})"
+          fi
 
-      - name: Set vars for main
-        if: ${{ github.ref_name == 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
+  show_dev_manifest:
+    name: Show manifest
+    if: needs.check_label.outputs.should_run
+    needs: set_vars
+    runs-on: [self-hosted, ci-testing]
+    env:
+      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+    steps:
       - name: Show dev config
         run: |
           cat << OUTER
@@ -105,10 +112,10 @@ jobs:
           OUTER
 
   lint_go:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
     name: Run go linter
+    if: needs.check_label.outputs.should_run
+    needs: set_vars
+    runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -128,10 +135,10 @@ jobs:
           task virtualization-controller:lint:go
 
   lint_yaml:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
     name: Run yaml linter
+    if: needs.check_label.outputs.should_run
+    needs: set_vars
+    runs-on: [self-hosted, ci-testing]
     steps:
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -146,10 +153,10 @@ jobs:
         run: task -p lint:prettier:yaml
 
   test:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
     name: Run unit test
+    if: needs.check_label.outputs.should_run
+    needs: set_vars
+    runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
         uses: actions/setup-go@v5
@@ -173,23 +180,13 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
-    needs: check_label
-    if: needs.check_label.outputs.should_run
-    runs-on: [self-hosted, ci-testing]
     name: Build and Push images
+    if: needs.check_label.outputs.should_run
+    needs: set_vars
+    runs-on: [self-hosted, ci-testing]
+    env:
+      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
     steps:
-      - name: Set vars for PR
-        if: ${{ github.ref_name != 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo pr${{github.event.pull_request.number}})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
-      - name: Set vars for main
-        if: ${{ github.ref_name == 'main' }}
-        run: |
-          MODULES_MODULE_TAG="$(echo v0.0.0-${{ github.ref_name }})"
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -201,13 +198,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: deckhouse/modules-actions/setup@v1
-      - uses: deckhouse/modules-actions/build@v1
 
-      - run: |
-          IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
-          IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):main"
-          echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
-          crane copy ${IMAGE_SRC} ${IMAGE_DST}
-        if: ${{ github.ref_name == 'main' }}
-        name: Bundle image tag main
+      - name: Remove unwanted software
+        uses: ./.github/actions/remove-unwanted-software
+
+      - uses: deckhouse/modules-actions/setup@v1
+
+      - uses: deckhouse/modules-actions/build@v1
