@@ -93,14 +93,13 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager, crd); err != nil {
+	if err = api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager, crd); err != nil {
 		return nil, err
 	}
 
-	s := NewServer(
+	return NewServer(
 		vmInformer.Informer(),
 		genericServer,
 		proxyCertManager,
-	)
-	return s, nil
+	), nil
 }
