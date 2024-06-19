@@ -19,6 +19,7 @@ package main
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -219,6 +220,87 @@ print("Hello")
 			if !res {
 				t.Errorf("should detect license")
 			}
+		})
+	}
+}
+
+func Test_FilesPathWithExtentionRe(t *testing.T) {
+	filePathCases := []struct {
+		title                 string
+		filePath              string
+		expectedFileToCheckRe bool
+	}{
+		{
+			title:                 "Path .github with yaml extention",
+			filePath:              "./.github/workflows/build.yaml",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with /some/folder/.github yaml extention",
+			filePath:              "/some/folder/.github/workflows/build.yaml",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with ./.github yml extention",
+			filePath:              "./.github/workflows/build.yml",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with sh extention",
+			filePath:              "./run.sh",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with py extention",
+			filePath:              "./scripts/run.py",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with go extention",
+			filePath:              "./cmds/run.go",
+			expectedFileToCheckRe: true,
+		},
+	}
+
+	for _, c := range filePathCases {
+		t.Run(c.title, func(t *testing.T) {
+			resFilePathMatch := fileToCheckRe.MatchString(c.filePath)
+			require.Equal(t, c.expectedFileToCheckRe, resFilePathMatch)
+
+			license := getLicenseForFile(c.filePath)
+			require.NotEmpty(t, license)
+			assert.Equal(t, CELicenseRe.MatchString(license), true)
+		})
+	}
+
+}
+
+func Test_FilesPathNoExtentionRe(t *testing.T) {
+	filePathCases := []struct {
+		title                 string
+		filePath              string
+		expectedFileToCheckRe bool
+	}{
+		{
+			title:                 "Path with no extention",
+			filePath:              "./cmds/enable",
+			expectedFileToCheckRe: true,
+		},
+		{
+			title:                 "Path with no extention root dir",
+			filePath:              "/enable",
+			expectedFileToCheckRe: true,
+		},
+	}
+
+	for _, c := range filePathCases {
+		t.Run(c.title, func(t *testing.T) {
+			resFilePathMatch := fileToCheckRe.MatchString(c.filePath)
+			require.Equal(t, c.expectedFileToCheckRe, resFilePathMatch)
+
+			license := getLicenseForFile(c.filePath)
+			require.Empty(t, license)
+			assert.NotEqual(t, CELicenseRe.MatchString(license), true)
 		})
 	}
 }
