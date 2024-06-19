@@ -30,7 +30,7 @@ spec:
                 "gvr": {
                   "Group": "internal.virtualization.deckhouse.io",
                   "Version": "v1",
-                  "Resource": "dvpinternalkubevirts"
+                  "Resource": "internalvirtualizationkubevirts"
                 },
                 "namespace": "d8-{{ .Chart.Name }}",
                 "name": "config"
@@ -39,7 +39,7 @@ spec:
                 "gvr": {
                   "Group": "internal.virtualization.deckhouse.io",
                   "Version": "v1beta1",
-                  "Resource": "dvpinternalcdis"
+                  "Resource": "internalvirtualizationcdis"
                 },
                 "name": "config"
               }
