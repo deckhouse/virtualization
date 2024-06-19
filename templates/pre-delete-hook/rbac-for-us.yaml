@@ -17,8 +17,8 @@ rules:
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
-  - dvpinternalcdis
-  - dvpinternalkubevirts
+  - internalvirtualizationcdis
+  - internalvirtualizationkubevirts
   verbs:
   - get
   - delete

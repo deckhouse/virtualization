@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Copyright 2024 Flant JSC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,13 +15,13 @@
 # limitations under the License.
 set -eu -o pipefail
 
-KUBEVIRT_RESOURCE="dvpinternalkubevirts.internal.virtualization.deckhouse.io"
+KUBEVIRT_RESOURCE="internalvirtualizationkubevirts.internal.virtualization.deckhouse.io"
 echo "Delete Kubevirt configuration ..."
 kubectl delete -n d8-virtualization ${KUBEVIRT_RESOURCE} config || true
 echo "Wait for Kubevirt deletion ..."
 kubectl wait --for=delete -n d8-virtualization ${KUBEVIRT_RESOURCE} config --timeout=180s || true
 
-CDI_RESOURCE="dvpinternalcdis.internal.virtualization.deckhouse.io"
+CDI_RESOURCE="internalvirtualizationcdis.internal.virtualization.deckhouse.io"
 echo "Delete CDI configuration ..."
 kubectl delete ${CDI_RESOURCE} config || true
 echo "Wait for CDI deletion ..."

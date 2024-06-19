@@ -1,6 +1,8 @@
 # Source:
 # https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-operator.yaml
 # Changes:
+# - 2024.06.19
+#   - Remove DVP prefixes.
 # - 2024.04.16
 #   - Add prefixes xinternal, XInternal
 # - 2023.12.12
@@ -14,15 +16,15 @@ kind: CustomResourceDefinition
 metadata:
   labels:
     operator.kubevirt.io: ""
-  name: dvpinternalkubevirts.internal.virtualization.deckhouse.io
+  name: internalvirtualizationkubevirts.internal.virtualization.deckhouse.io
 spec:
   group: internal.virtualization.deckhouse.io
   names:
     categories:
-      - dvpinternal
-    kind: DVPInternalKubeVirt
-    plural: dvpinternalkubevirts
-    singular: dvpinternalkubevirt
+      - intvirt
+    kind: InternalVirtualizationKubeVirt
+    plural: internalvirtualizationkubevirts
+    singular: internalvirtualizationkubevirt
   scope: Namespaced
   versions:
     - additionalPrinterColumns:

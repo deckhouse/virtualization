@@ -125,26 +125,26 @@ rules:
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternaldatavolumes
+    - internalvirtualizationdatavolumes
   verbs:
     - list
     - get
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternaldatasources
+    - internalvirtualizationdatasources
   verbs:
     - get
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternalcdis
+    - internalvirtualizationcdis
   verbs:
     - get
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternalcdis/finalizers
+    - internalvirtualizationcdis/finalizers
   verbs:
     - update
 - apiGroups:
@@ -288,7 +288,7 @@ rules:
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternaldataimportcrons
+    - internalvirtualizationdataimportcrons
   verbs:
     - get
     - list
