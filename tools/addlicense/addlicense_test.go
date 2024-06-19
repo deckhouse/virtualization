@@ -19,7 +19,6 @@ package main
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -269,7 +268,7 @@ func Test_FilesPathWithExtentionRe(t *testing.T) {
 
 			license := getLicenseForFile(c.filePath)
 			require.NotEmpty(t, license)
-			assert.Equal(t, CELicenseRe.MatchString(license), true)
+			require.Equal(t, CELicenseRe.MatchString(license), true)
 		})
 	}
 }
@@ -299,7 +298,7 @@ func Test_FilesPathNoExtentionRe(t *testing.T) {
 
 			license := getLicenseForFile(c.filePath)
 			require.Empty(t, license)
-			assert.NotEqual(t, CELicenseRe.MatchString(license), true)
+			require.NotEqual(t, CELicenseRe.MatchString(license), true)
 		})
 	}
 }
