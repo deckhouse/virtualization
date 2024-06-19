@@ -15,11 +15,28 @@
 # limitations under the License.
 
 from lib.tests import testing
+from lib.password_generator import htpasswd as hd
 import lib.utils as utils
-from generate_secret_for_dvcr import GenerateSecretHook
+from generate_secret_for_dvcr import GenerateSecretHook, Key, KeyHtpasswd
 
 MODULE_NAME = "test"
-hook = GenerateSecretHook(module_name=MODULE_NAME)
+
+hook = GenerateSecretHook(
+        Key(name="key1",
+            value_path=f"{MODULE_NAME}.internal.test.key1",
+            lenght=32,
+            htpasswd=KeyHtpasswd(
+                name="htpasswd",
+                username="admin", 
+                value_path=f"{MODULE_NAME}.internal.test.htpasswd",
+                )
+            ),
+        Key(name="key2",
+            value_path=f"{MODULE_NAME}.internal.test.key2"),
+        secret_name=MODULE_NAME,
+        namespace=MODULE_NAME,
+        module_name=MODULE_NAME
+        )
 
 binding_context_generate_all = [
     {
@@ -74,7 +91,7 @@ binding_context_regenerate_key2 = [
 initial_values_regenerate_something = {
     MODULE_NAME: {
         "internal":  {
-            "dvcr": {
+            "test": {
                 hook.keys[0].name: "",
                 hook.keys[1].name: ""
             }
@@ -90,7 +107,7 @@ class TestGenerateKeys(testing.TestHook):
         self.assertEqual(len(utils.base64_decode(key)), lenght)
 
     def get_key(self, key: str) -> str:
-        return self.values[MODULE_NAME]["internal"]["dvcr"].get(key, "")
+        return self.values[MODULE_NAME]["internal"]["test"].get(key, "")
 
 
 class TestGenerateSecretALL(TestGenerateKeys):
@@ -111,9 +128,19 @@ class TestGenerateSecretKey1(TestGenerateKeys):
         self.bindind_context = binding_context_regenerate_key1
         self.values = initial_values_regenerate_something
 
-    def test_generate_passwordRW(self):
+    def test_generate_key1(self):
         self.hook_run()
         self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].lenght)
+
+    def test_generate_htpasswd(self):
+        self.hook_run()
+        htpasswd_base64 = self.get_key(hook.keys[0].htpasswd.name)
+        self.assertGreater(len(htpasswd_base64), 0)
+        self.assertTrue(utils.is_base64(htpasswd_base64))
+        password_base64 = self.get_key(hook.keys[0].name)
+        self.key_test(password_base64, hook.keys[0].lenght)
+        htpasswd = hd.Htpasswd(hook.keys[0].htpasswd.username, utils.base64_decode(password_base64))
+        self.assertTrue(htpasswd.validate(utils.base64_decode(htpasswd_base64)))
 
 
 class TestGenerateSecretKey2(TestGenerateKeys):
@@ -122,6 +149,6 @@ class TestGenerateSecretKey2(TestGenerateKeys):
         self.bindind_context = binding_context_regenerate_key2
         self.values = initial_values_regenerate_something
 
-    def test_generate_salt(self):
+    def test_generate_key2(self):
         self.hook_run()
         self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].lenght)
