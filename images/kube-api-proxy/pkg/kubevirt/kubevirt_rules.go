@@ -27,10 +27,10 @@ const (
 )
 
 var KubevirtRewriteRules = &RewriteRules{
-	KindPrefix:         "DVPInternal", // KV
-	ResourceTypePrefix: "dvpinternal", // kv
-	ShortNamePrefix:    "dvp",
-	Categories:         []string{"dvpinternal"},
+	KindPrefix:         "InternalVirtualization", // VirtualMachine -> InternalVirtualizationVirtualMachine
+	ResourceTypePrefix: "internalvirtualization", // virtualmachines -> internalvirtualizationvirtualmachines
+	ShortNamePrefix:    "intvirt",                // kubectl get intvirtvm
+	Categories:         []string{"intvirt"},      // kubectl get intvirt to see all KubeVirt and CDI resources.
 	RenamedGroup:       "internal.virtualization.deckhouse.io",
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
