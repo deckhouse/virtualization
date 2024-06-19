@@ -60,7 +60,7 @@ jobs:
           if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
           else
-            MODULES_MODULE_TAG="$(echo pr${{ github.event.pull_request.number }})"
+            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
@@ -118,7 +118,9 @@ jobs:
   lint_go:
     name: Run go linter
     if: needs.check_label.outputs.should_run
-    needs: set_vars
+    needs:
+      - check_label 
+      - set_vars
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
@@ -141,7 +143,9 @@ jobs:
   lint_yaml:
     name: Run yaml linter
     if: needs.check_label.outputs.should_run
-    needs: set_vars
+    needs:
+      - check_label 
+      - set_vars
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Install Task
@@ -159,7 +163,9 @@ jobs:
   test:
     name: Run unit test
     if: needs.check_label.outputs.should_run
-    needs: set_vars
+    needs:
+      - check_label 
+      - set_vars
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
@@ -186,7 +192,9 @@ jobs:
   dev_setup_build:
     name: Build and Push images
     if: needs.check_label.outputs.should_run
-    needs: set_vars
+    needs:
+      - check_label 
+      - set_vars
     runs-on: [self-hosted, ci-testing]
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
