@@ -1,3 +1,14 @@
 ---
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-original-registry2
 from: docker.io/registry:2.8.2@sha256:da1fbcd13a7ddc77d0d964a5c5c4cb707b5d440a028b0b42fe574b9e99077e27
+---
+image: {{ $.ImageName }}
+fromImage: base-scratch
+import:
+- image: {{ $.ImageName }}-original-registry2
+  add: /bin
+  to: /bin
+  after: install
+  includePaths:
+  - registry
+# Registry configuration is stored in configmap: templates/dvcr/configmap.yaml 
