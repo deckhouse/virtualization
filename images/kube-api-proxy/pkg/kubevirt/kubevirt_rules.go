@@ -23,14 +23,14 @@ import (
 const (
 	internalPrefix = "internal.virtualization.deckhouse.io"
 	nodePrefix     = "node.virtualization.deckhouse.io"
-	dvpPrefix      = "virtualization.deckhouse.io"
+	rootPrefix     = "virtualization.deckhouse.io"
 )
 
 var KubevirtRewriteRules = &RewriteRules{
-	KindPrefix:         "DVPInternal", // KV
-	ResourceTypePrefix: "dvpinternal", // kv
-	ShortNamePrefix:    "dvp",
-	Categories:         []string{"dvpinternal"},
+	KindPrefix:         "InternalVirtualization", // VirtualMachine -> InternalVirtualizationVirtualMachine
+	ResourceTypePrefix: "internalvirtualization", // virtualmachines -> internalvirtualizationvirtualmachines
+	ShortNamePrefix:    "intvirt",                // kubectl get intvirtvm
+	Categories:         []string{"intvirt"},      // kubectl get intvirt to see all KubeVirt and CDI resources.
 	RenamedGroup:       "internal.virtualization.deckhouse.io",
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
@@ -41,7 +41,7 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "prometheus.kubevirt.io", Renamed: "prometheus.kubevirt." + internalPrefix},
 			{Original: "prometheus.cdi.kubevirt.io", Renamed: "prometheus.cdi." + internalPrefix},
 			// Special cases.
-			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + dvpPrefix + "/skip-node"},
+			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + rootPrefix + "/skip-node"},
 			{Original: "node-labeller.kubevirt.io/obsolete-host-model", Renamed: "node-labeller." + internalPrefix + "/obsolete-host-model"},
 		},
 		Prefixes: []MetadataReplaceRule{
@@ -473,7 +473,7 @@ var KubevirtWebhooks = map[string]WebhookRule{
 	"/dataimportcron-validate": {
 		Path:     "/dataimportcron-validate",
 		Group:    "cdi.kubevirt.io",
-		Resource: "dvpinternaldataimportcrons",
+		Resource: "dataimportcrons",
 	},
 	"/datavolume-validate": {
 		Path:     "/datavolume-validate",

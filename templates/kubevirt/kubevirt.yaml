@@ -7,7 +7,7 @@
 {{- $webhookProxyPort :=  24192 }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
-kind: DVPInternalKubeVirt
+kind: InternalVirtualizationKubeVirt
 metadata:
   name: config
   namespace: d8-{{ .Chart.Name }}

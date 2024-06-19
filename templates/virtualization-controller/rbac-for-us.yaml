@@ -89,7 +89,7 @@ rules:
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
-  - dvpinternaldatavolumes
+  - internalvirtualizationdatavolumes
   verbs:
   - get
   - create
@@ -100,8 +100,8 @@ rules:
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
-  - dvpinternalvirtualmachines
-  - dvpinternalvirtualmachineinstances
+  - internalvirtualizationvirtualmachines
+  - internalvirtualizationvirtualmachineinstances
   verbs:
   - get
   - watch
@@ -113,7 +113,7 @@ rules:
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternalkubevirts
+    - internalvirtualizationkubevirts
   verbs:
     - get
     - list
@@ -121,7 +121,7 @@ rules:
 - apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
-    - dvpinternalvirtualmachines/status
+    - internalvirtualizationvirtualmachines/status
   verbs:
     - patch
     - update

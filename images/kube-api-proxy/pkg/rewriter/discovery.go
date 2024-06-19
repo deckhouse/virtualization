@@ -461,23 +461,23 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 // Example of the APIResourceDiscovery object:
 //
 //	{
-//	  "resource": "dvpinternalkubevirts",
+//	  "resource": "internalvirtualizationkubevirts",
 //	  "responseKind": {
 //	    "group": "internal.virtualization.deckhouse.io",
 //	    "version": "v1",
-//	    "kind": "DVPInternalKubeVirt"
+//	    "kind": "InternalVirtualizationKubeVirt"
 //	  },
 //	  "scope": "Namespaced",
-//	  "singularResource": "dvpinternalkubevirt",
+//	  "singularResource": "internalvirtualizationkubevirt",
 //	  "verbs": [ "delete", "deletecollection", "get", ... ], // Optional
-//	  "categories": [ "dvpinternal" ], // Optional
+//	  "categories": [ "intvirt" ], // Optional
 //	  "subresources": [ // Optional
 //	    {
 //	      "subresource": "status",
 //	      "responseKind": {
 //	        "group": "internal.virtualization.deckhouse.io",
 //	        "version": "v1",
-//	        "kind": "DVPInternalKubeVirt"
+//	        "kind": "InternalVirtualizationKubeVirt"
 //	      },
 //	      "verbs": [ "get", "patch", "update" ]
 //	    }

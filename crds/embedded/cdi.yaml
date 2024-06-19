@@ -3,19 +3,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: dvpinternalcdis.internal.virtualization.deckhouse.io
+  name: internalvirtualizationcdis.internal.virtualization.deckhouse.io
 spec:
   group: internal.virtualization.deckhouse.io
   names:
     categories:
-      - dvpinternal
-    kind: DVPInternalCDI
-    listKind: DVPInternalCDIList
-    plural: dvpinternalcdis
+      - intvirt
+    kind: InternalVirtualizationCDI
+    listKind: InternalVirtualizationCDIList
+    plural: internalvirtualizationcdis
     shortNames:
-      - dvpcdi
-      - dvpcdis
-    singular: dvpinternalcdi
+      - intvirtcdi
+      - intvirtcdis
+    singular: internalvirtualizationcdi
   scope: Cluster
   versions:
     - additionalPrinterColumns:
