@@ -22,6 +22,8 @@ import (
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const ShortName = "cvi"
+
 // MakeOwnerReference makes owner reference from a ClusterVirtualImage.
 func MakeOwnerReference(cvmi *virtv2alpha1.ClusterVirtualImage) metav1.OwnerReference {
 	blockOwnerDeletion := true

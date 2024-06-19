@@ -34,6 +34,7 @@ type DVCRDataSource struct {
 	size    virtv2.ImageStatusSize
 	meta    metav1.Object
 	format  string
+	target  string
 	isReady bool
 }
 
@@ -59,6 +60,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
 				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
 	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
@@ -74,6 +76,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
 				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
 	}
@@ -103,6 +106,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
 				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
 	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
@@ -118,6 +122,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
 				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
 	}
@@ -148,6 +153,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
 				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
 	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
@@ -163,6 +169,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
 				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
 	}
@@ -188,4 +195,8 @@ func (ds *DVCRDataSource) GetFormat() string {
 
 func (ds *DVCRDataSource) IsReady() bool {
 	return ds.isReady
+}
+
+func (ds *DVCRDataSource) GetTarget() string {
+	return ds.target
 }

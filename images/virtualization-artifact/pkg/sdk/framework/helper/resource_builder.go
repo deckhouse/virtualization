@@ -43,14 +43,7 @@ func NewResourceBuilder[T client.Object](resource T, opts ResourceBuilderOptions
 }
 
 func (b *ResourceBuilder[T]) SetOwnerRef(obj metav1.Object, gvk schema.GroupVersionKind) {
-	newOwnerRefs := util.SetArrayElem(
-		b.Resource.GetOwnerReferences(),
-		*metav1.NewControllerRef(obj, gvk),
-		func(v1, v2 metav1.OwnerReference) bool {
-			return v1.Name == v2.Name
-		}, false,
-	)
-	b.Resource.SetOwnerReferences(newOwnerRefs)
+	SetOwnerRef(b.Resource, *metav1.NewControllerRef(obj, gvk))
 }
 
 func (b *ResourceBuilder[T]) AddAnnotation(annotation, value string) {
@@ -67,4 +60,21 @@ func (b *ResourceBuilder[T]) GetResource() T {
 
 func (b *ResourceBuilder[T]) IsResourceExists() bool {
 	return b.ResourceExists
+}
+
+func SetOwnerRef(obj metav1.Object, ref metav1.OwnerReference) bool {
+	newOwnerRefs := util.SetArrayElem(
+		obj.GetOwnerReferences(),
+		ref,
+		func(v1, v2 metav1.OwnerReference) bool {
+			return v1.Name == v2.Name
+		}, false,
+	)
+
+	if len(newOwnerRefs) == len(obj.GetOwnerReferences()) {
+		return false
+	}
+
+	obj.SetOwnerReferences(newOwnerRefs)
+	return true
 }

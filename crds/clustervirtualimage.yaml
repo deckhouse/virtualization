@@ -94,12 +94,6 @@ spec:
                             The CA chain in base64 format to verify the url.
                           example: |
                             YWFhCg==
-                        insecureSkipVerify:
-                          type: boolean
-                          default: false
-                          description: |
-                            If a CA chain isn't provided, this option can be used to turn off TLS certificate checks.
-                            As noted, it is insecure and shouldn't be used in production environments.
                         checksum:
                           type: object
                           description: |
@@ -193,6 +187,32 @@ spec:
             status:
               type: object
               properties:
+                conditions:
+                  type: array
+                  description: |
+                    Hold the state information of the `ClusterVirtualImage`.
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastProbeTime:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                        nullable: true
+                    required:
+                      - type
+                      - status
                 downloadSpeed:
                   type: object
                   description: |
@@ -270,6 +290,7 @@ spec:
                     * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
                     * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
                     * ImageLost - The child image of the resource is missing. The resource cannot be used.
+                    * Terminating - The process of resource deletion is in progress.
                   enum:
                     [
                       "Pending",
@@ -278,6 +299,7 @@ spec:
                       "Ready",
                       "Failed",
                       "ImageLost",
+                      "Terminating",
                       "Unknown",
                     ]
                 progress:
@@ -288,31 +310,10 @@ spec:
                   type: string
                   description: |
                     Command for uploading a image for the 'Upload' type.
-                failureReason:
-                  type: string
+                observedGeneration:
+                  type: integer
                   description: |
-                    A brief description of the cause of the error.
-                failureMessage:
-                  type: string
-                  description: |
-                    Detailed description of the error. human-readable
-                attachedToVirtualMachines:
-                  type: array
-                  description: |
-                    A list of virtual machines and namespaces that use the image
-                  example:
-                    [
-                      { name: "VM100", namespace: "customer1" },
-                      { name: "VM200", namespace: "customer1" },
-                      { name: "VM200", namespace: "customer2" },
-                    ]
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                      namespace:
-                        type: string
+                    Represents the .metadata.generation that the status was set based upon.
       additionalPrinterColumns:
         - name: Phase
           type: string

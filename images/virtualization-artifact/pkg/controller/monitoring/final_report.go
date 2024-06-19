@@ -51,13 +51,15 @@ func (r *FinalReport) GetAverageSpeedRaw() uint64 {
 	return r.AverageSpeed
 }
 
+var ErrTerminationMessageNotFound = errors.New("termination message not found in the Pod status")
+
 func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 	if pod == nil {
 		return nil, errors.New("got nil Pod: unable to get the final report from the nil Pod")
 	}
 
 	if len(pod.Status.ContainerStatuses) == 0 || pod.Status.ContainerStatuses[0].State.Terminated == nil {
-		return nil, errors.New("termination message not found in the Pod status")
+		return nil, ErrTerminationMessageNotFound
 	}
 
 	message := pod.Status.ContainerStatuses[0].State.Terminated.Message

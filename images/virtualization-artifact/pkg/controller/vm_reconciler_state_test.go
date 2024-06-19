@@ -34,6 +34,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var vmControllerLog = logf.Log.WithName("vm-controller-test")
+
 func TestUnmarshalVMStatus(t *testing.T) {
 	vmName := types.NamespacedName{
 		Namespace: "test-ns",

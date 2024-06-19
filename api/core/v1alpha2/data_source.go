@@ -41,10 +41,8 @@ type Checksum struct {
 type DataSourceType string
 
 const (
-	DataSourceTypeHTTP                  DataSourceType = "HTTP"
-	DataSourceTypeContainerImage        DataSourceType = "ContainerImage"
-	DataSourceTypeObjectRef             DataSourceType = "ObjectRef"
-	DataSourceTypeUpload                DataSourceType = "Upload"
-	DataSourceTypeVirtualDiskSnapshot   DataSourceType = "VirtualDiskSnapshot"
-	DataSourceTypePersistentVolumeClaim DataSourceType = "PersistentVolumeClaim"
+	DataSourceTypeHTTP           DataSourceType = "HTTP"
+	DataSourceTypeContainerImage DataSourceType = "ContainerImage"
+	DataSourceTypeObjectRef      DataSourceType = "ObjectRef"
+	DataSourceTypeUpload         DataSourceType = "Upload"
 )

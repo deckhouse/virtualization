@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/util"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
+	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 )
 
@@ -195,7 +196,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 			checksumCheckFuncList = append(checksumCheckFuncList, func() error {
 				sum := hex.EncodeToString(hash.Sum(nil))
 				if sum != p.sha256Sum {
-					return fmt.Errorf("sha256 sum mismatch: %s != %s", sum, p.sha256Sum)
+					return importerrs.NewBadImageChecksumError("sha256", p.sha256Sum, sum)
 				}
 
 				return nil
@@ -208,7 +209,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 			checksumCheckFuncList = append(checksumCheckFuncList, func() error {
 				sum := hex.EncodeToString(hash.Sum(nil))
 				if sum != p.md5Sum {
-					return fmt.Errorf("md5 sum mismatch: %s != %s", sum, p.md5Sum)
+					return importerrs.NewBadImageChecksumError("md5", p.md5Sum, sum)
 				}
 
 				return nil

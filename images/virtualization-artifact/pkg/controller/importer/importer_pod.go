@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	common "github.com/deckhouse/virtualization-controller/pkg/common"
@@ -61,13 +62,13 @@ const (
 
 type Importer struct {
 	PodSettings *PodSettings
-	Settings    *Settings
+	EnvSettings *Settings
 }
 
-func NewImporter(podSettings *PodSettings, settings *Settings) *Importer {
+func NewImporter(podSettings *PodSettings, envSettings *Settings) *Importer {
 	return &Importer{
 		PodSettings: podSettings,
-		Settings:    settings,
+		EnvSettings: envSettings,
 	}
 }
 
@@ -175,7 +176,7 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
 		Command:         []string{"sh"},
-		Args:            []string{"/importer_entrypoint.sh", "-v=" + imp.Settings.Verbose},
+		Args:            []string{"/importer_entrypoint.sh", "-v=" + imp.EnvSettings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",
@@ -198,19 +199,19 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{
 			Name:  common.ImporterSource,
-			Value: imp.Settings.Source,
+			Value: imp.EnvSettings.Source,
 		},
 		{
 			Name:  common.ImporterEndpoint,
-			Value: imp.Settings.Endpoint,
+			Value: imp.EnvSettings.Endpoint,
 		},
 		{
 			Name:  common.ImporterContentType,
-			Value: imp.Settings.ContentType,
+			Value: imp.EnvSettings.ContentType,
 		},
 		{
 			Name:  common.ImporterImageSize,
-			Value: imp.Settings.ImageSize,
+			Value: imp.EnvSettings.ImageSize,
 		},
 		{
 			Name:  common.OwnerUID,
@@ -218,47 +219,47 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 		},
 		{
 			Name:  common.FilesystemOverheadVar,
-			Value: imp.Settings.FilesystemOverhead,
+			Value: imp.EnvSettings.FilesystemOverhead,
 		},
 		{
 			Name:  common.InsecureTLSVar,
-			Value: strconv.FormatBool(imp.Settings.InsecureTLS),
+			Value: strconv.FormatBool(imp.EnvSettings.InsecureTLS),
 		},
 		{
 			Name:  common.ImporterDiskID,
-			Value: imp.Settings.DiskID,
+			Value: imp.EnvSettings.DiskID,
 		},
 		{
 			Name:  common.ImporterUUID,
-			Value: imp.Settings.UUID,
+			Value: imp.EnvSettings.UUID,
 		},
 		{
 			Name:  common.ImporterReadyFile,
-			Value: imp.Settings.ReadyFile,
+			Value: imp.EnvSettings.ReadyFile,
 		},
 		{
 			Name:  common.ImporterDoneFile,
-			Value: imp.Settings.DoneFile,
+			Value: imp.EnvSettings.DoneFile,
 		},
 		{
 			Name:  common.ImporterBackingFile,
-			Value: imp.Settings.BackingFile,
+			Value: imp.EnvSettings.BackingFile,
 		},
 		{
 			Name:  common.ImporterThumbprint,
-			Value: imp.Settings.Thumbprint,
+			Value: imp.EnvSettings.Thumbprint,
 		},
 		{
 			Name:  common.ImportProxyHTTP,
-			Value: imp.Settings.HTTPProxy,
+			Value: imp.EnvSettings.HTTPProxy,
 		},
 		{
 			Name:  common.ImportProxyHTTPS,
-			Value: imp.Settings.HTTPSProxy,
+			Value: imp.EnvSettings.HTTPSProxy,
 		},
 		{
 			Name:  common.ImportProxyNoProxy,
-			Value: imp.Settings.NoProxy,
+			Value: imp.EnvSettings.NoProxy,
 		},
 	}
 
@@ -266,36 +267,36 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 	env = append(env, []corev1.EnvVar{
 		{
 			Name:  common.ImporterDestinationEndpoint,
-			Value: imp.Settings.DestinationEndpoint,
+			Value: imp.EnvSettings.DestinationEndpoint,
 		},
 		{
 			Name:  common.DestinationInsecureTLSVar,
-			Value: imp.Settings.DestinationInsecureTLS,
+			Value: imp.EnvSettings.DestinationInsecureTLS,
 		},
 	}...)
 
 	// HTTP source checksum settings: md5 and sha256.
-	if imp.Settings.SHA256 != "" {
+	if imp.EnvSettings.SHA256 != "" {
 		env = append(env, corev1.EnvVar{
 			Name:  common.ImporterSHA256Sum,
-			Value: imp.Settings.SHA256,
+			Value: imp.EnvSettings.SHA256,
 		})
 	}
-	if imp.Settings.MD5 != "" {
+	if imp.EnvSettings.MD5 != "" {
 		env = append(env, corev1.EnvVar{
 			Name:  common.ImporterMD5Sum,
-			Value: imp.Settings.MD5,
+			Value: imp.EnvSettings.MD5,
 		})
 	}
 
 	// Pass basic auth configuration from Secret with downward API.
-	if imp.Settings.SecretName != "" {
+	if imp.EnvSettings.SecretName != "" {
 		env = append(env, corev1.EnvVar{
 			Name: common.ImporterAccessKeyID,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: imp.Settings.SecretName,
+						Name: imp.EnvSettings.SecretName,
 					},
 					Key: common.KeyAccess,
 				},
@@ -305,7 +306,7 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: imp.Settings.SecretName,
+						Name: imp.EnvSettings.SecretName,
 					},
 					Key: common.KeySecret,
 				},
@@ -318,10 +319,10 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
-	if imp.Settings.AuthSecret != "" {
+	if imp.EnvSettings.AuthSecret != "" {
 		// Mount source registry auth Secret and pass directory with mounted source registry login config.
 		podutil.AddVolume(pod, container,
-			podutil.CreateSecretVolume(sourceRegistryAuthVol, imp.Settings.AuthSecret),
+			podutil.CreateSecretVolume(sourceRegistryAuthVol, imp.EnvSettings.AuthSecret),
 			podutil.CreateVolumeMount(sourceRegistryAuthVol, common.ImporterAuthConfigDir),
 			corev1.EnvVar{
 				Name:  common.ImporterAuthConfigVar,
@@ -330,10 +331,10 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 		)
 	}
 
-	if imp.Settings.DestinationAuthSecret != "" {
+	if imp.EnvSettings.DestinationAuthSecret != "" {
 		// Mount DVCR auth Secret and pass directory with mounted DVCR login config.
 		podutil.AddVolume(pod, container,
-			podutil.CreateSecretVolume(destinationAuthVol, imp.Settings.DestinationAuthSecret),
+			podutil.CreateSecretVolume(destinationAuthVol, imp.EnvSettings.DestinationAuthSecret),
 			podutil.CreateVolumeMount(destinationAuthVol, common.ImporterDestinationAuthConfigDir),
 			corev1.EnvVar{
 				Name:  common.ImporterDestinationAuthConfigVar,
@@ -343,9 +344,9 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 	}
 
 	// Volume with CA certificates either from caBundle field or from existing ConfigMap.
-	if imp.Settings.CertConfigMap != "" {
+	if imp.EnvSettings.CertConfigMap != "" {
 		podutil.AddVolume(pod, container,
-			podutil.CreateConfigMapVolume(certVolName, imp.Settings.CertConfigMap),
+			podutil.CreateConfigMapVolume(certVolName, imp.EnvSettings.CertConfigMap),
 			podutil.CreateVolumeMount(certVolName, common.ImporterCertDir),
 			corev1.EnvVar{
 				Name:  common.ImporterCertDirVar,
@@ -354,9 +355,9 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 		)
 	}
 
-	if imp.Settings.CertConfigMapProxy != "" {
+	if imp.EnvSettings.CertConfigMapProxy != "" {
 		podutil.AddVolume(pod, container,
-			podutil.CreateConfigMapVolume(proxyCertVolName, imp.Settings.CertConfigMapProxy), //  GetImportProxyConfigMapName(args.cvmi.Name)
+			podutil.CreateConfigMapVolume(proxyCertVolName, imp.EnvSettings.CertConfigMapProxy), //  GetImportProxyConfigMapName(args.cvmi.Name)
 			podutil.CreateVolumeMount(proxyCertVolName, common.ImporterProxyCertDir),
 			corev1.EnvVar{
 				Name:  common.ImporterProxyCertDirVar,
@@ -366,7 +367,7 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 	}
 
 	// Mount extra headers Secrets.
-	for index, header := range imp.Settings.SecretExtraHeaders {
+	for index, header := range imp.EnvSettings.SecretExtraHeaders {
 		volName := fmt.Sprintf(secretExtraHeadersVolumeName, index)
 		mountPath := path.Join(common.ImporterSecretExtraHeadersDir, fmt.Sprint(index))
 		envName := fmt.Sprintf("%s%d", common.ImporterExtraHeader, index)
@@ -387,4 +388,9 @@ type PodNamer interface {
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
 	return helper.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
+}
+
+func DeletePod(ctx context.Context, clientset kubernetes.Interface, name PodNamer) error {
+	key := name.ImporterPod()
+	return clientset.CoreV1().Pods(key.Namespace).Delete(ctx, key.Name, metav1.DeleteOptions{})
 }
