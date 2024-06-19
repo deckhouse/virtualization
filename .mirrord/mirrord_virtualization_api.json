@@ -1,0 +1,25 @@
+{
+  "feature": {
+    "network": {
+      "incoming": "steal",
+      "outgoing": true
+    },
+    "fs": {
+      "mode": "read",
+      "read_only": [ "^/var/", "^/etc/" ]
+    },
+    "env": true
+  },
+  "agent": {
+    "communication_timeout": 6000,
+    "startup_timeout": 56000
+  },
+  "internal_proxy": {
+    "start_idle_timeout": 13000,
+    "idle_timeout": 1500
+  },
+  "target": {
+    "namespace": "d8-virtualization",
+    "path": "deployment/virtualization-api/container/virtualization-api"
+  }
+}

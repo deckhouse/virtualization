@@ -23,7 +23,6 @@ import (
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -31,70 +30,62 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
-type ConsoleREST struct {
+type RemoveVolumeREST struct {
 	vmLister         cache.GenericLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
-type KubevirtApiServerConfig struct {
-	Endpoint       string
-	CaBundlePath   string
-	ServiceAccount types.NamespacedName
-}
-
 var (
-	_ rest.Storage   = &ConsoleREST{}
-	_ rest.Connecter = &ConsoleREST{}
+	_ rest.Storage   = &RemoveVolumeREST{}
+	_ rest.Connecter = &RemoveVolumeREST{}
 )
 
-func NewConsoleREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
-	return &ConsoleREST{
+func NewRemoveVolumeREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *RemoveVolumeREST {
+	return &RemoveVolumeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
 		proxyCertManager: proxyCertManager,
 	}
 }
 
-// New implements rest.Storage interface
-func (r ConsoleREST) New() runtime.Object {
-	return &subresources.VirtualMachineConsole{}
+func (r RemoveVolumeREST) New() runtime.Object {
+	return &subresources.VirtualMachineRemoveVolume{}
 }
 
-// Destroy implements rest.Storage interface
-func (r ConsoleREST) Destroy() {
+func (r RemoveVolumeREST) Destroy() {
 }
 
-func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	consoleOpts, ok := opts.(*subresources.VirtualMachineConsole)
+func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+	removeVolumeOpts, ok := opts.(*subresources.VirtualMachineRemoveVolume)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, consoleOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := RemoveVolumeRESTLocation(ctx, r.vmLister, name, removeVolumeOpts, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 
 // NewConnectOptions implements rest.Connecter interface
-func (r ConsoleREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachineConsole{}, false, ""
+func (r RemoveVolumeREST) NewConnectOptions() (runtime.Object, bool, string) {
+	return &subresources.VirtualMachineRemoveVolume{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
-func (r ConsoleREST) ConnectMethods() []string {
-	return upgradeableMethods
+func (r RemoveVolumeREST) ConnectMethods() []string {
+	return []string{http.MethodPut}
 }
 
-func ConsoleLocation(
+func RemoveVolumeRESTLocation(
 	ctx context.Context,
 	getter cache.GenericLister,
 	name string,
-	opts *subresources.VirtualMachineConsole,
+	opts *subresources.VirtualMachineRemoveVolume,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, "console", kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, "removevolume", kubevirt, proxyCertManager)
 }
