@@ -49,6 +49,8 @@ jobs:
   set_vars:
     runs-on: ubuntu-latest
     name: Set MODULES_MODULE_TAG
+    if: needs.check_label.outputs.should_run
+    needs: check_label
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
     steps:
