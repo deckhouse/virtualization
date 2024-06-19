@@ -231,32 +231,32 @@ func Test_FilesPathWithExtentionRe(t *testing.T) {
 		expectedFileToCheckRe bool
 	}{
 		{
-			title:                 "Path .github with yaml extention",
+			title:                 "Path .github with yaml extension",
 			filePath:              "./.github/workflows/build.yaml",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with /some/folder/.github yaml extention",
+			title:                 "Path with /some/folder/.github yaml extension",
 			filePath:              "/some/folder/.github/workflows/build.yaml",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with ./.github yml extention",
+			title:                 "Path with ./.github yml extension",
 			filePath:              "./.github/workflows/build.yml",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with sh extention",
+			title:                 "Path with sh extension",
 			filePath:              "./run.sh",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with py extention",
+			title:                 "Path with py extension",
 			filePath:              "./scripts/run.py",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with go extention",
+			title:                 "Path with go extension",
 			filePath:              "./cmds/run.go",
 			expectedFileToCheckRe: true,
 		},
@@ -272,7 +272,6 @@ func Test_FilesPathWithExtentionRe(t *testing.T) {
 			assert.Equal(t, CELicenseRe.MatchString(license), true)
 		})
 	}
-
 }
 
 func Test_FilesPathNoExtentionRe(t *testing.T) {
@@ -282,12 +281,12 @@ func Test_FilesPathNoExtentionRe(t *testing.T) {
 		expectedFileToCheckRe bool
 	}{
 		{
-			title:                 "Path with no extention",
+			title:                 "Path with no extension",
 			filePath:              "./cmds/enable",
 			expectedFileToCheckRe: true,
 		},
 		{
-			title:                 "Path with no extention root dir",
+			title:                 "Path with no extension root dir",
 			filePath:              "/enable",
 			expectedFileToCheckRe: true,
 		},
