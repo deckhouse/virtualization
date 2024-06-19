@@ -24,8 +24,6 @@ const (
 	ImageProvisioning      ImagePhase = "Provisioning"
 	ImageReady             ImagePhase = "Ready"
 	ImageFailed            ImagePhase = "Failed"
-	ImagePVCLost           ImagePhase = "PVCLost"
-	ImageUnknown           ImagePhase = "Unknown"
 	ImageTerminating       ImagePhase = "Terminating"
 )
 
@@ -40,9 +38,6 @@ type ImageStatus struct {
 	Phase         ImagePhase        `json:"phase,omitempty"`
 	Progress      string            `json:"progress,omitempty"`
 	UploadCommand string            `json:"uploadCommand,omitempty"`
-	// TODO remove.
-	FailureReason  string `json:"failureReason,omitempty"`
-	FailureMessage string `json:"failureMessage,omitempty"`
 }
 
 type StatusSpeed struct {

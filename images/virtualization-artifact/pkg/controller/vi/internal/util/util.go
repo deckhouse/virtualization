@@ -14,13 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package util
 
-import (
-	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	ImporterPodVerbose    = "3"
-	ImporterPodPullPolicy = string(corev1.PullIfNotPresent)
-)
+const ControllerShortName = "vi"

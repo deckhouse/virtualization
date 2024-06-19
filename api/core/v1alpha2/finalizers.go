@@ -18,6 +18,7 @@ package v1alpha2
 
 const (
 	FinalizerClusterVirtualImageProtection = "virtualization.deckhouse.io/cvi-protection"
+	FinalizerVirtualImageProtection        = "virtualization.deckhouse.io/vi-protection"
 	FinalizerVirtualDiskProtection         = "virtualization.deckhouse.io/vd-protection"
 	FinalizerPodProtection                 = "virtualization.deckhouse.io/pod-protection"
 	FinalizerServiceProtection             = "virtualization.deckhouse.io/svc-protection"
@@ -37,7 +38,7 @@ const (
 
 	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"
-	FinalizerVMICleanup            = "virtualization.deckhouse.io/vi-cleanup"
+	FinalizerVICleanup             = "virtualization.deckhouse.io/vi-cleanup"
 	FinalizerVMCleanup             = "virtualization.deckhouse.io/vm-cleanup"
 	FinalizerIPAddressClaimCleanup = "virtualization.deckhouse.io/vmip-cleanup"
 	FinalizerIPAddressLeaseCleanup = "virtualization.deckhouse.io/vmipl-cleanup"

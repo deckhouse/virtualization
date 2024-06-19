@@ -53,14 +53,6 @@ func (s *Service) Create(ctx context.Context, client client.Client) (*corev1.Ser
 	return service, nil
 }
 
-func CleanupService(ctx context.Context, client client.Client, service *corev1.Service) error {
-	if service == nil {
-		return nil
-	}
-
-	return helper.CleanupObject(ctx, client, service)
-}
-
 func (s *Service) makeSpec() *corev1.Service {
 	service := &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
