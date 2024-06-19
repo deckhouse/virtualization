@@ -95,9 +95,9 @@ spec:
                         * `Upload` — загрузить образ вручную, через веб-интерфейс.
             status:
               properties:
-                attachedToVirtualMachines:
+                conditions:
                   description: |
-                    Список виртуальных машин, использующих этот образ
+                    Содержит информацию о состоянии `ClusterVirtualImage`.
                 cdrom:
                   description: |
                     Является ли образ форматом, который должен быть смонтирован как cdrom, например iso и т. д.
@@ -117,12 +117,6 @@ spec:
                     currentBytes:
                       description: |
                         Текущая скорость загрузки в байтах в секунду.
-                failureMessage:
-                  description: |
-                    Подробное описание ошибки.
-                failureReason:
-                  description: |
-                    Краткое описание причины ошибки.
                 format:
                   description: |
                     Обнаруженный формат образа.
@@ -137,6 +131,7 @@ spec:
                     * Failed - При создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
                     * NotReady - Невозможно получить информацию о дочернем образе из-за невозможности подключения к DVCR. Ресурс не может быть использован.
                     * ImageLost - Дочернее образ ресурса отсутствует. Ресурс не может быть использован.
+                    * Terminating - Ресурс находится в процессе удаления.
                 progress:
                   description: |
                     Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
@@ -163,3 +158,6 @@ spec:
                 uploadCommand:
                   description: |
                     Команда для загрузки образа для типа 'Upload'.
+                observedGeneration:
+                  description: |
+                    Представляет .metadata.generation, на основе которого был установлен статус.

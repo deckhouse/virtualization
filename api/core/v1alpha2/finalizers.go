@@ -17,13 +17,15 @@ limitations under the License.
 package v1alpha2
 
 const (
-	FinalizerPodProtection     = "virtualization.deckhouse.io/pod-protection"
-	FinalizerServiceProtection = "virtualization.deckhouse.io/svc-protection"
-	FinalizerIngressProtection = "virtualization.deckhouse.io/ingress-protection"
-	FinalizerSecretProtection  = "virtualization.deckhouse.io/secret-protection"
-	FinalizerDVProtection      = "virtualization.deckhouse.io/dv-protection"
-	FinalizerPVCProtection     = "virtualization.deckhouse.io/pvc-protection"
-	FinalizerPVProtection      = "virtualization.deckhouse.io/pv-protection"
+	FinalizerClusterVirtualImageProtection = "virtualization.deckhouse.io/cvi-protection"
+	FinalizerVirtualDiskProtection         = "virtualization.deckhouse.io/vd-protection"
+	FinalizerPodProtection                 = "virtualization.deckhouse.io/pod-protection"
+	FinalizerServiceProtection             = "virtualization.deckhouse.io/svc-protection"
+	FinalizerIngressProtection             = "virtualization.deckhouse.io/ingress-protection"
+	FinalizerSecretProtection              = "virtualization.deckhouse.io/secret-protection"
+	FinalizerDVProtection                  = "virtualization.deckhouse.io/dv-protection"
+	FinalizerPVCProtection                 = "virtualization.deckhouse.io/pvc-protection"
+	FinalizerPVProtection                  = "virtualization.deckhouse.io/pv-protection"
 
 	FinalizerCVMIProtection  = "virtualization.deckhouse.io/cvi-protection"
 	FinalizerVMIProtection   = "virtualization.deckhouse.io/vi-protection"
@@ -32,9 +34,9 @@ const (
 	FinalizerVMOPProtection  = "virtualization.deckhouse.io/vmop-protection"
 	FinalizerVMCPUProtection = "virtualization.deckhouse.io/vmcpu-protection"
 
-	FinalizerCVMICleanup           = "virtualization.deckhouse.io/cvi-cleanup"
+	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
+	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"
 	FinalizerVMICleanup            = "virtualization.deckhouse.io/vi-cleanup"
-	FinalizerVMDCleanup            = "virtualization.deckhouse.io/vd-cleanup"
 	FinalizerVMCleanup             = "virtualization.deckhouse.io/vm-cleanup"
 	FinalizerIPAddressClaimCleanup = "virtualization.deckhouse.io/vmip-cleanup"
 	FinalizerIPAddressLeaseCleanup = "virtualization.deckhouse.io/vmipl-cleanup"

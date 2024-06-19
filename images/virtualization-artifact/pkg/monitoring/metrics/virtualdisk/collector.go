@@ -100,8 +100,9 @@ func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualDisk) {
 		{phase == virtv2.DiskProvisioning, string(virtv2.DiskProvisioning)},
 		{phase == virtv2.DiskReady, string(virtv2.DiskReady)},
 		{phase == virtv2.DiskFailed, string(virtv2.DiskFailed)},
-		{phase == virtv2.DiskPVCLost, string(virtv2.DiskPVCLost)},
-		{phase == virtv2.DiskUnknown, string(virtv2.DiskUnknown)},
+		{phase == virtv2.DiskLost, string(virtv2.DiskLost)},
+		{phase == virtv2.DiskResizing, string(virtv2.DiskResizing)},
+		{phase == virtv2.DiskTerminating, string(virtv2.DiskTerminating)},
 	}
 	desc := diskMetrics[MetricDiskStatusPhase]
 	for _, p := range phases {

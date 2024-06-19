@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )

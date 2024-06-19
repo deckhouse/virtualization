@@ -1,0 +1,251 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package service
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+type StatService struct {
+	logger *slog.Logger
+}
+
+func NewStatService() *StatService {
+	return &StatService{
+		logger: slog.Default().With("svc", "stat"),
+	}
+}
+
+func (s StatService) GetFormat(pod *corev1.Pod) string {
+	finalReport, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil {
+		s.logger.Error("GetFormat: Cannot get final report from pod", "err", err)
+		return ""
+	}
+
+	if finalReport == nil {
+		return ""
+	}
+
+	return finalReport.Format
+}
+
+func (s StatService) GetCDROM(pod *corev1.Pod) bool {
+	finalReport, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil {
+		s.logger.Error("GetCDROM: Cannot get final report from pod", "err", err)
+		return false
+	}
+
+	if finalReport == nil {
+		return false
+	}
+
+	return imageformat.IsISO(finalReport.Format)
+}
+
+func (s StatService) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
+	finalReport, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil {
+		s.logger.Error("GetSize: Cannot get final report from pod", "err", err)
+		return virtv2.ImageStatusSize{}
+	}
+
+	if finalReport == nil {
+		return virtv2.ImageStatusSize{}
+	}
+
+	return virtv2.ImageStatusSize{
+		Stored:        finalReport.StoredSize(),
+		StoredBytes:   strconv.FormatUint(finalReport.StoredSizeBytes, 10),
+		Unpacked:      finalReport.UnpackedSize(),
+		UnpackedBytes: strconv.FormatUint(finalReport.UnpackedSizeBytes, 10),
+	}
+}
+
+var (
+	ErrNotInitialized     = errors.New("not initialized")
+	ErrNotScheduled       = errors.New("not scheduled")
+	ErrProvisioningFailed = errors.New("provisioning failed")
+)
+
+func (s StatService) CheckPod(pod *corev1.Pod) error {
+	podInitializedCond, ok := getPodCondition(corev1.PodInitialized, pod.Status.Conditions)
+	if !ok || podInitializedCond.Status == corev1.ConditionFalse {
+		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotInitialized, podInitializedCond.Message)
+	}
+
+	podScheduledCond, ok := getPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+	if !ok || podScheduledCond.Status == corev1.ConditionFalse {
+		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotScheduled, podScheduledCond.Message)
+	}
+
+	report, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil && !errors.Is(err, monitoring.ErrTerminationMessageNotFound) {
+		return err
+	}
+
+	if report != nil && report.ErrMessage != "" {
+		return fmt.Errorf("%w: Pod %s/%s termination message: %s", ErrProvisioningFailed, pod.Namespace, pod.Name, report.ErrMessage)
+	}
+
+	if pod.Status.Phase == corev1.PodFailed {
+		return fmt.Errorf("%w: Pod %s/%s failed", ErrProvisioningFailed, pod.Namespace, pod.Name)
+	}
+
+	return nil
+}
+
+func (s StatService) GetReasonError(pod *corev1.Pod) (string, string, error) {
+	report, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil {
+		s.logger.Error("GetError: Cannot get final report from pod", "err", err)
+		return "", "", err
+	}
+
+	if report == nil {
+		return "", "", nil
+	}
+
+	return "", report.ErrMessage, nil
+}
+
+func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) virtv2.ImageStatusSpeed {
+	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
+	if err != nil {
+		s.logger.Error("GetDownloadSpeed: Cannot get import progress from pod", "err", err)
+		return virtv2.ImageStatusSpeed{}
+	}
+
+	if progress == nil {
+		return virtv2.ImageStatusSpeed{}
+	}
+
+	// TODO from final message get avg speed.
+	speed := virtv2.ImageStatusSpeed{
+		Avg:      progress.AvgSpeed(),
+		AvgBytes: strconv.FormatUint(progress.AvgSpeedRaw(), 10),
+	}
+
+	if pod.Status.Phase != corev1.PodSucceeded {
+		speed.Current = progress.CurSpeed()
+		speed.CurrentBytes = strconv.FormatUint(progress.CurSpeedRaw(), 10)
+	}
+
+	return speed
+}
+
+type GetProgressOption interface {
+	Apply(progress string) string
+}
+
+func NewScaleOption(low, high float64) *ScaleOption {
+	return &ScaleOption{
+		Low:  low,
+		High: high,
+	}
+}
+
+type ScaleOption struct {
+	Low  float64
+	High float64
+}
+
+func (o ScaleOption) Apply(progress string) string {
+	return common.ScalePercentage(progress, o.Low, o.High)
+}
+
+func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...GetProgressOption) string {
+	if pod == nil {
+		return prevProgress
+	}
+
+	if pod.Status.Phase == corev1.PodSucceeded {
+		report, err := monitoring.GetFinalReportFromPod(pod)
+		if err != nil {
+			s.logger.Error("GetProgress: Cannot get final report from pod", "err", err)
+			return prevProgress
+		}
+
+		if report.ErrMessage != "" {
+			return prevProgress
+		}
+
+		res := "100%"
+		for _, o := range opts {
+			res = o.Apply(res)
+		}
+
+		return res
+	}
+
+	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
+	if err != nil {
+		s.logger.Error("GetProgress: Cannot get import progress from pod", "err", err)
+		return prevProgress
+	}
+
+	if progress == nil {
+		return prevProgress
+	}
+
+	res := progress.Progress()
+	for _, o := range opts {
+		res = o.Apply(res)
+	}
+
+	return res
+}
+
+func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
+	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
+	if err != nil {
+		s.logger.Error("IsImportStarted: Cannot get import progress from pod", "err", err)
+		return false
+	}
+
+	if progress == nil {
+		return false
+	}
+
+	return progress.ProgressRaw() > 0
+}
+
+func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {
+	return s.IsImportStarted(ownerUID, pod)
+}
+
+func getPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
+	for _, cond := range conds {
+		if cond.Type == condType {
+			return cond, true
+		}
+	}
+
+	return corev1.PodCondition{}, false
+}

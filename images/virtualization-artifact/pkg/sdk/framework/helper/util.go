@@ -77,6 +77,35 @@ func CleanupObject(ctx context.Context, client client.Client, obj client.Object)
 	return nil
 }
 
+func PurgeObject(ctx context.Context, client client.Client, obj client.Object) (bool, error) {
+	key := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	if len(obj.GetFinalizers()) > 0 {
+		obj.SetFinalizers([]string{})
+
+		err := client.Update(ctx, obj)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, fmt.Errorf("remove finalizers for %s during cleanup: %w", key, err)
+		}
+	}
+
+	err := client.Delete(ctx, obj)
+	switch {
+	case err == nil:
+		return true, nil
+	case k8serrors.IsNotFound(err):
+		return false, nil
+	default:
+		return false, fmt.Errorf("delete object %s during cleanup: %w", key, err)
+	}
+}
+
 // CleanupByName searches object by its name, removes finalizers on object (if any) and then delete object.
 // obj must be a struct pointer so that obj can be updated with the response returned by the Server.
 func CleanupByName(ctx context.Context, client client.Client, key client.ObjectKey, obj client.Object) error {

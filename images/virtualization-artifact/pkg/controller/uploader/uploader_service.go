@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -109,4 +110,9 @@ type ServiceNamer interface {
 
 func FindService(ctx context.Context, client client.Client, name ServiceNamer) (*corev1.Service, error) {
 	return helper.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
+}
+
+func DeleteService(ctx context.Context, clientset kubernetes.Interface, name ServiceNamer) error {
+	key := name.UploaderService()
+	return clientset.CoreV1().Services(key.Namespace).Delete(ctx, key.Name, metav1.DeleteOptions{})
 }

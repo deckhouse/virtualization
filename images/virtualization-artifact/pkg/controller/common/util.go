@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -368,11 +370,37 @@ func IsPVCComplete(pvc *corev1.PersistentVolumeClaim) bool {
 	return false
 }
 
-// IsPodComplete returns true if a Pod is in 'Completed' phase, false if not.
+// IsPodFailed returns true if a Pod is in 'Failed' phase, false if not.
+func IsPodPending(pod *corev1.Pod) bool {
+	return pod != nil && pod.Status.Phase == corev1.PodPending
+}
+
+// IsPodFailed returns true if a Pod is in 'Failed' phase, false if not.
+func IsPodFailed(pod *corev1.Pod) bool {
+	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
+}
+
+// IsPodComplete returns true if a Pod is in 'Succeeded' phase, false if not.
 func IsPodComplete(pod *corev1.Pod) bool {
-	if pod != nil {
-		return pod.Status.Phase == corev1.PodSucceeded
+	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
+}
+
+// IsDataVolumeComplete returns true if a DataVolume is in 'Completed' phase, false if not.
+func IsDataVolumeComplete(dv *cdiv1.DataVolume) bool {
+	return dv != nil && dv.Status.Phase == cdiv1.Succeeded
+}
+
+func IsTerminating(obj client.Object) bool {
+	return !reflect.ValueOf(obj).IsNil() && obj.GetDeletionTimestamp() != nil
+}
+
+func AreTerminating(objs ...client.Object) bool {
+	for _, obj := range objs {
+		if IsTerminating(obj) {
+			return true
+		}
 	}
+
 	return false
 }
 

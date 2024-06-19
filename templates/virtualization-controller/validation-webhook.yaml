@@ -20,7 +20,7 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-  - name: "vmd.virtualization-controller.validate.d8-virtualization"
+  - name: "vd.virtualization-controller.validate.d8-virtualization"
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
@@ -36,6 +36,23 @@ webhooks:
       caBundle: |
         {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
+    sideEffects: None
+  - name: "cvi.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups: [ "virtualization.deckhouse.io" ]
+        apiVersions: [ "v1alpha2" ]
+        operations: [ "UPDATE" ]
+        resources: [ "clustervirtualimages" ]
+        scope: "Cluster"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-clustervirtualimage
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca }}
+    admissionReviewVersions: [ "v1" ]
     sideEffects: None
   - name: "vmbda.virtualization-controller.validate.d8-virtualization"
     rules:
