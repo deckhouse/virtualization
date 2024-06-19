@@ -1,5 +1,4 @@
 name: Build main, pre-alpha every 8 hours for dev
-
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
@@ -7,24 +6,31 @@ env:
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
 on:
   workflow_dispatch:
   schedule:
     - cron: "0 */8 * * *"
-
 defaults:
   run:
     shell: bash
-
 jobs:
   build_branches:
     name: Build main
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch: [main, pre-alpha]
+        branch: [main, pre-alpha, chore/ci/fix-build]
     steps:
+      - name: Set vars
+        id: modules_module_tag
+        run: |
+          if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          else
+            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          fi
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -35,11 +41,4 @@ jobs:
 
       - uses: deckhouse/modules-actions/setup@v1
 
-      - name: Build images
-        run: |
-          # MODULES_MODULE_TAG env is required by release-channel image.
-          # This image is not significant for development environments, so we use fake value for it.
-          echo "Warmup cache using MODULES_MODULE_TAG=dev"
-          export MODULES_MODULE_TAG=dev
-          source "$(werf ci-env github --as-file)"
-          werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME}
+      - uses: deckhouse/modules-actions/build@v1
