@@ -15,6 +15,7 @@
 
 import bcrypt
 
+
 class Htpasswd:
     def __init__(self,
                  username: str,
@@ -23,7 +24,8 @@ class Htpasswd:
         self.password = password
 
     def generate(self) -> str:
-        bcrypted = bcrypt.hashpw(self.password.encode("utf-8"), bcrypt.gensalt(prefix=b"2a")).decode("utf-8")
+        bcrypted = bcrypt.hashpw(self.password.encode(
+            "utf-8"), bcrypt.gensalt(prefix=b"2a")).decode("utf-8")
         return f"{self.username}:{bcrypted}"
 
     def validate(self, htpasswd: str) -> bool:

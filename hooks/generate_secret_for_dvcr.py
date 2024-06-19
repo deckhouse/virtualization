@@ -21,25 +21,28 @@ from lib.password_generator import password_generator, htpasswd as hd
 import common
 import lib.utils as utils
 
+
 class KeyHtpasswd:
-        def __init__(self, 
-                     name: str,
-                     username: str,
-                     value_path: str):
-            self.name = name
-            self.username = username
-            self.value_path = value_path
+    def __init__(self,
+                 name: str,
+                 username: str,
+                 value_path: str):
+        self.name = name
+        self.username = username
+        self.value_path = value_path
+
 
 class Key:
     def __init__(self,
                  name: str,
                  value_path: str,
-                 lenght: int = 64,
+                 length: int = 64,
                  htpasswd: KeyHtpasswd = None):
         self.name = name
         self.value_path = value_path
-        self.lenght = lenght
+        self.length = length
         self.htpasswd = htpasswd
+
 
 class GenerateSecretHook(Hook):
     SNAPSHOT_NAME = "secrets"
@@ -90,18 +93,21 @@ class GenerateSecretHook(Hook):
                     print(
                         f"Generate new key {key.name} for secret={self.secret_name}.")
                     genkey = utils.base64_encode_from_str(
-                        password_generator.alpha_num(key.lenght))
+                        password_generator.alpha_num(key.length))
                     self.set_value(key.value_path, ctx.values, genkey)
             for key in self.keys:
                 if key.htpasswd is None:
                     continue
-                password = utils.base64_decode(self.get_value(key.value_path, ctx.values))
-                htpasswd = hd.Htpasswd(username=key.htpasswd.username, password=password)
+                password = utils.base64_decode(
+                    self.get_value(key.value_path, ctx.values))
+                htpasswd = hd.Htpasswd(
+                    username=key.htpasswd.username, password=password)
                 regenerate = False
                 try:
                     htpasswd_base64 = ctx.snapshots[self.SNAPSHOT_NAME][0]["filterResult"]["data"][key.htpasswd.name]
-                    if hd.validate(utils.base64_decode(htpasswd_base64)):
-                        self.set_value(key.htpasswd.value_path, ctx.values, htpasswd_base64)
+                    if htpasswd.validate(utils.base64_decode(htpasswd_base64)):
+                        self.set_value(key.htpasswd.value_path,
+                                       ctx.values, htpasswd_base64)
                         continue
                     regenerate = True
                 except (IndexError, KeyError):
@@ -109,25 +115,27 @@ class GenerateSecretHook(Hook):
                 if regenerate:
                     print(
                         f"Generate new htpasswd for key={key.name} and secret={self.secret_name}.")
-                    encoded_htpasswd = utils.base64_encode_from_str(htpasswd.generate())
-                    self.set_value(key.htpasswd.value_path, ctx.values, encoded_htpasswd)
+                    encoded_htpasswd = utils.base64_encode_from_str(
+                        htpasswd.generate())
+                    self.set_value(key.htpasswd.value_path,
+                                   ctx.values, encoded_htpasswd)
         return r
 
 
 if __name__ == "__main__":
     hook = GenerateSecretHook(
-            Key(name="passwordRW",
-                value_path=f"{common.MODULE_NAME}.internal.dvcr.passwordRW",
-                lenght=32,
-                htpasswd=KeyHtpasswd(
-                    name="htpasswd",
-                    username="admin", 
-                    value_path=f"{common.MODULE_NAME}.internal.dvcr.htpasswd",
-                    )
-                ),
-            Key(name="salt",
-                value_path=f"{common.MODULE_NAME}.internal.dvcr.salt"),
-            secret_name="dvcr-secrets",
-            namespace=common.NAMESPACE
+        Key(name="passwordRW",
+            value_path=f"{common.MODULE_NAME}.internal.dvcr.passwordRW",
+            length=32,
+            htpasswd=KeyHtpasswd(
+                name="htpasswd",
+                username="admin",
+                value_path=f"{common.MODULE_NAME}.internal.dvcr.htpasswd",
             )
+            ),
+        Key(name="salt",
+            value_path=f"{common.MODULE_NAME}.internal.dvcr.salt"),
+        secret_name="dvcr-secrets",
+        namespace=common.NAMESPACE
+    )
     hook.run()

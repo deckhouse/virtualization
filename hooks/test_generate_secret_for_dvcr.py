@@ -22,21 +22,21 @@ from generate_secret_for_dvcr import GenerateSecretHook, Key, KeyHtpasswd
 MODULE_NAME = "test"
 
 hook = GenerateSecretHook(
-        Key(name="key1",
-            value_path=f"{MODULE_NAME}.internal.test.key1",
-            lenght=32,
-            htpasswd=KeyHtpasswd(
-                name="htpasswd",
-                username="admin", 
-                value_path=f"{MODULE_NAME}.internal.test.htpasswd",
-                )
-            ),
-        Key(name="key2",
-            value_path=f"{MODULE_NAME}.internal.test.key2"),
-        secret_name=MODULE_NAME,
-        namespace=MODULE_NAME,
-        module_name=MODULE_NAME
+    Key(name="key1",
+        value_path=f"{MODULE_NAME}.internal.test.key1",
+        length=32,
+        htpasswd=KeyHtpasswd(
+            name="htpasswd",
+            username="admin",
+            value_path=f"{MODULE_NAME}.internal.test.htpasswd",
         )
+        ),
+    Key(name="key2",
+        value_path=f"{MODULE_NAME}.internal.test.key2"),
+    secret_name=MODULE_NAME,
+    namespace=MODULE_NAME,
+    module_name=MODULE_NAME
+)
 
 binding_context_generate_all = [
     {
@@ -118,8 +118,8 @@ class TestGenerateSecretALL(TestGenerateKeys):
 
     def test_generate_all(self):
         self.hook_run()
-        self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].lenght)
-        self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].lenght)
+        self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].length)
+        self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].length)
 
 
 class TestGenerateSecretKey1(TestGenerateKeys):
@@ -130,7 +130,7 @@ class TestGenerateSecretKey1(TestGenerateKeys):
 
     def test_generate_key1(self):
         self.hook_run()
-        self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].lenght)
+        self.key_test(self.get_key(hook.keys[0].name), hook.keys[0].length)
 
     def test_generate_htpasswd(self):
         self.hook_run()
@@ -138,9 +138,11 @@ class TestGenerateSecretKey1(TestGenerateKeys):
         self.assertGreater(len(htpasswd_base64), 0)
         self.assertTrue(utils.is_base64(htpasswd_base64))
         password_base64 = self.get_key(hook.keys[0].name)
-        self.key_test(password_base64, hook.keys[0].lenght)
-        htpasswd = hd.Htpasswd(hook.keys[0].htpasswd.username, utils.base64_decode(password_base64))
-        self.assertTrue(htpasswd.validate(utils.base64_decode(htpasswd_base64)))
+        self.key_test(password_base64, hook.keys[0].length)
+        htpasswd = hd.Htpasswd(
+            hook.keys[0].htpasswd.username, utils.base64_decode(password_base64))
+        self.assertTrue(htpasswd.validate(
+            utils.base64_decode(htpasswd_base64)))
 
 
 class TestGenerateSecretKey2(TestGenerateKeys):
@@ -151,4 +153,4 @@ class TestGenerateSecretKey2(TestGenerateKeys):
 
     def test_generate_key2(self):
         self.hook_run()
-        self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].lenght)
+        self.key_test(self.get_key(hook.keys[1].name), hook.keys[1].length)
