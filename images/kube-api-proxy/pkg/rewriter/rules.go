@@ -16,7 +16,9 @@ limitations under the License.
 
 package rewriter
 
-import "strings"
+import (
+	"strings"
+)
 
 type RewriteRules struct {
 	KindPrefix         string                  `json:"kindPrefix"`
@@ -26,6 +28,21 @@ type RewriteRules struct {
 	RenamedGroup       string                  `json:"renamedGroup"`
 	Rules              map[string]APIGroupRule `json:"rules"`
 	Webhooks           map[string]WebhookRule  `json:"webhooks"`
+	Labels             MetadataReplace         `json:"labels"`
+	Annotations        MetadataReplace         `json:"annotations"`
+	Finalizers         MetadataReplace         `json:"finalizers"`
+
+	// TODO move these indexed rewriters into the RuleBasedRewriter.
+	labelsRewriter      *PrefixedNameRewriter
+	annotationsRewriter *PrefixedNameRewriter
+	finalizersRewriter  *PrefixedNameRewriter
+}
+
+// Init should be called before using rules in the RuleBasedRewriter.
+func (rr *RewriteRules) Init() {
+	rr.labelsRewriter = NewPrefixedNameRewriter(rr.Labels)
+	rr.annotationsRewriter = NewPrefixedNameRewriter(rr.Annotations)
+	rr.finalizersRewriter = NewPrefixedNameRewriter(rr.Finalizers)
 }
 
 type APIGroupRule struct {
@@ -54,6 +71,16 @@ type WebhookRule struct {
 	Path     string `json:"path"`
 	Group    string `json:"group"`
 	Resource string `json:"resource"`
+}
+
+type MetadataReplace struct {
+	Prefixes []MetadataReplaceRule
+	Names    []MetadataReplaceRule
+}
+
+type MetadataReplaceRule struct {
+	Original string `json:"original"`
+	Renamed  string `json:"renamed"`
 }
 
 // GetAPIGroupList returns an array of groups in format applicable to use in APIGroupList:
@@ -164,6 +191,17 @@ func (rr *RewriteRules) GroupResourceRules(resourceType string) (*GroupRule, *Re
 	return nil, nil
 }
 
+func (rr *RewriteRules) GroupResourceRulesByKind(kind string) (*GroupRule, *ResourceRule) {
+	for _, group := range rr.Rules {
+		for _, res := range group.ResourceRules {
+			if res.Kind == kind {
+				return &group.GroupRule, &res
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (rr *RewriteRules) RenameResource(resource string) string {
 	return rr.ResourceTypePrefix + resource
 }
@@ -187,6 +225,11 @@ func (rr *RewriteRules) RestoreApiVersion(apiVersion string, group string) strin
 }
 
 func (rr *RewriteRules) RenameApiVersion(apiVersion string) string {
+	// Check if apiVersion is just a group name.
+	if !strings.Contains(apiVersion, "/") && rr.HasGroup(apiVersion) {
+		return rr.RenamedGroup
+	}
+
 	// Replace group, keep version.
 	apiVerParts := strings.Split(apiVersion, "/")
 	if len(apiVerParts) != 2 {
@@ -223,4 +266,16 @@ func (rr *RewriteRules) RestoreShortNames(shortNames []string) []string {
 		newNames = append(newNames, strings.TrimPrefix(shortName, rr.ShortNamePrefix))
 	}
 	return newNames
+}
+
+func (rr *RewriteRules) LabelsRewriter() *PrefixedNameRewriter {
+	return rr.labelsRewriter
+}
+
+func (rr *RewriteRules) AnnotationsRewriter() *PrefixedNameRewriter {
+	return rr.annotationsRewriter
+}
+
+func (rr *RewriteRules) FinalizersRewriter() *PrefixedNameRewriter {
+	return rr.finalizersRewriter
 }

@@ -357,3 +357,7 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	}
 	return sjson.SetRawBytes(obj, "metadata.managedFields", newFields)
 }
+
+func RenameResourcePatch(rules *RewriteRules, patch []byte) ([]byte, error) {
+	return RenameMetadataPatch(rules, patch)
+}

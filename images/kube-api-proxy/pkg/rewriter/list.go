@@ -17,9 +17,13 @@ limitations under the License.
 package rewriter
 
 import (
+	"strings"
+
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// TODO merge this file into transformers.go
 
 // RewriteResourceOrList is a helper to transform a single resource or a list of resources.
 func RewriteResourceOrList(payload []byte, listKind string, transformFn func(singleObj []byte) ([]byte, error)) ([]byte, error) {
@@ -33,9 +37,20 @@ func RewriteResourceOrList(payload []byte, listKind string, transformFn func(sin
 	return RewriteArray(payload, "items", transformFn)
 }
 
+// RewriteResourceOrList2 is a helper to transform a single resource or a list of resources.
+func RewriteResourceOrList2(payload []byte, transformFn func(singleObj []byte) ([]byte, error)) ([]byte, error) {
+	kind := gjson.GetBytes(payload, "kind").String()
+	if !strings.HasSuffix(kind, "List") {
+		return transformFn(payload)
+	}
+	return RewriteArray(payload, "items", transformFn)
+}
+
+// RewriteArray gets array by path and transforms each item using transformFn.
+// Use Root path to transform object itself.
 func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([]byte, error)) ([]byte, error) {
 	// Transform each item in list. Put back original items if transformFn returns nil bytes.
-	items := gjson.GetBytes(obj, arrayPath).Array()
+	items := GetBytes(obj, arrayPath).Array()
 	if len(items) == 0 {
 		return obj, nil
 	}
@@ -55,5 +70,5 @@ func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([
 		}
 	}
 
-	return sjson.SetRawBytes(obj, arrayPath, rwrItems)
+	return SetRawBytes(obj, arrayPath, rwrItems)
 }

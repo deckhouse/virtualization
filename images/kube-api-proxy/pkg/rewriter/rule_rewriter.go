@@ -17,10 +17,12 @@ limitations under the License.
 package rewriter
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RuleBasedRewriter struct {
@@ -41,19 +43,25 @@ const (
 // Restoring of path is not implemented.
 func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 	// Leave paths /, /api, /api/*, and unknown paths as is.
+	clone := ep.Clone()
+	if strings.Contains(clone.RawQuery, "labelSelector") {
+		clone.RawQuery = rw.rewriteLabelSelector(clone.RawQuery)
+	}
 	if ep.IsRoot || ep.IsCore || ep.IsUnknown {
+		if strings.Contains(clone.RawQuery, "labelSelector") {
+			return clone
+		}
 		return nil
 	}
-
 	// Rename CRD name resourcetype.group for resources with rules.
-	if ep.IsCRD {
+	if clone.IsCRD {
 		// No endpoint rewrite for CRD list.
-		if ep.CRDGroup == "" && ep.CRDResourceType == "" {
-			if strings.Contains(ep.RawQuery, "metadata.name") {
+		if clone.CRDGroup == "" && clone.CRDResourceType == "" {
+			if strings.Contains(clone.RawQuery, "metadata.name") {
 				// Rewrite name in field selector if any.
-				newQuery := rw.rewriteFieldSelector(ep.RawQuery)
+				newQuery := rw.rewriteFieldSelector(clone.RawQuery)
 				if newQuery != "" {
-					res := ep.Clone()
+					res := clone.Clone()
 					res.RawQuery = newQuery
 					return res
 				}
@@ -62,13 +70,13 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 		}
 
 		// Check if resource has rules
-		_, resourceRule := rw.Rules.ResourceRules(ep.CRDGroup, ep.CRDResourceType)
+		_, resourceRule := rw.Rules.ResourceRules(clone.CRDGroup, clone.CRDResourceType)
 		if resourceRule == nil {
 			// No rewrite for CRD without rules.
 			return nil
 		}
 		// Rewrite CRD name.
-		res := ep.Clone()
+		res := clone.Clone()
 		res.CRDGroup = rw.Rules.RenamedGroup
 		res.CRDResourceType = rw.Rules.RenameResource(res.CRDResourceType)
 		res.Name = res.CRDResourceType + "." + res.CRDGroup
@@ -77,8 +85,8 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 
 	// Rename group and resource for CR requests.
 	newGroup := ""
-	if ep.Group != "" {
-		groupRule := rw.Rules.GroupRule(ep.Group)
+	if clone.Group != "" {
+		groupRule := rw.Rules.GroupRule(clone.Group)
 		if groupRule == nil {
 			// No rewrite for group without rules.
 			return nil
@@ -87,16 +95,16 @@ func (rw *RuleBasedRewriter) RewriteAPIEndpoint(ep *APIEndpoint) *APIEndpoint {
 	}
 
 	newResource := ""
-	if ep.ResourceType != "" {
-		_, resRule := rw.Rules.ResourceRules(ep.Group, ep.ResourceType)
+	if clone.ResourceType != "" {
+		_, resRule := rw.Rules.ResourceRules(clone.Group, clone.ResourceType)
 		if resRule != nil {
-			newResource = rw.Rules.RenameResource(ep.ResourceType)
+			newResource = rw.Rules.RenameResource(clone.ResourceType)
 		}
 	}
 
 	// Return rewritten endpoint if group or resource are changed.
 	if newGroup != "" || newResource != "" {
-		res := ep.Clone()
+		res := clone.Clone()
 		if newGroup != "" {
 			res.Group = newGroup
 		}
@@ -136,6 +144,54 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 	newSelector := `metadata.name%3D` + resourceType + "." + group
 
 	return metadataNameRe.ReplaceAllString(rawQuery, newSelector)
+}
+
+// rewriteLabelSelector rewrites labels in labelSelector
+// Example request:
+// https://<apiserver>/apis/apps/v1/namespaces/<namespace>/deployments?labelSelector=app%3Dsomething
+func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
+	q, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return rawQuery
+	}
+	lsq := q.Get("labelSelector")
+	if lsq == "" {
+		return rawQuery
+	}
+
+	labelSelector, err := metav1.ParseToLabelSelector(lsq)
+	if err != nil {
+		// The labelSelector is not well-formed. We pass it through, so
+		// API Server will return an error.
+		return rawQuery
+	}
+
+	// Return early if labelSelector is empty, e.g. ?labelSelector=&limit=500
+	if labelSelector == nil {
+		return rawQuery
+	}
+
+	rwrMatchLabels := rw.Rules.LabelsRewriter().RenameMap(labelSelector.MatchLabels)
+
+	rwrMatchExpressions := make([]metav1.LabelSelectorRequirement, 0)
+	for _, expr := range labelSelector.MatchExpressions {
+		rwrExpr := expr
+		rwrExpr.Key = rw.Rules.LabelsRewriter().Rename(rwrExpr.Key)
+		rwrMatchExpressions = append(rwrMatchExpressions, rwrExpr)
+	}
+
+	rwrLabelSelector := &metav1.LabelSelector{
+		MatchLabels:      rwrMatchLabels,
+		MatchExpressions: rwrMatchExpressions,
+	}
+
+	res, err := metav1.LabelSelectorAsSelector(rwrLabelSelector)
+	if err != nil {
+		return rawQuery
+	}
+
+	q.Set("labelSelector", res.String())
+	return q.Encode()
 }
 
 // RewriteJSONPayload does rewrite based on kind.
@@ -193,6 +249,25 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 	case RoleKind, RoleListKind:
 		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
+	case DeploymentKind, DeploymentListKind:
+		rwrBytes, err = RewriteDeploymentOrList(rw.Rules, obj, action)
+	case StatefulSetKind, StatefulSetListKind:
+		rwrBytes, err = RewriteStatefulSetOrList(rw.Rules, obj, action)
+	case DaemonSetKind, DaemonSetListKind:
+		rwrBytes, err = RewriteDaemonSetOrList(rw.Rules, obj, action)
+	case PodKind, PodListKind:
+		rwrBytes, err = RewritePodOrList(rw.Rules, obj, action)
+	case PodDisruptionBudgetKind, PodDisruptionBudgetListKind:
+		rwrBytes, err = RewritePDBOrList(rw.Rules, obj, action)
+	case JobKind, JobListKind:
+		rwrBytes, err = RewriteJobOrList(rw.Rules, obj, action)
+	case ServiceKind, ServiceListKind:
+		rwrBytes, err = RewriteServiceOrList(rw.Rules, obj, action)
+	case PersistentVolumeClaimKind, PersistentVolumeClaimListKind:
+		rwrBytes, err = RewritePVCOrList(rw.Rules, obj, action)
+
+	case ServiceMonitorKind, ServiceMonitorListKind:
+		rwrBytes, err = RewriteServiceMonitorOrList(rw.Rules, obj, action)
 
 	default:
 		if targetReq.IsCore() {
@@ -201,19 +276,23 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 		}
 	}
-
 	// Return obj bytes as-is in case of the error.
+	if err != nil {
+		return obj, err
+	}
+
+	rwrBytes, err = RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
+		return RewriteMetadata(rw.Rules, singleObj, action)
+	})
 	if err != nil {
 		return obj, err
 	}
 
 	if shouldRewriteOwnerReferences(kind) {
 		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
-	}
-
-	// Return obj bytes as-is in case of the error.
-	if err != nil {
-		return obj, err
+		if err != nil {
+			return obj, err
+		}
 	}
 
 	return rwrBytes, nil
@@ -221,18 +300,33 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
-func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, obj []byte) ([]byte, error) {
-	if targetReq.IsCRD() {
-		// Check if CRD is known.
-		_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
-		if resRule == nil {
-			return obj, nil
+func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes []byte) ([]byte, error) {
+	_, resRule := rw.Rules.ResourceRules(targetReq.OrigGroup(), targetReq.OrigResourceType())
+	if resRule != nil {
+		if targetReq.IsCRD() {
+			return RenameCRDPatch(rw.Rules, resRule, patchBytes)
 		}
-
-		return RenameCRDPatch(rw.Rules, resRule, obj)
+		return RenameResourcePatch(rw.Rules, patchBytes)
 	}
 
-	return obj, nil
+	switch targetReq.OrigResourceType() {
+	case "services":
+		return RenameServicePatch(rw.Rules, patchBytes)
+	case "deployments",
+		"daemonsets",
+		"statefulsets":
+		return RenameSpecTemplatePatch(rw.Rules, patchBytes)
+	case "validatingwebhookconfigurations",
+		"mutatingwebhookconfigurations":
+		return RenameWebhookConfigurationPatch(rw.Rules, patchBytes)
+	case "nodes",
+		"apiservices",
+		"secrets",
+		"configmaps":
+		return RenameMetadataPatch(rw.Rules, patchBytes)
+	}
+
+	return patchBytes, nil
 }
 
 func shouldRewriteOwnerReferences(resourceType string) bool {
@@ -246,10 +340,18 @@ func shouldRewriteOwnerReferences(resourceType string) bool {
 		ClusterRoleBindingKind, ClusterRoleBindingListKind,
 		APIServiceKind, APIServiceListKind,
 		DeploymentKind, DeploymentListKind,
+		DaemonSetKind, DaemonSetListKind,
+		StatefulSetKind, StatefulSetListKind,
+		PodKind, PodListKind,
+		JobKind, JobListKind,
 		ValidatingWebhookConfigurationKind,
 		ValidatingWebhookConfigurationListKind,
 		MutatingWebhookConfigurationKind,
-		MutatingWebhookConfigurationListKind:
+		MutatingWebhookConfigurationListKind,
+		ServiceKind, ServiceListKind,
+		PersistentVolumeClaimKind, PersistentVolumeClaimListKind,
+		PrometheusRuleKind, PrometheusRuleListKind,
+		ServiceMonitorKind, ServiceMonitorListKind:
 		return true
 	}
 

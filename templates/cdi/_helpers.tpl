@@ -38,6 +38,7 @@ spec:
             name: webhook-proxy
             protocol: TCP
         env:
+        {{- include "kube_api_rewriter.env" . | nindent 8 }}
         - name: WEBHOOK_ADDRESS
           value: "https://127.0.0.1:8443"
         - name: WEBHOOK_CERT_FILE

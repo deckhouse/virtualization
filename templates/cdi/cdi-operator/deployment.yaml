@@ -71,10 +71,14 @@ spec:
     metadata:
       labels:
         app: cdi-operator
+      annotations:
+        kubectl.kubernetes.io/default-container: cdi-operator
     spec:
       {{- include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "cdi-operator")) | nindent 6 }}
       containers:
       - name: proxy
+        env:
+        {{- include "kube_api_rewriter.env" . | nindent 8 }}
         image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
         imagePullPolicy: IfNotPresent
         securityContext:
