@@ -68,7 +68,9 @@ jobs:
   show_dev_manifest:
     name: Show manifest
     if: needs.check_label.outputs.should_run
-    needs: set_vars
+    needs:
+    - check_label
+    - set_vars
     runs-on: [self-hosted, ci-testing]
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
