@@ -86,6 +86,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 
 		cvi.Status.Phase = virtv2.ImageReady
 
+		// Unprotect import time supplements to delete them later.
 		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
 			return false, err

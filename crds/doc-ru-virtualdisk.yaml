@@ -94,7 +94,22 @@ spec:
               properties:
                 conditions:
                   description: |
-                    Содержит информацию о состоянии `VirtualDisk`.
+                    Последнее подтвержденное состояние данного ресурса.
+                  items:
+                    properties:
+                      lastProbeTime:
+                        description: Время проверки условия.
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                      type:
+                        description: Тип условия.
                 attachedToVirtualMachines:
                   description: |
                     Список виртуальных машин, использующих этот диск
@@ -125,7 +140,7 @@ spec:
                     * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).
                     * WaitForUserUpload — ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
                     * Ready — ресурс создан и готов к использованию.
-                    * Failed — при создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
+                    * Failed — при создании ресурса возникла проблема.
                     * PVCLost — дочерний PVC ресурса отсутствует. Ресурс не может быть использован.
                     * Terminating - Ресурс находится в процессе удаления.
                 progress:
@@ -141,4 +156,4 @@ spec:
                     Команда для загрузки образа для типа 'Upload'.
                 observedGeneration:
                   description: |
-                    Представляет .metadata.generation, на основе которого был установлен статус.
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

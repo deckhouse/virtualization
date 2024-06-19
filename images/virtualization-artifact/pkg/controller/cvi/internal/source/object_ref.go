@@ -84,6 +84,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 		cvi.Status.Phase = virtv2.ImageReady
 
+		// Unprotect import time supplements to delete them later.
 		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
 			return false, err

@@ -188,31 +188,36 @@ spec:
               type: object
               properties:
                 conditions:
-                  type: array
                   description: |
-                    Hold the state information of the `ClusterVirtualImage`.
+                    The latest available observations of an object's current state.
+                  type: array
                   items:
                     type: object
                     properties:
-                      type:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
                         type: string
-                      status:
-                        type: string
-                      reason:
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
                         type: string
                       message:
+                        description: Human readable message indicating details about last transition.
                         type: string
-                      lastProbeTime:
+                      reason:
+                        description: (brief) reason for the condition's last transition.
                         type: string
-                        format: date-time
-                        nullable: true
-                      lastTransitionTime:
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
                         type: string
-                        format: date-time
-                        nullable: true
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
                     required:
-                      - type
                       - status
+                      - type
                 downloadSpeed:
                   type: object
                   description: |
@@ -287,9 +292,7 @@ spec:
                     * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
-                    * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
-                    * NotReady - It is not possible to get information about the child image because of inability to connect to DVCR. The resource cannot be used.
-                    * ImageLost - The child image of the resource is missing. The resource cannot be used.
+                    * Failed - There was a problem when creating a resource.
                     * Terminating - The process of resource deletion is in progress.
                   enum:
                     [
@@ -298,9 +301,7 @@ spec:
                       "WaitForUserUpload",
                       "Ready",
                       "Failed",
-                      "ImageLost",
                       "Terminating",
-                      "Unknown",
                     ]
                 progress:
                   type: string
@@ -313,7 +314,7 @@ spec:
                 observedGeneration:
                   type: integer
                   description: |
-                    Represents the .metadata.generation that the status was set based upon.
+                    The generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string

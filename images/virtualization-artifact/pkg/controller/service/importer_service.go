@@ -73,10 +73,10 @@ func (s ImporterService) Start(ctx context.Context, settings *importer.Settings,
 }
 
 func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
-	return s.CleanUpSubResources(ctx, sup)
+	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s ImporterService) CleanUpSubResources(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
 		return false, err
