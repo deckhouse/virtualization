@@ -19,22 +19,23 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch: [main, pre-alpha, chore/ci/fix-build]
+        branch: [main, pre-alpha]
     steps:
-      - name: Set vars
-        id: modules_module_tag
-        run: |
-          if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
-            MODULES_MODULE_TAG="${{ github.ref_name }}"
-          else
-            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
-          fi
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ matrix.branch }}
+
+      - name: Set vars
+        id: modules_module_tag
+        run: |
+          branch="${{ matrix.branch }}"
+          if [[ "$branch" == 'pre-alpha' || "$branch" == 'main' ]]; then
+            MODULES_MODULE_TAG="$branch"
+          else
+            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          fi
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
