@@ -69,8 +69,8 @@ jobs:
     name: Show manifest
     if: needs.check_label.outputs.should_run
     needs:
-    - check_label
-    - set_vars
+      - check_label
+      - set_vars
     runs-on: [self-hosted, ci-testing]
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
@@ -119,8 +119,7 @@ jobs:
     name: Run go linter
     if: needs.check_label.outputs.should_run
     needs:
-      - check_label 
-      - set_vars
+      - check_label
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
@@ -144,8 +143,7 @@ jobs:
     name: Run yaml linter
     if: needs.check_label.outputs.should_run
     needs:
-      - check_label 
-      - set_vars
+      - check_label
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Install Task
@@ -164,8 +162,7 @@ jobs:
     name: Run unit test
     if: needs.check_label.outputs.should_run
     needs:
-      - check_label 
-      - set_vars
+      - check_label
     runs-on: [self-hosted, ci-testing]
     steps:
       - name: Set up Go 1.21
@@ -193,7 +190,7 @@ jobs:
     name: Build and Push images
     if: needs.check_label.outputs.should_run
     needs:
-      - check_label 
+      - check_label
       - set_vars
     runs-on: [self-hosted, ci-testing]
     env:
