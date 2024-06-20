@@ -222,3 +222,75 @@ print("Hello")
 		})
 	}
 }
+
+func Test_FilesPathWithExtensionRe(t *testing.T) {
+	filePathCases := []struct {
+		title    string
+		filePath string
+	}{
+		{
+			title:    "Path .github with yaml extension",
+			filePath: "./.github/workflows/build.yaml",
+		},
+		{
+			title:    "Path with /some/folder/.github yaml extension",
+			filePath: "/some/folder/.github/workflows/build.yaml",
+		},
+		{
+			title:    "Path with ./.github yml extension",
+			filePath: "./.github/workflows/build.yml",
+		},
+		{
+			title:    "Path with sh extension",
+			filePath: "./run.sh",
+		},
+		{
+			title:    "Path with py extension",
+			filePath: "./scripts/run.py",
+		},
+		{
+			title:    "Path with go extension",
+			filePath: "./cmds/run.go",
+		},
+	}
+
+	for _, c := range filePathCases {
+		t.Run(c.title, func(t *testing.T) {
+			resFilePathMatch := fileToCheckRe.MatchString(c.filePath)
+			require.True(t, resFilePathMatch)
+
+			// Copyright is maintained for files with an extension
+			license := getLicenseForFile(c.filePath)
+			require.NotEmpty(t, license)
+			require.True(t, CELicenseRe.MatchString(license))
+		})
+	}
+}
+
+func Test_FilesPathNoExtensionRe(t *testing.T) {
+	filePathCases := []struct {
+		title    string
+		filePath string
+	}{
+		{
+			title:    "Path with no extension",
+			filePath: "./cmds/enable",
+		},
+		{
+			title:    "Path with no extension root dir",
+			filePath: "/enable",
+		},
+	}
+
+	for _, c := range filePathCases {
+		t.Run(c.title, func(t *testing.T) {
+			resFilePathMatch := fileToCheckRe.MatchString(c.filePath)
+			require.True(t, resFilePathMatch)
+
+			// Copyright is not maintained for files without an extension
+			license := getLicenseForFile(c.filePath)
+			require.Empty(t, license)
+			require.False(t, CELicenseRe.MatchString(license))
+		})
+	}
+}
