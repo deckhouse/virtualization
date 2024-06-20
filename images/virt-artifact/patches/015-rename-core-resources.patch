@@ -1,3 +1,1853 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index fa966fb94..9f281b54d 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -219,6 +219,9 @@ container_bundle(
+         "$(container_prefix)/$(image_prefix)virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
+         "$(container_prefix)/$(image_prefix)virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",
+         "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
++        "$(container_prefix)/$(image_prefix)libguestfs:$(container_tag)": "//cmd/libguestfs:libguestfs-tools-image",
++        "$(container_prefix)/$(image_prefix)virt-exportserver:$(container_tag)": "//cmd/virt-exportserver:virt-exportserver-image",
++        "$(container_prefix)/$(image_prefix)virt-exportproxy:$(container_tag)": "//cmd/virt-exportproxy:virt-exportproxy-image",
+     },
+ )
+ 
+diff --git a/cmd/virt-chroot/main.go b/cmd/virt-chroot/main.go
+index e28daa07c..ce57e0381 100644
+--- a/cmd/virt-chroot/main.go
++++ b/cmd/virt-chroot/main.go
+@@ -218,6 +218,7 @@ func main() {
+ 	createTapCmd.Flags().Uint("uid", 0, "the owner of the tap device")
+ 	createTapCmd.Flags().Uint("gid", 0, "the group of the owner of the tap device")
+ 	createTapCmd.Flags().Uint32("queue-number", 0, "the number of queues to use on multi-queued devices")
++	createTapCmd.Flags().String("parent-name", "", "the name of parent device for macvtap")
+ 	createTapCmd.Flags().Uint32("mtu", 1500, "the link MTU of the tap device")
+ 
+ 	createMDEVCmd := NewCreateMDEVCommand()
+diff --git a/cmd/virt-chroot/tap-device-maker.go b/cmd/virt-chroot/tap-device-maker.go
+index 4f39328c9..30f2101f2 100644
+--- a/cmd/virt-chroot/tap-device-maker.go
++++ b/cmd/virt-chroot/tap-device-maker.go
+@@ -2,8 +2,12 @@ package main
+ 
+ import (
+ 	"fmt"
++	"io/ioutil"
++	"os"
++	"path/filepath"
+ 	"strconv"
+ 	"strings"
++	"syscall"
+ 	"time"
+ 
+ 	"github.com/spf13/cobra"
+@@ -11,41 +15,108 @@ import (
+ 	"golang.org/x/sys/unix"
+ )
+ 
+-func createTapDevice(name string, owner uint, group uint, queueNumber int, mtu int) error {
+-	tapDevice := &netlink.Tuntap{
+-		LinkAttrs:  netlink.LinkAttrs{Name: name},
+-		Mode:       unix.IFF_TAP,
+-		NonPersist: false,
+-		Queues:     queueNumber,
+-		Owner:      uint32(owner),
+-		Group:      uint32(group),
++func createTapDevice(name string, parentName string, owner uint, group uint, queueNumber int, mtu int) error {
++	if parentName == "" {
++		// Parent not specified. Create a tap interface.
++		tapDevice := &netlink.Tuntap{
++			LinkAttrs:  netlink.LinkAttrs{Name: name},
++			Mode:       unix.IFF_TAP,
++			NonPersist: false,
++			Queues:     queueNumber,
++			Owner:      uint32(owner),
++			Group:      uint32(group),
++		}
++
++		// when netlink receives a request for a tap device with 1 queue, it uses
++		// the MULTI_QUEUE flag, which differs from libvirt; as such, we need to
++		// manually request the single queue flags, enabling libvirt to consume
++		// the tap device.
++		// See https://github.com/vishvananda/netlink/issues/574
++		if queueNumber == 1 {
++			tapDevice.Flags = netlink.TUNTAP_DEFAULTS
++		}
++
++		// Device creation is retried due to https://bugzilla.redhat.com/1933627
++		// which has been observed on multiple occasions on CI runs.
++		const retryAttempts = 5
++		attempt, err := retry(retryAttempts, func() error {
++			return netlink.LinkAdd(tapDevice)
++		})
++		if err != nil {
++			return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
++		}
++
++		if err := netlink.LinkSetMTU(tapDevice, mtu); err != nil {
++			return fmt.Errorf("failed to set MTU on tap device named %s. Reason: %v", name, err)
++		}
++
++		fmt.Printf("Successfully created tap device %s, attempt %d\n", name, attempt)
++		return nil
++	}
++
++	// Parent specified. Create a macvtap.
++	p, err := netlink.LinkByName(parentName)
++	if err != nil {
++		return fmt.Errorf("failed to lookup lowerDevice %q: %v", parentName, err)
++	}
++
++	macvtapDevice := &netlink.Macvtap{
++		Macvlan: netlink.Macvlan{
++			LinkAttrs: netlink.LinkAttrs{
++				Name:        name,
++				ParentIndex: p.Attrs().Index,
++				// we had crashes if we did not set txqlen to some value
++				TxQLen: p.Attrs().TxQLen,
++			},
++			Mode: netlink.MACVLAN_MODE_BRIDGE,
++		},
+ 	}
+ 
+-	// when netlink receives a request for a tap device with 1 queue, it uses
+-	// the MULTI_QUEUE flag, which differs from libvirt; as such, we need to
+-	// manually request the single queue flags, enabling libvirt to consume
+-	// the tap device.
+-	// See https://github.com/vishvananda/netlink/issues/574
+-	if queueNumber == 1 {
+-		tapDevice.Flags = netlink.TUNTAP_DEFAULTS
++	if err := netlink.LinkAdd(macvtapDevice); err != nil {
++		return fmt.Errorf("failed to create macvtap device named %s. Reason: %v", name, err)
+ 	}
+ 
+-	// Device creation is retried due to https://bugzilla.redhat.com/1933627
+-	// which has been observed on multiple occasions on CI runs.
+-	const retryAttempts = 5
+-	attempt, err := retry(retryAttempts, func() error {
+-		return netlink.LinkAdd(tapDevice)
+-	})
++	// In case of macvtap we must create /dev/tapX device
++	tapSysPath := filepath.Join("/sys/class/net", name, "macvtap")
++	dirContent, err := ioutil.ReadDir(tapSysPath)
+ 	if err != nil {
+-		return fmt.Errorf("failed to create tap device named %s. Reason: %v", name, err)
++		return fmt.Errorf("failed to open directory %s. error: %v", tapSysPath, err)
+ 	}
+ 
+-	if err := netlink.LinkSetMTU(tapDevice, mtu); err != nil {
+-		return fmt.Errorf("failed to set MTU on tap device named %s. Reason: %v", name, err)
++	devName := ""
++	for _, dir := range dirContent {
++		if strings.HasPrefix(dir.Name(), "tap") {
++			devName = dir.Name()
++			break
++		}
++	}
++	if devName == "" {
++		return fmt.Errorf("failed to find tap device number for %s.", name)
++	}
++
++	devSysPath := filepath.Join(tapSysPath, devName, "dev")
++	devString, err := ioutil.ReadFile(devSysPath)
++
++	if err != nil {
++		return fmt.Errorf("unable to read file %s. error: %v", devSysPath, err)
+ 	}
+ 
+-	fmt.Printf("Successfully created tap device %s, attempt %d\n", name, attempt)
++	m := strings.Split(strings.TrimSuffix(string(devString), "\n"), ":")
++	major, err := strconv.Atoi(m[0])
++	if err != nil {
++		return fmt.Errorf("unable to convert major %s. error: %v", m[0], err)
++	}
++	minor, err := strconv.Atoi(m[1])
++	if err != nil {
++		return fmt.Errorf("unable to convert minor %s. error: %v", m[1], err)
++	}
++
++	tapDevPath := filepath.Join("/dev", devName)
++	if err := syscall.Mknod(tapDevPath, syscall.S_IFCHR|uint32(os.FileMode(0644)), int(unix.Mkdev(uint32(major), uint32(minor)))); err != nil {
++		return fmt.Errorf("failed to create characted device %s. error: %v", tapDevPath, err)
++	}
+ 
++	fmt.Printf("Successfully created macvtap device %s", name)
+ 	return nil
+ }
+ 
+@@ -55,6 +126,7 @@ func NewCreateTapCommand() *cobra.Command {
+ 		Short: "create a tap device in a given PID net ns",
+ 		RunE: func(cmd *cobra.Command, args []string) error {
+ 			tapName := cmd.Flag("tap-name").Value.String()
++			parentName := cmd.Flag("parent-name").Value.String()
+ 			uidStr := cmd.Flag("uid").Value.String()
+ 			gidStr := cmd.Flag("gid").Value.String()
+ 			queueNumber, err := cmd.Flags().GetUint32("queue-number")
+@@ -75,7 +147,7 @@ func NewCreateTapCommand() *cobra.Command {
+ 				return fmt.Errorf("could not parse tap device group: %v", err)
+ 			}
+ 
+-			return createTapDevice(tapName, uint(uid), uint(gid), int(queueNumber), int(mtu))
++			return createTapDevice(tapName, parentName, uint(uid), uint(gid), int(queueNumber), int(mtu))
+ 		},
+ 	}
+ }
+diff --git a/manifests/generated/kubevirt-priority-class.yaml b/manifests/generated/kubevirt-priority-class.yaml
+index e8dfe36c2..0f57dd6a8 100644
+--- a/manifests/generated/kubevirt-priority-class.yaml
++++ b/manifests/generated/kubevirt-priority-class.yaml
+@@ -3,5 +3,5 @@ apiVersion: scheduling.k8s.io/v1
+ description: This priority class should be used for KubeVirt core components only.
+ kind: PriorityClass
+ metadata:
+-  name: kubevirt-cluster-critical
++  name: kubevirt-internal-virtualization-cluster-critical
+ value: 1000000000
+diff --git a/manifests/generated/operator-csv.yaml.in b/manifests/generated/operator-csv.yaml.in
+index b0a4b48e9..245e32dfb 100644
+--- a/manifests/generated/operator-csv.yaml.in
++++ b/manifests/generated/operator-csv.yaml.in
+@@ -1356,7 +1356,7 @@ spec:
+                   name: profile-data
+               nodeSelector:
+                 kubernetes.io/os: linux
+-              priorityClassName: kubevirt-cluster-critical
++              priorityClassName: kubevirt-internal-virtualization-cluster-critical
+               securityContext:
+                 runAsNonRoot: true
+                 seccompProfile:
+diff --git a/manifests/release/kubevirt-operator.yaml.in b/manifests/release/kubevirt-operator.yaml.in
+index 6ac36d99b..d7bfbd010 100644
+--- a/manifests/release/kubevirt-operator.yaml.in
++++ b/manifests/release/kubevirt-operator.yaml.in
+@@ -11,7 +11,7 @@ metadata:
+ apiVersion: scheduling.k8s.io/v1
+ kind: PriorityClass
+ metadata:
+-  name: kubevirt-cluster-critical
++  name: kubevirt-internal-virtualization-cluster-critical
+ value: 1000000000
+ globalDefault: false
+ description: "This priority class should be used for core kubevirt components only."
+diff --git a/pkg/controller/virtinformers.go b/pkg/controller/virtinformers.go
+index 5cbb8197f..82f6f9238 100644
+--- a/pkg/controller/virtinformers.go
++++ b/pkg/controller/virtinformers.go
+@@ -300,6 +300,8 @@ type KubeInformerFactory interface {
+ 	ResourceQuota() cache.SharedIndexInformer
+ 
+ 	K8SInformerFactory() informers.SharedInformerFactory
++
++	VirtualizationCA() cache.SharedIndexInformer
+ }
+ 
+ type kubeInformerFactory struct {
+@@ -1293,3 +1295,12 @@ func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod
+ 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
+ 	return cache.NewSharedIndexInformer(lw, &vsv1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
+ }
++
++func (f *kubeInformerFactory) VirtualizationCA() cache.SharedIndexInformer {
++	return f.getInformer("extensionsVirtualizationCAConfigMapInformer", func() cache.SharedIndexInformer {
++		restClient := f.clientSet.CoreV1().RESTClient()
++		fieldSelector := fields.OneTermEqualSelector("metadata.name", "virtualization-ca")
++		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
++		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
++	})
++}
+diff --git a/pkg/network/domainspec/generators.go b/pkg/network/domainspec/generators.go
+index 367d74fdd..b9b4f43f6 100644
+--- a/pkg/network/domainspec/generators.go
++++ b/pkg/network/domainspec/generators.go
+@@ -50,14 +50,16 @@ type LibvirtSpecGenerator interface {
+ func NewMacvtapLibvirtSpecGenerator(
+ 	iface *v1.Interface,
+ 	domain *api.Domain,
++	cachedDomainInterface api.Interface,
+ 	podInterfaceName string,
+ 	handler netdriver.NetworkHandler,
+ ) *MacvtapLibvirtSpecGenerator {
+ 	return &MacvtapLibvirtSpecGenerator{
+-		vmiSpecIface:     iface,
+-		domain:           domain,
+-		podInterfaceName: podInterfaceName,
+-		handler:          handler,
++		vmiSpecIface:          iface,
++		domain:                domain,
++		cachedDomainInterface: cachedDomainInterface,
++		podInterfaceName:      podInterfaceName,
++		handler:               handler,
+ 	}
+ }
+ 
+@@ -246,10 +248,11 @@ func (b *SlirpLibvirtSpecGenerator) Generate() error {
+ }
+ 
+ type MacvtapLibvirtSpecGenerator struct {
+-	vmiSpecIface     *v1.Interface
+-	domain           *api.Domain
+-	podInterfaceName string
+-	handler          netdriver.NetworkHandler
++	vmiSpecIface          *v1.Interface
++	domain                *api.Domain
++	cachedDomainInterface api.Interface
++	podInterfaceName      string
++	handler               netdriver.NetworkHandler
+ }
+ 
+ func (b *MacvtapLibvirtSpecGenerator) Generate() error {
+@@ -275,22 +278,28 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
+ 		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
+ 		return nil, err
+ 	}
+-	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
+-	if err != nil {
+-		return nil, err
++	_, dummy := podNicLink.(*netlink.Dummy)
++	if dummy {
++		newPodNicName := virtnetlink.GenerateNewBridgedVmiInterfaceName(b.podInterfaceName)
++		podNicLink, err = b.handler.LinkByName(newPodNicName)
++		if err != nil {
++			log.Log.Reason(err).Errorf(linkIfaceFailFmt, newPodNicName)
++			return nil, err
++		}
+ 	}
+-	if mac == nil {
+-		mac = &podNicLink.Attrs().HardwareAddr
++
++	b.cachedDomainInterface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
++
++	// In case of macvtap-cni, we don't rename any interfaces
++	deviceName := b.podInterfaceName
++	if podNicLink.Type() != "macvtap" {
++		deviceName = virtnetlink.GenerateTapDeviceName(b.podInterfaceName)
+ 	}
+ 
+-	return &api.Interface{
+-		MAC: &api.MAC{MAC: mac.String()},
+-		MTU: &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)},
+-		Target: &api.InterfaceTarget{
+-			Device:  b.podInterfaceName,
+-			Managed: "no",
+-		},
+-	}, nil
++	b.cachedDomainInterface.Target = &api.InterfaceTarget{
++		Device:  deviceName,
++		Managed: "no"}
++	return &b.cachedDomainInterface, nil
+ }
+ 
+ type PasstLibvirtSpecGenerator struct {
+diff --git a/pkg/network/domainspec/generators_test.go b/pkg/network/domainspec/generators_test.go
+index 8dcb6e0f3..62d9a013c 100644
+--- a/pkg/network/domainspec/generators_test.go
++++ b/pkg/network/domainspec/generators_test.go
+@@ -135,7 +135,7 @@ var _ = Describe("Pod Network", func() {
+ 				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
+ 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
+ 				specGenerator = NewMacvtapLibvirtSpecGenerator(
+-					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
++					&vmi.Spec.Domain.Devices.Interfaces[0], domain, api.Interface{}, primaryPodIfaceName, mockNetwork)
+ 			})
+ 
+ 			It("Should pass a non-privileged macvtap interface to qemu", func() {
+diff --git a/pkg/network/driver/BUILD.bazel b/pkg/network/driver/BUILD.bazel
+index 4d6d5eaaf..c90178d46 100644
+--- a/pkg/network/driver/BUILD.bazel
++++ b/pkg/network/driver/BUILD.bazel
+@@ -15,11 +15,14 @@ go_library(
+         "//pkg/network/dhcp/serverv6:go_default_library",
+         "//pkg/network/dns:go_default_library",
+         "//pkg/util/sysctl:go_default_library",
++        "//pkg/virt-handler/cgroup:go_default_library",
+         "//pkg/virt-handler/selinux:go_default_library",
+         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+         "//vendor/github.com/golang/mock/gomock:go_default_library",
++        "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
++        "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
+         "//vendor/github.com/vishvananda/netlink:go_default_library",
+         "//vendor/k8s.io/utils/net:go_default_library",
+     ],
+diff --git a/pkg/network/driver/common.go b/pkg/network/driver/common.go
+index aed06b6dc..2d67e00ed 100644
+--- a/pkg/network/driver/common.go
++++ b/pkg/network/driver/common.go
+@@ -26,7 +26,11 @@ import (
+ 	"net"
+ 	"os"
+ 	"os/exec"
++	"strconv"
++	"strings"
+ 
++	"github.com/opencontainers/runc/libcontainer/configs"
++	"github.com/opencontainers/runc/libcontainer/devices"
+ 	"github.com/vishvananda/netlink"
+ 
+ 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+@@ -42,6 +46,7 @@ import (
+ 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
+ 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
+ 	"kubevirt.io/kubevirt/pkg/network/dns"
++	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+ 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+ )
+ 
+@@ -92,6 +97,7 @@ type NetworkHandler interface {
+ 	GetNFTIPString(ipVersion IPVersion) string
+ 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
+ 	BindTapDeviceToBridge(tapName string, bridgeName string) error
++	CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error
+ 	DisableTXOffloadChecksum(ifaceName string) error
+ }
+ 
+@@ -380,6 +386,101 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
+ 	return selinux.NewContextExecutor(virtLauncherPID, cmd)
+ }
+ 
++func (h *NetworkUtilsHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {
++	tapDeviceSELinuxCmdExecutor, err := buildMacvtapDeviceMaker(tapName, parentName, queueNumber, launcherPID, mtu, tapOwner)
++	if err != nil {
++		return err
++	}
++	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
++		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
++	}
++
++	args := []string{
++		"exec",
++		"--mount", fmt.Sprintf("/proc/%d/ns/mnt", launcherPID),
++		"--",
++		"/bin/sh", "-c",
++		fmt.Sprintf("cat /sys/class/net/%s/macvtap/tap*/dev", tapName),
++	}
++
++	cmd := exec.Command("virt-chroot", args...)
++
++	log.Log.V(3).Infof("fetching macvtap info. running command: %s", cmd.String())
++	out, err := cmd.Output()
++	if err != nil {
++		if e, ok := err.(*exec.ExitError); ok {
++			if len(e.Stderr) > 0 {
++				return fmt.Errorf("failed to read macvtap info: %v: '%v'", err, string(e.Stderr))
++			}
++		}
++		return fmt.Errorf("failed to read macvtap info: %v", err)
++	}
++
++	m := strings.Split(strings.TrimSuffix(string(out), "\n"), ":")
++	major, err := strconv.Atoi(m[0])
++	if err != nil {
++		return fmt.Errorf("unable to convert major %s. error: %v", m[0], err)
++	}
++	minor, err := strconv.Atoi(m[1])
++	if err != nil {
++		return fmt.Errorf("unable to convert minor %s. error: %v", m[1], err)
++	}
++
++	manager, err := cgroup.NewManagerFromVM(vmi)
++	if err != nil {
++		return fmt.Errorf("failed to create cgroup manager. error: %v", err)
++	}
++
++	deviceRule := &devices.Rule{
++		Type:        devices.CharDevice,
++		Major:       int64(major),
++		Minor:       int64(minor),
++		Permissions: "rwm",
++		Allow:       true,
++	}
++
++	err = manager.Set(&configs.Resources{
++		Devices: []*devices.Rule{deviceRule},
++	})
++
++	if err != nil {
++		return fmt.Errorf("cgroup %s had failed to set device rule. error: %v. rule: %+v", manager.GetCgroupVersion(), err, *deviceRule)
++	} else {
++		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", manager.GetCgroupVersion(), *deviceRule)
++	}
++
++	tap, err := netlink.LinkByName(tapName)
++	log.Log.V(4).Infof("Looking for tap device: %s", tapName)
++	if err != nil {
++		return fmt.Errorf("could not find tap device %s; %v", tapName, err)
++	}
++
++	err = netlink.LinkSetUp(tap)
++	if err != nil {
++		return fmt.Errorf("failed to set tap device %s up; %v", tapName, err)
++	}
++
++	log.Log.Infof("Successfully configured tap device: %s", tapName)
++	return nil
++}
++
++func buildMacvtapDeviceMaker(tapName string, parentName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
++	createTapDeviceArgs := []string{
++		"create-tap",
++		"--mount", fmt.Sprintf("/proc/%d/ns/mnt", virtLauncherPID),
++		"--tap-name", tapName,
++		"--parent-name", parentName,
++		"--uid", tapOwner,
++		"--gid", tapOwner,
++		"--queue-number", fmt.Sprintf("%d", queueNumber),
++		"--mtu", fmt.Sprintf("%d", mtu),
++	}
++	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
++	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
++
++	return selinux.NewContextExecutor(virtLauncherPID, cmd)
++}
++
+ func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
+ 	tap, err := netlink.LinkByName(tapName)
+ 	log.Log.V(4).Infof("Looking for tap device: %s", tapName)
+diff --git a/pkg/network/driver/generated_mock_common.go b/pkg/network/driver/generated_mock_common.go
+index 4188db78d..bd0c0aa9e 100644
+--- a/pkg/network/driver/generated_mock_common.go
++++ b/pkg/network/driver/generated_mock_common.go
+@@ -368,6 +368,16 @@ func (_mr *_MockNetworkHandlerRecorder) BindTapDeviceToBridge(arg0, arg1 interfa
+ 	return _mr.mock.ctrl.RecordCall(_mr.mock, "BindTapDeviceToBridge", arg0, arg1)
+ }
+ 
++func (_m *MockNetworkHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
++	ret := _m.ctrl.Call(_m, "CreateMacvtapDevice", tapName, parentName, queueNumber, launcherPID, mtu, tapOwner)
++	ret0, _ := ret[0].(error)
++	return ret0
++}
++
++func (_mr *_MockNetworkHandlerRecorder) CreateMacvtapDevice(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
++	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateMacvtapDevice", arg0, arg1, arg2, arg3, arg4, arg5)
++}
++
+ func (_m *MockNetworkHandler) DisableTXOffloadChecksum(ifaceName string) error {
+ 	ret := _m.ctrl.Call(_m, "DisableTXOffloadChecksum", ifaceName)
+ 	ret0, _ := ret[0].(error)
+diff --git a/pkg/network/infraconfigurators/BUILD.bazel b/pkg/network/infraconfigurators/BUILD.bazel
+index a6f07dda4..ca569c0ce 100644
+--- a/pkg/network/infraconfigurators/BUILD.bazel
++++ b/pkg/network/infraconfigurators/BUILD.bazel
+@@ -6,6 +6,7 @@ go_library(
+         "bridge.go",
+         "common.go",
+         "generated_mock_common.go",
++        "macvtap.go",
+         "masquerade.go",
+         "passt.go",
+     ],
+diff --git a/pkg/network/infraconfigurators/common.go b/pkg/network/infraconfigurators/common.go
+index 40037eca7..7e29a8d46 100644
+--- a/pkg/network/infraconfigurators/common.go
++++ b/pkg/network/infraconfigurators/common.go
+@@ -25,6 +25,8 @@ import (
+ 	"kubevirt.io/kubevirt/pkg/network/cache"
+ 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+ 
++	v1 "kubevirt.io/api/core/v1"
++
+ 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+ )
+ 
+@@ -43,3 +45,7 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
+ 	}
+ 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
+ }
++
++func createMacvtap(handler netdriver.NetworkHandler, deviceName string, parentName string, launcherPID int, mtu int, tapOwner string, queues uint32, vmi *v1.VirtualMachineInstance) error {
++	return handler.CreateMacvtapDevice(deviceName, parentName, queues, launcherPID, mtu, tapOwner, vmi)
++}
+diff --git a/pkg/network/infraconfigurators/macvtap.go b/pkg/network/infraconfigurators/macvtap.go
+new file mode 100644
+index 000000000..669ad7586
+--- /dev/null
++++ b/pkg/network/infraconfigurators/macvtap.go
+@@ -0,0 +1,304 @@
++package infraconfigurators
++
++import (
++	"crypto/rand"
++	"fmt"
++	"net"
++	"strconv"
++
++	"github.com/vishvananda/netlink"
++
++	v1 "kubevirt.io/api/core/v1"
++	"kubevirt.io/client-go/log"
++
++	"kubevirt.io/kubevirt/pkg/network/cache"
++	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
++	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
++	"kubevirt.io/kubevirt/pkg/util"
++	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
++	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
++)
++
++type MacvtapPodNetworkConfigurator struct {
++	bridgeInterfaceName string
++	vmiSpecIface        *v1.Interface
++	ipamEnabled         bool
++	handler             netdriver.NetworkHandler
++	launcherPID         int
++	vmMac               *net.HardwareAddr
++	podIfaceIP          netlink.Addr
++	podNicLink          netlink.Link
++	podIfaceRoutes      []netlink.Route
++	tapDeviceName       string
++	vmi                 *v1.VirtualMachineInstance
++}
++
++func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, launcherPID int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
++	return &MacvtapPodNetworkConfigurator{
++		vmi:          vmi,
++		vmiSpecIface: vmiSpecIface,
++		launcherPID:  launcherPID,
++		handler:      handler,
++	}
++}
++
++func (b *MacvtapPodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName string) error {
++	link, err := b.handler.LinkByName(podIfaceName)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podIfaceName)
++		return err
++	}
++	b.podNicLink = link
++	b.bridgeInterfaceName = virtnetlink.GenerateBridgeName(link.Attrs().Name)
++
++	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to get an ip address for %s", podIfaceName)
++		return err
++	}
++	if len(addrList) == 0 {
++		b.ipamEnabled = false
++	} else {
++		b.podIfaceIP = addrList[0]
++		b.ipamEnabled = true
++		if err := b.learnInterfaceRoutes(); err != nil {
++			return err
++		}
++	}
++
++	b.tapDeviceName = virtnetlink.GenerateTapDeviceName(podIfaceName)
++
++	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
++	if err != nil {
++		return err
++	}
++	if b.vmMac == nil || b.podNicLink.Type() != "macvtap" {
++		b.vmMac = &b.podNicLink.Attrs().HardwareAddr
++	}
++
++	return nil
++}
++
++func (b *MacvtapPodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig {
++	if !b.ipamEnabled {
++		return &cache.DHCPConfig{IPAMDisabled: true}
++	}
++
++	dhcpConfig := &cache.DHCPConfig{
++		MAC:          *b.vmMac,
++		IPAMDisabled: !b.ipamEnabled,
++		IP:           b.podIfaceIP,
++	}
++
++	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
++		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
++		b.decorateDhcpConfigRoutes(dhcpConfig)
++	}
++	return dhcpConfig
++}
++
++func (b *MacvtapPodNetworkConfigurator) PreparePodNetworkInterface() error {
++
++	if b.ipamEnabled {
++		// In case if podNicLink is configured via 'macvtap-cni', we have no access to the lower device.
++		// But we can use existing macvtap on this purpose. This way macvlan will inherit the same parent.
++		if err := b.createMacvlan(); err != nil {
++			log.Log.Reason(err).Errorf("failed to create macvlan device named %s", b.bridgeInterfaceName)
++			return err
++		}
++	}
++
++	if b.podNicLink.Type() == "macvtap" {
++		return nil
++	}
++
++	// Set interface link to down to change its MAC address
++	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
++		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podNicLink.Attrs().Name)
++		return err
++	}
++
++	if b.ipamEnabled {
++		// Remove IP from POD interface
++		err := b.handler.AddrDel(b.podNicLink, &b.podIfaceIP)
++
++		if err != nil {
++			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podNicLink.Attrs().Name)
++			return err
++		}
++
++		if err := b.switchPodInterfaceWithDummy(); err != nil {
++			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
++			return err
++		}
++
++		// Set arp_ignore=1 to avoid
++		// the dummy interface being seen by Duplicate Address Detection (DAD).
++		// Without this, some VMs will lose their ip address after a few
++		// minutes.
++		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
++			log.Log.Reason(err).Errorf("failed to set arp_ignore=1")
++			return err
++		}
++	}
++
++	tapOwner := netdriver.LibvirtUserAndGroupId
++	if util.IsNonRootVMI(b.vmi) {
++		tapOwner = strconv.Itoa(util.NonRootUID)
++	}
++
++	queues := converter.CalculateNetworkQueues(b.vmi, converter.GetInterfaceType(b.vmiSpecIface))
++	err := createMacvtap(b.handler, b.tapDeviceName, b.podNicLink.Attrs().Name, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, queues, b.vmi)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
++		return err
++	}
++
++	tapDevice, err := b.handler.LinkByName(b.tapDeviceName)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to get tap interface: %s", b.tapDeviceName)
++		return err
++	}
++
++	// Swap MAC addresses with PodNic
++	tapMac := b.podNicLink.Attrs().HardwareAddr
++	podMac := GenerateMac()
++
++	if err := netlink.LinkSetHardwareAddr(b.podNicLink, podMac); err != nil {
++		log.Log.Reason(err).Errorf("failed to set pod interface mac address %s %s, error: %v", b.podNicLink.Attrs().Name, podMac, err)
++		return err
++	}
++	if err := netlink.LinkSetHardwareAddr(tapDevice, tapMac); err != nil {
++		log.Log.Reason(err).Errorf("failed to set tap interface mac address %s %s, error: %v", b.tapDeviceName, tapMac, err)
++		return err
++	}
++
++	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
++		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podNicLink.Attrs().Name)
++		return err
++	}
++
++	return nil
++}
++
++func (b *MacvtapPodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
++	return &api.Interface{
++		MAC: &api.MAC{MAC: b.podNicLink.Attrs().HardwareAddr.String()},
++	}
++}
++
++func (b *MacvtapPodNetworkConfigurator) learnInterfaceRoutes() error {
++	routes, err := b.handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to get routes for %s", b.podNicLink.Attrs().Name)
++		return err
++	}
++	if len(routes) == 0 {
++		return fmt.Errorf("no gateway address found in routes for %s", b.podNicLink.Attrs().Name)
++	}
++	b.podIfaceRoutes = routes
++	return nil
++}
++
++func (b *MacvtapPodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cache.DHCPConfig) {
++	log.Log.V(4).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
++	dhcpConfig.Gateway = b.podIfaceRoutes[0].Gw
++	if len(b.podIfaceRoutes) > 1 {
++		dhcpRoutes := virtnetlink.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
++		dhcpConfig.Routes = &dhcpRoutes
++	}
++}
++
++func (b *MacvtapPodNetworkConfigurator) createMacvlan() error {
++	m, err := netlink.LinkByName(b.podNicLink.Attrs().Name)
++	if err != nil {
++		return fmt.Errorf("failed to lookup lowerDevice %q: %v", b.podNicLink.Attrs().Name, err)
++	}
++
++	// Create a macvlan
++	macvlanDevice := &netlink.Macvlan{
++		LinkAttrs: netlink.LinkAttrs{
++			Name:        b.bridgeInterfaceName,
++			ParentIndex: m.Attrs().Index,
++			// we had crashes if we did not set txqlen to some value
++			TxQLen: m.Attrs().TxQLen,
++		},
++		Mode: netlink.MACVLAN_MODE_BRIDGE,
++	}
++
++	err = b.handler.LinkAdd(macvlanDevice)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to create a macvlan")
++		return err
++	}
++
++	err = b.handler.LinkSetUp(macvlanDevice)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
++		return err
++	}
++
++	// set fake ip on a macvlan
++	addr := virtnetlink.GetFakeBridgeIP(b.vmi.Spec.Domain.Devices.Interfaces, b.vmiSpecIface)
++	fakeaddr, _ := b.handler.ParseAddr(addr)
++
++	if err := b.handler.AddrAdd(macvlanDevice, fakeaddr); err != nil {
++		log.Log.Reason(err).Errorf("failed to set macvlan IP")
++		return err
++	}
++
++	return nil
++}
++
++func (b *MacvtapPodNetworkConfigurator) switchPodInterfaceWithDummy() error {
++	originalPodInterfaceName := b.podNicLink.Attrs().Name
++	newPodInterfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName)
++	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
++
++	// Rename pod interface to free the original name for a new dummy interface
++	err := b.handler.LinkSetName(b.podNicLink, newPodInterfaceName)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podNicLink.Attrs().Name)
++		return err
++	}
++
++	b.podNicLink, err = b.handler.LinkByName(newPodInterfaceName)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", newPodInterfaceName)
++		return err
++	}
++
++	// Create a dummy interface named after the original interface
++	err = b.handler.LinkAdd(dummy)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to create dummy interface : %s", originalPodInterfaceName)
++		return err
++	}
++
++	// Replace original pod interface IP address to the dummy
++	// Since the dummy is not connected to anything, it should not affect networking
++	// Replace will add if ip doesn't exist or modify the ip
++	err = b.handler.AddrReplace(dummy, &b.podIfaceIP)
++	if err != nil {
++		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
++		return err
++	}
++
++	return nil
++}
++
++func GenerateMac() net.HardwareAddr {
++	buf := make([]byte, 6)
++	var mac net.HardwareAddr
++
++	_, err := rand.Read(buf)
++	if err != nil {
++	}
++
++	// Set local bit, ensure unicast address
++	buf[0] = (buf[0] | 2) & 0xfe
++
++	mac = append(mac, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5])
++
++	return mac
++}
+diff --git a/pkg/network/setup/podnic.go b/pkg/network/setup/podnic.go
+index d0663aa2f..3c723d387 100644
+--- a/pkg/network/setup/podnic.go
++++ b/pkg/network/setup/podnic.go
+@@ -82,6 +82,12 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
+ 	} else if podnic.vmiSpecIface.Passt != nil {
+ 		podnic.infraConfigurator = infraconfigurators.NewPasstPodNetworkConfigurator(
+ 			podnic.handler)
++	} else if podnic.vmiSpecIface.Macvtap != nil {
++		podnic.infraConfigurator = infraconfigurators.NewMacvtapPodNetworkConfigurator(
++			podnic.vmi,
++			podnic.vmiSpecIface,
++			*podnic.launcherPID,
++			podnic.handler)
+ 	}
+ 	return podnic, nil
+ }
+@@ -238,7 +244,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
+ 
+ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
+ 	var dhcpConfigurator dhcpconfigurator.Configurator
+-	if l.vmiSpecIface.Bridge != nil {
++	if l.vmiSpecIface.Bridge != nil || l.vmiSpecIface.Macvtap != nil {
+ 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
+ 			l.cacheCreator,
+ 			getPIDString(l.launcherPID),
+@@ -278,7 +284,14 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
+ 		return domainspec.NewSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain)
+ 	}
+ 	if l.vmiSpecIface.Macvtap != nil {
+-		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
++		cachedDomainIface, err := l.cachedDomainInterface()
++		if err != nil {
++			return nil
++		}
++		if cachedDomainIface == nil {
++			cachedDomainIface = &api.Interface{}
++		}
++		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface, l.podInterfaceName, l.handler)
+ 	}
+ 	if l.vmiSpecIface.Passt != nil {
+ 		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.vmi)
+diff --git a/pkg/network/vmispec/interface.go b/pkg/network/vmispec/interface.go
+index f7378165a..b24e7fa6f 100644
+--- a/pkg/network/vmispec/interface.go
++++ b/pkg/network/vmispec/interface.go
+@@ -52,6 +52,15 @@ func FilterInterfacesSpec(ifaces []v1.Interface, predicate func(i v1.Interface)
+ 	return filteredIfaces
+ }
+ 
++func IsPodNetworkWithMacvtapBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
++	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
++		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
++			return podInterface.Macvtap != nil
++		}
++	}
++	return true
++}
++
+ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
+ 	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
+ 		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
+diff --git a/pkg/util/tls/tls.go b/pkg/util/tls/tls.go
+index e9e140548..e2a349012 100644
+--- a/pkg/util/tls/tls.go
++++ b/pkg/util/tls/tls.go
+@@ -132,6 +132,55 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
+ 	return tlsConfig
+ }
+ 
++func SetupTLSWithVirtualizationCAManager(caManager, virtualizationCAManager ClientCAManager, certManager certificate.Manager, clientAuth tls.ClientAuthType, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
++	tlsConfig := &tls.Config{
++		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
++			cert := certManager.Current()
++			if cert == nil {
++				return nil, fmt.Errorf(noSrvCertMessage)
++			}
++			return cert, nil
++		},
++		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
++			cert := certManager.Current()
++			if cert == nil {
++				return nil, fmt.Errorf(noSrvCertMessage)
++			}
++
++			clientCAPool, err := caManager.GetCurrent()
++			if err != nil {
++				log.Log.Reason(err).Error("Failed to get requestheader client CA")
++				return nil, err
++			}
++
++			virtualizationCA, err := virtualizationCAManager.GetCurrentRaw()
++			if err != nil {
++				log.Log.Reason(err).Error("Failed to get CA from config-map virtualization-ca")
++				return nil, err
++			}
++
++			clientCAPool.AppendCertsFromPEM(virtualizationCA)
++
++			kv := clusterConfig.GetConfigFromKubeVirtCR()
++			tlsConfig := getTLSConfiguration(kv)
++			ciphers := CipherSuiteIds(tlsConfig.Ciphers)
++			minTLSVersion := TLSVersion(tlsConfig.MinTLSVersion)
++			config := &tls.Config{
++				CipherSuites: ciphers,
++				MinVersion:   minTLSVersion,
++				Certificates: []tls.Certificate{*cert},
++				ClientCAs:    clientCAPool,
++				ClientAuth:   clientAuth,
++			}
++
++			config.BuildNameToCertificate()
++			return config, nil
++		},
++	}
++	tlsConfig.BuildNameToCertificate()
++	return tlsConfig
++}
++
+ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool, clusterConfig *virtconfig.ClusterConfig) *tls.Config {
+ 	// #nosec cause: InsecureSkipVerify: true
+ 	// resolution: Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
+diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
+index 120f2d68f..3999bf212 100644
+--- a/pkg/virt-api/api.go
++++ b/pkg/virt-api/api.go
+@@ -27,6 +27,7 @@ import (
+ 	"net/http"
+ 	"os"
+ 	"os/signal"
++	"strconv"
+ 	"sync"
+ 	"syscall"
+ 	"time"
+@@ -92,6 +93,9 @@ const (
+ 	httpStatusNotFoundMessage     = "Not Found"
+ 	httpStatusBadRequestMessage   = "Bad Request"
+ 	httpStatusInternalServerError = "Internal Server Error"
++
++	VirtAPIRateLimiterQPSEnvVar   = "VIRT_API_RATE_LIMITER_QPS"
++	VirtAPIRateLimiterBurstEnvVar = "VIRT_API_RATE_LIMITER_BURST"
+ )
+ 
+ type VirtApi interface {
+@@ -884,7 +888,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
+ 	})
+ }
+ 
+-func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAManager kvtls.ClientCAManager) {
++func (app *virtAPIApp) setupTLS(k8sCAManager, kubevirtCAManager, virtualizationCAManager kvtls.ClientCAManager) {
+ 
+ 	// A VerifyClientCertIfGiven request means we're not guaranteed
+ 	// a client has been authenticated unless they provide a peer
+@@ -901,7 +905,7 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAMa
+ 	// response is given. That status request won't send a peer cert regardless
+ 	// if the TLS handshake requests it. As a result, the TLS handshake fails
+ 	// and our aggregated endpoint never becomes available.
+-	app.tlsConfig = kvtls.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
++	app.tlsConfig = kvtls.SetupTLSWithVirtualizationCAManager(k8sCAManager, virtualizationCAManager, app.certmanager, tls.VerifyClientCertIfGiven, app.clusterConfig)
+ 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
+ }
+ 
+@@ -919,10 +923,12 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory)
+ 
+ 	authConfigMapInformer := informerFactory.ApiAuthConfigMap()
+ 	kubevirtCAConfigInformer := informerFactory.KubeVirtCAConfigMap()
++	virtualizationCAConfigInformer := informerFactory.VirtualizationCA()
+ 
+ 	k8sCAManager := kvtls.NewKubernetesClientCAManager(authConfigMapInformer.GetStore())
+ 	kubevirtCAInformer := kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
+-	app.setupTLS(k8sCAManager, kubevirtCAInformer)
++	virtualizationCAInformer := kvtls.NewCAManager(virtualizationCAConfigInformer.GetStore(), app.namespace, "virtualization-ca")
++	app.setupTLS(k8sCAManager, kubevirtCAInformer, virtualizationCAInformer)
+ 
+ 	app.Compose()
+ 
+@@ -1007,6 +1013,7 @@ func (app *virtAPIApp) Run() {
+ 
+ 	kubeInformerFactory.ApiAuthConfigMap()
+ 	kubeInformerFactory.KubeVirtCAConfigMap()
++	kubeInformerFactory.VirtualizationCA()
+ 	crdInformer := kubeInformerFactory.CRD()
+ 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
+ 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
+@@ -1089,8 +1096,29 @@ func (app *virtAPIApp) shouldChangeLogVerbosity() {
+ // Update virt-handler rate limiter
+ func (app *virtAPIApp) shouldChangeRateLimiter() {
+ 	config := app.clusterConfig.GetConfig()
++
+ 	qps := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
++	if os.Getenv(VirtAPIRateLimiterQPSEnvVar) != "" {
++		qpsFromEnv, err := strconv.ParseFloat(os.Getenv(VirtAPIRateLimiterQPSEnvVar), 32)
++		if err != nil {
++			log.Log.Errorf("failed to parse %s: %s, will use default QPS burst %v", VirtAPIRateLimiterQPSEnvVar, err, qps)
++		} else {
++			qps = float32(qpsFromEnv)
++			log.Log.V(2).Infof("use rate limiter QPS %v from %s", qps, VirtAPIRateLimiterQPSEnvVar)
++		}
++	}
++
+ 	burst := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
++	if os.Getenv(VirtAPIRateLimiterBurstEnvVar) != "" {
++		burstFromEnv, err := strconv.ParseInt(os.Getenv(VirtAPIRateLimiterBurstEnvVar), 10, 32)
++		if err != nil {
++			log.Log.Errorf("failed to parse %s: %s, will use default burst %d", VirtAPIRateLimiterBurstEnvVar, err, burst)
++		} else {
++			burst = int(burstFromEnv)
++			log.Log.V(2).Infof("use rate limiter burst %v from %s", burst, VirtAPIRateLimiterBurstEnvVar)
++		}
++	}
++
+ 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
+ 	log.Log.V(2).Infof("setting rate limiter for the API to %v QPS and %v Burst", qps, burst)
+ 	qps = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
+diff --git a/pkg/virt-api/webhooks/validating-webhook/admitters/vmi-create-admitter.go b/pkg/virt-api/webhooks/validating-webhook/admitters/vmi-create-admitter.go
+index 3da406da1..905c6618b 100644
+--- a/pkg/virt-api/webhooks/validating-webhook/admitters/vmi-create-admitter.go
++++ b/pkg/virt-api/webhooks/validating-webhook/admitters/vmi-create-admitter.go
+@@ -315,8 +315,6 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
+ 		causes = appendStatusCauseForBridgeNotEnabled(field, causes, idx)
+ 	} else if iface.InterfaceBindingMethod.Macvtap != nil && !config.MacvtapEnabled() {
+ 		causes = appendStatusCauseForMacvtapFeatureGateNotEnabled(field, causes, idx)
+-	} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
+-		causes = appendStatusCauseForMacvtapOnlyAllowedWithMultus(field, causes, idx)
+ 	} else if iface.InterfaceBindingMethod.Passt != nil && !config.PasstEnabled() {
+ 		causes = appendStatusCauseForPasstFeatureGateNotEnabled(field, causes, idx)
+ 	} else if iface.Passt != nil && networkData.Pod == nil {
+@@ -525,15 +523,6 @@ func validateForwardPortNonZero(field *k8sfield.Path, forwardPort v1.Port, idx i
+ 	return causes
+ }
+ 
+-func appendStatusCauseForMacvtapOnlyAllowedWithMultus(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+-	causes = append(causes, metav1.StatusCause{
+-		Type:    metav1.CauseTypeFieldValueInvalid,
+-		Message: "Macvtap interface only implemented with Multus network",
+-		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+-	})
+-	return causes
+-}
+-
+ func appendStatusCauseForMacvtapFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+ 	causes = append(causes, metav1.StatusCause{
+ 		Type:    metav1.CauseTypeFieldValueInvalid,
+diff --git a/pkg/virt-config/configuration.go b/pkg/virt-config/configuration.go
+index 04ee3f1fd..a4a9dd515 100644
+--- a/pkg/virt-config/configuration.go
++++ b/pkg/virt-config/configuration.go
+@@ -483,7 +483,7 @@ func validateConfig(config *v1.KubeVirtConfiguration) error {
+ 
+ 	// set default network interface
+ 	switch config.NetworkConfiguration.NetworkInterface {
+-	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
++	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface), string(v1.MacvtapInterface):
+ 		break
+ 	default:
+ 		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)
+diff --git a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+index 228518871..55ce72b6c 100644
+--- a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
++++ b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
+@@ -485,7 +485,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
+ 			OwnerReferences: []v1.OwnerReference{
+ 				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
+ 			},
+-			GenerateName: "kubevirt-disruption-budget-",
++			GenerateName: "kubevirt-internal-virtualization-disruption-budget-",
++			Labels: map[string]string{
++				virtv1.VirtualMachineNameLabel: vmi.GetName(),
++			},
+ 		},
+ 		Spec: policyv1.PodDisruptionBudgetSpec{
+ 			MinAvailable: &minAvailable,
+diff --git a/pkg/virt-handler/vm.go b/pkg/virt-handler/vm.go
+index 6f495dc77..0524f8a0d 100644
+--- a/pkg/virt-handler/vm.go
++++ b/pkg/virt-handler/vm.go
+@@ -2368,10 +2368,12 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
+ 	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
+ 		return nil
+ 	}
++	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithMacvtapBindingInterface(vmi.Spec.Networks, ifaces) {
++		return nil
++	}
+ 	if netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
+ 		return nil
+ 	}
+-
+ 	return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
+ }
+ 
+diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
+index db3c0a903..c64b315d8 100644
+--- a/pkg/virt-launcher/virtwrap/converter/converter.go
++++ b/pkg/virt-launcher/virtwrap/converter/converter.go
+@@ -1223,13 +1223,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
+ 	vmiCPU := vmi.Spec.Domain.CPU
+ 	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+ 		// Always allow to hotplug to minimum of 1 socket
+-		enabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
++		minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
++		// Total vCPU count
++		enabledCpuCount := cpuCount
+ 		cpuTopology.Sockets = vmiCPU.MaxSockets
+ 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+ 		VCPUs := &api.VCPUs{}
+ 		for id := uint32(0); id < cpuCount; id++ {
++			// Enable all requestd vCPUs
+ 			isEnabled := id < enabledCpuCount
+-			isHotpluggable := !isEnabled
++			// There should not be fewer vCPU than cores and threads within a single socket
++			isHotpluggable := id >= minEnabledCpuCount
+ 			vcpu := api.VCPUsVCPU{
+ 				ID:           uint32(id),
+ 				Enabled:      boolToYesNo(&isEnabled, true),
+diff --git a/pkg/virt-launcher/virtwrap/converter/converter_test.go b/pkg/virt-launcher/virtwrap/converter/converter_test.go
+index c11758dc3..fca27db7e 100644
+--- a/pkg/virt-launcher/virtwrap/converter/converter_test.go
++++ b/pkg/virt-launcher/virtwrap/converter/converter_test.go
+@@ -1584,20 +1584,29 @@ var _ = Describe("Converter", func() {
+ 			It("should define hotplugable default topology", func() {
+ 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+ 				vmi.Spec.Domain.CPU = &v1.CPU{
+-					MaxSockets: 4,
++					Cores:      2,
++					MaxSockets: 3,
+ 					Sockets:    2,
+ 				}
+ 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+-				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+-				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(4)), "Expect sockets")
++				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(2)), "Expect cores")
++				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+ 				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+-				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(4)), "Expect vcpus")
++				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(6)), "Expect vcpus")
+ 				Expect(domainSpec.VCPUs).ToNot(BeNil(), "Expecting topology for hotplug")
+-				Expect(domainSpec.VCPUs.VCPU).To(HaveLen(4), "Expecting topology for hotplug")
+-				Expect(domainSpec.VCPUs.VCPU[0].Hotpluggable).To(Equal("no"), "Expecting 1st socket to be stable")
+-				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("yes"), "Expecting the 2nd socket to be Hotpluggable")
+-				Expect(domainSpec.VCPUs.VCPU[2].Hotpluggable).To(Equal("yes"), "Expecting the 3rd socket to be Hotpluggable")
+-				Expect(domainSpec.VCPUs.VCPU[3].Hotpluggable).To(Equal("yes"), "Expecting the 4th socket to be Hotpluggable")
++				Expect(domainSpec.VCPUs.VCPU).To(HaveLen(6), "Expecting topology for hotplug")
++				Expect(domainSpec.VCPUs.VCPU[0].Hotpluggable).To(Equal("no"), "Expecting the 1st vcpu to be stable")
++				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("no"), "Expecting the 2nd vcpu to be stable")
++				Expect(domainSpec.VCPUs.VCPU[2].Hotpluggable).To(Equal("yes"), "Expecting the 3rd vcpu to be Hotpluggable")
++				Expect(domainSpec.VCPUs.VCPU[3].Hotpluggable).To(Equal("yes"), "Expecting the 4th vcpu to be Hotpluggable")
++				Expect(domainSpec.VCPUs.VCPU[4].Hotpluggable).To(Equal("yes"), "Expecting the 5th vcpu to be Hotpluggable")
++				Expect(domainSpec.VCPUs.VCPU[5].Hotpluggable).To(Equal("yes"), "Expecting the 6th vcpu to be Hotpluggable")
++				Expect(domainSpec.VCPUs.VCPU[0].Enabled).To(Equal("yes"), "Expecting the 1st vcpu to be enabled")
++				Expect(domainSpec.VCPUs.VCPU[1].Enabled).To(Equal("yes"), "Expecting the 2nd vcpu to be enabled")
++				Expect(domainSpec.VCPUs.VCPU[2].Enabled).To(Equal("yes"), "Expecting the 3rd vcpu to be enabled")
++				Expect(domainSpec.VCPUs.VCPU[3].Enabled).To(Equal("yes"), "Expecting the 4th vcpu to be enabled")
++				Expect(domainSpec.VCPUs.VCPU[4].Enabled).To(Equal("no"), "Expecting the 5th vcpu to be disabled")
++				Expect(domainSpec.VCPUs.VCPU[5].Enabled).To(Equal("no"), "Expecting the 6th vcpu to be disabled")
+ 			})
+ 
+ 			DescribeTable("should convert CPU model", func(model string) {
+diff --git a/pkg/virt-launcher/virtwrap/converter/network.go b/pkg/virt-launcher/virtwrap/converter/network.go
+index 23ffacc75..73011b2fe 100644
+--- a/pkg/virt-launcher/virtwrap/converter/network.go
++++ b/pkg/virt-launcher/virtwrap/converter/network.go
+@@ -89,11 +89,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain,
+ 			domainIface.Address = addr
+ 		}
+ 
+-		if iface.ACPIIndex > 0 {
+-			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
+-		}
+-
+-		if iface.Bridge != nil || iface.Masquerade != nil {
++		if iface.Bridge != nil || iface.Masquerade != nil || iface.Macvtap != nil {
+ 			// TODO:(ihar) consider abstracting interface type conversion /
+ 			// detection into drivers
+ 
+@@ -117,21 +113,9 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain,
+ 			if err != nil {
+ 				return nil, err
+ 			}
+-		} else if iface.Macvtap != nil {
+-			if net.Multus == nil {
+-				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
+-			}
+-
+-			domainIface.Type = "ethernet"
+-			if iface.BootOrder != nil {
+-				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+-			} else {
+-				domainIface.Rom = &api.Rom{Enabled: "no"}
+-			}
+ 		} else if iface.Passt != nil {
+ 			domain.Spec.Devices.Emulator = "/usr/bin/qrap"
+ 		}
+-
+ 		if c.UseLaunchSecurity {
+ 			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+ 			domainIface.Rom = &api.Rom{Enabled: "no"}
+diff --git a/pkg/virt-operator/application.go b/pkg/virt-operator/application.go
+index 323d0e34b..f4d52e4db 100644
+--- a/pkg/virt-operator/application.go
++++ b/pkg/virt-operator/application.go
+@@ -207,7 +207,6 @@ func Execute() {
+ 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
+ 		ValidationWebhook:        app.informerFactory.OperatorValidationWebhook(),
+ 		MutatingWebhook:          app.informerFactory.OperatorMutatingWebhook(),
+-		APIService:               app.informerFactory.OperatorAPIService(),
+ 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
+ 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
+ 		InfrastructurePod:        app.informerFactory.OperatorPod(),
+@@ -229,7 +228,6 @@ func Execute() {
+ 		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
+ 		ValidationWebhookCache:        app.informerFactory.OperatorValidationWebhook().GetStore(),
+ 		MutatingWebhookCache:          app.informerFactory.OperatorMutatingWebhook().GetStore(),
+-		APIServiceCache:               app.informerFactory.OperatorAPIService().GetStore(),
+ 		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
+ 		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
+ 		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
+diff --git a/pkg/virt-operator/kubevirt.go b/pkg/virt-operator/kubevirt.go
+index 9152959b4..aff0b023a 100644
+--- a/pkg/virt-operator/kubevirt.go
++++ b/pkg/virt-operator/kubevirt.go
+@@ -93,7 +93,6 @@ func NewKubeVirtController(
+ 		workqueue.NewItemExponentialFailureRateLimiter(5*time.Second, 1000*time.Second),
+ 		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
+ 	)
+-
+ 	c := KubeVirtController{
+ 		clientset:        clientset,
+ 		aggregatorClient: aggregatorClient,
+@@ -114,7 +113,6 @@ func NewKubeVirtController(
+ 			DaemonSet:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+ 			ValidationWebhook:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
+ 			MutatingWebhook:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
+-			APIService:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("APIService")),
+ 			SCC:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
+ 			Route:                    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Route")),
+ 			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
+@@ -318,21 +316,6 @@ func NewKubeVirtController(
+ 		return nil, err
+ 	}
+ 
+-	_, err = c.informers.APIService.AddEventHandler(cache.ResourceEventHandlerFuncs{
+-		AddFunc: func(obj interface{}) {
+-			c.genericAddHandler(obj, c.kubeVirtExpectations.APIService)
+-		},
+-		DeleteFunc: func(obj interface{}) {
+-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.APIService)
+-		},
+-		UpdateFunc: func(oldObj, newObj interface{}) {
+-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.APIService)
+-		},
+-	})
+-	if err != nil {
+-		return nil, err
+-	}
+-
+ 	_, err = c.informers.SCC.AddEventHandler(cache.ResourceEventHandlerFuncs{
+ 		AddFunc: func(obj interface{}) {
+ 			c.sccAddHandler(obj, c.kubeVirtExpectations.SCC)
+diff --git a/pkg/virt-operator/kubevirt_test.go b/pkg/virt-operator/kubevirt_test.go
+index e42648749..dbd20d23c 100644
+--- a/pkg/virt-operator/kubevirt_test.go
++++ b/pkg/virt-operator/kubevirt_test.go
+@@ -211,8 +211,6 @@ func (k *KubeVirtTestData) BeforeTest() {
+ 	k.stores.ValidationWebhookCache = k.informers.ValidationWebhook.GetStore()
+ 	k.informers.MutatingWebhook, k.mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1.MutatingWebhookConfiguration{})
+ 	k.stores.MutatingWebhookCache = k.informers.MutatingWebhook.GetStore()
+-	k.informers.APIService, k.apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
+-	k.stores.APIServiceCache = k.informers.APIService.GetStore()
+ 
+ 	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+ 	k.stores.SCCCache = k.informers.SCC.GetStore()
+@@ -506,8 +504,6 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
+ 		k.deleteValidationWebhook(key)
+ 	case "mutatingwebhookconfigurations":
+ 		k.deleteMutatingWebhook(key)
+-	case "apiservices":
+-		k.deleteAPIService(key)
+ 	case "jobs":
+ 		k.deleteInstallStrategyJob(key)
+ 	case "configmaps":
+@@ -621,14 +617,6 @@ func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
+ 	k.mockQueue.Wait()
+ }
+ 
+-func (k *KubeVirtTestData) deleteAPIService(key string) {
+-	k.mockQueue.ExpectAdds(1)
+-	if obj, exists, _ := k.informers.APIService.GetStore().GetByKey(key); exists {
+-		k.apiserviceSource.Delete(obj.(runtime.Object))
+-	}
+-	k.mockQueue.Wait()
+-}
+-
+ func (k *KubeVirtTestData) deleteInstallStrategyJob(key string) {
+ 	k.mockQueue.ExpectAdds(1)
+ 	if obj, exists, _ := k.informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
+@@ -1312,12 +1300,6 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
+ 	}
+ 	all = append(all, mutatingWebhook)
+ 
+-	apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
+-	for _, apiService := range apiServices {
+-		apiService.Spec.CABundle = caBundle
+-		all = append(all, apiService)
+-	}
+-
+ 	validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
+ 	for i := range validatingWebhook.Webhooks {
+ 		validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
+@@ -3138,7 +3120,6 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
+ 	go informers.DaemonSet.Run(stop)
+ 	go informers.ValidationWebhook.Run(stop)
+ 	go informers.MutatingWebhook.Run(stop)
+-	go informers.APIService.Run(stop)
+ 	go informers.SCC.Run(stop)
+ 	go informers.InstallStrategyJob.Run(stop)
+ 	go informers.InstallStrategyConfigMap.Run(stop)
+@@ -3164,7 +3145,6 @@ func syncCaches(stop chan struct{}, kvInformer cache.SharedIndexInformer, inform
+ 	cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
+ 	cache.WaitForCacheSync(stop, informers.ValidationWebhook.HasSynced)
+ 	cache.WaitForCacheSync(stop, informers.MutatingWebhook.HasSynced)
+-	cache.WaitForCacheSync(stop, informers.APIService.HasSynced)
+ 	cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
+ 	cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
+ 	cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
+diff --git a/pkg/virt-operator/resource/apply/apiservices.go b/pkg/virt-operator/resource/apply/apiservices.go
+deleted file mode 100644
+index 6d741321e..000000000
+--- a/pkg/virt-operator/resource/apply/apiservices.go
++++ /dev/null
+@@ -1,92 +0,0 @@
+-package apply
+-
+-import (
+-	"context"
+-	"encoding/json"
+-	"fmt"
+-
+-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+-	"k8s.io/apimachinery/pkg/api/equality"
+-	"k8s.io/apimachinery/pkg/api/errors"
+-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+-	"k8s.io/apimachinery/pkg/types"
+-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+-
+-	"kubevirt.io/client-go/log"
+-)
+-
+-func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
+-	for _, apiService := range r.targetStrategy.APIServices() {
+-		err := r.createOrUpdateAPIService(apiService.DeepCopy(), caBundle)
+-		if err != nil {
+-			return err
+-		}
+-	}
+-
+-	return nil
+-}
+-
+-func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, caBundle []byte) error {
+-	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
+-	injectOperatorMetadata(r.kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
+-	apiService.Spec.CABundle = caBundle
+-
+-	var cachedAPIService *apiregv1.APIService
+-	var err error
+-	obj, exists, _ := r.stores.APIServiceCache.Get(apiService)
+-	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+-	if !exists {
+-		cachedAPIService, err = r.aggregatorclient.Get(context.Background(), apiService.Name, metav1.GetOptions{})
+-		if errors.IsNotFound(err) {
+-			exists = false
+-		} else if err != nil {
+-			return err
+-		} else {
+-			exists = true
+-		}
+-	} else if exists {
+-		cachedAPIService = obj.(*apiregv1.APIService)
+-	}
+-
+-	if !exists {
+-		r.expectations.APIService.RaiseExpectations(r.kvKey, 1, 0)
+-		_, err := r.aggregatorclient.Create(context.Background(), apiService, metav1.CreateOptions{})
+-		if err != nil {
+-			r.expectations.APIService.LowerExpectations(r.kvKey, 1, 0)
+-			return fmt.Errorf("unable to create apiservice %+v: %v", apiService, err)
+-		}
+-
+-		return nil
+-	}
+-
+-	modified := resourcemerge.BoolPtr(false)
+-	resourcemerge.EnsureObjectMeta(modified, &cachedAPIService.ObjectMeta, apiService.ObjectMeta)
+-	serviceSame := equality.Semantic.DeepEqual(cachedAPIService.Spec.Service, apiService.Spec.Service)
+-	certsSame := equality.Semantic.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle)
+-	prioritySame := cachedAPIService.Spec.VersionPriority == apiService.Spec.VersionPriority && cachedAPIService.Spec.GroupPriorityMinimum == apiService.Spec.GroupPriorityMinimum
+-	insecureSame := cachedAPIService.Spec.InsecureSkipTLSVerify == apiService.Spec.InsecureSkipTLSVerify
+-	// there was no change to metadata, the service and priorities were right
+-	if !*modified && serviceSame && prioritySame && insecureSame && certsSame {
+-		log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
+-
+-		return nil
+-	}
+-
+-	spec, err := json.Marshal(apiService.Spec)
+-	if err != nil {
+-		return err
+-	}
+-
+-	ops, err := getPatchWithObjectMetaAndSpec([]string{}, &apiService.ObjectMeta, spec)
+-	if err != nil {
+-		return err
+-	}
+-
+-	_, err = r.aggregatorclient.Patch(context.Background(), apiService.Name, types.JSONPatchType, generatePatchBytes(ops), metav1.PatchOptions{})
+-	if err != nil {
+-		return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
+-	}
+-	log.Log.V(4).Infof("apiservice %v updated", apiService.GetName())
+-
+-	return nil
+-}
+diff --git a/pkg/virt-operator/resource/apply/core.go b/pkg/virt-operator/resource/apply/core.go
+index 4d507f615..3315598a3 100644
+--- a/pkg/virt-operator/resource/apply/core.go
++++ b/pkg/virt-operator/resource/apply/core.go
+@@ -363,12 +363,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
+ 		return err
+ 	}
+ 
+-	// create/update APIServices
+-	err = r.createOrUpdateAPIServices(caBundle)
+-	if err != nil {
+-		return err
+-	}
+-
+ 	// create/update Routes
+ 	err = r.createOrUpdateRoutes(caBundle)
+ 	if err != nil {
+diff --git a/pkg/virt-operator/resource/apply/delete.go b/pkg/virt-operator/resource/apply/delete.go
+index d2c8b96f5..ecea83a7b 100644
+--- a/pkg/virt-operator/resource/apply/delete.go
++++ b/pkg/virt-operator/resource/apply/delete.go
+@@ -36,7 +36,6 @@ import (
+ 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/types"
+-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+ 
+ 	v1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/client-go/kubecli"
+@@ -215,25 +214,6 @@ func DeleteAll(kv *v1.KubeVirt,
+ 		}
+ 	}
+ 
+-	// delete apiservices
+-	objects = stores.APIServiceCache.List()
+-	for _, obj := range objects {
+-		if apiservice, ok := obj.(*apiregv1.APIService); ok && apiservice.DeletionTimestamp == nil {
+-			if key, err := controller.KeyFunc(apiservice); err == nil {
+-				expectations.APIService.AddExpectedDeletion(kvkey, key)
+-				err := aggregatorclient.Delete(context.Background(), apiservice.Name, deleteOptions)
+-				if err != nil {
+-					expectations.APIService.DeletionObserved(kvkey, key)
+-					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, err)
+-					return err
+-				}
+-			}
+-		} else if !ok {
+-			log.Log.Errorf(castFailedFmt, obj)
+-			return nil
+-		}
+-	}
+-
+ 	// delete services
+ 	objects = stores.ServiceCache.List()
+ 	for _, obj := range objects {
+diff --git a/pkg/virt-operator/resource/apply/patches.go b/pkg/virt-operator/resource/apply/patches.go
+index 2bd0c313d..e9cd7d820 100644
+--- a/pkg/virt-operator/resource/apply/patches.go
++++ b/pkg/virt-operator/resource/apply/patches.go
+@@ -140,10 +140,6 @@ func (c *Customizer) Apply(targetStrategy *install.Strategy) error {
+ 	if err != nil {
+ 		return err
+ 	}
+-	err = c.GenericApplyPatches(targetStrategy.APIServices())
+-	if err != nil {
+-		return err
+-	}
+ 	err = c.GenericApplyPatches(targetStrategy.CertificateSecrets())
+ 	if err != nil {
+ 		return err
+diff --git a/pkg/virt-operator/resource/apply/reconcile.go b/pkg/virt-operator/resource/apply/reconcile.go
+index 5408aa41d..4e437d757 100644
+--- a/pkg/virt-operator/resource/apply/reconcile.go
++++ b/pkg/virt-operator/resource/apply/reconcile.go
+@@ -39,8 +39,6 @@ import (
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/client-go/tools/record"
+ 	"k8s.io/client-go/util/workqueue"
+-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+-
+ 	v1 "kubevirt.io/api/core/v1"
+ 	"kubevirt.io/client-go/kubecli"
+ 	"kubevirt.io/client-go/log"
+@@ -800,39 +798,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
+ 			}
+ 		}
+ 	}
+-
+-	// remove unused APIServices
+-	objects = r.stores.APIServiceCache.List()
+-	for _, obj := range objects {
+-		if apiService, ok := obj.(*apiregv1.APIService); ok && apiService.DeletionTimestamp == nil {
+-			found := false
+-			for _, targetAPIService := range r.targetStrategy.APIServices() {
+-				if targetAPIService.Name == apiService.Name {
+-					found = true
+-					break
+-				}
+-			}
+-			// This is for backward compatibility where virt-api managed the entity itself.
+-			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
+-			// which was not explicitly created by an operator, but is still visible to it.
+-			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
+-			if _, ok := apiService.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
+-				found = true
+-			}
+-			if !found {
+-				if key, err := controller.KeyFunc(apiService); err == nil {
+-					r.expectations.APIService.AddExpectedDeletion(r.kvKey, key)
+-					err := r.aggregatorclient.Delete(context.Background(), apiService.Name, deleteOptions)
+-					if err != nil {
+-						r.expectations.APIService.DeletionObserved(r.kvKey, key)
+-						log.Log.Errorf("Failed to delete apiService %+v: %v", apiService, err)
+-						return err
+-					}
+-				}
+-			}
+-		}
+-	}
+-
+ 	// remove unused Secrets
+ 	objects = r.stores.SecretCache.List()
+ 	for _, obj := range objects {
+diff --git a/pkg/virt-operator/resource/generate/components/apiservices.go b/pkg/virt-operator/resource/generate/components/apiservices.go
+deleted file mode 100644
+index cde0dbfc1..000000000
+--- a/pkg/virt-operator/resource/generate/components/apiservices.go
++++ /dev/null
+@@ -1,44 +0,0 @@
+-package components
+-
+-import (
+-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+-	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+-
+-	v1 "kubevirt.io/api/core/v1"
+-)
+-
+-func NewVirtAPIAPIServices(installNamespace string) []*apiregv1.APIService {
+-	apiservices := []*apiregv1.APIService{}
+-
+-	for _, version := range v1.SubresourceGroupVersions {
+-		subresourceAggregatedApiName := version.Version + "." + version.Group
+-
+-		apiservices = append(apiservices, &apiregv1.APIService{
+-			TypeMeta: metav1.TypeMeta{
+-				APIVersion: "apiregistration.k8s.io/v1",
+-				Kind:       "APIService",
+-			},
+-			ObjectMeta: metav1.ObjectMeta{
+-				Name: subresourceAggregatedApiName,
+-				Labels: map[string]string{
+-					v1.AppLabel:       "virt-api-aggregator",
+-					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+-				},
+-				Annotations: map[string]string{
+-					certificatesSecretAnnotationKey: VirtApiCertSecretName,
+-				},
+-			},
+-			Spec: apiregv1.APIServiceSpec{
+-				Service: &apiregv1.ServiceReference{
+-					Namespace: installNamespace,
+-					Name:      VirtApiServiceName,
+-				},
+-				Group:                version.Group,
+-				Version:              version.Version,
+-				GroupPriorityMinimum: 1000,
+-				VersionPriority:      15,
+-			},
+-		})
+-	}
+-	return apiservices
+-}
+diff --git a/pkg/virt-operator/resource/generate/components/apiservices_test.go b/pkg/virt-operator/resource/generate/components/apiservices_test.go
+deleted file mode 100644
+index 8cef02889..000000000
+--- a/pkg/virt-operator/resource/generate/components/apiservices_test.go
++++ /dev/null
+@@ -1,19 +0,0 @@
+-package components
+-
+-import (
+-	. "github.com/onsi/ginkgo/v2"
+-	. "github.com/onsi/gomega"
+-
+-	v1 "kubevirt.io/api/core/v1"
+-)
+-
+-var _ = Describe("APIServices", func() {
+-
+-	It("should load one APIService with the correct namespace", func() {
+-		services := NewVirtAPIAPIServices("mynamespace")
+-		// a subresource aggregated api endpoint should be registered for
+-		// each vm/vmi api version
+-		Expect(services).To(HaveLen(len(v1.SubresourceGroupVersions)))
+-		Expect(services[0].Spec.Service.Namespace).To(Equal("mynamespace"))
+-	})
+-})
+diff --git a/pkg/virt-operator/resource/generate/components/crds.go b/pkg/virt-operator/resource/generate/components/crds.go
+index 822f3d82b..36126ef43 100644
+--- a/pkg/virt-operator/resource/generate/components/crds.go
++++ b/pkg/virt-operator/resource/generate/components/crds.go
+@@ -862,7 +862,7 @@ func NewKubeVirtPriorityClassCR() *schedulingv1.PriorityClass {
+ 			Kind:       "PriorityClass",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt-cluster-critical",
++			Name: "kubevirt-internal-virtualization-cluster-critical",
+ 		},
+ 		// 1 billion is the highest value we can set
+ 		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+diff --git a/pkg/virt-operator/resource/generate/components/deployments.go b/pkg/virt-operator/resource/generate/components/deployments.go
+index 4d00a423a..ced56e776 100644
+--- a/pkg/virt-operator/resource/generate/components/deployments.go
++++ b/pkg/virt-operator/resource/generate/components/deployments.go
+@@ -166,7 +166,7 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
+ 			Name: podName,
+ 		},
+ 		Spec: corev1.PodSpec{
+-			PriorityClassName: "kubevirt-cluster-critical",
++			PriorityClassName: "kubevirt-internal-virtualization-cluster-critical",
+ 			Affinity:          podAffinity,
+ 			Tolerations:       criticalAddonsToleration(),
+ 			Containers: []corev1.Container{
+@@ -529,7 +529,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
+ 					Name: VirtOperatorName,
+ 				},
+ 				Spec: corev1.PodSpec{
+-					PriorityClassName:  "kubevirt-cluster-critical",
++					PriorityClassName:  "kubevirt-internal-virtualization-cluster-critical",
+ 					Tolerations:        criticalAddonsToleration(),
+ 					Affinity:           podAntiAffinity,
+ 					ServiceAccountName: "kubevirt-operator",
+diff --git a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+index 0948629bb..9aca3b3bd 100644
+--- a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
++++ b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+@@ -1,9 +1,9 @@
+ package components
+ 
+ const (
+-	ApiServiceAccountName         = "kubevirt-apiserver"
+-	ControllerServiceAccountName  = "kubevirt-controller"
+-	ExportProxyServiceAccountName = "kubevirt-exportproxy"
+-	HandlerServiceAccountName     = "kubevirt-handler"
++	ApiServiceAccountName         = "kubevirt-internal-virtualization-apiserver"
++	ControllerServiceAccountName  = "kubevirt-internal-virtualization-controller"
++	ExportProxyServiceAccountName = "kubevirt-internal-virtualization-exportproxy"
++	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
+ 	OperatorServiceAccountName    = "kubevirt-operator"
+ )
+diff --git a/pkg/virt-operator/resource/generate/install/strategy.go b/pkg/virt-operator/resource/generate/install/strategy.go
+index 65cf88913..2f7c0c51b 100644
+--- a/pkg/virt-operator/resource/generate/install/strategy.go
++++ b/pkg/virt-operator/resource/generate/install/strategy.go
+@@ -87,7 +87,6 @@ type Strategy struct {
+ 	daemonSets                      []*appsv1.DaemonSet
+ 	validatingWebhookConfigurations []*admissionregistrationv1.ValidatingWebhookConfiguration
+ 	mutatingWebhookConfigurations   []*admissionregistrationv1.MutatingWebhookConfiguration
+-	apiServices                     []*apiregv1.APIService
+ 	certificateSecrets              []*corev1.Secret
+ 	sccs                            []*secv1.SecurityContextConstraints
+ 	serviceMonitors                 []*promv1.ServiceMonitor
+@@ -177,10 +176,6 @@ func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1.
+ 	return ins.mutatingWebhookConfigurations
+ }
+ 
+-func (ins *Strategy) APIServices() []*apiregv1.APIService {
+-	return ins.apiServices
+-}
+-
+ func (ins *Strategy) CertificateSecrets() []*corev1.Secret {
+ 	return ins.certificateSecrets
+ }
+@@ -362,9 +357,6 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
+ 	for _, entry := range strategy.mutatingWebhookConfigurations {
+ 		marshalutil.MarshallObject(entry, writer)
+ 	}
+-	for _, entry := range strategy.apiServices {
+-		marshalutil.MarshallObject(entry, writer)
+-	}
+ 	for _, entry := range strategy.deployments {
+ 		marshalutil.MarshallObject(entry, writer)
+ 	}
+@@ -520,7 +512,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
+ 
+ 	strategy.daemonSets = append(strategy.daemonSets, handler)
+ 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+-	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
+ 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
+ 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
+ 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
+@@ -636,12 +627,6 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
+ 			}
+ 			webhook.TypeMeta = obj
+ 			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
+-		case "APIService":
+-			apiService := &apiregv1.APIService{}
+-			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
+-				return nil, err
+-			}
+-			strategy.apiServices = append(strategy.apiServices, apiService)
+ 		case "Secret":
+ 			secret := &corev1.Secret{}
+ 			if err := yaml.Unmarshal([]byte(entry), &secret); err != nil {
+diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+index 932f7391e..76c79d452 100644
+--- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
++++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
+@@ -294,7 +294,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
+ 			Kind:       "ClusterRoleBinding",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt-apiserver-auth-delegator",
++			Name: "kubevirt-internal-virtualization-apiserver-auth-delegator",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 			},
+diff --git a/pkg/virt-operator/resource/generate/rbac/cluster.go b/pkg/virt-operator/resource/generate/rbac/cluster.go
+index 6ba13c849..12b7ccaa2 100644
+--- a/pkg/virt-operator/resource/generate/rbac/cluster.go
++++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
+@@ -37,7 +37,7 @@ const (
+ 	GroupNameClone         = "clone.kubevirt.io"
+ 	GroupNameInstancetype  = "instancetype.kubevirt.io"
+ 	GroupNamePool          = "pool.kubevirt.io"
+-	NameDefault            = "kubevirt.io:default"
++	NameDefault            = "kubevirt.internal.virtualization.deckhouse.io:default"
+ 	VMInstancesGuestOSInfo = "virtualmachineinstances/guestosinfo"
+ 	VMInstancesFileSysList = "virtualmachineinstances/filesystemlist"
+ 	VMInstancesUserList    = "virtualmachineinstances/userlist"
+@@ -128,7 +128,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:admin",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:admin",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+@@ -307,7 +307,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:edit",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:edit",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
+@@ -497,7 +497,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
+ 			Kind:       "ClusterRole",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name: "kubevirt.io:view",
++			Name: "kubevirt.internal.virtualization.deckhouse.io:view",
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+ 				"rbac.authorization.k8s.io/aggregate-to-view": "true",
 diff --git a/pkg/virt-operator/resource/generate/rbac/exportproxy.go b/pkg/virt-operator/resource/generate/rbac/exportproxy.go
 index 071ed91f9..ebc9f2adb 100644
 --- a/pkg/virt-operator/resource/generate/rbac/exportproxy.go
@@ -16,3 +1866,153 @@ index 071ed91f9..ebc9f2adb 100644
  
  func GetAllExportProxy(namespace string) []runtime.Object {
  	return []runtime.Object{
+diff --git a/pkg/virt-operator/resource/generate/rbac/operator.go b/pkg/virt-operator/resource/generate/rbac/operator.go
+index 4eca946a4..061135fd9 100644
+--- a/pkg/virt-operator/resource/generate/rbac/operator.go
++++ b/pkg/virt-operator/resource/generate/rbac/operator.go
+@@ -435,7 +435,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
+ 			Kind:       "RoleBinding",
+ 		},
+ 		ObjectMeta: metav1.ObjectMeta{
+-			Name:      "kubevirt-operator-rolebinding",
++			Name:      components.OperatorServiceAccountName,
+ 			Namespace: namespace,
+ 			Labels: map[string]string{
+ 				virtv1.AppLabel: "",
+diff --git a/pkg/virt-operator/strategy_job.go b/pkg/virt-operator/strategy_job.go
+index e2838fb7b..a5ab93436 100644
+--- a/pkg/virt-operator/strategy_job.go
++++ b/pkg/virt-operator/strategy_job.go
+@@ -61,6 +61,19 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
+ 					ServiceAccountName: "kubevirt-operator",
+ 					RestartPolicy:      k8sv1.RestartPolicyNever,
+ 					ImagePullSecrets:   config.GetImagePullSecrets(),
++					Tolerations:        []k8sv1.Toleration{{Operator: k8sv1.TolerationOpExists}},
++					Affinity: &k8sv1.Affinity{PodAffinity: &k8sv1.PodAffinity{
++						RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{{
++							TopologyKey: "kubernetes.io/hostname",
++							LabelSelector: &metav1.LabelSelector{
++								MatchExpressions: []metav1.LabelSelectorRequirement{{
++									Key:      v1.AppLabel,
++									Operator: metav1.LabelSelectorOpIn,
++									Values:   []string{VirtOperator},
++								}},
++							},
++						}},
++					}},
+ 
+ 					Containers: []k8sv1.Container{
+ 						{
+diff --git a/pkg/virt-operator/util/types.go b/pkg/virt-operator/util/types.go
+index 96a2a98da..edbfc5fc1 100644
+--- a/pkg/virt-operator/util/types.go
++++ b/pkg/virt-operator/util/types.go
+@@ -39,7 +39,6 @@ type Stores struct {
+ 	DaemonSetCache                cache.Store
+ 	ValidationWebhookCache        cache.Store
+ 	MutatingWebhookCache          cache.Store
+-	APIServiceCache               cache.Store
+ 	SCCCache                      cache.Store
+ 	RouteCache                    cache.Store
+ 	InstallStrategyConfigMapCache cache.Store
+@@ -68,7 +67,6 @@ func (s *Stores) AllEmpty() bool {
+ 		IsStoreEmpty(s.DaemonSetCache) &&
+ 		IsStoreEmpty(s.ValidationWebhookCache) &&
+ 		IsStoreEmpty(s.MutatingWebhookCache) &&
+-		IsStoreEmpty(s.APIServiceCache) &&
+ 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
+ 		IsSCCStoreEmpty(s.SCCCache) &&
+ 		IsStoreEmpty(s.RouteCache) &&
+@@ -114,7 +112,6 @@ type Expectations struct {
+ 	DaemonSet                *controller.UIDTrackingControllerExpectations
+ 	ValidationWebhook        *controller.UIDTrackingControllerExpectations
+ 	MutatingWebhook          *controller.UIDTrackingControllerExpectations
+-	APIService               *controller.UIDTrackingControllerExpectations
+ 	SCC                      *controller.UIDTrackingControllerExpectations
+ 	Route                    *controller.UIDTrackingControllerExpectations
+ 	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
+@@ -138,7 +135,6 @@ type Informers struct {
+ 	DaemonSet                cache.SharedIndexInformer
+ 	ValidationWebhook        cache.SharedIndexInformer
+ 	MutatingWebhook          cache.SharedIndexInformer
+-	APIService               cache.SharedIndexInformer
+ 	SCC                      cache.SharedIndexInformer
+ 	Route                    cache.SharedIndexInformer
+ 	InstallStrategyConfigMap cache.SharedIndexInformer
+@@ -164,7 +160,6 @@ func (e *Expectations) DeleteExpectations(key string) {
+ 	e.DaemonSet.DeleteExpectations(key)
+ 	e.ValidationWebhook.DeleteExpectations(key)
+ 	e.MutatingWebhook.DeleteExpectations(key)
+-	e.APIService.DeleteExpectations(key)
+ 	e.SCC.DeleteExpectations(key)
+ 	e.Route.DeleteExpectations(key)
+ 	e.InstallStrategyConfigMap.DeleteExpectations(key)
+@@ -188,7 +183,6 @@ func (e *Expectations) ResetExpectations(key string) {
+ 	e.DaemonSet.SetExpectations(key, 0, 0)
+ 	e.ValidationWebhook.SetExpectations(key, 0, 0)
+ 	e.MutatingWebhook.SetExpectations(key, 0, 0)
+-	e.APIService.SetExpectations(key, 0, 0)
+ 	e.SCC.SetExpectations(key, 0, 0)
+ 	e.Route.SetExpectations(key, 0, 0)
+ 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
+@@ -212,7 +206,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
+ 		e.DaemonSet.SatisfiedExpectations(key) &&
+ 		e.ValidationWebhook.SatisfiedExpectations(key) &&
+ 		e.MutatingWebhook.SatisfiedExpectations(key) &&
+-		e.APIService.SatisfiedExpectations(key) &&
+ 		e.SCC.SatisfiedExpectations(key) &&
+ 		e.Route.SatisfiedExpectations(key) &&
+ 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
+diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
+index 14d3580c2..e633c3919 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types.go
++++ b/staging/src/kubevirt.io/api/core/v1/types.go
+@@ -828,13 +828,13 @@ const (
+ 	ManagedByLabelOperatorValue    = "virt-operator"
+ 	ManagedByLabelOperatorOldValue = "kubevirt-operator"
+ 	// This annotation represents the kubevirt version for an install strategy configmap.
+-	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
++	InstallStrategyVersionAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-version"
+ 	// This annotation represents the kubevirt registry used for an install strategy configmap.
+-	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
++	InstallStrategyRegistryAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-registry"
+ 	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
+-	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
++	InstallStrategyIdentifierAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-identifier"
+ 	// This annotation shows the enconding used for the manifests in the Install Strategy ConfigMap.
+-	InstallStrategyConfigMapEncoding = "kubevirt.io/install-strategy-cm-encoding"
++	InstallStrategyConfigMapEncoding = "install.internal.virtualization.deckhouse.io/install-strategy-cm-encoding"
+ 	// This annotation is a hash of all customizations that live under spec.CustomizeComponents
+ 	KubeVirtCustomizeComponentAnnotationHash = "kubevirt.io/customizer-identifier"
+ 	// This annotation represents the kubevirt generation that was used to create a resource
+@@ -845,7 +845,7 @@ const (
+ 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
+ 
+ 	// This label indicates the object is a part of the install strategy retrieval process.
+-	InstallStrategyLabel = "kubevirt.io/install-strategy"
++	InstallStrategyLabel = "install.internal.virtualization.deckhouse.io/install-strategy"
+ 
+ 	// Set by virt-operator to coordinate component deletion
+ 	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
+@@ -1627,6 +1627,8 @@ const (
+ 	MasqueradeInterface NetworkInterfaceType = "masquerade"
+ 	// Virtual machine instance passt interface
+ 	PasstInterface NetworkInterfaceType = "passt"
++	// Virtual machine instance macvtap interface
++	MacvtapInterface NetworkInterfaceType = "macvtap"
+ )
+ 
+ type DriverCache string
+diff --git a/staging/src/kubevirt.io/client-go/kubecli/kubecli.go b/staging/src/kubevirt.io/client-go/kubecli/kubecli.go
+index f5d3982a8..719717247 100644
+--- a/staging/src/kubevirt.io/client-go/kubecli/kubecli.go
++++ b/staging/src/kubevirt.io/client-go/kubecli/kubecli.go
+@@ -99,7 +99,7 @@ var once sync.Once
+ // the different controller generators which normally add these flags too.
+ func Init() {
+ 	if flag.CommandLine.Lookup("kubeconfig") == nil {
+-		flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
++		flag.StringVar(&kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "absolute path to the kubeconfig file")
+ 	}
+ 	if flag.CommandLine.Lookup("master") == nil {
+ 		flag.StringVar(&master, "master", "", "master url")
