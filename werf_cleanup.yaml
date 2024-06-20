@@ -1,0 +1,16 @@
+project: virtualization
+configVersion: 1
+cleanup:
+  keepPolicies:
+  - references:
+      branch: /.*/
+      limit:
+        in: 24h
+  - references:
+      branch: /main|pre-alpha/
+      limit:
+        in: 168h
+  - references:
+      tag: /.*/
+      limit:
+        in: 720h
