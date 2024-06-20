@@ -1,5 +1,5 @@
 diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
-index afea9c85d..e633c3919 100644
+index cf7648a1f..e633c3919 100644
 --- a/staging/src/kubevirt.io/api/core/v1/types.go
 +++ b/staging/src/kubevirt.io/api/core/v1/types.go
 @@ -828,13 +828,13 @@ const (
@@ -22,10 +22,10 @@ index afea9c85d..e633c3919 100644
  	// This annotation represents the kubevirt generation that was used to create a resource
 @@ -845,7 +845,7 @@ const (
  	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
-
+ 
  	// This label indicates the object is a part of the install strategy retrieval process.
 -	InstallStrategyLabel = "kubevirt.io/install-strategy"
 +	InstallStrategyLabel = "install.internal.virtualization.deckhouse.io/install-strategy"
-
+ 
  	// Set by virt-operator to coordinate component deletion
  	VirtOperatorComponentFinalizer string = "kubevirt.io/virtOperatorFinalizer"
