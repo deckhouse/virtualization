@@ -18,13 +18,15 @@ package e2e
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/deckhouse/virtualization/tests/e2e/config"
+	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"testing"
-	"time"
 )
 
 const (
@@ -38,9 +40,10 @@ const (
 )
 
 var (
-	conf    *config.Config
-	kubectl kc.Kubectl
-	virtctl virt.Virtctl
+	conf             *config.Config
+	kubectl          kc.Kubectl
+	virtctl          virt.Virtctl
+	d8Virtualization d8.D8Virtualization
 )
 
 func init() {
@@ -52,6 +55,9 @@ func init() {
 		panic(err)
 	}
 	if virtctl, err = virt.NewVirtctl(virt.VirtctlConf(conf.ClusterTransport)); err != nil {
+		panic(err)
+	}
+	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
 		panic(err)
 	}
 	Cleanup()

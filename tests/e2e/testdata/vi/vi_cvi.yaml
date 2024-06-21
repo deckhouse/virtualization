@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: test-cvmi-cvmi-old
+  name: test-vi-cvi
 spec:
   dataSource:
     type: "HTTP"
@@ -9,12 +9,14 @@ spec:
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
+kind: VirtualImage
 metadata:
-  name: test-cvmi-cvmi-new
+  name: test-vi-cvi
+  namespace: test-d8-virtualization
 spec:
+  storage: ContainerRegistry
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "ClusterVirtualImage"
-      name: test-cvmi-cvmi-old
+      name: test-vi-cvi

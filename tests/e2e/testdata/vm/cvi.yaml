@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: linux-cvmi-http
+  name: linux-cvi-http
 spec:
   dataSource:
     type: "HTTP"

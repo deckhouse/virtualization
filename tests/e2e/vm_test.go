@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
+	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -110,21 +111,21 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			})
 		}
 		When("VI source", func() {
-			manifest := vmPath("boot/vm_vmi.yaml")
+			manifest := vmPath("boot/vm_vi.yaml")
 			Test(manifest)
 		})
 		When("CVI source", func() {
-			manifest := vmPath("boot/vm_cvmi.yaml")
+			manifest := vmPath("boot/vm_cvi.yaml")
 			Test(manifest)
 		})
 		When("VD source", func() {
-			manifest := vmPath("boot/vm_vmd.yaml")
+			manifest := vmPath("boot/vm_vd.yaml")
 			Test(manifest)
 		})
 	})
 
 	Context("RunPolicy", func() {
-		manifest := vmPath("vm_runpolicy.yaml")
+		manifest := vmPath("runpolicy/vm_runpolicy.yaml")
 		var name string
 
 		PatchVmRunPolicy := func(name, runPolicy string) {
@@ -163,11 +164,9 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				GetKubevirtRunStrategy(name, KubeVirtRunStrategyHalted)
 			})
 		})
-		When("Virtctl start", func() {
-			It("Virtctl start", func() {
-				res := virtctl.StartVm(name, conf.Namespace)
-				Expect(res.Error()).To(BeNil(), "virtctl start failed vm %s/%s.\n%s", conf.Namespace, name,
-					res.StdErr())
+		When("Start virtual machine", func() {
+			It("Apply vmop \"start\"", func() {
+				ApplyFromFile(vmPath("runpolicy/vmop_start.yaml"))
 			})
 			It("Get kubevirt vm", func() {
 				time.Sleep(30 * time.Second)
@@ -185,10 +184,9 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				GetKubevirtRunStrategy(name, KubeVirtRunStrategyAlways)
 			})
 		})
-		When("Virtctl stop", func() {
-			It("Virtctl stop", func() {
-				res := virtctl.StopVm(name, conf.Namespace)
-				Expect(res.Error()).To(BeNil(), "virtctl stop failed vm %s/%s.\n%s", conf.Namespace, name, res.StdErr())
+		When("Stop virtual machine", func() {
+			It("Apply vmop \"stop\"", func() {
+				ApplyFromFile(vmPath("runpolicy/vmop_stop.yaml"))
 			})
 			It("Get kubevirt vm", func() {
 				time.Sleep(30 * time.Second)
@@ -199,17 +197,19 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Provisioning", func() {
-		// TODO(refactor) from virtctl to d8 virtualization.
-		// CheckSsh := func(vmName string) {
-		//	GinkgoHelper()
-		//	res := virtctl.SshCommand(vmName, "sudo whoami", virt.SshOptions{
-		//		Namespace:   conf.Namespace,
-		//		Username:    "user",
-		//		IdenityFile: vmPath("provisioning/id_ed"),
-		//	})
-		//	Expect(res.Error()).To(BeNil(), "check ssh failed for %s/%s.\n%s", conf.Namespace, vmName, res.StdErr())
-		//	Expect(strings.TrimSpace(res.StdOut())).To(Equal("root"))
-		// }
+		BeforeAll(func() {
+			ChmodFile(vmPath("provisioning/id_ed"), 0600)
+		})
+		CheckSsh := func(vmName string) {
+			GinkgoHelper()
+			res := d8Virtualization.SshCommand(vmName, "sudo whoami", d8.SshOptions{
+				Namespace:   conf.Namespace,
+				Username:    "user",
+				IdenityFile: vmPath("provisioning/id_ed"),
+			})
+			Expect(res.Error()).To(BeNil(), "check ssh failed for %s/%s.\n%s", conf.Namespace, vmName, res.StdErr())
+			Expect(strings.TrimSpace(res.StdOut())).To(Equal("root"))
+		}
 
 		Test := func(manifest string) {
 			GinkgoHelper()
@@ -218,15 +218,15 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				vm, err := GetVMFromManifest(manifest)
 				Expect(err).To(BeNil())
 				name = vm.Name
+
 			})
 			ItApplyFromFile(manifest)
 			It("Wait vm running", func() {
 				WaitVmStatus(name, VMStatusRunning)
 			})
-			// TODO(refactor) from virtctl to d8 virtualization.
-			// It("Check ssh", func() {
-			//	CheckSsh(name)
-			// })
+			It("Check ssh", func() {
+				CheckSsh(name)
+			})
 		}
 		AfterAll(func() {
 			By("Delete manifests")

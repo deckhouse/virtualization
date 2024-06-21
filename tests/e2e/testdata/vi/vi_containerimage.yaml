@@ -1,14 +1,16 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
+kind: VirtualImage
 metadata:
-  name: test-vmd-containerimage
+  name: test-vi-containerimage
   namespace: test-d8-virtualization
   annotations:
     virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
 spec:
-  persistentVolumeClaim:
-    size: 200Mi
+  storage: ContainerRegistry
   dataSource:
     type: ContainerImage
     containerImage:
       image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
+#      imagePullSecret:
+#        namespace: some-ns
+#        caBundle: secret with ca bandle

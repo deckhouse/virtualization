@@ -17,9 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"os"
 	"strconv"
+
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 func GetConfig() (*Config, error) {
@@ -48,7 +49,7 @@ type Config struct {
 	Disks            DisksConf        `yaml:"disks"`
 	VM               VmConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
-	HelperImages     HelperImages     `yaml:"helperimages"`
+	HelperImages     HelperImages     `yaml:"helperImages"`
 }
 
 type ClusterTransport struct {
@@ -61,9 +62,9 @@ type ClusterTransport struct {
 
 type DisksConf struct {
 	UploadHelperImage string `yaml:"uploadHelperImage"`
-	CvmiTestDataDir   string `yaml:"cvmiTestDataDir"`
-	VmiTestDataDir    string `yaml:"vmiTestDataDir"`
-	VmdTestDataDir    string `yaml:"vmdTestDataDir"`
+	CviTestDataDir    string `yaml:"cviTestDataDir"`
+	ViTestDataDir     string `yaml:"viTestDataDir"`
+	VdTestDataDir     string `yaml:"vdTestDataDir"`
 }
 
 type VmConf struct {
@@ -106,14 +107,14 @@ func (c *Config) setEnvs() error {
 	if e, ok := os.LookupEnv("E2E_DISKS_UPLOADHELPERIMAGE"); ok {
 		c.Disks.UploadHelperImage = e
 	}
-	if e, ok := os.LookupEnv("E2E_DISKS_CVMITESTDATADIR"); ok {
-		c.Disks.CvmiTestDataDir = e
+	if e, ok := os.LookupEnv("E2E_DISKS_CVITESTDATADIR"); ok {
+		c.Disks.CviTestDataDir = e
 	}
-	if e, ok := os.LookupEnv("E2E_DISKS_VMITESTDATADIR"); ok {
-		c.Disks.VmiTestDataDir = e
+	if e, ok := os.LookupEnv("E2E_DISKS_VITESTDATADIR"); ok {
+		c.Disks.ViTestDataDir = e
 	}
-	if e, ok := os.LookupEnv("E2E_DISKS_VMDTESTDATADIR"); ok {
-		c.Disks.VmdTestDataDir = e
+	if e, ok := os.LookupEnv("E2E_DISKS_VDTESTDATADIR"); ok {
+		c.Disks.VdTestDataDir = e
 	}
 	// VM
 	if e, ok := os.LookupEnv("E2E_VM_TESTDATADIR"); ok {

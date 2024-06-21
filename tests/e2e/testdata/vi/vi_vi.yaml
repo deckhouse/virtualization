@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: test-vmi-vmi-old
+  name: test-vi-vi-old
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -14,7 +14,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: test-vmi-vmi-new
+  name: test-vi-vi-new
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -22,4 +22,4 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: test-vmi-vmi-old
+      name: test-vi-vi-old

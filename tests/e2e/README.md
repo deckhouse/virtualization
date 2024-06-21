@@ -9,9 +9,10 @@ You can override the config file using the env var ```E2E_CONFIG```.
 (default config - ```default_config.yaml```)
 
 You must also have a default class declared
-Mark a StorageClass as default:
-```bash
-kubectl patch storageclass <name> -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+Mark a ReplicatedStorageClass as default:
+```yaml
+spec:
+  isDefault: true
 ```
 ### Configuration
 To override a configuration option, create an environment variable named ```E2E_variable``` where variable is the name of the configuration option and the _ (underscore) represents indention levels. 
