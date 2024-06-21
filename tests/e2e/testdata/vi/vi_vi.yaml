@@ -1,25 +1,24 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
+kind: VirtualImage
 metadata:
-  name: test-vmd-cvmi
+  name: test-vi-vi-old
   namespace: test-d8-virtualization
 spec:
+  storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
-      insecureSkipVerify: true
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
+kind: VirtualImage
 metadata:
-  name: test-vmd-cvmi
+  name: test-vi-vi-new
   namespace: test-d8-virtualization
 spec:
-  persistentVolumeClaim:
-    size: 200Mi
+  storage: ContainerRegistry
   dataSource:
     type: "ObjectRef"
     objectRef:
-      kind: "ClusterVirtualImage"
-      name: test-vmd-cvmi
+      kind: "VirtualImage"
+      name: test-vi-vi-old

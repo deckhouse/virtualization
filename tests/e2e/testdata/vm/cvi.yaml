@@ -1,10 +1,9 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: linux-cvmi-http
+  name: linux-cvi-http
 spec:
   dataSource:
     type: "HTTP"
     http:
-      insecureSkipVerify: true
       url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"

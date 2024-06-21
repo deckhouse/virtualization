@@ -9,9 +9,14 @@ You can override the config file using the env var ```E2E_CONFIG```.
 (default config - ```default_config.yaml```)
 
 You must also have a default class declared
-Mark a StorageClass as default:
+Mark a ReplicatedStorageClass as default:
+```yaml
+spec:
+  isDefault: true
+```
+Example:
 ```bash
-kubectl patch storageclass <name> -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+kubectl patch replicatedstorageclasses.storage.deckhouse.io linstor-thin-r3 --type=json  -p='[{"op": "replace", "path":"/spec/isDefault", "value":true}]'
 ```
 ### Configuration
 To override a configuration option, create an environment variable named ```E2E_variable``` where variable is the name of the configuration option and the _ (underscore) represents indention levels. 

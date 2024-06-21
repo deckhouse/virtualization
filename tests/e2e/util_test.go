@@ -156,13 +156,13 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	RunPolicy                     RunPolicy           `json:"runPolicy"`
-	VirtualMachineIPAddressClaim  string              `json:"virtualMachineIPAddressClaim,omitempty"`
-	NodeSelector                  map[string]string   `json:"nodeSelector,omitempty"`
-	PriorityClassName             string              `json:"priorityClassName"`
-	Tolerations                   []corev1.Toleration `json:"tolerations,omitempty"`
-	TerminationGracePeriodSeconds *int64              `json:"terminationGracePeriodSeconds,omitempty"`
-	EnableParavirtualization      bool                `json:"enableParavirtualization,omitempty"`
+	RunPolicy                        RunPolicy           `json:"runPolicy"`
+	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
+	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
+	PriorityClassName                string              `json:"priorityClassName"`
+	Tolerations                      []corev1.Toleration `json:"tolerations,omitempty"`
+	TerminationGracePeriodSeconds    *int64              `json:"terminationGracePeriodSeconds,omitempty"`
+	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
 
 	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
 }

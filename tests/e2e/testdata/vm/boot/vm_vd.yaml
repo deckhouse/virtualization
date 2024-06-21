@@ -1,21 +1,20 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: test-vm-boot-vmd
+  name: test-vm-boot-vd
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
-    size: 200Mi
+    size: 4Gi
   dataSource:
     type: "HTTP"
     http:
-      insecureSkipVerify: true
-      url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+      url: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/ubuntu/jammy-server-cloudimg-amd64.img"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: test-vm-boot-vmd
+  name: test-vm-boot-vd
   namespace: test-d8-virtualization
 spec:
   disruptions:
@@ -29,4 +28,4 @@ spec:
     size: 1Gi
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: test-vm-boot-vmd
+      name: test-vm-boot-vd

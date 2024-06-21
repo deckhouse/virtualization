@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: test-connectivity-vmd-vmi-1
+  name: test-connectivity-vd-vi-1
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
@@ -33,8 +33,8 @@ spec:
     size: 1Gi
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: test-connectivity-vmd-vmi-1
-  virtualMachineIPAddressClaim: test-connectivity-ipam-vm1
+      name: test-connectivity-vd-vi-1
+  virtualMachineIPAddressClaimName: test-connectivity-ipam-vm1
   provisioning:
     type: UserData
     userData: |
@@ -48,6 +48,7 @@ spec:
           permissions: "0755"
           content: |
             #!/bin/bash
+            rm -f /var/www/html/index*
 
             cat > /var/www/html/index.html<<EOF
             <!DOCTYPE html>
@@ -61,10 +62,9 @@ spec:
             </html>
             EOF
       runcmd:
-      - [ hostnamectl, set-hostname, test-connectivity-vm1 ]
+      - [ /usr/scripts/genpage_script.sh ]
       - [ systemctl, daemon-reload ]
       - [ systemctl, enable, --now, qemu-guest-agent.service ]
-      - [ /usr/scripts/genpage_script.sh ]
       - [ systemctl, enable, --now, nginx ]
       user: ubuntu
       password: ubuntu

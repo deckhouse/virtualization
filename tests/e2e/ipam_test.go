@@ -35,8 +35,8 @@ var _ = Describe("Ipam", func() {
 			By("Removing resources for vmip tests")
 			kubectl.Delete(conf.Ipam.TestDataDir, kc.DeleteOptions{})
 		})
-		GetLeasNameFromClaim := func(manifestClaim string) string {
-			res := kubectl.Get(manifestClaim, kc.GetOptions{Output: "jsonpath={.spec.virtualMachineIPAddressLease}"})
+		GetLeaseNameFromClaim := func(manifestClaim string) string {
+			res := kubectl.Get(manifestClaim, kc.GetOptions{Output: "jsonpath={.spec.virtualMachineIPAddressLeaseName}"})
 			Expect(res.Error()).NotTo(HaveOccurred(), "failed get vmip from file %s.\n%s", manifestClaim, res.StdErr())
 			return res.StdOut()
 		}
@@ -48,11 +48,11 @@ var _ = Describe("Ipam", func() {
 		When("reclaimPolicy Delete", func() {
 			filepath := ipamPath("vmip-delete.yaml")
 			ItApplyWaitGet(filepath, ApplyWaitGetOptions{Phase: PhaseBound})
-			It("Check leas exist", func() {
-				leasName := GetLeasNameFromClaim(filepath)
-				CheckField(kc.ResourceVMIPLeas, leasName, "jsonpath={'.status.phase'}", PhaseBound)
+			It("Check lease exist", func() {
+				leaseName := GetLeaseNameFromClaim(filepath)
+				CheckField(kc.ResourceVMIPLease, leaseName, "jsonpath={'.status.phase'}", PhaseBound)
 				DeleteVMIP(filepath)
-				res := kubectl.GetResource(kc.ResourceVMIPLeas, leasName, kc.GetOptions{Namespace: conf.Namespace})
+				res := kubectl.GetResource(kc.ResourceVMIPLease, leaseName, kc.GetOptions{Namespace: conf.Namespace})
 				Expect(res.Error()).To(HaveOccurred())
 				Expect(res.StdErr()).To(ContainSubstring("not found"))
 			})
@@ -61,12 +61,12 @@ var _ = Describe("Ipam", func() {
 		When("reclaimPolicy Retain", func() {
 			filepath := ipamPath("vmip-retain.yaml")
 			ItApplyWaitGet(filepath, ApplyWaitGetOptions{Phase: PhaseBound})
-			It("Check leas exist", func() {
-				leasName := GetLeasNameFromClaim(filepath)
-				CheckField(kc.ResourceVMIPLeas, leasName, "jsonpath={'.status.phase'}", PhaseBound)
+			It("Check lease exist", func() {
+				leaseName := GetLeaseNameFromClaim(filepath)
+				CheckField(kc.ResourceVMIPLease, leaseName, "jsonpath={'.status.phase'}", PhaseBound)
 				DeleteVMIP(filepath)
-				CheckField(kc.ResourceVMIPLeas, leasName, "jsonpath={'.status.phase'}", PhaseReleased)
-				kubectl.DeleteResource(kc.ResourceVMIPLeas, leasName, kc.DeleteOptions{Namespace: conf.Namespace})
+				CheckField(kc.ResourceVMIPLease, leaseName, "jsonpath={'.status.phase'}", PhaseReleased)
+				kubectl.DeleteResource(kc.ResourceVMIPLease, leaseName, kc.DeleteOptions{Namespace: conf.Namespace})
 			})
 		})
 	})

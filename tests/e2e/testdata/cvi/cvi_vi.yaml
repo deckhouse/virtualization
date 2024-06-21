@@ -1,8 +1,10 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
+kind: VirtualImage
 metadata:
-  name: test-cvmi-cvmi-old
+  name: test-cvi-vmi
+  namespace: test-d8-virtualization
 spec:
+  storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
@@ -11,10 +13,11 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: test-cvmi-cvmi-new
+  name: test-cvi-vmi
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
-      kind: "ClusterVirtualImage"
-      name: test-cvmi-cvmi-old
+      kind: "VirtualImage"
+      name: test-cvi-vmi
+      namespace: test-d8-virtualization
