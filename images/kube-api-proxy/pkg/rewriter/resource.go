@@ -155,14 +155,20 @@ func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName str
 }
 
 func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
-	if len(ownerRefs) == 0 {
+	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences")
+	// Prevent adding empty ownereReferences to rewritten JSON.
+	if !ownerRefs.Exists() {
+		return obj, nil
+	}
+
+	ownerRefsArray := ownerRefs.Array()
+	if len(ownerRefsArray) == 0 {
 		return obj, nil
 	}
 
 	rwrOwnerRefs := []byte(`[]`)
 	rewritten := false
-	for _, ownerRef := range ownerRefs {
+	for _, ownerRef := range ownerRefsArray {
 		kind := ownerRef.Get("kind").String()
 		if action == Restore {
 			kind = rules.RestoreKind(kind)
@@ -213,14 +219,20 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 
 // RenameOwnerReferences renames kind and apiVersion to send request to server.
 func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
-	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
-	if len(ownerRefs) == 0 {
+	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences")
+	// Prevent adding empty ownereReferences to rewritten JSON.
+	if !ownerRefs.Exists() {
+		return obj, nil
+	}
+
+	ownerRefsArray := ownerRefs.Array()
+	if len(ownerRefsArray) == 0 {
 		return obj, nil
 	}
 
 	rwrOwnerRefs := []byte(`[]`)
 	var err error
-	for _, ownerRef := range ownerRefs {
+	for _, ownerRef := range ownerRefsArray {
 		apiVersion := ownerRef.Get("apiVersion").String()
 		kind := ownerRef.Get("kind").String()
 
