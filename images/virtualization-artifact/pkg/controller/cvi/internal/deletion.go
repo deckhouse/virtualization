@@ -30,7 +30,7 @@ type DeletionHandler struct {
 	sources *source.Sources
 }
 
-func NewDeletionHandlerHandler(sources *source.Sources) *DeletionHandler {
+func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 	return &DeletionHandler{
 		sources: sources,
 	}

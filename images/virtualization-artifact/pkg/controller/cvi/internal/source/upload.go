@@ -24,7 +24,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -54,7 +53,7 @@ func NewUploadDataSource(
 		uploaderService:     uploaderService,
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
-		logger:              slog.Default().With("controller", cvmi.ShortName, "ds", "upload"),
+		logger:              slog.Default().With("controller", common.CVIShortName, "ds", "upload"),
 	}
 }
 
@@ -64,7 +63,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cvmi.ShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -100,7 +99,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.AreTerminating(pod, svc, ing):
+	case common.AnyTerminating(pod, svc, ing):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		ds.logger.Info("Cleaning up...", "cvi", cvi.Name)
@@ -184,7 +183,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cvmi.ShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {

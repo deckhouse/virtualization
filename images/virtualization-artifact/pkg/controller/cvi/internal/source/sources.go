@@ -46,7 +46,7 @@ func (s Sources) Set(dsType virtv2.DataSourceType, h Handler) {
 	s.sources[dsType] = h
 }
 
-func (s Sources) For(dsType virtv2.DataSourceType) (Handler, bool) {
+func (s Sources) Get(dsType virtv2.DataSourceType) (Handler, bool) {
 	source, ok := s.sources[dsType]
 	return source, ok
 }

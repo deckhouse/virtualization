@@ -23,9 +23,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/cvmi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -53,7 +52,7 @@ func NewHTTPDataSource(
 		importerService:     importerService,
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
-		logger:              slog.Default().With("controller", cvmi.ShortName, "ds", "http"),
+		logger:              slog.Default().With("controller", common.CVIShortName, "ds", "http"),
 	}
 }
 
@@ -63,7 +62,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cvmi.ShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -85,7 +84,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		ds.logger.Info("Cleaning up...", "cvi", cvi.Name)
@@ -106,7 +105,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 		}
 
 		ds.logger.Info("Create importer pod...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", "nil")
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = cvicondition.ReadyReason_Ready
 		condition.Message = ""
@@ -162,7 +161,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cvmi.ShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	requeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

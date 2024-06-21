@@ -67,7 +67,7 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
-		internal.NewDeletionHandlerHandler(sources),
+		internal.NewDeletionHandler(sources),
 	)
 
 	cviController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})

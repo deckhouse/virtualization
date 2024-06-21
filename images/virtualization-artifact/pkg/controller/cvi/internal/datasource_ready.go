@@ -56,7 +56,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 		return reconcile.Result{}, nil
 	}
 
-	s, ok := h.sources.For(cvi.Spec.DataSource.Type)
+	s, ok := h.sources.Get(cvi.Spec.DataSource.Type)
 	if !ok {
 		err := fmt.Errorf("data source validator not found for type: %s", cvi.Spec.DataSource.Type)
 		condition.Message = err.Error()

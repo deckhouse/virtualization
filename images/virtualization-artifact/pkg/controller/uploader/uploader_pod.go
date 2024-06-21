@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -203,9 +202,4 @@ type PodNamer interface {
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
 	return helper.FetchObject(ctx, name.UploaderPod(), client, &corev1.Pod{})
-}
-
-func DeletePod(ctx context.Context, clientset kubernetes.Interface, name PodNamer) error {
-	key := name.UploaderPod()
-	return clientset.CoreV1().Pods(key.Namespace).Delete(ctx, key.Name, metav1.DeleteOptions{})
 }

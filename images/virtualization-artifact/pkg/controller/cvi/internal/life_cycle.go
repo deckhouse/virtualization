@@ -88,7 +88,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	ds, exists := h.sources.For(cvi.Spec.DataSource.Type)
+	ds, exists := h.sources.Get(cvi.Spec.DataSource.Type)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", cvi.Spec.DataSource.Type)
 	}

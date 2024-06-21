@@ -89,10 +89,10 @@ func (s UploaderService) Start(ctx context.Context, settings *uploader.Settings,
 }
 
 func (s UploaderService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
-	return s.CleanUpSubResources(ctx, sup)
+	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s UploaderService) CleanUpSubResources(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
 		return false, err

@@ -23,7 +23,6 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -138,9 +137,4 @@ type IngressNamer interface {
 
 func FindIngress(ctx context.Context, client client.Client, name IngressNamer) (*netv1.Ingress, error) {
 	return helper.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
-}
-
-func DeleteIngress(ctx context.Context, clientset kubernetes.Interface, name IngressNamer) error {
-	key := name.UploaderIngress()
-	return clientset.NetworkingV1().Ingresses(key.Namespace).Delete(ctx, key.Name, metav1.DeleteOptions{})
 }
