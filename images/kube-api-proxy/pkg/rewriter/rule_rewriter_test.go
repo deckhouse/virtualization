@@ -17,10 +17,14 @@ limitations under the License.
 package rewriter
 
 import (
+	"bufio"
+	"bytes"
+	"net/http"
 	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func createTestRewriter() *RuleBasedRewriter {
@@ -74,8 +78,8 @@ func createTestRewriter() *RuleBasedRewriter {
 	}
 
 	rules := &RewriteRules{
-		KindPrefix:         "Prefixed", // KV
-		ResourceTypePrefix: "prefixed", // kv
+		KindPrefix:         "Prefixed",
+		ResourceTypePrefix: "prefixed",
 		ShortNamePrefix:    "p",
 		Categories:         []string{"prefixed"},
 		RenamedGroup:       "prefixed.resources.group.io",
@@ -196,4 +200,82 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 		})
 	}
 
+}
+
+func TestRestoreControllerRevisionList(t *testing.T) {
+	getControllerRevisions := `GET /apis/apps/v1/controllerrevisions HTTP/1.1
+Host: 127.0.0.1
+
+`
+	responseBody := `{
+"kind":"ControllerRevisionList",
+"apiVersion":"apps/v1",
+"metadata":{"resourceVersion":"412742959"},
+"items":[
+	{
+      	"metadata": {
+			"name": "resource-name",
+			"namespace": "ns-name",
+			"labels": {
+				"component.replacedlabelgroup.io/labelName": "labelValue"
+			},
+			"annotations":{
+				"replacedanno.io": "annoValue"
+			},
+        	"ownerReferences": [
+			{
+            	"apiVersion": "prefixed.resources.group.io/v1",
+            	"kind": "PrefixedSomeResource",
+            	"name": "owner-name",
+            	"uid": "30b43f23-0c36-442f-897f-fececdf54620",
+            	"controller": true,
+            	"blockOwnerDeletion": true
+          	}
+        	]
+		},
+		"data": {"somekey":"somevalue"}
+	}
+]}`
+
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(getControllerRevisions)))
+	require.NoError(t, err, "should parse hardcoded http request")
+	require.NotNil(t, req.URL, "should parse url in hardcoded http request")
+
+	rwr := createTestRewriter()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.True(t, targetReq.ShouldRewriteRequest(), "should rewrite request")
+	require.True(t, targetReq.ShouldRewriteResponse(), "should rewrite response")
+	// require.Equal(t, origGroup, targetReq.OrigGroup(), "should set proper orig group")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(responseBody), Restore)
+	if err != nil {
+		t.Fatalf("should restore RevisionControllerList without error: %v", err)
+	}
+	if resultBytes == nil {
+		t.Fatalf("should restore RevisionControllerList: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{`kind`, "ControllerRevisionList"},
+		{`items.0.metadata.labels.component\.replacedlabelgroup\.io/labelName`, ""},
+		{`items.0.metadata.labels.component\.labelgroup\.io/labelName`, "labelValue"},
+		{`items.0.metadata.annotations.replacedanno\.io`, ""},
+		{`items.0.metadata.annotations.annogroup\.io`, "annoValue"},
+		{`items.0.metadata.ownerReferences.0.kind`, "SomeResource"},
+		{`items.0.metadata.ownerReferences.0.apiVersion`, "original.group.io/v1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Log(string(resultBytes))
+				t.Fatalf("%s value should be %s, got %s", tt.path, tt.expected, actual)
+			}
+		})
+	}
 }
