@@ -270,32 +270,24 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteServiceMonitorOrList(rw.Rules, obj, action)
 
 	default:
-		if targetReq.IsCore() {
-			rwrBytes, err = RewriteOwnerReferences(rw.Rules, obj, action)
-		} else {
-			rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
-		}
+		// TODO Add rw.Rules.IsKnownKind() to rewrite only known kinds.
+		rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)
 	}
 	// Return obj bytes as-is in case of the error.
 	if err != nil {
 		return obj, err
 	}
 
-	rwrBytes, err = RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
-		return RewriteMetadata(rw.Rules, singleObj, action)
-	})
-	if err != nil {
-		return obj, err
-	}
-
-	if shouldRewriteOwnerReferences(kind) {
-		rwrBytes, err = RewriteOwnerReferences(rw.Rules, rwrBytes, action)
+	// Always rewrite metadata: labels, annotations, finalizers, ownerReferences.
+	// TODO: add rewriter for managedFields.
+	return RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
+		var err error
+		singleObj, err = RewriteMetadata(rw.Rules, singleObj, action)
 		if err != nil {
-			return obj, err
+			return nil, err
 		}
-	}
-
-	return rwrBytes, nil
+		return RewriteOwnerReferences(rw.Rules, singleObj, action)
+	})
 }
 
 // RewritePatch rewrites patches for some known objects.
