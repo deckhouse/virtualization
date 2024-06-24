@@ -50,7 +50,7 @@ func logInfo(msg string, r *Resource) {
 }
 
 func logError(msg string, err error, r *Resource) {
-	slog.Error(msg, err, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), slog.Any("err", err))
+	slog.Error(msg, slog.String("gvr", r.GetGVR()), slog.String("namespace", r.Namespace), slog.String("name", r.Name), slog.Any("err", err))
 }
 
 type PreDeleteHook struct {
@@ -99,43 +99,73 @@ func NewPreDeleteHook() (*PreDeleteHook, error) {
 	return p, nil
 }
 
+// Attempts to delete a resource object with a backoff strategy in case of failures.
+// Retries deletion for a maximum number of attempts with increasing intervals.
+func (p *PreDeleteHook) deleteResourceBackOff(r *Resource) error {
+
+	var (
+		err           error
+		maxRetries    = 5
+		backOffFactor = 2
+		retryInterval = 1 * time.Second
+	)
+
+	for i := 0; i < maxRetries; i++ {
+		err = p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Delete(context.TODO(), r.Name, metav1.DeleteOptions{})
+
+		if err == nil || errors.IsNotFound(err) {
+			break
+		}
+		time.Sleep(retryInterval)
+		retryInterval = retryInterval * time.Duration(backOffFactor)
+		logError("Failed to delete resource, trying again", err, r)
+		continue
+	}
+	return err
+}
+
+// Waits for the specified resource to be deleted within a given timeout period.
+// Continuously checks the existence of the resource until the resource is not found
+// or the timeout period is reached.
+func (p *PreDeleteHook) waitForResourceToBeDeleted(r *Resource) error {
+	var err error
+	deadline := time.Now().Add(p.WaitTimeOut)
+	for time.Now().Before(deadline) {
+		_, err = p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			logError("Failed to check resource, trying again", err, r)
+			continue
+		}
+		logInfo("Waiting resource to be deleted", r)
+		time.Sleep(2 * time.Second)
+	}
+	return err
+}
+
 func (p *PreDeleteHook) Run() {
 	var wg sync.WaitGroup
 	for _, resource := range p.resources {
-
-		logInfo("Deleting resource ...", &resource)
 		wg.Add(1)
-
 		go func(r *Resource) {
 			defer wg.Done()
-			err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Delete(context.TODO(), r.Name, metav1.DeleteOptions{})
-			if err != nil {
-				if errors.IsNotFound(err) {
-					logInfo("Resource not found", r)
-					return
-				}
-				logError("Can't' delete resource", err, r)
+			var err error
+			logInfo("Trying to delete...", r)
+
+			if err = p.deleteResourceBackOff(r); err != nil {
+				logError("Failed to delete resource", err, r)
 				return
 			}
 
-			deadline := time.Now().Add(p.WaitTimeOut)
-			for time.Now().Before(deadline) {
-				_, err := p.dynamicClient.Resource(r.GVR).Namespace(r.Namespace).Get(context.TODO(), r.Name, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					logInfo("Resource is deleted", r)
-					return
-				}
-				if err != nil {
-					logError("Failed to check resource", err, r)
-					return
-				}
-				logInfo("Waiting for resource to be deleted...", r)
-				time.Sleep(2 * time.Second)
+			if err = p.waitForResourceToBeDeleted(r); err != nil {
+				logError("Failed to check resource", err, r)
+				return
 			}
+			logInfo("Resource deleted", r)
 		}(&resource)
-
 	}
-
 	wg.Wait()
 }
 
