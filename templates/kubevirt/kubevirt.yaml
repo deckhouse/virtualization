@@ -15,6 +15,10 @@ metadata:
 spec:
   certificateRotateStrategy: {}
   configuration:
+    smbios:
+      manufacturer: Flant
+      family: Deckhouse
+      product: DeckhouseVirtualizationPlatform
     evictionStrategy: LiveMigrate
     developerConfiguration:
       featureGates:
