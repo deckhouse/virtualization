@@ -31,7 +31,7 @@ import (
 
 const (
 	resourceName = "resources"
-	resourceKind = "resource"
+	resourceKind = "Resource"
 )
 
 var resourcesJsons = []string{

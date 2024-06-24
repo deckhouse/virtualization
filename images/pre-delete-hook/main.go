@@ -35,8 +35,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const WaitTimeout = 30 * time.Second
-
 type Resource struct {
 	GVR       schema.GroupVersionResource `json:"gvr"`
 	Name      string                      `json:"name"`
