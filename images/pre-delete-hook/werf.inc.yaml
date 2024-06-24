@@ -1,30 +1,37 @@
 ---
-image: {{ $.ImageName }}-builder
-fromImage: base-alt-p10
+image: pre-delete-hook-builder
+fromImage: base-golang-22-bookworm
+git:
+- add: /images/{{ $.ImageName }}
+  to: /pre-delete-hook
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - "**/*.go"
+mount:
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 shell:
-  beforeInstall:
-  - apt-get update -q && apt-get install -yq curl
   install:
-  - curl -L "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl
+  - cd /pre-delete-hook
+  - go mod download
+  setup:
+  - cd /pre-delete-hook
+  - export GOOS=linux
+  - export GOARCH=amd64
+  - export CGO_ENABLED=0
+  - go build -v -a -o pre-delete-hook main.go
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
-git:
-- add: /images/{{ $.ImageName }}/entrypoint.sh
-  to: /usr/local/bin/entrypoint.sh
-  stageDependencies:
-    setup:
-    - "*.sh"
+fromImage: base-scratch
 import:
-- image: {{ $.ImageName }}-builder
-  add: /usr/local/bin
-  includePaths:
-  - kubectl
-  to: /usr/local/bin
-  before: install
-shell:
-  install:
-  - chmod +x /usr/local/bin/kubectl /usr/local/bin/entrypoint.sh
+- image: pre-delete-hook-builder
+  add: /pre-delete-hook/pre-delete-hook
+  to: /pre-delete-hook
+  after: install
 docker:
-  USER: "64535:64535"
-  ENTRYPOINT: ["/usr/local/bin/entrypoint.sh"]
+  USER: "65532:65532"
+  WORKDIR: "/"
+  ENTRYPOINT: ["/pre-delete-hook"]
