@@ -36,6 +36,7 @@ import (
 
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/rewriter"
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 // StreamHandler reads a stream from the target, transforms events
@@ -206,7 +207,7 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.Watc
 	s.log.Debug(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", ev.Type, group, kind, ns, name))
 
 	// Restore object in the event. Watch responses are always from the Kubernetes API server, so rename is not needed.
-	rwrObjBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
+	rwrObjBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rules.Restore)
 	if err != nil {
 		return nil, fmt.Errorf("error rewriting object: %w", err)
 	}

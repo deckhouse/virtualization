@@ -16,7 +16,12 @@ limitations under the License.
 
 package rewriter
 
-import "github.com/tidwall/gjson"
+import (
+	"github.com/tidwall/gjson"
+
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
+)
 
 const (
 	DeploymentKind      = "Deployment"
@@ -27,36 +32,30 @@ const (
 	StatefulSetListKind = "StatefulSetList"
 )
 
-func RewriteDeploymentOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, DeploymentListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
-	})
+func RewriteDeployment(rwRules *rules.RewriteRules, deploymentObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteSpecTemplateLabelsAnno(rwRules, deploymentObj, "spec", action)
 }
 
-func RewriteDaemonSetOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, DaemonSetListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
-	})
+func RewriteDaemonSet(rwRules *rules.RewriteRules, daemonSetObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteSpecTemplateLabelsAnno(rwRules, daemonSetObj, "spec", action)
 }
 
-func RewriteStatefulSetOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, StatefulSetListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
-	})
+func RewriteStatefulSet(rwRules *rules.RewriteRules, stsObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteSpecTemplateLabelsAnno(rwRules, stsObj, "spec", action)
 }
 
-func RenameSpecTemplatePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
-	obj, err := RenameMetadataPatch(rules, obj)
+func RenameSpecTemplatePatch(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameMetadataPatch(rwRules, obj)
 	if err != nil {
 		return nil, err
 	}
 
-	return TransformPatch(obj, func(mergePatch []byte) ([]byte, error) {
-		return RewriteSpecTemplateLabelsAnno(rules, mergePatch, "spec", Rename)
+	return transform.Patch(obj, func(mergePatch []byte) ([]byte, error) {
+		return RewriteSpecTemplateLabelsAnno(rwRules, mergePatch, "spec", rules.Rename)
 	}, func(jsonPatch []byte) ([]byte, error) {
 		path := gjson.GetBytes(jsonPatch, "path").String()
 		if path == "/spec" {
-			return RewriteSpecTemplateLabelsAnno(rules, jsonPatch, "value", Rename)
+			return RewriteSpecTemplateLabelsAnno(rwRules, jsonPatch, "value", rules.Rename)
 		}
 		return jsonPatch, nil
 	})
@@ -68,24 +67,24 @@ func RenameSpecTemplatePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
 // - template.metadata.annotations as annotations map
 // - template.affinity as Affinity
 // - template.nodeSelector as labels map.
-func RewriteSpecTemplateLabelsAnno(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
-	return TransformObject(obj, path, func(obj []byte) ([]byte, error) {
-		obj, err := RewriteLabelsMap(rules, obj, "template.metadata.labels", action)
+func RewriteSpecTemplateLabelsAnno(rwRules *rules.RewriteRules, obj []byte, path string, action rules.Action) ([]byte, error) {
+	return transform.Object(obj, path, func(obj []byte) ([]byte, error) {
+		obj, err := RewriteLabelsMap(rwRules, obj, "template.metadata.labels", action)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = RewriteLabelsMap(rules, obj, "selector.matchLabels", action)
+		obj, err = RewriteLabelsMap(rwRules, obj, "selector.matchLabels", action)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = RewriteLabelsMap(rules, obj, "template.spec.nodeSelector", action)
+		obj, err = RewriteLabelsMap(rwRules, obj, "template.spec.nodeSelector", action)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = RewriteAffinity(rules, obj, "template.spec.affinity", action)
+		obj, err = RewriteAffinity(rwRules, obj, "template.spec.affinity", action)
 		if err != nil {
 			return nil, err
 		}
-		return RewriteAnnotationsMap(rules, obj, "template.metadata.annotations", action)
+		return RewriteAnnotationsMap(rwRules, obj, "template.metadata.annotations", action)
 	})
 }

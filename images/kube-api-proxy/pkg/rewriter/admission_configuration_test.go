@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 func TestValidatingRename(t *testing.T) {
@@ -30,8 +32,8 @@ func TestValidatingRename(t *testing.T) {
 	}{
 		{
 			"mixed resources",
-			`{"webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["original.group.io"], "resources": ["someresources"]}]}]}`,
-			`{"webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["prefixed.resources.group.io"], "resources": ["prefixedsomeresources"]}]}]}`,
+			`{"kind":"ValidatingWebhookConfiguration","webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["original.group.io"], "resources": ["someresources"]}]}]}`,
+			`{"kind":"ValidatingWebhookConfiguration","webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["prefixed.resources.group.io"], "resources": ["prefixedsomeresources"]}]}]}`,
 		},
 		{
 			"empty object",
@@ -44,7 +46,7 @@ func TestValidatingRename(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rwr := createTestRewriter()
 
-			resBytes, err := RewriteValidatingOrList(rwr.Rules, []byte(tt.manifest), Rename)
+			resBytes, err := RewriteValidating(rwr.Rules, []byte(tt.manifest), rules.Rename)
 			require.NoError(t, err, "should rename validating webhook configuration")
 
 			actual := string(resBytes)
@@ -61,8 +63,8 @@ func TestValidatingRestore(t *testing.T) {
 	}{
 		{
 			"mixed resources",
-			`{"webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["prefixed.resources.group.io"], "resources": ["prefixedsomeresources"]}]}]}`,
-			`{"webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["original.group.io"], "resources": ["someresources"]}]}]}`,
+			`{"kind":"ValidatingWebhookConfiguration","webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["prefixed.resources.group.io"], "resources": ["prefixedsomeresources"]}]}]}`,
+			`{"kind":"ValidatingWebhookConfiguration","webhooks":[{"rules":[{"apiGroups":[""],"resources":["pods"]},{"apiGroups": ["original.group.io"], "resources": ["someresources"]}]}]}`,
 		},
 		{
 			"empty object",
@@ -75,7 +77,7 @@ func TestValidatingRestore(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rwr := createTestRewriter()
 
-			resBytes, err := RewriteValidatingOrList(rwr.Rules, []byte(tt.manifest), Restore)
+			resBytes, err := RewriteValidating(rwr.Rules, []byte(tt.manifest), rules.Restore)
 			require.NoError(t, err, "should rename validating webhook configuration")
 
 			actual := string(resBytes)

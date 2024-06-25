@@ -21,51 +21,38 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
 )
 
 const (
-	ClusterRoleKind            = "ClusterRole"
-	ClusterRoleListKind        = "ClusterRoleList"
-	RoleKind                   = "Role"
-	RoleListKind               = "RoleList"
-	RoleBindingKind            = "RoleBinding"
-	RoleBindingListKind        = "RoleBindingList"
-	ControllerRevisionKind     = "ControllerRevision"
-	ControllerRevisionListKind = "ControllerRevisionList"
-	ClusterRoleBindingKind     = "ClusterRoleBinding"
-	ClusterRoleBindingListKind = "ClusterRoleBindingList"
-	APIServiceKind             = "APIService"
-	APIServiceListKind         = "APIServiceList"
+	ClusterRoleKind     = "ClusterRole"
+	ClusterRoleListKind = "ClusterRoleList"
+	RoleKind            = "Role"
+	RoleListKind        = "RoleList"
 )
 
-func RewriteClusterRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, ClusterRoleListKind, func(singleObj []byte) ([]byte, error) {
-			return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-				return renameRoleRule(rules, item)
-			})
-		})
-	}
-	return RewriteResourceOrList(obj, ClusterRoleListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-			return restoreRoleRule(rules, item)
-		})
+// RewriteClusterRole rewrites rules array in a ClusterRole.
+func RewriteClusterRole(rwRules *rules.RewriteRules, clusterRoleObj []byte, action rules.Action) ([]byte, error) {
+	return transform.Array(clusterRoleObj, "rules", func(ruleObj []byte) ([]byte, error) {
+		return RewriteRoleRule(rwRules, ruleObj, action)
 	})
 }
 
-func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	if action == Rename {
-		return RewriteResourceOrList(obj, RoleListKind, func(singleObj []byte) ([]byte, error) {
-			return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-				return renameRoleRule(rules, item)
-			})
-		})
-	}
-	return RewriteResourceOrList(obj, RoleListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-			return restoreRoleRule(rules, item)
-		})
+// RewriteRole rewrites rules array in a namespaced Role.
+func RewriteRole(rwRules *rules.RewriteRules, roleObj []byte, action rules.Action) ([]byte, error) {
+	return transform.Array(roleObj, "rules", func(ruleObj []byte) ([]byte, error) {
+		return RewriteRoleRule(rwRules, ruleObj, action)
 	})
+}
+
+// RewriteRoleRule rewrites apiGroups and resources in a single rule.
+func RewriteRoleRule(rwRules *rules.RewriteRules, ruleObj []byte, action rules.Action) ([]byte, error) {
+	if action == rules.Rename {
+		return renameRoleRule(rwRules, ruleObj)
+	}
+	return restoreRoleRule(rwRules, ruleObj)
 }
 
 // renameRoleRule renames apiGroups and resources in a single rule.
@@ -87,7 +74,7 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 //   - watch
 //   - list
 //   - create
-func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
+func renameRoleRule(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
 	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
@@ -97,8 +84,8 @@ func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		group := apiGroup.String()
 		if group == "*" {
 			shouldRename = true
-		} else if rules.HasGroup(group) {
-			group = rules.RenamedGroup
+		} else if rwRules.HasGroup(group) {
+			group = rwRules.RenamedGroup
 			shouldRename = true
 		}
 
@@ -120,10 +107,10 @@ func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 			resourceType, _, _ = strings.Cut(resource.String(), "/")
 		}
 		if resourceType != "*" {
-			_, resRule := rules.GroupResourceRules(resourceType)
+			_, resRule := rwRules.GroupResourceRules(resourceType)
 			if resRule != nil {
 				// TODO(future) make it work with suffix and subresource.
-				resourceType = rules.RenameResource(resource.String())
+				resourceType = rwRules.RenameResource(resource.String())
 			}
 		}
 
@@ -141,7 +128,7 @@ func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 }
 
 // restoreRoleRule restores apiGroups and resources in a single rule.
-func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
+func restoreRoleRule(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
 	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
@@ -153,7 +140,7 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		if group == "*" {
 			shouldRestore = true
 		}
-		if group == rules.RenamedGroup {
+		if group == rwRules.RenamedGroup {
 			shouldRestore = true
 			shouldAddGroup = true
 			// Group will be restored later, do not add now.
@@ -184,14 +171,14 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		}
 		if resourceType != "*" {
 			// Restore resourceType to get rules.
-			originalResourceType := rules.RestoreResource(resourceType)
-			groupRule, resRule := rules.GroupResourceRules(originalResourceType)
+			originalResourceType := rwRules.RestoreResource(resourceType)
+			groupRule, resRule := rwRules.GroupResourceRules(originalResourceType)
 			if groupRule != nil && resRule != nil {
 				shouldRestore = true
 				groupToAdd = groupRule.Group
 				// NOTE: Restore resource with subresource.
 				// TODO(future) make it work with suffixes.
-				newResource = rules.RestoreResource(resource.String())
+				newResource = rwRules.RestoreResource(resource.String())
 			}
 		}
 

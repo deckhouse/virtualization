@@ -19,13 +19,15 @@ package rewriter
 import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 // RewriteAdmissionReview rewrites AdmissionReview request and response.
 // NOTE: only one rewrite direction is supported for now:
 // - Restore object in AdmissionReview request.
 // - Do nothing for AdmissionReview response.
-func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RewriteAdmissionReview(rwRules *rules.RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	response := gjson.GetBytes(obj, "response")
 	if response.Exists() {
 		// TODO rewrite response with the Patch.
@@ -34,7 +36,7 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 
 	request := gjson.GetBytes(obj, "request")
 	if request.Exists() {
-		newRequest, err := RestoreAdmissionReviewRequest(rules, []byte(request.Raw), origGroup)
+		newRequest, err := RestoreAdmissionReviewRequest(rwRules, []byte(request.Raw), origGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +53,7 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 
 // RestoreAdmissionReviewRequest restores apiVersion, kind and other fields in an AdmissionReview request.
 // Only restoring is required, as AdmissionReview request only comes from API Server.
-func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RestoreAdmissionReviewRequest(rwRules *rules.RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	var err error
 
 	// Rewrite "resource" field and find rules.
@@ -60,10 +62,10 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 		group := resourceObj.Get("group")
 		resource := resourceObj.Get("resource")
 		// Ignore reviews for unknown renamed group.
-		if group.String() != rules.RenamedGroup {
+		if group.String() != rwRules.RenamedGroup {
 			return nil, nil
 		}
-		newResource := rules.RestoreResource(resource.String())
+		newResource := rwRules.RestoreResource(resource.String())
 		obj, err = sjson.SetBytes(obj, "resource.resource", newResource)
 		if err != nil {
 			return nil, err
@@ -80,10 +82,10 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 		group := fieldObj.Get("group")
 		resource := fieldObj.Get("resource")
 		// Ignore reviews for unknown renamed group.
-		if group.String() != rules.RenamedGroup {
+		if group.String() != rwRules.RenamedGroup {
 			return nil, nil
 		}
-		newResource := rules.RestoreResource(resource.String())
+		newResource := rwRules.RestoreResource(resource.String())
 		obj, err = sjson.SetBytes(obj, "requestResource.resource", newResource)
 		if err != nil {
 			return nil, err
@@ -106,7 +108,7 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "kind")
 		kind := fieldObj.Get("kind")
-		newKind := rules.RestoreKind(kind.String())
+		newKind := rwRules.RestoreKind(kind.String())
 		obj, err = sjson.SetBytes(obj, "kind.kind", newKind)
 		if err != nil {
 			return nil, err
@@ -121,7 +123,7 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "requestKind")
 		kind := fieldObj.Get("kind")
-		newKind := rules.RestoreKind(kind.String())
+		newKind := rwRules.RestoreKind(kind.String())
 		obj, err = sjson.SetBytes(obj, "requestKind.kind", newKind)
 		if err != nil {
 			return nil, err
@@ -136,7 +138,7 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "object")
 		if fieldObj.Exists() {
-			newField, err := RestoreResource(rules, []byte(fieldObj.Raw), origGroup)
+			newField, err := RestoreResource(rwRules, []byte(fieldObj.Raw), origGroup)
 			if err != nil {
 				return nil, err
 			}
@@ -153,7 +155,7 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "oldObject")
 		if fieldObj.Exists() {
-			newField, err := RestoreResource(rules, []byte(fieldObj.Raw), origGroup)
+			newField, err := RestoreResource(rwRules, []byte(fieldObj.Raw), origGroup)
 			if err != nil {
 				return nil, err
 			}

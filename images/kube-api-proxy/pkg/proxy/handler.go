@@ -31,6 +31,7 @@ import (
 
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/rewriter"
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 type ProxyMode string
@@ -42,18 +43,18 @@ const (
 	ToRenamed ProxyMode = "renamed"
 )
 
-func ToTargetAction(proxyMode ProxyMode) rewriter.Action {
+func ToTargetAction(proxyMode ProxyMode) rules.Action {
 	if proxyMode == ToRenamed {
-		return rewriter.Rename
+		return rules.Rename
 	}
-	return rewriter.Restore
+	return rules.Restore
 }
 
-func FromTargetAction(proxyMode ProxyMode) rewriter.Action {
+func FromTargetAction(proxyMode ProxyMode) rules.Action {
 	if proxyMode == ToRenamed {
-		return rewriter.Restore
+		return rules.Restore
 	}
-	return rewriter.Rename
+	return rules.Rename
 }
 
 type Handler struct {

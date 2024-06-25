@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	. "kube-api-proxy/pkg/rewriter/rules"
 )
 
 func createRewriterForCRDTest() *RuleBasedRewriter {
@@ -94,6 +96,10 @@ func createRewriterForCRDTest() *RuleBasedRewriter {
 
 // TestCRDRename - rename of a single CRD.
 func TestCRDRename(t *testing.T) {
+	crdHTTPRequest := `POST /apis/apiextensions.k8s.io/v1/customresourcedefinitions/someresources.original.group.io HTTP/1.1
+Host: 127.0.0.1
+
+`
 	origGroup := "original.group.io"
 	reqBody := `{
 "apiVersion": "apiextensions.k8s.io/v1",
@@ -115,35 +121,41 @@ func TestCRDRename(t *testing.T) {
 	"versions": {}
 }
 }`
-	rwr := createRewriterForCRDTest()
-	testCRDRules := rwr.Rules
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(crdHTTPRequest + reqBody)))
+	require.NoError(t, err, "should parse hardcoded http request")
+	require.NotNil(t, req.URL, "should parse url in hardcoded http request")
 
-	restored, err := RewriteCRDOrList(testCRDRules, []byte(reqBody), Rename)
+	rwr := createRewriterForCRDTest()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.Equal(t, origGroup, targetReq.OrigGroup(), "should set proper orig group")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(reqBody), Rename)
 	if err != nil {
 		t.Fatalf("should rename CRD without error: %v", err)
 	}
-	if restored == nil {
+	if resultBytes == nil {
 		t.Fatalf("should rename CRD: %v", err)
 	}
 
-	resRule := testCRDRules.Rules[origGroup].ResourceRules["someresources"]
+	resRule := rwr.Rules.Rules[origGroup].ResourceRules["someresources"]
 
 	tests := []struct {
 		path     string
 		expected string
 	}{
-		{"metadata.name", testCRDRules.RenameResource(resRule.Plural) + "." + testCRDRules.RenamedGroup},
-		{"spec.group", testCRDRules.RenamedGroup},
-		{"spec.names.kind", testCRDRules.RenameKind(resRule.Kind)},
-		{"spec.names.listKind", testCRDRules.RenameKind(resRule.ListKind)},
-		{"spec.names.plural", testCRDRules.RenameResource(resRule.Plural)},
-		{"spec.names.singular", testCRDRules.RenameResource(resRule.Singular)},
+		{"metadata.name", rwr.Rules.RenameResource(resRule.Plural) + "." + rwr.Rules.RenamedGroup},
+		{"spec.group", rwr.Rules.RenamedGroup},
+		{"spec.names.kind", rwr.Rules.RenameKind(resRule.Kind)},
+		{"spec.names.listKind", rwr.Rules.RenameKind(resRule.ListKind)},
+		{"spec.names.plural", rwr.Rules.RenameResource(resRule.Plural)},
+		{"spec.names.singular", rwr.Rules.RenameResource(resRule.Singular)},
 		{"spec.names.shortNames", `["psr","psrs"]`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			actual := gjson.GetBytes(restored, tt.path).String()
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
 			if actual != tt.expected {
 				t.Fatalf("%s value should be %s, got %s", tt.path, tt.expected, actual)
 			}

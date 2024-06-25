@@ -24,6 +24,7 @@ import (
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/proxy"
 	"kube-api-proxy/pkg/rewriter"
+	"kube-api-proxy/pkg/rewriter/rules"
 	"kube-api-proxy/pkg/server"
 	"kube-api-proxy/pkg/target"
 )
@@ -70,9 +71,10 @@ func main() {
 	})
 
 	// Load rules from file or use default kubevirt rules.
+	// WARNING: loading of declarative rules is just a PoC and not working yet.
 	rewriteRules := kubevirt.KubevirtRewriteRules
 	if os.Getenv("RULES_PATH") != "" {
-		rulesFromFile, err := rewriter.LoadRules(os.Getenv("RULES_PATH"))
+		rulesFromFile, err := rules.LoadRules(os.Getenv("RULES_PATH"))
 		if err != nil {
 			log.Error("Load rules from %s: %v", os.Getenv("RULES_PATH"), err)
 			os.Exit(1)
