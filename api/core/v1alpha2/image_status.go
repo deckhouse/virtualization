@@ -26,21 +26,30 @@ const (
 	ImageFailed            ImagePhase = "Failed"
 	ImagePVCLost           ImagePhase = "PVCLost"
 	ImageUnknown           ImagePhase = "Unknown"
+	ImageTerminating       ImagePhase = "Terminating"
 )
 
 type ImageStatus struct {
 	DownloadSpeed ImageStatusSpeed `json:"downloadSpeed"`
 	Size          ImageStatusSize  `json:"size"`
-	Format        string           `json:"format"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
-	Capacity       string            `json:"capacity,omitempty"`
-	CDROM          bool              `json:"cdrom"`
-	Target         ImageStatusTarget `json:"target"`
-	Phase          ImagePhase        `json:"phase"`
-	Progress       string            `json:"progress,omitempty"`
-	UploadCommand  string            `json:"uploadCommand,omitempty"`
-	FailureReason  string            `json:"failureReason"`
-	FailureMessage string            `json:"failureMessage"`
+	Format        string           `json:"format,omitempty"`
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.
+	Capacity      string            `json:"capacity,omitempty"`
+	CDROM         bool              `json:"cdrom,omitempty"`
+	Target        ImageStatusTarget `json:"target"`
+	Phase         ImagePhase        `json:"phase,omitempty"`
+	Progress      string            `json:"progress,omitempty"`
+	UploadCommand string            `json:"uploadCommand,omitempty"`
+	// TODO remove.
+	FailureReason  string `json:"failureReason,omitempty"`
+	FailureMessage string `json:"failureMessage,omitempty"`
+}
+
+type StatusSpeed struct {
+	Avg          string `json:"avg,omitempty"`
+	AvgBytes     string `json:"avgBytes,omitempty"`
+	Current      string `json:"current,omitempty"`
+	CurrentBytes string `json:"currentBytes,omitempty"`
 }
 
 type ImageStatusSpeed struct {
@@ -51,14 +60,14 @@ type ImageStatusSpeed struct {
 }
 
 type ImageStatusSize struct {
-	Stored        string `json:"stored"`
-	StoredBytes   string `json:"storedBytes"`
-	Unpacked      string `json:"unpacked"`
-	UnpackedBytes string `json:"unpackedBytes"`
+	Stored        string `json:"stored,omitempty"`
+	StoredBytes   string `json:"storedBytes,omitempty"`
+	Unpacked      string `json:"unpacked,omitempty"`
+	UnpackedBytes string `json:"unpackedBytes,omitempty"`
 }
 
 type ImageStatusTarget struct {
-	RegistryURL string `json:"registryURL"`
+	RegistryURL string `json:"registryURL,omitempty"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
 	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }

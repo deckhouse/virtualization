@@ -41,6 +41,7 @@ import (
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cpu"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -126,6 +127,7 @@ func main() {
 		log.Error(err, "")
 		os.Exit(1)
 	}
+
 	// Override content type to JSON so proxy can rewrite payloads.
 	cfg.ContentType = apiruntime.ContentTypeJSON
 
@@ -137,7 +139,7 @@ func main() {
 	// Setup scheme for all resources
 	scheme := apiruntime.NewScheme()
 	for _, f := range resourcesSchemeFuncs {
-		err := f(scheme)
+		err = f(scheme)
 		if err != nil {
 			log.Error(err, "Failed to add to scheme")
 			os.Exit(1)
@@ -172,12 +174,7 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	if _, err := controller.NewVMDController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	if _, err := controller.NewCVMIController(ctx, mgr, log, importerImage, uploaderImage, controllerNamespace, dvcrSettings); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

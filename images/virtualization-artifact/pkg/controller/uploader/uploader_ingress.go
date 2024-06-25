@@ -64,6 +64,10 @@ func (i *Ingress) Create(ctx context.Context, client client.Client) (*netv1.Ingr
 }
 
 func CleanupIngress(ctx context.Context, client client.Client, ing *netv1.Ingress) error {
+	if ing == nil {
+		return nil
+	}
+
 	return helper.CleanupObject(ctx, client, ing)
 }
 

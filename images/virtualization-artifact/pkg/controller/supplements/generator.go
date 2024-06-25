@@ -32,6 +32,15 @@ type Generator struct {
 	UID       types.UID
 }
 
+func NewGenerator(prefix, name, namespace string, uid types.UID) *Generator {
+	return &Generator{
+		Prefix:    prefix,
+		Name:      name,
+		Namespace: namespace,
+		UID:       uid,
+	}
+}
+
 // DVCRAuthSecret returns name and namespace for auth Secret copy.
 func (g *Generator) DVCRAuthSecret() types.NamespacedName {
 	name := fmt.Sprintf("%s-dvcr-auth-%s", g.Prefix, g.Name)
@@ -98,6 +107,10 @@ func (g *Generator) UploaderTLSSecretForIngress() types.NamespacedName {
 func (g *Generator) DataVolume() types.NamespacedName {
 	dvName := fmt.Sprintf("%s-%s-%s", g.Prefix, g.Name, g.UID)
 	return g.shortenNamespaced(dvName)
+}
+
+func (g *Generator) PersistentVolumeClaim() types.NamespacedName {
+	return g.DataVolume()
 }
 
 func (g *Generator) shortenNamespaced(name string) types.NamespacedName {

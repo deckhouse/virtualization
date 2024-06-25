@@ -47,40 +47,9 @@ func TestController(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
-var (
-	vmdControllerLog = logf.Log.WithName("vmd-controller-test")
-	vmControllerLog  = logf.Log.WithName("vm-controller-test")
-)
-
 type TestReconcilerOptions struct {
 	KnownObjects   []client.Object
 	RuntimeObjects []runtime.Object
-}
-
-func NewTestVMDReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMDReconcilerState] {
-	s := scheme.Scheme
-	_ = cdiv1.AddToScheme(s)
-	_ = metav1.AddMetaToScheme(s)
-	_ = v1alpha2.AddToScheme(s)
-	_ = virtv1.AddToScheme(s)
-
-	builder := fake.NewClientBuilder().
-		WithScheme(s).
-		WithStatusSubresource(opts.KnownObjects...).
-		WithRuntimeObjects(opts.RuntimeObjects...)
-
-	cl := builder.Build()
-	rec := record.NewFakeRecorder(10)
-
-	return two_phase_reconciler.NewReconcilerCore[*VMDReconcilerState](
-		&VMDReconciler{},
-		NewVMDReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   cl,
-			Recorder: rec,
-			Scheme:   s,
-			Log:      vmdControllerLog,
-		})
 }
 
 func NewTestVMReconciler(opts TestReconcilerOptions) *two_phase_reconciler.ReconcilerCore[*VMReconcilerState] {

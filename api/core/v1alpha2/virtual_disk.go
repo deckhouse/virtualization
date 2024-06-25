@@ -43,14 +43,19 @@ type VirtualDiskSpec struct {
 }
 
 type VirtualDiskStatus struct {
-	DownloadSpeed  VirtualDiskDownloadSpeed `json:"downloadSpeed"`
-	Capacity       string                   `json:"capacity,omitempty"`
-	Target         DiskTarget               `json:"target"`
-	Progress       string                   `json:"progress,omitempty"`
-	UploadCommand  string                   `json:"uploadCommand,omitempty"`
-	Phase          DiskPhase                `json:"phase"`
-	FailureReason  string                   `json:"failureReason"`
-	FailureMessage string                   `json:"failureMessage"`
+	DownloadSpeed             VirtualDiskDownloadSpeed `json:"downloadSpeed"`
+	Capacity                  string                   `json:"capacity,omitempty"`
+	Target                    DiskTarget               `json:"target"`
+	Progress                  string                   `json:"progress,omitempty"`
+	UploadCommand             string                   `json:"uploadCommand,omitempty"`
+	Phase                     DiskPhase                `json:"phase"`
+	AttachedToVirtualMachines []AttachedVirtualMachine `json:"attachedToVirtualMachines,omitempty"`
+	Conditions                []metav1.Condition       `json:"conditions,omitempty"`
+	ObservedGeneration        int64                    `json:"observedGeneration,omitempty"`
+}
+
+type AttachedVirtualMachine struct {
+	Name string `json:"name"`
 }
 
 type VirtualDiskDataSource struct {
@@ -80,7 +85,7 @@ type VirtualDiskDownloadSpeed struct {
 }
 
 type DiskTarget struct {
-	PersistentVolumeClaim string `json:"persistentVolumeClaimName"`
+	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }
 
 type VirtualDiskPersistentVolumeClaim struct {
@@ -102,8 +107,9 @@ const (
 	DiskPending           DiskPhase = "Pending"
 	DiskWaitForUserUpload DiskPhase = "WaitForUserUpload"
 	DiskProvisioning      DiskPhase = "Provisioning"
-	DiskReady             DiskPhase = "Ready"
 	DiskFailed            DiskPhase = "Failed"
-	DiskPVCLost           DiskPhase = "PVCLost"
-	DiskUnknown           DiskPhase = "Unknown"
+	DiskLost              DiskPhase = "Lost"
+	DiskReady             DiskPhase = "Ready"
+	DiskResizing          DiskPhase = "Resizing"
+	DiskTerminating       DiskPhase = "Terminating"
 )

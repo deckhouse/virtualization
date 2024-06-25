@@ -76,5 +76,7 @@ const (
 )
 
 type ClusterVirtualImageStatus struct {
-	ImageStatus `json:",inline"`
+	ImageStatus        `json:",inline"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
