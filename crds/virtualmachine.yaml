@@ -935,18 +935,15 @@ spec:
                   type: string
                   description: |
                     The current phase of the virtual machine:
-
-                    * `Scheduling` - The VM is scheduled for placement on cluster nodes.
                     * `Pending` - The process of starting the VM is in progress.
                     * `Running` - VM is running.
-                    * `Failed` - An error occurred during the startup process or while the VM is running.
+                    * `Degraded` - An error occurred during the startup process or while the VM is running.
                     * `Terminating` - The VM is currently in the process of shutting down.
                     * `Stopped` - The VM is stopped.
                   enum:
-                    - "Scheduling"
                     - "Pending"
                     - "Running"
-                    - "Failed"
+                    - "Degraded"
                     - "Terminating"
                     - "Stopped"
                     - "Stopping"
@@ -996,6 +993,91 @@ spec:
                         type: string
                         description: |
                           The size of attached block device.
+                migrationState:
+                  type: object
+                  description: "Migration info."
+                  properties:
+                    startTimestamp:
+                      description: "Migration start time."
+                      format: date-time
+                      nullable: true
+                      type: string
+                    endTimestamp:
+                      description: "Migration end time."
+                      format: date-time
+                      nullable: true
+                      type: string
+                    target:
+                      description: ""
+                      type: object
+                      properties:
+                        node:
+                          description: "The name of the node on which the VM is currently migrating."
+                          type: string
+                        pod:
+                          description: "The name of the pod where the VM is currently being migrated."
+                          type: string
+                    source:
+                      description: ""
+                      type: object
+                      properties:
+                        node:
+                          description: "The name of the node where the VM is currently running."
+                          type: string
+                        pod:
+                          description: "The name of the pod on which the VM is currently running."
+                          type: string
+                    result:
+                      description: "Migration result."
+                      type: string
+                      enum:
+                        - ""
+                        - "Succeeded"
+                        - "Failed"
+                stats:
+                  type: object
+                  description: "VirtualMachine statistics"
+                  properties:
+                    phasesTransitions:
+                      description: "The history of phases."
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          phase:
+                            description: "The phase of the virtual machine."
+                            type: string
+                            enum:
+                              - "Pending"
+                              - "Running"
+                              - "Degraded"
+                              - "Terminating"
+                              - "Stopped"
+                              - "Stopping"
+                              - "Starting"
+                              - "Migrating"
+                              - "Pause"
+                          timestamp:
+                            description: "The time of transition to this phase."
+                            format: date-time
+                            nullable: true
+                            type: string
+                    launchTimeDuration:
+                      description: "Launch information."
+                      type: object
+                      properties:
+                        waitingForDependencies:
+                          description: "The waiting time for dependent resources. pending -> starting."
+                          nullable: true
+                          type: string
+                        virtualMachineStarting:
+                          description: "The waiting time for the virtual machine to start. starting -> running."
+                          nullable: true
+                          type: string
+                        guestOSAgentStarting:
+                          description: "The waiting time for the guestOsAgent to start. running -> running with guestOSAgent"
+                          nullable: true
+                          type: string
                 conditions:
                   description: |
                     Specific points in VM's runtime.
@@ -1012,26 +1094,26 @@ spec:
                         nullable: true
                         type: string
                       message:
-                        description: ""
+                        description: "Extended message"
                         type: string
                       reason:
-                        description: ""
+                        description: "brief reason"
                         type: string
                       status:
-                        description: ""
+                        description: "The status of the condition. Possible values: `True`, `False`, `Unknown'."
                         type: string
                       type:
-                        description: ""
+                        description: "The type of condition."
                         type: string
+                      observedGeneration:
+                        type: integer
+                        description: "Generating a resource that was last processed by the controller"
+                        format: int64
                     required:
                       - status
                       - type
                     type: object
                   type: array
-                message:
-                  type: string
-                  description: |
-                    Detailed description of the VM state.
                 restartAwaitingChanges:
                   description: |
                     A list of changes require restart for applying.

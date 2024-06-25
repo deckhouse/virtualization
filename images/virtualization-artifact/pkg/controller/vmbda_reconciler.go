@@ -302,7 +302,7 @@ func (r *VMBDAReconciler) unplugVolume(ctx context.Context, state *VMBDAReconcil
 }
 
 func (r *VMBDAReconciler) setVMHotpluggedFinalizer(state *VMBDAReconcilerState) bool {
-	return controllerutil.AddFinalizer(state.VMD, virtv2.FinalizerVMDProtection)
+	return controllerutil.AddFinalizer(state.VMD, virtv2.FinalizerVDProtection)
 }
 
 // setVMStatusBlockDeviceRefs copy volume status from KVVMI for attached disk to the d8 VM block devices status.

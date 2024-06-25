@@ -63,7 +63,7 @@ func NewAffinityFromVMAffinity(vmAffinity *VMAffinity) *corev1.Affinity {
 	}
 	if vmAff := vmAffinity.VirtualMachineAndPodAffinity; vmAff != nil {
 		corePodAff := &corev1.PodAffinity{}
-		corePr := make([]corev1.WeightedPodAffinityTerm, len(vmAff.RequiredDuringSchedulingIgnoredDuringExecution))
+		corePr := make([]corev1.WeightedPodAffinityTerm, len(vmAff.PreferredDuringSchedulingIgnoredDuringExecution))
 		for i, pr := range vmAff.PreferredDuringSchedulingIgnoredDuringExecution {
 			corePr[i] = corev1.WeightedPodAffinityTerm{
 				Weight:          pr.Weight,

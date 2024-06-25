@@ -286,7 +286,6 @@ func (r *Reconciler) isOperationAllowedForRunPolicy(op virtv2.VMOPOperation, run
 func (r *Reconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase virtv2.MachinePhase) bool {
 	if phase == virtv2.MachineTerminating ||
 		phase == virtv2.MachinePending ||
-		phase == virtv2.MachineScheduling ||
 		phase == virtv2.MachineMigrating {
 		return false
 	}
@@ -295,7 +294,7 @@ func (r *Reconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase
 		return phase == virtv2.MachineStopped || phase == virtv2.MachineStopping
 	case virtv2.VMOPOperationTypeStop, virtv2.VMOPOperationTypeRestart:
 		return phase == virtv2.MachineRunning ||
-			phase == virtv2.MachineFailed ||
+			phase == virtv2.MachineDegraded ||
 			phase == virtv2.MachineStarting ||
 			phase == virtv2.MachinePause
 	default:

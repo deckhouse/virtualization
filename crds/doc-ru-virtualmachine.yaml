@@ -553,17 +553,21 @@ spec:
                   items:
                     properties:
                       lastProbeTime:
-                        description: ""
+                        description: Время проверки условия.
                       lastTransitionTime:
-                        description: ""
+                        description: Время перехода условия из одного состояния в другое.
                       message:
-                        description: ""
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       reason:
-                        description: ""
+                        description: Краткая причина последнего перехода состояния.
                       status:
-                        description: ""
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
                       type:
-                        description: ""
+                        description: Тип условия.
+                      observedGeneration:
+                        description: |
+                          Поколение ресурса, которое в последний раз обрабатывалось контроллером
                 guestOSInfo:
                   description: |
                     Информация об гостевой ОС, полученная от агента (QEMU Guest Agent). Агент должен быть предварительно установлен.
@@ -572,9 +576,6 @@ spec:
                 ipAddress:
                   description: |
                     IP-адрес ВМ.
-                message:
-                  description: |
-                    Детальное описание состояния ВМ.
                 nodeName:
                   description: |
                     Имя узла, на котором в данный момент запущена ВМ.
@@ -585,7 +586,7 @@ spec:
                     * `Scheduling` — ВМ запланирована для размещения на узлах кластера.
                     * `Pending` — осуществляется процесс запуска ВМ.
                     * `Running` — ВМ запущенна.
-                    * `Failed` — произошла ошибка в процессе запуска или работы ВМ.
+                    * `Degraded` — произошла ошибка в процессе запуска или работы ВМ.
                     * `Terminating` — в настоящий момент ВМ завершает свою работу.
                     * `Stopped` — ВМ остановлена.
                 restartAwaitingChanges:
@@ -594,3 +595,47 @@ spec:
                 virtualMachineIPAddressClaimName:
                   description: |
                     Имя `virtualMachineIPAddressClaimName`, содержащее IP-адрес виртуальной машины.
+                migrationState:
+                  description: |
+                    Информация о миграции Виртуальной машины.
+                  properties:
+                    startTimestamp:
+                      description: "Время начала миграции."
+                    endTimestamp:
+                      description: "Время окончания миграции."
+                    target:
+                      description: ""
+                      properties:
+                        node:
+                          description: "Имя узла, на который в данный момент выполняется миграция виртуальной машины."
+                        pod:
+                          description: "Имя модуля, в который в данный момент выполняется миграция виртуальной машины."
+                    source:
+                      description: ""
+                      properties:
+                        node:
+                          description: "Имя узла, на котором в данный момент запущена ВМ."
+                        pod:
+                          description: "Имя пода, на котором в данный момент запущена виртуальная машина."
+                    result:
+                      description: "Результат миграции. Succeeded, Failed."
+                stats:
+                  description: "Статистика по виртуальной машине."
+                  properties:
+                    phasesTransitions:
+                      description: "История по фазам."
+                      items:
+                        properties:
+                          phase:
+                            description: "Фаза виртуальной машины."
+                          timestamp:
+                            description: "Время перехода в эту фазу."
+                    launchTimeDuration:
+                      description: "Информация о запуске."
+                      properties:
+                        waitingForDependencies:
+                          description: "Время ожидания зависимых рессурсов. pending -> starting."
+                        virtualMachineStarting:
+                          description: "Время ожидания запуска виртуальной машины. starting -> running."
+                        guestOSAgentStarting:
+                          description: "Время ожидания запуска guestOsAgent. running -> running с guestOSAgent."

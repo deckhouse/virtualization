@@ -164,7 +164,9 @@ type VirtualMachineStatus struct {
 	IPAddress                    string                                   `json:"ipAddress"`
 	BlockDeviceRefs              []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
 	GuestOSInfo                  virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
-	Message                      string                                   `json:"message"`
+	Conditions                   []metav1.Condition                       `json:"conditions,omitempty"`
+	Stats                        *VirtualMachineStats                     `json:"stats,omitempty"`
+	MigrationState               *VirtualMachineMigrationState            `json:"migrationState,omitempty"`
 
 	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
@@ -182,19 +184,56 @@ type VirtualMachineStatus struct {
 	RestartAwaitingChanges []apiextensionsv1.JSON `json:"restartAwaitingChanges,omitempty"`
 }
 
+type VirtualMachineStats struct {
+	PhasesTransitions  []VirtualMachinePhaseTransitionTimestamp `json:"phasesTransitions,omitempty"`
+	LaunchTimeDuration VirtualMachineLaunchTimeDuration         `json:"launchTimeDuration,omitempty"`
+}
+
+// VirtualMachinePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vm.
+type VirtualMachinePhaseTransitionTimestamp struct {
+	Phase MachinePhase `json:"phase,omitempty"`
+	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	Timestamp metav1.Time `json:"timestamp,omitempty"`
+}
+
+type VirtualMachineLaunchTimeDuration struct {
+	WaitingForDependencies *metav1.Duration `json:"waitingForDependencies,omitempty"`
+	VirtualMachineStarting *metav1.Duration `json:"virtualMachineStarting,omitempty"`
+	GuestOSAgentStarting   *metav1.Duration `json:"guestOSAgentStarting,omitempty"`
+}
+
+type VirtualMachineMigrationState struct {
+	StartTimestamp *metav1.Time           `json:"startTimestamp,omitempty"`
+	EndTimestamp   *metav1.Time           `json:"endTimestamp,omitempty"`
+	Target         VirtualMachineLocation `json:"target,omitempty"`
+	Source         VirtualMachineLocation `json:"source,omitempty"`
+	Result         MigrationResult        `json:"result,omitempty"`
+}
+
+type MigrationResult string
+
+const (
+	MigrationResultSucceeded MigrationResult = "Succeeded"
+	MigrationResultFailed    MigrationResult = "Failed"
+)
+
+type VirtualMachineLocation struct {
+	Node string `json:"node,omitempty"`
+	Pod  string `json:"pod,omitempty"`
+}
+
 type MachinePhase string
 
 const (
-	MachineScheduling  MachinePhase = "Scheduling"
 	MachinePending     MachinePhase = "Pending"
 	MachineRunning     MachinePhase = "Running"
-	MachineFailed      MachinePhase = "Failed"
 	MachineTerminating MachinePhase = "Terminating"
 	MachineStopped     MachinePhase = "Stopped"
 	MachineStopping    MachinePhase = "Stopping"
 	MachineStarting    MachinePhase = "Starting"
 	MachineMigrating   MachinePhase = "Migrating"
 	MachinePause       MachinePhase = "Pause"
+	MachineDegraded    MachinePhase = "Degraded"
 )
 
 // VirtualMachineList contains a list of VirtualMachine

@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package vm
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -27,50 +27,52 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	vmControllerName = "vm-controller"
+	controllerName = "vm-controller"
 )
 
-func NewVMController(
+func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	log *slog.Logger,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
-	reconciler := &VMReconciler{
-		dvcrSettings: dvcrSettings,
-		ipam:         ipam.New(),
+	if log == nil {
+		log = slog.Default()
 	}
+	logger := log.With("controller", controllerName)
+	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*VMReconcilerState](
-		reconciler,
-		NewVMReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   mgr.GetClient(),
-			Cache:    mgrCache,
-			Recorder: mgr.GetEventRecorderFor(vmControllerName),
-			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(vmControllerName),
-		})
+	handlers := []Handler{
+		internal.NewDeletionHandler(mgr.GetClient(), logger),
+		internal.NewCPUHandler(mgr.GetClient(), recorder, logger),
+		internal.NewIPAMHandler(ipam.New(), mgr.GetClient(), recorder, logger),
+		internal.NewBlockDeviceHandler(mgr.GetClient(), recorder, logger),
+		internal.NewProvisioningHandler(mgr.GetClient()),
+		internal.NewAgentHandler(),
+		internal.NewSyncKvvmHandler(dvcrSettings, mgr.GetClient(), recorder, logger),
+		internal.NewLifeCycleHandler(mgr.GetClient(), recorder, logger),
+	}
+	r := NewReconciler(mgr.GetClient(), logger, handlers...)
 
-	c, err := controller.New(vmControllerName, mgr, controller.Options{Reconciler: reconcilerCore})
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
 
-	if err = reconciler.SetupController(ctx, mgr, c); err != nil {
+	if err = r.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewVMValidator(ipam.New(), mgr.GetClient(), log)).
+		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), logger)).
 		Complete(); err != nil {
 		return nil, err
 	}
