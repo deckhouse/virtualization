@@ -16,3 +16,4 @@ jsonschema==4.19.1
 jsonschema-specifications==2023.7.1
 kubernetes==28.1.0
 kubernetes-validate==1.28.0
+bcrypt==4.1.3
