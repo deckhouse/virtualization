@@ -24,6 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 func TestRewriteMetadata(t *testing.T) {
@@ -31,12 +33,12 @@ func TestRewriteMetadata(t *testing.T) {
 		name              string
 		obj               client.Object
 		newObj            client.Object
-		action            Action
+		action            rules.Action
 		expectLabels      map[string]string
 		expectAnnotations map[string]string
 	}{
 		{
-			"",
+			"rename labels on Pod",
 			&corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
@@ -46,18 +48,23 @@ func TestRewriteMetadata(t *testing.T) {
 					Name:      "foo",
 					Namespace: "bar",
 					Labels: map[string]string{
-						"original.label.io":        "labelvalue",
-						"original.prefix/labelkey": "labelvalue",
+						"labelgroup.io":                    "labelvalue",
+						"component.labelgroup.io/labelkey": "labelvalue",
 					},
 					Annotations: map[string]string{
-						"original.annotation.io": "annovalue",
+						"annogroup.io": "annovalue",
 					},
 				},
 			},
 			&corev1.Pod{},
-			Rename,
-			map[string]string{"rewrite.label.io": "labelvalue", "rewrite.prefix/labelkey": "labelvalue"},
-			map[string]string{"rewrite.annotation.io": "annovalue"},
+			rules.Rename,
+			map[string]string{
+				"replacedlabelgroup.io":                    "labelvalue",
+				"component.replacedlabelgroup.io/labelkey": "labelvalue",
+			},
+			map[string]string{
+				"replacedanno.io": "annovalue",
+			},
 		},
 	}
 

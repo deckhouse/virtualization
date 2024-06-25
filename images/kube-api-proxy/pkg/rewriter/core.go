@@ -18,6 +18,9 @@ package rewriter
 
 import (
 	"github.com/tidwall/gjson"
+
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
 )
 
 const (
@@ -31,82 +34,74 @@ const (
 	PersistentVolumeClaimListKind = "PersistentVolumeClaimList"
 )
 
-func RewritePodOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, PodListKind, func(singleObj []byte) ([]byte, error) {
-		singleObj, err := RewriteLabelsMap(rules, singleObj, "spec.nodeSelector", action)
-		if err != nil {
-			return nil, err
-		}
-		return RewriteAffinity(rules, singleObj, "spec.affinity", action)
+func RewritePod(rwRules *rules.RewriteRules, podObj []byte, action rules.Action) ([]byte, error) {
+	podObj, err := RewriteLabelsMap(rwRules, podObj, "spec.nodeSelector", action)
+	if err != nil {
+		return nil, err
+	}
+	return RewriteAffinity(rwRules, podObj, "spec.affinity", action)
+}
+
+func RewriteService(rwRules *rules.RewriteRules, serviceObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteLabelsMap(rwRules, serviceObj, "spec.selector", action)
+}
+
+// RewriteJob transforms known fields in the Job manifest.
+func RewriteJob(rwRules *rules.RewriteRules, jobObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteSpecTemplateLabelsAnno(rwRules, jobObj, "spec", action)
+}
+
+// RewritePVC transforms known fields in the PersistentVolumeClaim manifest.
+func RewritePVC(rwRules *rules.RewriteRules, pvcObj []byte, action rules.Action) ([]byte, error) {
+	pvcObj, err := transform.Object(pvcObj, "spec.dataSource", func(specDataSource []byte) ([]byte, error) {
+		return RewriteAPIGroupAndKind(rwRules, specDataSource, action)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return transform.Object(pvcObj, "spec.dataSourceRef", func(specDataSourceRef []byte) ([]byte, error) {
+		return RewriteAPIGroupAndKind(rwRules, specDataSourceRef, action)
 	})
 }
 
-func RewriteServiceOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, ServiceListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteLabelsMap(rules, singleObj, "spec.selector", action)
-	})
-}
-
-// RewriteJobOrList transforms known fields in the Job manifest.
-func RewriteJobOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, JobListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteSpecTemplateLabelsAnno(rules, singleObj, "spec", action)
-	})
-}
-
-// RewritePVCOrList transforms known fields in the PersistentVolumeClaim manifest.
-func RewritePVCOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, PersistentVolumeClaimListKind, func(singleObj []byte) ([]byte, error) {
-		singleObj, err := TransformObject(singleObj, "spec.dataSource", func(specDataSource []byte) ([]byte, error) {
-			return RewriteAPIGroupAndKind(rules, specDataSource, action)
-		})
-		if err != nil {
-			return nil, err
-		}
-		return TransformObject(singleObj, "spec.dataSourceRef", func(specDataSourceRef []byte) ([]byte, error) {
-			return RewriteAPIGroupAndKind(rules, specDataSourceRef, action)
-		})
-	})
-}
-
-func RenameServicePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
-	obj, err := RenameMetadataPatch(rules, obj)
+func RenameServicePatch(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameMetadataPatch(rwRules, obj)
 	if err != nil {
 		return nil, err
 	}
 
 	// Also rename patch on spec field.
-	return TransformPatch(obj, nil, func(jsonPatch []byte) ([]byte, error) {
+	return transform.Patch(obj, nil, func(jsonPatch []byte) ([]byte, error) {
 		path := gjson.GetBytes(jsonPatch, "path").String()
 		switch path {
 		case "/spec":
-			return RewriteLabelsMap(rules, jsonPatch, "value.selector", Rename)
+			return RewriteLabelsMap(rwRules, jsonPatch, "value.selector", rules.Rename)
 		}
 		return jsonPatch, nil
 	})
 }
 
-func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+func RewriteAPIGroupAndKind(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	var err error
 	kind := gjson.GetBytes(obj, "kind").String()
 
-	obj, err = TransformString(obj, "kind", func(field string) string {
-		if action == Rename {
-			return rules.RenameKind(field)
+	obj, err = transform.String(obj, "kind", func(field string) string {
+		if action == rules.Rename {
+			return rwRules.RenameKind(field)
 		}
-		return rules.RestoreKind(field)
+		return rwRules.RestoreKind(field)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return TransformString(obj, "apiGroup", func(apiGroup string) string {
-		if action == Rename {
-			return rules.RenamedGroup
+	return transform.String(obj, "apiGroup", func(apiGroup string) string {
+		if action == rules.Rename {
+			return rwRules.RenamedGroup
 		}
 		// Renamed to original is a one-to-many relation, so we
 		// need an original kind to get proper group for Restore action.
-		groupRule, _ := rules.GroupResourceRulesByKind(rules.RestoreKind(kind))
+		groupRule, _ := rwRules.GroupResourceRulesByKind(rwRules.RestoreKind(kind))
 		if groupRule == nil {
 			return apiGroup
 		}

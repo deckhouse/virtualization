@@ -16,26 +16,31 @@ limitations under the License.
 
 package rewriter
 
+import (
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
+)
+
 // RewriteAffinity renames or restores labels in labelSelector of affinity structure.
 // See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
-func RewriteAffinity(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
-	return TransformObject(obj, path, func(affinity []byte) ([]byte, error) {
-		rwrAffinity, err := TransformObject(affinity, "nodeAffinity", func(item []byte) ([]byte, error) {
-			return rewriteNodeAffinity(rules, item, action)
+func RewriteAffinity(rwRules *rules.RewriteRules, obj []byte, path string, action rules.Action) ([]byte, error) {
+	return transform.Object(obj, path, func(affinity []byte) ([]byte, error) {
+		rwrAffinity, err := transform.Object(affinity, "nodeAffinity", func(item []byte) ([]byte, error) {
+			return rewriteNodeAffinity(rwRules, item, action)
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		rwrAffinity, err = TransformObject(rwrAffinity, "podAffinity", func(item []byte) ([]byte, error) {
-			return rewritePodAffinity(rules, item, action)
+		rwrAffinity, err = transform.Object(rwrAffinity, "podAffinity", func(item []byte) ([]byte, error) {
+			return rewritePodAffinity(rwRules, item, action)
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		return TransformObject(rwrAffinity, "podAntiAffinity", func(item []byte) ([]byte, error) {
-			return rewritePodAffinity(rules, item, action)
+		return transform.Object(rwrAffinity, "podAntiAffinity", func(item []byte) ([]byte, error) {
+			return rewritePodAffinity(rwRules, item, action)
 		})
 
 	})
@@ -49,12 +54,12 @@ func RewriteAffinity(rules *RewriteRules, obj []byte, path string, action Action
 //	preferredDuringSchedulingIgnoredDuringExecution: -> array of PreferredSchedulingTerm:
 //	  preference NodeSelector ->  rewrite key in each matchExpressions and matchFields
 //	  weight:
-func rewriteNodeAffinity(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+func rewriteNodeAffinity(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	// Rewrite an array of nodeSelectorTerms in requiredDuringSchedulingIgnoredDuringExecution field.
 	var err error
-	obj, err = TransformObject(obj, "requiredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
-		return RewriteArray(affinityTerm, "nodeSelectorTerms", func(item []byte) ([]byte, error) {
-			return rewriteNodeSelectorTerm(rules, item, action)
+	obj, err = transform.Object(obj, "requiredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
+		return transform.Array(affinityTerm, "nodeSelectorTerms", func(item []byte) ([]byte, error) {
+			return rewriteNodeSelectorTerm(rwRules, item, action)
 		})
 	})
 	if err != nil {
@@ -62,29 +67,29 @@ func rewriteNodeAffinity(rules *RewriteRules, obj []byte, action Action) ([]byte
 	}
 
 	// Rewrite an array of weightedNodeSelectorTerms in preferredDuringSchedulingIgnoredDuringExecution field.
-	return RewriteArray(obj, "preferredDuringSchedulingIgnoredDuringExecution", func(item []byte) ([]byte, error) {
-		return TransformObject(item, "preference", func(preference []byte) ([]byte, error) {
-			return rewriteNodeSelectorTerm(rules, preference, action)
+	return transform.Array(obj, "preferredDuringSchedulingIgnoredDuringExecution", func(item []byte) ([]byte, error) {
+		return transform.Object(item, "preference", func(preference []byte) ([]byte, error) {
+			return rewriteNodeSelectorTerm(rwRules, preference, action)
 		})
 	})
 }
 
 // rewriteNodeSelectorTerm renames or restores key fields in matchLabels or matchExpressions of NodeSelectorTerm.
-func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	obj, err := RewriteArray(obj, "matchLabels", func(item []byte) ([]byte, error) {
-		return rewriteSelectorRequirement(rules, item, action)
+func rewriteNodeSelectorTerm(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
+	obj, err := transform.Array(obj, "matchLabels", func(item []byte) ([]byte, error) {
+		return rewriteSelectorRequirement(rwRules, item, action)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return RewriteArray(obj, "matchExpressions", func(item []byte) ([]byte, error) {
-		return rewriteSelectorRequirement(rules, item, action)
+	return transform.Array(obj, "matchExpressions", func(item []byte) ([]byte, error) {
+		return rewriteSelectorRequirement(rwRules, item, action)
 	})
 }
 
-func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return TransformString(obj, "key", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
+func rewriteSelectorRequirement(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
+	return transform.String(obj, "key", func(field string) string {
+		return rwRules.LabelsRewriter().Rewrite(field, action)
 	})
 }
 
@@ -100,52 +105,52 @@ func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) 
 //	preferredDuringSchedulingIgnoredDuringExecution -> array of WeightedPodAffinityTerm:
 //	  weight
 //	  podAffinityTerm PodAffinityTerm -> rewrite as described above
-func rewritePodAffinity(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+func rewritePodAffinity(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	// Rewrite an array of PodAffinityTerms in requiredDuringSchedulingIgnoredDuringExecution field.
-	obj, err := RewriteArray(obj, "requiredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
-		return rewritePodAffinityTerm(rules, affinityTerm, action)
+	obj, err := transform.Array(obj, "requiredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
+		return rewritePodAffinityTerm(rwRules, affinityTerm, action)
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	// Rewrite an array of WeightedPodAffinityTerms in requiredDuringSchedulingIgnoredDuringExecution field.
-	return RewriteArray(obj, "preferredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
-		return TransformObject(affinityTerm, "podAffinityTerm", func(podAffinityTerm []byte) ([]byte, error) {
-			return rewritePodAffinityTerm(rules, podAffinityTerm, action)
+	return transform.Array(obj, "preferredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
+		return transform.Object(affinityTerm, "podAffinityTerm", func(podAffinityTerm []byte) ([]byte, error) {
+			return rewritePodAffinityTerm(rwRules, podAffinityTerm, action)
 		})
 	})
 }
 
-func rewritePodAffinityTerm(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	obj, err := TransformObject(obj, "labelSelector", func(labelSelector []byte) ([]byte, error) {
-		return rewriteLabelSelector(rules, labelSelector, action)
+func rewritePodAffinityTerm(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
+	obj, err := transform.Object(obj, "labelSelector", func(labelSelector []byte) ([]byte, error) {
+		return RewriteLabelSelector(rwRules, labelSelector, action)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err = TransformString(obj, "topologyKey", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
+	obj, err = transform.String(obj, "topologyKey", func(field string) string {
+		return rwRules.LabelsRewriter().Rewrite(field, action)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return TransformObject(obj, "namespaceSelector", func(selector []byte) ([]byte, error) {
-		return rewriteLabelSelector(rules, selector, action)
+	return transform.Object(obj, "namespaceSelector", func(selector []byte) ([]byte, error) {
+		return RewriteLabelSelector(rwRules, selector, action)
 	})
 }
 
-// rewriteLabelSelector rewrites matchLabels and matchExpressions. It is similar to rewriteNodeSelectorTerm
+// RewriteLabelSelector rewrites matchLabels and matchExpressions. It is similar to rewriteNodeSelectorTerm
 // but matchLabels is a map here, not an array of requirements.
-func rewriteLabelSelector(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	obj, err := RewriteLabelsMap(rules, obj, "matchLabels", action)
+func RewriteLabelSelector(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
+	obj, err := RewriteLabelsMap(rwRules, obj, "matchLabels", action)
 	if err != nil {
 		return nil, err
 	}
 
-	return RewriteArray(obj, "matchExpressions", func(item []byte) ([]byte, error) {
-		return rewriteSelectorRequirement(rules, item, action)
+	return transform.Array(obj, "matchExpressions", func(item []byte) ([]byte, error) {
+		return rewriteSelectorRequirement(rwRules, item, action)
 	})
 }

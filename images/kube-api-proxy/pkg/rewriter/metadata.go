@@ -16,19 +16,24 @@ limitations under the License.
 
 package rewriter
 
-import "github.com/tidwall/gjson"
+import (
+	"github.com/tidwall/gjson"
 
-func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
+)
+
+func RewriteMetadata(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	//var err error
-	obj, err := RewriteLabelsMap(rules, obj, "metadata.labels", action)
+	obj, err := RewriteLabelsMap(rwRules, obj, "metadata.labels", action)
 	if err != nil {
 		return nil, err
 	}
-	obj, err = RewriteAnnotationsMap(rules, obj, "metadata.annotations", action)
+	obj, err = RewriteAnnotationsMap(rwRules, obj, "metadata.annotations", action)
 	if err != nil {
 		return nil, err
 	}
-	return RewriteFinalizers(rules, obj, "metadata.finalizers", action)
+	return RewriteFinalizers(rwRules, obj, "metadata.finalizers", action)
 }
 
 // RenameMetadataPatch transforms known metadata fields in patches.
@@ -39,39 +44,39 @@ func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, er
 // [{"op":"test", "path":"/metadata/labels", "value":{"label":"value"}},
 //
 //	{"op":"replace", "path":"/metadata/labels", "value":{"label":"newValue"}}]
-func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
-	return TransformPatch(patch,
+func RenameMetadataPatch(rwRules *rules.RewriteRules, patch []byte) ([]byte, error) {
+	return transform.Patch(patch,
 		func(mergePatch []byte) ([]byte, error) {
-			return RewriteMetadata(rules, mergePatch, Rename)
+			return RewriteMetadata(rwRules, mergePatch, rules.Rename)
 		},
 		func(jsonPatch []byte) ([]byte, error) {
 			path := gjson.GetBytes(jsonPatch, "path").String()
 			switch path {
 			case "/metadata/labels":
-				return RewriteLabelsMap(rules, jsonPatch, "value", Rename)
+				return RewriteLabelsMap(rwRules, jsonPatch, "value", rules.Rename)
 			case "/metadata/annotations":
-				return RewriteAnnotationsMap(rules, jsonPatch, "value", Rename)
+				return RewriteAnnotationsMap(rwRules, jsonPatch, "value", rules.Rename)
 			case "/metadata/finalizers":
-				return RewriteFinalizers(rules, jsonPatch, "value", Rename)
+				return RewriteFinalizers(rwRules, jsonPatch, "value", rules.Rename)
 			}
 			return jsonPatch, nil
 		})
 }
 
-func RewriteLabelsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
-	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
+func RewriteLabelsMap(rules *rules.RewriteRules, obj []byte, path string, action rules.Action) ([]byte, error) {
+	return transform.MapStringString(obj, path, func(k, v string) (string, string) {
 		return rules.LabelsRewriter().Rewrite(k, action), v
 	})
 }
 
-func RewriteAnnotationsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
-	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
+func RewriteAnnotationsMap(rules *rules.RewriteRules, obj []byte, path string, action rules.Action) ([]byte, error) {
+	return transform.MapStringString(obj, path, func(k, v string) (string, string) {
 		return rules.AnnotationsRewriter().Rewrite(k, action), v
 	})
 }
 
-func RewriteFinalizers(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
-	return TransformArrayOfStrings(obj, path, func(finalizer string) string {
+func RewriteFinalizers(rules *rules.RewriteRules, obj []byte, path string, action rules.Action) ([]byte, error) {
+	return transform.ArrayOfStrings(obj, path, func(finalizer string) string {
 		return rules.FinalizersRewriter().Rewrite(finalizer, action)
 	})
 }

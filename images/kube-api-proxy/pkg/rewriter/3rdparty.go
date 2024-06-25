@@ -16,17 +16,20 @@ limitations under the License.
 
 package rewriter
 
+import (
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
+)
+
 // Rewrite routines for 3rd party resources, i.e. ServiceMonitor.
 
 const (
-	PrometheusRuleKind     = "PrometheusRule"
-	PrometheusRuleListKind = "PrometheusRuleList"
 	ServiceMonitorKind     = "ServiceMonitor"
 	ServiceMonitorListKind = "ServiceMonitorList"
 )
 
-func RewriteServiceMonitorOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return TransformObject(obj, "spec.selector", func(obj []byte) ([]byte, error) {
-		return rewriteLabelSelector(rules, obj, action)
+func RewriteServiceMonitor(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
+	return transform.Object(obj, "spec.selector", func(obj []byte) ([]byte, error) {
+		return RewriteLabelSelector(rwRules, obj, action)
 	})
 }

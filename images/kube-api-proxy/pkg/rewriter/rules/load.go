@@ -14,26 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rewriter
+package rules
 
 import (
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
+	"os"
+
+	"sigs.k8s.io/yaml"
 )
 
-// TODO merge this file into transformers.go
+// WARNING: just a PoC, not working yet.
 
-// RewriteMapStringString transforms map[string]string value addressed by path.
-func RewriteMapStringString(obj []byte, mapPath string, transformFn func(k, v string) (string, string)) ([]byte, error) {
-	m := gjson.GetBytes(obj, mapPath).Map()
-	if len(m) == 0 {
-		return obj, nil
-	}
-	newMap := make(map[string]string, len(m))
-	for k, v := range m {
-		newK, newV := transformFn(k, v.String())
-		newMap[newK] = newV
+func LoadRules(filename string) (*RewriteRules, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
 	}
 
-	return sjson.SetBytes(obj, mapPath, newMap)
+	var rules = new(RewriteRules)
+	err = yaml.Unmarshal(data, rules)
+	if err != nil {
+		return nil, err
+	}
+
+	return rules, nil
 }

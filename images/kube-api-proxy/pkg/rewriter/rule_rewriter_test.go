@@ -25,6 +25,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	. "kube-api-proxy/pkg/rewriter/rules"
 )
 
 func createTestRewriter() *RuleBasedRewriter {

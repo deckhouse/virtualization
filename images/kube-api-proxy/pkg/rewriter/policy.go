@@ -16,13 +16,13 @@ limitations under the License.
 
 package rewriter
 
+import "kube-api-proxy/pkg/rewriter/rules"
+
 const (
 	PodDisruptionBudgetKind     = "PodDisruptionBudget"
 	PodDisruptionBudgetListKind = "PodDisruptionBudgetList"
 )
 
-func RewritePDBOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteResourceOrList(obj, PodDisruptionBudgetListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteLabelsMap(rules, singleObj, "spec.selector", action)
-	})
+func RewritePDB(rwRules *rules.RewriteRules, pdbObj []byte, action rules.Action) ([]byte, error) {
+	return RewriteLabelsMap(rwRules, pdbObj, "spec.selector", action)
 }

@@ -21,38 +21,40 @@ import (
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
-func RewriteCustomResourceOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+func RewriteCustomResourceOrList(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	kind := gjson.GetBytes(obj, "kind").String()
-	if action == Restore {
-		kind = rules.RestoreKind(kind)
+	if action == rules.Restore {
+		kind = rwRules.RestoreKind(kind)
 	}
-	origGroupName, origResName, isList := rules.ResourceByKind(kind)
+	origGroupName, origResName, isList := rwRules.ResourceByKind(kind)
 	if origGroupName == "" && origResName == "" {
 		// Return as-is if kind is not in rules.
 		return obj, nil
 	}
 	if isList {
-		if action == Restore {
-			return RestoreResourcesList(rules, obj, origGroupName)
+		if action == rules.Restore {
+			return RestoreResourcesList(rwRules, obj, origGroupName)
 		}
 
-		return RenameResourcesList(rules, obj)
+		return RenameResourcesList(rwRules, obj)
 	}
 
 	// Responses of GET, LIST, DELETE requests.
 	// AdmissionReview requests from API Server.
-	if action == Restore {
-		return RestoreResource(rules, obj, origGroupName)
+	if action == rules.Restore {
+		return RestoreResource(rwRules, obj, origGroupName)
 	}
 	// CREATE, UPDATE, PATCH requests.
 	// TODO need to implement for
-	return RenameResource(rules, obj)
+	return RenameResource(rwRules, obj)
 }
 
-func RenameResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
-	obj, err := RenameAPIVersionAndKind(rules, obj)
+func RenameResourcesList(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameAPIVersionAndKind(rwRules, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +63,7 @@ func RenameResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
 	items := gjson.GetBytes(obj, "items").Array()
 	rwrItems := []byte(`[]`)
 	for _, item := range items {
-		rwrItem, err := RenameResource(rules, []byte(item.Raw))
+		rwrItem, err := RenameResource(rwRules, []byte(item.Raw))
 		if err != nil {
 			return nil, err
 		}
@@ -76,8 +78,8 @@ func RenameResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
 	return obj, nil
 }
 
-func RestoreResourcesList(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
-	obj, err := RestoreAPIVersionAndKind(rules, obj, origGroupName)
+func RestoreResourcesList(rwRules *rules.RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+	obj, err := RestoreAPIVersionAndKind(rwRules, obj, origGroupName)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +88,7 @@ func RestoreResourcesList(rules *RewriteRules, obj []byte, origGroupName string)
 	items := gjson.GetBytes(obj, "items").Array()
 	rwrItems := []byte(`[]`)
 	for _, item := range items {
-		rwrItem, err := RestoreResource(rules, []byte(item.Raw), origGroupName)
+		rwrItem, err := RestoreResource(rwRules, []byte(item.Raw), origGroupName)
 		if err != nil {
 			return nil, err
 		}
@@ -101,60 +103,60 @@ func RestoreResourcesList(rules *RewriteRules, obj []byte, origGroupName string)
 	return obj, nil
 }
 
-func RenameResource(rules *RewriteRules, obj []byte) ([]byte, error) {
-	obj, err := RenameAPIVersionAndKind(rules, obj)
+func RenameResource(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RenameAPIVersionAndKind(rwRules, obj)
 	if err != nil {
 		return nil, err
 	}
 
 	// Rewrite apiVersion in each managedFields.
-	obj, err = RenameManagedFields(rules, obj)
+	obj, err = RenameManagedFields(rwRules, obj)
 	if err != nil {
 		return nil, err
 	}
 
-	return RenameOwnerReferences(rules, obj)
+	return RenameOwnerReferences(rwRules, obj)
 }
 
-func RestoreResource(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
-	obj, err := RestoreAPIVersionAndKind(rules, obj, origGroupName)
+func RestoreResource(rwRules *rules.RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+	obj, err := RestoreAPIVersionAndKind(rwRules, obj, origGroupName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Rewrite apiVersion in each managedFields.
-	obj, err = RestoreManagedFields(rules, obj, origGroupName)
+	obj, err = RestoreManagedFields(rwRules, obj, origGroupName)
 	if err != nil {
 		return nil, err
 	}
 
-	return RestoreOwnerReferences(rules, obj, origGroupName)
+	return RestoreOwnerReferences(rwRules, obj, origGroupName)
 }
 
-func RenameAPIVersionAndKind(rules *RewriteRules, obj []byte) ([]byte, error) {
+func RenameAPIVersionAndKind(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	apiVersion := gjson.GetBytes(obj, "apiVersion").String()
-	obj, err := sjson.SetBytes(obj, "apiVersion", rules.RenameApiVersion(apiVersion))
+	obj, err := sjson.SetBytes(obj, "apiVersion", rwRules.RenameApiVersion(apiVersion))
 	if err != nil {
 		return nil, err
 	}
 
 	kind := gjson.GetBytes(obj, "kind").String()
-	return sjson.SetBytes(obj, "kind", rules.RenameKind(kind))
+	return sjson.SetBytes(obj, "kind", rwRules.RenameKind(kind))
 }
 
-func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+func RestoreAPIVersionAndKind(rwRules *rules.RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
 	apiVersion := gjson.GetBytes(obj, "apiVersion").String()
-	apiVersion = rules.RestoreApiVersion(apiVersion, origGroupName)
+	apiVersion = rwRules.RestoreApiVersion(apiVersion, origGroupName)
 	obj, err := sjson.SetBytes(obj, "apiVersion", apiVersion)
 	if err != nil {
 		return nil, err
 	}
 
 	kind := gjson.GetBytes(obj, "kind").String()
-	return sjson.SetBytes(obj, "kind", rules.RestoreKind(kind))
+	return sjson.SetBytes(obj, "kind", rwRules.RestoreKind(kind))
 }
 
-func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+func RewriteOwnerReferences(rwRules *rules.RewriteRules, obj []byte, action rules.Action) ([]byte, error) {
 	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
 	if len(ownerRefs) == 0 {
 		return obj, nil
@@ -164,11 +166,11 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 	rewritten := false
 	for _, ownerRef := range ownerRefs {
 		kind := ownerRef.Get("kind").String()
-		if action == Restore {
-			kind = rules.RestoreKind(kind)
+		if action == rules.Restore {
+			kind = rwRules.RestoreKind(kind)
 		}
 		// Find if kind should be rewritten.
-		origGroup, origResource, _ := rules.ResourceByKind(kind)
+		origGroup, origResource, _ := rwRules.ResourceByKind(kind)
 		if origGroup == "" && origResource == "" {
 			// There is no rewrite rule for kind, append ownerRef as is.
 			var err error
@@ -178,8 +180,8 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 			}
 			continue
 		}
-		if action == Rename {
-			kind = rules.RenameKind(kind)
+		if action == rules.Rename {
+			kind = rwRules.RenameKind(kind)
 		}
 
 		rwrOwnerRef := []byte(ownerRef.Raw)
@@ -190,11 +192,11 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 		}
 
 		apiVersion := ownerRef.Get("apiVersion").String()
-		if action == Restore {
-			apiVersion = rules.RestoreApiVersion(apiVersion, origGroup)
+		if action == rules.Restore {
+			apiVersion = rwRules.RestoreApiVersion(apiVersion, origGroup)
 		}
-		if action == Rename {
-			apiVersion = rules.RenameApiVersion(apiVersion)
+		if action == rules.Rename {
+			apiVersion = rwRules.RenameApiVersion(apiVersion)
 		}
 		rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "apiVersion", apiVersion)
 		if err != nil {
@@ -212,7 +214,7 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]b
 }
 
 // RenameOwnerReferences renames kind and apiVersion to send request to server.
-func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
+func RenameOwnerReferences(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
 	if len(ownerRefs) == 0 {
 		return obj, nil
@@ -226,15 +228,15 @@ func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
 
 		rwrOwnerRef := []byte(ownerRef.Raw)
 
-		_, resRule := rules.KindRules(apiVersion, kind)
+		_, resRule := rwRules.KindRules(apiVersion, kind)
 		if resRule != nil {
 			// Rename apiVersion and kind if resource has renaming rules.
-			rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "kind", rules.RenameKind(kind))
+			rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "kind", rwRules.RenameKind(kind))
 			if err != nil {
 				return nil, err
 			}
 
-			rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "apiVersion", rules.RenameApiVersion(apiVersion))
+			rwrOwnerRef, err = sjson.SetBytes(rwrOwnerRef, "apiVersion", rwRules.RenameApiVersion(apiVersion))
 			if err != nil {
 				return nil, err
 			}
@@ -265,7 +267,7 @@ func RenameOwnerReferences(rules *RewriteRules, obj []byte) ([]byte, error) {
 //	  kind: VirtualMachine   <--- restore kind
 //	  name: cloud-alpine
 //	  uid: 4c74c3ff-2199-4f20-a71c-3b0e5fb505ca
-func RestoreOwnerReferences(rules *RewriteRules, obj []byte, groupName string) ([]byte, error) {
+func RestoreOwnerReferences(rwRules *rules.RewriteRules, obj []byte, groupName string) ([]byte, error) {
 	ownerRefs := gjson.GetBytes(obj, "metadata.ownerReferences").Array()
 	if len(ownerRefs) == 0 {
 		return obj, nil
@@ -276,13 +278,13 @@ func RestoreOwnerReferences(rules *RewriteRules, obj []byte, groupName string) (
 		apiVersion := ownerRef.Get("apiVersion").String()
 		rOwnerRef := []byte(ownerRef.Raw)
 		var err error
-		if strings.HasPrefix(apiVersion, rules.RenamedGroup) {
-			rOwnerRef, err = sjson.SetBytes([]byte(ownerRef.Raw), "apiVersion", rules.RestoreApiVersion(apiVersion, groupName))
+		if strings.HasPrefix(apiVersion, rwRules.RenamedGroup) {
+			rOwnerRef, err = sjson.SetBytes([]byte(ownerRef.Raw), "apiVersion", rwRules.RestoreApiVersion(apiVersion, groupName))
 			if err != nil {
 				return nil, err
 			}
 			kind := gjson.GetBytes(rOwnerRef, "kind").String()
-			rOwnerRef, err = sjson.SetBytes(rOwnerRef, "kind", rules.RestoreKind(kind))
+			rOwnerRef, err = sjson.SetBytes(rOwnerRef, "kind", rwRules.RestoreKind(kind))
 			if err != nil {
 				return nil, err
 			}
@@ -305,7 +307,7 @@ func RestoreOwnerReferences(rules *RewriteRules, obj []byte, groupName string) (
 //	    { "apiVersion":"x.virtualization.deckhouse.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
 //	    { "apiVersion":"x.virtualization.deckhouse.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
-func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+func RestoreManagedFields(rwRules *rules.RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
 	mgFields := gjson.GetBytes(obj, "metadata.managedFields")
 	if !mgFields.Exists() || len(mgFields.Array()) == 0 {
 		return obj, nil
@@ -314,7 +316,7 @@ func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string)
 	newFields := []byte(`[]`)
 	for _, mgField := range mgFields.Array() {
 		apiVersion := mgField.Get("apiVersion").String()
-		restoredAPIVersion := rules.RestoreApiVersion(apiVersion, origGroupName)
+		restoredAPIVersion := rwRules.RestoreApiVersion(apiVersion, origGroupName)
 		newField, err := sjson.SetBytes([]byte(mgField.Raw), "apiVersion", restoredAPIVersion)
 		if err != nil {
 			return nil, err
@@ -336,7 +338,7 @@ func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string)
 //	    { "apiVersion":"kubevirt.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
 //	    { "apiVersion":"kubevirt.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
-func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
+func RenameManagedFields(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	mgFields := gjson.GetBytes(obj, "metadata.managedFields")
 	if !mgFields.Exists() || len(mgFields.Array()) == 0 {
 		return obj, nil
@@ -345,7 +347,7 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	newFields := []byte(`[]`)
 	for _, mgField := range mgFields.Array() {
 		apiVersion := mgField.Get("apiVersion").String()
-		renamedAPIVersion := rules.RenameApiVersion(apiVersion)
+		renamedAPIVersion := rwRules.RenameApiVersion(apiVersion)
 		newField, err := sjson.SetBytes([]byte(mgField.Raw), "apiVersion", renamedAPIVersion)
 		if err != nil {
 			return nil, err
@@ -358,6 +360,6 @@ func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	return sjson.SetRawBytes(obj, "metadata.managedFields", newFields)
 }
 
-func RenameResourcePatch(rules *RewriteRules, patch []byte) ([]byte, error) {
-	return RenameMetadataPatch(rules, patch)
+func RenameResourcePatch(rwRules *rules.RewriteRules, patch []byte) ([]byte, error) {
+	return RenameMetadataPatch(rwRules, patch)
 }

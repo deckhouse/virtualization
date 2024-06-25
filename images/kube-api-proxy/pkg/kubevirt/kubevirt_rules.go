@@ -17,7 +17,7 @@ limitations under the License.
 package kubevirt
 
 import (
-	. "kube-api-proxy/pkg/rewriter"
+	. "kube-api-proxy/pkg/rewriter/rules"
 )
 
 const (

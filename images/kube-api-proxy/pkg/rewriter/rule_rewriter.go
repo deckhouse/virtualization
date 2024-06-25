@@ -23,20 +23,14 @@ import (
 
 	"github.com/tidwall/gjson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
 )
 
 type RuleBasedRewriter struct {
-	Rules *RewriteRules
+	Rules *rules.RewriteRules
 }
-
-type Action string
-
-const (
-	// Restore is an action to restore resources to original.
-	Restore Action = "restore"
-	// Rename is an action to rename original resources.
-	Rename Action = "rename"
-)
 
 // RewriteAPIEndpoint renames group and resource in /apis/* endpoints.
 // It assumes that ep contains original group and resourceType.
@@ -146,7 +140,7 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 	return metadataNameRe.ReplaceAllString(rawQuery, newSelector)
 }
 
-// rewriteLabelSelector rewrites labels in labelSelector
+// rewriteLabelSelector rewrites labels in a labelSelector query
 // Example request:
 // https://<apiserver>/apis/apps/v1/namespaces/<namespace>/deployments?labelSelector=app%3Dsomething
 func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
@@ -195,27 +189,12 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 }
 
 // RewriteJSONPayload does rewrite based on kind.
-func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
+func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action rules.Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
 
 	var rwrBytes []byte
 	var err error
-
-	//// Handle core resources: rewrite only for specific kind.
-	//if targetReq.IsCore() {
-	//	pass := true
-	//	switch kind {
-	//	case "APIGroupList":
-	//	case "APIGroup":
-	//	case "APIResourceList":
-	//	default:
-	//		pass = shouldPassCoreResource(kind)
-	//	}
-	//	if pass {
-	//		return obj, nil
-	//	}
-	//}
 
 	switch kind {
 	case "APIGroupList":
@@ -234,40 +213,76 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj, targetReq.OrigGroup())
 
 	case CRDKind, CRDListKind:
-		rwrBytes, err = RewriteCRDOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteCRD(rw.Rules, resourceObj, action)
+		})
 
 	case MutatingWebhookConfigurationKind,
 		MutatingWebhookConfigurationListKind:
-		rwrBytes, err = RewriteMutatingOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteMutating(rw.Rules, resourceObj, action)
+		})
 
 	case ValidatingWebhookConfigurationKind,
 		ValidatingWebhookConfigurationListKind:
-		rwrBytes, err = RewriteValidatingOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteValidating(rw.Rules, resourceObj, action)
+		})
 
 	case ClusterRoleKind, ClusterRoleListKind:
-		rwrBytes, err = RewriteClusterRoleOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteClusterRole(rw.Rules, resourceObj, action)
+		})
 
 	case RoleKind, RoleListKind:
-		rwrBytes, err = RewriteRoleOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteRole(rw.Rules, resourceObj, action)
+		})
+
 	case DeploymentKind, DeploymentListKind:
-		rwrBytes, err = RewriteDeploymentOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteDeployment(rw.Rules, resourceObj, action)
+		})
+
 	case StatefulSetKind, StatefulSetListKind:
-		rwrBytes, err = RewriteStatefulSetOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteStatefulSet(rw.Rules, resourceObj, action)
+		})
+
 	case DaemonSetKind, DaemonSetListKind:
-		rwrBytes, err = RewriteDaemonSetOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteDaemonSet(rw.Rules, resourceObj, action)
+		})
+
 	case PodKind, PodListKind:
-		rwrBytes, err = RewritePodOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewritePod(rw.Rules, resourceObj, action)
+		})
+
 	case PodDisruptionBudgetKind, PodDisruptionBudgetListKind:
-		rwrBytes, err = RewritePDBOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewritePDB(rw.Rules, resourceObj, action)
+		})
+
 	case JobKind, JobListKind:
-		rwrBytes, err = RewriteJobOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteJob(rw.Rules, resourceObj, action)
+		})
+
 	case ServiceKind, ServiceListKind:
-		rwrBytes, err = RewriteServiceOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteService(rw.Rules, resourceObj, action)
+		})
+
 	case PersistentVolumeClaimKind, PersistentVolumeClaimListKind:
-		rwrBytes, err = RewritePVCOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewritePVC(rw.Rules, resourceObj, action)
+		})
 
 	case ServiceMonitorKind, ServiceMonitorListKind:
-		rwrBytes, err = RewriteServiceMonitorOrList(rw.Rules, obj, action)
+		rwrBytes, err = transform.ResourceOrList(obj, func(resourceObj []byte) ([]byte, error) {
+			return RewriteServiceMonitor(rw.Rules, resourceObj, action)
+		})
 
 	default:
 		// TODO Add rw.Rules.IsKnownKind() to rewrite only known kinds.
@@ -280,13 +295,13 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 
 	// Always rewrite metadata: labels, annotations, finalizers, ownerReferences.
 	// TODO: add rewriter for managedFields.
-	return RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
+	return transform.ResourceOrList(rwrBytes, func(resourceObj []byte) ([]byte, error) {
 		var err error
-		singleObj, err = RewriteMetadata(rw.Rules, singleObj, action)
+		resourceObj, err = RewriteMetadata(rw.Rules, resourceObj, action)
 		if err != nil {
 			return nil, err
 		}
-		return RewriteOwnerReferences(rw.Rules, singleObj, action)
+		return RewriteOwnerReferences(rw.Rules, resourceObj, action)
 	})
 }
 
@@ -319,33 +334,4 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes [
 	}
 
 	return patchBytes, nil
-}
-
-func shouldRewriteOwnerReferences(resourceType string) bool {
-	switch resourceType {
-	case CRDKind, CRDListKind,
-		RoleKind, RoleListKind,
-		RoleBindingKind, RoleBindingListKind,
-		PodDisruptionBudgetKind, PodDisruptionBudgetListKind,
-		ControllerRevisionKind, ControllerRevisionListKind,
-		ClusterRoleKind, ClusterRoleListKind,
-		ClusterRoleBindingKind, ClusterRoleBindingListKind,
-		APIServiceKind, APIServiceListKind,
-		DeploymentKind, DeploymentListKind,
-		DaemonSetKind, DaemonSetListKind,
-		StatefulSetKind, StatefulSetListKind,
-		PodKind, PodListKind,
-		JobKind, JobListKind,
-		ValidatingWebhookConfigurationKind,
-		ValidatingWebhookConfigurationListKind,
-		MutatingWebhookConfigurationKind,
-		MutatingWebhookConfigurationListKind,
-		ServiceKind, ServiceListKind,
-		PersistentVolumeClaimKind, PersistentVolumeClaimListKind,
-		PrometheusRuleKind, PrometheusRuleListKind,
-		ServiceMonitorKind, ServiceMonitorListKind:
-		return true
-	}
-
-	return false
 }

@@ -23,6 +23,9 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"kube-api-proxy/pkg/rewriter/rules"
+	"kube-api-proxy/pkg/rewriter/transform"
 )
 
 // RewriteAPIGroupList restores groups and kinds in /apis/ response.
@@ -40,15 +43,15 @@ import (
 //	  ],
 //	 "preferredVersion":{"groupVersion":"x.virtualization.deckhouse.io/v1","version":"v1"}
 //	}
-func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
+func RewriteAPIGroupList(rwRules *rules.RewriteRules, objBytes []byte) ([]byte, error) {
 	groups := gjson.GetBytes(objBytes, "groups").Array()
 	// TODO get rid of RawExtension, use SetRawBytes.
 	rwrGroups := make([]interface{}, 0)
 	for _, group := range groups {
 		groupName := gjson.Get(group.Raw, "name").String()
 		// Replace renamed group with groups from rules.
-		if groupName == rules.RenamedGroup {
-			rwrGroups = append(rwrGroups, rules.GetAPIGroupList()...)
+		if groupName == rwRules.RenamedGroup {
+			rwrGroups = append(rwrGroups, rwRules.GetAPIGroupList()...)
 			continue
 		}
 		rwrGroups = append(rwrGroups, runtime.RawExtension{Raw: []byte(group.Raw)})
@@ -107,8 +110,8 @@ func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
 //	     "groupVersion":"clone.kubevirt.io/v1alpha1",
 //			"version":"v1alpha1"}
 //		  }
-func RewriteAPIGroup(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
-	apiGroupRule, ok := rules.Rules[origGroup]
+func RewriteAPIGroup(rwRules *rules.RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+	apiGroupRule, ok := rwRules.Rules[origGroup]
 	if !ok {
 		return nil, fmt.Errorf("no APIGroup rewrites for group '%s'", origGroup)
 	}
@@ -197,9 +200,9 @@ func RewriteAPIGroup(rules *RewriteRules, obj []byte, origGroup string) ([]byte,
 //		     "verbs":["get","patch","update"]
 //		   }]
 //	}
-func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RewriteAPIResourceList(rwRules *rules.RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	// Ignore apiGroups not in rules.
-	apiGroupRule, ok := rules.Rules[origGroup]
+	apiGroupRule, ok := rwRules.Rules[origGroup]
 	if !ok {
 		return obj, nil
 	}
@@ -214,22 +217,22 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) (
 	for _, resource := range gjson.GetBytes(obj, "resources").Array() {
 		name := resource.Get("name").String()
 		nameParts := strings.Split(name, "/")
-		resourceName := rules.RestoreResource(nameParts[0])
+		resourceName := rwRules.RestoreResource(nameParts[0])
 
-		_, resourceRule := rules.ResourceRules(origGroup, resourceName)
+		_, resourceRule := rwRules.ResourceRules(origGroup, resourceName)
 		if resourceRule == nil {
 			continue
 		}
 
 		// Rewrite name and kind.
-		resBytes, err := sjson.SetBytes([]byte(resource.Raw), "name", rules.RestoreResource(name))
+		resBytes, err := sjson.SetBytes([]byte(resource.Raw), "name", rwRules.RestoreResource(name))
 		if err != nil {
 			return nil, err
 		}
 
 		kind := gjson.GetBytes(resBytes, "kind").String()
 		if kind != "" {
-			resBytes, err = sjson.SetBytes(resBytes, "kind", rules.RestoreKind(kind))
+			resBytes, err = sjson.SetBytes(resBytes, "kind", rwRules.RestoreKind(kind))
 			if err != nil {
 				return nil, err
 			}
@@ -237,7 +240,7 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) (
 
 		singular := gjson.GetBytes(resBytes, "singularName").String()
 		if singular != "" {
-			resBytes, err = sjson.SetBytes(resBytes, "singularName", rules.RestoreResource(singular))
+			resBytes, err = sjson.SetBytes(resBytes, "singularName", rwRules.RestoreResource(singular))
 			if err != nil {
 				return nil, err
 			}
@@ -249,7 +252,7 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) (
 			for _, shortName := range shortNames {
 				strShortNames = append(strShortNames, shortName.String())
 			}
-			newShortNames := rules.RestoreShortNames(strShortNames)
+			newShortNames := rwRules.RestoreShortNames(strShortNames)
 			resBytes, err = sjson.SetBytes(resBytes, "shortNames", newShortNames)
 			if err != nil {
 				return nil, err
@@ -258,7 +261,7 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) (
 
 		categories := gjson.GetBytes(resBytes, "categories")
 		if categories.Exists() {
-			restoredCategories := rules.RestoreCategories(resourceRule)
+			restoredCategories := rwRules.RestoreCategories(resourceRule)
 			resBytes, err = sjson.SetBytes(resBytes, "categories", restoredCategories)
 			if err != nil {
 				return nil, err
@@ -296,9 +299,9 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) (
 //		      }, ...
 //		    ]
 //
-// NOTE: Can't use RewriteArray here, because one APIGroupDiscovery with renamed
+// NOTE: Can't use transform.Array here, because one APIGroupDiscovery with renamed
 // resource produces many APIGroupDiscovery objects with restored resource.
-func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, error) {
+func RewriteAPIGroupDiscoveryList(rwRules *rules.RewriteRules, obj []byte) ([]byte, error) {
 	items := gjson.GetBytes(obj, "items").Array()
 	if len(items) == 0 {
 		return obj, nil
@@ -311,7 +314,7 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 
 		groupName := gjson.GetBytes(itemBytes, "metadata.name").String()
 
-		if groupName != rules.RenamedGroup {
+		if groupName != rwRules.RenamedGroup {
 			// No transform for non-renamed groups.
 			rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", itemBytes)
 			if err != nil {
@@ -320,7 +323,7 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 			continue
 		}
 
-		newItems, err := RestoreAggregatedGroupDiscovery(rules, itemBytes)
+		newItems, err := RestoreAggregatedGroupDiscovery(rwRules, itemBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -362,7 +365,7 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 // Renamed resources in one version may belong to different original groups,
 // so this method indexes and restores all resources in APIResourceDiscovery
 // and then produces APIGroupDiscovery for each restored group.
-func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte, error) {
+func RestoreAggregatedGroupDiscovery(rwRules *rules.RewriteRules, obj []byte) ([][]byte, error) {
 	// restoredResources holds restored resources indexed by group and version to construct final APIGroupDiscovery items later.
 	// A  APIGroupDiscovery "metadata" object field and a version item "version" field are not stored and will be reconstructed.
 	restoredResources := make(map[string]map[string][][]byte)
@@ -394,7 +397,7 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 		}
 
 		for _, resource := range resources {
-			restoredGroup, restoredResource, err := RestoreAggregatedDiscoveryResource(rules, []byte(resource.Raw))
+			restoredGroup, restoredResource, err := RestoreAggregatedDiscoveryResource(rwRules, []byte(resource.Raw))
 			if err != nil {
 				return nil, nil
 			}
@@ -483,14 +486,14 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 //	    }
 //	  ]
 //	}
-func RestoreAggregatedDiscoveryResource(rules *RewriteRules, obj []byte) (string, []byte, error) {
+func RestoreAggregatedDiscoveryResource(rwRules *rules.RewriteRules, obj []byte) (string, []byte, error) {
 	var err error
 
 	// Get resource plural.
 	resource := gjson.GetBytes(obj, "resource").String()
-	origResource := rules.RestoreResource(resource)
+	origResource := rwRules.RestoreResource(resource)
 
-	groupRule, resRule := rules.GroupResourceRules(origResource)
+	groupRule, resRule := rwRules.GroupResourceRules(origResource)
 
 	// Ignore resource without rules.
 	if resRule == nil {
@@ -519,7 +522,7 @@ func RestoreAggregatedDiscoveryResource(rules *RewriteRules, obj []byte) (string
 
 	singular := gjson.GetBytes(obj, "singularResource").String()
 	if singular != "" {
-		obj, err = sjson.SetBytes(obj, "singularResource", rules.RestoreResource(singular))
+		obj, err = sjson.SetBytes(obj, "singularResource", rwRules.RestoreResource(singular))
 		if err != nil {
 			return "", nil, err
 		}
@@ -531,7 +534,7 @@ func RestoreAggregatedDiscoveryResource(rules *RewriteRules, obj []byte) (string
 		for _, shortName := range shortNames {
 			strShortNames = append(strShortNames, shortName.String())
 		}
-		newShortNames := rules.RestoreShortNames(strShortNames)
+		newShortNames := rwRules.RestoreShortNames(strShortNames)
 		obj, err = sjson.SetBytes(obj, "shortNames", newShortNames)
 		if err != nil {
 			return "", nil, err
@@ -540,14 +543,14 @@ func RestoreAggregatedDiscoveryResource(rules *RewriteRules, obj []byte) (string
 
 	categories := gjson.GetBytes(obj, "categories")
 	if categories.Exists() {
-		restoredCategories := rules.RestoreCategories(resRule)
+		restoredCategories := rwRules.RestoreCategories(resRule)
 		obj, err = sjson.SetBytes(obj, "categories", restoredCategories)
 		if err != nil {
 			return "", nil, err
 		}
 	}
 
-	obj, err = RewriteArray(obj, "subresources", func(item []byte) ([]byte, error) {
+	obj, err = transform.Array(obj, "subresources", func(item []byte) ([]byte, error) {
 		// Reconstruct group and kind in responseKind field.
 		responseKind := gjson.GetBytes(item, "responseKind")
 		if responseKind.IsObject() {

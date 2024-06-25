@@ -19,13 +19,15 @@ package rewriter
 import (
 	"fmt"
 	"net/http"
+
+	"kube-api-proxy/pkg/rewriter/rules"
 )
 
 type TargetRequest struct {
 	originEndpoint *APIEndpoint
 	targetEndpoint *APIEndpoint
 
-	webhookRule *WebhookRule
+	webhookRule *rules.WebhookRule
 }
 
 func NewTargetRequest(rwr *RuleBasedRewriter, req *http.Request) *TargetRequest {
