@@ -230,6 +230,13 @@ Host: 127.0.0.1
             	"uid": "30b43f23-0c36-442f-897f-fececdf54620",
             	"controller": true,
             	"blockOwnerDeletion": true
+          	},
+			{
+            	"apiVersion": "other.product.group.io/v1alpha1",
+            	"kind": "SomeResource",
+            	"name": "another-owner-name",
+            	"controller": true,
+            	"blockOwnerDeletion": true
           	}
         	]
 		},
@@ -265,8 +272,94 @@ Host: 127.0.0.1
 		{`items.0.metadata.labels.component\.labelgroup\.io/labelName`, "labelValue"},
 		{`items.0.metadata.annotations.replacedanno\.io`, ""},
 		{`items.0.metadata.annotations.annogroup\.io`, "annoValue"},
-		{`items.0.metadata.ownerReferences.0.kind`, "SomeResource"},
 		{`items.0.metadata.ownerReferences.0.apiVersion`, "original.group.io/v1"},
+		{`items.0.metadata.ownerReferences.0.kind`, "SomeResource"},
+		// "other.progduct.group.io" is not known for rules, this ownerRef should not be rewritten.
+		{`items.0.metadata.ownerReferences.1.apiVersion`, "other.product.group.io/v1alpha1"},
+		{`items.0.metadata.ownerReferences.1.kind`, "SomeResource"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Log(string(resultBytes))
+				t.Fatalf("%s value should be %s, got %s", tt.path, tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestRenameControllerRevision(t *testing.T) {
+	postControllerRevision := `POST /apis/apps/v1/controllerrevisions/namespaces/ns/ctrl-rev-name HTTP/1.1
+Host: 127.0.0.1
+
+`
+	requestBody := `{
+"kind":"ControllerRevision",
+"apiVersion":"apps/v1",
+"metadata": {
+	"name": "resource-name",
+	"namespace": "ns-name",
+	"labels": {
+		"component.labelgroup.io/labelName": "labelValue"
+	},
+	"annotations":{
+		"annogroup.io": "annoValue"
+	},
+	"ownerReferences": [
+	{
+		"apiVersion": "original.group.io/v1",
+		"kind": "SomeResource",
+		"name": "owner-name",
+		"uid": "30b43f23-0c36-442f-897f-fececdf54620",
+		"controller": true,
+		"blockOwnerDeletion": true
+	},
+	{
+		"apiVersion": "other.product.group.io/v1alpha1",
+		"kind": "SomeResource",
+		"name": "another-owner-name",
+		"controller": true,
+		"blockOwnerDeletion": true
+	}
+	]
+},
+"data": {"somekey":"somevalue"}
+}`
+
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(postControllerRevision + requestBody)))
+	require.NoError(t, err, "should parse hardcoded http request")
+	require.NotNil(t, req.URL, "should parse url in hardcoded http request")
+
+	rwr := createTestRewriter()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.True(t, targetReq.ShouldRewriteRequest(), "should rewrite request")
+	require.True(t, targetReq.ShouldRewriteResponse(), "should rewrite response")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(requestBody), Rename)
+	if err != nil {
+		t.Fatalf("should rename RevisionController without error: %v", err)
+	}
+	if resultBytes == nil {
+		t.Fatalf("should rename RevisionController: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{`kind`, "ControllerRevision"},
+		{`metadata.labels.component\.replacedlabelgroup\.io/labelName`, "labelValue"},
+		{`metadata.labels.component\.labelgroup\.io/labelName`, ""},
+		{`metadata.annotations.replacedanno\.io`, "annoValue"},
+		{`metadata.annotations.annogroup\.io`, ""},
+		{`metadata.ownerReferences.0.apiVersion`, "prefixed.resources.group.io/v1"},
+		{`metadata.ownerReferences.0.kind`, "PrefixedSomeResource"},
+		// "other.progduct.group.io" is not known for rules, this ownerRef should not be rewritten.
+		{`metadata.ownerReferences.1.apiVersion`, "other.product.group.io/v1alpha1"},
+		{`metadata.ownerReferences.1.kind`, "SomeResource"},
 	}
 
 	for _, tt := range tests {
