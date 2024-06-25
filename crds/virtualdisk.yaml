@@ -193,31 +193,36 @@ spec:
               type: object
               properties:
                 conditions:
-                  type: array
                   description: |
-                    Hold the state information of the `ClusterVirtualImage`.
+                    The latest available observations of an object's current state.
+                  type: array
                   items:
                     type: object
                     properties:
-                      type:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
                         type: string
-                      status:
-                        type: string
-                      reason:
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
                         type: string
                       message:
+                        description: Human readable message indicating details about last transition.
                         type: string
-                      lastProbeTime:
+                      reason:
+                        description: (brief) reason for the condition's last transition.
                         type: string
-                        format: date-time
-                        nullable: true
-                      lastTransitionTime:
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
                         type: string
-                        format: date-time
-                        nullable: true
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
                     required:
-                      - type
                       - status
+                      - type
                 downloadSpeed:
                   type: object
                   description: |
@@ -271,7 +276,6 @@ spec:
                       "Ready",
                       "Failed",
                       "PVCLost",
-                      "Unknown",
                       "Terminating",
                     ]
                 progress:
@@ -295,7 +299,7 @@ spec:
                 observedGeneration:
                   type: integer
                   description: |
-                    Represents the .metadata.generation that the status was set based upon.
+                    The generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string

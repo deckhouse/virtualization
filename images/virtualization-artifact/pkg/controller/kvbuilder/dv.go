@@ -60,6 +60,10 @@ func (b *DV) SetPVC(storageClassName *string, size resource.Quantity) {
 	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName, size)
 }
 
+func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {
+	b.Resource.Spec.Source = source
+}
+
 func (b *DV) SetRegistryDataSource(imageName, authSecret, caBundleConfigMap string) {
 	url := common.DockerRegistrySchemePrefix + imageName
 

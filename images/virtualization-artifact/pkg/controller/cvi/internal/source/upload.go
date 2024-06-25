@@ -93,6 +93,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		cvi.Status.Phase = virtv2.ImageReady
 
+		// Unprotect upload time supplements to delete them later.
 		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
 		if err != nil {
 			return false, err

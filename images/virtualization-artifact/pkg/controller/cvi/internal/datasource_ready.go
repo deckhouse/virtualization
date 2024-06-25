@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -72,15 +71,15 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.DatasourceReadyReason_ContainerRegistrySecretNotFound
-		condition.Message = strings.ToTitle(err.Error())
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.DatasourceReadyReason_ImageNotReady
-		condition.Message = strings.ToTitle(err.Error())
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.DatasourceReadyReason_ClusterImageNotReady
-		condition.Message = strings.ToTitle(err.Error())
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	}
 
 	return reconcile.Result{}, err
