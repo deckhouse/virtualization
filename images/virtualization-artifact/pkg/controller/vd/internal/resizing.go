@@ -62,7 +62,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	newSize := vd.Spec.PersistentVolumeClaim.Size
 	if newSize == nil {
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ResizedReason_NotRequested
+		condition.Reason = vdcondition.NotRequested
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -70,7 +70,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ResizedReason_NotRequested
+		condition.Reason = vdcondition.NotRequested
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -86,15 +86,15 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	if newSize.Equal(pvc.Status.Capacity[corev1.ResourceStorage]) {
-		if condition.Reason == vdcondition.ResizedReason_InProgress {
+		if condition.Reason == vdcondition.InProgress {
 			condition.Status = metav1.ConditionTrue
-			condition.Reason = vdcondition.ResizedReason_Resized
+			condition.Reason = vdcondition.Resized
 			condition.Message = ""
 			return reconcile.Result{}, nil
 		}
 
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ResizedReason_NotRequested
+		condition.Reason = vdcondition.NotRequested
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -103,12 +103,12 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	switch {
 	case err == nil:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ResizedReason_InProgress
+		condition.Reason = vdcondition.InProgress
 		condition.Message = "The virtual disk is in the process of resizing."
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrTooSmallDiskSize):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ResizedReason_TooSmallDiskSize
+		condition.Reason = vdcondition.TooSmallDiskSize
 		condition.Message = "The new size of the virtual disk must not be smaller than the current size."
 		return reconcile.Result{}, nil
 	default:

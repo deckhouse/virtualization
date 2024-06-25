@@ -68,7 +68,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		condition := vd.Status.Conditions[0]
 		require.Equal(t, vdcondition.DatasourceReadyType, condition.Type)
 		require.Equal(t, metav1.ConditionTrue, condition.Status)
-		require.Equal(t, vdcondition.DatasourceReadyReason_DatasourceReady, condition.Reason)
+		require.Equal(t, vdcondition.DatasourceReady, condition.Reason)
 	})
 
 	t.Run("VirtualDisk with Non Blank DataSource", func(t *testing.T) {
@@ -87,6 +87,6 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		condition := vd.Status.Conditions[0]
 		require.Equal(t, vdcondition.DatasourceReadyType, condition.Type)
 		require.Equal(t, metav1.ConditionTrue, condition.Status)
-		require.Equal(t, vdcondition.DatasourceReadyReason_DatasourceReady, condition.Reason)
+		require.Equal(t, vdcondition.DatasourceReady, condition.Reason)
 	})
 }

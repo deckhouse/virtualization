@@ -84,15 +84,15 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		switch {
 		case pvc == nil:
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ReadyReason_Lost
+			condition.Reason = vdcondition.Lost
 			condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
 		case pv == nil:
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ReadyReason_Lost
+			condition.Reason = vdcondition.Lost
 			condition.Message = fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName)
 		default:
 			condition.Status = metav1.ConditionTrue
-			condition.Reason = vdcondition.ReadyReason_Ready
+			condition.Reason = vdcondition.Ready
 			condition.Message = ""
 		}
 
@@ -132,7 +132,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ReadyReason_Provisioning
+		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		vd.Status.Progress = "0%"
@@ -143,7 +143,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 	case common.IsDataVolumeComplete(dv):
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.ReadyReason_Ready
+		condition.Reason = vdcondition.Ready
 		condition.Message = ""
 
 		vd.Status.Progress = "100%"
@@ -168,19 +168,19 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		case err == nil:
 			vd.Status.Phase = virtv2.DiskProvisioning
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ReadyReason_Provisioning
+			condition.Reason = vdcondition.Provisioning
 			condition.Message = "Import is in the process of provisioning to PVC."
 			return false, nil
 		case errors.Is(err, service.ErrStorageClassNotFound):
 			vd.Status.Phase = virtv2.DiskFailed
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ReadyReason_ProvisioningFailed
+			condition.Reason = vdcondition.ProvisioningFailed
 			condition.Message = "Provided StorageClass not found in the cluster."
 			return false, nil
 		case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 			vd.Status.Phase = virtv2.DiskFailed
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ReadyReason_ProvisioningFailed
+			condition.Reason = vdcondition.ProvisioningFailed
 			condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
 			return false, nil
 		default:

@@ -87,5 +87,5 @@ func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Cleaner) 
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
-	return c.Reason == vdcondition.ReadyReason_Ready || c.Reason == vdcondition.ReadyReason_Lost
+	return c.Reason == vdcondition.Ready || c.Reason == vdcondition.Lost
 }

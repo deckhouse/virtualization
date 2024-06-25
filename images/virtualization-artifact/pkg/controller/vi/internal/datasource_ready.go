@@ -67,15 +67,15 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 	switch {
 	case err == nil:
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.DatasourceReadyReason_DatasourceReady
+		condition.Reason = vicondition.DatasourceReady
 		condition.Message = ""
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.DatasourceReadyReason_ContainerRegistrySecretNotFound
+		condition.Reason = vicondition.ContainerRegistrySecretNotFound
 		condition.Message = strings.ToTitle(err.Error())
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.DatasourceReadyReason_ImageNotReady
+		condition.Reason = vicondition.ImageNotReady
 		condition.Message = strings.ToTitle(err.Error())
 	}
 

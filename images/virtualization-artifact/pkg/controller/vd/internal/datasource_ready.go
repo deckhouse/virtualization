@@ -74,22 +74,22 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	switch {
 	case err == nil:
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.DatasourceReadyReason_DatasourceReady
+		condition.Reason = vdcondition.DatasourceReady
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.DatasourceReadyReason_ContainerRegistrySecretNotFound
+		condition.Reason = vdcondition.ContainerRegistrySecretNotFound
 		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.DatasourceReadyReason_ImageNotReady
+		condition.Reason = vdcondition.ImageNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.DatasourceReadyReason_ClusterImageNotReady
+		condition.Reason = vdcondition.ClusterImageNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	default:

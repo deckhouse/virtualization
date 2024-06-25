@@ -16,35 +16,56 @@ limitations under the License.
 
 package vdcondition
 
+// Type represents the various condition types for the `VirtualDisk`.
 type Type = string
 
 const (
+	// DatasourceReadyType indicates whether the data source (for example, a `VirtualImage`) is ready, allowing the import process for the `VirtualDisk` to start.
 	DatasourceReadyType Type = "DatasourceReady"
-	ReadyType           Type = "Ready"
-	ResizedType         Type = "Resized"
+	// ReadyType indicates whether the import process succeeded and the `VirtualDisk` is ready for use.
+	ReadyType Type = "Ready"
+	// ResizedType indicates whether the disk resizing operation is completed.
+	ResizedType Type = "Resized"
 )
 
 type (
+	// DatasourceReadyReason represents the various reasons for the DatasourceReady condition type.
 	DatasourceReadyReason = string
-	ReadyReason           = string
-	ResizedReason         = string
+	// ReadyReason represents the various reasons for the Ready condition type.
+	ReadyReason = string
+	// ResizedReason represents the various reasons for the Resized condition type.
+	ResizedReason = string
 )
 
 const (
-	DatasourceReadyReason_DatasourceReady                 DatasourceReadyReason = "DatasourceReady"
-	DatasourceReadyReason_ContainerRegistrySecretNotFound DatasourceReadyReason = "ContainerRegistrySecretNotFound"
-	DatasourceReadyReason_ImageNotReady                   DatasourceReadyReason = "ImageNotReady"
-	DatasourceReadyReason_ClusterImageNotReady            DatasourceReadyReason = "ClusterImageNotReady"
+	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
+	DatasourceReady DatasourceReadyReason = "DatasourceReady"
+	// ContainerRegistrySecretNotFound indicates that the container registry secret was not found, which prevents the import process from starting.
+	ContainerRegistrySecretNotFound DatasourceReadyReason = "ContainerRegistrySecretNotFound"
+	// ImageNotReady indicates that the `VirtualImage` datasource is not ready yet, which prevents the import process from starting.
+	ImageNotReady DatasourceReadyReason = "ImageNotReady"
+	// ClusterImageNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
+	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 
-	ReadyReason_WaitForUserUpload      ReadyReason = "WaitForUserUpload"
-	ReadyReason_Provisioning           ReadyReason = "Provisioning"
-	ReadyReason_ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
-	ReadyReason_ProvisioningFailed     ReadyReason = "ProvisioningFailed"
-	ReadyReason_Ready                  ReadyReason = "Ready"
-	ReadyReason_Lost                   ReadyReason = "PVCLost"
+	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
+	WaitForUserUpload ReadyReason = "WaitForUserUpload"
+	// Provisioning indicates that the provisioning process is currently in progress.
+	Provisioning ReadyReason = "Provisioning"
+	// ProvisioningNotStarted indicates that the provisioning process has not started yet.
+	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
+	// ProvisioningFailed indicates that the provisioning process has failed.
+	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// Ready indicates that the import process is complete and the `VirtualDisk` is ready for use.
+	Ready ReadyReason = "Ready"
+	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
+	Lost ReadyReason = "PVCLost"
 
-	ResizedReason_NotRequested     ResizedReason = "NotRequested"
-	ResizedReason_InProgress       ResizedReason = "InProgress"
-	ResizedReason_TooSmallDiskSize ResizedReason = "TooSmallDiskSize"
-	ResizedReason_Resized          ResizedReason = "Resized"
+	// NotRequested indicates that the resize operation has not been requested yet.
+	NotRequested ResizedReason = "NotRequested"
+	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
+	InProgress ResizedReason = "InProgress"
+	// TooSmallDiskSize indicates that the requested disk size is too small for the resize operation.
+	TooSmallDiskSize ResizedReason = "TooSmallDiskSize"
+	// Resized indicates that the resize operation has been successfully completed.
+	Resized ResizedReason = "Resized"
 )

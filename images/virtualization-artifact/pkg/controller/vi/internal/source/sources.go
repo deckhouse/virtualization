@@ -83,5 +83,5 @@ func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, err
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
-	return c.Reason == vicondition.ReadyReason_Ready
+	return c.Reason == vicondition.Ready
 }

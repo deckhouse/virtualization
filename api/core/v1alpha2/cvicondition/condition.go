@@ -16,27 +16,41 @@ limitations under the License.
 
 package cvicondition
 
+// Type represents the various condition types for the `ClusterVirtualImage`.
 type Type = string
 
 const (
+	// DatasourceReadyType indicates whether the datasource (for example, a `VirtualImage`) is ready, allowing the import process for the `ClusterVirtualImage` to start.
 	DatasourceReadyType Type = "DatasourceReady"
-	ReadyType           Type = "Ready"
+	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
+	ReadyType Type = "Ready"
 )
 
 type (
+	// DatasourceReadyReason represents the various reasons for the DatasourceReady condition type.
 	DatasourceReadyReason = string
-	ReadyReason           = string
+	// ReadyReason represents the various reasons for the Ready condition type.
+	ReadyReason = string
 )
 
 const (
-	DatasourceReadyReason_DatasourceReady                 DatasourceReadyReason = "DatasourceReady"
-	DatasourceReadyReason_ContainerRegistrySecretNotFound DatasourceReadyReason = "ContainerRegistrySecretNotFound"
-	DatasourceReadyReason_ImageNotReady                   DatasourceReadyReason = "ImageNotReady"
-	DatasourceReadyReason_ClusterImageNotReady            DatasourceReadyReason = "ClusterImageNotReady"
+	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
+	DatasourceReady DatasourceReadyReason = "DatasourceReady"
+	// ContainerRegistrySecretNotFound indicates that the container registry secret was not found, which prevents the import process from starting.
+	ContainerRegistrySecretNotFound DatasourceReadyReason = "ContainerRegistrySecretNotFound"
+	// ImageNotReady indicates that the `VirtualImage` datasource is not ready yet, which prevents the import process from starting.
+	ImageNotReady DatasourceReadyReason = "ImageNotReady"
+	// ClusterImageNotReady indicates that the `ClusterVirtualImage` datasource is not ready, which prevents the import process from starting.
+	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 
-	ReadyReason_WaitForUserUpload      ReadyReason = "WaitForUserUpload"
-	ReadyReason_Provisioning           ReadyReason = "Provisioning"
-	ReadyReason_ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
-	ReadyReason_ProvisioningFailed     ReadyReason = "ProvisioningFailed"
-	ReadyReason_Ready                  ReadyReason = "Ready"
+	// WaitForUserUpload indicates that the `ClusterVirtualImage` is waiting for the user to upload a datasource for the import process to continue.
+	WaitForUserUpload ReadyReason = "WaitForUserUpload"
+	// Provisioning indicates that the provisioning process is currently in progress.
+	Provisioning ReadyReason = "Provisioning"
+	// ProvisioningNotStarted indicates that the provisioning process has not started yet.
+	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
+	// ProvisioningFailed indicates that the provisioning process has failed.
+	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
+	Ready ReadyReason = "Ready"
 )
