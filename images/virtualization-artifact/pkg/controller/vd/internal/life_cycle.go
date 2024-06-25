@@ -73,7 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, nil
 	}
 
-	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.ReadyReason_Lost && h.sources.Changed(ctx, vd) {
+	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost && h.sources.Changed(ctx, vd) {
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,
 			Conditions:         vd.Status.Conditions,

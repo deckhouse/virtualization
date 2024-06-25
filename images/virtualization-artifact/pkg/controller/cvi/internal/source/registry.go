@@ -81,7 +81,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		ds.logger.Info("Finishing...", "cvi", cvi.Name)
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.ReadyReason_Ready
+		condition.Reason = cvicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
@@ -99,7 +99,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		ds.logger.Info("Cleaning up...", "cvi", cvi.Name)
 	case pod == nil:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.ReadyReason_Provisioning
+		condition.Reason = cvicondition.Provisioning
 		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
@@ -115,7 +115,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		ds.logger.Info("Create importer pod...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", "nil")
 	case common.IsPodComplete(pod):
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.ReadyReason_Ready
+		condition.Reason = cvicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
@@ -134,12 +134,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ReadyReason_ProvisioningNotStarted
+				condition.Reason = cvicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ReadyReason_ProvisioningFailed
+				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -148,7 +148,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		}
 
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.ReadyReason_Provisioning
+		condition.Reason = cvicondition.Provisioning
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		cvi.Status.Phase = virtv2.ImageProvisioning

@@ -66,19 +66,19 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 	switch {
 	case err == nil:
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.DatasourceReadyReason_DatasourceReady
+		condition.Reason = cvicondition.DatasourceReady
 		condition.Message = ""
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.DatasourceReadyReason_ContainerRegistrySecretNotFound
+		condition.Reason = cvicondition.ContainerRegistrySecretNotFound
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.DatasourceReadyReason_ImageNotReady
+		condition.Reason = cvicondition.ImageNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.DatasourceReadyReason_ClusterImageNotReady
+		condition.Reason = cvicondition.ClusterImageNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 	}
 

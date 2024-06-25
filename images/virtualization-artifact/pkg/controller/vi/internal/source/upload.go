@@ -86,7 +86,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		ds.logger.Info("Finishing...", "vi", vi.Name)
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.ReadyReason_Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		vi.Status.Phase = virtv2.ImageReady
@@ -103,7 +103,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		ds.logger.Info("Cleaning up...", "vi", vi.Name)
 	case pod == nil && svc == nil && ing == nil:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ReadyReason_Provisioning
+		condition.Reason = vicondition.Provisioning
 		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		envSettings := ds.getEnvSettings(supgen)
@@ -118,7 +118,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		ds.logger.Info("Create uploader pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", nil)
 	case common.IsPodComplete(pod):
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.ReadyReason_Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		vi.Status.Phase = virtv2.ImageReady
@@ -138,12 +138,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ReadyReason_ProvisioningNotStarted
+				condition.Reason = vicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ReadyReason_ProvisioningFailed
+				condition.Reason = vicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -152,7 +152,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		}
 
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ReadyReason_Provisioning
+		condition.Reason = vicondition.Provisioning
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vi.Status.Phase = virtv2.ImageProvisioning
@@ -168,7 +168,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		ds.logger.Info("Provisioning...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ReadyReason_WaitForUserUpload
+		condition.Reason = vicondition.WaitForUserUpload
 		condition.Message = "Waiting for the user upload."
 
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
