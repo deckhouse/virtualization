@@ -78,14 +78,6 @@ func (p *Pod) Create(ctx context.Context, client client.Client) (*corev1.Pod, er
 	return pod, nil
 }
 
-func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	if pod == nil {
-		return nil
-	}
-
-	return helper.CleanupObject(ctx, client, pod)
-}
-
 func (p *Pod) makeSpec() *corev1.Pod {
 	pod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{

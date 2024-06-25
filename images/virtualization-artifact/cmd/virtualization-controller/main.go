@@ -45,6 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -187,7 +188,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := controller.NewVMIController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
+	if _, err := vi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
