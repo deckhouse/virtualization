@@ -1,0 +1,15 @@
+diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
+index e633c3919..f7ea47f0b 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types.go
++++ b/staging/src/kubevirt.io/api/core/v1/types.go
+@@ -825,8 +825,8 @@ const (
+ 	AppComponent = "kubevirt"
+ 	// This label will be set on all resources created by the operator
+ 	ManagedByLabel                 = AppLabelPrefix + "/managed-by"
+-	ManagedByLabelOperatorValue    = "virt-operator"
+-	ManagedByLabelOperatorOldValue = "kubevirt-operator"
++	ManagedByLabelOperatorValue    = "virt-operator-internal-virtualization"
++	ManagedByLabelOperatorOldValue = "kubevirt-operator-internal-virtualization"
+ 	// This annotation represents the kubevirt version for an install strategy configmap.
+ 	InstallStrategyVersionAnnotation = "install.internal.virtualization.deckhouse.io/install-strategy-version"
+ 	// This annotation represents the kubevirt registry used for an install strategy configmap.

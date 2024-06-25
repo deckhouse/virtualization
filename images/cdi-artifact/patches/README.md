@@ -21,3 +21,7 @@ set ContentTypeJson for kubernetes clients.
 
 #### `008-rename-core-resources.patch`
 Replace "cdi" with "cdi-internal-virtualziation" in the core resource names.
+
+#### `009-rename-managed-by-label-value.patch`
+
+Rename value of apps.kubernetes.io/managed-by label to "cdi-operator-internal-virtualization" for all cdi resources.
