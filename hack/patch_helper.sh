@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Copyright 2024 Flant JSC
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Helper to automate some routine operations with patches:
 # - Apply all patches in a separate branch to help you make a new patch.
 # - Apply patches before some patch to help you change specified patch.
@@ -129,11 +143,11 @@ function main() {
     echo -n "Apply ${name} ... "
     if git apply --ignore-space-change --ignore-whitespace ${patch_path} ; then
       echo OK
-      git add .
       if [[ -n ${stop_at_name} && ${stop_at_name} = ${name} ]] ; then
         echo "Stop applying patches. NOTE: ${name} is left uncommitted."
         break
       fi
+      git add .
       git commit -a -m "Apply patch ${name}"
     else
       echo FAIL
