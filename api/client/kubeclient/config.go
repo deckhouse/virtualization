@@ -1,6 +1,6 @@
 /*
-Copyright 2018 The KubeVirt Authors.
-Copyright 2024 Flant JSC.
+Copyright 2018 The KubeVirt Authors
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@ func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
 	// DEPRECATED: remove and replace with something more accurate
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 
-	flags.StringVar(&loadingRules.ExplicitPath, "kubeconfig", "", "Path to the kubeconfig file to use for CLI requests.")
+	flags.StringVar(&loadingRules.ExplicitPath, "kubeconfig", "",
+		"Path to the kubeconfig file to use for CLI requests.")
 
 	overrides := &clientcmd.ConfigOverrides{ClusterDefaults: clientcmd.ClusterDefaults}
 

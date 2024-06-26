@@ -1,6 +1,6 @@
 /*
-Copyright 2018 The KubeVirt Authors.
-Copyright 2024 Flant JSC.
+Copyright 2018 The KubeVirt Authors
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@ import (
 
 const operationURLTpl = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/%s/%s/%s"
 
-func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string, queryParams url.Values) (*http.Request, error) {
+func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string,
+	queryParams url.Values) (*http.Request, error) {
 	u, err := url.Parse(config.Host)
 	if err != nil {
 		return nil, err

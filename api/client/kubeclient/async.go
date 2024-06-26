@@ -1,6 +1,6 @@
 /*
-Copyright 2018 The KubeVirt Authors.
-Copyright 2024 Flant JSC.
+Copyright 2018 The KubeVirt Authors
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -65,7 +65,8 @@ func (a *AsyncSubresourceError) GetStatusCode() int {
 }
 
 // params are strings with "key=value" format
-func asyncSubresourceHelper(config *rest.Config, resource, namespace, name, subresource string, queryParams url.Values) (StreamInterface, error) {
+func asyncSubresourceHelper(config *rest.Config, resource, namespace, name, subresource string,
+	queryParams url.Values) (StreamInterface, error) {
 	done := make(chan struct{})
 
 	aws := &asyncWSRoundTripper{
@@ -105,9 +106,11 @@ func asyncSubresourceHelper(config *rest.Config, resource, namespace, name, subr
 			case http.StatusNotFound:
 				err = &AsyncSubresourceError{err: "Virtual Machine not found.", StatusCode: response.StatusCode}
 			case http.StatusInternalServerError:
-				err = &AsyncSubresourceError{err: "Websocket failed due to internal server error.", StatusCode: response.StatusCode}
+				err = &AsyncSubresourceError{err: "Websocket failed due to internal server error.",
+					StatusCode: response.StatusCode}
 			default:
-				err = &AsyncSubresourceError{err: fmt.Sprintf("Websocket failed with http status: %s", response.Status), StatusCode: response.StatusCode}
+				err = &AsyncSubresourceError{err: fmt.Sprintf("Websocket failed with http status: %s", response.Status),
+					StatusCode: response.StatusCode}
 			}
 		} else {
 			err = &AsyncSubresourceError{err: "no response received"}
