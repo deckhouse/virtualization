@@ -235,12 +235,26 @@ func (s DiskService) GetPersistentVolume(ctx context.Context, pvc *corev1.Persis
 	return helper.FetchObject(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, s.client, &corev1.PersistentVolume{})
 }
 
-func (s DiskService) CheckStorageClass(ctx context.Context, storageClassName *string) error {
+func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, storageClassName *string) error {
+	var err error
+
 	if storageClassName == nil || *storageClassName == "" {
-		return s.checkDefaultStorageClass(ctx)
+		err = s.checkDefaultStorageClass(ctx)
+	} else {
+		err = s.checkStorageClass(ctx, *storageClassName)
+	}
+	if err != nil {
+		return err
 	}
 
-	return s.checkStorageClass(ctx, *storageClassName)
+	if dv != nil {
+		dvRunning := GetDataVolumeCondition(cdiv1.DataVolumeRunning, dv.Status.Conditions)
+		if dvRunning != nil && dvRunning.Status == corev1.ConditionFalse && dvRunning.Reason == "Error" {
+			return fmt.Errorf("%w: %s", ErrDataVolumeNotRunning, dvRunning.Message)
+		}
+	}
+
+	return nil
 }
 
 func (s DiskService) checkDefaultStorageClass(ctx context.Context) error {
@@ -251,7 +265,6 @@ func (s DiskService) checkDefaultStorageClass(ctx context.Context) error {
 	}
 
 	for _, sc := range scs.Items {
-		// TODO comment.
 		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
 			return nil
 		}

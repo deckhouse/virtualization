@@ -23,4 +23,5 @@ var ErrTooSmallDiskSize = errors.New("virtual disk size is too small")
 var (
 	ErrStorageClassNotFound        = errors.New("storage class not found")
 	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
+	ErrDataVolumeNotRunning        = errors.New("pvc import is not running")
 )
