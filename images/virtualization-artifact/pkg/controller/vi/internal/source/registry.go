@@ -111,6 +111,21 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 
 		ds.logger.Info("Create importer pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", "nil")
 	case common.IsPodComplete(pod):
+		err = ds.statService.CheckPod(pod)
+		if err != nil {
+			vi.Status.Phase = virtv2.ImageFailed
+
+			switch {
+			case errors.Is(err, service.ErrProvisioningFailed):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
