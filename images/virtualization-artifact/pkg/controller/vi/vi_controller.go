@@ -52,7 +52,7 @@ func NewController(
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
 	stat := service.NewStatService()
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVirtualImageProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 
@@ -67,6 +67,7 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
+		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})

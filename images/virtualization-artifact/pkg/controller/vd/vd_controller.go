@@ -52,7 +52,7 @@ func NewController(
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
 	stat := service.NewStatService()
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVirtualDiskProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
