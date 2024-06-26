@@ -20,6 +20,7 @@ import (
 	"unicode"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -59,4 +60,13 @@ func CapitalizeFirstLetter(s string) string {
 	runes[0] = unicode.ToUpper(runes[0])
 
 	return string(runes)
+}
+
+func GetDataVolumeCondition(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
+	for i, condition := range conditions {
+		if condition.Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
 }
