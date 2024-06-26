@@ -34,7 +34,17 @@ func NewPrefixedNameRewriter(replaceRules MetadataReplace) *PrefixedNameRewriter
 	}
 }
 
-func (p *PrefixedNameRewriter) Rewrite(name, value string, action Action) (string, string) {
+func (p *PrefixedNameRewriter) Rewrite(name string, action Action) string {
+	switch action {
+	case Rename:
+		name, _ = p.rename(name, "")
+	case Restore:
+		name, _ = p.restore(name, "")
+	}
+	return name
+}
+
+func (p *PrefixedNameRewriter) RewriteNameValue(name, value string, action Action) (string, string) {
 	switch action {
 	case Rename:
 		return p.rename(name, value)
@@ -46,8 +56,7 @@ func (p *PrefixedNameRewriter) Rewrite(name, value string, action Action) (strin
 
 func (p *PrefixedNameRewriter) RewriteNameValues(name string, values []string, action Action) (string, []string) {
 	if len(values) == 0 {
-		rwrName, _ := p.Rewrite(name, "", action)
-		return rwrName, values
+		return p.Rewrite(name, action), values
 	}
 	switch action {
 	case Rename:

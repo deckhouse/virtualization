@@ -60,19 +60,18 @@ func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
 
 func RewriteLabelsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
 	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
-		return rules.LabelsRewriter().Rewrite(k, v, action)
+		return rules.LabelsRewriter().RewriteNameValue(k, v, action)
 	})
 }
 
 func RewriteAnnotationsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
 	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
-		return rules.AnnotationsRewriter().Rewrite(k, v, action)
+		return rules.AnnotationsRewriter().RewriteNameValue(k, v, action)
 	})
 }
 
 func RewriteFinalizers(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
 	return TransformArrayOfStrings(obj, path, func(finalizer string) string {
-		rwrFin, _ := rules.FinalizersRewriter().Rewrite(finalizer, "", action)
-		return rwrFin
+		return rules.FinalizersRewriter().Rewrite(finalizer, action)
 	})
 }
