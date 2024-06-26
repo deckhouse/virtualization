@@ -168,7 +168,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
 			&virtv2.VirtualDisk{},
-			handler.OnlyControllerOwner(),
 		), predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },

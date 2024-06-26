@@ -17,14 +17,25 @@ limitations under the License.
 package internal
 
 import (
+	"context"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Handler Sources
+//go:generate moq -rm -out mock.go . Handler Sources DiskService
 
 type Handler = source.Handler
 
 type Sources interface {
 	Get(dsType virtv2.DataSourceType) (source.Handler, bool)
+}
+
+type DiskService interface {
+	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

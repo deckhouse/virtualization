@@ -16,113 +16,152 @@ limitations under the License.
 
 package internal
 
-// func TestResizedHandler_Handle(t *testing.T) {
-// 	ctx := context.TODO()
-//
-// 	t.Run("VirtualDisk with DeletionTimestamp", func(t *testing.T) {
-// 		vd := virtv2.VirtualDisk{
-// 			ObjectMeta: metav1.ObjectMeta{
-// 				DeletionTimestamp: &metav1.Time{Time: metav1.Now().Time},
-// 			},
-// 		}
-//
-// 		handler := NewResizingHandler(nil)
-// 		_, err := handler.Handle(ctx, &vd)
-// 		require.NoError(t, err)
-//
-// 		condition := vd.Status.Conditions[0]
-// 		require.Equal(t, vdcondition.ResizedType, condition.Type)
-// 		require.Equal(t, metav1.ConditionUnknown, condition.Status)
-// 		require.Equal(t, "", condition.Reason)
-// 	})
-//
-// 	t.Run("Resize VirtualDisk", func(t *testing.T) {
-// 		vd := virtv2.VirtualDisk{
-// 			Spec: virtv2.VirtualDiskSpec{
-// 				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-// 					Size: resource.NewQuantity(1111, resource.BinarySI),
-// 				},
-// 			},
-// 			Status: virtv2.VirtualDiskStatus{
-// 				Conditions: []metav1.Condition{
-// 					{
-// 						Type:   vdcondition.ReadyType,
-// 						Status: metav1.ConditionTrue,
-// 					},
-// 				},
-// 			},
-// 		}
-//
-// 		resizer := DiskMock{
-// 			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-// 				return &corev1.PersistentVolumeClaim{
-// 					Status: corev1.PersistentVolumeClaimStatus{
-// 						Capacity: corev1.ResourceList{
-// 							corev1.ResourceStorage: *resource.NewQuantity(2222, resource.BinarySI),
-// 						},
-// 					},
-// 				}, nil
-// 			},
-// 			ResizeFunc: func(ctx context.Context, newSize resource.Quantity, sup *supplements.Generator) error {
-// 				return nil
-// 			},
-// 		}
-//
-// 		handler := NewResizedHandler(&resizer)
-// 		err := handler.Handle(ctx, &vd)
-// 		require.NoError(t, err)
-//
-// 		condition, ok := getCondition(vdcondition.ResizedType, vd.Status.Conditions)
-// 		require.True(t, ok)
-// 		require.Equal(t, vdcondition.ResizedType, condition.Type)
-// 		require.Equal(t, metav1.ConditionFalse, condition.Status)
-// 		require.Equal(t, vdcondition.ResizedReason_InProgress, condition.Reason)
-// 	})
-//
-// 	t.Run("VirtualDisk resized", func(t *testing.T) {
-// 		size := resource.NewQuantity(1111, resource.BinarySI)
-//
-// 		vd := virtv2.VirtualDisk{
-// 			Spec: virtv2.VirtualDiskSpec{
-// 				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-// 					Size: size,
-// 				},
-// 			},
-// 			Status: virtv2.VirtualDiskStatus{
-// 				Conditions: []metav1.Condition{
-// 					{
-// 						Type:   vdcondition.ReadyType,
-// 						Status: metav1.ConditionTrue,
-// 					},
-// 					{
-// 						Type:   vdcondition.ResizedType,
-// 						Reason: vdcondition.ResizedReason_InProgress,
-// 						Status: metav1.ConditionFalse,
-// 					},
-// 				},
-// 			},
-// 		}
-//
-// 		resizer := DiskMock{
-// 			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-// 				return &corev1.PersistentVolumeClaim{
-// 					Status: corev1.PersistentVolumeClaimStatus{
-// 						Capacity: corev1.ResourceList{
-// 							corev1.ResourceStorage: *size,
-// 						},
-// 					},
-// 				}, nil
-// 			},
-// 		}
-//
-// 		handler := NewResizedHandler(&resizer)
-// 		err := handler.Handle(ctx, &vd)
-// 		require.NoError(t, err)
-//
-// 		condition, ok := getCondition(vdcondition.ResizedType, vd.Status.Conditions)
-// 		require.True(t, ok)
-// 		require.Equal(t, vdcondition.ResizedType, condition.Type)
-// 		require.Equal(t, metav1.ConditionTrue, condition.Status)
-// 		require.Equal(t, "", condition.Reason)
-// 	})
-// }
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+)
+
+var _ = Describe("Resizing handler Run", func() {
+	var vd *virtv2.VirtualDisk
+	var pvc *corev1.PersistentVolumeClaim
+	var diskService *DiskServiceMock
+
+	BeforeEach(func() {
+		vd = &virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{
+				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+					Size: new(resource.Quantity),
+				},
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ReadyType,
+						Status: metav1.ConditionTrue,
+					},
+				},
+				Capacity: "",
+			},
+		}
+
+		pvc = &corev1.PersistentVolumeClaim{
+			Spec: corev1.PersistentVolumeClaimSpec{
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: make(corev1.ResourceList),
+				},
+			},
+			Status: corev1.PersistentVolumeClaimStatus{
+				Capacity: make(corev1.ResourceList),
+			},
+		}
+
+		diskService = &DiskServiceMock{
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			},
+			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+				return nil
+			},
+		}
+	})
+
+	It("Resize is not requested (vd.spec.size == nil)", func() {
+		vd.Spec.PersistentVolumeClaim.Size = nil
+
+		h := NewResizingHandler(diskService)
+
+		_, err := h.Handle(context.Background(), vd)
+		Expect(err).To(BeNil())
+		Expect(vd.Status.Conditions).To(ContainElement(metav1.Condition{
+			Type:   vdcondition.ResizedType,
+			Status: metav1.ConditionFalse,
+			Reason: vdcondition.NotRequested,
+		}))
+	})
+
+	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
+		*vd.Spec.PersistentVolumeClaim.Size = resource.MustParse("1G")
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("2G")
+			return pvc, nil
+		}
+
+		h := NewResizingHandler(diskService)
+
+		_, err := h.Handle(context.Background(), vd)
+		Expect(err).To(BeNil())
+		Expect(vd.Status.Conditions).To(ContainElement(metav1.Condition{
+			Type:   vdcondition.ResizedType,
+			Status: metav1.ConditionFalse,
+			Reason: vdcondition.NotRequested,
+		}))
+	})
+
+	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {
+		*vd.Spec.PersistentVolumeClaim.Size = resource.MustParse("2G")
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("1G")
+			return pvc, nil
+		}
+
+		h := NewResizingHandler(diskService)
+
+		_, err := h.Handle(context.Background(), vd)
+		Expect(err).To(BeNil())
+
+		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
+		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
+	})
+
+	It("Resize is in progress (vd.spec.size == pvc.spec.size, pvc.spec.size > pvc.status.size)", func() {
+		*vd.Spec.PersistentVolumeClaim.Size = resource.MustParse("2G")
+		q := resource.MustParse("1G")
+		vd.Status.Capacity = q.String()
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("2G")
+			pvc.Status.Capacity[corev1.ResourceStorage] = resource.MustParse("1G")
+			return pvc, nil
+		}
+
+		h := NewResizingHandler(diskService)
+
+		_, err := h.Handle(context.Background(), vd)
+		Expect(err).To(BeNil())
+
+		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
+		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
+	})
+
+	It("Resized (vd.spec.size == pvc.spec.size, pvc.spec.size == pvc.status.size)", func() {
+		*vd.Spec.PersistentVolumeClaim.Size = resource.MustParse("2G")
+		q := resource.MustParse("1G")
+		vd.Status.Capacity = q.String()
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("2G")
+			pvc.Status.Capacity[corev1.ResourceStorage] = resource.MustParse("2G")
+			return pvc, nil
+		}
+
+		h := NewResizingHandler(diskService)
+
+		_, err := h.Handle(context.Background(), vd)
+		Expect(err).To(BeNil())
+
+		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
+		Expect(resized.Reason).To(Equal(vdcondition.Resized))
+		Expect(resource.MustParse(vd.Status.Capacity)).To(Equal(pvc.Status.Capacity[corev1.ResourceStorage]))
+	})
+})
