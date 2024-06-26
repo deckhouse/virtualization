@@ -64,8 +64,6 @@ const (
 	NotRequested ResizedReason = "NotRequested"
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"
-	// TooSmallDiskSize indicates that the requested disk size is too small for the resize operation.
-	TooSmallDiskSize ResizedReason = "TooSmallDiskSize"
 	// Resized indicates that the resize operation has been successfully completed.
 	Resized ResizedReason = "Resized"
 )
