@@ -176,7 +176,7 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 	rwrMatchExpressions := make([]metav1.LabelSelectorRequirement, 0)
 	for _, expr := range labelSelector.MatchExpressions {
 		rwrExpr := expr
-		rwrExpr.Key = rw.Rules.LabelsRewriter().Rename(rwrExpr.Key)
+		rwrExpr.Key, rwrExpr.Values = rw.Rules.LabelsRewriter().RewriteNameValues(rwrExpr.Key, rwrExpr.Values, Rename)
 		rwrMatchExpressions = append(rwrMatchExpressions, rwrExpr)
 	}
 

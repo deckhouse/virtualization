@@ -83,8 +83,9 @@ func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]
 }
 
 func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return TransformString(obj, "key", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
+	return TransformString(obj, "key", func(key string) string {
+		rwrKey, _ := rules.LabelsRewriter().Rewrite(key, "", action)
+		return rwrKey
 	})
 }
 
@@ -125,8 +126,9 @@ func rewritePodAffinityTerm(rules *RewriteRules, obj []byte, action Action) ([]b
 		return nil, err
 	}
 
-	obj, err = TransformString(obj, "topologyKey", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
+	obj, err = TransformString(obj, "topologyKey", func(topologyKey string) string {
+		rwrKey, _ := rules.LabelsRewriter().Rewrite(topologyKey, "", action)
+		return rwrKey
 	})
 	if err != nil {
 		return nil, err

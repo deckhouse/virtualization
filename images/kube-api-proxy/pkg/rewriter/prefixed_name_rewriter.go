@@ -34,14 +34,28 @@ func NewPrefixedNameRewriter(replaceRules MetadataReplace) *PrefixedNameRewriter
 	}
 }
 
-func (p *PrefixedNameRewriter) Rewrite(name string, action Action) string {
+func (p *PrefixedNameRewriter) Rewrite(name, value string, action Action) (string, string) {
 	switch action {
 	case Rename:
-		return p.rename(name)
+		return p.rename(name, value)
 	case Restore:
-		return p.restore(name)
+		return p.restore(name, value)
 	}
-	return name
+	return name, value
+}
+
+func (p *PrefixedNameRewriter) RewriteNameValues(name string, values []string, action Action) (string, []string) {
+	if len(values) == 0 {
+		rwrName, _ := p.Rewrite(name, "", action)
+		return rwrName, values
+	}
+	switch action {
+	case Rename:
+		return p.rewriteNameValues(name, values, p.rename)
+	case Restore:
+		return p.rewriteNameValues(name, values, p.restore)
+	}
+	return name, values
 }
 
 func (p *PrefixedNameRewriter) RewriteSlice(names []string, action Action) []string {
@@ -64,12 +78,12 @@ func (p *PrefixedNameRewriter) RewriteMap(names map[string]string, action Action
 	return names
 }
 
-func (p *PrefixedNameRewriter) Rename(name string) string {
-	return p.rename(name)
+func (p *PrefixedNameRewriter) Rename(name, value string) (string, string) {
+	return p.rename(name, value)
 }
 
-func (p *PrefixedNameRewriter) Restore(name string) string {
-	return p.restore(name)
+func (p *PrefixedNameRewriter) Restore(name, value string) (string, string) {
+	return p.restore(name, value)
 }
 
 func (p *PrefixedNameRewriter) RenameSlice(names []string) []string {
@@ -88,61 +102,103 @@ func (p *PrefixedNameRewriter) RestoreMap(names map[string]string) map[string]st
 	return p.rewriteMap(names, p.restore)
 }
 
-func (p *PrefixedNameRewriter) rewriteMap(names map[string]string, fn func(string) string) map[string]string {
+// rewriteNameValues rewrite name and values, e.g. for matchExpressions.
+// Method uses all rules to detect a new name, first matching rule is applied.
+// Values may be rewritten partially depending on specified name-value rules.
+func (p *PrefixedNameRewriter) rewriteNameValues(name string, values []string, fn func(string, string) (string, string)) (string, []string) {
+	rwrName := name
+	rwrValues := make([]string, 0, len(values))
+
+	for _, value := range values {
+		n, v := fn(name, value)
+		// Set new name only for the first matching rule.
+		if n != name && rwrName == name {
+			rwrName = n
+		}
+		rwrValues = append(rwrValues, v)
+	}
+
+	return rwrName, rwrValues
+}
+
+func (p *PrefixedNameRewriter) rewriteMap(names map[string]string, fn func(string, string) (string, string)) map[string]string {
 	if names == nil {
 		return nil
 	}
 	result := make(map[string]string)
 	for name, value := range names {
-		result[fn(name)] = value
+		rwrName, rwrValue := fn(name, value)
+		result[rwrName] = rwrValue
 	}
 	return result
 }
 
-func (p *PrefixedNameRewriter) rewriteSlice(names []string, fn func(string) string) []string {
+// rewriteSlice do not rewrite values, only names.
+func (p *PrefixedNameRewriter) rewriteSlice(names []string, fn func(string, string) (string, string)) []string {
 	if names == nil {
 		return nil
 	}
 	result := make([]string, 0, len(names))
 	for _, name := range names {
-		result = append(result, fn(name))
+		rwrName, _ := fn(name, "")
+		result = append(result, rwrName)
 	}
 	return result
 }
 
-func (p *PrefixedNameRewriter) rename(name string) string {
+func (p *PrefixedNameRewriter) rename(name, value string) (string, string) {
+	// First try to find name and value.
+	if value != "" {
+		idxKey := joinKV(name, value)
+		if renamedIdxValue, ok := p.namesRenameIdx[idxKey]; ok {
+			return splitKV(renamedIdxValue)
+		}
+	}
+	// No exact rule for name and value, try to find exact name match.
 	if renamed, ok := p.namesRenameIdx[name]; ok {
-		return renamed
+		return renamed, value
 	}
 	// No exact name, find prefix.
 	prefix, remainder, found := strings.Cut(name, "/")
 	if !found {
-		return name
+		return name, value
 	}
 	if renamedPrefix, ok := p.prefixRenameIdx[prefix]; ok {
-		return renamedPrefix + "/" + remainder
+		return renamedPrefix + "/" + remainder, value
 	}
-	return name
+	return name, value
 }
 
-func (p *PrefixedNameRewriter) restore(name string) string {
+func (p *PrefixedNameRewriter) restore(name, value string) (string, string) {
+	// First try to find name and value.
+	if value != "" {
+		idxKey := joinKV(name, value)
+		if restoredIdxValue, ok := p.namesRestoreIdx[idxKey]; ok {
+			return splitKV(restoredIdxValue)
+		}
+	}
+	// No exact rule for name and value, try to find exact name match.
 	if restored, ok := p.namesRestoreIdx[name]; ok {
-		return restored
+		return restored, value
 	}
 	// No exact name, find prefix.
 	prefix, remainder, found := strings.Cut(name, "/")
 	if !found {
-		return name
+		return name, value
 	}
 	if restoredPrefix, ok := p.prefixRestoreIdx[prefix]; ok {
-		return restoredPrefix + "/" + remainder
+		return restoredPrefix + "/" + remainder, value
 	}
-	return name
+	return name, value
 }
 
 func indexRules(rules []MetadataReplaceRule) map[string]string {
 	idx := make(map[string]string, len(rules))
 	for _, rule := range rules {
+		if rule.OriginalValue != "" && rule.RenamedValue != "" {
+			idxKey := joinKV(rule.Original, rule.OriginalValue)
+			idx[idxKey] = rule.Renamed + "=" + rule.RenamedValue
+		}
 		idx[rule.Original] = rule.Renamed
 	}
 	return idx
@@ -151,7 +207,20 @@ func indexRules(rules []MetadataReplaceRule) map[string]string {
 func indexRulesReverse(rules []MetadataReplaceRule) map[string]string {
 	idx := make(map[string]string, len(rules))
 	for _, rule := range rules {
+		if rule.OriginalValue != "" && rule.RenamedValue != "" {
+			idxKey := joinKV(rule.Renamed, rule.RenamedValue)
+			idx[idxKey] = rule.Original + "=" + rule.OriginalValue
+		}
 		idx[rule.Renamed] = rule.Original
 	}
 	return idx
+}
+
+func joinKV(name, value string) string {
+	return name + "=" + value
+}
+
+func splitKV(idxValue string) (name, value string) {
+	name, value, _ = strings.Cut(idxValue, "=")
+	return
 }

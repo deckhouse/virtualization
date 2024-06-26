@@ -79,8 +79,10 @@ type MetadataReplace struct {
 }
 
 type MetadataReplaceRule struct {
-	Original string `json:"original"`
-	Renamed  string `json:"renamed"`
+	Original      string `json:"original"`
+	Renamed       string `json:"renamed"`
+	OriginalValue string `json:"originalValue"`
+	RenamedValue  string `json:"renamedValue"`
 }
 
 // GetAPIGroupList returns an array of groups in format applicable to use in APIGroupList:
