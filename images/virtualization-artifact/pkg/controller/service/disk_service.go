@@ -194,6 +194,10 @@ func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeCla
 	}
 }
 
+func (s DiskService) IsImportDone(dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) bool {
+	return common.IsDataVolumeComplete(dv) && common.IsPVCBound(pvc)
+}
+
 func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts ...GetProgressOption) string {
 	if dv == nil {
 		return prevProgress

@@ -140,7 +140,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		ds.logger.Info("Create data volume...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", "nil")
 
 		return true, nil
-	case common.IsDataVolumeComplete(dv):
+	case ds.diskService.IsImportDone(dv, pvc):
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Ready

@@ -33,7 +33,7 @@ type ImageStatus struct {
 	Format        string           `json:"format,omitempty"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.
 	Capacity      string            `json:"capacity,omitempty"`
-	CDROM         bool              `json:"cdrom,omitempty"`
+	CDROM         bool              `json:"cdrom"`
 	Target        ImageStatusTarget `json:"target"`
 	Phase         ImagePhase        `json:"phase,omitempty"`
 	Progress      string            `json:"progress,omitempty"`

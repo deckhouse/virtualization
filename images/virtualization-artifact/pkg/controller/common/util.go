@@ -374,6 +374,11 @@ func IsDataVolumeComplete(dv *cdiv1.DataVolume) bool {
 	return dv != nil && dv.Status.Phase == cdiv1.Succeeded
 }
 
+// IsPVCBound returns true if a PersistentVolumeClaim is in 'Bound' phase, false if not.
+func IsPVCBound(pvc *corev1.PersistentVolumeClaim) bool {
+	return pvc != nil && pvc.Status.Phase == corev1.ClaimBound
+}
+
 func IsTerminating(obj client.Object) bool {
 	return !reflect.ValueOf(obj).IsNil() && obj.GetDeletionTimestamp() != nil
 }

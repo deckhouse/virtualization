@@ -764,7 +764,7 @@ func (in *VirtualImage) DeepCopyInto(out *VirtualImage) {
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
-	out.Status = in.Status
+	in.Status.DeepCopyInto(&out.Status)
 	return
 }
 
@@ -909,6 +909,13 @@ func (in *VirtualImageSpec) DeepCopy() *VirtualImageSpec {
 func (in *VirtualImageStatus) DeepCopyInto(out *VirtualImageStatus) {
 	*out = *in
 	out.ImageStatus = in.ImageStatus
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]v1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	return
 }
 
