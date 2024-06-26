@@ -163,13 +163,19 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, err
 		}
 
-		err = ds.diskService.CheckStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
+		err = ds.diskService.CheckImportProcess(ctx, dv, vd.Spec.PersistentVolumeClaim.StorageClass)
 		switch {
 		case err == nil:
 			vd.Status.Phase = virtv2.DiskProvisioning
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vdcondition.Provisioning
 			condition.Message = "Import is in the process of provisioning to PVC."
+			return false, nil
+		case errors.Is(err, service.ErrDataVolumeNotRunning):
+			vd.Status.Phase = virtv2.DiskFailed
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vdcondition.ProvisioningFailed
+			condition.Message = service.CapitalizeFirstLetter(err.Error())
 			return false, nil
 		case errors.Is(err, service.ErrStorageClassNotFound):
 			vd.Status.Phase = virtv2.DiskFailed

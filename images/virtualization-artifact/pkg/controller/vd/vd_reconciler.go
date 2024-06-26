@@ -149,7 +149,12 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				return oldDV.Status.Progress != newDV.Status.Progress
+				if oldDV.Status.Progress != newDV.Status.Progress {
+					return true
+				}
+
+				dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, newDV.Status.Conditions)
+				return dvRunning != nil && dvRunning.Reason == "Error"
 			},
 		},
 	); err != nil {
