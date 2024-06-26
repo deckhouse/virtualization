@@ -53,7 +53,7 @@ func NewController(
 	ns string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService()
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerClusterVirtualImageProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerCVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 
@@ -68,6 +68,7 @@ func NewController(
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
+		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
 	cviController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})

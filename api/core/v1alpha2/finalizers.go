@@ -17,17 +17,6 @@ limitations under the License.
 package v1alpha2
 
 const (
-	FinalizerClusterVirtualImageProtection = "virtualization.deckhouse.io/cvi-protection"
-	FinalizerVirtualImageProtection        = "virtualization.deckhouse.io/vi-protection"
-	FinalizerVirtualDiskProtection         = "virtualization.deckhouse.io/vd-protection"
-	FinalizerPodProtection                 = "virtualization.deckhouse.io/pod-protection"
-	FinalizerServiceProtection             = "virtualization.deckhouse.io/svc-protection"
-	FinalizerIngressProtection             = "virtualization.deckhouse.io/ingress-protection"
-	FinalizerSecretProtection              = "virtualization.deckhouse.io/secret-protection"
-	FinalizerDVProtection                  = "virtualization.deckhouse.io/dv-protection"
-	FinalizerPVCProtection                 = "virtualization.deckhouse.io/pvc-protection"
-	FinalizerPVProtection                  = "virtualization.deckhouse.io/pv-protection"
-
 	FinalizerCVIProtection            = "virtualization.deckhouse.io/cvi-protection"
 	FinalizerVIProtection             = "virtualization.deckhouse.io/vi-protection"
 	FinalizerVDProtection             = "virtualization.deckhouse.io/vd-protection"
