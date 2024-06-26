@@ -1,0 +1,2 @@
+# Ignore workdirs with CDI sources.
+__containerized-data-importer_*
