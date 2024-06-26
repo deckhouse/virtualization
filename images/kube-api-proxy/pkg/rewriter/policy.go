@@ -23,6 +23,6 @@ const (
 
 func RewritePDBOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	return RewriteResourceOrList(obj, PodDisruptionBudgetListKind, func(singleObj []byte) ([]byte, error) {
-		return RewriteLabelsMap(rules, singleObj, "spec.selector", action)
+		return RewriteLabelsMap(rules, singleObj, "spec.selector.matchLabels", action)
 	})
 }
