@@ -91,6 +91,10 @@ func createTestRewriter() *RuleBasedRewriter {
 			},
 			Names: []MetadataReplaceRule{
 				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
+				{
+					Original: "labelgroup.io", OriginalValue: "labelValueToRename",
+					Renamed: "replacedlabelgroup.io", RenamedValue: "renamedLabelValue",
+				},
 			},
 		},
 		Annotations: MetadataReplace{
@@ -178,6 +182,24 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			"/api/v1/namespaces/d8-virtualization/pods",
 			"labelSelector=replacedlabelgroup.io+notin+%28value-one%2Cvalue-two%29&limit=500",
 		},
+		{
+			"labelSelector label name and renamed value",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io%3DlabelValueToRename&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=replacedlabelgroup.io%3DrenamedLabelValue&limit=500",
+		},
+		{
+			"labelSelector label name and renamed values",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValueToRename%29&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
+		},
+		{
+			"labelSelector label name and renamed values for deployments",
+			"/apis/apps/v1/deployments?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValueToRename%29&limit=500",
+			"/apis/apps/v1/deployments",
+			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
+		},
 	}
 
 	for _, tt := range tests {
@@ -193,7 +215,7 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			if tt.expectPath == "" {
 				require.Nil(t, newEp, "should not rewrite path '%s', got %+v", tt.path, newEp)
 			}
-			require.NotNil(t, newEp, "should rewrite path '%s', got nil endpoint. Original ep: %#v", ep)
+			require.NotNil(t, newEp, "should rewrite path '%s', got nil endpoint. Original ep: %#v", tt.path, ep)
 
 			require.Equal(t, tt.expectPath, newEp.Path(), "expect rewrite for path '%s' to be '%s', got '%s', newEp: %#v", tt.path, tt.expectPath, newEp.Path(), newEp)
 			require.Equal(t, tt.expectQuery, newEp.RawQuery, "expect rewrite query for path %q to be '%s', got '%s', newEp: %#v", tt.path, tt.expectQuery, newEp.RawQuery, newEp)

@@ -44,12 +44,12 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + rootPrefix + "/skip-node"},
 			{Original: "node-labeller.kubevirt.io/obsolete-host-model", Renamed: "node-labeller." + internalPrefix + "/obsolete-host-model"},
 			{
-				Original: "app.kubernetes.io/managed-by", OriginalValue: "virt-operator",
-				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "virt-operator-internal-virtualization",
-			},
-			{
 				Original: "app.kubernetes.io/managed-by", OriginalValue: "cdi-operator",
 				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "cdi-operator-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "virt-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "virt-operator-internal-virtualization",
 			},
 			{
 				Original: "app.kubernetes.io/managed-by", OriginalValue: "kubevirt-operator",
