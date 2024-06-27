@@ -100,11 +100,9 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(context.Background(), vd)
 		Expect(err).To(BeNil())
-		Expect(vd.Status.Conditions).To(ContainElement(metav1.Condition{
-			Type:   vdcondition.ResizedType,
-			Status: metav1.ConditionFalse,
-			Reason: vdcondition.NotRequested,
-		}))
+		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
+		Expect(resized.Reason).To(Equal(vdcondition.NotRequested))
 	})
 
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {

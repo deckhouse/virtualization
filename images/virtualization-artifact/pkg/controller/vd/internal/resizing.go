@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -92,7 +93,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	case -1:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.NotRequested
-		condition.Message = ""
+		condition.Message = fmt.Sprintf("The virtual disk size is too low: should be >= %s.", pvcSpecSize.String())
 		return reconcile.Result{}, nil
 	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
 	case 1:
