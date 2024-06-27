@@ -105,7 +105,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if requeue {
 		slog.Info("Requeue")
 		return reconcile.Result{
-			RequeueAfter: 5 * time.Second,
+			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
@@ -181,7 +181,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				return oldPVC.Status.Capacity[corev1.ResourceStorage] != newPVC.Status.Capacity[corev1.ResourceStorage]
+				if oldPVC.Status.Capacity[corev1.ResourceStorage] != newPVC.Status.Capacity[corev1.ResourceStorage] {
+					return true
+				}
+
+				return oldPVC.Status.Phase != newPVC.Status.Phase && newPVC.Status.Phase == corev1.ClaimBound
 			},
 		},
 	); err != nil {

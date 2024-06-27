@@ -102,7 +102,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if requeue {
 		slog.Info("Requeue")
 		return reconcile.Result{
-			RequeueAfter: 5 * time.Second,
+			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
