@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefDataSource struct {
@@ -113,14 +114,27 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 		ds.logger.Info("Cleaning up...", "vd", vd.Name)
 	case dv == nil:
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, ds.client)
+		if err != nil {
+			return false, err
+		}
+
+		if !dvcrDataSource.IsReady() {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.ProvisioningFailed
+			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
+			return false, nil
+		}
+
 		var diskSize resource.Quantity
-		diskSize, err = ds.getPVCSize(ctx, vd)
+		diskSize, err = ds.getPVCSize(vd, dvcrDataSource)
 		if err != nil {
 			return false, err
 		}
 
 		var source *cdiv1.DataVolumeSource
-		source, err = ds.getSource(ctx, vd, supgen)
+		source, err = ds.getSource(supgen, dvcrDataSource)
 		if err != nil {
 			return false, err
 		}
@@ -243,10 +257,9 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 	}
 }
 
-func (ds ObjectRefDataSource) getSource(ctx context.Context, vd *virtv2.VirtualDisk, sup *supplements.Generator) (*cdiv1.DataVolumeSource, error) {
-	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, ds.client)
-	if err != nil {
-		return nil, err
+func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
+	if !dvcrDataSource.IsReady() {
+		return nil, errors.New("dvcr data source is not ready")
 	}
 
 	url := common2.DockerRegistrySchemePrefix + dvcrDataSource.GetTarget()
@@ -262,10 +275,9 @@ func (ds ObjectRefDataSource) getSource(ctx context.Context, vd *virtv2.VirtualD
 	}, nil
 }
 
-func (ds ObjectRefDataSource) getPVCSize(ctx context.Context, vd *virtv2.VirtualDisk) (resource.Quantity, error) {
-	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, ds.client)
-	if err != nil {
-		return resource.Quantity{}, err
+func (ds ObjectRefDataSource) getPVCSize(vd *virtv2.VirtualDisk, dvcrDataSource controller.DVCRDataSource) (resource.Quantity, error) {
+	if !dvcrDataSource.IsReady() {
+		return resource.Quantity{}, errors.New("dvcr data source is not ready")
 	}
 
 	unpackedSize, err := resource.ParseQuantity(dvcrDataSource.GetSize().UnpackedBytes)

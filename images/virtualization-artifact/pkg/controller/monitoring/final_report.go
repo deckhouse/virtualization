@@ -64,6 +64,10 @@ func GetFinalReportFromPod(pod *corev1.Pod) (*FinalReport, error) {
 
 	message := pod.Status.ContainerStatuses[0].State.Terminated.Message
 
+	if message == "" {
+		return nil, ErrTerminationMessageNotFound
+	}
+
 	var report FinalReport
 	err := json.Unmarshal([]byte(message), &report)
 	if err != nil {
