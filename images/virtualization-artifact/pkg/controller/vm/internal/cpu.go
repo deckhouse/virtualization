@@ -87,10 +87,11 @@ func (h *CPUHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}
-	msg := fmt.Sprintf("VirtualMachineCPUModelName %q is not ready", namespacedName(model).String())
+	modelName := current.Spec.CPU.VirtualMachineCPUModel
+	msg := fmt.Sprintf("VirtualMachineCPUModelName %q is not ready", modelName)
 	reason := vmcondition.ReasonCPUModelNotReady
 	if model == nil {
-		msg = fmt.Sprintf("VirtualMachineCPUModelName %q not found", namespacedName(model).String())
+		msg = fmt.Sprintf("VirtualMachineCPUModelName %q not found", modelName)
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), "CPU model not available: waiting for the CPU model")
 		h.logger.Error("CPU model not available: waiting for the CPU model")
 	}
