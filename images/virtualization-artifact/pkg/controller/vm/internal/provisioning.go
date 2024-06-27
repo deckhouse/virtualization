@@ -142,7 +142,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	if !found {
 		builder.Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonProvisioningNotReady).
-			Message(fmt.Sprintf("Secret %q doesn't have any keys such as %v.", keys, secretKey.String()))
+			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", keys, secretKey.String()))
 		return nil
 	}
 	builder.Reason2(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
