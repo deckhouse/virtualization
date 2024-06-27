@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,7 +140,6 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 
 	if dv != nil {
 		hasDeleted = true
-
 		err = s.protection.RemoveProtection(ctx, dv)
 		if err != nil {
 			return false, err
@@ -147,6 +148,19 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 		err = s.client.Delete(ctx, dv)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, err
+		}
+		pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
+		if err != nil {
+			return false, err
+		}
+		if pvc != nil {
+			pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
+				return ref.Kind == "DataVolume"
+			})
+			err = s.client.Update(ctx, pvc)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return false, err
+			}
 		}
 	}
 

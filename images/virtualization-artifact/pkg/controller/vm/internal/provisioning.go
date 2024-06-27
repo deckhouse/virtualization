@@ -131,10 +131,18 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			Message(fmt.Sprintf("Secret %q not found.", secretKey.String()))
 		return nil
 	}
-	if _, ok := secret.Data["userdata"]; !ok {
+	found := false
+	keys := []string{"userdata", "userData"}
+	for _, key := range keys {
+		if _, ok := secret.Data[key]; ok {
+			found = true
+			break
+		}
+	}
+	if !found {
 		builder.Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonProvisioningNotReady).
-			Message(fmt.Sprintf("Secret %q doesn't have key \"userdata\".", secretKey.String()))
+			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", keys, secretKey.String()))
 		return nil
 	}
 	builder.Reason2(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)

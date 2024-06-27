@@ -58,6 +58,22 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	defer func() {
+		if changed == nil {
+			return
+		}
+		if len(changed.Status.Conditions) == 0 {
+			changed.Status.ObservedGeneration = changed.GetGeneration()
+			return
+		}
+		gen := changed.Status.Conditions[0].ObservedGeneration
+		for _, c := range changed.Status.Conditions {
+			if gen != c.ObservedGeneration {
+				return
+			}
+		}
+		changed.Status.ObservedGeneration = gen
+	}()
 	if isDeletion(current) {
 		changed.Status.Phase = virtv2.MachineTerminating
 		return reconcile.Result{}, nil
@@ -144,7 +160,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, pod *corev1
 		mgr.Update(cb.
 			Status(metav1.ConditionTrue).
 			Reason2(vmcondition.ReasonPodStarted).
-			Message(fmt.Sprintf("Pod started at %q", pod.Status.StartTime)).
+			Message(fmt.Sprintf("Pod started at %q", pod.Status.StartTime.String())).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
 		return
@@ -161,7 +177,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, pod *corev1
 	}
 	mgr.Update(cb.
 		Reason2(vmcondition.ReasonPodNodFound).
-		Message("Not found any pods").
+		Message("Pod of the virtual machine was not found").
 		Condition())
 	vm.Status.Conditions = mgr.Generate()
 }

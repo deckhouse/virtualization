@@ -1121,6 +1121,10 @@ spec:
                   items:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
+                observedGeneration:
+                  type: integer
+                  description: "Generating a resource that was last processed by the controller"
+                  format: int64
       additionalPrinterColumns:
         - name: Phase
           type: string

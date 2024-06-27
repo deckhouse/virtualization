@@ -3720,6 +3720,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState"),
 						},
 					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 					"restartAwaitingChanges": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.\n\nChange operation has these fields:\n\n\toperation enum(add|remove|replace)\n\tpath string\n\tcurrentValue any (bool|int|string|struct|array of structs)\n\tdesiredValue any (bool|int|string|struct|array of structs)\n\nSuch 'any' type can't be described using the OpenAPI v3 schema. The workaround is to declare a whole change operation structure using 'type: object' and 'x-kubernetes-preserve-fields: true'.",
