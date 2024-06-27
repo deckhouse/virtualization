@@ -341,10 +341,7 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes [
 	case "validatingwebhookconfigurations",
 		"mutatingwebhookconfigurations":
 		return RenameWebhookConfigurationPatch(rw.Rules, patchBytes)
-	case "nodes",
-		"apiservices",
-		"secrets",
-		"configmaps":
+	default:
 		return RenameMetadataPatch(rw.Rules, patchBytes)
 	}
 
