@@ -167,7 +167,7 @@ type VirtualMachineStatus struct {
 	Conditions                   []metav1.Condition                       `json:"conditions,omitempty"`
 	Stats                        *VirtualMachineStats                     `json:"stats,omitempty"`
 	MigrationState               *VirtualMachineMigrationState            `json:"migrationState,omitempty"`
-
+	ObservedGeneration           int64                                    `json:"observedGeneration,omitempty"`
 	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
 	//

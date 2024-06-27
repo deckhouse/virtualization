@@ -1031,18 +1031,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Format: "",
 						},
 					},
-					"failureReason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureMessage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1260,18 +1248,6 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 						},
 					},
 					"uploadCommand": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureReason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureMessage": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -2181,16 +2157,23 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format: "",
 						},
 					},
-					"failureReason": {
+					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
 						},
 					},
-					"failureMessage": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},
@@ -2198,7 +2181,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -3732,6 +3715,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					"migrationState": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState"),
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"restartAwaitingChanges": {
