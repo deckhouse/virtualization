@@ -153,12 +153,14 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 		if err != nil {
 			return false, err
 		}
-		pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
-			return ref.Kind == "DataVolume"
-		})
-		err = s.client.Update(ctx, pvc)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+		if pvc != nil {
+			pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
+				return ref.Kind == "DataVolume"
+			})
+			err = s.client.Update(ctx, pvc)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return false, err
+			}
 		}
 	}
 
