@@ -94,7 +94,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
@@ -129,7 +129,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		vi.Status.Format = ds.statService.GetFormat(pod)
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -165,7 +165,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		ds.logger.Info("Provisioning...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
