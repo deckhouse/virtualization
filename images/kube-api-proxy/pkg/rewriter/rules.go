@@ -136,6 +136,10 @@ func (rr *RewriteRules) WebhookRule(path string) *WebhookRule {
 	return nil
 }
 
+func (rr *RewriteRules) IsRenamedGroup(apiGroup string) bool {
+	return strings.HasPrefix(apiGroup, rr.RenamedGroup)
+}
+
 func (rr *RewriteRules) HasGroup(group string) bool {
 	_, ok := rr.Rules[group]
 	return ok
@@ -220,7 +224,12 @@ func (rr *RewriteRules) RestoreKind(kind string) string {
 
 func (rr *RewriteRules) RestoreApiVersion(apiVersion string, group string) string {
 	// Replace group, keep version.
-	slashVersion := strings.TrimPrefix(apiVersion, rr.RenamedGroup)
+	slashVersion, found := strings.CutPrefix(apiVersion, rr.RenamedGroup)
+	if !found {
+		// Do not restore if apiVersion is not renamed.
+		return apiVersion
+	}
+
 	return group + slashVersion
 }
 
