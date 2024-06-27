@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"reflect"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type ProtectionService struct {
@@ -42,25 +45,23 @@ func (s ProtectionService) AddOwnerRef(ctx context.Context, owner client.Object,
 		return nil
 	}
 
+	ownerRef := MakeOwnerReference(owner)
+
 	for _, obj := range objs {
 		if obj == nil || reflect.ValueOf(obj).IsNil() {
 			continue
 		}
 
-		err := controllerutil.SetOwnerReference(owner, obj, s.client.Scheme())
-		if err != nil {
-			return err
-		}
+		if helper.SetOwnerRef(obj, ownerRef) {
+			patch, err := GetPatchOwnerReferences(obj.GetOwnerReferences())
+			if err != nil {
+				return err
+			}
 
-		var patch client.Patch
-		patch, err = GetPatchOwnerReferences(obj.GetOwnerReferences())
-		if err != nil {
-			return err
-		}
-
-		err = s.client.Patch(ctx, obj, patch)
-		if err != nil {
-			return err
+			err = s.client.Patch(ctx, obj, patch)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -111,4 +112,13 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 	}
 
 	return nil
+}
+
+func MakeOwnerReference(owner client.Object) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion: owner.GetObjectKind().GroupVersionKind().Version,
+		Kind:       owner.GetObjectKind().GroupVersionKind().Kind,
+		Name:       owner.GetName(),
+		UID:        owner.GetUID(),
+	}
 }

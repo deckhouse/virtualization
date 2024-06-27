@@ -89,7 +89,6 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 		return CleanUp(ctx, vi, ds)
 	case cc.IsTerminating(pod):
-
 		vi.Status.Phase = virtv2.ImagePending
 
 		ds.logger.Info("Cleaning up...", "vi", vi.Name)
@@ -129,14 +128,27 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 			}
 		}
 
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
+
+		if !dvcrDataSource.IsReady() {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.ProvisioningFailed
+			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
+			return false, nil
+		}
+
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		vi.Status.Phase = virtv2.ImageReady
-		vi.Status.Size = ds.statService.GetSize(pod)
-		vi.Status.CDROM = ds.statService.GetCDROM(pod)
-		vi.Status.Format = ds.statService.GetFormat(pod)
+		vi.Status.Size = dvcrDataSource.GetSize()
+		vi.Status.CDROM = dvcrDataSource.IsCDROM()
+		vi.Status.Format = dvcrDataSource.GetFormat()
 		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 

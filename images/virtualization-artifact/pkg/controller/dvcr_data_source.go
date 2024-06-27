@@ -24,11 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-const FailureReasonCannotBeProcessed = "The resource cannot be processed."
 
 type DVCRDataSource struct {
 	size    virtv2.ImageStatusSize
@@ -38,9 +37,9 @@ type DVCRDataSource struct {
 	isReady bool
 }
 
-func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImageDataSource, client client.Client) (*DVCRDataSource, error) {
+func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImageDataSource, client client.Client) (DVCRDataSource, error) {
 	if ds.ObjectRef == nil {
-		return nil, nil
+		return DVCRDataSource{}, nil
 	}
 
 	var dsDVCR DVCRDataSource
@@ -52,7 +51,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if vmi != nil {
@@ -68,7 +67,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 		if cvmiName != "" {
 			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if cvmi != nil {
@@ -81,12 +80,12 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 		}
 	}
 
-	return &dsDVCR, nil
+	return dsDVCR, nil
 }
 
-func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
+func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
 	if ds.ObjectRef == nil {
-		return nil, nil
+		return DVCRDataSource{}, nil
 	}
 
 	var dsDVCR DVCRDataSource
@@ -98,7 +97,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if vmi != nil {
@@ -114,7 +113,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 		if cvmiName != "" {
 			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if cvmi != nil {
@@ -127,12 +126,12 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 		}
 	}
 
-	return &dsDVCR, nil
+	return dsDVCR, nil
 }
 
-func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSource, obj metav1.Object, client client.Client) (*DVCRDataSource, error) {
+func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
 	if ds == nil || ds.ObjectRef == nil {
-		return nil, nil
+		return DVCRDataSource{}, nil
 	}
 
 	var dsDVCR DVCRDataSource
@@ -144,7 +143,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 		if vmiName != "" && vmiNS != "" {
 			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if vmi != nil {
@@ -161,7 +160,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 		if cvmiName != "" {
 			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
-				return nil, err
+				return DVCRDataSource{}, err
 			}
 
 			if cvmi != nil {
@@ -174,7 +173,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 		}
 	}
 
-	return &dsDVCR, nil
+	return dsDVCR, nil
 }
 
 func (ds *DVCRDataSource) Validate() error {
@@ -187,6 +186,10 @@ func (ds *DVCRDataSource) Validate() error {
 
 func (ds *DVCRDataSource) GetSize() virtv2.ImageStatusSize {
 	return ds.size
+}
+
+func (ds *DVCRDataSource) IsCDROM() bool {
+	return imageformat.IsISO(ds.format)
 }
 
 func (ds *DVCRDataSource) GetFormat() string {
