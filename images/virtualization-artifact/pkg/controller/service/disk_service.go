@@ -166,32 +166,22 @@ func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error 
 	return s.protection.RemoveProtection(ctx, dv)
 }
 
-func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity, sup *supplements.Generator) error {
+func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
 	if pvc == nil {
 		return errors.New("got nil pvc")
 	}
 
 	curSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-
-	if newSize.Cmp(curSize) == -1 {
-		return ErrTooSmallDiskSize
-	}
-
-	switch newSize.Cmp(curSize) {
-	case 0:
-		return nil
-	case -1:
-		return ErrTooSmallDiskSize
-	default:
+	if newSize.Cmp(curSize) == 1 {
 		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newSize
 
 		err := s.client.Update(ctx, pvc)
 		if err != nil {
 			return fmt.Errorf("failed to increase pvc size: %w", err)
 		}
-
-		return nil
 	}
+
+	return nil
 }
 
 func (s DiskService) IsImportDone(dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) bool {

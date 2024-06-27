@@ -5,8 +5,11 @@ package internal
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sync"
 )
 
@@ -245,5 +248,133 @@ func (mock *SourcesMock) GetCalls() []struct {
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
 	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Ensure, that DiskServiceMock does implement DiskService.
+// If this is not the case, regenerate this file with moq.
+var _ DiskService = &DiskServiceMock{}
+
+// DiskServiceMock is a mock implementation of DiskService.
+//
+//	func TestSomethingThatUsesDiskService(t *testing.T) {
+//
+//		// make and configure a mocked DiskService
+//		mockedDiskService := &DiskServiceMock{
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the GetPersistentVolumeClaim method")
+//			},
+//			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+//				panic("mock out the Resize method")
+//			},
+//		}
+//
+//		// use mockedDiskService in code that requires DiskService
+//		// and then make assertions.
+//
+//	}
+type DiskServiceMock struct {
+	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+
+	// ResizeFunc mocks the Resize method.
+	ResizeFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
+		GetPersistentVolumeClaim []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+		// Resize holds details about calls to the Resize method.
+		Resize []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+			// NewSize is the newSize argument value.
+			NewSize resource.Quantity
+		}
+	}
+	lockGetPersistentVolumeClaim sync.RWMutex
+	lockResize                   sync.RWMutex
+}
+
+// GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
+func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	if mock.GetPersistentVolumeClaimFunc == nil {
+		panic("DiskServiceMock.GetPersistentVolumeClaimFunc: method is nil but DiskService.GetPersistentVolumeClaim was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockGetPersistentVolumeClaim.Lock()
+	mock.calls.GetPersistentVolumeClaim = append(mock.calls.GetPersistentVolumeClaim, callInfo)
+	mock.lockGetPersistentVolumeClaim.Unlock()
+	return mock.GetPersistentVolumeClaimFunc(ctx, sup)
+}
+
+// GetPersistentVolumeClaimCalls gets all the calls that were made to GetPersistentVolumeClaim.
+// Check the length with:
+//
+//	len(mockedDiskService.GetPersistentVolumeClaimCalls())
+func (mock *DiskServiceMock) GetPersistentVolumeClaimCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockGetPersistentVolumeClaim.RLock()
+	calls = mock.calls.GetPersistentVolumeClaim
+	mock.lockGetPersistentVolumeClaim.RUnlock()
+	return calls
+}
+
+// Resize calls ResizeFunc.
+func (mock *DiskServiceMock) Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+	if mock.ResizeFunc == nil {
+		panic("DiskServiceMock.ResizeFunc: method is nil but DiskService.Resize was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		Pvc     *corev1.PersistentVolumeClaim
+		NewSize resource.Quantity
+	}{
+		Ctx:     ctx,
+		Pvc:     pvc,
+		NewSize: newSize,
+	}
+	mock.lockResize.Lock()
+	mock.calls.Resize = append(mock.calls.Resize, callInfo)
+	mock.lockResize.Unlock()
+	return mock.ResizeFunc(ctx, pvc, newSize)
+}
+
+// ResizeCalls gets all the calls that were made to Resize.
+// Check the length with:
+//
+//	len(mockedDiskService.ResizeCalls())
+func (mock *DiskServiceMock) ResizeCalls() []struct {
+	Ctx     context.Context
+	Pvc     *corev1.PersistentVolumeClaim
+	NewSize resource.Quantity
+} {
+	var calls []struct {
+		Ctx     context.Context
+		Pvc     *corev1.PersistentVolumeClaim
+		NewSize resource.Quantity
+	}
+	mock.lockResize.RLock()
+	calls = mock.calls.Resize
+	mock.lockResize.RUnlock()
 	return calls
 }

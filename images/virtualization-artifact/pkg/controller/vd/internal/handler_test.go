@@ -14,12 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package internal
 
-import "errors"
+import (
+	"testing"
 
-var (
-	ErrStorageClassNotFound        = errors.New("storage class not found")
-	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning        = errors.New("pvc import is not running")
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
+
+func TestHandlers(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Handlers")
+}
