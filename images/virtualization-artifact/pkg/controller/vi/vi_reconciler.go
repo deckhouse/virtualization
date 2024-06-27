@@ -19,6 +19,7 @@ package vi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -118,6 +120,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		},
 	); err != nil {
 		return err
+	}
+
+	viFromVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualImageObjectRefKindVirtualImage)
+	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), viFromVIEnqueuer)
+	if err := viWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+
+	viFromCVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.ClusterVirtualImage{}, virtv2.VirtualImageObjectRefKindClusterVirtualImage)
+	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), viFromCVIEnqueuer)
+	if err := cviWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
 	return nil
