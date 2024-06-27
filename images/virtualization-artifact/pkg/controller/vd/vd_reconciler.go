@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -167,7 +168,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			mgr.GetScheme(),
 			mgr.GetRESTMapper(),
 			&virtv2.VirtualDisk{},
-			handler.OnlyControllerOwner(),
 		), predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
@@ -204,6 +204,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on VMs: %w", err)
+	}
+
+	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualDiskObjectRefKindVirtualImage)
+	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
+	if err := viWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+
+	vdFromCVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.ClusterVirtualImage{}, virtv2.VirtualDiskObjectRefKindClusterVirtualImage)
+	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), vdFromCVIEnqueuer)
+	if err := cviWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
 	return nil

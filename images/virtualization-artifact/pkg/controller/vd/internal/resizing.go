@@ -19,8 +19,10 @@ package internal
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -32,10 +34,10 @@ import (
 )
 
 type ResizingHandler struct {
-	diskService *service.DiskService
+	diskService DiskService
 }
 
-func NewResizingHandler(diskService *service.DiskService) *ResizingHandler {
+func NewResizingHandler(diskService DiskService) *ResizingHandler {
 	return &ResizingHandler{
 		diskService: diskService,
 	}
@@ -59,8 +61,8 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
-	newSize := vd.Spec.PersistentVolumeClaim.Size
-	if newSize == nil {
+	vdSpecSize := vd.Spec.PersistentVolumeClaim.Size
+	if vdSpecSize == nil {
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.NotRequested
 		condition.Message = ""
@@ -85,33 +87,58 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, errors.New("pvc not found for ready virtual disk")
 	}
 
-	if newSize.Equal(pvc.Status.Capacity[corev1.ResourceStorage]) {
-		if condition.Reason == vdcondition.InProgress {
-			condition.Status = metav1.ConditionTrue
-			condition.Reason = vdcondition.Resized
-			condition.Message = ""
-			return reconcile.Result{}, nil
-		}
-
+	pvcSpecSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	switch vdSpecSize.Cmp(pvcSpecSize) {
+	// Expected disk size is LESS THAN expected pvc size: no resize needed as resizing to a smaller size is not possible.
+	case -1:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.NotRequested
-		condition.Message = ""
+		condition.Message = fmt.Sprintf("The virtual disk size is too low: should be >= %s.", pvcSpecSize.String())
 		return reconcile.Result{}, nil
+	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
+	case 1:
+		err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		vd.Status.Phase = virtv2.DiskResizing
+
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.InProgress
+		condition.Message = "The virtual disk resizing has started."
+		return reconcile.Result{}, nil
+	// Expected disk size is EQUAL TO expected pvc size: cannot definitively say whether the resize has already happened or was not needed - perform additional checks.
+	case 0:
 	}
 
-	err = h.diskService.Resize(ctx, pvc, *newSize, supgen)
-	switch {
-	case err == nil:
+	var vdStatusSize resource.Quantity
+	vdStatusSize, err = resource.ParseQuantity(vd.Status.Capacity)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	pvcStatusSize := pvc.Status.Capacity[corev1.ResourceStorage]
+
+	// Expected pvc size is GREATER THAN actual pvc size: resize has been requested and is in progress.
+	if pvcSpecSize.Cmp(pvcStatusSize) == 1 {
+		vd.Status.Phase = virtv2.DiskResizing
+
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.InProgress
 		condition.Message = "The virtual disk is in the process of resizing."
 		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrTooSmallDiskSize):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.TooSmallDiskSize
-		condition.Message = "The new size of the virtual disk must not be smaller than the current size."
-		return reconcile.Result{}, nil
-	default:
-		return reconcile.Result{}, err
 	}
+
+	// Virtual disk size DOES NOT MATCH pvc size: resize has completed, synchronize the virtual disk size.
+	if !vdStatusSize.Equal(pvcStatusSize) {
+		vd.Status.Capacity = pvcStatusSize.String()
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vdcondition.Resized
+		condition.Message = ""
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// Expected pvc size is NOT GREATER THAN actual PVC size AND virtual disk size MATCHES pvc size: keep previous status.
+	return reconcile.Result{}, nil
 }

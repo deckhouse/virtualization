@@ -113,7 +113,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		}
 
 		vi.Status.Phase = virtv2.ImagePending
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		ds.logger.Info("Create uploader pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", nil)
 	case common.IsPodComplete(pod):
@@ -142,7 +142,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Format = ds.statService.GetFormat(pod)
 		vi.Status.Progress = "100%"
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploadStarted(vi.GetUID(), pod):
@@ -173,7 +173,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
 		if err != nil {
@@ -187,7 +187,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		condition.Message = "Waiting for the user upload."
 
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(vi.Name)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		ds.logger.Info("WaitForUserUpload...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -217,7 +217,7 @@ func (ds UploadDataSource) getEnvSettings(supgen *supplements.Generator) *upload
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForCVMI(supgen.Name),
+		ds.dvcrSettings.RegistryImageForVMI(supgen.Name, supgen.Namespace),
 	)
 
 	return &settings

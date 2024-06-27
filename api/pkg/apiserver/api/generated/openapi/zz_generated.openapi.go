@@ -1003,8 +1003,9 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"target": {
@@ -1031,18 +1032,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Format: "",
 						},
 					},
-					"failureReason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureMessage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1063,7 +1052,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "size", "target"},
+				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
@@ -1237,8 +1226,9 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"target": {
@@ -1265,20 +1255,8 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"failureReason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureMessage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
-				Required: []string{"downloadSpeed", "size", "target"},
+				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
@@ -2153,8 +2131,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
 						},
 					},
 					"target": {
@@ -2181,24 +2160,31 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format: "",
 						},
 					},
-					"failureReason": {
+					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
 						},
 					},
-					"failureMessage": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "size", "target"},
+				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
