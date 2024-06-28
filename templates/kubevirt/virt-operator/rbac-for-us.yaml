@@ -94,6 +94,7 @@ rules:
     - migrations.kubevirt.io
     - pool.kubevirt.io
     - snapshot.kubevirt.io
+    - cdi.kubevirt.io
   resources:
     - '*'
   verbs:
