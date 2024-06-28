@@ -90,11 +90,11 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
-	apiGroups := gjson.GetBytes(obj, "apiGroups")
+	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
 	newGroups := []byte(`[]`)
 	shouldRenameResources := false
 	shouldAddRenamedGroup := true
-	for _, apiGroup := range apiGroups.Array() {
+	for _, apiGroup := range apiGroups {
 		group := apiGroup.String()
 		if group == "*" {
 			shouldRenameResources = true
