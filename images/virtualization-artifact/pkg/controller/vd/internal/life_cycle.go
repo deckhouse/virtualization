@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,13 +32,15 @@ import (
 )
 
 type LifeCycleHandler struct {
+	logger  *slog.Logger
 	client  client.Client
 	blank   source.Handler
 	sources *source.Sources
 }
 
-func NewLifeCycleHandler(blank source.Handler, sources *source.Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(logger *slog.Logger, blank source.Handler, sources *source.Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
+		logger:  logger,
 		client:  client,
 		blank:   blank,
 		sources: sources,
@@ -45,6 +48,8 @@ func NewLifeCycleHandler(blank source.Handler, sources *source.Sources, client c
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	logger := h.logger.With("name", vd.Name, "ns", vd.Namespace)
+
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
@@ -74,6 +79,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost && h.sources.Changed(ctx, vd) {
+		logger.Info("Spec changes are detected: restart import process")
+
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,
 			Conditions:         vd.Status.Conditions,
@@ -82,7 +89,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 		_, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
 
 		return reconcile.Result{Requeue: true}, nil
@@ -100,7 +107,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	requeue, err := ds.Sync(ctx, vd)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source: %w", err)
 	}
 
 	return reconcile.Result{Requeue: requeue}, nil

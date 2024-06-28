@@ -57,6 +57,7 @@ func NewRegistryDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
+	logger *slog.Logger,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
 		statService:     statService,
@@ -64,12 +65,13 @@ func NewRegistryDataSource(
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		logger:          slog.Default().With("controller", common.VDShortName, "ds", "http"),
+		logger:          logger.With("ds", "registry"),
 	}
 }
 
 func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	ds.logger.Info("Sync", "vd", vd.Name)
+	logger := ds.logger.With("name", vd.Name, "ns", vd.Namespace)
+	logger.Info("Sync")
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -94,7 +96,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vd", vd.Name)
+		logger.Info("Disk provisioning finished: clean up")
 
 		switch {
 		case pvc == nil:
@@ -130,10 +132,10 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		return CleanUpSupplements(ctx, vd, ds)
 	case common.AnyTerminating(pod, dv, pvc):
-		vd.Status.Phase = virtv2.DiskPending
-
-		ds.logger.Info("Cleaning up...", "vd", vd.Name)
+		logger.Info("Waiting for supplements to be terminated")
 	case pod == nil:
+		logger.Info("Start import to DVCR")
+
 		envSettings := ds.getEnvSettings(vd, supgen)
 		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
 		if err != nil {
@@ -146,9 +148,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		vd.Status.Progress = "0%"
-
-		ds.logger.Info("Create importer pod...", "vd", vd.Name, "progress", vd.Status.Progress, "pod.phase", "nil")
 	case !common.IsPodComplete(pod):
+		logger.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vd.Status.Phase = virtv2.DiskFailed
@@ -180,9 +182,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		if err != nil {
 			return false, err
 		}
-
-		ds.logger.Info("Provisioning...", "vd", vd.Name, "progress", vd.Status.Progress, "pod.phase", pod.Status.Phase)
 	case dv == nil:
+		logger.Info("Start import to PVC")
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vd.Status.Phase = virtv2.DiskFailed
@@ -218,10 +220,10 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = "50%"
 
-		ds.logger.Info("Create data volume...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", "nil")
-
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
+		logger.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Ready
@@ -230,10 +232,8 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		ds.logger.Info("Ready", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
 	default:
-		ds.logger.Info("Provisioning...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
+		logger.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

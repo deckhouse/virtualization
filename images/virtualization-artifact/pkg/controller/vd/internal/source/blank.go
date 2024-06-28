@@ -42,16 +42,18 @@ type BlankDataSource struct {
 func NewBlankDataSource(
 	statService *service.StatService,
 	diskService *service.DiskService,
+	logger *slog.Logger,
 ) *BlankDataSource {
 	return &BlankDataSource{
 		statService: statService,
 		diskService: diskService,
-		logger:      slog.Default().With("controller", common.VDShortName, "ds", "registry"),
+		logger:      logger.With("ds", "blank"),
 	}
 }
 
 func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	ds.logger.Info("Sync", "vd", vd.Name)
+	logger := ds.logger.With("name", vd.Name, "ns", vd.Namespace)
+	logger.Info("Sync")
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -72,7 +74,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vd", vd.Name)
+		logger.Info("Disk provisioning finished: clean up")
 
 		switch {
 		case pvc == nil:
@@ -102,8 +104,10 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 
 		return CleanUpSupplements(ctx, vd, ds)
 	case common.AnyTerminating(dv, pvc, pv):
-		ds.logger.Info("Cleaning up...", "vd", vd.Name)
+		logger.Info("Waiting for supplements to be terminated")
 	case dv == nil:
+		logger.Info("Start import to PVC")
+
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd)
 		if err != nil {
@@ -124,10 +128,10 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 
 		vd.Status.Progress = "0%"
 
-		ds.logger.Info("Create data volume...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", "nil")
-
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
+		logger.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Ready
@@ -136,10 +140,8 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		ds.logger.Info("Ready", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
 	default:
-		ds.logger.Info("Provisioning...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
+		logger.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(0, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

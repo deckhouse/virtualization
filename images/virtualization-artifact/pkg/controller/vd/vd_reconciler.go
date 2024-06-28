@@ -48,12 +48,14 @@ type Handler interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
+	logger   *slog.Logger
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
 		handlers: handlers,
+		client:   client,
+		logger:   logger,
 	}
 }
 
@@ -69,18 +71,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	var requeue bool
+	r.logger.Info("Start reconcile VD", slog.String("namespacedName", req.String()))
 
-	slog.Info("Start")
+	var requeue bool
 
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
+		r.logger.Debug("Run handler", slog.String("handler", reflect.TypeOf(h).Elem().Name()))
+
 		var res reconcile.Result
-		slog.Info("Handle... " + reflect.TypeOf(h).Elem().Name())
 		res, err = h.Handle(ctx, vd.Changed())
 		if err != nil {
-			slog.Error("Failed to handle vd", "err", err, "handler", reflect.TypeOf(h).Elem().Name())
+			r.logger.Error("Failed to handle VD", "err", err, "handler", reflect.TypeOf(h).Elem().Name())
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -89,8 +92,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
-
-	slog.Info("Update")
 
 	err = vd.Update(ctx)
 	if err != nil {
@@ -103,14 +104,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if requeue {
-		slog.Info("Requeue")
 		return reconcile.Result{
 			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
-	slog.Info("Done")
-
+	r.logger.Info("Finished reconcile VD", slog.String("namespacedName", req.String()))
 	return reconcile.Result{}, nil
 }
 
@@ -151,6 +150,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				}
 
 				if oldDV.Status.Progress != newDV.Status.Progress {
+					return true
+				}
+
+				if oldDV.Status.Phase != newDV.Status.Phase && newDV.Status.Phase == cdiv1.Succeeded {
 					return true
 				}
 

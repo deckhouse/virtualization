@@ -18,6 +18,7 @@ package vd
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -51,24 +52,27 @@ func NewController(
 	uploaderImage string,
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
+	logger := slog.Default().With("controller", ControllerName)
+
 	stat := service.NewStatService()
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
-	blank := source.NewBlankDataSource(stat, disk)
+	blank := source.NewBlankDataSource(stat, disk, logger)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, logger))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient(), logger))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient(), logger))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, logger))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		logger,
 		internal.NewDatasourceReadyHandler(blank, sources),
-		internal.NewLifeCycleHandler(blank, sources, mgr.GetClient()),
+		internal.NewLifeCycleHandler(logger, blank, sources, mgr.GetClient()),
 		internal.NewResizingHandler(disk),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
