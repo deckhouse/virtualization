@@ -48,7 +48,7 @@ func NewLifeCycleHandler(logger *slog.Logger, blank source.Handler, sources *sou
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	logger := h.logger.With("vdName", vd.Name, "vdNamespace", vd.Namespace)
+	logger := h.logger.With("name", vd.Name, "ns", vd.Namespace)
 
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {

@@ -60,7 +60,7 @@ func NewObjectRefDataSource(
 }
 
 func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	logger := ds.logger.With("vdName", vd.Name, "vdNamespace", vd.Namespace)
+	logger := ds.logger.With("name", vd.Name, "ns", vd.Namespace)
 	logger.Info("Sync")
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
