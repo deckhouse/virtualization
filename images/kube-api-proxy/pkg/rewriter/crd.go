@@ -62,6 +62,12 @@ func RestoreCRD(rules *RewriteRules, obj []byte) ([]byte, error) {
 	if !found {
 		return nil, fmt.Errorf("malformed CRD name: should be resourcetype.group, got %s", crdName)
 	}
+
+	// Skip CRD with original group to avoid duplicates in restored List.
+	if rules.HasGroup(group) {
+		return nil, SkipItem
+	}
+
 	// Do not restore CRDs in unknown groups.
 	if group != rules.RenamedGroup {
 		return nil, nil
