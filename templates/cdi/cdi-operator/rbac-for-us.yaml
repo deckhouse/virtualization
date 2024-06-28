@@ -42,6 +42,7 @@ rules:
 - apiGroups:
     - internal.virtualization.deckhouse.io
     - upload.cdi.kubevirt.io
+    - cdi.kubevirt.io
   resources:
     - '*'
   verbs:
@@ -275,8 +276,9 @@ rules:
     - create
 - apiGroups:
     - kubevirt.io
+    - internal.virtualization.deckhouse.io
   resources:
-    - virtualmachines/finalizers
+    - internalvirtualizationvirtualmachines/finalizers
   verbs:
     - update
 - apiGroups:
@@ -286,6 +288,7 @@ rules:
   verbs:
     - get
 - apiGroups:
+    - cdi.kubevirt.io
     - internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationdataimportcrons
