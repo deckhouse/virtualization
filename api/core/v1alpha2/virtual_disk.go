@@ -50,8 +50,18 @@ type VirtualDiskStatus struct {
 	UploadCommand             string                   `json:"uploadCommand,omitempty"`
 	Phase                     DiskPhase                `json:"phase"`
 	AttachedToVirtualMachines []AttachedVirtualMachine `json:"attachedToVirtualMachines,omitempty"`
+	Stats                     *VirtualDiskStats        `json:"stats,omitempty"`
 	Conditions                []metav1.Condition       `json:"conditions,omitempty"`
 	ObservedGeneration        int64                    `json:"observedGeneration,omitempty"`
+}
+
+type VirtualDiskStats struct {
+	CreationDuration CreationDuration `json:"creationDuration"`
+}
+
+type CreationDuration struct {
+	WaitingForDependencies *metav1.Duration `json:"waitingForDependencies,omitempty"`
+	Provisioning           *metav1.Duration `json:"provisioning,omitempty"`
 }
 
 type AttachedVirtualMachine struct {
