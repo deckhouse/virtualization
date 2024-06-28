@@ -96,6 +96,9 @@ git:
       - templates
       - Chart.yaml
       - .helmignore
+    excludePaths:
+      - hooks/lib/tests
+      - hooks/test*
 ---
 artifact: release-channel-version-artifact
 from: alpine:3.17
