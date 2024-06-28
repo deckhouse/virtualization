@@ -69,17 +69,25 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.DatasourceReady
 		condition.Message = ""
+		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.ContainerRegistrySecretNotFound
 		condition.Message = strings.ToTitle(err.Error())
+		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.ImageNotReady
 		condition.Message = strings.ToTitle(err.Error())
+		return reconcile.Result{}, nil
+	case errors.As(err, &source.ClusterImageNotReadyError{}):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ClusterImageNotReady
+		condition.Message = strings.ToTitle(err.Error())
+		return reconcile.Result{}, nil
+	default:
+		return reconcile.Result{}, err
 	}
-
-	return reconcile.Result{}, err
 }
 
 func (h DatasourceReadyHandler) Name() string {

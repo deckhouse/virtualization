@@ -52,18 +52,20 @@ func NewHTTPDataSource(
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
+	logger *slog.Logger,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:     statService,
 		importerService: importerService,
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
-		logger:          slog.Default().With("controller", common.VDShortName, "ds", "http"),
+		logger:          logger.With("ds", "http"),
 	}
 }
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	ds.logger.Info("Sync", "vd", vd.Name)
+	logger := ds.logger.With("vdName", vd.Name, "vdNamespace", vd.Namespace)
+	logger.Info("Sync")
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -88,7 +90,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vd", vd.Name)
+		logger.Info("Disk provisioning finished: clean up")
 
 		switch {
 		case pvc == nil:
@@ -127,8 +129,10 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		return CleanUpSupplements(ctx, vd, ds)
 	case common.AnyTerminating(pod, dv, pvc, pv):
-		ds.logger.Info("Cleaning up...", "vd", vd.Name)
+		logger.Info("Waiting for supplements to be terminated")
 	case pod == nil:
+		logger.Info("Start import to DVCR")
+
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
@@ -141,9 +145,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		if err != nil {
 			return false, err
 		}
-
-		ds.logger.Info("Create importer pod...", "vd", vd.Name, "progress", vd.Status.Progress, "pod.phase", "nil")
 	case !common.IsPodComplete(pod):
+		logger.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vd.Status.Phase = virtv2.DiskFailed
@@ -175,9 +179,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
-
-		ds.logger.Info("Provisioning...", "vd", vd.Name, "progress", vd.Status.Progress, "pod.phase", pod.Status.Phase)
 	case dv == nil:
+		logger.Info("Start import to PVC")
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vd.Status.Phase = virtv2.DiskFailed
@@ -213,10 +217,10 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		vd.Status.Progress = "50%"
 
-		ds.logger.Info("Create data volume...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", "nil")
-
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
+		logger.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Ready
@@ -225,10 +229,8 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		ds.logger.Info("Ready", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
 	default:
-		ds.logger.Info("Provisioning...", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
+		logger.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

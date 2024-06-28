@@ -116,7 +116,7 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 
 func MakeOwnerReference(owner client.Object) metav1.OwnerReference {
 	return metav1.OwnerReference{
-		APIVersion: owner.GetObjectKind().GroupVersionKind().Version,
+		APIVersion: owner.GetObjectKind().GroupVersionKind().GroupVersion().String(),
 		Kind:       owner.GetObjectKind().GroupVersionKind().Kind,
 		Name:       owner.GetName(),
 		UID:        owner.GetUID(),
