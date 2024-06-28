@@ -195,7 +195,14 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 			"refNamespace", state.Claim.Name().Namespace,
 		)
 
-		err := opts.Client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
+		state.Claim.Changed().Spec.VirtualMachineIPAddressLease = leaseName
+
+		err := opts.Client.Update(ctx, state.Claim.Changed())
+		if err != nil {
+			return fmt.Errorf("failed to set lease name for claim: %w", err)
+		}
+
+		err = opts.Client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: leaseName,
 			},
@@ -209,13 +216,6 @@ func (r *ClaimReconciler) Sync(ctx context.Context, _ reconcile.Request, state *
 		})
 		if err != nil {
 			return err
-		}
-
-		state.Claim.Changed().Spec.VirtualMachineIPAddressLease = leaseName
-
-		err = opts.Client.Update(ctx, state.Claim.Changed())
-		if err != nil {
-			return fmt.Errorf("failed to set lease name for claim: %w", err)
 		}
 
 		return nil
