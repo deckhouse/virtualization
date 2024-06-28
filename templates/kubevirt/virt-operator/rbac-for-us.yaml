@@ -85,6 +85,19 @@ metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
   name: d8:virtualization:kubevirt-operator
 rules:
+# Also grant original groups to keep original groups in rules for restoring.
+- apiGroups:
+    - kubevirt.io
+    - clone.kubevirt.io
+    - export.kubevirt.io
+    - instancetype.kubevirt.io
+    - migrations.kubevirt.io
+    - pool.kubevirt.io
+    - snapshot.kubevirt.io
+  resources:
+    - '*'
+  verbs:
+    - '*'
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
