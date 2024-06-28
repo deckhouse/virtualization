@@ -25,6 +25,7 @@ spec:
       volumes:
       - name: kube-api-proxy-kubeconfig
         configMap:
+          defaultMode: 0644
           name: kube-api-proxy-kubeconfig
       containers:
       - name: proxy

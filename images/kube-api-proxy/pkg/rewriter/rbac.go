@@ -90,25 +90,35 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
-	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
+	apiGroups := gjson.GetBytes(obj, "apiGroups")
 	newGroups := []byte(`[]`)
-	shouldRename := false
-	for _, apiGroup := range apiGroups {
+	shouldRenameResources := false
+	shouldAddRenamedGroup := true
+	for _, apiGroup := range apiGroups.Array() {
 		group := apiGroup.String()
 		if group == "*" {
-			shouldRename = true
+			shouldRenameResources = true
 		} else if rules.HasGroup(group) {
-			group = rules.RenamedGroup
-			shouldRename = true
+			shouldAddRenamedGroup = true
+			shouldRenameResources = true
 		}
-
+		// Put group as-is in a new array.
 		newGroups, err = sjson.SetBytes(newGroups, "-1", group)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if !shouldRename {
+	// Add renamed group to apiGroups to enable proper restoring.
+	// Removing original group from rule will make restoring ambiguous.
+	if shouldAddRenamedGroup {
+		newGroups, err = sjson.SetBytes(newGroups, "-1", rules.RenamedGroup)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !shouldRenameResources {
 		return obj, nil
 	}
 
@@ -147,7 +157,6 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
 	newGroups := []byte(`[]`)
 	shouldRestore := false
-	shouldAddGroup := false
 	for _, apiGroup := range apiGroups {
 		group := apiGroup.String()
 		if group == "*" {
@@ -155,8 +164,7 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		}
 		if group == rules.RenamedGroup {
 			shouldRestore = true
-			shouldAddGroup = true
-			// Group will be restored later, do not add now.
+			// Just ignore renamed group. Original groups are already present in array.
 			continue
 		}
 		newGroups, err = sjson.SetBytes(newGroups, "-1", group)
@@ -169,12 +177,10 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		return obj, nil
 	}
 
-	// Loop over resources and detect group from rules.
-
+	// Restore resources from rules.
 	resources := gjson.GetBytes(obj, "resources").Array()
 	newResources := []byte(`[]`)
 	shouldRestore = false
-	groupToAdd := ""
 	for _, resource := range resources {
 		newResource := resource.String()
 		resourceType := resource.String()
@@ -187,8 +193,6 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 			originalResourceType := rules.RestoreResource(resourceType)
 			groupRule, resRule := rules.GroupResourceRules(originalResourceType)
 			if groupRule != nil && resRule != nil {
-				shouldRestore = true
-				groupToAdd = groupRule.Group
 				// NOTE: Restore resource with subresource.
 				// TODO(future) make it work with suffixes.
 				newResource = rules.RestoreResource(resource.String())
@@ -196,14 +200,6 @@ func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 		}
 
 		newResources, err = sjson.SetBytes(newResources, "-1", newResource)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Add restored group to apiGroups.
-	if shouldAddGroup && groupToAdd != "" {
-		newGroups, err = sjson.SetBytes(newGroups, "-1", groupToAdd)
 		if err != nil {
 			return nil, err
 		}
