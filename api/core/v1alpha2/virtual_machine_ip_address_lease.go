@@ -63,7 +63,9 @@ const (
 // VirtualMachineIPAddressLeaseStatus is the observed state of `VirtualMachineIPAddressLease`.
 type VirtualMachineIPAddressLeaseStatus struct {
 	// Represents the current state of issued IP address lease.
-	Phase VirtualMachineIPAddressLeasePhase `json:"phase,omitempty"`
+	Phase              VirtualMachineIPAddressLeasePhase `json:"phase,omitempty"`
+	ObservedGeneration int64                             `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition                `json:"conditions,omitempty"`
 }
 
 type VirtualMachineIPAddressLeasePhase string
