@@ -47,6 +47,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -207,7 +208,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := ipam.NewLeaseController(ctx, mgr, log); err != nil {
+	if _, err := vmiplease.NewController(ctx, mgr, log); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -123,4 +124,8 @@ func (v *ClaimValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddres
 	}
 
 	return nil
+}
+
+func isValidAddressFormat(address string) bool {
+	return net.ParseIP(address) != nil
 }
