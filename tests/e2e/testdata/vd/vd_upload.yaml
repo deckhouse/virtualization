@@ -1,8 +1,10 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: test-vmd-blank
+  name: test-vd-upload
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
-    size: 100Mi
+    size: 200Mi
+  dataSource:
+    type: "Upload"

@@ -18,20 +18,21 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 	"strings"
 	"time"
+
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -99,7 +100,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 	Context("Connectivity test", func() {
 		CheckResultSshCommand := func(vmName, command, equal string) {
 			GinkgoHelper()
-			res := virtctl.SshCommand(vmName, command, virt.SshOptions{
+			res := d8Virtualization.SshCommand(vmName, command, d8.SshOptions{
 				Namespace:   conf.Namespace,
 				Username:    "cloud",
 				IdenityFile: vmPath("sshkeys/id_ed"),
@@ -151,11 +152,11 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		It(fmt.Sprintf("Wait %s running", vmTwo.Name), func() {
 			waitVmStatus(vmTwo.Name, VMStatusRunning)
 		})
-		It("Wait 30 sec for sshd started", func() {
-			time.Sleep(30 * time.Second)
+		It("Wait 60 sec for sshd started", func() {
+			time.Sleep(60 * time.Second)
 		})
 
-		It(fmt.Sprintf("Check ssh via virtctl on VM %s", vmOne.Name), func() {
+		It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vmOne.Name), func() {
 			command := "hostname"
 			CheckResultSshCommand(vmOne.Name, command, vmOne.Name)
 		})
