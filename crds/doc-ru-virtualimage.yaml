@@ -124,12 +124,6 @@ spec:
                     currentBytes:
                       description: |
                         Текущая скорость загрузки в байтах в секунду.
-                failureMessage:
-                  description: |
-                    Подробное описание ошибки.
-                failureReason:
-                  description: |
-                    Краткое описание причины ошибки.
                 format:
                   description: |
                     Обнаруженный формат образа.
@@ -170,3 +164,6 @@ spec:
                 uploadCommand:
                   description: |
                     Команда для загрузки образа для типа 'Upload'.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

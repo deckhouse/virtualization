@@ -89,15 +89,17 @@ func (s *scraper) Report(vmbdas []virtv2.VirtualMachineBlockDeviceAttachment) {
 func (s *scraper) updateVMBDAStatusPhaseMetrics(vmbda virtv2.VirtualMachineBlockDeviceAttachment) {
 	phase := vmbda.Status.Phase
 	if phase == "" {
-		phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		phase = virtv2.BlockDeviceAttachmentPhasePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
+		{phase == virtv2.BlockDeviceAttachmentPhasePending, string(virtv2.BlockDeviceAttachmentPhasePending)},
 		{phase == virtv2.BlockDeviceAttachmentPhaseInProgress, string(virtv2.BlockDeviceAttachmentPhaseInProgress)},
 		{phase == virtv2.BlockDeviceAttachmentPhaseAttached, string(virtv2.BlockDeviceAttachmentPhaseAttached)},
 		{phase == virtv2.BlockDeviceAttachmentPhaseFailed, string(virtv2.BlockDeviceAttachmentPhaseFailed)},
+		{phase == virtv2.BlockDeviceAttachmentPhaseTerminating, string(virtv2.BlockDeviceAttachmentPhaseTerminating)},
 	}
 	desc := vmbdaMetrics[MetricVMBDAStatusPhase]
 	for _, p := range phases {

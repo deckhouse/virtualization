@@ -266,7 +266,7 @@ spec:
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
                     * Resizing — The process of resource resizing is in progress.
-                    * Failed - There was a problem when creating a resource, details can be seen in `.status.failureReason` and `.status.failureMessage`.
+                    * Failed - There was a problem when creating a resource.
                     * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                     * Terminating - The process of resource deletion is in progress.
                   enum:

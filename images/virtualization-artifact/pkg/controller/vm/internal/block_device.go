@@ -108,9 +108,10 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	if kvvmi != nil {
+		// Set BlockDeviceRef in the status if the disk exists in KVVMI.
 		for _, ref := range changed.Spec.BlockDeviceRefs {
-			if h.findAttachedBlockDevice(changed, ref) == nil {
-				if abd := h.createAttachedBlockDevice(ref, bdState, kvvmi); abd != nil {
+			if !h.hasBlockDevice(changed.Status.BlockDeviceRefs, ref.Kind, ref.Name) {
+				if abd := h.createStatusBlockDeviceRef(ref, bdState, kvvmi); abd != nil {
 					changed.Status.BlockDeviceRefs = append(
 						changed.Status.BlockDeviceRefs,
 						*abd,
@@ -118,7 +119,40 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 				}
 			}
 		}
+
+		// Set BlockDeviceRef `Hotpluggable: true` in the status if KVVMI has a hotplugged disk.
+		for _, vs := range kvvmi.Status.VolumeStatus {
+			if vs.HotplugVolume != nil {
+				vdName, ok := kvbuilder.GerOriginalDiskName(vs.Name)
+				if !ok {
+					h.logger.Warn("volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
+					h.recorder.Eventf(changed, corev1.EventTypeNormal, virtv2.ReasonUnknownHotPluggedVolume, "Volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
+					continue
+				}
+
+				if h.hasBlockDevice(changed.Status.BlockDeviceRefs, virtv2.DiskDevice, vdName) {
+					var vd *virtv2.VirtualDisk
+					vd, err = s.VirtualDisk(ctx, vdName)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
+
+					if vd == nil {
+						h.logger.Warn("VirtualDisk %s not found but pvc hot plugged into VirtualMachineInstance %s", vdName, kvvmi.Name)
+						h.recorder.Eventf(changed, corev1.EventTypeNormal, virtv2.ReasonUnknownHotPluggedVolume, "VirtualDisk %s not found but pvc hot plugged into VirtualMachineInstance %s", vdName, kvvmi.Name)
+						continue
+					}
+
+					changed.Status.BlockDeviceRefs = append(
+						changed.Status.BlockDeviceRefs,
+						h.getHotPluggedDiskStatusRef(vs, vd),
+					)
+				}
+			}
+		}
 	}
+
+	// Update the BlockDevicesReady condition.
 	countBD := len(current.Spec.BlockDeviceRefs)
 	if ready, count := h.countReadyBlockDevices(current, bdState); !ready {
 		// Wait until block devices are ready.
@@ -256,18 +290,27 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *virtv2.Vi
 	return nil
 }
 
-func (h *BlockDeviceHandler) findAttachedBlockDevice(vm *virtv2.VirtualMachine, spec virtv2.BlockDeviceSpecRef) *virtv2.BlockDeviceStatusRef {
-	for i := range vm.Status.BlockDeviceRefs {
-		bda := &vm.Status.BlockDeviceRefs[i]
-		if bda.Kind == spec.Kind && bda.Name == spec.Name {
-			return bda
+func (h *BlockDeviceHandler) hasBlockDevice(statusBlockDeviceRefs []virtv2.BlockDeviceStatusRef, blockDeviceKind virtv2.BlockDeviceKind, blockDeviceName string) bool {
+	for _, statusBlockDeviceRef := range statusBlockDeviceRefs {
+		if statusBlockDeviceRef.Kind == blockDeviceKind && statusBlockDeviceRef.Name == blockDeviceName {
+			return true
 		}
 	}
 
-	return nil
+	return false
 }
 
-func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSpecRef, state BlockDevicesState, kvvmi *virtv1.VirtualMachineInstance) *virtv2.BlockDeviceStatusRef {
+func (h *BlockDeviceHandler) getHotPluggedDiskStatusRef(vs virtv1.VolumeStatus, vd *virtv2.VirtualDisk) virtv2.BlockDeviceStatusRef {
+	return virtv2.BlockDeviceStatusRef{
+		Kind:         virtv2.DiskDevice,
+		Name:         vd.Name,
+		Target:       vs.Target,
+		Size:         vd.Status.Capacity,
+		Hotpluggable: true,
+	}
+}
+
+func (h *BlockDeviceHandler) createStatusBlockDeviceRef(spec virtv2.BlockDeviceSpecRef, state BlockDevicesState, kvvmi *virtv1.VirtualMachineInstance) *virtv2.BlockDeviceStatusRef {
 	if kvvmi == nil {
 		return nil
 	}
@@ -358,11 +401,11 @@ type BlockDevicesState struct {
 }
 
 func (s *BlockDevicesState) Reload(ctx context.Context) error {
-	viByName, err := s.s.VirtualImageByName(ctx)
+	viByName, err := s.s.VirtualImagesByName(ctx)
 	if err != nil {
 		return err
 	}
-	ciByName, err := s.s.ClusterVirtualImageByName(ctx)
+	ciByName, err := s.s.ClusterVirtualImagesByName(ctx)
 	if err != nil {
 		return err
 	}

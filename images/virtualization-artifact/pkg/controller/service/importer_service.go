@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -101,11 +102,21 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplement
 }
 
 func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod) error {
-	return s.protection.AddProtection(ctx, pod)
+	err := s.protection.AddProtection(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for importer's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) error {
-	return s.protection.RemoveProtection(ctx, pod)
+	err := s.protection.RemoveProtection(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
