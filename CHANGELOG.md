@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.11.0](https://github.com/deckhouse/virtualization/compare/v0.10.1...v0.11.0) (2024-07-01)
+
+
+### Features
+
+* **controller, vmop:** wait for the desired state of the vm ([#84](https://github.com/deckhouse/virtualization/issues/84)) ([94fac98](https://github.com/deckhouse/virtualization/commit/94fac9882b6adb23cf739291a382518844acd512))
+* **core, dvcr:** generate htpasswd from hook ([#137](https://github.com/deckhouse/virtualization/issues/137)) ([bf009a0](https://github.com/deckhouse/virtualization/commit/bf009a0a4cac5884657db5562a4c4cc8a5b1cf8c))
+* **cvi:** apply new controller design ([9e21de8](https://github.com/deckhouse/virtualization/commit/9e21de84c355b46c94933fd7fc2252358cc2052d))
+* **dev:** added emulation of virtual machine movements ([677708b](https://github.com/deckhouse/virtualization/commit/677708b3359a1e8120659f606b50f1fa220d6f3b))
+* **proxy:** add rewriter for APIGroupDiscoveryList ([#99](https://github.com/deckhouse/virtualization/issues/99)) ([36712f3](https://github.com/deckhouse/virtualization/commit/36712f3e1fab9c3164160d7d3577e6c58b884409))
+* **vd:** apply new controller design ([e496da0](https://github.com/deckhouse/virtualization/commit/e496da057ba32e8d04772d1873ad1dba0232e925))
+* **vi:** apply new controller design ([078b61d](https://github.com/deckhouse/virtualization/commit/078b61d97d640e6b21ee7e9d8ee27952dff3a4c7))
+* **vi:** apply new design ([#142](https://github.com/deckhouse/virtualization/issues/142)) ([078b61d](https://github.com/deckhouse/virtualization/commit/078b61d97d640e6b21ee7e9d8ee27952dff3a4c7))
+* **vm:** apply new controller design ([#120](https://github.com/deckhouse/virtualization/issues/120)) ([ba12e49](https://github.com/deckhouse/virtualization/commit/ba12e492d37bd7e40a6c2566b191835948ec98ea))
+
+
+### Bug Fixes
+
+* **api:** add name suffix ([#106](https://github.com/deckhouse/virtualization/issues/106)) ([7c7fb60](https://github.com/deckhouse/virtualization/commit/7c7fb607b9af147092ef19db0fd4208c6531c6d6))
+* **core, dvcr:** configure dvcr creds before contatinerd config ([#128](https://github.com/deckhouse/virtualization/issues/128)) ([6cc4d26](https://github.com/deckhouse/virtualization/commit/6cc4d2695ecd3dd45ca4b3212a9f6089f1002772))
+* **core, kubevirt:** add ability to configure burst for virt-api rate limiter ([e5c4605](https://github.com/deckhouse/virtualization/commit/e5c460570c93a626960cd38a37faf5305642081c))
+* **core, kubevirt:** add ability to configure qps for virt-api rate l… ([#92](https://github.com/deckhouse/virtualization/issues/92)) ([03d5a21](https://github.com/deckhouse/virtualization/commit/03d5a21ffa5167f555e0cd8dca5cd21092fbcce1))
+* **core, kubevirt:** add ability to configure qps for virt-api rate limiter ([03d5a21](https://github.com/deckhouse/virtualization/commit/03d5a21ffa5167f555e0cd8dca5cd21092fbcce1))
+* **core:** fix virt-launcher's binaries ([#126](https://github.com/deckhouse/virtualization/issues/126)) ([9cab420](https://github.com/deckhouse/virtualization/commit/9cab420a314aa7fddfd4df87bd23ae59381c1b1d))
+* **core:** rename exportproxy ([#145](https://github.com/deckhouse/virtualization/issues/145)) ([57eccea](https://github.com/deckhouse/virtualization/commit/57ecceacf14b67a45566600e2a103e4b14df0243))
+* **cvi,vi:** add attachee handlers ([1689580](https://github.com/deckhouse/virtualization/commit/16895807f7ada6c18e5f1f7150cd1ddcf3577911))
+* **module:** fix user API RBAC ([#116](https://github.com/deckhouse/virtualization/issues/116)) ([460f069](https://github.com/deckhouse/virtualization/commit/460f0692820ae2c028b59c077ff5e9499c18fd59))
+* **observability:** fix dashboard title in tests ([#97](https://github.com/deckhouse/virtualization/issues/97)) ([ed9ea79](https://github.com/deckhouse/virtualization/commit/ed9ea79ebdd076763cdb3b98436dfa073fae32d1))
+* **vd,vi,cvi:** add object ref watchers ([af7e32c](https://github.com/deckhouse/virtualization/commit/af7e32cd843456566a886b1208570c00b418fdbd))
+* **vd,vi,cvi:** fix capacity and cdrom ([73f929d](https://github.com/deckhouse/virtualization/commit/73f929d6f020006a7d8b2eca384e098f1fffe6e3))
+* **vd,vi,cvi:** fix object ref datasource ([75b0a7d](https://github.com/deckhouse/virtualization/commit/75b0a7da07bdfd0c652b5c8a8b6b8fd7ec76bbbc))
+* **vd:** add stats reconciliation ([280a2fd](https://github.com/deckhouse/virtualization/commit/280a2fdc7b28684d359f8c81bfcd92b2f55251a6))
+* **vd:** copy error from data volume ([aae4b4e](https://github.com/deckhouse/virtualization/commit/aae4b4e5aadd94e30aa7876008455b60e53ac07a))
+* **vd:** fix fake pvc resizing ([6b4d431](https://github.com/deckhouse/virtualization/commit/6b4d43142a7c9d16526772fcccefac0d5552ff71))
+* **vd:** fix fake pvc resizing ([6b4d431](https://github.com/deckhouse/virtualization/commit/6b4d43142a7c9d16526772fcccefac0d5552ff71))
+* **vd:** fix pvc watching ([cbf1a32](https://github.com/deckhouse/virtualization/commit/cbf1a3245b4c9d0fda2b470020e09ac502a5216c))
+* **vi,cvi:** fix pod errors handling ([21be7cd](https://github.com/deckhouse/virtualization/commit/21be7cd3a757cbf92f3ff9b1ba93d93629eecdbc))
+* **vi:** fix status target ([296ebd7](https://github.com/deckhouse/virtualization/commit/296ebd74ac0abd012b73c0b31d047c7b6f0df85c))
+* **vm:** add value of the guest os info ([1ffcab7](https://github.com/deckhouse/virtualization/commit/1ffcab78de4fac975a477c14ad80467beb97f9d4))
+* **vmip:** double lease ([#173](https://github.com/deckhouse/virtualization/issues/173)) ([fad8e2a](https://github.com/deckhouse/virtualization/commit/fad8e2ac6f3510fdf56a0d3dbab8537715c9bed0))
+* **vm:** lifecycle vm ([#168](https://github.com/deckhouse/virtualization/issues/168)) ([2100e66](https://github.com/deckhouse/virtualization/commit/2100e661671f30f08dafc824fe73ffc6c5e5f97b))
+* **vmop:** fix panic if VM is not exist ([#129](https://github.com/deckhouse/virtualization/issues/129)) ([9b90641](https://github.com/deckhouse/virtualization/commit/9b906410a0fd0c85983fa58cc2b3a079cdbb4403))
+* **vm:** panic in cpu handler ([#171](https://github.com/deckhouse/virtualization/issues/171)) ([982d84e](https://github.com/deckhouse/virtualization/commit/982d84e15f015a2625a51c481c83abb978ee37cc))
+* **vm:** set min max for blockdevicerefs list ([#134](https://github.com/deckhouse/virtualization/issues/134)) ([25f5f29](https://github.com/deckhouse/virtualization/commit/25f5f295ef865f50d1bc592fe9315bc856bff20e))
+
 ## [0.10.1](https://github.com/deckhouse/virtualization/compare/v0.10.0...v0.10.1) (2024-05-07)
 
 
