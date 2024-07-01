@@ -45,8 +45,8 @@ type VirtualMachineBlockDeviceAttachmentList struct {
 }
 
 type VirtualMachineBlockDeviceAttachmentSpec struct {
-	VirtualMachine string         `json:"virtualMachineName"`
-	BlockDeviceRef VMBDAObjectRef `json:"blockDeviceRef"`
+	VirtualMachineName string         `json:"virtualMachineName"`
+	BlockDeviceRef     VMBDAObjectRef `json:"blockDeviceRef"`
 }
 
 type VMBDAObjectRef struct {
@@ -60,21 +60,18 @@ const (
 	VMBDAObjectRefKindVirtualDisk VMBDAObjectRefKind = "VirtualDisk"
 )
 
-type VirtualMachineBlockDeviceAttachmentObjectRefKind string
-
-const BlockDeviceAttachmentTypeVirtualDisk VirtualMachineBlockDeviceAttachmentObjectRefKind = "VirtualDisk"
-
 type VirtualMachineBlockDeviceAttachmentStatus struct {
-	VirtualMachine string                     `json:"virtualMachine,omitempty"`
-	Phase          BlockDeviceAttachmentPhase `json:"phase,omitempty"`
-	FailureReason  string                     `json:"failureReason,omitempty"`
-	FailureMessage string                     `json:"failureMessage,omitempty"`
+	Phase              BlockDeviceAttachmentPhase `json:"phase,omitempty"`
+	Conditions         []metav1.Condition         `json:"conditions,omitempty"`
+	ObservedGeneration int64                      `json:"observedGeneration,omitempty"`
 }
 
 type BlockDeviceAttachmentPhase string
 
 const (
-	BlockDeviceAttachmentPhaseInProgress BlockDeviceAttachmentPhase = "InProgress"
-	BlockDeviceAttachmentPhaseAttached   BlockDeviceAttachmentPhase = "Attached"
-	BlockDeviceAttachmentPhaseFailed     BlockDeviceAttachmentPhase = "Failed"
+	BlockDeviceAttachmentPhasePending     BlockDeviceAttachmentPhase = "Pending"
+	BlockDeviceAttachmentPhaseInProgress  BlockDeviceAttachmentPhase = "InProgress"
+	BlockDeviceAttachmentPhaseAttached    BlockDeviceAttachmentPhase = "Attached"
+	BlockDeviceAttachmentPhaseFailed      BlockDeviceAttachmentPhase = "Failed"
+	BlockDeviceAttachmentPhaseTerminating BlockDeviceAttachmentPhase = "Terminating"
 )

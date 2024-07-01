@@ -46,7 +46,6 @@ spec:
                   type: object
                   description: |
                     The block device that will be connected as a hot plug disk to the virtual machine.
-
                   required: ["kind", "name"]
                   properties:
                     kind:
@@ -63,6 +62,37 @@ spec:
             status:
               type: object
               properties:
+                conditions:
+                  description: |
+                    The latest available observations of an object's current state.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - status
+                      - type
                 virtualMachineName:
                   type: string
                   description: |
@@ -72,21 +102,21 @@ spec:
                   description: |
                     Represents the current phase of resource:
 
+                    * Pending - the resource has been created and is on a waiting queue.
                     * InProgress - the disk is in the process of being attached.
                     * Attached - the disk is attached to virtual machine.
-                    * Failed - there was a problem with attaching the disk. See `.status.failureReason`.
+                    * Failed - there was a problem with attaching the disk.
+                    * Terminating - The process of resource deletion is in progress.
                   enum:
+                    - "Pending"
                     - "InProgress"
                     - "Attached"
                     - "Failed"
-                failureReason:
-                  type: string
+                    - "Terminating"
+                observedGeneration:
+                  type: integer
                   description: |
-                    A brief description of the cause of the error.
-                failureMessage:
-                  type: string
-                  description: |
-                    Detailed description of the error.
+                    Represents the .metadata.generation that the status was set based upon.
       additionalPrinterColumns:
         - name: Phase
           type: string
