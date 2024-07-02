@@ -132,7 +132,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 			Message(msg).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
 	mgr.Update(cb.Status(metav1.ConditionTrue).
