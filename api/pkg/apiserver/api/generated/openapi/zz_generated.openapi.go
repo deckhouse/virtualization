@@ -2509,15 +2509,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef"),
 						},
 					},
-					"virtualMachineNameDeprecated": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"virtualMachineName", "blockDeviceRef", "virtualMachineNameDeprecated"},
+				Required: []string{"virtualMachineName", "blockDeviceRef"},
 			},
 		},
 		Dependencies: []string{
@@ -2554,24 +2547,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
-						},
-					},
-					"virtualMachineName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureReason": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"failureMessage": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 				},

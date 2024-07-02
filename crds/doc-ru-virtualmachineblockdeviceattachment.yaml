@@ -25,19 +25,34 @@ spec:
                     Имя виртуальной машины, к которой подключен диск.
             status:
               properties:
-                failureMessage:
+                conditions:
                   description: |
-                    Подробное описание ошибки.
-                failureReason:
-                  description: |
-                    Краткое описание причины ошибки.
+                    Последние доступные наблюдения текущего состояния объекта.
+                  properties:
+                    type:
+                      description: Тип состояния.
+                    status:
+                      description: Статус состояния (одно из True, False, Unknown).
+                    message:
+                      description: Cообщение c деталями последнего перехода состояния.
+                    reason:
+                      description: Краткая причина последнего перехода состояния.
+                    lastProbeTime:
+                      description: Время последней проверки состояния.
+                    lastTransitionTime:
+                      description: Время последнего перехода состояния из одного статуса в другой.
                 phase:
                   description: |
                     Фаза ресурса:
 
+                    * Pending — ресурс был создан и находится в очереди ожидания.
                     * InProgress — диск в процессе подключения к ВМ.
                     * Attached — диск подключен к ВМ.
-                    * Failed — возникла проблема с подключением диска. Смотрите `.status.failureReason`.
+                    * Failed — возникла проблема с подключением диска.
+                    * Terminating - Ресурс находится в процессе удаления.
                 virtualMachineName:
                   description: |
                     Имя виртуальной машины, к которой подключен этот диск.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.
