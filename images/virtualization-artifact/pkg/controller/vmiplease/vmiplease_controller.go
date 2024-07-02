@@ -14,62 +14,57 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ipam
+package vmiplease
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
+
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	leaseControllerName = "lease-controller"
+	controllerName = "vmiplease-controller"
 )
 
-func NewLeaseController(
+func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
 ) (controller.Controller, error) {
-	reconciler := NewLeaseReconciler()
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*LeaseReconcilerState](
-		reconciler,
-		NewLeaseReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
-			Recorder: mgr.GetEventRecorderFor(leaseControllerName),
-			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(leaseControllerName),
-		})
+	handlers := []Handler{
+		internal.NewProtectionHandler(mgr.GetClient(), log),
+		internal.NewDeletionHandler(mgr.GetClient(), log),
+		internal.NewLifecycleHandler(mgr.GetClient(), log),
+	}
 
-	c, err := controller.New(leaseControllerName, mgr, controller.Options{
-		Reconciler:  reconcilerCore,
-		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
-	})
+	r, err := NewReconciler(mgr.GetClient(), log, handlers...)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = reconciler.SetupController(ctx, mgr, c); err != nil {
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = r.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineIPAddressLease{}).
-		WithValidator(NewLeaseValidator(log)).
+		WithValidator(NewVMIPLeaseValidator(log)).
 		Complete(); err != nil {
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachineIPAddressLease controller")
+	log.Info("Initialized VMIPLease controller")
 	return c, nil
 }

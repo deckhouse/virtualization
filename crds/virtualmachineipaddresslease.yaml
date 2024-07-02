@@ -37,7 +37,7 @@ spec:
                 reclaimPolicy:
                   type: string
                   default: "Delete"
-                  enum: ["Delete", "Retain"]
+                  enum: [ "Delete", "Retain" ]
                   description: |
                     Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
 
@@ -65,6 +65,37 @@ spec:
               description: |
                 The observed state of `VirtualMachineIPAddressLease`.
               properties:
+                conditions:
+                  description: |
+                    The latest available observations of an object's current state.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: [ "True", "False", "Unknown" ]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - status
+                      - type
                 phase:
                   type: string
                   enum:
@@ -79,7 +110,7 @@ spec:
       served: true
       storage: true
       subresources:
-        status: {}
+        status: { }
       additionalPrinterColumns:
         - jsonPath: .spec.claimRef
           name: Claim

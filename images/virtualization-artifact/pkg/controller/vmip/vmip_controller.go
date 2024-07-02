@@ -14,67 +14,58 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ipam
+package vmip
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	claimControllerName = "claim-controller"
+	controllerName = "vmip-controller"
 )
 
-func NewClaimController(
+func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	reconciler, err := NewClaimReconciler(virtualMachineCIDRs)
+	handlers := []Handler{
+		internal.NewProtectionHandler(mgr.GetClient(), log),
+		internal.NewDeletionHandler(mgr.GetClient(), log),
+		internal.NewIPLeaseHandler(mgr.GetClient(), log, virtualMachineCIDRs),
+		internal.NewLifecycleHandler(mgr.GetClient(), log),
+	}
+
+	r, err := NewReconciler(mgr.GetClient(), log, handlers...)
 	if err != nil {
 		return nil, err
 	}
 
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*ClaimReconcilerState](
-		reconciler,
-		NewClaimReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
-			Recorder: mgr.GetEventRecorderFor(claimControllerName),
-			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(claimControllerName),
-		})
-
-	c, err := controller.New(claimControllerName, mgr, controller.Options{
-		Reconciler:  reconcilerCore,
-		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
-	})
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return nil, err
 	}
 
-	if err = reconciler.SetupController(ctx, mgr, c); err != nil {
+	if err = r.SetupController(ctx, mgr, c); err != nil {
 		return nil, err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineIPAddressClaim{}).
-		WithValidator(NewClaimValidator(log, mgr.GetClient())).
+		WithValidator(NewVMIPValidator(log, mgr.GetClient())).
 		Complete(); err != nil {
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachineIPAddressClaim controller")
+	log.Info("Initialized VirtualMachineIP controller")
 	return c, nil
 }
