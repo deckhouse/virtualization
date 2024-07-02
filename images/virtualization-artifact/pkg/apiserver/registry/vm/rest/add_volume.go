@@ -23,7 +23,6 @@ import (
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -31,70 +30,62 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
-type ConsoleREST struct {
+type AddVolumeREST struct {
 	vmLister         cache.GenericLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
-type KubevirtApiServerConfig struct {
-	Endpoint       string
-	CaBundlePath   string
-	ServiceAccount types.NamespacedName
-}
-
 var (
-	_ rest.Storage   = &ConsoleREST{}
-	_ rest.Connecter = &ConsoleREST{}
+	_ rest.Storage   = &AddVolumeREST{}
+	_ rest.Connecter = &AddVolumeREST{}
 )
 
-func NewConsoleREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
-	return &ConsoleREST{
+func NewAddVolumeREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *AddVolumeREST {
+	return &AddVolumeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
 		proxyCertManager: proxyCertManager,
 	}
 }
 
-// New implements rest.Storage interface
-func (r ConsoleREST) New() runtime.Object {
-	return &subresources.VirtualMachineConsole{}
+func (r AddVolumeREST) New() runtime.Object {
+	return &subresources.VirtualMachineAddVolume{}
 }
 
-// Destroy implements rest.Storage interface
-func (r ConsoleREST) Destroy() {
+func (r AddVolumeREST) Destroy() {
 }
 
-func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	consoleOpts, ok := opts.(*subresources.VirtualMachineConsole)
+func (r AddVolumeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+	addVolumeOpts, ok := opts.(*subresources.VirtualMachineAddVolume)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, consoleOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := AddVolumeLocation(ctx, r.vmLister, name, addVolumeOpts, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 
 // NewConnectOptions implements rest.Connecter interface
-func (r ConsoleREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachineConsole{}, false, ""
+func (r AddVolumeREST) NewConnectOptions() (runtime.Object, bool, string) {
+	return &subresources.VirtualMachineAddVolume{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
-func (r ConsoleREST) ConnectMethods() []string {
-	return upgradeableMethods
+func (r AddVolumeREST) ConnectMethods() []string {
+	return []string{http.MethodPut}
 }
 
-func ConsoleLocation(
+func AddVolumeLocation(
 	ctx context.Context,
 	getter cache.GenericLister,
 	name string,
-	opts *subresources.VirtualMachineConsole,
+	opts *subresources.VirtualMachineAddVolume,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, "console", kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, "addvolume", kubevirt, proxyCertManager)
 }

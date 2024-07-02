@@ -74,6 +74,11 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 			continue
 		}
 
+		// No new finalizers can be added if the object is being deleted.
+		if obj.GetDeletionTimestamp() != nil {
+			continue
+		}
+
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
