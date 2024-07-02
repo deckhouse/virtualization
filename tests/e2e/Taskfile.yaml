@@ -3,7 +3,7 @@ version: "3"
 silent: true
 
 vars:
-  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
+  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{ .E2E_CLUSTERTRANSPORT_KUBECONFIG | default "$HOME/.kube/config"}}'
   GINKGO_VERSION: "2.13.2"
   VERSION: "v1.0.0"
 
@@ -22,9 +22,9 @@ tasks:
   ginkgo:
     cmds:
       - |
-        v=($(ginkgo version 2>/dev/null)) 
-        if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then 
-          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ; 
+        v=($(ginkgo version 2>/dev/null || true))
+        if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then
+          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ;
         fi
   run:
     desc: "Run e2e tests"
@@ -47,7 +47,6 @@ tasks:
   run_one:
     desc: "Run one test or group"
     deps:
-      - virtctl
       - ginkgo
     cmds:
       - |

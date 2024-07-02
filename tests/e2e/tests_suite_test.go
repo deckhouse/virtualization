@@ -23,6 +23,7 @@ import (
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/yaml"
 	"testing"
 	"time"
 )
@@ -48,6 +49,8 @@ func init() {
 	if conf, err = config.GetConfig(); err != nil {
 		panic(err)
 	}
+	b, _ := yaml.Marshal(conf)
+	fmt.Println(string(b))
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
 		panic(err)
 	}
