@@ -69,7 +69,8 @@ func rewriteNodeAffinity(rules *RewriteRules, obj []byte, action Action) ([]byte
 	})
 }
 
-// rewriteNodeSelectorTerm renames or restores key fields in matchLabels or matchExpressions of NodeSelectorTerm.
+// rewriteNodeSelectorTerm renames or restores selector requirements arrays in matchLabels or matchExpressions of NodeSelectorTerm.
+// See [v1.NodeSelectorTerm](https://pkg.go.dev/k8s.io/api/core/v1#NodeSelectorTerm)
 func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	obj, err := RewriteArray(obj, "matchLabels", func(item []byte) ([]byte, error) {
 		return rewriteSelectorRequirement(rules, item, action)
@@ -77,11 +78,14 @@ func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]
 	if err != nil {
 		return nil, err
 	}
-	return RewriteArray(obj, "matchExpressions", func(item []byte) ([]byte, error) {
-		return rewriteSelectorRequirement(rules, item, action)
+	return RewriteArray(obj, "matchExpressions", func(labelSelectorObj []byte) ([]byte, error) {
+		return rewriteSelectorRequirement(rules, labelSelectorObj, action)
 	})
 }
 
+// rewriteSelectorRequirement rewrites key and values in the selector requirement.
+// Selector requirement example:
+// {"key":"app.kubernetes.io/managed-by", "operator": "In", "values": ["Helm"]}
 func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	return TransformString(obj, "key", func(field string) string {
 		return rules.LabelsRewriter().Rewrite(field, action)
@@ -91,15 +95,17 @@ func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) 
 // rewritePodAffinity rewrites PodAffinity and PodAntiAffinity structures.
 // PodAffinity and PodAntiAffinity structures are the same:
 //
-//	requiredDuringSchedulingIgnoredDuringExecution -> array of PodAffinityTerm structures:
-//	  labelSelector:
-//	    matchLabels -> rewrite map
-//	    matchExpressions -> rewrite key in each item
-//	  topologyKey -> rewrite as label name
-//	  namespaceSelector -> rewrite as labelSelector
-//	preferredDuringSchedulingIgnoredDuringExecution -> array of WeightedPodAffinityTerm:
-//	  weight
-//	  podAffinityTerm PodAffinityTerm -> rewrite as described above
+//		requiredDuringSchedulingIgnoredDuringExecution -> array of PodAffinityTerm structures:
+//		  labelSelector:
+//		    matchLabels -> rewrite map
+//		    matchExpressions -> rewrite key in each item
+//		  topologyKey -> rewrite as label name
+//		  namespaceSelector -> rewrite as labelSelector
+//	   matchLabelKeys -> rewrite array of label keys
+//	   mismatchLabelKeys -> rewrite array of label keys
+//		preferredDuringSchedulingIgnoredDuringExecution -> array of WeightedPodAffinityTerm:
+//		  weight
+//		  podAffinityTerm PodAffinityTerm -> rewrite as described above
 func rewritePodAffinity(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	// Rewrite an array of PodAffinityTerms in requiredDuringSchedulingIgnoredDuringExecution field.
 	obj, err := RewriteArray(obj, "requiredDuringSchedulingIgnoredDuringExecution", func(affinityTerm []byte) ([]byte, error) {
@@ -125,15 +131,29 @@ func rewritePodAffinityTerm(rules *RewriteRules, obj []byte, action Action) ([]b
 		return nil, err
 	}
 
-	obj, err = TransformString(obj, "topologyKey", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
+	obj, err = TransformString(obj, "topologyKey", func(topologyKey string) string {
+		return rules.LabelsRewriter().Rewrite(topologyKey, action)
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return TransformObject(obj, "namespaceSelector", func(selector []byte) ([]byte, error) {
+	obj, err = TransformObject(obj, "namespaceSelector", func(selector []byte) ([]byte, error) {
 		return rewriteLabelSelector(rules, selector, action)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err = TransformArrayOfStrings(obj, "matchLabelKeys", func(labelKey string) string {
+		return rules.LabelsRewriter().Rewrite(labelKey, action)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return TransformArrayOfStrings(obj, "mismatchLabelKeys", func(labelKey string) string {
+		return rules.LabelsRewriter().Rewrite(labelKey, action)
 	})
 }
 
