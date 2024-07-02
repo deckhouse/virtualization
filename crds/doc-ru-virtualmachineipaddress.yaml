@@ -8,24 +8,24 @@ spec:
           properties:
             spec:
               description: |
-                Настройки `VirtualMachineIPAddressClaim`.
+                Настройки `VirtualMachineIPAddress`.
               properties:
                 address:
                   description: |
                     Запрашиваемый IP-адрес. Если это значение не задано, будет назначен следующий доступный IP-адрес.
                 reclaimPolicy:
                   description: |
-                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
+                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddress`.
 
-                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
+                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddress`.
 
-                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddress`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
                 virtualMachineIPAddressLeaseName:
                   description: |
                     Имя выданного `VirtualMachineIPAddressLease`, управляется автоматически.
             status:
               description: |
-                Состояние ресурса `VirtualMachineIPAddressClaim`.
+                Состояние ресурса `VirtualMachineIPAddress`.
               properties:
                 conditions:
                   description: |
@@ -51,12 +51,12 @@ spec:
                     Подробное описание ошибки.
                 phase:
                   description: |
-                    Представляет текущее состояние ресурса `VirtualMachineIPAddressClaim`.
+                    Представляет текущее состояние ресурса `VirtualMachineIPAddress`.
 
                     * Pending - создание ресурса находится в процессе выполнения.
-                    * Bound - ресурс `VirtualMachineIPAddressClaim` привязан к ресурсу `VirtualMachineIPAddressLease`.
-                    * Lost - ресурс `VirtualMachineIPAddressClaim` потерял свойю связку с `VirtualMachineIPAddressLease`.
-                    * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddressClaim`.
+                    * Bound - ресурс `VirtualMachineIPAddress` привязан к ресурсу `VirtualMachineIPAddressLease`.
+                    * Lost - ресурс `VirtualMachineIPAddress` потерял свойю связку с `VirtualMachineIPAddressLease`.
+                    * Conflict - `VirtualMachineIPAddressLease` уже привязан к другом ресурсу `VirtualMachineIPAddress`.
                 virtualMachineName:
                   description: |
                     Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.

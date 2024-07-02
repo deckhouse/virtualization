@@ -518,13 +518,13 @@ spec:
                         description: ""
                       whenUnsatisfiable:
                         description: ""
-                virtualMachineIPAddressClaimName:
+                virtualMachineIPAddressName:
                   description: |
-                    Имя для связанного ресурса `virtualMachineIPAddressClaim`.
+                    Имя для связанного ресурса `virtualMachineIPAddress`.
 
                     Указывается при необходимости использования ранее созданного IP-адреса ВМ.
 
-                    Если не указано явно, по умолчанию для ВМ создается ресурс `virtualMachineIPAddressClaim` с именем аналогичным ресурсу ВМ (`.metadata.name`).
+                    Если не указано явно, по умолчанию для ВМ создается ресурс `virtualMachineIPAddress` с именем аналогичным ресурсу ВМ (`.metadata.name`).
             status:
               properties:
                 blockDeviceRefs:
@@ -592,9 +592,9 @@ spec:
                 restartAwaitingChanges:
                   description: |
                     Список изменений в конфигурации, требующий перезапуска ВМ.
-                virtualMachineIPAddressClaimName:
+                virtualMachineIPAddressName:
                   description: |
-                    Имя `virtualMachineIPAddressClaimName`, содержащее IP-адрес виртуальной машины.
+                    Имя `virtualMachineIPAddressName`, содержащее IP-адрес виртуальной машины.
                 migrationState:
                   description: |
                     Информация о миграции Виртуальной машины.

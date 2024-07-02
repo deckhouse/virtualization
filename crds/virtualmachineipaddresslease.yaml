@@ -22,7 +22,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The resource that defines fact of issued lease for `VirtualMachineIPAddressClaim`.
+            The resource that defines fact of issued lease for `VirtualMachineIPAddress`.
           properties:
             apiVersion:
               type: string
@@ -39,21 +39,21 @@ spec:
                   default: "Delete"
                   enum: [ "Delete", "Retain" ]
                   description: |
-                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
+                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddress` deletion.
 
-                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddressClaim`.
-                    * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
-                claimRef:
+                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddress`.
+                    * `Retain` — if a user deletes a `VirtualMachineIPAddress`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
+                ipAddressRef:
                   description: |
-                    The link to existing `VirtualMachineIPAddressClaim`.
+                    The link to existing `VirtualMachineIPAddress`.
                   properties:
                     name:
                       description: |
-                        The name of the referenced `VirtualMachineIPAddressClaim`.
+                        The name of the referenced `VirtualMachineIPAddress`.
                       type: string
                     namespace:
                       description: |
-                        The Namespace of the referenced `VirtualMachineIPAddressClaim`.
+                        The Namespace of the referenced `VirtualMachineIPAddress`.
                       type: string
                   required:
                     - name
@@ -104,7 +104,7 @@ spec:
                   description: |
                     Represents the current state of issued IP address lease.
 
-                    * Bound - the IP address lease is bound to IP address claim.
+                    * Bound - the IP address lease is bound to IP address.
                     * Released - the IP address lease is available for binding.
           type: object
       served: true
@@ -112,8 +112,8 @@ spec:
       subresources:
         status: { }
       additionalPrinterColumns:
-        - jsonPath: .spec.claimRef
-          name: Claim
+        - jsonPath: .spec.ipAddressRef
+          name: IpAddress
           type: string
         - jsonPath: .status.phase
           name: Status

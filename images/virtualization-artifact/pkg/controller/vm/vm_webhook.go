@@ -57,7 +57,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
 
-	v.log.Info("Validating VM", "spec.virtualMachineIPAddressClaim", vm.Spec.VirtualMachineIPAddressClaim)
+	v.log.Info("Validating VM", "spec.virtualMachineIPAddress", vm.Spec.VirtualMachineIPAddress)
 
 	var warnings admission.Warnings
 
@@ -84,8 +84,8 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	}
 
 	v.log.Info("Validating VM",
-		"old.spec.virtualMachineIPAddressClaim", oldVM.Spec.VirtualMachineIPAddressClaim,
-		"new.spec.virtualMachineIPAddressClaim", newVM.Spec.VirtualMachineIPAddressClaim,
+		"old.spec.virtualMachineIPAddress", oldVM.Spec.VirtualMachineIPAddress,
+		"new.spec.virtualMachineIPAddress", newVM.Spec.VirtualMachineIPAddress,
 	)
 
 	var warnings admission.Warnings
@@ -162,48 +162,48 @@ func newIPAMVMValidator(ipam internal.IPAM, client client.Client) *ipamVMValidat
 }
 
 func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	claimName := vm.Spec.VirtualMachineIPAddressClaim
-	if claimName == "" {
-		claimName = vm.Name
+	vmipName := vm.Spec.VirtualMachineIPAddress
+	if vmipName == "" {
+		vmipName = vm.Name
 	}
 
-	claimKey := types.NamespacedName{Name: claimName, Namespace: vm.Namespace}
-	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v1alpha2.VirtualMachineIPAddressClaim{})
+	vmipKey := types.NamespacedName{Name: vmipName, Namespace: vm.Namespace}
+	vmip, err := helper.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get Claim %s: %w", claimKey, err)
+		return nil, fmt.Errorf("unable to get vmip %s: %w", vmip, err)
 	}
 
-	if claim == nil {
+	if vmip == nil {
 		return nil, nil
 	}
 
-	if vm.Spec.VirtualMachineIPAddressClaim == "" {
-		return nil, fmt.Errorf("VirtualMachineIPAddressClaim with the name of the virtual machine"+
-			" already exists: explicitly specify the name of the VirtualMachineIPAddressClaim (%s)"+
-			" in spec.virtualMachineIPAddressClaim of virtual machine", claim.Name)
+	if vm.Spec.VirtualMachineIPAddress == "" {
+		return nil, fmt.Errorf("VirtualMachineIPAddress with the name of the virtual machine"+
+			" already exists: explicitly specify the name of the VirtualMachineIPAddress (%s)"+
+			" in spec.virtualMachineIPAddress of virtual machine", vmip.Name)
 	}
 
-	return nil, v.ipam.CheckClaimAvailableForBinding(vm.Name, claim)
+	return nil, v.ipam.CheckIpAddressAvailableForBinding(vm.Name, vmip)
 }
 
 func (v *ipamVMValidator) validateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if oldVM.Spec.VirtualMachineIPAddressClaim == newVM.Spec.VirtualMachineIPAddressClaim {
+	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
 		return nil, nil
 	}
 
-	if newVM.Spec.VirtualMachineIPAddressClaim == "" {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddressClaim cannot be changed to an empty value once set")
+	if newVM.Spec.VirtualMachineIPAddress == "" {
+		return nil, fmt.Errorf("spec.virtualMachineIPAddress cannot be changed to an empty value once set")
 	}
 
-	claimKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddressClaim, Namespace: newVM.Namespace}
-	claim, err := helper.FetchObject(ctx, claimKey, v.client, &v1alpha2.VirtualMachineIPAddressClaim{})
+	vmipKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddress, Namespace: newVM.Namespace}
+	vmip, err := helper.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get VirtualMachineIPAddressClaim %s: %w", claimKey, err)
+		return nil, fmt.Errorf("unable to get VirtualMachineIPAddress %s: %w", vmipKey, err)
 	}
 
-	if claim == nil {
+	if vmip == nil {
 		return nil, nil
 	}
 
-	return nil, v.ipam.CheckClaimAvailableForBinding(newVM.Name, claim)
+	return nil, v.ipam.CheckIpAddressAvailableForBinding(newVM.Name, vmip)
 }

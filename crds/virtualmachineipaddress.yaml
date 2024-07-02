@@ -1,7 +1,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualmachineipaddressclaims.virtualization.deckhouse.io
+  name: virtualmachineipaddresses.virtualization.deckhouse.io
   labels:
     heritage: deckhouse
     module: virtualization
@@ -12,9 +12,9 @@ spec:
     categories:
       - all
       - virtualization
-    plural: virtualmachineipaddressclaims
-    singular: virtualmachineipaddressclaim
-    kind: VirtualMachineIPAddressClaim
+    plural: virtualmachineipaddresses
+    singular: virtualmachineipaddress
+    kind: VirtualMachineIPAddress
     shortNames:
       - vmip
       - vmips
@@ -23,7 +23,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The resource that defines IP address claim for virtual machine.
+            The resource that defines IP address for virtual machine.
           properties:
             apiVersion:
               type: string
@@ -33,7 +33,7 @@ spec:
               type: object
             spec:
               description: |
-                The desired state of `VirtualMachineIPAddressClaim`.
+                The desired state of `VirtualMachineIPAddress`.
               properties:
                 address:
                   description: |
@@ -48,14 +48,14 @@ spec:
                   default: "Delete"
                   enum: [ "Delete", "Retain" ]
                   description: |
-                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
+                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddress` deletion.
 
-                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddressClaim`.
-                    * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
+                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddress`.
+                    * `Retain` — if a user deletes a `VirtualMachineIPAddress`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
               type: object
             status:
               description: |
-                The observed state of `VirtualMachineIPAddressClaim`.
+                The observed state of `VirtualMachineIPAddress`.
               properties:
                 conditions:
                   description: |
@@ -104,12 +104,12 @@ spec:
                     - "Lost"
                     - "Conflict"
                   description: |
-                    Represents the current state of IP address claim.
+                    Represents the current state of IP address.
 
                     * Pending - the process of creating is in progress.
-                    * Bound - the IP address claim is bound to IP address lease.
-                    * Lost - the IP address claim has lost its IP address lease.
-                    * Conflict - the IP address lease is bound to another claim.
+                    * Bound - the IP address is bound to IP address lease.
+                    * Lost - the IP address has lost its IP address lease.
+                    * Conflict - the IP address lease is bound to another.
                 conflictMessage:
                   description: |
                     Detailed description of the error.

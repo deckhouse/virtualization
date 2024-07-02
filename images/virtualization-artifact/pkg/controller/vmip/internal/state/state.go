@@ -31,7 +31,7 @@ import (
 )
 
 type VMIPState interface {
-	VirtualMachineIP() *service.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus]
+	VirtualMachineIP() *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus]
 	VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachineIPAddressLease, error)
 	VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, error)
 
@@ -40,17 +40,17 @@ type VMIPState interface {
 
 type state struct {
 	client       client.Client
-	vmip         *service.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus]
+	vmip         *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus]
 	vmipLease    *virtv2.VirtualMachineIPAddressLease
 	vm           *virtv2.VirtualMachine
 	allocatedIPs util.AllocatedIPs
 }
 
-func New(c client.Client, vmip *service.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus]) VMIPState {
+func New(c client.Client, vmip *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus]) VMIPState {
 	return &state{client: c, vmip: vmip}
 }
 
-func (s *state) VirtualMachineIP() *service.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus] {
+func (s *state) VirtualMachineIP() *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus] {
 	return s.vmip
 }
 
@@ -109,8 +109,8 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 		}
 
 		for _, vm := range vms.Items {
-			if vm.Spec.VirtualMachineIPAddressClaim == s.vmip.Name().Name ||
-				vm.Spec.VirtualMachineIPAddressClaim == "" && vm.Name == s.vmip.Name().Name {
+			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name().Name ||
+				vm.Spec.VirtualMachineIPAddress == "" && vm.Name == s.vmip.Name().Name {
 				s.vm = new(virtv2.VirtualMachine)
 				*s.vm = vm
 				break

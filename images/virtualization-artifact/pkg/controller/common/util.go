@@ -181,7 +181,7 @@ const (
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
 
-	// AnnBoundVirtualMachineName is an ip address claim annotation with value of bound vm name.
+	// AnnBoundVirtualMachineName is an ip address annotation with value of bound vm name.
 	AnnBoundVirtualMachineName = AnnAPIGroup + "/bound-virtual-machine-name"
 
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
@@ -235,10 +235,10 @@ const (
 	// LabelDefaultPreferenceKind provides a default kind of either VirtualMachineClusterPreference or VirtualMachinePreference
 	LabelDefaultPreferenceKind = "instancetype.kubevirt.io/default-preference-kind"
 
-	// LabelImplicitIPAddressClaim is a label to implicitly bind ip address claim to virtual machine.
-	LabelImplicitIPAddressClaim = virtcore.GroupName + "/implicit-ip-address-claim"
-	// LabelImplicitIPAddressClaimValue is a value for LabelImplicitIPAddressClaim.
-	LabelImplicitIPAddressClaimValue = "true"
+	// LabelImplicitIPAddress is a label to implicitly bind ip address  to virtual machine.
+	LabelImplicitIPAddress = virtcore.GroupName + "/implicit-ip-address"
+	// LabelImplicitIPAddressValue is a value for LabelImplicitIPAddress.
+	LabelImplicitIPAddressValue = "true"
 
 	UploaderServiceLabel = "service"
 	// ProgressDone this means we are DONE

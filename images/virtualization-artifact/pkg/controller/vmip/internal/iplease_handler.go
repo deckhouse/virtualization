@@ -120,7 +120,7 @@ func (h *IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (rec
 			},
 			Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
 				ReclaimPolicy: state.VirtualMachineIP().Current().Spec.ReclaimPolicy,
-				ClaimRef: &virtv2.VirtualMachineIPAddressLeaseClaimRef{
+				IpAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Name:      state.VirtualMachineIP().Name().Name,
 					Namespace: state.VirtualMachineIP().Name().Namespace,
 				},
@@ -148,7 +148,7 @@ func (h *IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (rec
 		h.logger.Info("Lease is released: set binding")
 
 		vmipLease.Spec.ReclaimPolicy = state.VirtualMachineIP().Current().Spec.ReclaimPolicy
-		vmipLease.Spec.ClaimRef = &virtv2.VirtualMachineIPAddressLeaseClaimRef{
+		vmipLease.Spec.IpAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
 			Name:      state.VirtualMachineIP().Name().Name,
 			Namespace: state.VirtualMachineIP().Name().Namespace,
 		}

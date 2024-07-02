@@ -82,7 +82,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on vms: %w", err)
 	}
 
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}), &handler.EnqueueRequestForObject{})
+	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}), &handler.EnqueueRequestForObject{})
 }
 
 func (r *Reconciler) enqueueRequestsFromVMs(_ context.Context, obj client.Object) []reconcile.Request {
@@ -91,7 +91,7 @@ func (r *Reconciler) enqueueRequestsFromVMs(_ context.Context, obj client.Object
 		return nil
 	}
 
-	if vm.Spec.VirtualMachineIPAddressClaim == "" {
+	if vm.Spec.VirtualMachineIPAddress == "" {
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{
@@ -106,7 +106,7 @@ func (r *Reconciler) enqueueRequestsFromVMs(_ context.Context, obj client.Object
 		{
 			NamespacedName: types.NamespacedName{
 				Namespace: vm.Namespace,
-				Name:      vm.Spec.VirtualMachineIPAddressClaim,
+				Name:      vm.Spec.VirtualMachineIPAddress,
 			},
 		},
 	}
@@ -118,15 +118,15 @@ func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Obj
 		return nil
 	}
 
-	if lease.Spec.ClaimRef == nil {
+	if lease.Spec.IpAddressRef == nil {
 		return nil
 	}
 
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Namespace: lease.Spec.ClaimRef.Namespace,
-				Name:      lease.Spec.ClaimRef.Name,
+				Namespace: lease.Spec.IpAddressRef.Namespace,
+				Name:      lease.Spec.IpAddressRef.Name,
 			},
 		},
 	}
@@ -173,11 +173,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return result, nil
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddressClaim {
-	return &virtv2.VirtualMachineIPAddressClaim{}
+func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {
+	return &virtv2.VirtualMachineIPAddress{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddressClaim) virtv2.VirtualMachineIPAddressClaimStatus {
+func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddress) virtv2.VirtualMachineIPAddressStatus {
 	return obj.Status
 }
 

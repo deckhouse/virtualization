@@ -33,7 +33,7 @@ type VirtualizationV1alpha2Interface interface {
 	VirtualMachinesGetter
 	VirtualMachineBlockDeviceAttachmentsGetter
 	VirtualMachineCPUModelsGetter
-	VirtualMachineIPAddressClaimsGetter
+	VirtualMachineIPAddressesGetter
 	VirtualMachineIPAddressLeasesGetter
 	VirtualMachineOperationsGetter
 }
@@ -67,8 +67,8 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineCPUModels() VirtualMachineC
 	return newVirtualMachineCPUModels(c)
 }
 
-func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressClaims(namespace string) VirtualMachineIPAddressClaimInterface {
-	return newVirtualMachineIPAddressClaims(c, namespace)
+func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddresses(namespace string) VirtualMachineIPAddressInterface {
+	return newVirtualMachineIPAddresses(c, namespace)
 }
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInterface {

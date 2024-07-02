@@ -59,7 +59,7 @@ func NewReconciler(client client.Client, logger logr.Logger, handlers ...Handler
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
 		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMIP),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
@@ -74,7 +74,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Object) []reconcile.Request {
-	vmip, ok := obj.(*virtv2.VirtualMachineIPAddressClaim)
+	vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
 	if !ok {
 		return nil
 	}

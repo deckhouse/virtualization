@@ -87,15 +87,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineCPUModelSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineCPUModelSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineCPUModelStatus":              schema_virtualization_api_core_v1alpha2_VirtualMachineCPUModelStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineCPUModelStatusFeatures":      schema_virtualization_api_core_v1alpha2_VirtualMachineCPUModelStatusFeatures(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaim":              schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaim(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimList":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimStatus":        schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddress":                   schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddress(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLease":              schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLease(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseClaimRef":      schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseClaimRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef":  schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseIpAddressRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseList":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseStatus":        schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressList":               schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration":          schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineList":                        schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref),
@@ -2756,11 +2756,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineCPUModelStatusFeature
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaim(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddress(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineIPAddressClaim defines IP address claim for virtual machine.",
+				Description: "VirtualMachineIPAddress defines IP address for virtual machine.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2786,154 +2786,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaim(ref co
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimSpec"),
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimStatus"),
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaimStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineIPAddressClaimList contains a list of VirtualMachineIPAddressClaim",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaim"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressClaim", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"virtualMachineIPAddressLeaseName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"address": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The requested IP address. If omitted the next available IP address will be assigned.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"reclaimPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"virtualMachineIPAddressLeaseName", "address"},
-			},
-		},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressClaimStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineIPAddressClaimStatus is the observed state of `VirtualMachineIPAddressClaim`.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"virtualMachineName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Represents the virtual machine that currently uses this IP address.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"address": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Assigned IP address.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"virtualMachineIPAddressLeaseName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Represents the current state of IP address claim.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"conflictMessage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Detailed description of the error.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -2941,7 +2807,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLease(ref co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddressClaim`.",
+				Description: "VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddress`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2984,7 +2850,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLease(ref co
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseClaimRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseIpAddressRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -2992,7 +2858,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseClaimRe
 				Properties: map[string]spec.Schema{
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The Namespace of the referenced `VirtualMachineIPAddressClaim`.",
+							Description: "The Namespace of the referenced `VirtualMachineIPAddress`.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3000,7 +2866,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseClaimRe
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The name of the referenced `VirtualMachineIPAddressClaim`.",
+							Description: "The name of the referenced `VirtualMachineIPAddress`.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3069,15 +2935,15 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(re
 				Description: "VirtualMachineIPAddressLeaseSpec is the desired state of `VirtualMachineIPAddressLease`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"claimRef": {
+					"ipAddressRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The link to existing `VirtualMachineIPAddressClaim`.",
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseClaimRef"),
+							Description: "The link to existing `VirtualMachineIPAddress`.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef"),
 						},
 					},
 					"reclaimPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.",
+							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3086,7 +2952,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(re
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseClaimRef"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef"},
 	}
 }
 
@@ -3104,9 +2970,185 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(
 							Format:      "",
 						},
 					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineIPAddressList contains a list of VirtualMachineIPAddress",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddress"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddress", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineIPAddressSpec is the desired state of `VirtualMachineIPAddress`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineIPAddressLeaseName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The requested IP address. If omitted the next available IP address will be assigned.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reclaimPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"virtualMachineIPAddressLeaseName", "address"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineIPAddressStatus is the observed state of `VirtualMachineIPAddress`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the virtual machine that currently uses this IP address.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Assigned IP address.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineIPAddressLeaseName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the current state of IP address.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conflictMessage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Detailed description of the error.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -3457,9 +3499,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 							Format:      "",
 						},
 					},
-					"virtualMachineIPAddressClaimName": {
+					"virtualMachineIPAddressName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineIPAddressClaim specifies a name for the associated `VirtualMachineIPAddressClaim` resource. Defaults to `{vm name}`.",
+							Description: "VirtualMachineIPAddress specifies a name for the associated `VirtualMachineIPAddress` resource. Defaults to `{vm name}`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3647,7 +3689,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Format:  "",
 						},
 					},
-					"virtualMachineIPAddressClaimName": {
+					"virtualMachineIPAddressName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -3723,7 +3765,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"phase", "nodeName", "virtualMachineIPAddressClaimName", "ipAddress", "blockDeviceRefs", "guestOSInfo"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress", "blockDeviceRefs", "guestOSInfo"},
 			},
 		},
 		Dependencies: []string{

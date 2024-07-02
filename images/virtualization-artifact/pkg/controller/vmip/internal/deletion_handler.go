@@ -45,7 +45,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, state state.VMIPState) (re
 		return reconcile.Result{}, err
 	}
 
-	if vm == nil && state.VirtualMachineIP().Current().Labels[common.LabelImplicitIPAddressClaim] == common.LabelImplicitIPAddressClaimValue {
+	if vm == nil && state.VirtualMachineIP().Current().Labels[common.LabelImplicitIPAddress] == common.LabelImplicitIPAddressValue {
 		h.logger.Info("The VirtualMachineIP is implicit: delete it", "name", state.VirtualMachineIP().Name())
 		return reconcile.Result{}, h.client.Delete(ctx, state.VirtualMachineIP().Current())
 	}

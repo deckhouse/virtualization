@@ -24,7 +24,7 @@ func (t Type) String() string {
 
 const (
 	TypeCPUModelReady                       Type = "CPUModelReady"
-	TypeIPAddressClaimReady                 Type = "VirtualMachineIPAddressClaimReady"
+	TypeIPAddressReady                      Type = "VirtualMachineIPAddressReady"
 	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
@@ -48,10 +48,10 @@ const (
 	ReasonCPUModelReady    Reason = "CPUModelReady"
 	ReasonCPUModelNotReady Reason = "CPUModelNotReady"
 
-	ReasonIPAddressClaimReady        Reason = "VirtualMachineIPAddressClaimReady"
-	ReasonIPAddressClaimNotReady     Reason = "VirtualMachineIPAddressClaimNotReady"
-	ReasonIPAddressClaimNotAssigned  Reason = "VirtualMachineIPAddressClaimNotAssigned"
-	ReasonIPAddressClaimNotAvailable Reason = "VirtualMachineIPAddressClaimNotAvailable"
+	ReasonIPAddressReady        Reason = "VirtualMachineIPAddressReady"
+	ReasonIPAddressNotReady     Reason = "VirtualMachineIPAddressNotReady"
+	ReasonIPAddressNotAssigned  Reason = "VirtualMachineIPAddressNotAssigned"
+	ReasonIPAddressNotAvailable Reason = "VirtualMachineIPAddressNotAvailable"
 
 	ReasonBlockDevicesAttachmentReady    Reason = "BlockDevicesAttachmentReady"
 	ReasonBlockDevicesAttachmentNotReady Reason = "BlockDevicesAttachmentNotReady"

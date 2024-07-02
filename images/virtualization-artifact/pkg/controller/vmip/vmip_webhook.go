@@ -41,7 +41,7 @@ type VMIPValidator struct {
 }
 
 func (v *VMIPValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmip, ok := obj.(*v1alpha2.VirtualMachineIPAddressClaim)
+	vmip, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddress but got a %T", obj)
 	}
@@ -65,7 +65,7 @@ func (v *VMIPValidator) ValidateCreate(ctx context.Context, obj runtime.Object) 
 		}
 
 		allocatedLease, ok := allocatedIPs[ip]
-		if ok && allocatedLease.Spec.ClaimRef != nil && (allocatedLease.Spec.ClaimRef.Namespace != vmip.Namespace || allocatedLease.Spec.ClaimRef.Name != vmip.Name) {
+		if ok && allocatedLease.Spec.IpAddressRef != nil && (allocatedLease.Spec.IpAddressRef.Namespace != vmip.Namespace || allocatedLease.Spec.IpAddressRef.Name != vmip.Name) {
 			return nil, fmt.Errorf("VirtualMachineIP cannot be created: the address %s has already been allocated for another VMIP", ip)
 		}
 	}
@@ -74,12 +74,12 @@ func (v *VMIPValidator) ValidateCreate(ctx context.Context, obj runtime.Object) 
 }
 
 func (v *VMIPValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVmip, ok := oldObj.(*v1alpha2.VirtualMachineIPAddressClaim)
+	oldVmip, ok := oldObj.(*v1alpha2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected a old VirtualMachineIP but got a %T", oldObj)
 	}
 
-	newVmip, ok := newObj.(*v1alpha2.VirtualMachineIPAddressClaim)
+	newVmip, ok := newObj.(*v1alpha2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIP but got a %T", newObj)
 	}
@@ -111,7 +111,7 @@ func (v *VMIPValidator) ValidateDelete(_ context.Context, _ runtime.Object) (adm
 	return nil, nil
 }
 
-func (v *VMIPValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddressClaimSpec) error {
+func (v *VMIPValidator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddressSpec) error {
 	if spec.VirtualMachineIPAddressLease != "" && !isValidAddressFormat(util.LeaseNameToIP(spec.VirtualMachineIPAddressLease)) {
 		return errors.New("the VirtualMachineIP name is not created from a valid IP address or ip prefix is missing")
 	}

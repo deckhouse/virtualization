@@ -50,9 +50,9 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		return reconcile.Result{}, nil
 	}
 
-	claimStatus := state.VirtualMachineIP().Current().Status.DeepCopy()
+	vmipStatus := state.VirtualMachineIP().Current().Status.DeepCopy()
 	state.VirtualMachineIP()
-	claimStatus.VirtualMachine = ""
+	vmipStatus.VirtualMachine = ""
 
 	vm, err := state.VirtualMachine(ctx)
 	if err != nil {
@@ -60,12 +60,12 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	}
 
 	if vm != nil {
-		claimStatus.VirtualMachine = vm.Name
+		vmipStatus.VirtualMachine = vm.Name
 	}
 
-	claimStatus.Address = ""
-	claimStatus.ConflictMessage = ""
-	mgr := conditions.NewManager(claimStatus.Conditions)
+	vmipStatus.Address = ""
+	vmipStatus.ConflictMessage = ""
+	mgr := conditions.NewManager(vmipStatus.Conditions)
 	cb := conditions.NewConditionBuilder(vmipcondition.Bound).
 		Generation(state.VirtualMachineIP().Current().GetGeneration())
 
@@ -76,20 +76,20 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 
 	switch {
 	case vmipLease == nil && state.VirtualMachineIP().Current().Spec.VirtualMachineIPAddressLease != "":
-		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhaseLost
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseLost
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
 			Condition())
 
 	case vmipLease == nil:
-		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhasePending
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
 			Condition())
 
 	case util.IsBoundLease(vmipLease, state.VirtualMachineIP()):
-		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhaseBound
-		claimStatus.Address = state.VirtualMachineIP().Current().Spec.Address
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseBound
+		vmipStatus.Address = state.VirtualMachineIP().Current().Spec.Address
 		mgr.Update(cb.Status(metav1.ConditionTrue).
 			Reason(vmipcondition.Bound).
 			Condition())
@@ -100,26 +100,26 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			Condition())
 
 	case vmipLease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
-		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhaseConflict
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseConflict
 
-		// There is only one way to automatically link Claim in phase Conflict with recently released Lease: only with cyclic reconciliation (with an interval of N seconds).
-		// At the moment this looks redundant, so Claim in the phase Conflict will not be able to bind the recently released Lease.
-		// It is necessary to recreate Claim manually in order to link it to released Lease.
-		claimStatus.ConflictMessage = "Lease is bounded to another VirtualMachineIP: please recreate VMIP when the lease is released"
+		// There is only one way to automatically link Ip Address in phase Conflict with recently released Lease: only with cyclic reconciliation (with an interval of N seconds).
+		// At the moment this looks redundant, so Ip Address in the phase Conflict will not be able to bind the recently released Lease.
+		// It is necessary to recreate Ip Address manually in order to link it to released Lease.
+		vmipStatus.ConflictMessage = "Lease is bounded to another VirtualMachineIP: please recreate VMIP when the lease is released"
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlready).
 			Condition())
 
 	default:
-		claimStatus.Phase = virtv2.VirtualMachineIPAddressClaimPhasePending
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
 			Condition())
 	}
 
-	h.logger.Info("Set VirtualMachineIP phase", "phase", claimStatus.Phase)
-	claimStatus.Conditions = mgr.Generate()
-	state.VirtualMachineIP().Changed().Status = *claimStatus
+	h.logger.Info("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
+	vmipStatus.Conditions = mgr.Generate()
+	state.VirtualMachineIP().Changed().Status = *vmipStatus
 
 	return reconcile.Result{}, nil
 }

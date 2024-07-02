@@ -51,9 +51,9 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 	switch {
 	case shouldUnbound:
 		h.logger.Info("The VirtualMachineIP is no longer used by the VM: unbound", "name", state.VirtualMachineIP().Name())
-		controllerutil.RemoveFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressClaimCleanup)
+		controllerutil.RemoveFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressCleanup)
 
-	case controllerutil.AddFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressClaimCleanup):
+	case controllerutil.AddFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressCleanup):
 		return reconcile.Result{Requeue: true}, nil
 	}
 

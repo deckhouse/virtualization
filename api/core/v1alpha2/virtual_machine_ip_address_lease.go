@@ -18,7 +18,7 @@ package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddressClaim`.
+// VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddress`.
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -40,16 +40,16 @@ type VirtualMachineIPAddressLeaseList struct {
 
 // VirtualMachineIPAddressLeaseSpec is the desired state of `VirtualMachineIPAddressLease`.
 type VirtualMachineIPAddressLeaseSpec struct {
-	// The link to existing `VirtualMachineIPAddressClaim`.
-	ClaimRef *VirtualMachineIPAddressLeaseClaimRef `json:"claimRef,omitempty"`
-	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
+	// The link to existing `VirtualMachineIPAddress`.
+	IpAddressRef *VirtualMachineIPAddressLeaseIpAddressRef `json:"ipAddressRef,omitempty"`
+	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.
 	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
 
-type VirtualMachineIPAddressLeaseClaimRef struct {
-	// The Namespace of the referenced `VirtualMachineIPAddressClaim`.
+type VirtualMachineIPAddressLeaseIpAddressRef struct {
+	// The Namespace of the referenced `VirtualMachineIPAddress`.
 	Namespace string `json:"namespace"`
-	// The name of the referenced `VirtualMachineIPAddressClaim`.
+	// The name of the referenced `VirtualMachineIPAddress`.
 	Name string `json:"name"`
 }
 

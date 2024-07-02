@@ -4,29 +4,29 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddressClaim`.
+            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddress`.
           properties:
             spec:
               description: |
                 Параметры конфигурации `VirtualMachineIPAddressLease`.
               properties:
-                claimRef:
+                ipAddressRef:
                   description: |
-                    Ссылка на существующие `VirtualMachineIPAddressClaim`.
+                    Ссылка на существующие `VirtualMachineIPAddress`.
                   properties:
                     name:
                       description: |
-                        Имя ссылающегося `VirtualMachineIPAddressClaim`.
+                        Имя ссылающегося `VirtualMachineIPAddress`.
                     namespace:
                       description: |
-                        Пространство имен ссылающегося `VirtualMachineIPAddressClaim`.
+                        Пространство имен ссылающегося `VirtualMachineIPAddress`.
                 reclaimPolicy:
                   description: |
-                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
+                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddress`.
 
-                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
+                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddress`.
 
-                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddress`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
             status:
               description: |
                 Состояние ресурса `VirtualMachineIPAddressLease`.
@@ -51,5 +51,5 @@ spec:
                   description: |
                     Представляет текущее состояние ресурса `VirtualMachineIPAddressLease`.
 
-                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddressClaim`.
-                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddressClaim`.
+                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddress`.
+                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddress`.

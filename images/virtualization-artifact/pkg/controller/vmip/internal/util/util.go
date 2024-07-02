@@ -89,16 +89,16 @@ func IsFirstLastIP(ip net.IP, cidr *net.IPNet) (bool, error) {
 	return last.Equal(ip), nil
 }
 
-func IsBoundLease(vmipl *virtv2.VirtualMachineIPAddressLease, vmip *service.Resource[*virtv2.VirtualMachineIPAddressClaim, virtv2.VirtualMachineIPAddressClaimStatus]) bool {
+func IsBoundLease(vmipl *virtv2.VirtualMachineIPAddressLease, vmip *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus]) bool {
 	if vmipl.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
 		return false
 	}
 
-	if vmipl.Spec.ClaimRef == nil {
+	if vmipl.Spec.IpAddressRef == nil {
 		return false
 	}
 
-	if vmipl.Spec.ClaimRef.Namespace != vmip.Name().Namespace || vmipl.Spec.ClaimRef.Name != vmip.Name().Name {
+	if vmipl.Spec.IpAddressRef.Namespace != vmip.Name().Namespace || vmipl.Spec.IpAddressRef.Name != vmip.Name().Name {
 		return false
 	}
 

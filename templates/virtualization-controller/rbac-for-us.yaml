@@ -154,7 +154,7 @@ rules:
   - virtualimages
   - virtualmachinecpumodels
   - virtualmachineipaddressleases
-  - virtualmachineipaddressclaims
+  - virtualmachineipaddresses
   - virtualmachineblockdeviceattachments
   - virtualmachines
   - clustervirtualimages
@@ -178,9 +178,9 @@ rules:
   - clustervirtualimages/finalizers
   - virtualmachinecpumodels/finalizers
   - virtualmachineipaddressleases/finalizers
-  - virtualmachineipaddressclaims/finalizers
+  - virtualmachineipaddresses/finalizers
   - virtualmachineoperations/finalizers
-  - virtualmachineipaddressclaims/status
+  - virtualmachineipaddresses/status
   - virtualmachinecpumodels/status
   - virtualmachineipaddressleases/status
   - virtualdisks/status

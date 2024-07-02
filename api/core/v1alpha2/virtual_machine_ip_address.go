@@ -20,56 +20,56 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// VirtualMachineIPAddressClaim defines IP address claim for virtual machine.
+// VirtualMachineIPAddress defines IP address for virtual machine.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type VirtualMachineIPAddressClaim struct {
+type VirtualMachineIPAddress struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VirtualMachineIPAddressClaimSpec   `json:"spec,omitempty"`
-	Status VirtualMachineIPAddressClaimStatus `json:"status,omitempty"`
+	Spec   VirtualMachineIPAddressSpec   `json:"spec,omitempty"`
+	Status VirtualMachineIPAddressStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineIPAddressClaimList contains a list of VirtualMachineIPAddressClaim
+// VirtualMachineIPAddressList contains a list of VirtualMachineIPAddress
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type VirtualMachineIPAddressClaimList struct {
+type VirtualMachineIPAddressList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualMachineIPAddressClaim `json:"items"`
+	Items           []VirtualMachineIPAddress `json:"items"`
 }
 
-// VirtualMachineIPAddressClaimSpec is the desired state of `VirtualMachineIPAddressClaim`.
-type VirtualMachineIPAddressClaimSpec struct {
+// VirtualMachineIPAddressSpec is the desired state of `VirtualMachineIPAddress`.
+type VirtualMachineIPAddressSpec struct {
 	// The issued `VirtualMachineIPAddressLease`, managed automatically.
 	VirtualMachineIPAddressLease string `json:"virtualMachineIPAddressLeaseName"`
 	// The requested IP address. If omitted the next available IP address will be assigned.
 	Address string `json:"address"`
-	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
+	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.
 	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
 }
 
-// VirtualMachineIPAddressClaimStatus is the observed state of `VirtualMachineIPAddressClaim`.
-type VirtualMachineIPAddressClaimStatus struct {
+// VirtualMachineIPAddressStatus is the observed state of `VirtualMachineIPAddress`.
+type VirtualMachineIPAddressStatus struct {
 	// Represents the virtual machine that currently uses this IP address.
 	VirtualMachine string `json:"virtualMachineName,omitempty"`
 	// Assigned IP address.
 	Address string `json:"address,omitempty"`
 	// The issued `VirtualMachineIPAddressLease`, managed automatically.
 	Lease string `json:"virtualMachineIPAddressLeaseName,omitempty"`
-	// Represents the current state of IP address claim.
-	Phase VirtualMachineIPAddressClaimPhase `json:"phase,omitempty"`
+	// Represents the current state of IP address.
+	Phase VirtualMachineIPAddressPhase `json:"phase,omitempty"`
 	// Detailed description of the error.
 	ConflictMessage    string             `json:"conflictMessage,omitempty"`
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
 }
 
-type VirtualMachineIPAddressClaimPhase string
+type VirtualMachineIPAddressPhase string
 
 const (
-	VirtualMachineIPAddressClaimPhasePending  VirtualMachineIPAddressClaimPhase = "Pending"
-	VirtualMachineIPAddressClaimPhaseBound    VirtualMachineIPAddressClaimPhase = "Bound"
-	VirtualMachineIPAddressClaimPhaseLost     VirtualMachineIPAddressClaimPhase = "Lost"
-	VirtualMachineIPAddressClaimPhaseConflict VirtualMachineIPAddressClaimPhase = "Conflict"
+	VirtualMachineIPAddressPhasePending  VirtualMachineIPAddressPhase = "Pending"
+	VirtualMachineIPAddressPhaseBound    VirtualMachineIPAddressPhase = "Bound"
+	VirtualMachineIPAddressPhaseLost     VirtualMachineIPAddressPhase = "Lost"
+	VirtualMachineIPAddressPhaseConflict VirtualMachineIPAddressPhase = "Conflict"
 )

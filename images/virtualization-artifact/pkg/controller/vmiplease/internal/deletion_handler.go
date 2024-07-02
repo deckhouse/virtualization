@@ -56,9 +56,9 @@ func (h *DeletionHandler) Handle(ctx context.Context, state state.VMIPLeaseState
 
 			return reconcile.Result{}, h.client.Delete(ctx, current)
 		case virtv2.VirtualMachineIPAddressReclaimPolicyRetain:
-			if current.Spec.ClaimRef != nil {
+			if current.Spec.IpAddressRef != nil {
 				h.logger.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
-				changed.Spec.ClaimRef = nil
+				changed.Spec.IpAddressRef = nil
 
 				return reconcile.Result{}, h.client.Update(ctx, changed)
 			}

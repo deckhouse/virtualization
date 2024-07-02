@@ -43,9 +43,9 @@ type VirtualMachineSpec struct {
 	// RunPolicy is a power-on behaviour of the VM.
 	RunPolicy RunPolicy `json:"runPolicy"`
 
-	// VirtualMachineIPAddressClaim specifies a name for the associated
-	// `VirtualMachineIPAddressClaim` resource. Defaults to `{vm name}`.
-	VirtualMachineIPAddressClaim string `json:"virtualMachineIPAddressClaimName,omitempty"`
+	// VirtualMachineIPAddress specifies a name for the associated
+	// `VirtualMachineIPAddress` resource. Defaults to `{vm name}`.
+	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName,omitempty"`
 
 	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
@@ -158,16 +158,16 @@ const (
 )
 
 type VirtualMachineStatus struct {
-	Phase                        MachinePhase                             `json:"phase"`
-	Node                         string                                   `json:"nodeName"`
-	VirtualMachineIPAddressClaim string                                   `json:"virtualMachineIPAddressClaimName"`
-	IPAddress                    string                                   `json:"ipAddress"`
-	BlockDeviceRefs              []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
-	GuestOSInfo                  virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
-	Conditions                   []metav1.Condition                       `json:"conditions,omitempty"`
-	Stats                        *VirtualMachineStats                     `json:"stats,omitempty"`
-	MigrationState               *VirtualMachineMigrationState            `json:"migrationState,omitempty"`
-	ObservedGeneration           int64                                    `json:"observedGeneration,omitempty"`
+	Phase                   MachinePhase                             `json:"phase"`
+	Node                    string                                   `json:"nodeName"`
+	VirtualMachineIPAddress string                                   `json:"virtualMachineIPAddressName"`
+	IPAddress               string                                   `json:"ipAddress"`
+	BlockDeviceRefs         []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
+	GuestOSInfo             virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
+	Conditions              []metav1.Condition                       `json:"conditions,omitempty"`
+	Stats                   *VirtualMachineStats                     `json:"stats,omitempty"`
+	MigrationState          *VirtualMachineMigrationState            `json:"migrationState,omitempty"`
+	ObservedGeneration      int64                                    `json:"observedGeneration,omitempty"`
 	// RestartAwaitingChanges holds operations to be manually approved
 	// before applying to the virtual machine spec.
 	//

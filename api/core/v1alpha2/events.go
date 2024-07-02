@@ -29,11 +29,11 @@ const (
 	// ReasonErrGetProgressFailed is event reason about the failure of getting progress.
 	ReasonErrGetProgressFailed = "GetProgressFailed"
 
-	// ReasonClaimNotAvailable is event reason that VM cannot use defined claim.
-	ReasonClaimNotAvailable = "ClaimNotAvailable"
+	// ReasonIpAddressNotAvailable is event reason that VM cannot use defined ip address.
+	ReasonIpAddressNotAvailable = "IpAddressNotAvailable"
 
-	// ReasonClaimNotAssigned is event reason that claimed IP is not assigned in the guest VM.
-	ReasonClaimNotAssigned = "ClaimNotAssigned"
+	// ReasonIpAddressNotAssigned is event reason that Ip address is not assigned in the guest VM.
+	ReasonIpAddressNotAssigned = "IpAddressNotAssigned"
 
 	// ReasonCPUModelNotFound is event reason that defined cpu model not found.
 	ReasonCPUModelNotFound = "CPUModelNotFound"

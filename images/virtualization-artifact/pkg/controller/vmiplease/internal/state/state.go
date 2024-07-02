@@ -30,13 +30,13 @@ import (
 
 type VMIPLeaseState interface {
 	VirtualMachineIPAddressLease() *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]
-	VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddressClaim, error)
+	VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 }
 
 type state struct {
 	client    client.Client
 	vmipLease *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]
-	vmip      *virtv2.VirtualMachineIPAddressClaim
+	vmip      *virtv2.VirtualMachineIPAddress
 }
 
 func New(c client.Client, vmipLease *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]) VMIPLeaseState {
@@ -47,16 +47,16 @@ func (s *state) VirtualMachineIPAddressLease() *service.Resource[*virtv2.Virtual
 	return s.vmipLease
 }
 
-func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddressClaim, error) {
+func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
 	if s.vmip != nil {
 		return s.vmip, nil
 	}
 
 	var err error
 
-	if s.vmipLease.Current().Spec.ClaimRef != nil {
-		vmipKey := types.NamespacedName{Name: s.vmipLease.Current().Spec.ClaimRef.Name, Namespace: s.vmipLease.Current().Spec.ClaimRef.Namespace}
-		s.vmip, err = helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddressClaim{})
+	if s.vmipLease.Current().Spec.IpAddressRef != nil {
+		vmipKey := types.NamespacedName{Name: s.vmipLease.Current().Spec.IpAddressRef.Name, Namespace: s.vmipLease.Current().Spec.IpAddressRef.Namespace}
+		s.vmip, err = helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VirtualMachineIP %s: %w", vmipKey, err)
 		}
