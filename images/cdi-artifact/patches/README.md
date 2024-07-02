@@ -21,3 +21,8 @@ set ContentTypeJson for kubernetes clients.
 
 #### `008-rename-core-resources.patch`
 Replace "cdi" with "cdi-internal-virtualziation" in the core resource names.
+
+#### `009-remove-upload-apiservice.patch`
+
+Do not install apiservice v1beta1.upload.cdi.kubevirt.io. This APIService is not used
+by DVP, but conflicts with original CDI.

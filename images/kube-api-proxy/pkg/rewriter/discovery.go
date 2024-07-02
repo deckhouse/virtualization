@@ -51,6 +51,10 @@ func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
 			rwrGroups = append(rwrGroups, rules.GetAPIGroupList()...)
 			continue
 		}
+		// Remove duplicates if cluster have CRDs with original group names.
+		if rules.HasGroup(groupName) {
+			continue
+		}
 		rwrGroups = append(rwrGroups, runtime.RawExtension{Raw: []byte(group.Raw)})
 	}
 
@@ -312,6 +316,10 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 		groupName := gjson.GetBytes(itemBytes, "metadata.name").String()
 
 		if groupName != rules.RenamedGroup {
+			// Remove duplicates if cluster have CRDs with original group names.
+			if rules.HasGroup(groupName) {
+				continue
+			}
 			// No transform for non-renamed groups.
 			rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", itemBytes)
 			if err != nil {

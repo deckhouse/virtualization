@@ -40,3 +40,10 @@ Do not create Kubevirt APIService.
 
 #### `015-rename-core-resources.patch`
 Replace "kubevirt" with "kubevirt-internal-virtualziation" in the core resource names.
+
+#### `016-rename-install-strategy-labels.patch`
+
+Rename kubevirt.io/install-strategy-registry labels to install.internal.virtualization.deckhouse.io/install-strategy-registry.
+Rename app.kubernetes.io/managed-b value from virt-operator to virt-operator-internal-virtualization.
+
+Rewrite these labels with patch, because strategy generator Job starts without kube-api-rewriter.

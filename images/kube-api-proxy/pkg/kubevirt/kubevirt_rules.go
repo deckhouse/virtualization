@@ -43,6 +43,22 @@ var KubevirtRewriteRules = &RewriteRules{
 			// Special cases.
 			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + rootPrefix + "/skip-node"},
 			{Original: "node-labeller.kubevirt.io/obsolete-host-model", Renamed: "node-labeller." + internalPrefix + "/obsolete-host-model"},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "cdi-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "cdi-operator-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "cdi-controller",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "cdi-controller-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "virt-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "virt-operator-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "kubevirt-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "kubevirt-operator-internal-virtualization",
+			},
 		},
 		Prefixes: []MetadataReplaceRule{
 			// CDI related labels.
@@ -84,7 +100,35 @@ var KubevirtRewriteRules = &RewriteRules{
 			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
 		},
 	},
+	Excludes: []ExcludeRule{
+		ExcludeRule{
+			Kinds: []string{
+				"PersistentVolumeClaim",
+				"PersistentVolume",
+				"Pod",
+			},
+			MatchLabels: map[string]string{
+				"app.kubernetes.io/managed-by": "cdi-controller",
+			},
+		},
+		ExcludeRule{
+			Kinds: []string{
+				"CDI",
+			},
+			MatchNames: []string{
+				"cdi",
+			},
+		},
+	},
 }
+
+/**
+
+excludes:
+- matchLabels:
+    app.kubernetes.io/managed-by: "cdi-controller"
+
+*/
 
 // TODO create generator in golang to produce below rules from Kubevirt and CDI sources so proxy can work with future versions.
 

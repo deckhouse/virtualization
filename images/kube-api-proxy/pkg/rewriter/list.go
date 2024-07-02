@@ -17,6 +17,7 @@ limitations under the License.
 package rewriter
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -46,6 +47,9 @@ func RewriteResourceOrList2(payload []byte, transformFn func(singleObj []byte) (
 	return RewriteArray(payload, "items", transformFn)
 }
 
+// SkipItem may be used by the transformFn to indicate that the item should be skipped from the result.
+var SkipItem = errors.New("remove item from the result")
+
 // RewriteArray gets array by path and transforms each item using transformFn.
 // Use Root path to transform object itself.
 func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([]byte, error)) ([]byte, error) {
@@ -58,6 +62,9 @@ func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([
 	for _, item := range items {
 		rwrItem, err := transformFn([]byte(item.Raw))
 		if err != nil {
+			if err == SkipItem {
+				continue
+			}
 			return nil, err
 		}
 		// Put original item back.
