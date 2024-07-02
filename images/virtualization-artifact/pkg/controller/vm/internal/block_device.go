@@ -132,12 +132,11 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 			Message(msg).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
 	mgr.Update(cb.Status(metav1.ConditionTrue).
 		Reason2(vmcondition.ReasonBlockDevicesAttachmentReady).
-		Message(fmt.Sprintf("All block devices are ready: %d/%d", countBD, countBD)).
 		Condition())
 	changed.Status.Conditions = mgr.Generate()
 	return reconcile.Result{}, nil

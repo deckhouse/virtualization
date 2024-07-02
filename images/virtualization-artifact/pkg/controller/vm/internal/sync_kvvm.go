@@ -154,7 +154,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			Generation(current.GetGeneration())
 		err = h.createKVVM(ctx, s)
 		if err != nil {
-			cb.Status(metav1.ConditionTrue).
+			cb.Status(metav1.ConditionFalse).
 				Reason2(vmcondition.ReasonConfigurationNotApplied).
 				Message(fmt.Sprintf("Failed to apply configuration: %s", err.Error()))
 		} else {
@@ -235,13 +235,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionTrue).
 			Reason2(vmcondition.ReasonConfigurationApplied).
-			Message("No changes found to apply.").
 			Condition())
 		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonRestartNoNeed).
-			Message("No changes found to apply.").
 			Condition())
 	}
 	changed.Status.Conditions = mgr.Generate()

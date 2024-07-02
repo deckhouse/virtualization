@@ -135,7 +135,6 @@ func (h *LifeCycleHandler) syncMigrationState(vm *virtv2.VirtualMachine, kvvmi *
 		vm.Status.MigrationState.EndTimestamp == nil {
 		mgr.Update(cb.
 			Reason2(vmcondition.ReasonVmIsMigrating).
-			Message(fmt.Sprintf("Migration started at %q", vm.Status.MigrationState.StartTimestamp)).
 			Status(metav1.ConditionTrue).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
@@ -160,7 +159,6 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, pod *corev1
 		mgr.Update(cb.
 			Status(metav1.ConditionTrue).
 			Reason2(vmcondition.ReasonPodStarted).
-			Message(fmt.Sprintf("Pod started at %q", pod.Status.StartTime.String())).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
 		return

@@ -49,14 +49,16 @@ func NewController(
 	logger := log.With("controller", controllerName)
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
+	client := mgr.GetClient()
 	handlers := []Handler{
-		internal.NewDeletionHandler(mgr.GetClient(), logger),
-		internal.NewCPUHandler(mgr.GetClient(), recorder, logger),
-		internal.NewIPAMHandler(ipam.New(), mgr.GetClient(), recorder, logger),
-		internal.NewBlockDeviceHandler(mgr.GetClient(), recorder, logger),
-		internal.NewProvisioningHandler(mgr.GetClient()),
+		internal.NewDeletionHandler(client, logger),
+		internal.NewCPUHandler(client, recorder, logger),
+		internal.NewIPAMHandler(ipam.New(), client, recorder, logger),
+		internal.NewBlockDeviceHandler(client, recorder, logger),
+		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
-		internal.NewSyncKvvmHandler(dvcrSettings, mgr.GetClient(), recorder, logger),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, logger),
+		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(mgr.GetClient(), recorder, logger),
 	}
 	r := NewReconciler(mgr.GetClient(), logger, handlers...)
