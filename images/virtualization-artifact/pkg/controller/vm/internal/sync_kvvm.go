@@ -208,10 +208,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		lastAppliedSpec = &current.Spec
 	case changes != nil:
 		// Delay changes propagation to KVVM until user restarts VM.
-		var statusChanges []apiextensionsv1.JSON
-		statusChanges, err = changes.ConvertPendingChanges()
 		cb := conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration())
+
+		var statusChanges []apiextensionsv1.JSON
+		statusChanges, err = changes.ConvertPendingChanges()
 		if err != nil {
 			cb.Status(metav1.ConditionFalse).
 				Reason2(vmcondition.ReasonRestartAwaitingChangesNotExist).
@@ -537,6 +538,12 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, kvvm *virtv1.Virtu
 		// kubevirt restarts VM via re-creation of KVVMI.
 		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyAlways)
 	case virtv2.AlwaysOnUnlessStoppedManually:
+		strategy, _ := kvvm.RunStrategy()
+		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
+			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
+				return fmt.Errorf("failed to start VM: %w", err)
+			}
+		}
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
 				if vmPodCompleted {

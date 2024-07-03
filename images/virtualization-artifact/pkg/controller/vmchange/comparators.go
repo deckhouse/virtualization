@@ -43,7 +43,7 @@ func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChan
 
 func compareVirtualMachineIPAddressClaim(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
-		"virtualMachineIPAddressClaim",
+		"virtualMachineIPAddressClaimName",
 		current.VirtualMachineIPAddressClaim,
 		desired.VirtualMachineIPAddressClaim,
 		"",
@@ -65,7 +65,7 @@ func compareDisruptions(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 
 	// Disruptions are not nils, compare approvalMode fields using "Manual" as default.
 	return compareStrings(
-		"disruptions.approvalMode",
+		"disruptions.restartApprovalMode",
 		string(current.Disruptions.RestartApprovalMode),
 		string(desired.Disruptions.RestartApprovalMode),
 		string(DefaultDisruptionsApprovalMode),
@@ -139,7 +139,7 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 		return fractionChanges
 	}
 
-	modelChanges := compareStrings("cpu.virtualMachineCPUModel", current.CPU.VirtualMachineCPUModel, desired.CPU.VirtualMachineCPUModel, DefaultCPUModelName, ActionRestart)
+	modelChanges := compareStrings("cpu.virtualMachineCPUModelName", current.CPU.VirtualMachineCPUModel, desired.CPU.VirtualMachineCPUModel, DefaultCPUModelName, ActionRestart)
 	if HasChanges(modelChanges) {
 		return modelChanges
 	}
