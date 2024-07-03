@@ -110,7 +110,7 @@ spec:
                   oneOf:
                     - properties:
                         type:
-                          enum: ["Sysprep"]
+                          enum: ["SysprepRef"]
                         sysprepRef: {}
                       required: ["sysprepRef"]
                       not:
