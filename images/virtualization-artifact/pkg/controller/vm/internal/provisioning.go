@@ -66,7 +66,6 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	if current.Spec.Provisioning == nil {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
 			Reason2(vmcondition.ReasonProvisioningReady).
-			Message("Provisioning is not defined.").
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
