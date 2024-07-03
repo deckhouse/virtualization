@@ -77,6 +77,14 @@ func createTestRewriter() *RuleBasedRewriter {
 		},
 	}
 
+	webhookRules := map[string]WebhookRule{
+		"/validate-prefixed-resources-group-io-v1-prefixedsomeresource": {
+			Path:     "/validate-original-group-io-v1-someresource",
+			Group:    "original.group.io",
+			Resource: "someresources",
+		},
+	}
+
 	rules := &RewriteRules{
 		KindPrefix:         "Prefixed",
 		ResourceTypePrefix: "prefixed",
@@ -84,6 +92,7 @@ func createTestRewriter() *RuleBasedRewriter {
 		Categories:         []string{"prefixed"},
 		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
+		Webhooks:           webhookRules,
 		Labels: MetadataReplace{
 			Prefixes: []MetadataReplaceRule{
 				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
