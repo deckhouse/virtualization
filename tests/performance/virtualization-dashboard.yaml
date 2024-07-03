@@ -30,8 +30,6 @@ spec:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 1,
-      "id": 40,
-      "iteration": 1713860037748,
       "links": [],
       "liveNow": false,
       "panels": [
@@ -96,6 +94,7 @@ spec:
             "displayMode": "gradient",
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -104,9 +103,10 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -164,6 +164,7 @@ spec:
             "displayMode": "gradient",
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -172,9 +173,10 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -235,6 +237,7 @@ spec:
             "displayMode": "gradient",
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -243,9 +246,10 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -306,6 +310,7 @@ spec:
             "displayMode": "gradient",
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -314,9 +319,10 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -363,6 +369,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMin": 0,
@@ -375,6 +384,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "smooth",
                 "lineStyle": {
                   "fill": "solid"
@@ -418,7 +428,8 @@ spec:
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -459,32 +470,32 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
-                "axisSoftMin": 0,
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 0,
+                "fillOpacity": 25,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "viz": false
                 },
-                "lineInterpolation": "smooth",
-                "lineStyle": {
-                  "fill": "solid"
-                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "always",
-                "spanNulls": true,
+                "showPoints": "auto",
+                "spanNulls": false,
                 "stacking": {
                   "group": "A",
-                  "mode": "none"
+                  "mode": "normal"
                 },
                 "thresholdsStyle": {
                   "mode": "off"
@@ -497,6 +508,10 @@ spec:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               }
@@ -513,8 +528,9 @@ spec:
           "options": {
             "legend": {
               "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
+              "displayMode": "hidden",
+              "placement": "right",
+              "showLegend": false
             },
             "tooltip": {
               "mode": "single",
@@ -555,6 +571,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMin": 0,
@@ -567,6 +586,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "smooth",
                 "lineStyle": {
                   "fill": "solid"
@@ -610,7 +630,8 @@ spec:
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -651,32 +672,32 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
-                "axisSoftMin": 0,
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 0,
+                "fillOpacity": 25,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "viz": false
                 },
-                "lineInterpolation": "smooth",
-                "lineStyle": {
-                  "fill": "solid"
-                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "always",
-                "spanNulls": true,
+                "showPoints": "auto",
+                "spanNulls": false,
                 "stacking": {
                   "group": "A",
-                  "mode": "none"
+                  "mode": "normal"
                 },
                 "thresholdsStyle": {
                   "mode": "off"
@@ -689,6 +710,10 @@ spec:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               }
@@ -704,9 +729,12 @@ spec:
           "id": 59,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -722,7 +750,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "count(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\"}==1) by (name)) by (node)",
+              "expr": "count(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=~\"Migrating|Running\"}==1) by (name)) by (node)",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -747,6 +775,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMax": 9,
@@ -761,6 +792,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineStyle": {
                   "fill": "solid"
@@ -908,7 +940,8 @@ spec:
             "legend": {
               "calcs": [],
               "displayMode": "table",
-              "placement": "right"
+              "placement": "right",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -1085,7 +1118,9 @@ spec:
               },
               "custom": {
                 "align": "left",
-                "displayMode": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
                 "inspect": false
               },
               "mappings": [],
@@ -1126,7 +1161,9 @@ spec:
           },
           "id": 43,
           "options": {
+            "cellHeight": "sm",
             "footer": {
+              "countRows": false,
               "fields": "",
               "reducer": [
                 "sum"
@@ -1141,7 +1178,7 @@ spec:
               }
             ]
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -1208,7 +1245,9 @@ spec:
               },
               "custom": {
                 "align": "left",
-                "displayMode": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
                 "inspect": false
               },
               "mappings": [],
@@ -1249,7 +1288,9 @@ spec:
           },
           "id": 5,
           "options": {
+            "cellHeight": "sm",
             "footer": {
+              "countRows": false,
               "fields": "",
               "reducer": [
                 "sum"
@@ -1264,7 +1305,7 @@ spec:
               }
             ]
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.2.2",
           "targets": [
             {
               "datasource": {
@@ -1372,8 +1413,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -1391,7 +1431,8 @@ spec:
                 "legend": {
                   "calcs": [],
                   "displayMode": "list",
-                  "placement": "bottom"
+                  "placement": "bottom",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -1521,8 +1562,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       },
                       {
                         "color": "light-red",
@@ -1577,7 +1617,8 @@ spec:
                 "legend": {
                   "calcs": [],
                   "displayMode": "table",
-                  "placement": "right"
+                  "placement": "right",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -1709,7 +1750,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -1717,8 +1760,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -1824,7 +1866,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -1832,8 +1876,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       },
                       {
                         "color": "red",
@@ -1992,8 +2035,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -2011,7 +2053,8 @@ spec:
                 "legend": {
                   "calcs": [],
                   "displayMode": "list",
-                  "placement": "bottom"
+                  "placement": "bottom",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -2120,8 +2163,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       },
                       {
                         "color": "light-red",
@@ -2172,7 +2214,8 @@ spec:
                 "legend": {
                   "calcs": [],
                   "displayMode": "table",
-                  "placement": "right"
+                  "placement": "right",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -2244,7 +2287,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -2252,8 +2297,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -2371,7 +2415,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -2379,8 +2425,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -2479,16 +2524,15 @@ spec:
         }
       ],
       "refresh": "5s",
-      "schemaVersion": 36,
-      "style": "dark",
+      "schemaVersion": 38,
       "tags": [],
       "templating": {
         "list": [
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "main-old",
-              "value": "main-old"
+              "value": "P83C10682E5E858C5"
             },
             "hide": 0,
             "includeAll": false,
@@ -2568,14 +2612,13 @@ spec:
         ]
       },
       "time": {
-        "from": "now-30m",
+        "from": "now-24h",
         "to": "now"
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "VirtualMachines Overview",
-      "uid": "a2YH1nfSz",
-      "version": 8,
+      "title": "Virtualization",
+      "version": 1,
       "weekStart": ""
     }
   folder: virtualization
