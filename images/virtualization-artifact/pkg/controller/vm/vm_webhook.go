@@ -170,17 +170,17 @@ func (v *ipamVMValidator) validateCreate(ctx context.Context, vm *v1alpha2.Virtu
 	vmipKey := types.NamespacedName{Name: vmipName, Namespace: vm.Namespace}
 	vmip, err := helper.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to get vmip %s: %w", vmip, err)
+		return nil, fmt.Errorf("unable to get referenced VirtualMachineIPAddress %s: %w", vmipKey, err)
 	}
 
 	if vmip == nil {
 		return nil, nil
 	}
 
+	// VM is created without ip address, but ip address resource is already exists.
 	if vm.Spec.VirtualMachineIPAddress == "" {
 		return nil, fmt.Errorf("VirtualMachineIPAddress with the name of the virtual machine"+
-			" already exists: explicitly specify the name of the VirtualMachineIPAddress (%s)"+
-			" in spec.virtualMachineIPAddress of virtual machine", vmip.Name)
+			" already exists: set spec.virtualMachineIPAddress field to %s to use IP %s", vmip.Name, vmip.Status.Address)
 	}
 
 	return nil, v.ipam.CheckIpAddressAvailableForBinding(vm.Name, vmip)

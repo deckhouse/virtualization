@@ -344,8 +344,13 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	if err != nil {
 		return nil, err
 	}
+
+	if ip.Status.Address == "" {
+		return nil, fmt.Errorf("the IP address is not found for VM %q", current.GetName())
+	}
+
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, model.Spec, ip.Spec.Address)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, model.Spec, ip.Status.Address)
 	if err != nil {
 		return nil, err
 	}

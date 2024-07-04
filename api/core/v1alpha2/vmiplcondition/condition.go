@@ -19,15 +19,17 @@ package vmiplcondition
 type Type = string
 
 const (
+	// BoundType represents the condition type when a Virtual Machine IP is bound.
 	BoundType Type = "Bound"
 )
 
-type (
-	BoundReason = string
-)
+// BoundReason represents specific reasons for the 'Bound' condition type.
+type BoundReason = string
 
 const (
-	OutOfTheValidRange BoundReason = "OutOfTheValidRange"
-	Released           BoundReason = "Released"
-	Bound              BoundReason = "Bound"
+	// Released is a BoundReason indicating the IP address lease has been released.
+	Released BoundReason = "Released"
+
+	// Bound is a BoundReason indicating the IP address lease is successfully bound.
+	Bound BoundReason = "Bound"
 )

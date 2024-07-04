@@ -18,6 +18,7 @@ package vmiplease
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -25,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
-
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,17 +37,22 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log logr.Logger,
+	retentionDurationStr string,
 ) (controller.Controller, error) {
-	handlers := []Handler{
-		internal.NewProtectionHandler(mgr.GetClient(), log),
-		internal.NewDeletionHandler(mgr.GetClient(), log),
-		internal.NewLifecycleHandler(mgr.GetClient(), log),
-	}
-
-	r, err := NewReconciler(mgr.GetClient(), log, handlers...)
+	log = log.WithName(controllerName)
+	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
+		log.Error(err, "failed to parse retention duration")
 		return nil, err
 	}
+
+	handlers := []Handler{
+		internal.NewProtectionHandler(log),
+		internal.NewRetentionHandler(log, retentionDuration),
+		internal.NewLifecycleHandler(log),
+	}
+
+	r := NewReconciler(mgr.GetClient(), log, handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -60,11 +65,11 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineIPAddressLease{}).
-		WithValidator(NewVMIPLeaseValidator(log)).
+		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return nil, err
 	}
 
-	log.Info("Initialized VMIPLease controller")
+	log.Info("Initialized VirtualMachineIPLease controller")
 	return c, nil
 }

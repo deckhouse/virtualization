@@ -23,28 +23,30 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMIPLeaseState interface {
-	VirtualMachineIPAddressLease() *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]
+	VirtualMachineIPAddressLease() *virtv2.VirtualMachineIPAddressLease
 	VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
+	SetDeletion(value bool)
+	ShouldDeletion() bool
 }
 
 type state struct {
-	client    client.Client
-	vmipLease *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]
-	vmip      *virtv2.VirtualMachineIPAddress
+	client     client.Client
+	lease      *virtv2.VirtualMachineIPAddressLease
+	vmip       *virtv2.VirtualMachineIPAddress
+	isDeletion bool
 }
 
-func New(c client.Client, vmipLease *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus]) VMIPLeaseState {
-	return &state{client: c, vmipLease: vmipLease}
+func New(c client.Client, lease *virtv2.VirtualMachineIPAddressLease) VMIPLeaseState {
+	return &state{client: c, lease: lease}
 }
 
-func (s *state) VirtualMachineIPAddressLease() *service.Resource[*virtv2.VirtualMachineIPAddressLease, virtv2.VirtualMachineIPAddressLeaseStatus] {
-	return s.vmipLease
+func (s *state) VirtualMachineIPAddressLease() *virtv2.VirtualMachineIPAddressLease {
+	return s.lease
 }
 
 func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
@@ -54,8 +56,8 @@ func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMac
 
 	var err error
 
-	if s.vmipLease.Current().Spec.IpAddressRef != nil {
-		vmipKey := types.NamespacedName{Name: s.vmipLease.Current().Spec.IpAddressRef.Name, Namespace: s.vmipLease.Current().Spec.IpAddressRef.Namespace}
+	if s.lease.Spec.VirtualMachineIPAddressRef != nil {
+		vmipKey := types.NamespacedName{Name: s.lease.Spec.VirtualMachineIPAddressRef.Name, Namespace: s.lease.Spec.VirtualMachineIPAddressRef.Namespace}
 		s.vmip, err = helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VirtualMachineIP %s: %w", vmipKey, err)
@@ -63,4 +65,12 @@ func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMac
 	}
 
 	return s.vmip, nil
+}
+
+func (s *state) SetDeletion(value bool) {
+	s.isDeletion = value
+}
+
+func (s *state) ShouldDeletion() bool {
+	return s.isDeletion
 }

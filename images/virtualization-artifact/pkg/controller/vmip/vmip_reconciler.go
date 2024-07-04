@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +39,7 @@ import (
 
 type Handler interface {
 	Handle(ctx context.Context, s state.VMIPState) (reconcile.Result, error)
+	Name() string
 }
 
 type Reconciler struct {
@@ -49,7 +49,6 @@ type Reconciler struct {
 }
 
 func NewReconciler(client client.Client, logger logr.Logger, handlers ...Handler) (*Reconciler, error) {
-
 	return &Reconciler{
 		client:   client,
 		logger:   logger,
@@ -118,15 +117,15 @@ func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Obj
 		return nil
 	}
 
-	if lease.Spec.IpAddressRef == nil {
+	if lease.Spec.VirtualMachineIPAddressRef == nil {
 		return nil
 	}
 
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Namespace: lease.Spec.IpAddressRef.Namespace,
-				Name:      lease.Spec.IpAddressRef.Name,
+				Namespace: lease.Spec.VirtualMachineIPAddressRef.Namespace,
+				Name:      lease.Spec.VirtualMachineIPAddressRef.Name,
 			},
 		},
 	}
@@ -144,21 +143,22 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vmip)
+	r.logger.Info("Start reconcile VMIP", "namespacedName", req.String())
+
+	s := state.New(r.client, vmip.Changed())
 	var handlerErrs []error
 
 	var result reconcile.Result
 	for _, h := range r.handlers {
+		r.logger.V(3).Info("Run handler", "name", h.Name())
 		res, err := h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error(err, "Failed to handle VirtualMachineIP", "err", err, "handler", reflect.TypeOf(h).Elem().Name())
+			r.logger.Error(err, "Failed to handle VirtualMachineIP", "err", err, "handler", h.Name())
 			handlerErrs = append(handlerErrs, err)
 		}
 
-		result = mergeResults(result, res)
+		result = service.MergeResults(result, res)
 	}
-
-	vmip.Changed().Status.ObservedGeneration = vmip.Changed().Generation
 
 	err = vmip.Update(ctx)
 	if err != nil {
@@ -179,24 +179,4 @@ func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {
 
 func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddress) virtv2.VirtualMachineIPAddressStatus {
 	return obj.Status
-}
-
-func mergeResults(results ...reconcile.Result) reconcile.Result {
-	var result reconcile.Result
-	for _, r := range results {
-		if r.IsZero() {
-			continue
-		}
-		if r.Requeue {
-			return r
-		}
-		if result.IsZero() && r.RequeueAfter > 0 {
-			result = r
-			continue
-		}
-		if r.RequeueAfter > 0 && r.RequeueAfter < result.RequeueAfter {
-			result.RequeueAfter = r.RequeueAfter
-		}
-	}
-	return result
 }

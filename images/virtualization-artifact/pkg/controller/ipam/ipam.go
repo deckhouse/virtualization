@@ -66,20 +66,18 @@ func (m IPAM) CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.Virt
 }
 
 func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
+	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
 	return client.Create(ctx, &virtv2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				common.LabelImplicitIPAddress: common.LabelImplicitIPAddressValue,
+				common.LabelVirtualMachineName: vm.Name,
 			},
-			Name:      vm.Name,
-			Namespace: vm.Namespace,
+			GenerateName:    vm.Name + "-",
+			Namespace:       vm.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
 		Spec: virtv2.VirtualMachineIPAddressSpec{
-			ReclaimPolicy: virtv2.VirtualMachineIPAddressReclaimPolicyDelete,
+			Type: virtv2.VirtualMachineIPAddressTypeAuto,
 		},
 	})
-}
-
-func (m IPAM) DeleteIPAddress(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress, client client.Client) error {
-	return client.Delete(ctx, vmip)
 }

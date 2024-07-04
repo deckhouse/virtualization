@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -38,11 +39,15 @@ func NewController(
 	log logr.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
+	log = log.WithName(controllerName)
+
+	recorder := mgr.GetEventRecorderFor(controllerName)
+	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
+
 	handlers := []Handler{
-		internal.NewProtectionHandler(mgr.GetClient(), log),
-		internal.NewDeletionHandler(mgr.GetClient(), log),
-		internal.NewIPLeaseHandler(mgr.GetClient(), log, virtualMachineCIDRs),
-		internal.NewLifecycleHandler(mgr.GetClient(), log),
+		internal.NewProtectionHandler(log),
+		internal.NewIPLeaseHandler(mgr.GetClient(), log, ipService, recorder),
+		internal.NewLifecycleHandler(log),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), log, handlers...)
@@ -61,7 +66,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineIPAddress{}).
-		WithValidator(NewVMIPValidator(log, mgr.GetClient())).
+		WithValidator(NewValidator(log, mgr.GetClient())).
 		Complete(); err != nil {
 		return nil, err
 	}

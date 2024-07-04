@@ -18,200 +18,143 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8snet "k8s.io/utils/net"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
+const IpLeaseHandlerName = "IPLeaseHandler"
+
 type IPLeaseHandler struct {
-	client      client.Client
-	logger      logr.Logger
-	ParsedCIDRs []*net.IPNet
+	client    client.Client
+	logger    logr.Logger
+	ipService *service.IpAddressService
+	recorder  record.EventRecorder
 }
 
-func NewIPLeaseHandler(client client.Client, logger logr.Logger, virtualMachineCIDRs []string) *IPLeaseHandler {
-	parsedCIDRs := make([]*net.IPNet, len(virtualMachineCIDRs))
-
-	for i, cidr := range virtualMachineCIDRs {
-		_, parsedCIDR, err := net.ParseCIDR(cidr)
-		if err != nil || parsedCIDR == nil {
-			logger.Error(err, fmt.Sprintf("failed to parse virtual cide %s: %w", cidr, err))
-			return nil
-		}
-
-		parsedCIDRs[i] = parsedCIDR
-	}
-
+func NewIPLeaseHandler(client client.Client, logger logr.Logger, ipAddressService *service.IpAddressService, recorder record.EventRecorder) *IPLeaseHandler {
 	return &IPLeaseHandler{
-		client:      client,
-		logger:      logger.WithValues("handler", "IPLeaseHandler"),
-		ParsedCIDRs: parsedCIDRs,
+		client:    client,
+		logger:    logger.WithValues("handler", IpLeaseHandlerName),
+		ipService: ipAddressService,
+		recorder:  recorder,
 	}
 }
 
-func (h *IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
-	vmipLease, err := state.VirtualMachineIPLease(ctx)
+func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	vmip := state.VirtualMachineIP()
+	vmipStatus := &vmip.Status
+
+	lease, err := state.VirtualMachineIPLease(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	switch {
-	case vmipLease == nil && state.VirtualMachineIP().Current().Spec.VirtualMachineIPAddressLease != "":
+	case lease == nil && vmipStatus.Address != "":
 		h.logger.Info("Lease by name not found: waiting for the lease to be available")
 		return reconcile.Result{}, nil
 
-	case vmipLease == nil:
-		// Lease not found by spec.virtualMachineIPAddressLease or spec.Address: it doesn't exist.
-		h.logger.Info("No Lease for VirtualMachineIP: create the new one", "address", state.VirtualMachineIP().Current().Spec.Address, "leaseName", state.VirtualMachineIP().Current().Spec.VirtualMachineIPAddressLease)
+	case lease == nil:
+		h.logger.Info("No Lease for VirtualMachineIP: create the new one", "type", vmip.Spec.Type, "address", vmip.Spec.StaticIP)
+		return h.createNewLease(ctx, state)
 
-		leaseName := state.VirtualMachineIP().Current().Spec.VirtualMachineIPAddressLease
-
-		if state.VirtualMachineIP().Current().Spec.Address == "" {
-			if leaseName != "" {
-				h.logger.Info("VirtualMachineIP address omitted in the spec: extract from the lease name")
-				state.VirtualMachineIP().Changed().Spec.Address = util.LeaseNameToIP(leaseName)
-			} else {
-				h.logger.Info("VirtualMachineIP address omitted in the spec: allocate the new one")
-				var err error
-				state.VirtualMachineIP().Changed().Spec.Address, err = h.allocateNewIP(state.AllocatedIPs())
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-		}
-
-		if !h.isAvailableAddress(state.VirtualMachineIP().Changed().Spec.Address, state.AllocatedIPs()) {
-			h.logger.Info("VirtualMachineIP cannot be created: the address has already been allocated for another vmip", "address", state.VirtualMachineIP().Current().Spec.Address)
-			return reconcile.Result{}, nil
-		}
-
-		if leaseName == "" {
-			leaseName = util.IpToLeaseName(state.VirtualMachineIP().Changed().Spec.Address)
-		}
-
-		h.logger.Info("Create lease",
-			"leaseName", leaseName,
-			"reclaimPolicy", state.VirtualMachineIP().Current().Spec.ReclaimPolicy,
-			"refName", state.VirtualMachineIP().Name().Name,
-			"refNamespace", state.VirtualMachineIP().Name().Namespace,
-		)
-
-		state.VirtualMachineIP().Changed().Spec.VirtualMachineIPAddressLease = leaseName
-
-		err := h.client.Update(ctx, state.VirtualMachineIP().Changed())
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to set lease name for vmip: %w", err)
-		}
-
-		err = h.client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: leaseName,
-			},
-			Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
-				ReclaimPolicy: state.VirtualMachineIP().Current().Spec.ReclaimPolicy,
-				IpAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
-					Name:      state.VirtualMachineIP().Name().Name,
-					Namespace: state.VirtualMachineIP().Name().Namespace,
-				},
-			},
-		})
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return reconcile.Result{}, nil
-
-	case vmipLease.Status.Phase == "":
+	case lease.Status.Phase == "":
+		// TODO: Replace this requeue with proper UpdateFunc in VirtualMachineIPAddressLease watch setup.
 		h.logger.Info("Lease is not ready: waiting for the lease")
 		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, nil
 
-	case util.IsBoundLease(vmipLease, state.VirtualMachineIP()):
+	case util.IsBoundLease(lease, vmip):
 		h.logger.Info("Lease already exists, VirtualMachineIP ref is valid")
 		return reconcile.Result{}, nil
 
-	case vmipLease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
+	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
 		h.logger.Info("Lease is bounded to another VirtualMachineIP: recreate VirtualMachineIP when the lease is released")
 		return reconcile.Result{}, nil
 
 	default:
 		h.logger.Info("Lease is released: set binding")
 
-		vmipLease.Spec.ReclaimPolicy = state.VirtualMachineIP().Current().Spec.ReclaimPolicy
-		vmipLease.Spec.IpAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
-			Name:      state.VirtualMachineIP().Name().Name,
-			Namespace: state.VirtualMachineIP().Name().Namespace,
+		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
+			return reconcile.Result{}, fmt.Errorf("the selected VirtualMachineIP lease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace)
 		}
 
-		err := h.client.Update(ctx, vmipLease)
+		lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+			Name:      vmip.Name,
+			Namespace: vmip.Namespace,
+		}
+
+		err := h.client.Update(ctx, lease)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		state.VirtualMachineIP().Changed().Spec.VirtualMachineIPAddressLease = vmipLease.Name
-		state.VirtualMachineIP().Changed().Spec.Address = util.LeaseNameToIP(vmipLease.Name)
-
-		return reconcile.Result{}, h.client.Update(ctx, state.VirtualMachineIP().Changed())
+		vmipStatus.Address = common.LeaseNameToIP(lease.Name)
+		return reconcile.Result{}, nil
 	}
 }
 
-func (h IPLeaseHandler) isAvailableAddress(address string, allocatedIPs util.AllocatedIPs) bool {
-	ip := net.ParseIP(address)
+func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	vmip := state.VirtualMachineIP()
+	vmipStatus := &vmip.Status
 
-	if _, ok := allocatedIPs[ip.String()]; !ok {
-		for _, cidr := range h.ParsedCIDRs {
-			if cidr.Contains(ip) {
-				// available
-				return true
-			}
+	if vmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeAuto {
+		h.logger.Info("allocate the new VirtualMachineIP address")
+		var err error
+		vmipStatus.Address, err = h.ipService.AllocateNewIP(state.AllocatedIPs())
+		if err != nil {
+			return reconcile.Result{}, err
 		}
-		// out of range
-		return false
+	} else {
+		vmipStatus.Address = vmip.Spec.StaticIP
 	}
-	// already exists
-	return false
+
+	if !h.ipService.IsAvailableAddress(vmipStatus.Address, state.AllocatedIPs()) {
+		msg := fmt.Sprintf("VirtualMachineIP cannot be created: the address %s has already been allocated for another vmip", vmip.Spec.StaticIP)
+		h.logger.Info(msg)
+		h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseLost, msg)
+		return reconcile.Result{}, nil
+	}
+
+	leaseName := common.IpToLeaseName(vmipStatus.Address)
+
+	h.logger.Info("Create lease",
+		"leaseName", leaseName,
+		"refName", vmip.Name,
+		"refNamespace", vmip.Namespace,
+	)
+
+	err := h.client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: leaseName,
+		},
+		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
+			VirtualMachineIPAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+				Name:      vmip.Name,
+				Namespace: vmip.Namespace,
+			},
+		},
+	})
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
 
-func (h IPLeaseHandler) allocateNewIP(allocatedIPs util.AllocatedIPs) (string, error) {
-	for _, cidr := range h.ParsedCIDRs {
-		for ip := cidr.IP.Mask(cidr.Mask); cidr.Contains(ip); inc(ip) {
-			// Allow allocation of IP address explicitly specified using a 32-bit mask.
-			if k8snet.RangeSize(cidr) != 1 {
-				// Skip the allocation of the first or last addresses within the CIDR range.
-				isFirstLast, err := util.IsFirstLastIP(ip, cidr)
-				if err != nil {
-					return "", err
-				}
-
-				if isFirstLast {
-					continue
-				}
-			}
-
-			_, ok := allocatedIPs[ip.String()]
-			if !ok {
-				return ip.String(), nil
-			}
-		}
-	}
-	return "", errors.New("no remaining ips")
-}
-
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
+func (h IPLeaseHandler) Name() string {
+	return IpLeaseHandlerName
 }

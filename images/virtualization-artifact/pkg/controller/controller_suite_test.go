@@ -59,7 +59,3 @@ func (m *MockIPAM) CheckIpAddressAvailableForBinding(_ string, _ *v1alpha2.Virtu
 func (m *MockIPAM) CreateIPAddress(_ context.Context, _ *v1alpha2.VirtualMachine, _ client.Client) error {
 	return nil
 }
-
-func (m *MockIPAM) DeleteIPAddress(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress, _ client.Client) error {
-	return nil
-}

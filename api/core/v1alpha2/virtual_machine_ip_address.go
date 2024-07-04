@@ -39,37 +39,47 @@ type VirtualMachineIPAddressList struct {
 	Items           []VirtualMachineIPAddress `json:"items"`
 }
 
+type VirtualMachineIPAddressType string
+
+const (
+	VirtualMachineIPAddressTypeAuto   VirtualMachineIPAddressType = "Auto"
+	VirtualMachineIPAddressTypeStatic VirtualMachineIPAddressType = "Static"
+)
+
 // VirtualMachineIPAddressSpec is the desired state of `VirtualMachineIPAddress`.
 type VirtualMachineIPAddressSpec struct {
-	// The issued `VirtualMachineIPAddressLease`, managed automatically.
-	VirtualMachineIPAddressLease string `json:"virtualMachineIPAddressLeaseName"`
-	// The requested IP address. If omitted the next available IP address will be assigned.
-	Address string `json:"address"`
-	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.
-	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
+	// Type specifies the mode of IP address assignment. Possible values are "Auto" for automatic IP assignment,
+	// or "Static" for assigning a specific IP address.
+	Type VirtualMachineIPAddressType `json:"type"`
+	// StaticIP is the requested IP address. If omitted the next available IP address will be assigned.
+	StaticIP string `json:"staticIP,omitempty"`
 }
 
 // VirtualMachineIPAddressStatus is the observed state of `VirtualMachineIPAddress`.
 type VirtualMachineIPAddressStatus struct {
-	// Represents the virtual machine that currently uses this IP address.
+	// VirtualMachine represents the virtual machine that currently uses this IP address.
+	// It's the name of the virtual machine instance.
 	VirtualMachine string `json:"virtualMachineName,omitempty"`
-	// Assigned IP address.
+
+	// Address is the assigned IP address allocated to the virtual machine.
 	Address string `json:"address,omitempty"`
-	// The issued `VirtualMachineIPAddressLease`, managed automatically.
-	Lease string `json:"virtualMachineIPAddressLeaseName,omitempty"`
-	// Represents the current state of IP address.
+
+	// Phase represents the current state of the IP address.
+	// It could indicate whether the IP address is in use, available, or in any other defined state.
 	Phase VirtualMachineIPAddressPhase `json:"phase,omitempty"`
-	// Detailed description of the error.
-	ConflictMessage    string             `json:"conflictMessage,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration is the most recent generation observed by the controller.
+	// This is used to identify changes that have been recently observed and handled.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represents the latest available observations of the object's state.
+	// They provide detailed status and information, such as whether the IP address allocation was successful, in progress, etc.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type VirtualMachineIPAddressPhase string
 
 const (
-	VirtualMachineIPAddressPhasePending  VirtualMachineIPAddressPhase = "Pending"
-	VirtualMachineIPAddressPhaseBound    VirtualMachineIPAddressPhase = "Bound"
-	VirtualMachineIPAddressPhaseLost     VirtualMachineIPAddressPhase = "Lost"
-	VirtualMachineIPAddressPhaseConflict VirtualMachineIPAddressPhase = "Conflict"
+	VirtualMachineIPAddressPhasePending VirtualMachineIPAddressPhase = "Pending"
+	VirtualMachineIPAddressPhaseBound   VirtualMachineIPAddressPhase = "Bound"
 )

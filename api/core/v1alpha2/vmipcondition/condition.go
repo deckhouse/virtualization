@@ -19,20 +19,40 @@ package vmipcondition
 type Type = string
 
 const (
-	BoundType    Type = "Bound"
+	// BoundType represents the condition type when a Virtual Machine IP is bound.
+	BoundType Type = "Bound"
+
+	// AttachedType represents the condition type when a Virtual Machine IP is attached.
 	AttachedType Type = "Attached"
 )
 
 type (
-	BoundReason    = string
+	// BoundReason represents specific reasons for the 'Bound' condition type.
+	BoundReason = string
+
+	// AttachedReason represents specific reasons for the 'Attached' condition type.
 	AttachedReason = string
 )
 
 const (
-	VirtualMachineIPAddressLeaseAlready  BoundReason = "VirtualMachineIPAddressLeaseAlready"
-	VirtualMachineIPAddressLeaseLost     BoundReason = "VirtualMachineIPAddressLeaseLost"
-	VirtualMachineIPAddressLeaseNotFound BoundReason = "VirtualMachineIPAddressLeaseNotFound"
-	Bound                                BoundReason = "Bound"
+	// VirtualMachineIPAddressLeaseAlready is a BoundReason indicating the IP address lease already exists.
+	VirtualMachineIPAddressLeaseAlready BoundReason = "VirtualMachineIPAddressLeaseAlready"
 
+	// VirtualMachineIPAddressLeaseLost is a BoundReason indicating the IP address lease was lost.
+	VirtualMachineIPAddressLeaseLost BoundReason = "VirtualMachineIPAddressLeaseLost"
+
+	// VirtualMachineIPAddressLeaseNotFound is a BoundReason indicating the IP address lease was not found.
+	VirtualMachineIPAddressLeaseNotFound BoundReason = "VirtualMachineIPAddressLeaseNotFound"
+
+	// VirtualMachineIPAddressLeaseNotReady is a BoundReason indicating the IP address lease was not ready.
+	VirtualMachineIPAddressLeaseNotReady BoundReason = "VirtualMachineIPAddressLeaseNotReady"
+
+	// Bound is a BoundReason indicating the IP address lease is successfully bound.
+	Bound BoundReason = "Bound"
+
+	// VirtualMachineNotFound is an AttachedReason indicating the Virtual Machine was not found.
+	VirtualMachineNotFound AttachedReason = "VirtualMachineNotFound"
+
+	// Attached is an AttachedReason indicating the IP address was successfully attached to the Virtual Machine.
 	Attached AttachedReason = "Attached"
 )

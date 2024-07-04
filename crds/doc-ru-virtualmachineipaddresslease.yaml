@@ -10,7 +10,7 @@ spec:
               description: |
                 Параметры конфигурации `VirtualMachineIPAddressLease`.
               properties:
-                ipAddressRef:
+                virtualMachineIPAddressRef:
                   description: |
                     Ссылка на существующие `VirtualMachineIPAddress`.
                   properties:
@@ -20,13 +20,6 @@ spec:
                     namespace:
                       description: |
                         Пространство имен ссылающегося `VirtualMachineIPAddress`.
-                reclaimPolicy:
-                  description: |
-                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddress`.
-
-                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddress`.
-
-                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddress`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
             status:
               description: |
                 Состояние ресурса `VirtualMachineIPAddressLease`.
@@ -40,7 +33,7 @@ spec:
                     status:
                       description: Статус состояния (одно из True, False, Unknown).
                     message:
-                      description: Cообщение c деталями последнего перехода состояния.
+                      description: Сообщение c деталями последнего перехода состояния.
                     reason:
                       description: Краткая причина последнего перехода состояния.
                     lastProbeTime:
@@ -53,3 +46,6 @@ spec:
 
                     * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddress`.
                     * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddress`.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

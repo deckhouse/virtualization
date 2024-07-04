@@ -44,7 +44,6 @@ type IPAM interface {
 	IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool
 	CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error
 	CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
-	DeleteIPAddress(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress, client client.Client) error
 }
 
 func NewIPAMHandler(ipam IPAM, cl client.Client, recorder record.EventRecorder, logger *slog.Logger) *IPAMHandler {
@@ -98,7 +97,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 			Reason2(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
-		changed.Status.IPAddress = ipAddress.Spec.Address
+		changed.Status.IPAddress = ipAddress.Status.Address
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -108,12 +107,12 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 				if iface.Name == kvbuilder.NetworkInterfaceName {
 					hasClaimedIP := false
 					for _, ip := range iface.IPs {
-						if ip == ipAddress.Spec.Address {
+						if ip == ipAddress.Status.Address {
 							hasClaimedIP = true
 						}
 					}
 					if !hasClaimedIP {
-						msg := fmt.Sprintf("Claimed IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Spec.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
+						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
 						mgr.Update(cb.Status(metav1.ConditionFalse).
 							Reason2(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).

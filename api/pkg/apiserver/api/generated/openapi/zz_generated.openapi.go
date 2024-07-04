@@ -2935,17 +2935,10 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(re
 				Description: "VirtualMachineIPAddressLeaseSpec is the desired state of `VirtualMachineIPAddressLease`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"ipAddressRef": {
+					"virtualMachineIPAddressRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The link to existing `VirtualMachineIPAddress`.",
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef"),
-						},
-					},
-					"reclaimPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -3053,31 +3046,23 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressSpec(ref com
 				Description: "VirtualMachineIPAddressSpec is the desired state of `VirtualMachineIPAddress`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineIPAddressLeaseName": {
+					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
+							Description: "Type specifies the mode of IP address assignment. Possible values are \"Auto\" for automatic IP assignment, or \"Static\" for assigning a specific IP address.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"address": {
+					"staticIP": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The requested IP address. If omitted the next available IP address will be assigned.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"reclaimPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddress deletion.",
+							Description: "StaticIP is the requested IP address. If omitted the next available IP address will be assigned.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"virtualMachineIPAddressLeaseName", "address"},
+				Required: []string{"type"},
 			},
 		},
 	}
@@ -3104,13 +3089,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref c
 							Format:      "",
 						},
 					},
-					"virtualMachineIPAddressLeaseName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The issued `VirtualMachineIPAddressLease`, managed automatically.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the current state of IP address.",
@@ -3118,17 +3096,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref c
 							Format:      "",
 						},
 					},
-					"conflictMessage": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Detailed description of the error.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "Detailed description of the error.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 					"conditions": {

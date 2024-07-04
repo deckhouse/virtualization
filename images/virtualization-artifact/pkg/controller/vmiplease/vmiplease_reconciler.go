@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -40,6 +41,7 @@ import (
 
 type Handler interface {
 	Handle(ctx context.Context, s state.VMIPLeaseState) (reconcile.Result, error)
+	Name() string
 }
 
 type Reconciler struct {
@@ -48,13 +50,12 @@ type Reconciler struct {
 	logger   logr.Logger
 }
 
-func NewReconciler(client client.Client, logger logr.Logger, handlers ...Handler) (*Reconciler, error) {
-
+func NewReconciler(client client.Client, logger logr.Logger, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
 		logger:   logger,
 		handlers: handlers,
-	}, nil
+	}
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -79,50 +80,67 @@ func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Objec
 		return nil
 	}
 
-	if vmip.Spec.VirtualMachineIPAddressLease == "" {
+	if vmip.Status.Address == "" {
 		return nil
 	}
 
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Name: vmip.Spec.VirtualMachineIPAddressLease,
+				Name: common.IpToLeaseName(vmip.Status.Address),
 			},
 		},
 	}
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	vmipLease := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	lease := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
-	err := vmipLease.Fetch(ctx)
+	var err error
+	err = lease.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if vmipLease.IsEmpty() {
+	if lease.IsEmpty() {
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vmipLease)
+	r.logger.Info("Start reconcile VMIPLease", "namespacedName", req.String())
+
+	s := state.New(r.client, lease.Changed())
 	var handlerErrs []error
 
 	var result reconcile.Result
 	for _, h := range r.handlers {
+		r.logger.V(3).Info("Run handler", "name", h.Name())
 		res, err := h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error(err, "Failed to handle VMIPLease", "err", err, "handler", reflect.TypeOf(h).Elem().Name())
+			r.logger.Error(err, "Failed to handle VMIPLease", "err", err, "handler", h.Name())
 			handlerErrs = append(handlerErrs, err)
 		}
 
-		result = mergeResults(result, res)
+		result = service.MergeResults(result, res)
 	}
 
-	vmipLease.Changed().Status.ObservedGeneration = vmipLease.Changed().Generation
+	if s.ShouldDeletion() {
+		err = r.client.Delete(ctx, lease.Changed())
+	} else {
+		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
+			leaseStatus := lease.Changed().Status.DeepCopy()
+			err = r.client.Update(ctx, lease.Changed())
+			if err != nil {
+				r.logger.Error(err, "Failed to update VirtualMachineIPAddressLease")
+				handlerErrs = append(handlerErrs, err)
+			}
+			lease.Changed().Status = *leaseStatus
+		}
 
-	err = vmipLease.Update(ctx)
+		err = lease.Update(ctx)
+	}
+
 	if err != nil {
-		return reconcile.Result{}, err
+		handlerErrs = append(handlerErrs, err)
 	}
 
 	err = errors.Join(handlerErrs...)
@@ -139,24 +157,4 @@ func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddressLease {
 
 func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddressLease) virtv2.VirtualMachineIPAddressLeaseStatus {
 	return obj.Status
-}
-
-func mergeResults(results ...reconcile.Result) reconcile.Result {
-	var result reconcile.Result
-	for _, r := range results {
-		if r.IsZero() {
-			continue
-		}
-		if r.Requeue {
-			return r
-		}
-		if result.IsZero() && r.RequeueAfter > 0 {
-			result = r
-			continue
-		}
-		if r.RequeueAfter > 0 && r.RequeueAfter < result.RequeueAfter {
-			result.RequeueAfter = r.RequeueAfter
-		}
-	}
-	return result
 }

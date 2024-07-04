@@ -21,7 +21,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -30,53 +29,59 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
+const LifecycleHandlerName = "LifecycleHandler"
+
 type LifecycleHandler struct {
-	client client.Client
 	logger logr.Logger
 }
 
-func NewLifecycleHandler(client client.Client, logger logr.Logger) *LifecycleHandler {
+func NewLifecycleHandler(logger logr.Logger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client: client,
-		logger: logger.WithValues("handler", "LifecycleHandler"),
+		logger: logger.WithValues("handler", LifecycleHandlerName),
 	}
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	changedLease := state.VirtualMachineIPAddressLease().Changed()
-	currentLease := state.VirtualMachineIPAddressLease().Current()
-
-	isDeletion := currentLease.DeletionTimestamp != nil
+	lease := state.VirtualMachineIPAddressLease()
+	leaseStatus := &lease.Status
 
 	// Do nothing if object is being deleted as any update will lead to en error.
-	if isDeletion {
+	if state.ShouldDeletion() {
 		return reconcile.Result{}, nil
 	}
 
-	mgr := conditions.NewManager(currentLease.Status.Conditions)
+	mgr := conditions.NewManager(leaseStatus.Conditions)
 	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).
-		Generation(currentLease.GetGeneration())
+		Generation(lease.GetGeneration())
 
 	vmip, err := state.VirtualMachineIPAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	switch {
-	case vmip != nil:
-		changedLease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
-		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason(vmiplcondition.Bound).
-			Condition())
-	case currentLease.Spec.ReclaimPolicy == virtv2.VirtualMachineIPAddressReclaimPolicyRetain:
-		changedLease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
-		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason(vmiplcondition.Released).
-			Condition())
-	default:
-		// No need to do anything: it should be already in the process of being deleted.
+	if vmip != nil {
+		if leaseStatus.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
+			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+			mgr.Update(cb.Status(metav1.ConditionTrue).
+				Reason(vmiplcondition.Bound).
+				Condition())
+		}
+	} else {
+		if leaseStatus.Phase != virtv2.VirtualMachineIPAddressLeasePhaseReleased {
+			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
+			mgr.Update(cb.Status(metav1.ConditionFalse).
+				Reason(vmiplcondition.Released).
+				Message("VirtualMachineIPAddress lease is not used by any VirtualMachineIPAddress").
+				Condition())
+		}
 	}
-	changedLease.Status.Conditions = mgr.Generate()
+
+	leaseStatus.Conditions = mgr.Generate()
+	leaseStatus.ObservedGeneration = lease.GetGeneration()
 
 	return reconcile.Result{}, nil
+}
+
+func (h *LifecycleHandler) Name() string {
+	return LifecycleHandlerName
 }

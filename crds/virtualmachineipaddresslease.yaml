@@ -17,6 +17,8 @@ spec:
     shortNames:
       - vmipl
       - vmipls
+      - vmiplease
+      - vmipleases
   versions:
     - name: v1alpha2
       schema:
@@ -34,16 +36,7 @@ spec:
               description: |
                 The desired state of `VirtualMachineIPAddressLease`.
               properties:
-                reclaimPolicy:
-                  type: string
-                  default: "Delete"
-                  enum: [ "Delete", "Retain" ]
-                  description: |
-                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddress` deletion.
-
-                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddress`.
-                    * `Retain` — if a user deletes a `VirtualMachineIPAddress`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
-                ipAddressRef:
+                virtualMachineIPAddressRef:
                   description: |
                     The link to existing `VirtualMachineIPAddress`.
                   properties:
@@ -89,7 +82,7 @@ spec:
                       status:
                         description: Status of the condition, one of True, False, Unknown.
                         type: string
-                        enum: [ "True", "False", "Unknown" ]
+                        enum: ["True", "False", "Unknown"]
                       type:
                         description: Type of condition.
                         type: string
@@ -106,14 +99,18 @@ spec:
 
                     * Bound - the IP address lease is bound to IP address.
                     * Released - the IP address lease is available for binding.
+                observedGeneration:
+                  type: integer
+                  description: |
+                    The generation last processed by the controller.
           type: object
       served: true
       storage: true
       subresources:
-        status: { }
+        status: {}
       additionalPrinterColumns:
-        - jsonPath: .spec.ipAddressRef
-          name: IpAddress
+        - jsonPath: .spec.virtualMachineIPAddressRef
+          name: VirtualMachineIPAddress
           type: string
         - jsonPath: .status.phase
           name: Status

@@ -19,19 +19,14 @@ package util
 import (
 	"context"
 	"fmt"
-	"net"
-	"strings"
 
-	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type AllocatedIPs map[string]*virtv2.VirtualMachineIPAddressLease
-
-func GetAllocatedIPs(ctx context.Context, apiClient client.Client) (AllocatedIPs, error) {
+func GetAllocatedIPs(ctx context.Context, apiClient client.Client, vmipType virtv2.VirtualMachineIPAddressType) (common.AllocatedIPs, error) {
 	var leases virtv2.VirtualMachineIPAddressLeaseList
 
 	err := apiClient.List(ctx, &leases)
@@ -39,66 +34,29 @@ func GetAllocatedIPs(ctx context.Context, apiClient client.Client) (AllocatedIPs
 		return nil, fmt.Errorf("error getting leases: %w", err)
 	}
 
-	allocatedIPs := make(AllocatedIPs, len(leases.Items))
+	allocatedIPs := make(common.AllocatedIPs, len(leases.Items))
 	for _, lease := range leases.Items {
 		l := lease
-		allocatedIPs[LeaseNameToIP(lease.Name)] = &l
+		if vmipType == virtv2.VirtualMachineIPAddressTypeStatic && l.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseReleased {
+			continue
+		} else {
+			allocatedIPs[common.LeaseNameToIP(lease.Name)] = &l
+		}
 	}
 
 	return allocatedIPs, nil
 }
 
-const ipPrefix = "ip-"
-
-func LeaseNameToIP(leaseName string) string {
-
-	if strings.HasPrefix(leaseName, ipPrefix) && len(leaseName) > len(ipPrefix) {
-		return strings.ReplaceAll(leaseName[len(ipPrefix):], "-", ".")
-	}
-
-	return ""
-}
-
-func IpToLeaseName(ip string) string {
-	addr := net.ParseIP(ip)
-	if addr.To4() != nil {
-		// IPv4 address
-		return ipPrefix + strings.ReplaceAll(addr.String(), ".", "-")
-	}
-
-	return ""
-}
-
-func IsFirstLastIP(ip net.IP, cidr *net.IPNet) (bool, error) {
-	size := int(k8snet.RangeSize(cidr))
-
-	first, err := k8snet.GetIndexedIP(cidr, 0)
-	if err != nil {
-		return false, err
-	}
-
-	if first.Equal(ip) {
-		return true, nil
-	}
-
-	last, err := k8snet.GetIndexedIP(cidr, size-1)
-	if err != nil {
-		return false, err
-	}
-
-	return last.Equal(ip), nil
-}
-
-func IsBoundLease(vmipl *virtv2.VirtualMachineIPAddressLease, vmip *service.Resource[*virtv2.VirtualMachineIPAddress, virtv2.VirtualMachineIPAddressStatus]) bool {
-	if vmipl.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
+func IsBoundLease(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMachineIPAddress) bool {
+	if lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
 		return false
 	}
 
-	if vmipl.Spec.IpAddressRef == nil {
+	if lease.Spec.VirtualMachineIPAddressRef == nil {
 		return false
 	}
 
-	if vmipl.Spec.IpAddressRef.Namespace != vmip.Name().Namespace || vmipl.Spec.IpAddressRef.Name != vmip.Name().Name {
+	if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace || lease.Spec.VirtualMachineIPAddressRef.Name != vmip.Name {
 		return false
 	}
 

@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	virtcore "github.com/deckhouse/virtualization/api/core"
 )
 
 const (
@@ -235,10 +234,11 @@ const (
 	// LabelDefaultPreferenceKind provides a default kind of either VirtualMachineClusterPreference or VirtualMachinePreference
 	LabelDefaultPreferenceKind = "instancetype.kubevirt.io/default-preference-kind"
 
-	// LabelImplicitIPAddress is a label to implicitly bind ip address  to virtual machine.
-	LabelImplicitIPAddress = virtcore.GroupName + "/implicit-ip-address"
-	// LabelImplicitIPAddressValue is a value for LabelImplicitIPAddress.
-	LabelImplicitIPAddressValue = "true"
+	// LabelsPrefix is a prefix for virtualization-controller labels.
+	LabelsPrefix = "virtualization.deckhouse.io"
+
+	// LabelVirtualMachineName is a label to link ip address back to virtual machine.
+	LabelVirtualMachineName = LabelsPrefix + "/virtual-machine-name"
 
 	UploaderServiceLabel = "service"
 	// ProgressDone this means we are DONE

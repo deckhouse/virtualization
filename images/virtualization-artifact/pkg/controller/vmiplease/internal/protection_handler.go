@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,20 +27,20 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const ProtectionHandlerName = "ProtectionHandler"
+
 type ProtectionHandler struct {
-	client client.Client
 	logger logr.Logger
 }
 
-func NewProtectionHandler(client client.Client, logger logr.Logger) *ProtectionHandler {
+func NewProtectionHandler(logger logr.Logger) *ProtectionHandler {
 	return &ProtectionHandler{
-		client: client,
-		logger: logger.WithValues("handler", "ProtectionHandler"),
+		logger: logger.WithValues("handler", ProtectionHandlerName),
 	}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	changed := state.VirtualMachineIPAddressLease().Changed()
+	lease := state.VirtualMachineIPAddressLease()
 
 	vmip, err := state.VirtualMachineIPAddress(ctx)
 	if err != nil {
@@ -49,10 +48,14 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseSta
 	}
 
 	if vmip != nil {
-		controllerutil.AddFinalizer(changed, virtv2.FinalizerIPAddressLeaseCleanup)
-	} else {
-		controllerutil.RemoveFinalizer(changed, virtv2.FinalizerIPAddressLeaseCleanup)
+		controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
+	} else if lease.GetDeletionTimestamp() == nil {
+		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (h *ProtectionHandler) Name() string {
+	return ProtectionHandlerName
 }

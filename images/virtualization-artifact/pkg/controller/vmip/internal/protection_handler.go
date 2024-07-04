@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,34 +27,37 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const ProtectionHandlerName = "ProtectionHandler"
+
 type ProtectionHandler struct {
-	client client.Client
 	logger logr.Logger
 }
 
-func NewProtectionHandler(client client.Client, logger logr.Logger) *ProtectionHandler {
+func NewProtectionHandler(logger logr.Logger) *ProtectionHandler {
 	return &ProtectionHandler{
-		client: client,
-		logger: logger.WithValues("handler", "ProtectionHandler"),
+		logger: logger.WithValues("handler", ProtectionHandlerName),
 	}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	vmip := state.VirtualMachineIP()
+
 	vm, err := state.VirtualMachine(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	shouldUnbound := vm == nil
-
-	switch {
-	case shouldUnbound:
-		h.logger.Info("The VirtualMachineIP is no longer used by the VM: unbound", "name", state.VirtualMachineIP().Name())
-		controllerutil.RemoveFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressCleanup)
-
-	case controllerutil.AddFinalizer(state.VirtualMachineIP().Changed(), virtv2.FinalizerIPAddressCleanup):
-		return reconcile.Result{Requeue: true}, nil
+	if vm == nil {
+		h.logger.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
+		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+	} else if vmip.GetDeletionTimestamp() == nil {
+		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+		h.logger.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (h *ProtectionHandler) Name() string {
+	return ProtectionHandlerName
 }
