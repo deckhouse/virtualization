@@ -195,6 +195,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 				Reason2(vmcondition.ReasonConfigurationNotApplied).
 				Message(fmt.Sprintf("Failed to apply configuration changes: %s", err.Error()))
 		} else {
+			changed.Status.RestartAwaitingChanges = nil
 			cb.Status(metav1.ConditionTrue).
 				Reason2(vmcondition.ReasonConfigurationApplied)
 		}
@@ -206,7 +207,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			Condition())
 		// Changes are applied, consider current spec as last applied.
 		lastAppliedSpec = &current.Spec
-	case changes != nil:
+	case !changes.IsEmpty():
 		// Delay changes propagation to KVVM until user restarts VM.
 		cb := conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration())
@@ -242,6 +243,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonRestartNoNeed).
 			Condition())
+		changed.Status.RestartAwaitingChanges = nil
 	}
 	changed.Status.Conditions = mgr.Generate()
 	// Ensure power state according to the runPolicy.
@@ -395,10 +397,10 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *virtv2.VirtualMachine, kvvm *v
 
 // detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
 // to calculate changes and action needed to apply these changes.
-func (h *SyncKvvmHandler) detectSpecChanges(kvvm *virtv1.VirtualMachine, currentSpec, lastSpec *virtv2.VirtualMachineSpec) *vmchange.SpecChanges {
+func (h *SyncKvvmHandler) detectSpecChanges(kvvm *virtv1.VirtualMachine, currentSpec, lastSpec *virtv2.VirtualMachineSpec) vmchange.SpecChanges {
 	// Not applicable if KVVM is absent.
 	if kvvm == nil || lastSpec == nil {
-		return nil
+		return vmchange.SpecChanges{}
 	}
 
 	// Compare VM spec applied to the underlying KVVM
@@ -408,14 +410,14 @@ func (h *SyncKvvmHandler) detectSpecChanges(kvvm *virtv1.VirtualMachine, current
 	h.logger.Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
 	h.logger.Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
 
-	return &specChanges
+	return specChanges
 }
 
 // canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-func (h *SyncKvvmHandler) canApplyChanges(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, changes *vmchange.SpecChanges) bool {
-	if vm == nil || changes == nil {
+func (h *SyncKvvmHandler) canApplyChanges(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, changes vmchange.SpecChanges) bool {
+	if vm == nil || changes.IsEmpty() {
 		return false
 	}
 	if vmutil.ApprovalMode(vm) == virtv2.Automatic || !changes.IsDisruptive() || kvvmi == nil {
@@ -437,7 +439,7 @@ func (h *SyncKvvmHandler) canApplyChanges(vm *virtv2.VirtualMachine, kvvm *virtv
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
-func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.VirtualMachineState, changes *vmchange.SpecChanges) error {
+func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.VirtualMachineState, changes vmchange.SpecChanges) error {
 	if changes.IsEmpty() || s.VirtualMachine().IsEmpty() {
 		return nil
 	}

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -108,16 +109,27 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	if kvvmi != nil {
+		specDeviceMap := make(map[virtv2.BlockDeviceSpecRef]struct{}, len(changed.Spec.BlockDeviceRefs))
 		for _, ref := range changed.Spec.BlockDeviceRefs {
-			if h.findAttachedBlockDevice(changed, ref) == nil {
-				if abd := h.createAttachedBlockDevice(ref, bdState, kvvmi); abd != nil {
-					changed.Status.BlockDeviceRefs = append(
-						changed.Status.BlockDeviceRefs,
-						*abd,
-					)
-				}
+			specDeviceMap[ref] = struct{}{}
+			idx, bds := h.findAttachedBlockDevice(changed, ref)
+			newBds := h.createAttachedBlockDevice(ref, bdState, kvvmi)
+			if newBds == nil {
+				continue
 			}
+			if bds != nil {
+				changed.Status.BlockDeviceRefs[idx] = *newBds
+				continue
+			}
+			changed.Status.BlockDeviceRefs = append(
+				changed.Status.BlockDeviceRefs,
+				*newBds)
 		}
+
+		changed.Status.BlockDeviceRefs = slices.DeleteFunc(changed.Status.BlockDeviceRefs, func(ref virtv2.BlockDeviceStatusRef) bool {
+			_, ok := specDeviceMap[virtv2.BlockDeviceSpecRef{Kind: ref.Kind, Name: ref.Name}]
+			return !ok && h.findVolumeStatus(GenerateDiskName(ref.Kind, ref.Name), kvvmi) == nil
+		})
 	}
 	countBD := len(current.Spec.BlockDeviceRefs)
 	if ready, count := h.countReadyBlockDevices(current, bdState); !ready {
@@ -255,17 +267,6 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *virtv2.Vi
 	return nil
 }
 
-func (h *BlockDeviceHandler) findAttachedBlockDevice(vm *virtv2.VirtualMachine, spec virtv2.BlockDeviceSpecRef) *virtv2.BlockDeviceStatusRef {
-	for i := range vm.Status.BlockDeviceRefs {
-		bda := &vm.Status.BlockDeviceRefs[i]
-		if bda.Kind == spec.Kind && bda.Name == spec.Name {
-			return bda
-		}
-	}
-
-	return nil
-}
-
 func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSpecRef, state BlockDevicesState, kvvmi *virtv1.VirtualMachineInstance) *virtv2.BlockDeviceStatusRef {
 	if kvvmi == nil {
 		return nil
@@ -277,8 +278,8 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			return nil
 		}
 
-		vmi, hasVMI := state.VIByName[spec.Name]
-		if !hasVMI {
+		vi, hasVI := state.VIByName[spec.Name]
+		if !hasVI {
 			return nil
 		}
 
@@ -286,7 +287,7 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			Kind:   virtv2.ImageDevice,
 			Name:   spec.Name,
 			Target: vs.Target,
-			Size:   vmi.Status.Capacity,
+			Size:   vi.Status.Capacity,
 		}
 
 	case virtv2.DiskDevice:
@@ -295,8 +296,8 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			return nil
 		}
 
-		vmd, hasVmd := state.VDByName[spec.Name]
-		if !hasVmd {
+		vd, hasVd := state.VDByName[spec.Name]
+		if !hasVd {
 			return nil
 		}
 
@@ -304,7 +305,7 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			Kind:   virtv2.DiskDevice,
 			Name:   spec.Name,
 			Target: vs.Target,
-			Size:   vmd.Status.Capacity,
+			Size:   vd.Status.Capacity,
 		}
 
 	case virtv2.ClusterImageDevice:
@@ -313,8 +314,8 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			return nil
 		}
 
-		cvmi, hasCvmi := state.CVIByName[spec.Name]
-		if !hasCvmi {
+		cvi, hasCvi := state.CVIByName[spec.Name]
+		if !hasCvi {
 			return nil
 		}
 
@@ -322,10 +323,21 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			Kind:   virtv2.ClusterImageDevice,
 			Name:   spec.Name,
 			Target: vs.Target,
-			Size:   cvmi.Status.Size.Unpacked,
+			Size:   cvi.Status.Size.Unpacked,
 		}
 	}
 	return nil
+}
+
+func (h *BlockDeviceHandler) findAttachedBlockDevice(vm *virtv2.VirtualMachine, spec virtv2.BlockDeviceSpecRef) (int, *virtv2.BlockDeviceStatusRef) {
+	for i := range vm.Status.BlockDeviceRefs {
+		bda := &vm.Status.BlockDeviceRefs[i]
+		if bda.Kind == spec.Kind && bda.Name == spec.Name {
+			return i, bda
+		}
+	}
+
+	return -1, nil
 }
 
 func (h *BlockDeviceHandler) findVolumeStatus(volumeName string, kvvmi *virtv1.VirtualMachineInstance) *virtv1.VolumeStatus {
@@ -373,4 +385,17 @@ func (s *BlockDevicesState) Reload(ctx context.Context) error {
 	s.CVIByName = ciByName
 	s.VDByName = vdByName
 	return nil
+}
+
+func GenerateDiskName(kind virtv2.BlockDeviceKind, name string) string {
+	switch kind {
+	case virtv2.ImageDevice:
+		return kvbuilder.GenerateVMIDiskName(name)
+	case virtv2.ClusterImageDevice:
+		return kvbuilder.GenerateCVMIDiskName(name)
+	case virtv2.DiskDevice:
+		return kvbuilder.GenerateVMDDiskName(name)
+	default:
+		return ""
+	}
 }
