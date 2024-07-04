@@ -1,6 +1,8 @@
 # Source:
 # https://github.com/kubevirt/kubevirt/releases/download/v1.0.0/kubevirt-operator.yaml
 # Changes:
+# - 2024.07.04
+#   - Rename label to operator.kubevirt.internal.virtualization.deckhouse.io
 # - 2024.06.19
 #   - Remove DVP prefixes.
 # - 2024.04.16
@@ -15,7 +17,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   labels:
-    operator.kubevirt.io: ""
+    operator.kubevirt.internal.virtualization.deckhouse.io: ""
   name: internalvirtualizationkubevirts.internal.virtualization.deckhouse.io
 spec:
   group: internal.virtualization.deckhouse.io
