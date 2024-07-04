@@ -96,9 +96,9 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		if p.SysprepRef == nil || p.SysprepRef.Kind != "Secret" {
 			cb.Status(metav1.ConditionFalse).
 				Reason2(vmcondition.ReasonProvisioningNotReady).
-				Message("userdataRef must be \"Secret\"")
+				Message("sysprepRef must be \"Secret\"")
 		}
-		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
+		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
 		if err != nil {
 			return reconcile.Result{}, err
