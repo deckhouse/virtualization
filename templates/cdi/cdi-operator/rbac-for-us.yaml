@@ -62,7 +62,7 @@ rules:
     - cdi-internal-virtualization-api-populator-validate
     - cdi-internal-virtualization-api-datavolume-validate
     - cdi-internal-virtualization-api-validate
-    - objecttransfer-api-validate
+    - cdi-internal-virtualization-objecttransfer-api-validate
   resources:
     - validatingwebhookconfigurations
   verbs:

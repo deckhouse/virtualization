@@ -38,6 +38,7 @@ var KubevirtRewriteRules = &RewriteRules{
 		Names: []MetadataReplaceRule{
 			{Original: "cdi.kubevirt.io", Renamed: "cdi." + internalPrefix},
 			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
+			{Original: "operator.kubevirt.io", Renamed: "operator.kubevirt." + internalPrefix},
 			{Original: "prometheus.kubevirt.io", Renamed: "prometheus.kubevirt." + internalPrefix},
 			{Original: "prometheus.cdi.kubevirt.io", Renamed: "prometheus.cdi." + internalPrefix},
 			// Special cases.
