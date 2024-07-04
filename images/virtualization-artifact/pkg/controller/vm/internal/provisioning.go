@@ -130,10 +130,13 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			Message(fmt.Sprintf("Secret %q not found.", secretKey.String()))
 		return nil
 	}
-	validate := true
+	validate := false
+	if len(checkKeys) > 0 {
+		validate = true
+	}
 	for _, key := range checkKeys {
-		if _, ok := secret.Data[key]; !ok {
-			validate = false
+		if _, ok := secret.Data[key]; ok {
+			validate = true
 			break
 		}
 	}
