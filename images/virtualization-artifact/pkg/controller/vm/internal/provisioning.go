@@ -87,7 +87,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Message("userdataRef must be \"Secret\"")
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
-		err := h.genConditionFromSecret(ctx, cb, key)
+		err := h.genConditionFromSecret(ctx, cb, key, "userdata", "userData")
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -119,7 +119,7 @@ func (h *ProvisioningHandler) Name() string {
 	return nameProvisioningHandler
 }
 
-func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
+func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName, checkKeys ...string) error {
 	secret, err := helper.FetchObject(ctx, secretKey, h.client, &corev1.Secret{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch secret: %w", err)
@@ -130,18 +130,20 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			Message(fmt.Sprintf("Secret %q not found.", secretKey.String()))
 		return nil
 	}
-	found := false
-	keys := []string{"userdata", "userData"}
-	for _, key := range keys {
-		if _, ok := secret.Data[key]; ok {
-			found = true
+	validate := false
+	if len(checkKeys) == 0 {
+		validate = true
+	}
+	for _, key := range checkKeys {
+		if _, ok := secret.Data[key]; !ok {
+			validate = false
 			break
 		}
 	}
-	if !found {
+	if !validate {
 		builder.Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonProvisioningNotReady).
-			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", keys, secretKey.String()))
+			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", checkKeys, secretKey.String()))
 		return nil
 	}
 	builder.Reason2(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
