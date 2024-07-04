@@ -91,6 +91,10 @@ func (tr *TargetRequest) IsWatch() bool {
 	return false
 }
 
+func (tr *TargetRequest) IsWebhook() bool {
+	return tr.webhookRule != nil
+}
+
 func (tr *TargetRequest) OrigGroup() string {
 	if tr.IsCRD() {
 		return tr.originEndpoint.CRDGroup

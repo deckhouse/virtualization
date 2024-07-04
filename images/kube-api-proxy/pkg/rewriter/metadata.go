@@ -39,6 +39,8 @@ func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, er
 // [{"op":"test", "path":"/metadata/labels", "value":{"label":"value"}},
 //
 //	{"op":"replace", "path":"/metadata/labels", "value":{"label":"newValue"}}]
+//
+// TODO support renaming labels in path, e.g. {"path":"/metadata/labels/name","value":"newValue","op":"replace"}
 func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
 	return TransformPatch(patch,
 		func(mergePatch []byte) ([]byte, error) {

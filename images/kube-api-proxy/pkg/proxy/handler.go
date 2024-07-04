@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tidwall/gjson"
+
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/rewriter"
 )
@@ -358,15 +360,6 @@ func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp
 //
 // ProxyMode field defines either rewriter should restore, or rename resources.
 func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
-	// Rewrite supports only json responses for now.
-	// TODO detect content type from content, header in response may be inaccurate, e.g. from webhooks.
-	contentType := resp.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "application/json") {
-		logger.Warn(fmt.Sprintf("Will not transform non JSON response from target: Content-type=%s", contentType))
-		passResponse(targetReq, w, resp, logger)
-		return
-	}
-
 	// Add gzip decoder if needed.
 	var err error
 	resp.Body, err = encodingAwareBodyReader(resp)
@@ -384,6 +377,19 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 		return
 	}
 
+	// Rewrite supports only json responses for now. Pass invalid JSON and non-JSON responses as-is.
+	if !gjson.ValidBytes(origBodyBytes) {
+		contentType := resp.Header.Get("Content-Type")
+		if strings.HasPrefix(contentType, "application/json") {
+			logger.Warn(fmt.Sprintf("Will not transform invalid JSON response from target: Content-type=%s", contentType))
+		} else {
+			logger.Warn(fmt.Sprintf("Will not transform non JSON response from target: Content-type=%s", contentType))
+		}
+
+		passResponse(targetReq, w, resp, logger)
+		return
+	}
+
 	// Step 2. Rewrite response JSON.
 	rwrBodyBytes, err := h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, FromTargetAction(h.ProxyMode))
 	if err != nil {
@@ -392,7 +398,10 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 		return
 	}
 
-	logutil.DebugBodyChanges(logger, "Response", targetReq.OrigResourceType(), origBodyBytes, rwrBodyBytes)
+	if targetReq.IsWebhook() {
+		logutil.DebugBodyHead(logger, "Response from webhook", targetReq.ResourceForLog(), origBodyBytes)
+	}
+	logutil.DebugBodyChanges(logger, "Response", targetReq.ResourceForLog(), origBodyBytes, rwrBodyBytes)
 
 	// Step 3. Fix headers before sending response back to the client.
 	copyHeader(w.Header(), resp.Header)

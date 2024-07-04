@@ -17,6 +17,9 @@ limitations under the License.
 package rewriter
 
 import (
+	"encoding/base64"
+	"fmt"
+
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -26,10 +29,10 @@ import (
 // - Restore object in AdmissionReview request.
 // - Do nothing for AdmissionReview response.
 func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
-	response := gjson.GetBytes(obj, "response")
-	if response.Exists() {
-		// TODO rewrite response with the Patch.
-		return obj, nil
+	if gjson.GetBytes(obj, "response").Exists() {
+		return TransformObject(obj, "response", func(responseObj []byte) ([]byte, error) {
+			return RenameAdmissionReviewResponse(rules, responseObj)
+		})
 	}
 
 	request := gjson.GetBytes(obj, "request")
@@ -49,8 +52,67 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 	return obj, nil
 }
 
+// RenameAdmissionReviewResponse renames metadata in AdmissionReview response patch.
+// AdmissionReview response example:
+//
+//	"response": {
+//	   "uid": "<value from request.uid>",
+//	   "allowed": true,
+//	   "patchType": "JSONPatch",
+//	   "patch": "W3sib3AiOiAiYWRkIiwgInBhdGgiOiAiL3NwZWMvcmVwbGljYXMiLCAidmFsdWUiOiAzfV0="
+//	 }
+//
+// TODO rename annotations in AuditAnnotations field. (Ignore for now, as not used by the kubevirt).
+func RenameAdmissionReviewResponse(rules *RewriteRules, obj []byte) ([]byte, error) {
+	// Description for the AdmissionResponse.PatchType field: The type of Patch. Currently, we only allow "JSONPatch".
+	patchType := gjson.GetBytes(obj, "patchType").String()
+	if patchType != "JSONPatch" {
+		return obj, nil
+	}
+
+	// Get decoded patch.
+	b64Patch := gjson.GetBytes(obj, "patch").String()
+	if b64Patch == "" {
+		return obj, nil
+	}
+
+	patch, err := base64.StdEncoding.DecodeString(b64Patch)
+	if err != nil {
+		return nil, fmt.Errorf("decode base64 patch: %w", err)
+	}
+
+	rwrPatch, err := RenameMetadataPatch(rules, patch)
+	if err != nil {
+		return nil, fmt.Errorf("rename metadata patch: %w", err)
+	}
+
+	// Update patch field to base64 encoded rewritten patch.
+	return sjson.SetBytes(obj, "patch", base64.StdEncoding.EncodeToString(rwrPatch))
+}
+
 // RestoreAdmissionReviewRequest restores apiVersion, kind and other fields in an AdmissionReview request.
 // Only restoring is required, as AdmissionReview request only comes from API Server.
+// Fields for AdmissionReview request:
+//
+//	kind, requestKind: - Fully-qualified group/version/kind of the incoming object
+//	  kind - restore
+//	  version
+//	  group - restore
+//	resource, requestResource - Fully-qualified group/version/kind of the resource being modified
+//	  group - restore
+//	  version
+//	  resource - restore
+//	object, oldObject - new and old objects being admitted, should be restored.
+//
+//	non-rewritable:
+//	  uid - review uid, no rewrite
+//	  subResource, requestSubResource - scale or status, no rewrite
+//	  name
+//	  namespace
+//	  operation
+//	  userInfo
+//	  options
+//	  dryRun
 func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
 	var err error
 
@@ -133,37 +195,40 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	}
 
 	// Rewrite "object" field.
-	{
-		fieldObj := gjson.GetBytes(obj, "object")
-		if fieldObj.Exists() {
-			newField, err := RestoreResource(rules, []byte(fieldObj.Raw), origGroup)
-			if err != nil {
-				return nil, err
-			}
-			if len(newField) > 0 {
-				obj, err = sjson.SetRawBytes(obj, "object", newField)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	obj, err = TransformObject(obj, "object", func(objectObj []byte) ([]byte, error) {
+		return RestoreAdmissionReviewObject(rules, objectObj, origGroup)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("restore 'object': %w", err)
+	}
+	// Rewrite "object" field.
+	obj, err = TransformObject(obj, "oldObject", func(objectObj []byte) ([]byte, error) {
+		return RestoreAdmissionReviewObject(rules, objectObj, origGroup)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("restore 'oldObject': %w", err)
 	}
 
-	// Rewrite "oldObject" field.
-	{
-		fieldObj := gjson.GetBytes(obj, "oldObject")
-		if fieldObj.Exists() {
-			newField, err := RestoreResource(rules, []byte(fieldObj.Raw), origGroup)
-			if err != nil {
-				return nil, err
-			}
-			if len(newField) > 0 {
-				obj, err = sjson.SetRawBytes(obj, "oldObject", newField)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	return obj, nil
+}
+
+// RestoreAdmissionReviewObject fully restores object of known resource.
+// TODO deduplicate with code in RewriteJSONPayload.
+func RestoreAdmissionReviewObject(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+	var err error
+	obj, err = RestoreResource(rules, obj, origGroup)
+	if err != nil {
+		return nil, fmt.Errorf("restore resource group, kind: %w", err)
+	}
+
+	obj, err = RewriteMetadata(rules, obj, Restore)
+	if err != nil {
+		return nil, fmt.Errorf("restore resource metadata: %w", err)
+	}
+
+	obj, err = RewriteOwnerReferences(rules, obj, Restore)
+	if err != nil {
+		return nil, fmt.Errorf("restore resource ownerReferences: %w", err)
 	}
 
 	return obj, nil
