@@ -244,7 +244,7 @@ func (h *LifeCycleHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 			}
 			var empty virtv1.VirtualMachineInstanceGuestOSInfo
 			if kvvmi != nil && empty == current.Status.GuestOSInfo && empty != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
-				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Since(pt.Timestamp.Time)}
+				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(1 * time.Second).Sub(pt.Timestamp.Time)}
 			}
 		}
 	}
