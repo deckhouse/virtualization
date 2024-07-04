@@ -51,7 +51,7 @@ func NewKVVMIWatcher(logger *slog.Logger, client client.Client) *KVVMIWatcher {
 	}
 }
 
-func (w KVVMIWatcher) Run(mgr manager.Manager, ctr controller.Controller) error {
+func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
 		NewKVVMIEventHandler(w.client, w.logger),

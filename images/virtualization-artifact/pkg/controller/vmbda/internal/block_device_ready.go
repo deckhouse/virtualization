@@ -97,7 +97,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 		if vd.Status.Target.PersistentVolumeClaim == "" {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vmbdacondition.BlockDeviceNotReady
-			condition.Message = "Waiting for the underlying PersistentVolumeClaim name will be known."
+			condition.Message = "Waiting until VirtualDisk has associated PersistentVolumeClaim name."
 			return reconcile.Result{}, nil
 		}
 

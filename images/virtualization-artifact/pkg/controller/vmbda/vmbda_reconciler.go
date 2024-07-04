@@ -38,7 +38,7 @@ type Handler interface {
 }
 
 type Watcher interface {
-	Run(mgr manager.Manager, ctr controller.Controller) error
+	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
 type Reconciler struct {
@@ -103,7 +103,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskWatcher(r.logger, mgr.GetClient()),
 		watcher.NewKVVMIWatcher(r.logger, mgr.GetClient()),
 	} {
-		err := w.Run(mgr, ctr)
+		err := w.Watch(mgr, ctr)
 		if err != nil {
 			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}

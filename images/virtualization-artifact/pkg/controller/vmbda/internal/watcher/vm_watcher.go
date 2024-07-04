@@ -48,7 +48,7 @@ func NewVirtualMachineWatcher(logger *slog.Logger, client client.Client) *Virtua
 	}
 }
 
-func (w VirtualMachineWatcher) Run(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),

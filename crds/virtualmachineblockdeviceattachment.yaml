@@ -116,7 +116,7 @@ spec:
                 observedGeneration:
                   type: integer
                   description: |
-                    Represents the .metadata.generation that the status was set based upon.
+                    The generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string

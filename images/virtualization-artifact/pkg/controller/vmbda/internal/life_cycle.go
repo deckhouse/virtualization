@@ -69,6 +69,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	if vmbda.DeletionTimestamp != nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
+		condition.Status = metav1.ConditionUnknown
+		condition.Reason = ""
+		condition.Message = ""
 
 		err = h.attacher.UnplugDisk(ctx, vd, vm)
 		if err != nil {

@@ -48,7 +48,7 @@ func NewVirtualDiskWatcher(logger *slog.Logger, client client.Client) *VirtualDi
 	}
 }
 
-func (w VirtualDiskWatcher) Run(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),

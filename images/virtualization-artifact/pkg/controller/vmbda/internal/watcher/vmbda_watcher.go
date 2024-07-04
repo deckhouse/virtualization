@@ -42,7 +42,7 @@ func NewVirtualMachineBlockDeviceAttachmentWatcher(logger *slog.Logger, client c
 	}
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) Run(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{}),
 		&handler.EnqueueRequestForObject{},

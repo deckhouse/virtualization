@@ -161,7 +161,7 @@ func MergeResults(results ...reconcile.Result) reconcile.Result {
 		if r.IsZero() {
 			continue
 		}
-		if r.Requeue {
+		if r.Requeue && r.RequeueAfter == 0 {
 			return r
 		}
 		if result.IsZero() && r.RequeueAfter > 0 {
