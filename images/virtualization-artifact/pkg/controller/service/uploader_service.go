@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -141,11 +142,21 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 }
 
 func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	return s.protection.AddProtection(ctx, pod, svc, ing)
+	err := s.protection.AddProtection(ctx, pod, svc, ing)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for uploader's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	return s.protection.RemoveProtection(ctx, pod, svc, ing)
+	err := s.protection.RemoveProtection(ctx, pod, svc, ing)
+	if err != nil {
+		return fmt.Errorf("failed to remove protection for uploader's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s UploaderService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {

@@ -20,13 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
@@ -109,7 +109,6 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	finalizers := r.changedObj.GetFinalizers()
 
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
-		slog.Info("Update Status")
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating status subresource: %w", err)
 		}
@@ -117,8 +116,6 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	}
 
 	if !slices.Equal(r.currentObj.GetFinalizers(), r.changedObj.GetFinalizers()) {
-		slog.Info("Patch Finalizers")
-
 		patch, err := GetPatchFinalizers(r.changedObj.GetFinalizers())
 		if err != nil {
 			return err
@@ -156,4 +153,24 @@ func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
 	}
 
 	return client.RawPatch(types.MergePatchType, data), nil
+}
+
+func MergeResults(results ...reconcile.Result) reconcile.Result {
+	var result reconcile.Result
+	for _, r := range results {
+		if r.IsZero() {
+			continue
+		}
+		if r.Requeue && r.RequeueAfter == 0 {
+			return r
+		}
+		if result.IsZero() && r.RequeueAfter > 0 {
+			result = r
+			continue
+		}
+		if r.RequeueAfter > 0 && r.RequeueAfter < result.RequeueAfter {
+			result.RequeueAfter = r.RequeueAfter
+		}
+	}
+	return result
 }

@@ -40,9 +40,10 @@ type VirtualMachineState interface {
 	KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error)
 	Pods(ctx context.Context) (*corev1.PodList, error)
 	Pod(ctx context.Context) (*corev1.Pod, error)
+	VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error)
 	VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error)
-	VirtualImageByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
-	ClusterVirtualImageByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
+	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
+	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	IPAddressClaim(ctx context.Context) (*virtv2.VirtualMachineIPAddressClaim, error)
 	CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error)
 }
@@ -153,6 +154,13 @@ func (s *state) Pod(ctx context.Context) (*corev1.Pod, error) {
 	return pod, nil
 }
 
+func (s *state) VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: s.vm.Current().GetNamespace(),
+	}, s.client, &virtv2.VirtualDisk{})
+}
+
 func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error) {
 	if s.vm == nil {
 		return nil, nil
@@ -185,7 +193,7 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.Virt
 	return vdByName, nil
 }
 
-func (s *state) VirtualImageByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error) {
+func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -217,7 +225,7 @@ func (s *state) VirtualImageByName(ctx context.Context) (map[string]*virtv2.Virt
 	return viByName, nil
 }
 
-func (s *state) ClusterVirtualImageByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error) {
+func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error) {
 	if s.vm == nil {
 		return nil, nil
 	}

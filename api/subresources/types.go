@@ -44,3 +44,19 @@ type VirtualMachinePortForward struct {
 	Protocol string
 	Port     int
 }
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineAddVolume struct {
+	metav1.TypeMeta
+}
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineRemoveVolume struct {
+	metav1.TypeMeta
+}

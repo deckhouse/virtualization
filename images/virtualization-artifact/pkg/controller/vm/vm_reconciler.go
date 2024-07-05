@@ -314,7 +314,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			r.logger.Error("The handler failed with an error", slog.String("name", h.Name()), log.SlogErr(err))
 			handlerErr = errors.Join(handlerErr, err)
 		}
-		result = MergeResults(result, res)
+		result = service.MergeResults(result, res)
 	}
 	if handlerErr != nil {
 		err = r.updateVM(ctx, vm)
@@ -342,24 +342,4 @@ func (r *Reconciler) factory() *virtv2.VirtualMachine {
 
 func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
 	return obj.Status
-}
-
-func MergeResults(results ...reconcile.Result) reconcile.Result {
-	var result reconcile.Result
-	for _, r := range results {
-		if r.IsZero() {
-			continue
-		}
-		if r.Requeue {
-			return r
-		}
-		if result.IsZero() && r.RequeueAfter > 0 {
-			result = r
-			continue
-		}
-		if r.RequeueAfter > 0 && r.RequeueAfter < result.RequeueAfter {
-			result.RequeueAfter = r.RequeueAfter
-		}
-	}
-	return result
 }
