@@ -28,6 +28,8 @@ type VirtualMachineStorage struct {
 	console       *vmrest.ConsoleREST
 	vnc           *vmrest.VNCREST
 	portforward   *vmrest.PortForwardREST
+	addVolume     *vmrest.AddVolumeREST
+	removeVolume  *vmrest.RemoveVolumeREST
 	convertor     rest.TableConvertor
 }
 
@@ -69,6 +71,8 @@ func NewStorage(
 		console:       vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
 		vnc:           vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
 		portforward:   vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
+		addVolume:     vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
+		removeVolume:  vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
 		convertor:     convertor,
 	}
 }
@@ -83,6 +87,14 @@ func (store VirtualMachineStorage) VncREST() *vmrest.VNCREST {
 
 func (store VirtualMachineStorage) PortForwardREST() *vmrest.PortForwardREST {
 	return store.portforward
+}
+
+func (store VirtualMachineStorage) AddVolumeREST() *vmrest.AddVolumeREST {
+	return store.addVolume
+}
+
+func (store VirtualMachineStorage) RemoveVolumeREST() *vmrest.RemoveVolumeREST {
+	return store.removeVolume
 }
 
 // New implements rest.Storage interface

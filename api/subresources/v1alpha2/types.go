@@ -31,3 +31,21 @@ type VirtualMachinePortForward struct {
 	Protocol string `json:"protocol"`
 	Port     int    `json:"port"`
 }
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineAddVolume struct {
+	metav1.TypeMeta `json:",inline"`
+}
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineRemoveVolume struct {
+	metav1.TypeMeta `json:",inline"`
+}
