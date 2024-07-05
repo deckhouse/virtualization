@@ -121,22 +121,24 @@ func RewriteFinalizers(rules *RewriteRules, obj []byte, path string, action Acti
 }
 
 const (
-	tildaPlaceholder = "~0"
+	tildeChar        = "~"
+	tildePlaceholder = "~0"
+	slashChar        = "/"
 	slashPlaceholder = "~1"
 )
 
 // decodeJSONPatchPath restores ~ and / from ~0 and ~1.
 // See https://jsonpatch.com/#json-pointer
 func decodeJSONPatchPath(path string) string {
-	// Restore / first to prevent tilda doubling.
-	res := strings.Replace(path, slashPlaceholder, "/", -1)
-	return strings.Replace(res, tildaPlaceholder, "~", -1)
+	// Restore / first to prevent tilde doubling.
+	res := strings.Replace(path, slashPlaceholder, slashChar, -1)
+	return strings.Replace(res, tildePlaceholder, tildeChar, -1)
 }
 
 // encodeJSONPatchPath replaces ~ and / to ~0 and ~1.
 // See https://jsonpatch.com/#json-pointer
 func encodeJSONPatchPath(path string) string {
-	// Replace ~ first to prevent tilda doubling.
-	res := strings.Replace(path, "~", tildaPlaceholder, -1)
-	return strings.Replace(res, "/", slashPlaceholder, -1)
+	// Replace ~ first to prevent tilde doubling.
+	res := strings.Replace(path, tildeChar, tildePlaceholder, -1)
+	return strings.Replace(res, slashChar, slashPlaceholder, -1)
 }
