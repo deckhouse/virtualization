@@ -58,7 +58,7 @@ func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Obje
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 
