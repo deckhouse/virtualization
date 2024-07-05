@@ -1,0 +1,51 @@
+///////////////////////////////////////////////////////////////////////////////
+// Configuration file
+local.file "endpoints" {
+    // The endpoints file is used to define the endpoints, credentials and options
+    // for the Alloy export to.
+    filename = "/etc/alloy/endpoints.json"
+}
+pyroscope.write "write_virtualziation_controller" {
+        endpoint {
+                url = json_path(local.file.endpoints.content, ".profiles.url")[0]
+        }
+}
+
+pyroscope.scrape "scrape_virtualziation_controller" {
+        targets    = [{"__address__" = "localhost:8081", "service_name" = "virtualziation_controller"}]
+        forward_to = [pyroscope.write.write_virtualziation_controller.receiver]
+
+        profiling_config {
+                profile.process_cpu {
+                        enabled = true
+                }
+
+                profile.godeltaprof_memory {
+                        enabled = false
+                }
+
+                profile.memory { // disable memory, use godeltaprof_memory instead
+                        enabled = true
+                }
+
+                profile.godeltaprof_mutex {
+                        enabled = false
+                }
+
+                profile.mutex { // disable mutex, use godeltaprof_mutex instead
+                        enabled = false
+                }
+
+                profile.godeltaprof_block {
+                        enabled = false
+                }
+
+                profile.block { // disable block, use godeltaprof_block instead
+                        enabled = true
+                }
+
+                profile.goroutine {
+                        enabled = true
+                }
+        }
+}

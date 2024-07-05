@@ -63,10 +63,12 @@ var (
 	importerImage       string
 	uploaderImage       string
 	controllerNamespace string
+	pprofBindAddr       string
 )
 
 const (
 	defaultVerbosity = "1"
+	pprofBindAddrEnv = "PPROF_BIND_ADDRESS"
 )
 
 func init() {
@@ -114,6 +116,7 @@ func getRequiredEnvVar(name string) string {
 }
 
 func main() {
+	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
 	flag.Parse()
 
 	setupLogger()
@@ -157,6 +160,9 @@ func main() {
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
 		Scheme:                     scheme,
+	}
+	if pprofBindAddr != "" {
+		managerOpts.PprofBindAddress = pprofBindAddr
 	}
 
 	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)

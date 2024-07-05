@@ -19,5 +19,9 @@ spec:
       port: 8080
       protocol: TCP
       targetPort: metrics
+    - name: pprof
+      port: 8081
+      protocol: TCP
+      targetPort: pprof
   selector:
     app: virtualization-controller
