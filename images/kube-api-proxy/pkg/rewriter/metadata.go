@@ -19,16 +19,21 @@ package rewriter
 import "github.com/tidwall/gjson"
 
 func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	//var err error
-	obj, err := RewriteLabelsMap(rules, obj, "metadata.labels", action)
+	return TransformObject(obj, "metadata", func(metadataObj []byte) ([]byte, error) {
+		return RewriteLabelsAnnosFins(rules, metadataObj, action)
+	})
+}
+
+func RewriteLabelsAnnosFins(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
+	obj, err := RewriteLabelsMap(rules, obj, "labels", action)
 	if err != nil {
 		return nil, err
 	}
-	obj, err = RewriteAnnotationsMap(rules, obj, "metadata.annotations", action)
+	obj, err = RewriteAnnotationsMap(rules, obj, "annotations", action)
 	if err != nil {
 		return nil, err
 	}
-	return RewriteFinalizers(rules, obj, "metadata.finalizers", action)
+	return RewriteFinalizers(rules, obj, "finalizers", action)
 }
 
 // RenameMetadataPatch transforms known metadata fields in patches.
@@ -55,6 +60,10 @@ func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
 				return RewriteAnnotationsMap(rules, jsonPatch, "value", Rename)
 			case "/metadata/finalizers":
 				return RewriteFinalizers(rules, jsonPatch, "value", Rename)
+			case "/metadata":
+				return TransformObject(jsonPatch, "value", func(metadataObj []byte) ([]byte, error) {
+					return RewriteLabelsAnnosFins(rules, metadataObj, Rename)
+				})
 			}
 			return jsonPatch, nil
 		})
