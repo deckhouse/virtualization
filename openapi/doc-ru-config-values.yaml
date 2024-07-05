@@ -91,3 +91,13 @@ properties:
                   bucket:
                     description: |
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
+  logLevel:
+    type: string
+    description: |
+      Устанавливает уровень логирования.
+
+      Работает для следующих компонентов:
+      - `virtualization-api`
+      - `virtualization-controller`
+      - `kube-api-proxy`
+      - `vmi-router`

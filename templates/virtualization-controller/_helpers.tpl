@@ -3,7 +3,11 @@
 - name: KUBECONFIG
   value: "/kubeconfig.local/proxy.kubeconfig"
 - name: VERBOSITY
+  {{- if eq .Values.virtualization.logLevel "debug" }}
+  value: "10"
+  {{- else }}
   value: "3"
+  {{- end }}
 - name: FORCE_BRIDGE_NETWORK_BINDING
   value: "1"
 - name: DISABLE_HYPERV_SYNIC

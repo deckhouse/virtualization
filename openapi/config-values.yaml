@@ -184,3 +184,18 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
+  logLevel:
+    type: string
+    description: |
+      Sets a logging level.
+
+      Working for this components:
+      - `virtualization-api`
+      - `virtualization-controller`
+      - `kube-api-proxy`
+      - `vmi-router`
+    enum:
+      - "debug"
+      - "info"
+      - "warning"
+      - "error"

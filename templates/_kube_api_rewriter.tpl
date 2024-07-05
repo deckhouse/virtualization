@@ -1,6 +1,6 @@
 {{- define "kube_api_rewriter.env" -}}
 - name: LOG_LEVEL
-  value: Debug
+  value: {{ .Values.virtualization.logLevel }}
 {{- end -}}
 
 {{- define "kubeproxy_resources" -}}
@@ -31,7 +31,7 @@ spec:
         image: {{ $proxyImage }}
         imagePullPolicy: IfNotPresent
         env:
-        {{- include "kube_api_rewriter.env" . | nindent 8 }}
+        {{- include "kube_api_rewriter.env" $ctx | nindent 8 }}
         resources:
           requests:
           {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
