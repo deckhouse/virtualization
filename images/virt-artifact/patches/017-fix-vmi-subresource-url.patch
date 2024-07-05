@@ -1,0 +1,57 @@
+diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
+index 8b8313112..2b9061aef 100644
+--- a/pkg/virt-operator/resource/generate/rbac/controller.go
++++ b/pkg/virt-operator/resource/generate/rbac/controller.go
+@@ -363,6 +363,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 					"*",
+ 				},
+ 			},
++			{
++				APIGroups: []string{
++					"subresources.virtualization.deckhouse.io",
++				},
++				Resources: []string{
++					"virtualmachines/addvolume",
++					"virtualmachines/removevolume",
++				},
++				Verbs: []string{
++					"update",
++				},
++			},
+ 			{
+ 				APIGroups: []string{
+ 					"subresources.kubevirt.io",
+diff --git a/staging/src/kubevirt.io/client-go/kubecli/vmi.go b/staging/src/kubevirt.io/client-go/kubecli/vmi.go
+index a9e071350..59c17b0f8 100644
+--- a/staging/src/kubevirt.io/client-go/kubecli/vmi.go
++++ b/staging/src/kubevirt.io/client-go/kubecli/vmi.go
+@@ -47,7 +47,10 @@ import (
+ 	"kubevirt.io/client-go/subresources"
+ )
+ 
+-const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
++const (
++	vmiSubresourceURL               = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
++	vmiSubresourceVirtualizationURL = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s/%s"
++)
+ 
+ func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
+ 	return &vmis{
+@@ -470,7 +473,7 @@ func (v *vmis) Screenshot(ctx context.Context, name string, screenshotOptions *v
+ }
+ 
+ func (v *vmis) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
+-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
++	uri := fmt.Sprintf(vmiSubresourceVirtualizationURL, v.namespace, name, "addvolume")
+ 
+ 	JSON, err := json.Marshal(addVolumeOptions)
+ 
+@@ -482,7 +485,7 @@ func (v *vmis) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.
+ }
+ 
+ func (v *vmis) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
++	uri := fmt.Sprintf(vmiSubresourceVirtualizationURL, v.namespace, name, "removevolume")
+ 
+ 	JSON, err := json.Marshal(removeVolumeOptions)
+ 

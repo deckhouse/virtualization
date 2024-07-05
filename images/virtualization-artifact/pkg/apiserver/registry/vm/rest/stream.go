@@ -116,6 +116,10 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 		return nil
 	case *subresources.VirtualMachinePortForward:
 		return nil
+	case *subresources.VirtualMachineAddVolume:
+		return nil
+	case *subresources.VirtualMachineRemoveVolume:
+		return nil
 	default:
 		return fmt.Errorf("unknown object for streaming: %v", opts)
 	}
@@ -124,14 +128,14 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 func newThrottledUpgradeAwareProxyHandler(
 	location *url.URL,
 	transport *http.Transport,
-	wrapTransport, upgradeRequired bool,
+	upgradeRequired bool,
 	responder rest.Responder,
 	sa types.NamespacedName,
 ) http.Handler {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Add(userHeader, fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
 		r.Header.Add(groupHeader, "system:serviceaccounts")
-		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, wrapTransport, upgradeRequired, proxy.NewErrorResponder(responder))
+		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, false, upgradeRequired, proxy.NewErrorResponder(responder))
 		proxyHandler.ServeHTTP(w, r)
 	}
 	return handler
