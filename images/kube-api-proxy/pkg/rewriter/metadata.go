@@ -16,7 +16,12 @@ limitations under the License.
 
 package rewriter
 
-import "github.com/tidwall/gjson"
+import (
+	"strings"
+
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+)
 
 func RewriteMetadata(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	return TransformObject(obj, "metadata", func(metadataObj []byte) ([]byte, error) {
@@ -65,6 +70,34 @@ func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
 					return RewriteLabelsAnnosFins(rules, metadataObj, Rename)
 				})
 			}
+
+			encLabel, found := strings.CutPrefix(path, "/metadata/labels/")
+			if found {
+				label := decodeJSONPatchPath(encLabel)
+				rwrLabel := rules.LabelsRewriter().Rewrite(label, Rename)
+				if label != rwrLabel {
+					return sjson.SetBytes(jsonPatch, "path", "/metadata/labels/"+encodeJSONPatchPath(rwrLabel))
+				}
+			}
+
+			encAnno, found := strings.CutPrefix(path, "/metadata/annotations/")
+			if found {
+				anno := decodeJSONPatchPath(encAnno)
+				rwrAnno := rules.AnnotationsRewriter().Rewrite(anno, Rename)
+				if anno != rwrAnno {
+					return sjson.SetBytes(jsonPatch, "path", "/metadata/annotations/"+encodeJSONPatchPath(rwrAnno))
+				}
+			}
+
+			encFin, found := strings.CutPrefix(path, "/metadata/finalizers/")
+			if found {
+				fin := decodeJSONPatchPath(encFin)
+				rwrFin := rules.FinalizersRewriter().Rewrite(fin, Rename)
+				if fin != rwrFin {
+					return sjson.SetBytes(jsonPatch, "path", "/metadata/finalizers/"+encodeJSONPatchPath(rwrFin))
+				}
+			}
+
 			return jsonPatch, nil
 		})
 }
@@ -85,4 +118,25 @@ func RewriteFinalizers(rules *RewriteRules, obj []byte, path string, action Acti
 	return TransformArrayOfStrings(obj, path, func(finalizer string) string {
 		return rules.FinalizersRewriter().Rewrite(finalizer, action)
 	})
+}
+
+const (
+	tildaPlaceholder = "~0"
+	slashPlaceholder = "~1"
+)
+
+// decodeJSONPatchPath restores ~ and / from ~0 and ~1.
+// See https://jsonpatch.com/#json-pointer
+func decodeJSONPatchPath(path string) string {
+	// Restore / first to prevent tilda doubling.
+	res := strings.Replace(path, slashPlaceholder, "/", -1)
+	return strings.Replace(res, tildaPlaceholder, "~", -1)
+}
+
+// encodeJSONPatchPath replaces ~ and / to ~0 and ~1.
+// See https://jsonpatch.com/#json-pointer
+func encodeJSONPatchPath(path string) string {
+	// Replace ~ first to prevent tilda doubling.
+	res := strings.Replace(path, "~", tildaPlaceholder, -1)
+	return strings.Replace(res, "/", slashPlaceholder, -1)
 }
