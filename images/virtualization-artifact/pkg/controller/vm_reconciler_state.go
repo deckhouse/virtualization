@@ -220,7 +220,10 @@ func (state *VMReconcilerState) SetStatusMessage(msg string) {
 	state.StatusMessage = msg
 }
 
-func (state *VMReconcilerState) SetChangesInfo(changes *vmchange.SpecChanges) error {
+func (state *VMReconcilerState) SetChangesInfo(changes vmchange.SpecChanges) error {
+	if changes.IsEmpty() {
+		return nil
+	}
 	statusChanges, err := changes.ConvertPendingChanges()
 	if err != nil {
 		return fmt.Errorf("convert pending changes for status: %w", err)
