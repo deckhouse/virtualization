@@ -170,14 +170,24 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, pv *corev1.PersistentVolume) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
 	}
 
-	return s.protection.AddProtection(ctx, dv, pvc, pv)
+	err = s.protection.AddProtection(ctx, dv, pvc, pv)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for disk's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error {
-	return s.protection.RemoveProtection(ctx, dv)
+	err := s.protection.RemoveProtection(ctx, dv)
+	if err != nil {
+		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+	}
+
+	return nil
 }
 
 func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {

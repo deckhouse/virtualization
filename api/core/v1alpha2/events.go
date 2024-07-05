@@ -50,6 +50,9 @@ const (
 	// ReasonVMWaitForBlockDevices is event reason that block devices used by VM are not ready yet.
 	ReasonVMWaitForBlockDevices = "WaitForBlockDevices"
 
+	// ReasonUnknownHotPluggedVolume is event reason that volume was hot plugged to VirtualMachineInstance, but it is not a VirtualDisk.
+	ReasonUnknownHotPluggedVolume = "UnknownHotPluggedVolume"
+
 	// ReasonVMChangesApplied is event reason that changes applied from VM to underlying KVVM.
 	ReasonVMChangesApplied = "ChangesApplied"
 

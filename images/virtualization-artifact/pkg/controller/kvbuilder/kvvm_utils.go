@@ -18,6 +18,7 @@ package kvbuilder
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -47,6 +48,14 @@ func GenerateVMIDiskName(name string) string {
 
 func GenerateCVMIDiskName(name string) string {
 	return CVMIDiskPrefix + name
+}
+
+func GerOriginalDiskName(prefixedName string) (string, bool) {
+	if strings.HasPrefix(prefixedName, VMDDiskPrefix) {
+		return strings.TrimPrefix(prefixedName, VMDDiskPrefix), true
+	}
+
+	return prefixedName, false
 }
 
 type HotPlugDeviceSettings struct {
