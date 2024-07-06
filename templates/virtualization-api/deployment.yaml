@@ -65,7 +65,11 @@ spec:
             - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
             - --kubevirt-endpoint=virt-api.d8-{{ .Chart.Name}}.svc
             - --secure-port=8443
+            {{- if eq .Values.virtualization.logLevel "debug" }}
+            - --v=10
+            {{- else }}
             - --v=3
+            {{- end }}
             - --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt
             - --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key
             - --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt
