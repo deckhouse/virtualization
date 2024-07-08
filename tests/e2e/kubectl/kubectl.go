@@ -19,10 +19,12 @@ package kubectl
 import (
 	"context"
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
 )
 
 const (
@@ -110,8 +112,20 @@ type KubectlConf struct {
 }
 
 func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
+	envs := make([]string, 2)
+	if home, found := os.LookupEnv("HOME"); found {
+		envs[0] = "HOME=" + home
+	} else {
+		return nil, fmt.Errorf("env HOME not found")
+	}
+	if path, found := os.LookupEnv("PATH"); found {
+		envs[1] = "PATH=" + path
+	} else {
+		return nil, fmt.Errorf("env PATH not found")
+	}
 	if conf.KubeConfig != "" {
-		e := executor.NewExecutor([]string{"KUBECONFIG=" + conf.KubeConfig})
+		envs = append(envs, "KUBECONFIG="+conf.KubeConfig)
+		e := executor.NewExecutor(envs)
 		return &KubectlCMD{
 			Executor: e,
 			cmd:      Cmd,

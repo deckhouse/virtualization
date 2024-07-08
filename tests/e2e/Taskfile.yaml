@@ -3,7 +3,7 @@ version: "3"
 silent: true
 
 vars:
-  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{default "$HOME/.kube/config" .E2E_CLUSTERTRANSPORT_KUBECONFIG}}'
+  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{ .E2E_CLUSTERTRANSPORT_KUBECONFIG | default "$HOME/.kube/config" }}'
   GINKGO_VERSION: "2.13.2"
   VERSION: "v1.0.0"
 

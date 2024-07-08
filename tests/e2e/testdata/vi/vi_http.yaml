@@ -1,12 +1,11 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: test-vmi-http
+  name: test-vi-http
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
-      insecureSkipVerify: true
       url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"

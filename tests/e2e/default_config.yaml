@@ -9,12 +9,12 @@ clusterTransport:
 
 disks:
   uploadHelperImage: "yaroslavborbat/curl-alpine-image"
-  cvmiTestDataDir: "./testdata/cvmi"
-  vmiTestDataDir: "./testdata/vmi"
-  vmdTestDataDir: "./testdata/vmd"
+  cviTestDataDir: "./testdata/cvi"
+  viTestDataDir: "./testdata/vi"
+  vdTestDataDir: "./testdata/vd"
 vm:
   testDataDir: "./testdata/vm"
 ipam:
   testDataDir: "./testdata/ipam"
-helperimages:
+helperImages:
   curlImage: "curlimages/curl"
