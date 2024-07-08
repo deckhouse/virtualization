@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package virtualdisk
+package vd
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
@@ -98,9 +98,9 @@ func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualDisk) {
 		{phase == virtv2.DiskPending, string(virtv2.DiskPending)},
 		{phase == virtv2.DiskWaitForUserUpload, string(virtv2.DiskWaitForUserUpload)},
 		{phase == virtv2.DiskProvisioning, string(virtv2.DiskProvisioning)},
-		{phase == virtv2.DiskReady, string(virtv2.DiskReady)},
 		{phase == virtv2.DiskFailed, string(virtv2.DiskFailed)},
 		{phase == virtv2.DiskLost, string(virtv2.DiskLost)},
+		{phase == virtv2.DiskReady, string(virtv2.DiskReady)},
 		{phase == virtv2.DiskResizing, string(virtv2.DiskResizing)},
 		{phase == virtv2.DiskTerminating, string(virtv2.DiskTerminating)},
 	}
