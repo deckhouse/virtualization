@@ -78,7 +78,7 @@ SERVICE=$(parse_flag "service" "s")
 PORT=$(parse_flag "port" "p")
 
 cmd="docker compose"
-which docker-compose &>/dev/null && cmd="docker-compose"
+docker compose version &>/dev/null || {echo "No docker compose found" ; exit 1 }
 
 CMD="${ARGS[0]}"
 case "$CMD" in
