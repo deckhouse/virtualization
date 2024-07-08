@@ -196,6 +196,8 @@ func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeCla
 	}
 
 	curSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+
+	// newSize <= curSize
 	if newSize.Cmp(curSize) != 1 {
 		return fmt.Errorf("new pvc %s/%s size %s is too low: should be > %s", pvc.Namespace, pvc.Name, newSize.String(), curSize.String())
 	}
