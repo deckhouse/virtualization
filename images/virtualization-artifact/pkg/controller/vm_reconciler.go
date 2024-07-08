@@ -242,18 +242,24 @@ func (r *VMReconciler) syncKVVM(ctx context.Context, state *VMReconcilerState, o
 	changes := r.detectSpecChanges(state, opts, lastAppliedSpec)
 
 	var syncErr error
-	if r.canApplyChanges(state, opts, changes) {
+	switch {
+	case r.canApplyChanges(state, opts, changes):
 		// No need to wait, apply changes to KVVM immediately.
 		syncErr = r.applyVMChangesToKVVM(ctx, state, opts, changes)
+		if syncErr != nil {
+			state.ResetChangesInfo()
+		}
 		// Changes are applied, consider current spec as last applied.
 		lastAppliedSpec = &state.VM.Current().Spec
-	} else {
+	case !changes.IsEmpty():
 		// Delay changes propagation to KVVM until user restarts VM.
 		syncErr = state.SetChangesInfo(changes)
 		if syncErr != nil {
 			syncErr = fmt.Errorf("prepare changes info for approval: %w", syncErr)
 			opts.Log.Error(syncErr, "Error should not occurs when preparing changesInfo, there is a possible bug in code")
 		}
+	default:
+		state.ResetChangesInfo()
 	}
 
 	// Ensure power state according to the runPolicy.
@@ -607,10 +613,10 @@ func (r *VMReconciler) loadLastAppliedSpec(state *VMReconcilerState, opts two_ph
 
 // detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
 // to calculate changes and action needed to apply these changes.
-func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, lastSpec *virtv2.VirtualMachineSpec) *vmchange.SpecChanges {
+func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, lastSpec *virtv2.VirtualMachineSpec) vmchange.SpecChanges {
 	// Not applicable if KVVM is absent.
 	if state.KVVM == nil || lastSpec == nil {
-		return nil
+		return vmchange.SpecChanges{}
 	}
 
 	// Compare VM spec applied to the underlying KVVM
@@ -620,13 +626,16 @@ func (r *VMReconciler) detectSpecChanges(state *VMReconcilerState, opts two_phas
 	opts.Log.V(2).Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
 	opts.Log.V(2).Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
 
-	return &specChanges
+	return specChanges
 }
 
 // canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) bool {
+func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_reconciler.ReconcilerOptions, changes vmchange.SpecChanges) bool {
+	if changes.IsEmpty() {
+		return false
+	}
 	if vmutil.ApprovalMode(state.VM.Current()) == virtv2.Automatic {
 		return true
 	}
@@ -653,7 +662,7 @@ func (r *VMReconciler) canApplyChanges(state *VMReconcilerState, _ two_phase_rec
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
-func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes *vmchange.SpecChanges) error {
+func (r *VMReconciler) applyVMChangesToKVVM(ctx context.Context, state *VMReconcilerState, opts two_phase_reconciler.ReconcilerOptions, changes vmchange.SpecChanges) error {
 	if changes.IsEmpty() {
 		return nil
 	}
