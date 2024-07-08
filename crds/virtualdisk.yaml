@@ -298,6 +298,25 @@ spec:
                     properties:
                       name:
                         type: string
+                stats:
+                  type: object
+                  description: "VirtualDisk statistics"
+                  properties:
+                    creationDuration:
+                      type: object
+                      description: |
+                        The waiting time for the virtual disk creation.
+                      properties:
+                        waitingForDependencies:
+                          type: string
+                          description: |
+                            The waiting time for dependent resources.
+                          nullable: true
+                        provisioning:
+                          type: string
+                          description: |
+                            The waiting time for the virtual disk to be provisioned (copying/downloading/filling the PVC).
+                          nullable: true
                 observedGeneration:
                   type: integer
                   description: |

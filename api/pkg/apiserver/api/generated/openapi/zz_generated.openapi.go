@@ -66,6 +66,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                      schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":          schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSpec":                           schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats":                          schema_virtualization_api_core_v1alpha2_VirtualDiskStats(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration":          schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatus":                         schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImage":                              schema_virtualization_api_core_v1alpha2_VirtualImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource":                    schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref),
@@ -1807,6 +1809,51 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref common.Referenc
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualDiskStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"creationDuration": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration"),
+						},
+					},
+				},
+				Required: []string{"creationDuration"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"waitingForDependencies": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"provisioning": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1863,6 +1910,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							},
 						},
 					},
+					"stats": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats"),
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1883,11 +1936,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "target", "phase"},
+				Required: []string{"downloadSpeed", "target", "phase", "stats"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDownloadSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDownloadSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
