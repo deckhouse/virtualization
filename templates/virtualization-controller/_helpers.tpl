@@ -36,11 +36,8 @@
   value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
-{{/* {{- if eq .Values.virtualization.logLevel "debug" }}*/}}
-{{/*- name: PPROF_BIND_ADDRESS*/}}
-{{/*  value: ":8081"*/}}
-{{/* {{- else }}*/}}
-{{/* - name: PPROF_BIND_ADDRESS*/}}
-{{/*  value: ":8081"*/}}
-{{/* {{- end }}*/}}
+ {{- if eq .Values.virtualization.logLevel "debug" }}
+- name: PPROF_BIND_ADDRESS
+  value: ":8081"
+ {{- end }}
 {{- end }}
