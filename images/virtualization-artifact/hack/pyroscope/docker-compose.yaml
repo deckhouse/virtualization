@@ -1,0 +1,22 @@
+version: "2.1"
+
+services:
+  alloy:
+    image: grafana/alloy:v1.1.0
+    network_mode: "host"
+    volumes:
+      - "./config.alloy:/etc/alloy/config.alloy"
+      - "./endpoints.json:/etc/alloy/endpoints.json"
+    command:
+      [
+        "run",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--stability.level=public-preview",
+        "/etc/alloy/config.alloy",
+      ]
+
+  pyroscope:
+    image: grafana/pyroscope:1.5.0
+    ports:
+      - "4040:4040"
+    command: ["server"]
