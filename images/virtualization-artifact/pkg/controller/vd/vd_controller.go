@@ -73,7 +73,7 @@ func NewController(
 		logger,
 		internal.NewDatasourceReadyHandler(blank, sources),
 		internal.NewLifeCycleHandler(logger, blank, sources, mgr.GetClient()),
-		internal.NewResizingHandler(disk),
+		internal.NewResizingHandler(logger, disk),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)

@@ -19,6 +19,7 @@ package service
 import (
 	"unicode"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -63,6 +64,15 @@ func CapitalizeFirstLetter(s string) string {
 }
 
 func GetDataVolumeCondition(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
+	for i, condition := range conditions {
+		if condition.Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func GetPersistentVolumeClaimCondition(conditionType corev1.PersistentVolumeClaimConditionType, conditions []corev1.PersistentVolumeClaimCondition) *corev1.PersistentVolumeClaimCondition {
 	for i, condition := range conditions {
 		if condition.Type == conditionType {
 			return &conditions[i]

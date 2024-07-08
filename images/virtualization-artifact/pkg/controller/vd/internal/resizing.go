@@ -18,11 +18,9 @@ package internal
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -35,15 +33,19 @@ import (
 
 type ResizingHandler struct {
 	diskService DiskService
+	logger      *slog.Logger
 }
 
-func NewResizingHandler(diskService DiskService) *ResizingHandler {
+func NewResizingHandler(logger *slog.Logger, diskService DiskService) *ResizingHandler {
 	return &ResizingHandler{
+		logger:      logger,
 		diskService: diskService,
 	}
 }
 
 func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	logger := h.logger.With("name", vd.Name, "ns", vd.Namespace)
+
 	condition, ok := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
@@ -61,18 +63,10 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
-	vdSpecSize := vd.Spec.PersistentVolumeClaim.Size
-	if vdSpecSize == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.NotRequested
-		condition.Message = ""
-		return reconcile.Result{}, nil
-	}
-
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.NotRequested
+		condition.Status = metav1.ConditionUnknown
+		condition.Reason = ""
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -84,61 +78,66 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	if pvc == nil {
-		return reconcile.Result{}, errors.New("pvc not found for ready virtual disk")
+		condition.Status = metav1.ConditionUnknown
+		condition.Reason = ""
+		condition.Message = "Underlying PersistentVolumeClaim not found: resizing is not possible."
+		return reconcile.Result{}, nil
 	}
 
-	pvcSpecSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-	switch vdSpecSize.Cmp(pvcSpecSize) {
-	// Expected disk size is LESS THAN expected pvc size: no resize needed as resizing to a smaller size is not possible.
-	case -1:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.NotRequested
-		condition.Message = fmt.Sprintf("The virtual disk size is too low: should be >= %s.", pvcSpecSize.String())
+	if pvc.Status.Phase != corev1.ClaimBound {
+		condition.Status = metav1.ConditionUnknown
+		condition.Reason = ""
+		condition.Message = "Underlying PersistentVolumeClaim not bound: resizing is not possible."
 		return reconcile.Result{}, nil
+	}
+
+	vdSpecSize := vd.Spec.PersistentVolumeClaim.Size
+	pvcSpecSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	pvcStatusSize := pvc.Status.Capacity[corev1.ResourceStorage]
+
+	logger = logger.With("vdSpecSize", vdSpecSize, "pvcSpecSize", pvcSpecSize.String(), "pvcStatusSize", pvcStatusSize)
+
+	// Synchronize VirtualDisk size with PVC size.
+	vd.Status.Capacity = pvcStatusSize.String()
+
+	pvcResizing := service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, pvc.Status.Conditions)
+	if pvcResizing != nil && pvcResizing.Status == corev1.ConditionTrue {
+		logger.Info("Resizing is in progress", "msg", pvcResizing.Message)
+
+		vd.Status.Phase = virtv2.DiskResizing
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.InProgress
+		condition.Message = pvcResizing.Message
+		return reconcile.Result{}, nil
+	}
+
 	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
-	case 1:
+	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == 1 {
 		err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = virtv2.DiskResizing
+		logger.Info("The virtual disk resizing has started")
 
+		vd.Status.Phase = virtv2.DiskResizing
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.InProgress
 		condition.Message = "The virtual disk resizing has started."
 		return reconcile.Result{}, nil
-	// Expected disk size is EQUAL TO expected pvc size: cannot definitively say whether the resize has already happened or was not needed - perform additional checks.
-	case 0:
 	}
 
-	var vdStatusSize resource.Quantity
-	vdStatusSize, err = resource.ParseQuantity(vd.Status.Capacity)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	pvcStatusSize := pvc.Status.Capacity[corev1.ResourceStorage]
-
-	// Expected pvc size is GREATER THAN actual pvc size: resize has been requested and is in progress.
-	if pvcSpecSize.Cmp(pvcStatusSize) == 1 {
-		vd.Status.Phase = virtv2.DiskResizing
-
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.InProgress
-		condition.Message = "The virtual disk is in the process of resizing."
-		return reconcile.Result{}, nil
-	}
-
-	// Virtual disk size DOES NOT MATCH pvc size: resize has completed, synchronize the virtual disk size.
-	if !vdStatusSize.Equal(pvcStatusSize) {
-		vd.Status.Capacity = pvcStatusSize.String()
+	// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
+	switch condition.Reason {
+	case vdcondition.InProgress, vdcondition.Resized:
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Resized
 		condition.Message = ""
-		return reconcile.Result{Requeue: true}, nil
+	default:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.NotRequested
+		condition.Message = ""
 	}
 
-	// Expected pvc size is NOT GREATER THAN actual PVC size AND virtual disk size MATCHES pvc size: keep previous status.
 	return reconcile.Result{}, nil
 }

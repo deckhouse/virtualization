@@ -196,13 +196,15 @@ func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeCla
 	}
 
 	curSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
-	if newSize.Cmp(curSize) == 1 {
-		pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newSize
+	if newSize.Cmp(curSize) != 1 {
+		return fmt.Errorf("new pvc %s/%s size %s is too low: should be > %s", pvc.Namespace, pvc.Name, newSize.String(), curSize.String())
+	}
 
-		err := s.client.Update(ctx, pvc)
-		if err != nil {
-			return fmt.Errorf("failed to increase pvc size: %w", err)
-		}
+	pvc.Spec.Resources.Requests[corev1.ResourceStorage] = newSize
+
+	err := s.client.Update(ctx, pvc)
+	if err != nil {
+		return fmt.Errorf("failed to increase size for pvc %s/%s from %s to %s : %w", pvc.Namespace, pvc.Name, curSize.String(), newSize.String(), err)
 	}
 
 	return nil
