@@ -188,6 +188,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return true
 				}
 
+				if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
+					service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
+					return true
+				}
+
 				return oldPVC.Status.Phase != newPVC.Status.Phase && newPVC.Status.Phase == corev1.ClaimBound
 			},
 		},
