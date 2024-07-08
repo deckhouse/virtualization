@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Copyright 2024 Flant JSC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -53,16 +53,12 @@ function run() {
     if [[ -z $NAMESPACE ]] || [[ -z $SERVICE ]] || [[ -z $PORT ]]; then
         usage_exit 1
     fi
-    local cmd=$1
     exec -a "${PROCESS_NAME}" kubectl port-forward "services/${SERVICE}" "${PYROSCOPE_PORT}:${PORT}" &
-    cmd+=" -f ${DOCKER_COMPOSE_FILE} up -d"
-    eval "$cmd"
+    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d
 }
 
 function wipe() {
-    local cmd=$1
-    cmd+=" -f ${DOCKER_COMPOSE_FILE} down"
-    eval "$cmd"
+    docker compose -f "${DOCKER_COMPOSE_FILE}" down
     pkill -f "${PROCESS_NAME}"
 }
 
@@ -77,18 +73,17 @@ NAMESPACE=$(parse_flag "namespace" "n")
 SERVICE=$(parse_flag "service" "s")
 PORT=$(parse_flag "port" "p")
 
-cmd="docker compose"
-docker compose version &>/dev/null || {echo "No docker compose found" ; exit 1 }
+docker compose version &>/dev/null || (echo "No docker compose found" ; exit 1 )
 
 CMD="${ARGS[0]}"
 case "$CMD" in
     "run")
-        run "$cmd"
+        run
         echo "Pyroscope launched successfully."
         echo "Open http://localhost:4040 in your browser."
         ;;
     "wipe")
-        wipe "$cmd"
+        wipe
         ;;
     *)
         usage_exit 1
