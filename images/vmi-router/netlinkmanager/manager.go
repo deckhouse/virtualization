@@ -25,11 +25,12 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"vmi-router/netlinkwrap"
 	"vmi-router/netutil"
 )
@@ -275,23 +276,15 @@ func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
 	return ""
 }
 
-func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
-	// Check if IP is in cache. Do not delete routes for unknown IPs.
-	vmKey := fmt.Sprintf("%s/%s", vm.GetNamespace(), vm.GetName())
-
-	// Get IP either from Status, or from cache.
-	var vmIP string
-	if vm != nil {
-		vmIP = vm.Status.IPAddress
-	}
+func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	if vmIP == "" {
 		// Try to recover IP from the cache.
 		m.vmIPsLock.RLock()
-		vmIP = m.vmIPs[vmKey]
+		vmIP = m.vmIPs[vmKey.String()]
 		m.vmIPsLock.RUnlock()
 	}
 	if vmIP == "" {
-		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %s/%s, it may lead to stale routes.", vm.GetNamespace(), vm.GetName()))
+		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %q, it may lead to stale routes.", vmKey.String()))
 		return
 	}
 
@@ -299,7 +292,7 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
 	_, vmRouteDst, err := net.ParseCIDR(netutil.AppendHostNetmask(vmIP))
 	if err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %s/%s", vmIPWithNetmask, vm.GetNamespace(), vm.GetName()))
+		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %q", vmIPWithNetmask, vmKey.String()))
 		return
 	}
 
@@ -311,11 +304,11 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) {
 		m.log.Error(err, "failed to delete route")
 	}
-	m.log.Info(fmt.Sprintf("route %s deleted for VM %s/%s", fmtRoute(route), vmKey))
+	m.log.Info(fmt.Sprintf("route %s deleted for VM %q", fmtRoute(route), vmKey))
 
 	// Delete IP from the cache.
 	m.vmIPsLock.Lock()
-	delete(m.vmIPs, vmKey)
+	delete(m.vmIPs, vmKey.String())
 	m.vmIPsLock.Unlock()
 }
 
