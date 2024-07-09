@@ -29,6 +29,16 @@ Fix ton of errors in virt-controller logs:
 {"component":"virt-controller","level":"error","msg":"Failed to create metric for VMIs phase","pos":"collector.go:256","reason":"inconsistent label cardinality: expected 7 label values but got 6
 in []string{\"virtlab-rs-1\", \"running\", \"<none>\", \"<none>\", \"<none>\", \"<none>\"}",...
 
+#### `005-prevent-permanent-patching-of-services.patch`
+
+Fix patching of Services during each reconcile:
+
+```
+{"component":"virt-operator","level":"info","msg":"service kubevirt-prometheus-metrics patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.136326Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-api patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.138751Z"}
+{"component":"virt-operator","level":"info","msg":"service kubevirt-operator-webhook patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.140853Z"}
+{"component":"virt-operator","level":"info","msg":"service virt-exportproxy patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.142806Z"}
+```
 
 #### `007-tolerations-for-strategy-dumper-job.patch`
 
