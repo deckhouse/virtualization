@@ -19,7 +19,6 @@ package source
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,23 +91,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 	case isDiskProvisioningFinished(condition):
 		logger.Info("Disk provisioning finished: clean up")
 
-		switch {
-		case pvc == nil:
-			vd.Status.Phase = virtv2.DiskLost
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.Lost
-			condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
-		case pv == nil:
-			vd.Status.Phase = virtv2.DiskLost
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.Lost
-			condition.Message = fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName)
-		default:
-			vd.Status.Phase = virtv2.DiskReady
-			condition.Status = metav1.ConditionTrue
-			condition.Reason = vdcondition.Ready
-			condition.Message = ""
-		}
+		setPhaseConditionForFinishedDisk(pv, pvc, &condition, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc, pv)
