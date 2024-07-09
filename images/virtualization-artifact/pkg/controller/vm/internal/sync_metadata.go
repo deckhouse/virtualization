@@ -63,7 +63,6 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
 	if metaUpdated {
 		if err = h.client.Update(ctx, kvvm); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
@@ -112,14 +111,21 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			}
 		}
 	}
-	err = SetLastPropagatedLabels(kvvm, current)
+
+	labelsChanged, err := SetLastPropagatedLabels(kvvm, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set last propagated labels: %w", err)
 	}
 
-	err = SetLastPropagatedAnnotations(kvvm, current)
+	annosChanged, err := SetLastPropagatedAnnotations(kvvm, current)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to set last propagated annotations: %w", err)
+	}
+
+	if labelsChanged || annosChanged || metaUpdated {
+		if err = h.client.Update(ctx, kvvm); err != nil {
+			return reconcile.Result{}, fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", kvvm.GetName(), err)
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -179,15 +185,20 @@ func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, er
 	return lastPropagatedLabels, nil
 }
 
-func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
+func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(vm.GetLabels())
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	common.AddLabel(kvvm, common.LastPropagatedVMLabelsAnnotation, string(data))
+	newAnnoValue := string(data)
 
-	return nil
+	if kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
+		return false, nil
+	}
+
+	common.AddAnnotation(kvvm, common.LastPropagatedVMLabelsAnnotation, newAnnoValue)
+	return true, nil
 }
 
 func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
@@ -203,15 +214,20 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 	return lastPropagatedAnno, nil
 }
 
-func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
+func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	common.AddLabel(kvvm, common.LastPropagatedVMAnnotationsAnnotation, string(data))
+	newAnnoValue := string(data)
 
-	return nil
+	if kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
+		return false, nil
+	}
+
+	common.AddAnnotation(kvvm, common.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
+	return true, nil
 }
 
 // RemoveNonPropagatableAnnotations removes well known annotations that are dangerous to propagate.
