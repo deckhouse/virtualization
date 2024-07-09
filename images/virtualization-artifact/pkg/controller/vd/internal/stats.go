@@ -35,16 +35,18 @@ func NewStatsHandler() *StatsHandler {
 }
 
 func (h StatsHandler) Handle(_ context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
+
 	datasourceReady, _ := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 	if datasourceReady.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.WaitingForDependencies == nil {
 		vd.Status.Stats.CreationDuration.WaitingForDependencies = &metav1.Duration{
-			Duration: time.Since(vd.CreationTimestamp.Time),
+			Duration: sinceCreation,
 		}
 	}
 
 	ready, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.Provisioning == nil {
-		duration := time.Since(vd.CreationTimestamp.Time)
+		duration := sinceCreation
 
 		if vd.Status.Stats.CreationDuration.WaitingForDependencies != nil {
 			duration -= vd.Status.Stats.CreationDuration.WaitingForDependencies.Duration
