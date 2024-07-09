@@ -76,7 +76,7 @@ func (r *VMRouterReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	// Start with retrieving affected VMI.
 	vm := &virtv1alpha2.VirtualMachine{}
 	err := r.client.Get(ctx, req.NamespacedName, vm)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		r.log.Error(err, fmt.Sprintf("fail to retrieve vm/%s", req.String()))
 		return reconcile.Result{}, err
 	}
