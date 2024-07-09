@@ -19,6 +19,7 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,8 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+const httpDataSource = "http"
 
 type HTTPDataSource struct {
 	statService     *service.StatService
@@ -58,7 +61,7 @@ func NewHTTPDataSource(
 		importerService: importerService,
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
-		logger:          logger.With("ds", "http"),
+		logger:          logger.With("ds", httpDataSource),
 	}
 }
 
@@ -162,6 +165,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
 		logger.Info("Start import to PVC")
 
@@ -199,6 +203,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		vd.Status.Progress = "50%"
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
@@ -294,6 +299,10 @@ func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.Virt
 	return importerRequeue || diskRequeue, nil
 }
 
+func (ds HTTPDataSource) Name() string {
+	return httpDataSource
+}
+
 func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
@@ -331,7 +340,7 @@ func (ds HTTPDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (re
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, err
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {

@@ -120,7 +120,6 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		logger.Info("The virtual disk resizing has started")
 
-		vd.Status.Phase = virtv2.DiskResizing
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.InProgress
 		condition.Message = "The virtual disk resizing has started."

@@ -121,43 +121,36 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 	return nil
 }
 
-func (s StatService) GetReasonError(pod *corev1.Pod) (string, string, error) {
+func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
 	report, err := monitoring.GetFinalReportFromPod(pod)
 	if err != nil {
-		s.logger.Error("GetError: Cannot get final report from pod", "err", err)
-		return "", "", err
+		s.logger.Error("GetDownloadSpeed: Cannot get final report from pod", "err", err)
+		return nil
 	}
 
-	if report == nil {
-		return "", "", nil
+	if report != nil {
+		return &virtv2.StatusSpeed{
+			Avg:      report.GetAverageSpeed(),
+			AvgBytes: strconv.FormatUint(report.GetAverageSpeedRaw(), 10),
+		}
 	}
 
-	return "", report.ErrMessage, nil
-}
-
-func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) virtv2.ImageStatusSpeed {
 	progress, err := monitoring.GetImportProgressFromPod(string(ownerUID), pod)
 	if err != nil {
 		s.logger.Error("GetDownloadSpeed: Cannot get import progress from pod", "err", err)
-		return virtv2.ImageStatusSpeed{}
+		return nil
 	}
 
 	if progress == nil {
-		return virtv2.ImageStatusSpeed{}
+		return nil
 	}
 
-	// TODO from final message get avg speed.
-	speed := virtv2.ImageStatusSpeed{
-		Avg:      progress.AvgSpeed(),
-		AvgBytes: strconv.FormatUint(progress.AvgSpeedRaw(), 10),
+	return &virtv2.StatusSpeed{
+		Avg:          progress.AvgSpeed(),
+		AvgBytes:     strconv.FormatUint(progress.AvgSpeedRaw(), 10),
+		Current:      progress.CurSpeed(),
+		CurrentBytes: strconv.FormatUint(progress.CurSpeedRaw(), 10),
 	}
-
-	if pod.Status.Phase != corev1.PodSucceeded {
-		speed.Current = progress.CurSpeed()
-		speed.CurrentBytes = strconv.FormatUint(progress.CurSpeedRaw(), 10)
-	}
-
-	return speed
 }
 
 type GetProgressOption interface {

@@ -151,6 +151,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		vi.Status.Format = dvcrDataSource.GetFormat()
 		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -180,6 +181,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}

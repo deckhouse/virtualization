@@ -93,6 +93,6 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	default:
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)
 	}
 }

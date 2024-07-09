@@ -32,6 +32,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+const blankDataSource = "blank"
+
 type BlankDataSource struct {
 	statService *service.StatService
 	diskService *service.DiskService
@@ -46,7 +48,7 @@ func NewBlankDataSource(
 	return &BlankDataSource{
 		statService: statService,
 		diskService: diskService,
-		logger:      logger.With("ds", "blank"),
+		logger:      logger.With("ds", blankDataSource),
 	}
 }
 
@@ -195,6 +197,10 @@ func (ds BlankDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.Vir
 
 func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
 	return nil
+}
+
+func (ds BlankDataSource) Name() string {
+	return blankDataSource
 }
 
 func (ds BlankDataSource) getSource() *cdiv1.DataVolumeSource {

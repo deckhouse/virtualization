@@ -26,6 +26,9 @@ var _ Handler = &HandlerMock{}
 //			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
+//			NameFunc: func() string {
+//				panic("mock out the Name method")
+//			},
 //			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 //				panic("mock out the Sync method")
 //			},
@@ -42,6 +45,9 @@ type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 
+	// NameFunc mocks the Name method.
+	NameFunc func() string
+
 	// SyncFunc mocks the Sync method.
 	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 
@@ -56,6 +62,9 @@ type HandlerMock struct {
 			Ctx context.Context
 			// Vd is the vd argument value.
 			Vd *virtv2.VirtualDisk
+		}
+		// Name holds details about calls to the Name method.
+		Name []struct {
 		}
 		// Sync holds details about calls to the Sync method.
 		Sync []struct {
@@ -73,6 +82,7 @@ type HandlerMock struct {
 		}
 	}
 	lockCleanUp  sync.RWMutex
+	lockName     sync.RWMutex
 	lockSync     sync.RWMutex
 	lockValidate sync.RWMutex
 }
@@ -110,6 +120,33 @@ func (mock *HandlerMock) CleanUpCalls() []struct {
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
 	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// Name calls NameFunc.
+func (mock *HandlerMock) Name() string {
+	if mock.NameFunc == nil {
+		panic("HandlerMock.NameFunc: method is nil but Handler.Name was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockName.Lock()
+	mock.calls.Name = append(mock.calls.Name, callInfo)
+	mock.lockName.Unlock()
+	return mock.NameFunc()
+}
+
+// NameCalls gets all the calls that were made to Name.
+// Check the length with:
+//
+//	len(mockedHandler.NameCalls())
+func (mock *HandlerMock) NameCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockName.RLock()
+	calls = mock.calls.Name
+	mock.lockName.RUnlock()
 	return calls
 }
 
