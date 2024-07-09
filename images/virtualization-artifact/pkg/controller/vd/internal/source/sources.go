@@ -18,10 +18,13 @@ package source
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -88,4 +91,30 @@ func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Cleaner) 
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vdcondition.Ready || c.Reason == vdcondition.Lost
+}
+
+func setPhaseConditionForFinishedDisk(
+	pv *corev1.PersistentVolume,
+	pvc *corev1.PersistentVolumeClaim,
+	condition *metav1.Condition,
+	phase *virtv2.DiskPhase,
+	supgen *supplements.Generator,
+) {
+	switch {
+	case pvc == nil:
+		*phase = virtv2.DiskLost
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Lost
+		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
+	case pv == nil:
+		*phase = virtv2.DiskLost
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Lost
+		condition.Message = fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName)
+	default:
+		*phase = virtv2.DiskReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vdcondition.Ready
+		condition.Message = ""
+	}
 }
