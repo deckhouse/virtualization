@@ -18,6 +18,7 @@ package netlinkmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -301,7 +303,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 		Table: m.tableId,
 	}
 
-	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) {
+	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) && !errors.Is(err, unix.ESRCH) {
 		m.log.Error(err, "failed to delete route")
 	}
 	m.log.Info(fmt.Sprintf("route %s deleted for VM %q", fmtRoute(route), vmKey))
