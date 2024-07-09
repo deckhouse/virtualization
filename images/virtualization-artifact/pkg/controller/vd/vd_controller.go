@@ -23,13 +23,16 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	vdcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -96,7 +99,22 @@ func NewController(
 		return nil, err
 	}
 
+	vdcolelctor.SetupCollector(&lister{cache: mgr.GetCache()}, metrics.Registry)
+
 	log.Info("Initialized VirtualDisk controller", "image", importerImage)
 
 	return vdController, nil
+}
+
+type lister struct {
+	cache cache.Cache
+}
+
+func (l lister) List() ([]virtv2.VirtualDisk, error) {
+	disks := virtv2.VirtualDiskList{}
+	err := l.cache.List(context.Background(), &disks)
+	if err != nil {
+		return nil, err
+	}
+	return disks.Items, nil
 }
