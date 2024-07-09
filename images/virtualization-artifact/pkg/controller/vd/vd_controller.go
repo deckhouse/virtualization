@@ -76,6 +76,7 @@ func NewController(
 		internal.NewResizingHandler(logger, disk),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
+		internal.NewStatsHandler(),
 	)
 
 	vdController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})

@@ -244,7 +244,7 @@ func (h *LifeCycleHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 			}
 			var empty virtv1.VirtualMachineInstanceGuestOSInfo
 			if kvvmi != nil && empty == current.Status.GuestOSInfo && empty != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
-				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(1 * time.Second).Sub(pt.Timestamp.Time)}
+				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
 			}
 		}
 	}
@@ -296,7 +296,7 @@ type PhaseTransitions struct {
 }
 
 func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase virtv2.MachinePhase) PhaseTransitions {
-	now := metav1.NewTime(time.Now().Truncate(1 * time.Second))
+	now := metav1.NewTime(time.Now().Truncate(time.Second))
 
 	phasesTransitionsMap := make(map[virtv2.MachinePhase]virtv2.VirtualMachinePhaseTransitionTimestamp, len(phaseTransitions))
 	for _, pt := range phaseTransitions {
