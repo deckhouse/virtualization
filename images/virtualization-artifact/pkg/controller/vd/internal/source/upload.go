@@ -183,6 +183,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
 		if err != nil {
@@ -225,6 +226,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		vd.Status.Progress = "50%"
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):

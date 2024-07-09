@@ -144,8 +144,8 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
 		cvi.Status.Progress = "100%"
-		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
+		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
 		ds.logger.Info("Ready", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploadStarted(cvi.GetUID(), pod):
@@ -175,8 +175,8 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
-		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
+		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
 		if err != nil {

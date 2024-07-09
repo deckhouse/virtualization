@@ -323,7 +323,7 @@ func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSp
 			Kind:   virtv2.ImageDevice,
 			Name:   spec.Name,
 			Target: vs.Target,
-			Size:   vi.Status.Capacity,
+			Size:   vi.Status.Size.Unpacked,
 		}
 
 	case virtv2.DiskDevice:

@@ -43,7 +43,7 @@ type VirtualDiskSpec struct {
 }
 
 type VirtualDiskStatus struct {
-	DownloadSpeed             VirtualDiskDownloadSpeed `json:"downloadSpeed"`
+	DownloadSpeed             *StatusSpeed             `json:"downloadSpeed,omitempty"`
 	Capacity                  string                   `json:"capacity,omitempty"`
 	Target                    DiskTarget               `json:"target"`
 	Progress                  string                   `json:"progress,omitempty"`
@@ -86,13 +86,6 @@ const (
 	VirtualDiskObjectRefKindVirtualImage        VirtualDiskObjectRefKind = "VirtualImage"
 	VirtualDiskObjectRefKindClusterVirtualImage VirtualDiskObjectRefKind = "ClusterVirtualImage"
 )
-
-type VirtualDiskDownloadSpeed struct {
-	Avg          string `json:"avg,omitempty"`
-	AvgBytes     string `json:"avgBytes,omitempty"`
-	Current      string `json:"current,omitempty"`
-	CurrentBytes string `json:"currentBytes,omitempty"`
-}
 
 type DiskTarget struct {
 	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
