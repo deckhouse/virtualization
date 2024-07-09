@@ -1,0 +1,13 @@
+diff --git a/pkg/operator/resources/cluster/controller.go b/pkg/operator/resources/cluster/controller.go
+index 875afaf61..eac1f8cfa 100644
+--- a/pkg/operator/resources/cluster/controller.go
++++ b/pkg/operator/resources/cluster/controller.go
+@@ -160,7 +160,7 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
+ 				"cdi.kubevirt.io",
+ 			},
+ 			Resources: []string{
+-				"*",
++				"cdiconfigs", "cdis", "dataimportcrons", "datasources", "datavolumes", "objecttransfers", "storageprofiles", "volumeclonesources", "volumeimportsources", "volumeuploadsources", "cdiconfigs/status", "cdis/status", "dataimportcrons/status", "datasources/status", "datavolumes/status", "objecttransfers/status", "storageprofiles/status", "volumeclonesources/status", "volumeimportsources/status", "volumeuploadsources/status", "cdiconfigs/finalizers", "cdis/finalizers", "dataimportcrons/finalizers", "datasources/finalizers", "datavolumes/finalizers", "objecttransfers/finalizers", "storageprofiles/finalizers", "volumeclonesources/finalizers", "volumeimportsources/finalizers", "volumeuploadsources/finalizers",
+ 			},
+ 			Verbs: []string{
+ 				"*",
