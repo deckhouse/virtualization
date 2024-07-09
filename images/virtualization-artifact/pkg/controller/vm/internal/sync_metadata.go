@@ -59,14 +59,9 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	current := s.VirtualMachine().Current()
 
 	// Propagate user specified labels and annotations from the d8 VM to kubevirt VM.
-	metaUpdated, err := PropagateVMMetadata(current, kvvm, kvvm)
+	kvvmMetaUpdated, err := PropagateVMMetadata(current, kvvm, kvvm)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-	if metaUpdated {
-		if err = h.client.Update(ctx, kvvm); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
-		}
 	}
 
 	kvvmi, err := s.KVVMI(ctx)
@@ -75,7 +70,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 	// Propagate user specified labels and annotations from the d8 VM to the kubevirt VirtualMachineInstance.
 	if kvvmi != nil {
-		metaUpdated, err = PropagateVMMetadata(current, kvvm, kvvmi)
+		metaUpdated, err := PropagateVMMetadata(current, kvvm, kvvmi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -99,7 +94,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			if pod.Status.Phase != corev1.PodRunning {
 				continue
 			}
-			metaUpdated, err = PropagateVMMetadata(current, kvvm, &pod)
+			metaUpdated, err := PropagateVMMetadata(current, kvvm, &pod)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -122,9 +117,9 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 		return reconcile.Result{}, fmt.Errorf("failed to set last propagated annotations: %w", err)
 	}
 
-	if labelsChanged || annosChanged || metaUpdated {
+	if labelsChanged || annosChanged || kvvmMetaUpdated {
 		if err = h.client.Update(ctx, kvvm); err != nil {
-			return reconcile.Result{}, fmt.Errorf("error setting finalizer on a KubeVirt VM %q: %w", kvvm.GetName(), err)
+			return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
 		}
 	}
 
