@@ -43,12 +43,13 @@ func (h AttacheeHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		return reconcile.Result{}, err
 	}
 
-	if hasAttachedVM {
+	switch {
+	case !hasAttachedVM:
+		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVIProtection)
+	case cvi.DeletionTimestamp == nil:
 		controllerutil.AddFinalizer(cvi, virtv2.FinalizerCVIProtection)
-		return reconcile.Result{}, nil
 	}
 
-	controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVIProtection)
 	return reconcile.Result{}, nil
 }
 

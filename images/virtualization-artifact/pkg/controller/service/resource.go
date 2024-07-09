@@ -122,7 +122,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		}
 
 		if err = r.client.Patch(ctx, r.changedObj, patch); err != nil {
-			return fmt.Errorf("error updating: %w", err)
+			return fmt.Errorf("error patching finalizers: %w", err)
 		}
 	}
 

@@ -30,6 +30,7 @@ import (
 )
 
 type Handler interface {
+	Name() string
 	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
@@ -68,7 +69,7 @@ func (s Sources) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, err
 	for _, source := range s.sources {
 		ok, err := source.CleanUp(ctx, vd)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("clean up failed for data source %s: %w", source.Name(), err)
 		}
 
 		requeue = requeue || ok

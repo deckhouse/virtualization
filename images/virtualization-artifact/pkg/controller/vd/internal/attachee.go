@@ -51,12 +51,13 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		})
 	}
 
-	if len(vd.Status.AttachedToVirtualMachines) > 0 {
+	switch {
+	case len(vd.Status.AttachedToVirtualMachines) == 0:
+		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
+	case vd.DeletionTimestamp == nil:
 		controllerutil.AddFinalizer(vd, virtv2.FinalizerVDProtection)
-		return reconcile.Result{}, nil
 	}
 
-	controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
 	return reconcile.Result{}, nil
 }
 
