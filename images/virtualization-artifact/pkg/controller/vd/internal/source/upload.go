@@ -39,6 +39,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+const uploadDataSource = "registry"
+
 type UploadDataSource struct {
 	statService     *service.StatService
 	uploaderService *service.UploaderService
@@ -59,7 +61,7 @@ func NewUploadDataSource(
 		uploaderService: uploaderService,
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
-		logger:          logger.With("ds", "upload"),
+		logger:          logger.With("ds", uploadDataSource),
 	}
 }
 
@@ -324,6 +326,10 @@ func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) er
 	return nil
 }
 
+func (ds UploadDataSource) Name() string {
+	return uploadDataSource
+}
+
 func (ds UploadDataSource) getEnvSettings(supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
@@ -360,7 +366,7 @@ func (ds UploadDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, err
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {

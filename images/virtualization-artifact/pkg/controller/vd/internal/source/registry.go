@@ -42,6 +42,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+const registryDataSource = "registry"
+
 type RegistryDataSource struct {
 	statService     *service.StatService
 	importerService *service.ImporterService
@@ -65,7 +67,7 @@ func NewRegistryDataSource(
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		logger:          logger.With("ds", "registry"),
+		logger:          logger.With("ds", registryDataSource),
 	}
 }
 
@@ -320,6 +322,10 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDis
 	return nil
 }
 
+func (ds RegistryDataSource) Name() string {
+	return registryDataSource
+}
+
 func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
@@ -357,7 +363,7 @@ func (ds RegistryDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod)
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, err
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {

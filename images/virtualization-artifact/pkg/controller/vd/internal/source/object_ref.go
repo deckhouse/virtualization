@@ -38,6 +38,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
+const objectRefDataSource = "objectref"
+
 type ObjectRefDataSource struct {
 	statService *service.StatService
 	diskService *service.DiskService
@@ -55,7 +57,7 @@ func NewObjectRefDataSource(
 		statService: statService,
 		diskService: diskService,
 		client:      client,
-		logger:      logger.With("ds", "objectref"),
+		logger:      logger.With("ds", objectRefDataSource),
 	}
 }
 
@@ -244,6 +246,10 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 	}
 }
 
+func (ds ObjectRefDataSource) Name() string {
+	return objectRefDataSource
+}
+
 func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
 	if !dvcrDataSource.IsReady() {
 		return nil, errors.New("dvcr data source is not ready")
@@ -269,7 +275,7 @@ func (ds ObjectRefDataSource) getPVCSize(vd *virtv2.VirtualDisk, dvcrDataSource 
 
 	unpackedSize, err := resource.ParseQuantity(dvcrDataSource.GetSize().UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, err
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", dvcrDataSource.GetSize().UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {
