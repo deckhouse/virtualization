@@ -320,6 +320,12 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	})
 }
 
+// RestoreBookmark restores apiVersion and kind in an object in WatchEvent with type BOOKMARK. Bookmark is not a full object, so RewriteJSONPayload may add unexpected fields.
+// Bookmark example: {"kind":"ConfigMap","apiVersion":"v1","metadata":{"resourceVersion":"438083871","creationTimestamp":null}}
+func (rw *RuleBasedRewriter) RestoreBookmark(targetReq *TargetRequest, obj []byte) ([]byte, error) {
+	return RestoreAPIVersionAndKind(rw.Rules, obj, targetReq.OrigGroup())
+}
+
 // RewritePatch rewrites patches for some known objects.
 // Only rename action is required for patches.
 func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes []byte) ([]byte, error) {

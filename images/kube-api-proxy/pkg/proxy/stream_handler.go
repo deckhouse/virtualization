@@ -190,7 +190,7 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.Watc
 	switch ev.Type {
 	case string(watch.Added), string(watch.Modified), string(watch.Deleted), string(watch.Error), string(watch.Bookmark):
 	default:
-		return nil, fmt.Errorf("got unknown type: %v", ev.Type)
+		return nil, fmt.Errorf("got unknown type in WatchEvent: %v", ev.Type)
 	}
 
 	group := gjson.GetBytes(ev.Object.Raw, "apiVersion").String()
@@ -205,10 +205,19 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.Watc
 	}
 	s.log.Debug(fmt.Sprintf("Receive '%s' watch event with %s/%s %s/%s object", ev.Type, group, kind, ns, name))
 
-	// Restore object in the event. Watch responses are always from the Kubernetes API server, so rename is not needed.
-	rwrObjBytes, err := s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
+	var rwrObjBytes []byte
+	var err error
+
+	if ev.Type == string(watch.Bookmark) {
+		// Temporarily print original BOOKMARK WatchEvent.
+		logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s' from target", ev.Type), s.targetReq.OrigResourceType(), ev.Object.Raw)
+		rwrObjBytes, err = s.rewriter.RestoreBookmark(s.targetReq, ev.Object.Raw)
+	} else {
+		// Restore object in the event. Watch responses are always from the Kubernetes API server, so rename is not needed.
+		rwrObjBytes, err = s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("error rewriting object: %w", err)
+		return nil, fmt.Errorf("rewrite object in WatchEvent '%s': %w", ev.Type, err)
 	}
 
 	// Prepare rewritten event bytes.
