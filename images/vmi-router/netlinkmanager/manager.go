@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"vmi-router/netlinkwrap"
 	"vmi-router/netutil"
 )
@@ -50,7 +50,7 @@ type Manager struct {
 	tableId   int
 	cidrs     []*net.IPNet
 	nodeName  string
-	vmIPs     map[string]string
+	vmIPs     map[types.NamespacedName]string
 	vmIPsLock sync.RWMutex
 }
 
@@ -65,7 +65,7 @@ func New(client client.Client, log logr.Logger, tableId int, cidrs []*net.IPNet,
 		tableId:   tableId,
 		cidrs:     cidrs,
 		nlWrapper: nlWrapper,
-		vmIPs:     make(map[string]string),
+		vmIPs:     make(map[types.NamespacedName]string),
 	}
 }
 
@@ -118,7 +118,7 @@ func (m *Manager) SyncRules() error {
 
 func (m *Manager) SyncRoutes(ctx context.Context) error {
 	// List all Virtual Machines to collect all IPs on this Node.
-	vmList := &virtv1alpha2.VirtualMachineList{}
+	vmList := &virtv2.VirtualMachineList{}
 	err := m.client.List(ctx, vmList)
 	if err != nil {
 		return fmt.Errorf("list VirtualMachines: %w", err)
@@ -186,7 +186,7 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 }
 
 // UpdateRoute updates route for a single VirtualMachine.
-func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachine) {
+func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
 	if vm.Status.Node == "" {
@@ -218,9 +218,9 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 	}
 
 	// Save IP to the in-memory cache to restore IP later.
-	vmiKey := fmt.Sprintf("%s/%s", vm.GetNamespace(), vm.GetName())
+	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
 	m.vmIPsLock.Lock()
-	m.vmIPs[vmiKey] = vmIP
+	m.vmIPs[vmKey] = vmIP
 	m.vmIPsLock.Unlock()
 
 	// Retrieve a Cilium Node by VMs node name.
@@ -282,7 +282,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	if vmIP == "" {
 		// Try to recover IP from the cache.
 		m.vmIPsLock.RLock()
-		vmIP = m.vmIPs[vmKey.String()]
+		vmIP = m.vmIPs[vmKey]
 		m.vmIPsLock.RUnlock()
 	}
 	if vmIP == "" {
@@ -310,7 +310,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 
 	// Delete IP from the cache.
 	m.vmIPsLock.Lock()
-	delete(m.vmIPs, vmKey.String())
+	delete(m.vmIPs, vmKey)
 	m.vmIPsLock.Unlock()
 }
 

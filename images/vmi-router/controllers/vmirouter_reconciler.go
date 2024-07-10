@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"vmi-router/netlinkmanager"
 )
 
@@ -48,7 +48,7 @@ type VMRouterReconciler struct {
 }
 
 func (r *VMRouterReconciler) SetupWatches(mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv1alpha2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				r.log.V(4).Info(fmt.Sprintf("Got CREATE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName()))
@@ -74,21 +74,20 @@ func (r *VMRouterReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	r.log.V(4).Info(fmt.Sprintf("Got reconcile request for %s", req.String()))
 
 	// Start with retrieving affected VMI.
-	vm := &virtv1alpha2.VirtualMachine{}
+	vm := &virtv2.VirtualMachine{}
 	err := r.client.Get(ctx, req.NamespacedName, vm)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			r.netlinkMgr.DeleteRoute(req.NamespacedName, "")
+			return reconcile.Result{}, nil
+		}
 		r.log.Error(err, fmt.Sprintf("fail to retrieve vm/%s", req.String()))
 		return reconcile.Result{}, err
 	}
 
-	var ipAddr string
-	if vm != nil {
-		ipAddr = vm.Status.IPAddress
-	}
-
 	// Delete route on VM deletion.
-	if vm == nil || vm.DeletionTimestamp != nil {
-		r.netlinkMgr.DeleteRoute(req.NamespacedName, ipAddr)
+	if vm.GetDeletionTimestamp() != nil {
+		r.netlinkMgr.DeleteRoute(req.NamespacedName, vm.Status.IPAddress)
 		return reconcile.Result{}, nil
 	}
 
