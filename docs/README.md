@@ -27,6 +27,10 @@ The virtualization module requires a Deckhouse Kubernetes Platform cluster for i
 - Any [compatible](https://deckhouse.io/documentation/v1/supported_versions.html#linux) Linux-based operating system is supported on the cluster nodes.
 - The Linux kernel on cluster nodes must be version 5.7 or newer.
 
+{{< alert level="warning" >}}
+If you plan to use the virtualization module in a production environment, it is recommended to deploy it on physical servers. Deploying the module on virtual machines is also possible, but in this case you need to enable nested virtualization.
+{{< /alert >}}
+
 The [d8](https://github.com/deckhouse/deckhouse-cli) command line utility is used to connect to virtual machines using serial port, VNC, or ssh protocol. For EE-version users, the ability to manage resources via UI is available.
 
 You can view the resource documentation locally from the console using the standard functionality of the command utility: `d8 kubectl explain <resource name>`
