@@ -317,6 +317,10 @@ spec:
                           description: |
                             The waiting time for the virtual disk to be provisioned (copying/downloading/filling the PVC).
                           nullable: true
+                sourceUID:
+                  type: string
+                  description: |
+                    The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the virtual disk.
                 observedGeneration:
                   type: integer
                   description: |

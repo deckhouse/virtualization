@@ -1026,6 +1026,12 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Format: "",
 						},
 					},
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -1236,6 +1242,12 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 						},
 					},
 					"uploadCommand": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -1825,6 +1837,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats"),
 						},
 					},
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -2111,6 +2129,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 						},
 					},
 					"uploadCommand": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

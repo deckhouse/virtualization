@@ -44,6 +44,7 @@ import (
 const (
 	CVIShortName = "cvi"
 	VDShortName  = "vd"
+	VIShortName  = "vi"
 
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
 	AnnAPIGroup = "virt.deckhouse.io"

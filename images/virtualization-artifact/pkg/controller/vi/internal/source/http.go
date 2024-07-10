@@ -24,11 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -50,7 +49,7 @@ func NewHTTPDataSource(
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
-		logger:          slog.Default().With("controller", util.ControllerShortName, "ds", "http"),
+		logger:          slog.Default().With("controller", common.VIShortName, "ds", "http"),
 	}
 }
 
@@ -60,7 +59,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -82,7 +81,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		}
 
 		return CleanUp(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		ds.logger.Info("Cleaning up...", "vi", vi.Name)
@@ -102,7 +101,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		}
 
 		ds.logger.Info("Create importer pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", "nil")
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -173,7 +172,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	requeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

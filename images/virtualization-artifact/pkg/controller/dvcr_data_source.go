@@ -32,6 +32,7 @@ import (
 type DVCRDataSource struct {
 	size    virtv2.ImageStatusSize
 	meta    metav1.Object
+	uid     types.UID
 	format  string
 	target  string
 	isReady bool
@@ -55,6 +56,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 			}
 
 			if vmi != nil {
+				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
@@ -71,6 +73,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 			}
 
 			if cvmi != nil {
+				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
@@ -101,6 +104,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 			}
 
 			if vmi != nil {
+				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
@@ -117,6 +121,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 			}
 
 			if cvmi != nil {
+				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
@@ -147,7 +152,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 			}
 
 			if vmi != nil {
-				// TODO Get size from vmi.status.capacity for Kubernetes vmi.
+				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
@@ -164,6 +169,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 			}
 
 			if cvmi != nil {
+				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
@@ -182,6 +188,10 @@ func (ds *DVCRDataSource) Validate() error {
 	}
 
 	return nil
+}
+
+func (ds *DVCRDataSource) GetUID() types.UID {
+	return ds.uid
 }
 
 func (ds *DVCRDataSource) GetSize() virtv2.ImageStatusSize {

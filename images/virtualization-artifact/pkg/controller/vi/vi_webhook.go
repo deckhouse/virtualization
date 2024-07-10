@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -37,7 +37,7 @@ type Validator struct {
 
 func NewValidator() *Validator {
 	return &Validator{
-		logger: slog.Default().With("controller", util.ControllerShortName, "webhook", "validator"),
+		logger: slog.Default().With("controller", common.VIShortName, "webhook", "validator"),
 	}
 }
 

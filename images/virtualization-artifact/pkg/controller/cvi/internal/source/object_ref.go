@@ -100,8 +100,14 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		condition.Reason = cvicondition.Provisioning
 		condition.Message = "DVCR Provisioner not found: create the new one."
 
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
+		if err != nil {
+			return false, err
+		}
+
 		var envSettings *importer.Settings
-		envSettings, err = ds.getEnvSettings(cvi, supgen)
+		envSettings, err = ds.getEnvSettings(cvi, supgen, dvcrDataSource)
 		if err != nil {
 			return false, err
 		}
@@ -226,27 +232,17 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 	}
 }
 
-func (ds ObjectRefDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen *supplements.Generator) (*importer.Settings, error) {
-	var settings importer.Settings
-
-	switch cvi.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
-		dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMI(
-			cvi.Spec.DataSource.ObjectRef.Name,
-			cvi.Spec.DataSource.ObjectRef.Namespace,
-		)
-		importer.ApplyDVCRSourceSettings(&settings, dvcrSourceImageName)
-	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
-		dvcrSourceImageName := ds.dvcrSettings.RegistryImageForCVMI(cvi.Spec.DataSource.ObjectRef.Name)
-		importer.ApplyDVCRSourceSettings(&settings, dvcrSourceImageName)
-	default:
-		return nil, fmt.Errorf("unknown objectRef kind: %s", cvi.Spec.DataSource.ObjectRef.Kind)
+func (ds ObjectRefDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
+	if !dvcrDataSource.IsReady() {
+		return nil, errors.New("dvcr data source is not ready")
 	}
 
+	var settings importer.Settings
+	importer.ApplyDVCRSourceSettings(&settings, dvcrDataSource.GetTarget())
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
-		supgen,
+		sup,
 		ds.dvcrSettings.RegistryImageForCVMI(cvi.Name),
 	)
 
