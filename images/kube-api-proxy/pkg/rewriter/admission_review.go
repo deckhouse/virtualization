@@ -221,14 +221,11 @@ func RestoreAdmissionReviewObject(rules *RewriteRules, obj []byte, origGroup str
 		return nil, fmt.Errorf("restore resource group, kind: %w", err)
 	}
 
-	obj, err = RewriteMetadata(rules, obj, Restore)
+	obj, err = TransformObject(obj, "metadata", func(metadataObj []byte) ([]byte, error) {
+		return RewriteMetadata(rules, metadataObj, Restore)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("restore resource metadata: %w", err)
-	}
-
-	obj, err = RewriteOwnerReferences(rules, obj, Restore)
-	if err != nil {
-		return nil, fmt.Errorf("restore resource ownerReferences: %w", err)
 	}
 
 	return obj, nil
