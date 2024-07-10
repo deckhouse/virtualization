@@ -311,6 +311,10 @@ spec:
                   type: string
                   description: |
                     Command for uploading a image for the 'Upload' type.
+                sourceUID:
+                  type: string
+                  description: |
+                    The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the cluster virtual image.
                 observedGeneration:
                   type: integer
                   description: |

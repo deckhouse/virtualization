@@ -166,6 +166,9 @@ spec:
                 uploadCommand:
                   description: |
                     Команда для загрузки образа для типа 'Upload'.
+                sourceUID:
+                  description: |
+                    UID источника (`VirtualImage` или `ClusterVirtualImage`), использовавшегося при создании виртуального образа.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

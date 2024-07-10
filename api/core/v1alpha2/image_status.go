@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha2
 
+import "k8s.io/apimachinery/pkg/types"
+
 type ImagePhase string
 
 const (
@@ -36,6 +38,7 @@ type ImageStatus struct {
 	Phase         ImagePhase        `json:"phase,omitempty"`
 	Progress      string            `json:"progress,omitempty"`
 	UploadCommand string            `json:"uploadCommand,omitempty"`
+	SourceUID     *types.UID        `json:"sourceUID,omitempty"`
 }
 
 type StatusSpeed struct {

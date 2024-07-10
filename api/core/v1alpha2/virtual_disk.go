@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -51,6 +52,7 @@ type VirtualDiskStatus struct {
 	Phase                     DiskPhase                `json:"phase"`
 	AttachedToVirtualMachines []AttachedVirtualMachine `json:"attachedToVirtualMachines,omitempty"`
 	Stats                     VirtualDiskStats         `json:"stats"`
+	SourceUID                 *types.UID               `json:"sourceUID,omitempty"`
 	Conditions                []metav1.Condition       `json:"conditions,omitempty"`
 	ObservedGeneration        int64                    `json:"observedGeneration,omitempty"`
 }

@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -58,7 +57,7 @@ func NewRegistryDataSource(
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		logger:          slog.Default().With("controller", util.ControllerShortName, "ds", "registry"),
+		logger:          slog.Default().With("controller", common.VIShortName, "ds", "registry"),
 	}
 }
 
@@ -68,7 +67,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -174,7 +173,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 }
 
 func (ds RegistryDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	requeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

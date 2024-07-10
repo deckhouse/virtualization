@@ -31,8 +31,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -56,7 +56,7 @@ func NewObjectRefDataSource(
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		logger:          slog.Default().With("controller", util.ControllerShortName, "ds", "objectref"),
+		logger:          slog.Default().With("controller", cc.VIShortName, "ds", "objectref"),
 	}
 }
 
@@ -66,7 +66,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -97,8 +97,14 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		condition.Reason = vicondition.Provisioning
 		condition.Message = "DVCR Provisioner not found: create the new one."
 
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
+
 		var envSettings *importer.Settings
-		envSettings, err = ds.getEnvSettings(vi, supgen)
+		envSettings, err = ds.getEnvSettings(vi, supgen, dvcrDataSource)
 		if err != nil {
 			return false, err
 		}
@@ -110,6 +116,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
 
 		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", "nil")
 	case cc.IsPodComplete(pod):
@@ -188,7 +195,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 }
 
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	requeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -222,27 +229,17 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 	}
 }
 
-func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) (*importer.Settings, error) {
-	var settings importer.Settings
-
-	switch vi.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualImageObjectRefKindVirtualImage:
-		dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMI(
-			vi.Spec.DataSource.ObjectRef.Name,
-			vi.Namespace,
-		)
-		importer.ApplyDVCRSourceSettings(&settings, dvcrSourceImageName)
-	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
-		dvcrSourceImageName := ds.dvcrSettings.RegistryImageForCVMI(vi.Spec.DataSource.ObjectRef.Name)
-		importer.ApplyDVCRSourceSettings(&settings, dvcrSourceImageName)
-	default:
-		return nil, fmt.Errorf("unknown objectRef kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
+func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
+	if !dvcrDataSource.IsReady() {
+		return nil, errors.New("dvcr data source is not ready")
 	}
 
+	var settings importer.Settings
+	importer.ApplyDVCRSourceSettings(&settings, dvcrDataSource.GetTarget())
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
-		supgen,
+		sup,
 		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
 	)
 

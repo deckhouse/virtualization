@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -51,7 +50,7 @@ func NewUploadDataSource(
 		statService:     statService,
 		uploaderService: uploaderService,
 		dvcrSettings:    dvcrSettings,
-		logger:          slog.Default().With("controller", util.ControllerShortName, "ds", "upload"),
+		logger:          slog.Default().With("controller", common.VIShortName, "ds", "upload"),
 	}
 }
 
@@ -61,7 +60,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -196,7 +195,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(util.ControllerShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
