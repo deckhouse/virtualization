@@ -59,7 +59,8 @@ func NewController(
 		internal.NewAgentHandler(),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, logger),
 		internal.NewSyncMetadataHandler(client),
-		internal.NewLifeCycleHandler(mgr.GetClient(), recorder, logger),
+		internal.NewLifeCycleHandler(client, recorder, logger),
+		internal.NewStatisticHandler(client),
 	}
 	r := NewReconciler(mgr.GetClient(), logger, handlers...)
 
