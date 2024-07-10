@@ -65,6 +65,8 @@ spec:
         - name: proxy
           image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
           imagePullPolicy: IfNotPresent
+          env:
+          {{- include "kube_api_rewriter.env" . | nindent 10 }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
