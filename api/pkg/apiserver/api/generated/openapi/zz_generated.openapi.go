@@ -50,7 +50,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                           schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatus":                               schema_virtualization_api_core_v1alpha2_ImageStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed":                          schema_virtualization_api_core_v1alpha2_ImageStatusSpeed(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget":                         schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
@@ -61,7 +60,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef":                            schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDisk":                               schema_virtualization_api_core_v1alpha2_VirtualDisk(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                     schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDownloadSpeed":                  schema_virtualization_api_core_v1alpha2_VirtualDiskDownloadSpeed(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                           schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                      schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":          schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
@@ -982,8 +980,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
@@ -996,13 +993,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"capacity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"cdrom": {
@@ -1060,7 +1050,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -1205,8 +1195,7 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
@@ -1219,13 +1208,6 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"capacity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"cdrom": {
@@ -1264,7 +1246,7 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
 	}
 }
 
@@ -1293,42 +1275,6 @@ func schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref common.Referenc
 						},
 					},
 					"unpackedBytes": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_ImageStatusSpeed(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"avg": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"avgBytes": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"current": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"currentBytes": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -1649,42 +1595,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref common.Re
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_VirtualDiskDownloadSpeed(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"avg": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"avgBytes": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"current": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"currentBytes": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1862,8 +1772,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDownloadSpeed"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"capacity": {
@@ -1936,11 +1845,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "target", "phase", "stats"},
+				Required: []string{"target", "phase", "stats"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDownloadSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -2161,8 +2070,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
@@ -2175,13 +2083,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"capacity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"cdrom": {
@@ -2239,7 +2140,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

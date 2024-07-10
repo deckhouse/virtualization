@@ -162,6 +162,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
 		logger.Info("Start import to PVC")
 
@@ -199,6 +200,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		vd.Status.Progress = "50%"
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):

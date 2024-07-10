@@ -737,7 +737,7 @@ var _ Stat = &StatMock{}
 //			GetCDROMFunc: func(pod *corev1.Pod) bool {
 //				panic("mock out the GetCDROM method")
 //			},
-//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) virtv2.ImageStatusSpeed {
+//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
 //				panic("mock out the GetDownloadSpeed method")
 //			},
 //			GetFormatFunc: func(pod *corev1.Pod) string {
@@ -745,9 +745,6 @@ var _ Stat = &StatMock{}
 //			},
 //			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
-//			},
-//			GetReasonErrorFunc: func(pod *corev1.Pod) (string, string, error) {
-//				panic("mock out the GetReasonError method")
 //			},
 //			GetSizeFunc: func(pod *corev1.Pod) virtv2.ImageStatusSize {
 //				panic("mock out the GetSize method")
@@ -769,16 +766,13 @@ type StatMock struct {
 	GetCDROMFunc func(pod *corev1.Pod) bool
 
 	// GetDownloadSpeedFunc mocks the GetDownloadSpeed method.
-	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) virtv2.ImageStatusSpeed
+	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
 
 	// GetFormatFunc mocks the GetFormat method.
 	GetFormatFunc func(pod *corev1.Pod) string
 
 	// GetProgressFunc mocks the GetProgress method.
 	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
-
-	// GetReasonErrorFunc mocks the GetReasonError method.
-	GetReasonErrorFunc func(pod *corev1.Pod) (string, string, error)
 
 	// GetSizeFunc mocks the GetSize method.
 	GetSizeFunc func(pod *corev1.Pod) virtv2.ImageStatusSize
@@ -821,11 +815,6 @@ type StatMock struct {
 			// Opts is the opts argument value.
 			Opts []service.GetProgressOption
 		}
-		// GetReasonError holds details about calls to the GetReasonError method.
-		GetReasonError []struct {
-			// Pod is the pod argument value.
-			Pod *corev1.Pod
-		}
 		// GetSize holds details about calls to the GetSize method.
 		GetSize []struct {
 			// Pod is the pod argument value.
@@ -844,7 +833,6 @@ type StatMock struct {
 	lockGetDownloadSpeed sync.RWMutex
 	lockGetFormat        sync.RWMutex
 	lockGetProgress      sync.RWMutex
-	lockGetReasonError   sync.RWMutex
 	lockGetSize          sync.RWMutex
 	lockIsUploadStarted  sync.RWMutex
 }
@@ -914,7 +902,7 @@ func (mock *StatMock) GetCDROMCalls() []struct {
 }
 
 // GetDownloadSpeed calls GetDownloadSpeedFunc.
-func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) virtv2.ImageStatusSpeed {
+func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
 	if mock.GetDownloadSpeedFunc == nil {
 		panic("StatMock.GetDownloadSpeedFunc: method is nil but Stat.GetDownloadSpeed was just called")
 	}
@@ -1022,38 +1010,6 @@ func (mock *StatMock) GetProgressCalls() []struct {
 	mock.lockGetProgress.RLock()
 	calls = mock.calls.GetProgress
 	mock.lockGetProgress.RUnlock()
-	return calls
-}
-
-// GetReasonError calls GetReasonErrorFunc.
-func (mock *StatMock) GetReasonError(pod *corev1.Pod) (string, string, error) {
-	if mock.GetReasonErrorFunc == nil {
-		panic("StatMock.GetReasonErrorFunc: method is nil but Stat.GetReasonError was just called")
-	}
-	callInfo := struct {
-		Pod *corev1.Pod
-	}{
-		Pod: pod,
-	}
-	mock.lockGetReasonError.Lock()
-	mock.calls.GetReasonError = append(mock.calls.GetReasonError, callInfo)
-	mock.lockGetReasonError.Unlock()
-	return mock.GetReasonErrorFunc(pod)
-}
-
-// GetReasonErrorCalls gets all the calls that were made to GetReasonError.
-// Check the length with:
-//
-//	len(mockedStat.GetReasonErrorCalls())
-func (mock *StatMock) GetReasonErrorCalls() []struct {
-	Pod *corev1.Pod
-} {
-	var calls []struct {
-		Pod *corev1.Pod
-	}
-	mock.lockGetReasonError.RLock()
-	calls = mock.calls.GetReasonError
-	mock.lockGetReasonError.RUnlock()
 	return calls
 }
 

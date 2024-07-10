@@ -28,11 +28,9 @@ const (
 )
 
 type ImageStatus struct {
-	DownloadSpeed ImageStatusSpeed `json:"downloadSpeed"`
-	Size          ImageStatusSize  `json:"size"`
-	Format        string           `json:"format,omitempty"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim.
-	Capacity      string            `json:"capacity,omitempty"`
+	DownloadSpeed *StatusSpeed      `json:"downloadSpeed"`
+	Size          ImageStatusSize   `json:"size"`
+	Format        string            `json:"format,omitempty"`
 	CDROM         bool              `json:"cdrom"`
 	Target        ImageStatusTarget `json:"target"`
 	Phase         ImagePhase        `json:"phase,omitempty"`
@@ -41,13 +39,6 @@ type ImageStatus struct {
 }
 
 type StatusSpeed struct {
-	Avg          string `json:"avg,omitempty"`
-	AvgBytes     string `json:"avgBytes,omitempty"`
-	Current      string `json:"current,omitempty"`
-	CurrentBytes string `json:"currentBytes,omitempty"`
-}
-
-type ImageStatusSpeed struct {
 	Avg          string `json:"avg,omitempty"`
 	AvgBytes     string `json:"avgBytes,omitempty"`
 	Current      string `json:"current,omitempty"`
