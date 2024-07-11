@@ -86,14 +86,14 @@ func (s *StreamHandler) proxy() {
 	for {
 		// Read event from the server.
 		var got metav1.WatchEvent
-		s.log.Info("Start decode from stream")
+		s.log.Debug("Start decode from stream")
 		res, _, err := s.decoder.Decode(nil, &got)
-		s.log.Info("Got decoded WatchEvent from stream")
+		s.log.Debug("Got decoded WatchEvent from stream")
 		if err != nil {
 			switch err {
 			case io.EOF:
-				// watch closed normally
-				s.log.Info("Catch EOF from target, stop proxying the stream")
+				// Watch closed normally.
+				s.log.Debug("Catch EOF from target, stop proxying the stream")
 			case io.ErrUnexpectedEOF:
 				s.log.Error("Unexpected EOF during watch stream event decoding", logutil.SlogErr(err))
 			default:
@@ -164,7 +164,7 @@ func (s *StreamHandler) DoneChan() chan struct{} {
 func (s *StreamHandler) createWatchDecoder(contentType string) (streaming.Decoder, error) {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		s.log.Info("Unexpected media type from the server: %q: %v", contentType, err)
+		s.log.Error("Unexpected media type from the server: %q: %v", contentType, err)
 	}
 
 	negotiatedSerializer := scheme.Codecs.WithoutConversion()

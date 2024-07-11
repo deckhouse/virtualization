@@ -129,7 +129,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 
-	logger.Info(fmt.Sprintf("Request: orig headers: %+v", req.Header))
+	logger.Debug(fmt.Sprintf("Request: orig headers: %+v", req.Header))
 
 	// Step 2. Modify request endpoint, headers and body bytes before send it to the target.
 	origRequestBytes, rwrRequestBytes, err := h.transformRequest(targetReq, req)
@@ -139,7 +139,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	logger.Info(fmt.Sprintf("Request: target headers: %+v", req.Header))
+	logger.Debug(fmt.Sprintf("Request: target headers: %+v", req.Header))
 
 	// Restore req.Body as this reader was read earlier by the transformRequest.
 	if rwrRequestBytes != nil {
