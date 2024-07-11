@@ -968,8 +968,12 @@ spec:
                     The list of attached block device attachments.
                   items:
                     type: object
-                    required: ["kind", "name", "size"]
+                    required: ["kind", "name", "size", "attached"]
                     properties:
+                      attached:
+                        type: boolean
+                        description: |
+                          The block device is attached to the virtual machine.
                       hotpluggable:
                         type: boolean
                         description: |
@@ -993,6 +997,10 @@ spec:
                         type: string
                         description: |
                           The size of attached block device.
+                      virtualMachineBlockDeviceAttachmentName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineBlockDeviceAttachment` resource that provides hot plug disk connection.
                 migrationState:
                   type: object
                   description: "Migration info."

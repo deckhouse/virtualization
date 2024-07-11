@@ -40,6 +40,7 @@ type VirtualMachineState interface {
 	KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error)
 	Pods(ctx context.Context) (*corev1.PodList, error)
 	Pod(ctx context.Context) (*corev1.Pod, error)
+	VMBDAs(ctx context.Context) ([]virtv2.VirtualMachineBlockDeviceAttachment, error)
 	VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error)
 	VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error)
 	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
@@ -152,6 +153,25 @@ func (s *state) Pod(ctx context.Context) (*corev1.Pod, error) {
 	defer s.mu.Unlock()
 	s.pod = pod
 	return pod, nil
+}
+
+func (s *state) VMBDAs(ctx context.Context) ([]virtv2.VirtualMachineBlockDeviceAttachment, error) {
+	var list virtv2.VirtualMachineBlockDeviceAttachmentList
+	err := s.client.List(ctx, &list, &client.ListOptions{
+		Namespace: s.vm.Name().Namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var vmbdas []virtv2.VirtualMachineBlockDeviceAttachment
+	for _, vmbda := range list.Items {
+		if vmbda.Spec.VirtualMachineName == s.vm.Name().Name {
+			vmbdas = append(vmbdas, vmbda)
+		}
+	}
+
+	return vmbdas, nil
 }
 
 func (s *state) VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error) {
