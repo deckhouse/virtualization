@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"vmi-router/netlinkmanager"
 )
 
@@ -47,7 +48,7 @@ type VMRouterReconciler struct {
 }
 
 func (r *VMRouterReconciler) SetupWatches(mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv1alpha2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				r.log.V(4).Info(fmt.Sprintf("Got CREATE event for VM %s/%s", e.Object.GetNamespace(), e.Object.GetName()))
@@ -73,29 +74,23 @@ func (r *VMRouterReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	r.log.V(4).Info(fmt.Sprintf("Got reconcile request for %s", req.String()))
 
 	// Start with retrieving affected VMI.
-	var vm virtv1alpha2.VirtualMachine
-	var isAbsent bool
-	err := r.client.Get(ctx, req.NamespacedName, &vm)
+	vm := &virtv2.VirtualMachine{}
+	err := r.client.Get(ctx, req.NamespacedName, vm)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			isAbsent = true
-		} else {
-			r.log.Error(err, fmt.Sprintf("fail to retrieve vm/%s", req.String()))
-			return reconcile.Result{}, err
+			r.netlinkMgr.DeleteRoute(req.NamespacedName, "")
+			return reconcile.Result{}, nil
 		}
+		r.log.Error(err, fmt.Sprintf("fail to retrieve vm/%s", req.String()))
+		return reconcile.Result{}, err
 	}
 
 	// Delete route on VM deletion.
 	if vm.GetDeletionTimestamp() != nil {
-		r.netlinkMgr.DeleteRoute(&vm)
+		r.netlinkMgr.DeleteRoute(req.NamespacedName, vm.Status.IPAddress)
 		return reconcile.Result{}, nil
 	}
 
-	if isAbsent {
-		r.netlinkMgr.DeleteRoute(nil)
-		return reconcile.Result{}, nil
-	}
-
-	r.netlinkMgr.UpdateRoute(ctx, &vm)
+	r.netlinkMgr.UpdateRoute(ctx, vm)
 	return reconcile.Result{}, nil
 }

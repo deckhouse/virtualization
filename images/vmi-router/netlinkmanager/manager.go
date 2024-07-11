@@ -1,5 +1,5 @@
 /*
-Copyright 2023,2024 Flant JSC
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package netlinkmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -25,11 +26,13 @@ import (
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"vmi-router/netlinkwrap"
 	"vmi-router/netutil"
 )
@@ -47,7 +50,7 @@ type Manager struct {
 	tableId   int
 	cidrs     []*net.IPNet
 	nodeName  string
-	vmIPs     map[string]string
+	vmIPs     map[types.NamespacedName]string
 	vmIPsLock sync.RWMutex
 }
 
@@ -62,7 +65,7 @@ func New(client client.Client, log logr.Logger, tableId int, cidrs []*net.IPNet,
 		tableId:   tableId,
 		cidrs:     cidrs,
 		nlWrapper: nlWrapper,
-		vmIPs:     make(map[string]string),
+		vmIPs:     make(map[types.NamespacedName]string),
 	}
 }
 
@@ -115,7 +118,7 @@ func (m *Manager) SyncRules() error {
 
 func (m *Manager) SyncRoutes(ctx context.Context) error {
 	// List all Virtual Machines to collect all IPs on this Node.
-	vmList := &virtv1alpha2.VirtualMachineList{}
+	vmList := &virtv2.VirtualMachineList{}
 	err := m.client.List(ctx, vmList)
 	if err != nil {
 		return fmt.Errorf("list VirtualMachines: %w", err)
@@ -183,7 +186,7 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 }
 
 // UpdateRoute updates route for a single VirtualMachine.
-func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachine) {
+func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
 	if vm.Status.Node == "" {
@@ -215,9 +218,9 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv1alpha2.VirtualMachi
 	}
 
 	// Save IP to the in-memory cache to restore IP later.
-	vmiKey := fmt.Sprintf("%s/%s", vm.GetNamespace(), vm.GetName())
+	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
 	m.vmIPsLock.Lock()
-	m.vmIPs[vmiKey] = vmIP
+	m.vmIPs[vmKey] = vmIP
 	m.vmIPsLock.Unlock()
 
 	// Retrieve a Cilium Node by VMs node name.
@@ -275,15 +278,7 @@ func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
 	return ""
 }
 
-func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
-	// Check if IP is in cache. Do not delete routes for unknown IPs.
-	vmKey := fmt.Sprintf("%s/%s", vm.GetNamespace(), vm.GetName())
-
-	// Get IP either from Status, or from cache.
-	var vmIP string
-	if vm != nil {
-		vmIP = vm.Status.IPAddress
-	}
+func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	if vmIP == "" {
 		// Try to recover IP from the cache.
 		m.vmIPsLock.RLock()
@@ -291,7 +286,7 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 		m.vmIPsLock.RUnlock()
 	}
 	if vmIP == "" {
-		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %s/%s, it may lead to stale routes.", vm.GetNamespace(), vm.GetName()))
+		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %q, it may lead to stale routes.", vmKey.String()))
 		return
 	}
 
@@ -299,7 +294,7 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
 	_, vmRouteDst, err := net.ParseCIDR(netutil.AppendHostNetmask(vmIP))
 	if err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %s/%s", vmIPWithNetmask, vm.GetNamespace(), vm.GetName()))
+		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %q", vmIPWithNetmask, vmKey.String()))
 		return
 	}
 
@@ -308,10 +303,10 @@ func (m *Manager) DeleteRoute(vm *virtv1alpha2.VirtualMachine) {
 		Table: m.tableId,
 	}
 
-	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) {
+	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) && !errors.Is(err, unix.ESRCH) {
 		m.log.Error(err, "failed to delete route")
 	}
-	m.log.Info(fmt.Sprintf("route %s deleted for VM %s/%s", fmtRoute(route), vmKey))
+	m.log.Info(fmt.Sprintf("route %s deleted for VM %q", fmtRoute(route), vmKey))
 
 	// Delete IP from the cache.
 	m.vmIPsLock.Lock()
