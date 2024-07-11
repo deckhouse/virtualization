@@ -389,11 +389,17 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 	}
 
 	// Step 2. Rewrite response JSON.
+	statusCode := resp.StatusCode
 	rwrBodyBytes, err := h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, FromTargetAction(h.ProxyMode))
-	if err != nil {
+	if err != nil && err != rewriter.SkipItem {
 		logger.Error("Error rewriting response", logutil.SlogErr(err))
 		http.Error(w, "can't rewrite response", http.StatusInternalServerError)
 		return
+	}
+	// Return NotFound Status object if rewriter decides to skip resource.
+	if err != nil && err == rewriter.SkipItem {
+		rwrBodyBytes = notFoundJSON(targetReq.OrigResourceType(), origBodyBytes)
+		statusCode = http.StatusNotFound
 	}
 
 	if targetReq.IsWebhook() {
@@ -409,7 +415,7 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 	if rwrBodyBytes != nil {
 		w.Header().Set("Content-Length", strconv.Itoa(len(rwrBodyBytes)))
 	}
-	w.WriteHeader(resp.StatusCode)
+	w.WriteHeader(statusCode)
 
 	// Step 4. Write non-empty rewritten body to the client.
 	if rwrBodyBytes != nil {
@@ -455,4 +461,25 @@ func (iw *immediateWriter) Write(p []byte) (n int, err error) {
 	}
 
 	return
+}
+
+// notFoundJSON constructs Status response of type NotFound
+// for resourceType and object name.
+// Example:
+//
+//	{
+//		"kind":"Status",
+//		"apiVersion":"v1",
+//		"metadata":{},
+//		"status":"Failure",
+//		"message":"pods \"vmi-router-x9mqwdqwd\" not found",
+//		"reason":"NotFound",
+//		"details":{"name":"vmi-router-x9mqwdqwd","kind":"pods"},
+//		"code":404}
+func notFoundJSON(resourceType string, obj []byte) []byte {
+	objName := gjson.GetBytes(obj, "metadata.name").String()
+	details := fmt.Sprintf(`"details":{"name":"%s","kind":"%s"}`, objName, resourceType)
+	message := fmt.Sprintf(`"message":"%s %s not found"`, resourceType, objName)
+	notFoundTpl := `{"kind":"Status","apiVersion":"v1",%s,%s,"metadata":{},"status":"Failure","reason":"NotFound","code":404}`
+	return []byte(fmt.Sprintf(notFoundTpl, message, details))
 }

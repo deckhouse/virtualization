@@ -104,13 +104,13 @@ func RenameMetadataPatch(rules *RewriteRules, patch []byte) ([]byte, error) {
 
 func RewriteLabelsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
 	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
-		return rules.LabelsRewriter().Rewrite(k, action), v
+		return rules.LabelsRewriter().RewriteNameValue(k, v, action)
 	})
 }
 
 func RewriteAnnotationsMap(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
 	return RewriteMapStringString(obj, path, func(k, v string) (string, string) {
-		return rules.AnnotationsRewriter().Rewrite(k, action), v
+		return rules.AnnotationsRewriter().RewriteNameValue(k, v, action)
 	})
 }
 

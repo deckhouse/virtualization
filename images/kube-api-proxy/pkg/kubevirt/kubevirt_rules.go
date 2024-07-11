@@ -44,6 +44,22 @@ var KubevirtRewriteRules = &RewriteRules{
 			// Special cases.
 			{Original: "node-labeller.kubevirt.io/skip-node", Renamed: "node-labeller." + rootPrefix + "/skip-node"},
 			{Original: "node-labeller.kubevirt.io/obsolete-host-model", Renamed: "node-labeller." + internalPrefix + "/obsolete-host-model"},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "cdi-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "cdi-operator-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "cdi-controller",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "cdi-controller-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "virt-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "virt-operator-internal-virtualization",
+			},
+			{
+				Original: "app.kubernetes.io/managed-by", OriginalValue: "kubevirt-operator",
+				Renamed: "app.kubernetes.io/managed-by", RenamedValue: "kubevirt-operator-internal-virtualization",
+			},
 		},
 		Prefixes: []MetadataReplaceRule{
 			// CDI related labels.
@@ -83,6 +99,26 @@ var KubevirtRewriteRules = &RewriteRules{
 		Prefixes: []MetadataReplaceRule{
 			{Original: "kubevirt.io", Renamed: "kubevirt." + internalPrefix},
 			{Original: "operator.cdi.kubevirt.io", Renamed: "operator.cdi." + internalPrefix},
+		},
+	},
+	Excludes: []ExcludeRule{
+		ExcludeRule{
+			Kinds: []string{
+				"PersistentVolumeClaim",
+				"PersistentVolume",
+				"Pod",
+			},
+			MatchLabels: map[string]string{
+				"app.kubernetes.io/managed-by": "cdi-controller",
+			},
+		},
+		ExcludeRule{
+			Kinds: []string{
+				"CDI",
+			},
+			MatchNames: []string{
+				"cdi",
+			},
 		},
 	},
 }

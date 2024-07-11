@@ -120,20 +120,25 @@ func (s *StreamHandler) proxy() {
 			// There is nothing to send to the client: no event decoded.
 		} else {
 			rwrEvent, err = s.transformWatchEvent(&got)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("Watch event '%s': transform error", got.Type), logutil.SlogErr(err))
-				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
-			}
-			if rwrEvent == nil {
-				// No rewrite, pass original event as-is.
-				rwrEvent = &got
+			if err != nil && err == rewriter.SkipItem {
+				s.log.Warn(fmt.Sprintf("Watch event '%s': skipped by rewriter", got.Type), logutil.SlogErr(err))
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s' skipped", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
 			} else {
-				// Log changes after rewrite.
-				logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.OrigResourceType(), got.Object.Raw, rwrEvent.Object.Raw)
+				if err != nil {
+					s.log.Error(fmt.Sprintf("Watch event '%s': transform error", got.Type), logutil.SlogErr(err))
+					logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
+				}
+				if rwrEvent == nil {
+					// No rewrite, pass original event as-is.
+					rwrEvent = &got
+				} else {
+					// Log changes after rewrite.
+					logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.OrigResourceType(), got.Object.Raw, rwrEvent.Object.Raw)
+				}
+				// Pass event to the client.
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.OrigResourceType(), rwrEvent.Object.Raw)
+				s.writeEvent(rwrEvent)
 			}
-			// Pass event to the client.
-			logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.OrigResourceType(), rwrEvent.Object.Raw)
-			s.writeEvent(rwrEvent)
 		}
 
 		// Check if application is stopped before waiting for the next event.
@@ -217,6 +222,9 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.Watc
 		rwrObjBytes, err = s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
 	}
 	if err != nil {
+		if err == rewriter.SkipItem {
+			return nil, err
+		}
 		return nil, fmt.Errorf("rewrite object in WatchEvent '%s': %w", ev.Type, err)
 	}
 

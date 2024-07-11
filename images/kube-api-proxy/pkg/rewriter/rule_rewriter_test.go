@@ -100,6 +100,10 @@ func createTestRewriter() *RuleBasedRewriter {
 			},
 			Names: []MetadataReplaceRule{
 				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
+				{
+					Original: "labelgroup.io", OriginalValue: "labelValueToRename",
+					Renamed: "replacedlabelgroup.io", RenamedValue: "renamedLabelValue",
+				},
 			},
 		},
 		Annotations: MetadataReplace{
@@ -192,6 +196,24 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			"/apis/apps/v1/deployments?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValue%29&limit=500",
 			"/apis/apps/v1/deployments",
 			"labelSelector=replacedlabelgroup.io+notin+%28labelValue%2Cvalue-one%29&limit=500",
+		},
+		{
+			"labelSelector label name and renamed value",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io%3DlabelValueToRename&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=replacedlabelgroup.io%3DrenamedLabelValue&limit=500",
+		},
+		{
+			"labelSelector label name and renamed values",
+			"/api/v1/namespaces/d8-virtualization/pods?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValueToRename%29&limit=500",
+			"/api/v1/namespaces/d8-virtualization/pods",
+			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
+		},
+		{
+			"labelSelector label name and renamed values for deployments",
+			"/apis/apps/v1/deployments?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValueToRename%29&limit=500",
+			"/apis/apps/v1/deployments",
+			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
 		},
 	}
 

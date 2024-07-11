@@ -12,6 +12,7 @@ tasks:
       - task: status
 
   status:
+    desc: "Show git status in cloned repo"
     cmds:
       - |
         dir=$(find . -type d -name __kubevirt_\* -depth 1 | head -n1)
@@ -25,6 +26,7 @@ tasks:
         git status
 
   cleanup:
+    desc: "Remove cloned kubevirt git repo"
     cmds:
       - |
         find . -type d -name __kubevirt_\* -depth 1

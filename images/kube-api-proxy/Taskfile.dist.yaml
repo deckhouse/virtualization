@@ -11,6 +11,9 @@ vars:
   DevRegistry: "dev-registry.deckhouse.io/virt/dev/$USER"
 
 tasks:
+  default:
+    cmds:
+      - task: dev:status
   dev:build:
     desc: "build latest image with proxy and test-controller"
     cmds:
@@ -27,7 +30,7 @@ tasks:
           exit 1
         fi
       - |
-        kubectl -n kproxy apply -f local/proxy.yaml
+        cat local/proxy.yaml | USER=${USER} envsubst | kubectl -n kproxy apply -f -
 
   dev:restart:
     desc: "restart deployment"

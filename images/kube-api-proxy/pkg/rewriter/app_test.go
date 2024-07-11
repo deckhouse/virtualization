@@ -90,6 +90,10 @@ func createTestRewriterForApp() *RuleBasedRewriter {
 			},
 			Names: []MetadataReplaceRule{
 				{Original: "labelgroup.io", Renamed: "replacedlabelgroup.io"},
+				{
+					Original: "labelgroup.io", OriginalValue: "some-value",
+					Renamed: "replacedlabelgroup.io", RenamedValue: "some-value-renamed",
+				},
 			},
 		},
 		Annotations: MetadataReplace{
@@ -232,7 +236,9 @@ Host: 127.0.0.1
 		{`metadata.annotations.component\.replacedannogroup\.io/annoName`, "annoValue"},
 		{`metadata.annotations.component\.annogroup\.io/annoName`, ""},
 		{`spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.0.podAffinityTerm.labelSelector.matchExpressions.0.key`, "replacedlabelgroup.io"},
+		{`spec.template.spec.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution.0.podAffinityTerm.labelSelector.matchExpressions.0.values`, `["some-value-renamed"]`},
 		{`spec.template.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution.0.preference.matchExpressions.0.key`, "replacedlabelgroup.io"},
+		{`spec.template.spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution.0.preference.matchExpressions.0.values`, `["some-value-renamed"]`},
 	}
 
 	for _, tt := range tests {
