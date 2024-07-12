@@ -356,6 +356,8 @@ func (app *uploadServerApp) PreallocationApplied() bool {
 }
 
 func (app *uploadServerApp) upload(stream io.ReadCloser, sourceContentType string, dvContentType cdiv1.DataVolumeContentType, contentLength int) error {
+	durCollector := monitoring.NewDurationCollector()
+
 	uds := importer.NewUploadDataSource(newContentReader(stream, sourceContentType), dvContentType, contentLength)
 	defer uds.Close()
 
@@ -374,7 +376,7 @@ func (app *uploadServerApp) upload(stream io.ReadCloser, sourceContentType strin
 		return monitoring.WriteImportFailureMessage(err)
 	}
 
-	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format)
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }
 
 func newContentReader(stream io.ReadCloser, contentType string) io.ReadCloser {

@@ -731,8 +731,13 @@ func (in *VirtualDiskStatsCreationDuration) DeepCopyInto(out *VirtualDiskStatsCr
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.Provisioning != nil {
-		in, out := &in.Provisioning, &out.Provisioning
+	if in.DVCRProvisioning != nil {
+		in, out := &in.DVCRProvisioning, &out.DVCRProvisioning
+		*out = new(v1.Duration)
+		**out = **in
+	}
+	if in.TotalProvisioning != nil {
+		in, out := &in.TotalProvisioning, &out.TotalProvisioning
 		*out = new(v1.Duration)
 		**out = **in
 	}

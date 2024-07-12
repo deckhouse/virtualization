@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -231,6 +232,23 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	return s.IsImportStarted(ownerUID, pod)
+}
+
+func (s StatService) GetImportDuration(pod *corev1.Pod) time.Duration {
+	if pod == nil {
+		return 0
+	}
+
+	report, err := monitoring.GetFinalReportFromPod(pod)
+	if err != nil || report == nil {
+		if !errors.Is(err, monitoring.ErrTerminationMessageNotFound) {
+			s.logger.Error("GetImportDuration: Cannot get final report from pod", "err", err)
+		}
+
+		return 0
+	}
+
+	return report.Duration
 }
 
 func getPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {

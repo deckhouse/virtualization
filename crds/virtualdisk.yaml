@@ -312,10 +312,15 @@ spec:
                           description: |
                             The waiting time for dependent resources.
                           nullable: true
-                        provisioning:
+                        dvcrProvisioning:
                           type: string
                           description: |
-                            The waiting time for the virtual disk to be provisioned (copying/downloading/filling the PVC).
+                            Duration of the loading into DVCR.
+                          nullable: true
+                        totalProvisioning:
+                          type: string
+                          description: |
+                            The duration of resource creation from the moment dependencies are ready until the resource transitions to the Ready state.
                           nullable: true
                 sourceUID:
                   type: string
