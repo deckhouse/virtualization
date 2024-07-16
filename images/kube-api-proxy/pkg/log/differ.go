@@ -31,6 +31,12 @@ func DebugBodyChanges(logger *slog.Logger, msg string, resourceType string, inBy
 		return
 	}
 
+	// No changes were made to inBytes.
+	if rwrBytes == nil {
+		logger.Debug(fmt.Sprintf("%s: no changes after rewrite", msg))
+		return
+	}
+
 	if len(inBytes) == 0 && len(rwrBytes) == 0 {
 		logger.Debug(fmt.Sprintf("%s: empty body", msg))
 		return
@@ -43,7 +49,7 @@ func DebugBodyChanges(logger *slog.Logger, msg string, resourceType string, inBy
 	}
 
 	if len(inBytes) != 0 && len(rwrBytes) == 0 {
-		logger.Error(fmt.Sprintf("%s: non-empty body [%d] produces empty rewrite", msg, len(inBytes)))
+		logger.Error(fmt.Sprintf("%s: possible bug: non-empty body [%d] produces empty rewrite", msg, len(inBytes)))
 		DebugBodyHead(logger, msg, resourceType, inBytes)
 		return
 	}

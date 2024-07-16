@@ -164,9 +164,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if req.Method == http.MethodPatch {
 		logutil.DebugBodyHead(logger, "Request PATCH", "patch", origRequestBytes)
-		if len(rwrRequestBytes) > 0 {
-			logutil.DebugBodyChanges(logger, "Request PATCH", "patch", origRequestBytes, rwrRequestBytes)
-		}
+		logutil.DebugBodyChanges(logger, "Request PATCH", "patch", origRequestBytes, rwrRequestBytes)
 	} else {
 		logutil.DebugBodyChanges(logger, "Request", resource, origRequestBytes, rwrRequestBytes)
 	}
