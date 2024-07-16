@@ -254,5 +254,5 @@ func RenameCRDPatch(rules *RewriteRules, resourceRule *ResourceRule, obj []byte)
 		return obj, nil
 	}
 
-	return newPatches, nil
+	return RenameMetadataPatch(rules, newPatches)
 }

@@ -142,8 +142,8 @@ func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName str
 	return sjson.SetBytes(obj, "kind", rules.RestoreKind(kind))
 }
 
-func RewriteOwnerReferences(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return RewriteArray(obj, "metadata.ownerReferences", func(ownerRefObj []byte) ([]byte, error) {
+func RewriteOwnerReferences(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
+	return RewriteArray(obj, path, func(ownerRefObj []byte) ([]byte, error) {
 		kind := gjson.GetBytes(ownerRefObj, "kind").String()
 		apiVersion := gjson.GetBytes(ownerRefObj, "apiVersion").String()
 

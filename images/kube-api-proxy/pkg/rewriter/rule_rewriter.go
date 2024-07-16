@@ -311,12 +311,9 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	// Always rewrite metadata: labels, annotations, finalizers, ownerReferences.
 	// TODO: add rewriter for managedFields.
 	return RewriteResourceOrList2(rwrBytes, func(singleObj []byte) ([]byte, error) {
-		var err error
-		singleObj, err = RewriteMetadata(rw.Rules, singleObj, action)
-		if err != nil {
-			return nil, err
-		}
-		return RewriteOwnerReferences(rw.Rules, singleObj, action)
+		return TransformObject(singleObj, "metadata", func(metadataObj []byte) ([]byte, error) {
+			return RewriteMetadata(rw.Rules, metadataObj, action)
+		})
 	})
 }
 
