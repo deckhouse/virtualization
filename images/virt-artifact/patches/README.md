@@ -61,3 +61,11 @@ Do not create Kubevirt APIService.
 
 #### `015-rename-core-resources.patch`
 Replace "kubevirt" with "kubevirt-internal-virtualziation" in the core resource names.
+
+#### `016-rename-apigroups-in-starred-rbac.patch`
+
+Rename apiGroup to internal.virtualization.deckhouse.io for ClusterRole for virt-controller to prevent permanent patching:
+
+```
+{"component":"virt-operator","level":"info","msg":"clusterrole kubevirt-internal-virtualization-controller patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.138751Z"}
+```

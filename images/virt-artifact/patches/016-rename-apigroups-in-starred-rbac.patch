@@ -1,0 +1,40 @@
+diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
+index 8b8313112..558eb7568 100644
+--- a/pkg/virt-operator/resource/generate/rbac/controller.go
++++ b/pkg/virt-operator/resource/generate/rbac/controller.go
+@@ -314,7 +314,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 					"snapshot.kubevirt.io",
+ 				},
+ 				Resources: []string{
+-					"*",
++					"virtualmachinerestores", "virtualmachinesnapshotcontents", "virtualmachinesnapshots", "virtualmachinerestores/status", "virtualmachinesnapshotcontents/status", "virtualmachinesnapshots/status", "virtualmachinerestores/finalizers", "virtualmachinesnapshotcontents/finalizers", "virtualmachinesnapshots/finalizers",
+ 				},
+ 				Verbs: []string{
+ 					"*",
+@@ -325,7 +325,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 					"export.kubevirt.io",
+ 				},
+ 				Resources: []string{
+-					"*",
++					"virtualmachineexports", "virtualmachineexports/status", "virtualmachineexports/finalizers",
+ 				},
+ 				Verbs: []string{
+ 					"*",
+@@ -357,7 +357,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 					"kubevirt.io",
+ 				},
+ 				Resources: []string{
+-					"*",
++					"kubevirts", "virtualmachines", "virtualmachineinstances", "virtualmachineinstancemigrations", "virtualmachineinstancepresets", "virtualmachineinstancereplicasets", "kubevirts/status", "virtualmachines/status", "virtualmachineinstances/status", "virtualmachineinstancemigrations/status", "virtualmachineinstancepresets/status", "virtualmachineinstancereplicasets/status", "kubevirts/finalizers", "virtualmachines/finalizers", "virtualmachineinstances/finalizers", "virtualmachineinstancemigrations/finalizers", "virtualmachineinstancepresets/finalizers", "virtualmachineinstancereplicasets/finalizers",
+ 				},
+ 				Verbs: []string{
+ 					"*",
+@@ -383,7 +383,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
+ 					"cdi.kubevirt.io",
+ 				},
+ 				Resources: []string{
+-					"*",
++					"cdiconfigs", "cdis", "dataimportcrons", "datasources", "datavolumes", "objecttransfers", "storageprofiles", "volumeclonesources", "volumeimportsources", "volumeuploadsources", "cdiconfigs/status", "cdis/status", "dataimportcrons/status", "datasources/status", "datavolumes/status", "objecttransfers/status", "storageprofiles/status", "volumeclonesources/status", "volumeimportsources/status", "volumeuploadsources/status", "cdiconfigs/finalizers", "cdis/finalizers", "dataimportcrons/finalizers", "datasources/finalizers", "datavolumes/finalizers", "objecttransfers/finalizers", "storageprofiles/finalizers", "volumeclonesources/finalizers", "volumeimportsources/finalizers", "volumeuploadsources/finalizers",
+ 				},
+ 				Verbs: []string{
+ 					"*",
