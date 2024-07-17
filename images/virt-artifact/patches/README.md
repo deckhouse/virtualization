@@ -78,6 +78,9 @@ Rename apiGroup to internal.virtualization.deckhouse.io for ClusterRole for virt
 {"component":"virt-operator","level":"info","msg":"clusterrole kubevirt-internal-virtualization-controller patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.138751Z"}
 ```
 
+#### `017-fix-vmi-subresource-url.patch`
+
+Use virtualization-api instead subresources.kubevirt.io for vmi operations.
 
 #### `018-rename-devices-kubevirt-io.patch`
 
@@ -85,3 +88,6 @@ Rename additional resources previded with Device Plugin API to not overlap with 
 
 Rename unix-socket path used for register devices.
 
+#### `/019-remove-deprecation-warnings-from-crds.patch`
+
+Virtualization-controller don't use deprecated versions. Deprecation warning are distracting in our case.
