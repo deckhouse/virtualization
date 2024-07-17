@@ -124,7 +124,8 @@ spec:
     # Patch was produced with this jq command:
     # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # virt-api-webhook-proxy service is created separately.
-    - resourceName: virt-api-validator
+    # NOTE virt-api-validator is renamed to virt-internal-virtualization-api-validator.
+    - resourceName: virt-internal-virtualization-api-validator
       resourceType: ValidatingWebhookConfiguration
       patch: |
         {
@@ -212,7 +213,8 @@ spec:
     # Patch was produced with this jq command:
     # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # virt-api-webhook-proxy service is created separately.
-    - resourceName: virt-api-mutator
+    # NOTE virt-api-mutator is renamed to virt-internal-virtualization-api-mutator.
+    - resourceName: virt-internal-virtualization-api-mutator
       resourceType: MutatingWebhookConfiguration
       patch: |
         {
@@ -238,9 +240,10 @@ spec:
       type: strategic
     # Change service in webhook configuration to point to the rewriter proxy.
     # Patch was produced with this jq command:
-    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-operator-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-internal-virtualization-operator-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
     # kubevirt-operator-webhook-proxy service is created separately.
-    - resourceName: virt-operator-validator
+    # NOTE: original virt-operator-validator is renamed to virt-internal-virtualization-operator-validator.
+    - resourceName: virt-internal-virtualization-operator-validator
       resourceType: ValidatingWebhookConfiguration
       patch: |
         {

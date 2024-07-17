@@ -18,6 +18,8 @@ package rewriter
 
 import (
 	"strings"
+
+	"github.com/tidwall/gjson"
 )
 
 type RewriteRules struct {
@@ -31,6 +33,7 @@ type RewriteRules struct {
 	Labels             MetadataReplace         `json:"labels"`
 	Annotations        MetadataReplace         `json:"annotations"`
 	Finalizers         MetadataReplace         `json:"finalizers"`
+	Excludes           []ExcludeRule           `json:"excludes"`
 
 	// TODO move these indexed rewriters into the RuleBasedRewriter.
 	labelsRewriter      *PrefixedNameRewriter
@@ -43,6 +46,17 @@ func (rr *RewriteRules) Init() {
 	rr.labelsRewriter = NewPrefixedNameRewriter(rr.Labels)
 	rr.annotationsRewriter = NewPrefixedNameRewriter(rr.Annotations)
 	rr.finalizersRewriter = NewPrefixedNameRewriter(rr.Finalizers)
+
+	// Add all original Kinds and KindList as implicit excludes.
+	originalKinds := make([]string, 0)
+	for _, apiGroupRule := range rr.Rules {
+		for _, resourceRule := range apiGroupRule.ResourceRules {
+			originalKinds = append(originalKinds, resourceRule.Kind, resourceRule.ListKind)
+		}
+	}
+	if len(originalKinds) > 0 {
+		rr.Excludes = append(rr.Excludes, ExcludeRule{Kinds: originalKinds})
+	}
 }
 
 type APIGroupRule struct {
@@ -79,8 +93,16 @@ type MetadataReplace struct {
 }
 
 type MetadataReplaceRule struct {
-	Original string `json:"original"`
-	Renamed  string `json:"renamed"`
+	Original      string `json:"original"`
+	Renamed       string `json:"renamed"`
+	OriginalValue string `json:"originalValue"`
+	RenamedValue  string `json:"renamedValue"`
+}
+
+type ExcludeRule struct {
+	Kinds       []string          `json:"kinds"`
+	MatchNames  []string          `json:"matchNames"`
+	MatchLabels map[string]string `json:"matchLabels"`
 }
 
 // GetAPIGroupList returns an array of groups in format applicable to use in APIGroupList:
@@ -287,4 +309,65 @@ func (rr *RewriteRules) AnnotationsRewriter() *PrefixedNameRewriter {
 
 func (rr *RewriteRules) FinalizersRewriter() *PrefixedNameRewriter {
 	return rr.finalizersRewriter
+}
+
+// ShouldExclude returns true if object should be excluded from response back to the client.
+// Set kind when obj has no kind, e.g. a list item.
+func (rr *RewriteRules) ShouldExclude(obj []byte, kind string) bool {
+	for _, exclude := range rr.Excludes {
+		if exclude.Match(obj, kind) {
+			return true
+		}
+	}
+	return false
+}
+
+// Match returns true if object matches all conditions in the exclude rule.
+func (r ExcludeRule) Match(obj []byte, kind string) bool {
+	objKind := kind
+	if objKind == "" {
+		objKind = gjson.GetBytes(obj, "kind").String()
+	}
+	kindMatch := len(r.Kinds) == 0
+	for _, kind := range r.Kinds {
+		if objKind == kind {
+			kindMatch = true
+			break
+		}
+	}
+
+	objLabels := mapStringStringFromBytes(obj, "metadata.labels")
+	matchLabels := len(r.MatchLabels) == 0 || mapContainsMap(objLabels, r.MatchLabels)
+
+	matchName := len(r.MatchNames) == 0
+	objName := gjson.GetBytes(obj, "metadata.name").String()
+	for _, name := range r.MatchNames {
+		if objName == name {
+			matchName = true
+			break
+		}
+	}
+
+	// Return true if every condition match.
+	return kindMatch && matchLabels && matchName
+}
+
+func mapStringStringFromBytes(obj []byte, path string) map[string]string {
+	result := make(map[string]string)
+	for field, value := range gjson.GetBytes(obj, path).Map() {
+		result[field] = value.String()
+	}
+	return result
+}
+
+func mapContainsMap(obj, match map[string]string) bool {
+	if len(match) == 0 {
+		return true
+	}
+	for k, v := range match {
+		if obj[k] != v {
+			return false
+		}
+	}
+	return true
 }

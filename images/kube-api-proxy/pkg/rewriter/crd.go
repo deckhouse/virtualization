@@ -62,6 +62,12 @@ func RestoreCRD(rules *RewriteRules, obj []byte) ([]byte, error) {
 	if !found {
 		return nil, fmt.Errorf("malformed CRD name: should be resourcetype.group, got %s", crdName)
 	}
+
+	// Skip CRD with original group to avoid duplicates in restored List.
+	if rules.HasGroup(group) {
+		return nil, SkipItem
+	}
+
 	// Do not restore CRDs in unknown groups.
 	if group != rules.RenamedGroup {
 		return nil, nil
@@ -218,6 +224,11 @@ func renameCRDSpec(rules *RewriteRules, resourceRule *ResourceRule, spec []byte)
 func RenameCRDPatch(rules *RewriteRules, resourceRule *ResourceRule, obj []byte) ([]byte, error) {
 	var err error
 
+	obj, err = RenameMetadataPatch(rules, obj)
+	if err != nil {
+		return nil, fmt.Errorf("rename metadata patches for CRD: %w", err)
+	}
+
 	patches := gjson.ParseBytes(obj).Array()
 	if len(patches) == 0 {
 		return obj, nil
@@ -254,5 +265,5 @@ func RenameCRDPatch(rules *RewriteRules, resourceRule *ResourceRule, obj []byte)
 		return obj, nil
 	}
 
-	return RenameMetadataPatch(rules, newPatches)
+	return newPatches, nil
 }

@@ -16,6 +16,11 @@ limitations under the License.
 
 package rewriter
 
+import (
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+)
+
 // RewriteAffinity renames or restores labels in labelSelector of affinity structure.
 // See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
 func RewriteAffinity(rules *RewriteRules, obj []byte, path string, action Action) ([]byte, error) {
@@ -87,9 +92,20 @@ func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]
 // Selector requirement example:
 // {"key":"app.kubernetes.io/managed-by", "operator": "In", "values": ["Helm"]}
 func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	return TransformString(obj, "key", func(field string) string {
-		return rules.LabelsRewriter().Rewrite(field, action)
-	})
+	key := gjson.GetBytes(obj, "key").String()
+	valuesArr := gjson.GetBytes(obj, "values").Array()
+	values := make([]string, 0, len(valuesArr))
+	for _, value := range valuesArr {
+		values = append(values, value.String())
+	}
+	rwrKey, rwrValues := rules.LabelsRewriter().RewriteNameValues(key, values, action)
+
+	obj, err := sjson.SetBytes(obj, "key", rwrKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return sjson.SetBytes(obj, "values", rwrValues)
 }
 
 // rewritePodAffinity rewrites PodAffinity and PodAntiAffinity structures.

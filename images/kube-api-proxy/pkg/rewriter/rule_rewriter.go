@@ -206,7 +206,7 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 	rwrMatchExpressions := make([]metav1.LabelSelectorRequirement, 0)
 	for _, expr := range labelSelector.MatchExpressions {
 		rwrExpr := expr
-		rwrExpr.Key = rw.Rules.LabelsRewriter().Rename(rwrExpr.Key)
+		rwrExpr.Key, rwrExpr.Values = rw.Rules.LabelsRewriter().RewriteNameValues(rwrExpr.Key, rwrExpr.Values, Rename)
 		rwrMatchExpressions = append(rwrMatchExpressions, rwrExpr)
 	}
 
@@ -232,20 +232,10 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 	var rwrBytes []byte
 	var err error
 
-	//// Handle core resources: rewrite only for specific kind.
-	//if targetReq.IsCore() {
-	//	pass := true
-	//	switch kind {
-	//	case "APIGroupList":
-	//	case "APIGroup":
-	//	case "APIResourceList":
-	//	default:
-	//		pass = shouldPassCoreResource(kind)
-	//	}
-	//	if pass {
-	//		return obj, nil
-	//	}
-	//}
+	obj, err = rw.FilterExcludes(obj, action)
+	if err != nil {
+		return obj, err
+	}
 
 	switch kind {
 	case "APIGroupList":
@@ -349,6 +339,39 @@ func (rw *RuleBasedRewriter) RewritePatch(targetReq *TargetRequest, patchBytes [
 	return RenameMetadataPatch(rw.Rules, patchBytes)
 }
 
+// FilterExcludes removes excluded resources from the list or return SkipItem if resource itself is excluded.
+func (rw *RuleBasedRewriter) FilterExcludes(obj []byte, action Action) ([]byte, error) {
+	if action != Restore {
+		return obj, nil
+	}
+
+	kind := gjson.GetBytes(obj, "kind").String()
+	if !isExcludableKind(kind) {
+		return obj, nil
+	}
+
+	if rw.Rules.ShouldExclude(obj, kind) {
+		return obj, SkipItem
+	}
+
+	// Also check each item if obj is List
+	if !strings.HasSuffix(kind, "List") {
+		return obj, nil
+	}
+
+	singleKind := strings.TrimSuffix(kind, "List")
+	obj, err := RewriteResourceOrList2(obj, func(singleObj []byte) ([]byte, error) {
+		if rw.Rules.ShouldExclude(singleObj, singleKind) {
+			return nil, SkipItem
+		}
+		return nil, nil
+	})
+	if err != nil {
+		return obj, err
+	}
+	return obj, nil
+}
+
 func shouldRewriteOwnerReferences(resourceType string) bool {
 	switch resourceType {
 	case CRDKind, CRDListKind,
@@ -376,4 +399,20 @@ func shouldRewriteOwnerReferences(resourceType string) bool {
 	}
 
 	return false
+}
+
+// isExcludeKind returns true if kind may be excluded from rewriting.
+// Discovery kinds and AdmissionReview have special schemas, it is sane to
+// exclude resources in particular rewriters.
+func isExcludableKind(kind string) bool {
+	switch kind {
+	case "APIGroupList",
+		"APIGroup",
+		"APIResourceList",
+		"APIGroupDiscoveryList",
+		"AdmissionReview":
+		return false
+	}
+
+	return true
 }
