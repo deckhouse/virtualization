@@ -30,6 +30,7 @@ import (
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -48,6 +49,7 @@ type VirtualMachineState interface {
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 	CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error)
+	Shared(fn func(s *Shared))
 }
 
 func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
@@ -55,7 +57,7 @@ func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.Vi
 }
 
 type state struct {
-	client    client.Client
+	client         client.Client
 	mu        sync.RWMutex
 	vm        *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	kvvm      *virtv1.VirtualMachine
@@ -67,6 +69,17 @@ type state struct {
 	cviByName map[string]*virtv2.ClusterVirtualImage
 	ipAddress *virtv2.VirtualMachineIPAddress
 	cpuModel  *virtv2.VirtualMachineCPUModel
+	shared         Shared
+}
+
+type Shared struct {
+	ShutdownInfo powerstate.ShutdownInfo
+}
+
+func (s *state) Shared(fn func(s *Shared)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	fn(&s.shared)
 }
 
 func (s *state) VirtualMachine() *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus] {

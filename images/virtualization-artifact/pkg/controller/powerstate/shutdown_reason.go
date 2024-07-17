@@ -24,27 +24,29 @@ import (
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
+type GuestSignalReason string
+
 const (
 	// DefaultVMContainerName - a container name with virt-launcher, libvirt and qemu processes.
 	DefaultVMContainerName = "compute"
 
 	// GuestResetReason - a reboot command was issued from inside the VM.
-	GuestResetReason = "guest-reset"
+	GuestResetReason GuestSignalReason = "guest-reset"
 
 	// GuestShutdownReason - a poweroff command was issued from inside the VM.
-	GuestShutdownReason = "guest-shutdown"
+	GuestShutdownReason GuestSignalReason = "guest-shutdown"
 )
 
 // ShutdownReason returns a shutdown reason from the Completed Pod with VM:
 // - guest-reset — reboot was issued inside the VM
 // - guest-shutdown — poweroff was issued inside the VM
 // - empty string means VM is still Running or was exited without event.
-func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) (bool, string) {
+func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) ShutdownInfo {
 	if kvvmi == nil || kvvmi.Status.Phase != kvv1.Succeeded {
-		return false, ""
+		return ShutdownInfo{}
 	}
 	if kvPods == nil || len(kvPods.Items) == 0 {
-		return false, ""
+		return ShutdownInfo{}
 	}
 
 	// Sort Pods in descending order to operate on the most recent Pod.
@@ -54,7 +56,7 @@ func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) 
 	recentPod := kvPods.Items[0]
 	// Power events are not available in Running state, only Completed Pod has termination message.
 	if recentPod.Status.Phase != corev1.PodSucceeded {
-		return false, ""
+		return ShutdownInfo{}
 	}
 
 	// Extract termination mesage from the "compute" container.
@@ -70,13 +72,19 @@ func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) 
 		if contStatus.State.Terminated != nil {
 			msg = contStatus.State.Terminated.Message
 		}
-		if strings.Contains(msg, GuestResetReason) {
-			return true, GuestResetReason
+		if strings.Contains(msg, string(GuestResetReason)) {
+			return ShutdownInfo{PodCompeted: true, Reason: GuestResetReason, Pod: recentPod}
 		}
-		if strings.Contains(msg, GuestShutdownReason) {
-			return true, GuestShutdownReason
+		if strings.Contains(msg, string(GuestShutdownReason)) {
+			return ShutdownInfo{PodCompeted: true, Reason: GuestShutdownReason, Pod: recentPod}
 		}
 	}
 
-	return true, ""
+	return ShutdownInfo{PodCompeted: true, Pod: recentPod}
+}
+
+type ShutdownInfo struct {
+	Reason      GuestSignalReason
+	PodCompeted bool
+	Pod         corev1.Pod
 }

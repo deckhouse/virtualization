@@ -57,6 +57,7 @@ func NewController(
 		internal.NewBlockDeviceHandler(client, recorder, logger),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
+		internal.NewPodHandler(client),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, logger),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder, logger),

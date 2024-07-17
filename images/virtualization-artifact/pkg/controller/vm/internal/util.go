@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -135,4 +136,8 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	// the virtual machine volume are still not bound.
 	virtv1.VirtualMachineStatusWaitingForVolumeBinding: virtv2.MachinePending,
 	kvvmEmptyPhase: virtv2.MachinePending,
+}
+
+func podFinal(pod corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
