@@ -44,19 +44,11 @@ spec:
       type: json
     - resourceType: Deployment
       resourceName: virt-api
-      patch: '[{"op":"add","path":"/spec/template/metadata/annotations/kubectl.kubernetes.io~1default-container","value":"virt-api"}]'
-      type: json
-    - resourceType: Deployment
-      resourceName: virt-api
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
     - resourceType: Deployment
       resourceName: virt-controller
       patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorSystem }}}]'
-      type: json
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: '[{"op":"add","path":"/spec/template/metadata/annotations/kubectl.kubernetes.io~1default-container","value":"virt-controller"}]'
       type: json
     - resourceType: Deployment
       resourceName: virt-controller
@@ -66,17 +58,9 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      patch: '[{"op":"add","path":"/spec/template/metadata/annotations/kubectl.kubernetes.io~1default-container","value":"virt-handler"}]'
-      type: json
     - resourceType: Deployment
       resourceName: virt-exportproxy
       patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
-      type: json
-    - resourceType: Deployment
-      resourceName: virt-exportproxy
-      patch: '[{"op":"add","path":"/spec/template/metadata/annotations/kubectl.kubernetes.io~1default-container","value":"virt-exportproxy"}]'
       type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment

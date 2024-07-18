@@ -56,8 +56,8 @@ spec:
       labels:
         app: virtualization-controller
       annotations:
-        kubectl.kubernetes.io/default-container: virtualization-controller
         checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/secret-tls.yaml") . | sha256sum }}
+        kubectl.kubernetes.io/default-container: virtualization-controller
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
       containers:
