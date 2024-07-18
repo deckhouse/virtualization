@@ -94,9 +94,9 @@ func rewriteNodeSelectorTerm(rules *RewriteRules, obj []byte, action Action) ([]
 func rewriteSelectorRequirement(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	key := gjson.GetBytes(obj, "key").String()
 	valuesArr := gjson.GetBytes(obj, "values").Array()
-	values := make([]string, 0, len(valuesArr))
-	for _, value := range valuesArr {
-		values = append(values, value.String())
+	values := make([]string, len(valuesArr))
+	for i, value := range valuesArr {
+		values[i] = value.String()
 	}
 	rwrKey, rwrValues := rules.LabelsRewriter().RewriteNameValues(key, values, action)
 
