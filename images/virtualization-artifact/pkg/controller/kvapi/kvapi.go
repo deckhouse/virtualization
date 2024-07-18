@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 type Kubevirt interface {
@@ -45,15 +44,18 @@ type KvApi struct {
 	kubevirt Kubevirt
 }
 
-func (api *KvApi) AddVolume(ctx context.Context, namespace, name string, opts *virtv1.AddVolumeOptions) error {
-	return api.addVolume(ctx, namespace, name, opts)
+func (api *KvApi) AddVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
+	return api.addVolume(ctx, kvvm, opts)
 }
 
-func (api *KvApi) RemoveVolume(ctx context.Context, namespace, name string, opts *virtv1.RemoveVolumeOptions) error {
-	return api.removeVolume(ctx, namespace, name, opts)
+func (api *KvApi) RemoveVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
+	return api.removeVolume(ctx, kvvm, opts)
 }
 
-func (api *KvApi) addVolume(ctx context.Context, namespace, name string, opts *virtv1.AddVolumeOptions) error {
+func (api *KvApi) addVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
+	if kvvm == nil {
+		return nil
+	}
 	if !api.kubevirt.HotplugVolumesEnabled() {
 		return fmt.Errorf("unable to add volume because HotplugVolumes feature gate is not enabled")
 	}
@@ -80,10 +82,13 @@ func (api *KvApi) addVolume(ctx context.Context, namespace, name string, opts *v
 		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
 	}
 
-	return api.vmVolumePatchStatus(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &volumeRequest)
+	return api.vmVolumePatchStatus(ctx, kvvm, &volumeRequest)
 }
 
-func (api *KvApi) removeVolume(ctx context.Context, namespace, name string, opts *virtv1.RemoveVolumeOptions) error {
+func (api *KvApi) removeVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
+	if kvvm == nil {
+		return nil
+	}
 	if !api.kubevirt.HotplugVolumesEnabled() {
 		return fmt.Errorf("unable to remove volume because HotplugVolumes feature gate is not enabled")
 	}
@@ -96,26 +101,25 @@ func (api *KvApi) removeVolume(ctx context.Context, namespace, name string, opts
 		RemoveVolumeOptions: opts,
 	}
 
-	return api.vmVolumePatchStatus(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &volumeRequest)
+	return api.vmVolumePatchStatus(ctx, kvvm, &volumeRequest)
 }
 
-func (api *KvApi) vmVolumePatchStatus(ctx context.Context, key types.NamespacedName, volumeRequest *virtv1.VirtualMachineVolumeRequest) error {
-	vm, err := helper.FetchObject(ctx, key, api.Client, &virtv1.VirtualMachine{})
-	if err != nil {
-		return err
+func (api *KvApi) vmVolumePatchStatus(ctx context.Context, kvvm *virtv1.VirtualMachine, volumeRequest *virtv1.VirtualMachineVolumeRequest) error {
+	if kvvm == nil {
+		return nil
 	}
-	err = verifyVolumeOption(vm.Spec.Template.Spec.Volumes, volumeRequest)
+	err := verifyVolumeOption(kvvm.Spec.Template.Spec.Volumes, volumeRequest)
 	if err != nil {
 		return err
 	}
 
-	jp, err := generateVMVolumeRequestPatch(vm, volumeRequest)
+	jp, err := generateVMVolumeRequestPatch(kvvm, volumeRequest)
 	if err != nil {
 		return err
 	}
 
 	dryRunOption := api.getDryRunOption(volumeRequest)
-	err = api.Client.Status().Patch(ctx, vm,
+	err = api.Client.Status().Patch(ctx, kvvm,
 		client.RawPatch(types.JSONPatchType, []byte(jp)),
 		&client.SubResourcePatchOptions{
 			PatchOptions: client.PatchOptions{DryRun: dryRunOption},
