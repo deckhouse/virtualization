@@ -16,13 +16,6 @@ limitations under the License.
 
 package rewriter
 
-import (
-	"strings"
-
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
-)
-
 const (
 	ClusterRoleKind            = "ClusterRole"
 	ClusterRoleListKind        = "ClusterRoleList"
@@ -90,128 +83,77 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
-	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
-	newGroups := []byte(`[]`)
-	shouldRename := false
-	for _, apiGroup := range apiGroups {
-		group := apiGroup.String()
-		if group == "*" {
-			shouldRename = true
-		} else if rules.HasGroup(group) {
-			group = rules.RenamedGroup
-			shouldRename = true
+	renameResources := false
+	obj, err = TransformArrayOfStrings(obj, "apiGroups", func(apiGroup string) string {
+		if rules.HasGroup(apiGroup) {
+			renameResources = true
+			return rules.RenameApiVersion(apiGroup)
 		}
-
-		newGroups, err = sjson.SetBytes(newGroups, "-1", group)
-		if err != nil {
-			return nil, err
+		if apiGroup == "*" {
+			renameResources = true
 		}
-	}
-
-	if !shouldRename {
-		return obj, nil
-	}
-
-	resources := gjson.GetBytes(obj, "resources").Array()
-	newResources := []byte(`[]`)
-	for _, resource := range resources {
-		resourceType := resource.String()
-		if strings.Contains(resourceType, "/") {
-			resourceType, _, _ = strings.Cut(resource.String(), "/")
-		}
-		if resourceType != "*" {
-			_, resRule := rules.GroupResourceRules(resourceType)
-			if resRule != nil {
-				// TODO(future) make it work with suffix and subresource.
-				resourceType = rules.RenameResource(resource.String())
-			}
-		}
-
-		newResources, err = sjson.SetBytes(newResources, "-1", resourceType)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	obj, err = sjson.SetRawBytes(obj, "apiGroups", newGroups)
+		return apiGroup
+	})
 	if err != nil {
 		return nil, err
 	}
-	return sjson.SetRawBytes(obj, "resources", newResources)
+
+	// Do not rename resources for unknown group.
+	if !renameResources {
+		return obj, nil
+	}
+
+	return TransformArrayOfStrings(obj, "resources", func(resourceType string) string {
+		if resourceType == "*" || resourceType == "" {
+			return resourceType
+		}
+
+		// Rename if there is rule for resourceType.
+		_, resRule := rules.GroupResourceRules(resourceType)
+		if resRule != nil {
+			return rules.RenameResource(resourceType)
+		}
+		return resourceType
+	})
 }
 
 // restoreRoleRule restores apiGroups and resources in a single rule.
 func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
-	apiGroups := gjson.GetBytes(obj, "apiGroups").Array()
-	newGroups := []byte(`[]`)
-	shouldRestore := false
-	shouldAddGroup := false
-	for _, apiGroup := range apiGroups {
-		group := apiGroup.String()
-		if group == "*" {
-			shouldRestore = true
+	restoreResources := false
+	obj, err = TransformArrayOfStrings(obj, "apiGroups", func(apiGroup string) string {
+		if rules.IsRenamedGroup(apiGroup) {
+			restoreResources = true
+			return rules.RestoreApiVersion(apiGroup)
 		}
-		if group == rules.RenamedGroup {
-			shouldRestore = true
-			shouldAddGroup = true
-			// Group will be restored later, do not add now.
-			continue
+		if apiGroup == "*" {
+			restoreResources = true
 		}
-		newGroups, err = sjson.SetBytes(newGroups, "-1", group)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if !shouldRestore {
-		return obj, nil
-	}
-
-	// Loop over resources and detect group from rules.
-
-	resources := gjson.GetBytes(obj, "resources").Array()
-	newResources := []byte(`[]`)
-	shouldRestore = false
-	groupToAdd := ""
-	for _, resource := range resources {
-		newResource := resource.String()
-		resourceType := resource.String()
-		//subresource := ""
-		if strings.Contains(resourceType, "/") {
-			resourceType, _, _ = strings.Cut(resourceType, "/")
-		}
-		if resourceType != "*" {
-			// Restore resourceType to get rules.
-			originalResourceType := rules.RestoreResource(resourceType)
-			groupRule, resRule := rules.GroupResourceRules(originalResourceType)
-			if groupRule != nil && resRule != nil {
-				shouldRestore = true
-				groupToAdd = groupRule.Group
-				// NOTE: Restore resource with subresource.
-				// TODO(future) make it work with suffixes.
-				newResource = rules.RestoreResource(resource.String())
-			}
-		}
-
-		newResources, err = sjson.SetBytes(newResources, "-1", newResource)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Add restored group to apiGroups.
-	if shouldAddGroup && groupToAdd != "" {
-		newGroups, err = sjson.SetBytes(newGroups, "-1", groupToAdd)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	obj, err = sjson.SetRawBytes(obj, "apiGroups", newGroups)
+		return apiGroup
+	})
 	if err != nil {
 		return nil, err
 	}
-	return sjson.SetRawBytes(obj, "resources", newResources)
+
+	// Do not rename resources for unknown group.
+	if !restoreResources {
+		return obj, nil
+	}
+
+	return TransformArrayOfStrings(obj, "resources", func(resourceType string) string {
+		if resourceType == "*" || resourceType == "" {
+			return resourceType
+		}
+		// Get rules for resource by restored resourceType.
+		originalResourceType := rules.RestoreResource(resourceType)
+		_, resRule := rules.GroupResourceRules(originalResourceType)
+		if resRule != nil {
+			// NOTE: subresource not trimmed.
+			return originalResourceType
+		}
+
+		// No rules for resourceType, return as-is
+		return resourceType
+	})
 }

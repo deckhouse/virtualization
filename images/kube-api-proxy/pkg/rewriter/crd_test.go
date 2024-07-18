@@ -35,6 +35,7 @@ func createRewriterForCRDTest() *RuleBasedRewriter {
 				Group:            "original.group.io",
 				Versions:         []string{"v1", "v1alpha1"},
 				PreferredVersion: "v1",
+				Renamed:          "prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"someresources": {
@@ -60,9 +61,10 @@ func createRewriterForCRDTest() *RuleBasedRewriter {
 		},
 		"other.group.io": {
 			GroupRule: GroupRule{
-				Group:            "original.group.io",
+				Group:            "other.group.io",
 				Versions:         []string{"v2alpha3"},
 				PreferredVersion: "v2alpha3",
+				Renamed:          "other.prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"otherresources": {
@@ -83,10 +85,10 @@ func createRewriterForCRDTest() *RuleBasedRewriter {
 		ResourceTypePrefix: "prefixed", // kv
 		ShortNamePrefix:    "p",
 		Categories:         []string{"prefixed"},
-		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
 	}
 
+	rwRules.Init()
 	return &RuleBasedRewriter{
 		Rules: rwRules,
 	}
@@ -94,7 +96,6 @@ func createRewriterForCRDTest() *RuleBasedRewriter {
 
 // TestCRDRename - rename of a single CRD.
 func TestCRDRename(t *testing.T) {
-	origGroup := "original.group.io"
 	reqBody := `{
 "apiVersion": "apiextensions.k8s.io/v1",
 "kind": "CustomResourceDefinition",
@@ -126,14 +127,14 @@ func TestCRDRename(t *testing.T) {
 		t.Fatalf("should rename CRD: %v", err)
 	}
 
-	resRule := testCRDRules.Rules[origGroup].ResourceRules["someresources"]
+	groupRule, resRule := testCRDRules.KindRules("original.group.io", "SomeResource")
 
 	tests := []struct {
 		path     string
 		expected string
 	}{
-		{"metadata.name", testCRDRules.RenameResource(resRule.Plural) + "." + testCRDRules.RenamedGroup},
-		{"spec.group", testCRDRules.RenamedGroup},
+		{"metadata.name", testCRDRules.RenameResource(resRule.Plural) + "." + groupRule.Renamed},
+		{"spec.group", groupRule.Renamed},
 		{"spec.names.kind", testCRDRules.RenameKind(resRule.Kind)},
 		{"spec.names.listKind", testCRDRules.RenameKind(resRule.ListKind)},
 		{"spec.names.plural", testCRDRules.RenameResource(resRule.Plural)},

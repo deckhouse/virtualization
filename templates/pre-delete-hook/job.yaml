@@ -37,7 +37,7 @@ spec:
               },
               {
                 "gvr": {
-                  "Group": "internal.virtualization.deckhouse.io",
+                  "Group": "cdi.internal.virtualization.deckhouse.io",
                   "Version": "v1beta1",
                   "Resource": "internalvirtualizationcdis"
                 },

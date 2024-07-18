@@ -31,7 +31,6 @@ var KubevirtRewriteRules = &RewriteRules{
 	ResourceTypePrefix: "internalvirtualization", // virtualmachines -> internalvirtualizationvirtualmachines
 	ShortNamePrefix:    "intvirt",                // kubectl get intvirtvm
 	Categories:         []string{"intvirt"},      // kubectl get intvirt to see all KubeVirt and CDI resources.
-	RenamedGroup:       "internal.virtualization.deckhouse.io",
 	Rules:              KubevirtAPIGroupsRules,
 	Webhooks:           KubevirtWebhooks,
 	Labels: MetadataReplace{
@@ -131,6 +130,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
+			Renamed:          "cdi.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// cdiconfigs.cdi.kubevirt.io
@@ -250,6 +250,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "kubevirt.io",
 			Versions:         []string{"v1", "v1alpha3"},
 			PreferredVersion: "v1",
+			Renamed:          "internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// kubevirts.kubevirt.io
@@ -325,6 +326,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "clone.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
+			Renamed:          "clone.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// virtualmachineclones.clone.kubevirt.io
@@ -345,6 +347,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "export.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
+			Renamed:          "export.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// virtualmachineexports.export.kubevirt.io
@@ -365,6 +368,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "instancetype.kubevirt.io",
 			Versions:         []string{"v1alpha1", "v1alpha2"},
 			PreferredVersion: "v1alpha2",
+			Renamed:          "instancetype.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// virtualmachineinstancetypes.instancetype.kubevirt.io
@@ -418,6 +422,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "migrations.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
+			Renamed:          "migrations.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// migrationpolicies.migrations.kubevirt.io
@@ -438,6 +443,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "pool.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
+			Renamed:          "pool.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// virtualmachinepools.pool.kubevirt.io
@@ -458,6 +464,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "snapshot.kubevirt.io",
 			Versions:         []string{"v1alpha1"},
 			PreferredVersion: "v1alpha1",
+			Renamed:          "snapshot.internal.virtualization.deckhouse.io",
 		},
 		ResourceRules: map[string]ResourceRule{
 			// virtualmachinerestores.snapshot.kubevirt.io

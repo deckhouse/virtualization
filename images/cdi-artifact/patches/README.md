@@ -26,11 +26,3 @@ Replace "cdi" with "cdi-internal-virtualziation" in the core resource names.
 
 Do not install apiservice v1beta1.upload.cdi.kubevirt.io. This APIService is not used
 by DVP, but conflicts with original CDI.
-
-#### `010-rename-apigroups-in-starred-rbac.patch`
-
-Rename apiGroup to internal.virtualization.deckhouse.io for ClusterRole for cdi-deployment to prevent permanent patching:
-
-```
-{"level":"debug","ts":"2024-06-28T12:39:26Z","logger":"events","msg":"Successfully updated resource *v1.ClusterRole cdi-internal-virtualization","type":"Normal","object":{"kind":"CDI","name":"config","uid":"2e7b5bf7-2c38-4118-a80d-04a8e67ca08b","apiVersion":"cdi.kubevirt.io/v1beta1","resourceVersion":"420200766"},"reason":"UpdateResourceSuccess"}
-```

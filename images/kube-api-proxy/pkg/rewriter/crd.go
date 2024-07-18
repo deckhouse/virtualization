@@ -68,8 +68,8 @@ func RestoreCRD(rules *RewriteRules, obj []byte) ([]byte, error) {
 		return nil, SkipItem
 	}
 
-	// Do not restore CRDs in unknown groups.
-	if group != rules.RenamedGroup {
+	// Do not restore CRDs from unknown groups.
+	if !rules.IsRenamedGroup(group) {
 		return nil, nil
 	}
 
@@ -151,7 +151,7 @@ func RenameCRD(rules *RewriteRules, obj []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	newName := rules.RenameResource(resource) + "." + rules.RenamedGroup
+	newName := rules.RenameResource(resource) + "." + rules.RenameApiVersion(group)
 	obj, err := sjson.SetBytes(obj, "metadata.name", newName)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,9 @@ func RenameCRD(rules *RewriteRules, obj []byte) ([]byte, error) {
 func renameCRDSpec(rules *RewriteRules, resourceRule *ResourceRule, spec []byte) ([]byte, error) {
 	var err error
 
-	spec, err = sjson.SetBytes(spec, "group", rules.RenamedGroup)
+	spec, err = TransformString(spec, "group", func(crdSpecGroup string) string {
+		return rules.RenameApiVersion(crdSpecGroup)
+	})
 	if err != nil {
 		return nil, err
 	}

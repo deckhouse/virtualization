@@ -62,7 +62,7 @@ func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([
 	for _, item := range items {
 		rwrItem, err := transformFn([]byte(item.Raw))
 		if err != nil {
-			if err == SkipItem {
+			if errors.Is(err, SkipItem) {
 				continue
 			}
 			return nil, err
