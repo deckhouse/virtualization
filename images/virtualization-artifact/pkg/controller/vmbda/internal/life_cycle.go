@@ -67,13 +67,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, err
 	}
 
+	kvvm, err := h.attacher.GetKVVM(ctx, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	if vmbda.DeletionTimestamp != nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
 		condition.Status = metav1.ConditionUnknown
 		condition.Reason = ""
 		condition.Message = ""
 
-		err = h.attacher.UnplugDisk(ctx, vd, vm)
+		err = h.attacher.UnplugDisk(ctx, vd, kvvm)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -117,11 +122,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		condition.Reason = vmbdacondition.NotAttached
 		condition.Message = fmt.Sprintf("VirtualMachine %s not found.", vmbda.Spec.VirtualMachineName)
 		return reconcile.Result{}, nil
-	}
-
-	kvvm, err := h.attacher.GetKVVM(ctx, vm)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	if kvvm == nil {
@@ -188,7 +188,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	logger.Info("Send attachment request")
 
-	err = h.attacher.HotPlugDisk(ctx, vd, vm)
+	err = h.attacher.HotPlugDisk(ctx, vd, vm, kvvm)
 	switch {
 	case err == nil:
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress

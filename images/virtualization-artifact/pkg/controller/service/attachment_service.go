@@ -106,7 +106,7 @@ var (
 	ErrVirtualMachineWaitsForRestartApproval = errors.New("virtual machine waits for restart approval")
 )
 
-func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) error {
+func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	if vd == nil {
 		return errors.New("cannot hot plug a nil VirtualDisk")
 	}
@@ -153,7 +153,7 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 		return err
 	}
 
-	err = kvapi.New(s.client, kv).AddVolume(ctx, vm.Namespace, vm.Name, &hotplugRequest)
+	err = kvapi.New(s.client, kv).AddVolume(ctx, kvvm, &hotplugRequest)
 	if err != nil {
 		return fmt.Errorf("error adding volume, %w", err)
 	}
@@ -161,8 +161,8 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 	return nil
 }
 
-func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) error {
-	if vd == nil || vm == nil {
+func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) error {
+	if vd == nil || kvvm == nil {
 		return nil
 	}
 
@@ -175,7 +175,7 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDis
 		return err
 	}
 
-	err = kvapi.New(s.client, kv).RemoveVolume(ctx, vm.Namespace, vm.Name, &unplugRequest)
+	err = kvapi.New(s.client, kv).RemoveVolume(ctx, kvvm, &unplugRequest)
 	if err != nil {
 		return fmt.Errorf("error removing volume, %w", err)
 	}
