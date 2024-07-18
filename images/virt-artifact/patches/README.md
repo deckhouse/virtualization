@@ -69,16 +69,6 @@ Rename app.kubernetes.io/managed-b value from virt-operator to virt-operator-int
 
 Rewrite these labels with patch, because strategy generator Job starts without kube-api-rewriter.
 
-
-#### `016-rename-apigroups-in-starred-rbac.patch`
-
-Rename apiGroup to internal.virtualization.deckhouse.io for ClusterRole for virt-controller to prevent permanent patching:
-
-```
-{"component":"virt-operator","level":"info","msg":"clusterrole kubevirt-internal-virtualization-controller patched","pos":"core.go:142","timestamp":"2024-07-09T16:03:18.138751Z"}
-```
-
-
 #### `018-rename-devices-kubevirt-io.patch`
 
 Rename additional resources previded with Device Plugin API to not overlap with original Kubevirt.

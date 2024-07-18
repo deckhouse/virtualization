@@ -33,7 +33,7 @@ func RewriteCustomResourceOrList(rules *RewriteRules, obj []byte, action Action)
 	}
 	if isList {
 		if action == Restore {
-			return RestoreResourcesList(rules, obj, origGroupName)
+			return RestoreResourcesList(rules, obj)
 		}
 
 		return RenameResourcesList(rules, obj)
@@ -42,7 +42,7 @@ func RewriteCustomResourceOrList(rules *RewriteRules, obj []byte, action Action)
 	// Responses of GET, LIST, DELETE requests.
 	// AdmissionReview requests from API Server.
 	if action == Restore {
-		return RestoreResource(rules, obj, origGroupName)
+		return RestoreResource(rules, obj)
 	}
 	// CREATE, UPDATE, PATCH requests.
 	// TODO need to implement for
@@ -74,8 +74,8 @@ func RenameResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
 	return obj, nil
 }
 
-func RestoreResourcesList(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
-	obj, err := RestoreAPIVersionAndKind(rules, obj, origGroupName)
+func RestoreResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RestoreAPIVersionAndKind(rules, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func RestoreResourcesList(rules *RewriteRules, obj []byte, origGroupName string)
 	items := gjson.GetBytes(obj, "items").Array()
 	rwrItems := []byte(`[]`)
 	for _, item := range items {
-		rwrItem, err := RestoreResource(rules, []byte(item.Raw), origGroupName)
+		rwrItem, err := RestoreResource(rules, []byte(item.Raw))
 		if err != nil {
 			return nil, err
 		}
@@ -109,14 +109,14 @@ func RenameResource(rules *RewriteRules, obj []byte) ([]byte, error) {
 	return RenameManagedFields(rules, obj)
 }
 
-func RestoreResource(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
-	obj, err := RestoreAPIVersionAndKind(rules, obj, origGroupName)
+func RestoreResource(rules *RewriteRules, obj []byte) ([]byte, error) {
+	obj, err := RestoreAPIVersionAndKind(rules, obj)
 	if err != nil {
 		return nil, err
 	}
 
 	// Rewrite apiVersion in each managedFields.
-	return RestoreManagedFields(rules, obj, origGroupName)
+	return RestoreManagedFields(rules, obj)
 }
 
 func RenameAPIVersionAndKind(rules *RewriteRules, obj []byte) ([]byte, error) {
@@ -130,9 +130,9 @@ func RenameAPIVersionAndKind(rules *RewriteRules, obj []byte) ([]byte, error) {
 	return sjson.SetBytes(obj, "kind", rules.RenameKind(kind))
 }
 
-func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+func RestoreAPIVersionAndKind(rules *RewriteRules, obj []byte) ([]byte, error) {
 	apiVersion := gjson.GetBytes(obj, "apiVersion").String()
-	apiVersion = rules.RestoreApiVersion(apiVersion, origGroupName)
+	apiVersion = rules.RestoreApiVersion(apiVersion)
 	obj, err := sjson.SetBytes(obj, "apiVersion", apiVersion)
 	if err != nil {
 		return nil, err
@@ -150,19 +150,20 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, path string, action
 		rwrApiVersion := ""
 		rwrKind := ""
 		if action == Rename {
-			groupRule, resourceRule := rules.KindRules(apiVersion, kind)
-			if groupRule != nil && resourceRule != nil {
+			_, resourceRule := rules.KindRules(apiVersion, kind)
+			if resourceRule != nil {
 				rwrApiVersion = rules.RenameApiVersion(apiVersion)
 				rwrKind = rules.RenameKind(kind)
 			}
 		}
 		if action == Restore {
 			if rules.IsRenamedGroup(apiVersion) {
-				restoredKind := rules.RestoreKind(kind)
-				origGroup, origResource, _ := rules.ResourceByKind(restoredKind)
-				if origGroup != "" && origResource != "" {
-					rwrApiVersion = rules.RestoreApiVersion(apiVersion, origGroup)
-					rwrKind = restoredKind
+				rwrApiVersion = rules.RestoreApiVersion(apiVersion)
+				rwrKind = rules.RestoreKind(kind)
+				// Find resource rule by restored apiGroup and kind
+				_, resourceRule := rules.KindRules(rwrApiVersion, rwrKind)
+				if resourceRule == nil {
+					return ownerRefObj, nil
 				}
 			}
 		}
@@ -187,10 +188,10 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, path string, action
 //
 //	"metadata": {
 //	  "managedFields":[
-//	    { "apiVersion":"x.virtualization.deckhouse.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
-//	    { "apiVersion":"x.virtualization.deckhouse.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
+//	    { "apiVersion":"renamed.resource.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
+//	    { "apiVersion":"renamed.resource.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
-func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string) ([]byte, error) {
+func RestoreManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	mgFields := gjson.GetBytes(obj, "metadata.managedFields")
 	if !mgFields.Exists() || len(mgFields.Array()) == 0 {
 		return obj, nil
@@ -199,7 +200,7 @@ func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string)
 	newFields := []byte(`[]`)
 	for _, mgField := range mgFields.Array() {
 		apiVersion := mgField.Get("apiVersion").String()
-		restoredAPIVersion := rules.RestoreApiVersion(apiVersion, origGroupName)
+		restoredAPIVersion := rules.RestoreApiVersion(apiVersion)
 		newField, err := sjson.SetBytes([]byte(mgField.Raw), "apiVersion", restoredAPIVersion)
 		if err != nil {
 			return nil, err
@@ -218,8 +219,8 @@ func RestoreManagedFields(rules *RewriteRules, obj []byte, origGroupName string)
 //
 //	"metadata": {
 //	  "managedFields":[
-//	    { "apiVersion":"kubevirt.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
-//	    { "apiVersion":"kubevirt.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
+//	    { "apiVersion":"original.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "Go-http-client", ...},
+//	    { "apiVersion":"original.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
 func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 	mgFields := gjson.GetBytes(obj, "metadata.managedFields")

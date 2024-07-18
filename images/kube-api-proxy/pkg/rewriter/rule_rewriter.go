@@ -100,7 +100,7 @@ func (rw *RuleBasedRewriter) rewriteCRDEndpoint(ep *APIEndpoint) *APIEndpoint {
 	}
 	// Rewrite group and resourceType in CRD name.
 	res := ep.Clone()
-	res.CRDGroup = rw.Rules.RenamedGroup
+	res.CRDGroup = rw.Rules.RenameApiVersion(ep.CRDGroup)
 	res.CRDResourceType = rw.Rules.RenameResource(res.CRDResourceType)
 	res.Name = res.CRDResourceType + "." + res.CRDGroup
 	return res
@@ -119,7 +119,7 @@ func (rw *RuleBasedRewriter) rewriteCRApiEndpoint(ep *APIEndpoint) *APIEndpoint 
 		// No group and resourceType rewrite for group without rules.
 		return nil
 	}
-	newGroup := rw.Rules.RenamedGroup
+	newGroup := rw.Rules.RenameApiVersion(ep.Group)
 
 	// Shortcut: return clone if only group is requested.
 	newResource := ""
@@ -168,7 +168,7 @@ func (rw *RuleBasedRewriter) rewriteFieldSelector(rawQuery string) string {
 		return ""
 	}
 
-	group = rw.Rules.RenamedGroup
+	group = rw.Rules.RenameApiVersion(group)
 	resourceType = rw.Rules.RenameResource(resourceType)
 
 	newSelector := `metadata.name%3D` + resourceType + "." + group
@@ -242,7 +242,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteAPIGroupList(rw.Rules, obj)
 
 	case "APIGroup":
-		rwrBytes, err = RewriteAPIGroup(rw.Rules, obj, targetReq.OrigGroup())
+		rwrBytes, err = RewriteAPIGroup(rw.Rules, obj)
 
 	case "APIResourceList":
 		rwrBytes, err = RewriteAPIResourceList(rw.Rules, obj, targetReq.OrigGroup())
@@ -251,7 +251,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteAPIGroupDiscoveryList(rw.Rules, obj)
 
 	case "AdmissionReview":
-		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj, targetReq.OrigGroup())
+		rwrBytes, err = RewriteAdmissionReview(rw.Rules, obj)
 
 	case CRDKind, CRDListKind:
 		rwrBytes, err = RewriteCRDOrList(rw.Rules, obj, action)
@@ -310,7 +310,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 // RestoreBookmark restores apiVersion and kind in an object in WatchEvent with type BOOKMARK. Bookmark is not a full object, so RewriteJSONPayload may add unexpected fields.
 // Bookmark example: {"kind":"ConfigMap","apiVersion":"v1","metadata":{"resourceVersion":"438083871","creationTimestamp":null}}
 func (rw *RuleBasedRewriter) RestoreBookmark(targetReq *TargetRequest, obj []byte) ([]byte, error) {
-	return RestoreAPIVersionAndKind(rw.Rules, obj, targetReq.OrigGroup())
+	return RestoreAPIVersionAndKind(rw.Rules, obj)
 }
 
 // RewritePatch rewrites patches for some known objects.

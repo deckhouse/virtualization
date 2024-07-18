@@ -3,9 +3,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: internalvirtualizationcdis.internal.virtualization.deckhouse.io
+  name: internalvirtualizationcdis.cdi.internal.virtualization.deckhouse.io
 spec:
-  group: internal.virtualization.deckhouse.io
+  group: cdi.internal.virtualization.deckhouse.io
   names:
     categories:
       - intvirt

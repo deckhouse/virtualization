@@ -365,7 +365,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinerestores
@@ -375,7 +375,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - cdi.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationdatasources
   - internalvirtualizationdatavolumes
@@ -384,7 +384,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
   - internalvirtualizationvirtualmachineclusterinstancetypes
@@ -395,7 +395,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
   - internalvirtualizationvirtualmachineclusterinstancetypes
@@ -408,7 +408,7 @@ rules:
   - patch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:
@@ -550,19 +550,19 @@ rules:
   - delete
   - patch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - snapshot.internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - export.internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
   - '*'
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - pool.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinepools
   - internalvirtualizationvirtualmachinepools/finalizers
@@ -600,7 +600,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - cdi.internal.virtualization.deckhouse.io
   resources:
   - '*'
   verbs:
@@ -666,7 +666,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:
@@ -674,7 +674,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - clone.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineclones
   - internalvirtualizationvirtualmachineclones/status
@@ -772,7 +772,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:
@@ -788,7 +788,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - export.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineexports
   verbs:
@@ -888,7 +888,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
@@ -903,7 +903,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - export.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineexports
   verbs:
@@ -916,7 +916,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - clone.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineclones
   verbs:
@@ -929,7 +929,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
   - internalvirtualizationvirtualmachineclusterinstancetypes
@@ -945,7 +945,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - pool.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinepools
   verbs:
@@ -958,7 +958,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:
@@ -1032,7 +1032,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
@@ -1046,7 +1046,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - export.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineexports
   verbs:
@@ -1058,7 +1058,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - clone.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineclones
   verbs:
@@ -1070,7 +1070,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
   - internalvirtualizationvirtualmachineclusterinstancetypes
@@ -1085,7 +1085,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - pool.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinepools
   verbs:
@@ -1104,7 +1104,7 @@ rules:
   - get
   - list
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:
@@ -1139,7 +1139,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinesnapshotcontents
@@ -1149,7 +1149,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - export.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineexports
   verbs:
@@ -1157,7 +1157,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - clone.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineclones
   verbs:
@@ -1165,7 +1165,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - instancetype.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachineinstancetypes
   - internalvirtualizationvirtualmachineclusterinstancetypes
@@ -1176,7 +1176,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - pool.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinepools
   verbs:
@@ -1185,7 +1185,7 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - migrations.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationmigrationpolicies
   verbs:

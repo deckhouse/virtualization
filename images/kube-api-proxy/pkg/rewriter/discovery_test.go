@@ -35,6 +35,7 @@ func createRewriterForDiscoveryTest() *RuleBasedRewriter {
 				Group:            "original.group.io",
 				Versions:         []string{"v1", "v1alpha1"},
 				PreferredVersion: "v1",
+				Renamed:          "prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"someresources": {
@@ -63,6 +64,7 @@ func createRewriterForDiscoveryTest() *RuleBasedRewriter {
 				Group:            "other.group.io",
 				Versions:         []string{"v2alpha3"},
 				PreferredVersion: "v2alpha3",
+				Renamed:          "other.prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"otherresources": {
@@ -91,14 +93,116 @@ func createRewriterForDiscoveryTest() *RuleBasedRewriter {
 		ResourceTypePrefix: "prefixed", // kv
 		ShortNamePrefix:    "p",
 		Categories:         []string{"prefixed"},
-		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
 		Webhooks:           webhookRules,
 	}
+	rwRules.Init()
 
 	return &RuleBasedRewriter{
 		Rules: rwRules,
 	}
+}
+
+func TestRewriteRequestAPIGroup(t *testing.T) {
+	// Request APIResourcesList of original, non-renamed resources.
+	request := `GET /apis/original.group.io HTTP/1.1
+Host: 127.0.0.1
+
+`
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(request)))
+	require.NoError(t, err, "should read hardcoded request")
+
+	expectPath := "/apis/prefixed.resources.group.io"
+
+	// Response body with renamed APIResourcesList
+	apiGroupResponse := `{
+  "kind": "APIGroup",
+  "apiVersion": "v1",
+  "name": "prefixed.resources.group.io",
+  "versions": [
+   {"groupVersion":"prefixed.resources.group.io/v1", "version":"v1"},
+   {"groupVersion":"prefixed.resources.group.io/v1alpha1", "version":"v1alpha1"}
+  ],
+  "preferredVersion": {
+    "groupVersion": "prefixed.resources.group.io/v1",
+    "version":"v1"
+  }
+}`
+
+	// Client proxy mode.
+	rwr := createRewriterForDiscoveryTest()
+
+	var targetReq *TargetRequest
+
+	targetReq = NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.Equal(t, expectPath, targetReq.Path(), "should rewrite api endpoint path")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(apiGroupResponse), Restore)
+	if err != nil {
+		t.Fatalf("should rewrite body with renamed resources: %v", err)
+	}
+
+	groupRule, _ := rwr.Rules.GroupResourceRules("someresources")
+	require.NotNil(t, groupRule, "should get rule for hard-coded resource type someresources")
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"name", groupRule.Group},
+		{"versions.#(version==\"v1\").groupVersion", groupRule.Group + "/v1"},
+		{"versions.#(version==\"v1alpha1\").groupVersion", groupRule.Group + "/v1alpha1"},
+		{"preferredVersion.groupVersion", groupRule.Group + "/v1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got '%s', rewritten APIGroup: %s", tt.path, tt.expected, actual, string(resultBytes))
+			}
+		})
+	}
+}
+func TestRewriteRequestAPIGroupUnknownGroup(t *testing.T) {
+	// Request APIGroup discovery for unknown group.
+	request := `GET /apis/unknown.group.io HTTP/1.1
+Host: 127.0.0.1
+
+`
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(request)))
+	require.NoError(t, err, "should read hardcoded request")
+
+	apiGroupResponse := `{
+  "kind": "APIGroup",
+  "apiVersion": "v1",
+  "name": "unknown.group.io",
+  "versions": [
+   {"groupVersion":"unknown.group.io/v1beta1", "version":"v1beta1"},
+   {"groupVersion":"unknown.group.io/v1alpha3", "version":"v1alpha3"}
+  ],
+  "preferredVersion": {
+    "groupVersion": "unknown.group.io/v1beta1",
+    "version":"v1beta1"
+  }
+}`
+
+	// Client proxy mode.
+	rwr := createRewriterForDiscoveryTest()
+
+	var targetReq *TargetRequest
+
+	targetReq = NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.Equal(t, req.URL.Path, targetReq.Path(), "should not rewrite api endpoint path")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(apiGroupResponse), Restore)
+	if err != nil {
+		t.Fatalf("should rewrite body with renamed resources: %v", err)
+	}
+
+	require.Equal(t, apiGroupResponse, string(resultBytes), "should not rewrite ApiGroup for unknown group")
 }
 
 func TestRewriteRequestAPIResourceList(t *testing.T) {
@@ -225,17 +329,25 @@ Accept: application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryLis
           ]
         }
       ]
+    }
+    ]
+}`
+	renamedOtherAPIGroupDiscovery := `{
+	"metadata":{
+      "name": "other.prefixed.resources.group.io",
+      "creationTimestamp": null
     },
+    "versions":[
     { "version": "v2alpha3",
       "resources": [
         { "resource": "prefixedotherresources",
-          "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
+          "responseKind": {"group": "other.prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
           "scope": "Namespaced",
           "singularResource": "prefixedotherresource",
           "verbs": ["create", "patch"],
           "subresources": [
             { "subresource": "status",
-              "responseKind": {"group": "prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
+              "responseKind": {"group": "other.prefixed.resources.group.io", "version": "v1alpha1", "kind": "PrefixedOtherResource"},
               "verbs": ["get", "patch"]
             }
           ]
@@ -292,6 +404,7 @@ Accept: application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryLis
 }`, strings.Join([]string{
 		appsAPIGroupDiscovery,
 		renamedAPIGroupDiscovery,
+		renamedOtherAPIGroupDiscovery,
 		nonRewritableAPIGroupDiscovery,
 	}, ","))
 
@@ -343,14 +456,14 @@ Accept: application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryLis
 			path     string
 			expected string
 		}{
-			{"versions.0.resources.0.resource", resRule.Plural},
-			{"versions.0.resources.0.responseKind.group", groupRule.Group},
-			{"versions.0.resources.0.responseKind.kind", resRule.Kind},
-			{"versions.0.resources.0.singularResource", resRule.Singular},
-			{"versions.0.resources.0.categories.0", resRule.Categories[0]},
-			{"versions.0.resources.0.shortNames.0", resRule.ShortNames[0]},
-			{"versions.0.resources.0.subresources.0.responseKind.group", groupRule.Group},
-			{"versions.0.resources.0.subresources.0.responseKind.kind", resRule.Kind},
+			{"versions.#(version==\"v1\").resources.0.resource", resRule.Plural},
+			{"versions.#(version==\"v1\").resources.0.responseKind.group", groupRule.Group},
+			{"versions.#(version==\"v1\").resources.0.responseKind.kind", resRule.Kind},
+			{"versions.#(version==\"v1\").resources.0.singularResource", resRule.Singular},
+			{"versions.#(version==\"v1\").resources.0.categories.0", resRule.Categories[0]},
+			{"versions.#(version==\"v1\").resources.0.shortNames.0", resRule.ShortNames[0]},
+			{"versions.#(version==\"v1\").resources.0.subresources.0.responseKind.group", groupRule.Group},
+			{"versions.#(version==\"v1\").resources.0.subresources.0.responseKind.kind", resRule.Kind},
 		}
 
 		groupBytes := []byte(group.Raw)
