@@ -100,7 +100,7 @@ git:
       - hooks/lib/tests
       - hooks/test*
 ---
-artifact: release-channel-version-artifact
+image: release-channel-version-artifact
 from: alpine:3.17
 git:
   - add: /
@@ -120,7 +120,7 @@ shell:
 image: release-channel-version
 from: spotify/scratch
 import:
-  - artifact: release-channel-version-artifact
+  - image: release-channel-version-artifact
     add: /
     to: /
     after: install
