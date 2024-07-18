@@ -45,8 +45,6 @@ metadata:
   name: virtualization-controller
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
-  annotations:
-    kubectl.kubernetes.io/default-container: virtualization-controller
 spec:
   {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
   revisionHistoryLimit: 2
@@ -59,6 +57,7 @@ spec:
         app: virtualization-controller
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/secret-tls.yaml") . | sha256sum }}
+        kubectl.kubernetes.io/default-container: virtualization-controller
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
       containers:

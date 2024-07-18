@@ -57,6 +57,7 @@ spec:
         app: virtualization-api
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/virtualization-api/cert-secret.yaml") . | sha256sum }}
+        kubectl.kubernetes.io/default-container: virtualization-api
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
       containers:
