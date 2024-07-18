@@ -210,6 +210,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Progress = "50%"
 
 		return true, nil
+	case pvc == nil:
+		vd.Status.Phase = virtv2.DiskProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Provisioning
+		condition.Message = "PVC not found: waiting for creation."
+		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		logger.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
