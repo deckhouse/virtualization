@@ -5,12 +5,12 @@ cleanup:
   - references:
       branch: /.*/
       limit:
-        in: 24h
+        in: 24h # keep images for active branches for 1 day which not main|pre-alpha
   - references:
       branch: /main|pre-alpha/
-      limit:
-        in: 168h
+    imagesPerReference:
+      last: 5 # keep 5 images for branches main|pre-alpha
   - references:
       tag: /.*/
       limit:
-        in: 720h
+        in: 168h # keep images for active dev tags for 7 days
