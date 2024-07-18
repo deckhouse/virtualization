@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-scratch
+from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin

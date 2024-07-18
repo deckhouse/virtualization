@@ -1,6 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
-fromImage: base-golang-21-bookworm
+final: false
+from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /usr/local/go/src/dvcr_importers
@@ -21,10 +22,9 @@ shell:
   - cd /usr/local/go/src/dvcr_importers
   - go build ./cmd/dvcr_importer
   - go build ./cmd/dvcr_uploader
-
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+from: {{ .Images.BASE_ALT }}
 shell:
   install:
   - apt-get -qq update

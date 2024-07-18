@@ -1,6 +1,7 @@
 ---
-image: vmi-router-builder
-fromImage: base-golang-21-bookworm
+image: {{ $.ImageName }}-builder
+final: false
+from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /app/images/vmi-router
@@ -30,7 +31,7 @@ shell:
   - go build -v -a -o vmi-router main.go
 ---
 image: {{ $.ImageName }}
-fromImage: base-scratch
+from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: vmi-router-builder
   add: /app/images/vmi-router/vmi-router

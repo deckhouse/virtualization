@@ -1,3 +1,0 @@
----
-image: {{ $.ImageName }}
-from: docker.io/golang:1.20-bookworm@sha256:b099af7250d673d249597b79049e3e53487c435acf285e07a36d4b49f9f4750a

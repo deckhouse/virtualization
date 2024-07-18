@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+from: {{ .Images.BASE_ALT }}
 import:
 - image: {{ $.ImageName }}-lib-builder
   add: /usr/local/lib/
@@ -112,7 +112,8 @@ docker:
   ENTRYPOINT: ["/usr/bin/virt-launcher"]
 ---
 image: {{ $.ImageName }}-lib-builder
-fromImage: base-alt-p10
+final: false
+from: {{ .Images.BASE_ALT }}
 shell:
   beforeInstall:
   # Install build packages.

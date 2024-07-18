@@ -4,6 +4,7 @@
 {{- $version := "1.0.0" }}
 
 image: {{ $.ImageName }}
+final: false
 from: {{ $builderImage }}
 git:
   - add: /images/{{ $.ImageName }}
