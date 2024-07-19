@@ -553,7 +553,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 		}
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if shutdownInfo.PodCompeted {
+				if shutdownInfo.PodCompleted {
 					// Request to start new KVVMI if guest was restarted.
 					// Cleanup KVVMI is enough if VM was stopped from inside.
 					switch shutdownInfo.Reason {
@@ -586,7 +586,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 		// Manual policy requires to handle only guest-reset event.
 		// All types of shutdown are a final state.
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompeted {
+			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
 				// Request to start new KVVMI (with updated settings).
 				switch shutdownInfo.Reason {
 				case powerstate.GuestResetReason:

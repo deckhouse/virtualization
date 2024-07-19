@@ -73,18 +73,18 @@ func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) 
 			msg = contStatus.State.Terminated.Message
 		}
 		if strings.Contains(msg, string(GuestResetReason)) {
-			return ShutdownInfo{PodCompeted: true, Reason: GuestResetReason, Pod: recentPod}
+			return ShutdownInfo{PodCompleted: true, Reason: GuestResetReason, Pod: recentPod}
 		}
 		if strings.Contains(msg, string(GuestShutdownReason)) {
-			return ShutdownInfo{PodCompeted: true, Reason: GuestShutdownReason, Pod: recentPod}
+			return ShutdownInfo{PodCompleted: true, Reason: GuestShutdownReason, Pod: recentPod}
 		}
 	}
 
-	return ShutdownInfo{PodCompeted: true, Pod: recentPod}
+	return ShutdownInfo{PodCompleted: true, Pod: recentPod}
 }
 
 type ShutdownInfo struct {
-	Reason      GuestSignalReason
+	Reason       GuestSignalReason
 	PodCompleted bool
-	Pod         corev1.Pod
+	Pod          corev1.Pod
 }
