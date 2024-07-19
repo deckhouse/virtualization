@@ -85,6 +85,6 @@ func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) 
 
 type ShutdownInfo struct {
 	Reason      GuestSignalReason
-	PodCompeted bool
+	PodCompleted bool
 	Pod         corev1.Pod
 }
