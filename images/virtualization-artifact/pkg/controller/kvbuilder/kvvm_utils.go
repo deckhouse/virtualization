@@ -50,7 +50,7 @@ func GenerateCVMIDiskName(name string) string {
 	return CVMIDiskPrefix + name
 }
 
-func GerOriginalDiskName(prefixedName string) (string, bool) {
+func GetOriginalDiskName(prefixedName string) (string, bool) {
 	if strings.HasPrefix(prefixedName, VMDDiskPrefix) {
 		return strings.TrimPrefix(prefixedName, VMDDiskPrefix), true
 	}

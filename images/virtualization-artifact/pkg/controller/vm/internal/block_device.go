@@ -130,7 +130,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 				continue
 			}
 
-			vdName, ok := kvbuilder.GerOriginalDiskName(vs.Name)
+			vdName, ok := kvbuilder.GetOriginalDiskName(vs.Name)
 			if !ok {
 				h.logger.Warn("volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
 				h.recorder.Eventf(changed, corev1.EventTypeNormal, virtv2.ReasonUnknownHotPluggedVolume, "Volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
@@ -237,7 +237,19 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 			}
 		case virtv2.DiskDevice:
 			if vd, hasKey := s.VDByName[bd.Name]; hasKey {
-				if vd.Status.Phase == virtv2.DiskReady {
+				// we can attach vd to only one vm
+				attachReady := len(vd.Status.AttachedToVirtualMachines) == 0
+				for _, attached := range vd.Status.AttachedToVirtualMachines {
+					if attached.Name != vm.GetName() {
+						attachReady = false
+						msg := fmt.Sprintf("VirtualDisk was attached to another virtual machine %q", attached.Name)
+						h.logger.Warn(msg)
+						h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVDAlreadyInUse, msg)
+						break
+					}
+					attachReady = true
+				}
+				if vd.Status.Phase == virtv2.DiskReady && attachReady {
 					ready++
 				}
 			}

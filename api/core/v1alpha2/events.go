@@ -53,6 +53,8 @@ const (
 	// ReasonUnknownHotPluggedVolume is event reason that volume was hot plugged to VirtualMachineInstance, but it is not a VirtualDisk.
 	ReasonUnknownHotPluggedVolume = "UnknownHotPluggedVolume"
 
+	// ReasonVDAlreadyInUse is event reason that VirtualDisk was not attached to VirtualMachine, because VirtualDisk attached to another VirtualMachine.
+	ReasonVDAlreadyInUse = "VirtualDiskAlreadyInUse"
 	// ReasonVMChangesApplied is event reason that changes applied from VM to underlying KVVM.
 	ReasonVMChangesApplied = "ChangesApplied"
 

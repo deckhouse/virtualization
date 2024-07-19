@@ -47,7 +47,7 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	for _, vm := range attachedVMs {
 		vd.Status.AttachedToVirtualMachines = append(vd.Status.AttachedToVirtualMachines, virtv2.AttachedVirtualMachine{
-			Name: vm.Name,
+			Name: vm.GetName(),
 		})
 	}
 
