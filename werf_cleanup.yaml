@@ -1,0 +1,12 @@
+project: virtualization
+configVersion: 1
+cleanup:
+  keepPolicies:
+  - references:
+      branch: /.*/
+      limit:
+        in: 168h # keep dev images build during last week which not main|pre-alpha
+  - references:
+      branch: /main|pre-alpha/
+    imagesPerReference:
+      last: 5 # keep 5 images for branches main|pre-alpha
