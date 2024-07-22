@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -110,7 +108,6 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	h.syncMigrationState(changed, kvvmi)
 	h.syncPodStarted(changed, pod)
 	h.syncRunning(changed, kvvmi)
-	h.syncStats(current, changed, kvvmi)
 	return reconcile.Result{}, nil
 }
 
@@ -218,41 +215,6 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvmi *virtv1.
 	vm.Status.Conditions = mgr.Generate()
 }
 
-func (h *LifeCycleHandler) syncStats(current, changed *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
-	if current == nil || changed == nil {
-		return
-	}
-	var stats virtv2.VirtualMachineStats
-	if current.Status.Stats != nil {
-		stats = *current.Status.Stats
-	}
-	pts := NewPhaseTransitions(stats.PhasesTransitions, current.Status.Phase, changed.Status.Phase)
-	pts.Sort()
-	stats.PhasesTransitions = pts.Items
-
-	launchTimeDuration := stats.LaunchTimeDuration
-
-	for i, pt := range pts.Items {
-		switch pt.Phase {
-		case virtv2.MachineStarting:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] && current.Status.Phase != changed.Status.Phase {
-				launchTimeDuration.WaitingForDependencies = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
-			}
-		case virtv2.MachineRunning:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] && current.Status.Phase != changed.Status.Phase {
-				launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
-			}
-			var empty virtv1.VirtualMachineInstanceGuestOSInfo
-			if kvvmi != nil && empty == current.Status.GuestOSInfo && empty != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
-				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
-			}
-		}
-	}
-
-	stats.LaunchTimeDuration = launchTimeDuration
-	changed.Status.Stats = &stats
-}
-
 func (h *LifeCycleHandler) wrapMigrationState(state *virtv1.VirtualMachineInstanceMigrationState) *virtv2.VirtualMachineMigrationState {
 	if state == nil {
 		return nil
@@ -283,71 +245,4 @@ func (h *LifeCycleHandler) getResult(state *virtv1.VirtualMachineInstanceMigrati
 	default:
 		return ""
 	}
-}
-
-var phasePreviousPhase = map[virtv2.MachinePhase]virtv2.MachinePhase{
-	virtv2.MachineRunning:  virtv2.MachineStarting,
-	virtv2.MachineStarting: virtv2.MachinePending,
-	virtv2.MachineStopped:  virtv2.MachineStopping,
-}
-
-type PhaseTransitions struct {
-	Items []virtv2.VirtualMachinePhaseTransitionTimestamp
-}
-
-func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase virtv2.MachinePhase) PhaseTransitions {
-	now := metav1.NewTime(time.Now().Truncate(time.Second))
-
-	phasesTransitionsMap := make(map[virtv2.MachinePhase]virtv2.VirtualMachinePhaseTransitionTimestamp, len(phaseTransitions))
-	for _, pt := range phaseTransitions {
-		phasesTransitionsMap[pt.Phase] = pt
-	}
-	if oldPhase != newPhase {
-		phasesTransitionsMap[newPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
-			Phase:     newPhase,
-			Timestamp: now,
-		}
-	}
-	p := newPhase
-	t := now.Add(-1 * time.Second)
-	// Since we are setting up phases based on kvvm, we may skip some of them.
-	// But we need to know some timestamps to generate statistics.
-	// Add the missing phases.
-	for {
-		if previousPhase, found := phasePreviousPhase[p]; found {
-			if _, found = phasesTransitionsMap[previousPhase]; !found {
-				phasesTransitionsMap[previousPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
-					Phase:     previousPhase,
-					Timestamp: metav1.NewTime(t),
-				}
-				t = t.Add(-1 * time.Second)
-			}
-			p = previousPhase
-			continue
-		}
-		break
-	}
-	phasesTransitionsSlice := make([]virtv2.VirtualMachinePhaseTransitionTimestamp, len(phasesTransitionsMap))
-	i := 0
-	for _, p := range phasesTransitionsMap {
-		phasesTransitionsSlice[i] = p
-		i++
-	}
-	return PhaseTransitions{Items: phasesTransitionsSlice}
-}
-
-func (pt *PhaseTransitions) Sort() {
-	sort.Sort(pt)
-}
-
-func (pt *PhaseTransitions) Len() int {
-	return len(pt.Items)
-}
-
-func (pt *PhaseTransitions) Less(i, j int) bool {
-	return pt.Items[j].Timestamp.After(pt.Items[i].Timestamp.Time)
-}
-
-func (pt *PhaseTransitions) Swap(i, j int) {
-	pt.Items[i], pt.Items[j] = pt.Items[j], pt.Items[i]
 }
