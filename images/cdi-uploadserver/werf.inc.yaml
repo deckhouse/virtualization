@@ -13,7 +13,7 @@ shell:
   # Intall main packages.
   - |
     apt-get update && apt-get install --yes \
-    qemu-img==8.2.2-alt0.p10.1:p10+345290.260.6.1
+    qemu-img==8.2.4-alt0.p10.1:p10+350268.100.5.1
   # Install packages from Sisyphus repository because p10 repository does not have required versions.
   - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/sisyphus.list
   - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic" >> /etc/apt/sources.list.d/sisyphus.list
