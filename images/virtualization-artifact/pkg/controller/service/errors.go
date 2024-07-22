@@ -23,3 +23,8 @@ var (
 	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
 	ErrDataVolumeNotRunning        = errors.New("pvc import is not running")
 )
+
+var (
+	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
+	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
+)
