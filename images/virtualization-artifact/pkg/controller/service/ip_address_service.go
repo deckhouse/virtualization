@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/go-logr/logr"
 	k8snet "k8s.io/utils/net"
@@ -29,18 +30,18 @@ import (
 
 type IpAddressService struct {
 	logger      logr.Logger
-	ParsedCIDRs []*net.IPNet
+	ParsedCIDRs []netip.Prefix
 }
 
 func NewIpAddressService(
 	logger logr.Logger,
 	virtualMachineCIDRs []string,
 ) *IpAddressService {
-	parsedCIDRs := make([]*net.IPNet, len(virtualMachineCIDRs))
+	parsedCIDRs := make([]netip.Prefix, len(virtualMachineCIDRs))
 
 	for i, cidr := range virtualMachineCIDRs {
-		_, parsedCIDR, err := net.ParseCIDR(cidr)
-		if err != nil || parsedCIDR == nil {
+		parsedCIDR, err := netip.ParsePrefix(cidr)
+		if err != nil {
 			logger.Error(err, fmt.Sprintf("failed to parse CIDR %s:", cidr), "err", err)
 			return nil
 		}
@@ -54,8 +55,8 @@ func NewIpAddressService(
 }
 
 func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common.AllocatedIPs) error {
-	ip := net.ParseIP(address)
-	if ip == nil {
+	ip, err := netip.ParseAddr(address)
+	if err != nil || !ip.IsValid() {
 		return ErrInvalidIpAddress
 	}
 
@@ -76,22 +77,18 @@ func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common
 
 func (s IpAddressService) AllocateNewIP(allocatedIPs common.AllocatedIPs) (string, error) {
 	for _, cidr := range s.ParsedCIDRs {
-		for ip := cidr.IP.Mask(cidr.Mask); cidr.Contains(ip); inc(ip) {
-			// Allow allocation of IP address explicitly specified using a 32-bit mask.
-			if k8snet.RangeSize(cidr) != 1 {
-				// Skip the allocation of the first or last addresses within the CIDR range.
+		for ip := cidr.Addr(); cidr.Contains(ip); ip = ip.Next() {
+			if k8snet.RangeSize(toIPNet(cidr)) != 1 {
 				isFirstLast, err := isFirstLastIP(ip, cidr)
 				if err != nil {
 					return "", err
 				}
-
 				if isFirstLast {
 					continue
 				}
 			}
 
-			_, ok := allocatedIPs[ip.String()]
-			if !ok {
+			if _, ok := allocatedIPs[ip.String()]; !ok {
 				return ip.String(), nil
 			}
 		}
@@ -99,31 +96,30 @@ func (s IpAddressService) AllocateNewIP(allocatedIPs common.AllocatedIPs) (strin
 	return "", errors.New("no remaining ips")
 }
 
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
+func toIPNet(prefix netip.Prefix) *net.IPNet {
+	return &net.IPNet{
+		IP:   prefix.Masked().Addr().AsSlice(),
+		Mask: net.CIDRMask(prefix.Bits(), prefix.Addr().BitLen()),
 	}
 }
 
-func isFirstLastIP(ip net.IP, cidr *net.IPNet) (bool, error) {
-	size := int(k8snet.RangeSize(cidr))
+func isFirstLastIP(ip netip.Addr, cidr netip.Prefix) (bool, error) {
+	ipNet := toIPNet(cidr)
+	size := int(k8snet.RangeSize(ipNet))
 
-	first, err := k8snet.GetIndexedIP(cidr, 0)
+	first, err := k8snet.GetIndexedIP(ipNet, 0)
 	if err != nil {
 		return false, err
 	}
 
-	if first.Equal(ip) {
+	if first.Equal(ip.AsSlice()) {
 		return true, nil
 	}
 
-	last, err := k8snet.GetIndexedIP(cidr, size-1)
+	last, err := k8snet.GetIndexedIP(ipNet, size-1)
 	if err != nil {
 		return false, err
 	}
 
-	return last.Equal(ip), nil
+	return last.Equal(ip.AsSlice()), nil
 }

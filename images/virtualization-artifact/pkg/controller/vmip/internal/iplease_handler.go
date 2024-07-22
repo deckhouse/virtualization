@@ -125,7 +125,6 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 	}
 
 	err := h.ipService.IsAvailableAddress(vmipStatus.Address, state.AllocatedIPs())
-
 	if err != nil {
 		vmipStatus.Address = ""
 		msg := fmt.Sprintf("VirtualMachineIP cannot be created: %s", err.Error())
