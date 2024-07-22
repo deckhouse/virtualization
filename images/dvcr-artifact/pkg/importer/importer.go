@@ -136,15 +136,20 @@ func (i *Importer) parseOptions() error {
 }
 
 func (i *Importer) runForDVCRSource(ctx context.Context) error {
+	durCollector := monitoring.NewDurationCollector()
+
 	craneOpts := i.destCraneOptions(ctx)
 	err := crane.CopyRepository(i.src, i.destImageName, craneOpts...)
 	if err != nil {
 		return fmt.Errorf("error copy repository: %w", err)
 	}
-	return nil
+
+	return monitoring.WriteDVCRSourceImportCompleteMessage(durCollector.Collect())
 }
 
 func (i *Importer) runForDataSource(ctx context.Context) error {
+	durCollector := monitoring.NewDurationCollector()
+
 	var res registry.ImportRes
 
 	err := retry.Retry(ctx, func(ctx context.Context) error {
@@ -171,7 +176,7 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 		return monitoring.WriteImportFailureMessage(err)
 	}
 
-	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format)
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }
 
 func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {

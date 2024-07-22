@@ -63,7 +63,8 @@ type VirtualDiskStats struct {
 
 type VirtualDiskStatsCreationDuration struct {
 	WaitingForDependencies *metav1.Duration `json:"waitingForDependencies,omitempty"`
-	Provisioning           *metav1.Duration `json:"provisioning,omitempty"`
+	DVCRProvisioning       *metav1.Duration `json:"dvcrProvisioning,omitempty"`
+	TotalProvisioning      *metav1.Duration `json:"totalProvisioning,omitempty"`
 }
 
 type AttachedVirtualMachine struct {

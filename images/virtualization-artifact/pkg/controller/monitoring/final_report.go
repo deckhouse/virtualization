@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -28,11 +29,12 @@ import (
 
 // FinalReport example: { "source-image-size": "1111", "source-image-virtual-size": "8888", "source-image-format": "qcow2"}
 type FinalReport struct {
-	StoredSizeBytes   uint64 `json:"source-image-size,omitempty"`
-	UnpackedSizeBytes uint64 `json:"source-image-virtual-size,omitempty"`
-	Format            string `json:"source-image-format,omitempty"`
-	AverageSpeed      uint64 `json:"average-speed,omitempty"`
-	ErrMessage        string `json:"error-message,omitempty"`
+	StoredSizeBytes   uint64        `json:"source-image-size,omitempty"`
+	UnpackedSizeBytes uint64        `json:"source-image-virtual-size,omitempty"`
+	Format            string        `json:"source-image-format,omitempty"`
+	Duration          time.Duration `json:"duration,omitempty"`
+	AverageSpeed      uint64        `json:"average-speed,omitempty"`
+	ErrMessage        string        `json:"error-message,omitempty"`
 }
 
 func (r *FinalReport) StoredSize() string {
@@ -49,6 +51,10 @@ func (r *FinalReport) GetAverageSpeed() string {
 
 func (r *FinalReport) GetAverageSpeedRaw() uint64 {
 	return r.AverageSpeed
+}
+
+func (r *FinalReport) GetImportDuration() time.Duration {
+	return r.Duration
 }
 
 var ErrTerminationMessageNotFound = errors.New("termination message not found in the Pod status")

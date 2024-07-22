@@ -1763,7 +1763,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(re
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
-					"provisioning": {
+					"dvcrProvisioning": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"totalProvisioning": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
