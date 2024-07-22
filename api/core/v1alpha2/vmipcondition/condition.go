@@ -35,6 +35,9 @@ type (
 )
 
 const (
+	// VirtualMachineIPAddressOutOfTheValidRange is a BoundReason indicating when specified IP address out of the range in controller settings.
+	VirtualMachineIPAddressOutOfTheValidRange BoundReason = "OutOfTheValidRange"
+
 	// VirtualMachineIPAddressLeaseAlready is a BoundReason indicating the IP address lease already exists.
 	VirtualMachineIPAddressLeaseAlready BoundReason = "VirtualMachineIPAddressLeaseAlready"
 

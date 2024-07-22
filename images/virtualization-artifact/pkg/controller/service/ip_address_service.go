@@ -53,21 +53,25 @@ func NewIpAddressService(
 	}
 }
 
-func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common.AllocatedIPs) bool {
+func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common.AllocatedIPs) error {
 	ip := net.ParseIP(address)
+	if ip == nil {
+		return ErrInvalidIpAddress
+	}
 
 	if _, ok := allocatedIPs[ip.String()]; !ok {
 		for _, cidr := range s.ParsedCIDRs {
 			if cidr.Contains(ip) {
 				// available
-				return true
+				return nil
 			}
 		}
 		// out of range
-		return false
+		return ErrIpAddressOutOfRange
 	}
+
 	// already exists
-	return false
+	return ErrIpAddressAlreadyExist
 }
 
 func (s IpAddressService) AllocateNewIP(allocatedIPs common.AllocatedIPs) (string, error) {
