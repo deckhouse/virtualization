@@ -24,7 +24,7 @@ shell:
   - go build ./cmd/dvcr_uploader
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_ALT }}
+fromImage: base-alt
 shell:
   install:
   - apt-get -qq update
@@ -38,5 +38,5 @@ shell:
   - apt-get update -qq
   - |
     apt-get install -qq -y \
-    ca-certificates==2024.06.08-alt1:sisyphus+350631.200.1.1 \
-    libnbd0==1.19.11-alt1:sisyphus+347436.100.3.1
+    ca-certificates==2024.07.01-alt1:sisyphus+351897.100.1.1 \
+    libnbd0==1.19.11-alt1:sisyphus+347436.100.3.1 

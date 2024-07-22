@@ -4,7 +4,7 @@ final: false
 from: {{ .Images.BASE_CONTAINER_REGISTRY }}
 ---
 image: {{ $.ImageName }}
-from: {{ $.Images.BASE_SCRATCH }}
+from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: {{ $.ImageName }}-original-registry2
   add: /bin

@@ -1,8 +1,8 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_ALT }}
+fromImage: base-alt
 shell:
-  install:
+  install: 
   # Install main packages.
   - |
     apt-get update && apt-get install --yes \

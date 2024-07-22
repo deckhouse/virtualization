@@ -4,8 +4,8 @@ configVersion: 1
 ---
 {{ $_ := set . "Images" dict }}
 ---
-# Base Images
-{{- $BaseImagesPath := "base-images/base_image_versions.yml" }}
+# Deckhouse Images
+{{- $BaseImagesPath := "base-images/deckhouse_image_versions.yml" }}
 {{ $baseImages := (.Files.Get $BaseImagesPath | fromYaml) }}
 
   {{- range $k, $v := $baseImages }}
@@ -15,8 +15,8 @@ configVersion: 1
     {{- end }}
   {{- end }}
 ---
-# Base virt Images
-{{- $BaseVirtImagesPath := "base-images/base_virt_image_versions.yml" }}
+# Base Images
+{{- $BaseVirtImagesPath := "base-images/image_versions.yml" }}
 {{ $baseImages := (.Files.Get $BaseVirtImagesPath | fromYaml) }}
 
   {{- range $k, $v := $baseImages }}
@@ -30,7 +30,7 @@ configVersion: 1
 ---
 # Modules_images
 {{- define "module_image_template" }}
-{{- if eq .ImageInstructionType "Dockerfile" }}
+  {{- if eq .ImageInstructionType "Dockerfile" }}
 ---
 image: images/{{ .ImageName }}
 context: images/{{ .ImageName }}
@@ -69,7 +69,7 @@ dockerfile: Dockerfile
 {{- end }}
 ---
 image: images-digests
-from: {{ .Images.BASE_ALPINE_17 }}
+from: {{ .Images.BASE_ALPINE }}
 dependencies:
   {{- range $ImageID := $ImagesIDList }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
@@ -135,7 +135,7 @@ git:
       - hooks/test*
 ---
 image: release-channel-version-artifact
-from: {{ .Images.BASE_ALPINE_17 }}
+from: {{ .Images.BASE_ALPINE }}
 git:
   - add: /
     to: /
