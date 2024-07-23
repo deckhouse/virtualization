@@ -44,6 +44,7 @@ func NewController(
 	client := mgr.GetClient()
 	handlers := []Handler{
 		internal.NewProtectionHandler(client, recorder, logger),
+		internal.NewDiscoveryHandler(client),
 		internal.NewLifeCycleHandler(client),
 	}
 	r := NewReconciler(client, logger, handlers...)

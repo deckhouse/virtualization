@@ -18,13 +18,8 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"slices"
-	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -36,11 +31,6 @@ import (
 
 const nameLifeCycleHandler = "LifeCycleHandler"
 
-var lifeCycleConditions = []string{
-	string(vmclasscondition.TypeReady),
-	string(vmclasscondition.TypeDiscovered),
-}
-
 func NewLifeCycleHandler(client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		client: client,
@@ -51,7 +41,7 @@ type LifeCycleHandler struct {
 	client client.Client
 }
 
-func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
+func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
 	if s.VirtualMachineClass().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -62,97 +52,58 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		return reconcile.Result{}, nil
 	}
 
-	if updated := addAllUnknown(changed, lifeCycleConditions...); updated {
+	if updated := addAllUnknown(changed, vmclasscondition.TypeReady.String()); updated {
 		changed.Status.Phase = virtv2.ClassPhasePending
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	nodes, err := s.Nodes(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	availableNodes := make([]string, len(nodes))
-	for i, n := range nodes {
-		availableNodes[i] = n.GetName()
-	}
-	changed.Status.AvailableNodes = availableNodes
-
-	t := current.Spec.CPU.Type
-	mgr := conditions.NewManager(current.Status.Conditions)
-
-	if t == virtv2.CPUTypeHostPassthrough || t == virtv2.CPUTypeHost {
-		mgr.Update(conditions.NewConditionBuilder2(vmclasscondition.TypeReady).
-			Generation(current.GetGeneration()).
-			Message("").
-			Reason2(vmclasscondition.ReasonSuitableNodesFound).
-			Status(metav1.ConditionTrue).Condition())
-		mgr.Update(conditions.NewConditionBuilder2(vmclasscondition.TypeDiscovered).
-			Generation(current.GetGeneration()).
-			Message(fmt.Sprintf("Discovery available only cpu.type %q", virtv2.CPUTypeDiscovery)).
-			Reason2(vmclasscondition.ReasonDiscoverySkip).
-			Status(metav1.ConditionFalse).Condition())
-		changed.Status.Conditions = mgr.Generate()
-		changed.Status.Phase = virtv2.ClassPhaseReady
-		return reconcile.Result{}, nil
-	}
-
-	var featuresEnabled []string
-	switch t {
-	case virtv2.CPUTypeDiscovery:
-		featuresEnabled = h.discoveryCommonFeatures(nodes)
-	case virtv2.CPUTypeFeatures:
-		featuresEnabled = current.Spec.CPU.Features
-	}
-
-	var featuresNotEnabled []string
-	if t == virtv2.CPUTypeDiscovery || t == virtv2.CPUTypeFeatures {
-		selectedNodes, err := s.NodesByVMNodeSelector(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		commonFeatures := h.discoveryCommonFeatures(selectedNodes)
-		for _, cf := range commonFeatures {
-			if !slices.Contains(featuresEnabled, cf) {
-				featuresNotEnabled = append(featuresNotEnabled, cf)
-			}
-		}
-	}
-
-	changed.Status.CpuFeatures = virtv2.CpuFeatures{
-		Enabled:          featuresEnabled,
-		NotEnabledCommon: featuresNotEnabled,
-	}
+	mgr := conditions.NewManager(changed.Status.Conditions)
+	cb := conditions.NewConditionBuilder2(vmclasscondition.TypeReady).
+		Generation(current.GetGeneration())
 	var phase virtv2.VirtualMachineClassPhase
-	cbReady := conditions.NewConditionBuilder2(vmclasscondition.TypeReady).Generation(current.GetGeneration())
-	if len(availableNodes) > 0 {
-		phase = virtv2.ClassPhaseReady
-		cbReady.Message("").Reason2(vmclasscondition.ReasonSuitableNodesFound).Status(metav1.ConditionTrue)
-	} else {
-		phase = virtv2.ClassPhasePending
-		cbReady.Message("No matching nodes found.").
-			Reason2(vmclasscondition.ReasonNoSuitableNodesFound).
-			Status(metav1.ConditionFalse)
-	}
-	cbDiscovery := conditions.NewConditionBuilder2(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 
-	switch t {
+	switch current.Spec.CPU.Type {
+	case virtv2.CPUTypeHostPassthrough, virtv2.CPUTypeHost:
+		cb.Message("").
+			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Status(metav1.ConditionTrue)
+		phase = virtv2.ClassPhaseReady
 	case virtv2.CPUTypeDiscovery:
-		if len(featuresEnabled) > 0 {
-			cbDiscovery.Message("").Reason2(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
+		var notReady bool
+		if len(changed.Status.AvailableNodes) == 0 {
+			cb.Message("No matching nodes found.")
+			cb.Reason2(vmclasscondition.ReasonNoSuitableNodesFound)
+			notReady = true
+		}
+		if len(changed.Status.CpuFeatures.Enabled) == 0 {
+			cb.Message("No cpu feature enabled.")
+			cb.Reason2(vmclasscondition.ReasonNoCpuFeaturesEnabled)
+			notReady = true
+		}
+		if notReady {
+			phase = virtv2.ClassPhasePending
+			cb.Status(metav1.ConditionFalse)
 			break
 		}
-		cbDiscovery.Message("Detection nodes have no features.").
-			Reason2(vmclasscondition.ReasonDiscoveryFailed).
-			Status(metav1.ConditionFalse)
-		phase = virtv2.ClassPhasePending
+		phase = virtv2.ClassPhaseReady
+		cb.Message("").
+			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Status(metav1.ConditionTrue)
 	default:
-		cbDiscovery.Message(fmt.Sprintf("Discovery available only cpu.type %q", virtv2.CPUTypeDiscovery)).
-			Reason2(vmclasscondition.ReasonDiscoverySkip).
-			Status(metav1.ConditionFalse)
+		if len(changed.Status.AvailableNodes) == 0 {
+			phase = virtv2.ClassPhasePending
+			cb.Message("No matching nodes found.").
+				Reason2(vmclasscondition.ReasonNoSuitableNodesFound).
+				Status(metav1.ConditionFalse)
+			break
+		}
+		phase = virtv2.ClassPhaseReady
+		cb.Message("").
+			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Status(metav1.ConditionTrue)
 	}
 
-	mgr.Update(cbReady.Condition())
-	mgr.Update(cbDiscovery.Condition())
+	mgr.Update(cb.Condition())
 	changed.Status.Conditions = mgr.Generate()
 	changed.Status.Phase = phase
 
@@ -161,25 +112,4 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 func (h *LifeCycleHandler) Name() string {
 	return nameLifeCycleHandler
-}
-
-func (h *LifeCycleHandler) discoveryCommonFeatures(nodes []corev1.Node) []string {
-	if len(nodes) == 0 {
-		return nil
-	}
-	featuresCount := make(map[string]int)
-	for _, n := range nodes {
-		for k, v := range n.GetLabels() {
-			if strings.HasPrefix(k, virtv1.CPUFeatureLabel) && v == "true" {
-				featuresCount[strings.TrimPrefix(k, virtv1.CPUFeatureLabel)]++
-			}
-		}
-	}
-	var features []string
-	for k, v := range featuresCount {
-		if v == len(nodes) {
-			features = append(features, k)
-		}
-	}
-	return features
 }

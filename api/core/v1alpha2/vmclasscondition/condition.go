@@ -34,6 +34,7 @@ func (r Reason) String() string {
 }
 
 const (
+	ReasonNoCpuFeaturesEnabled Reason = "NoCpuFeaturesEnabled"
 	ReasonNoSuitableNodesFound Reason = "NoSuitableNodesFound"
 	ReasonSuitableNodesFound   Reason = "SuitableNodesFound"
 
