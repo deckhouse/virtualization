@@ -116,14 +116,17 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		)
 	}
 
-	vmbdas, err := s.VMBDAs(ctx)
+	vmbdas, err := s.VMBDAList(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Set hot plugged BlockDeviceRef to the status.
 	for _, vmbda := range vmbdas {
-		if vmbda.Status.Phase == virtv2.BlockDeviceAttachmentPhasePending {
+		switch vmbda.Status.Phase {
+		case virtv2.BlockDeviceAttachmentPhaseInProgress,
+			virtv2.BlockDeviceAttachmentPhaseAttached:
+		default:
 			continue
 		}
 
@@ -139,7 +142,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 		bdStatusRef := h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
 		bdStatusRef.Size = vd.Status.Capacity
-		bdStatusRef.Hotpluggable = true
+		bdStatusRef.Hotplugged = true
 		bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
 
 		changed.Status.BlockDeviceRefs = append(
@@ -206,7 +209,7 @@ func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) 
 	hotplugged := make(map[string]struct{})
 
 	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Hotpluggable {
+		if bda.Hotplugged {
 			hotplugged[bda.Name] = struct{}{}
 		}
 	}

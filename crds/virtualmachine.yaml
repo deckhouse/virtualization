@@ -974,10 +974,10 @@ spec:
                         type: boolean
                         description: |
                           The block device is attached to the virtual machine.
-                      hotpluggable:
+                      hotplugged:
                         type: boolean
                         description: |
-                          Block device is available for hot plug.
+                          Block device is attached via hot plug connection.
                       kind:
                         type: string
                         description: The type of block device.
@@ -1000,7 +1000,7 @@ spec:
                       virtualMachineBlockDeviceAttachmentName:
                         type: string
                         description: |
-                          The name of the `VirtualMachineBlockDeviceAttachment` resource that provides hot plug disk connection.
+                          The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.
                 migrationState:
                   type: object
                   description: "Migration info."

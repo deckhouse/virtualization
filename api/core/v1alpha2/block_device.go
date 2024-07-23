@@ -27,7 +27,7 @@ type BlockDeviceStatusRef struct {
 	Size                                    string          `json:"size"`
 	Target                                  string          `json:"target"`
 	Attached                                bool            `json:"attached"`
-	Hotpluggable                            bool            `json:"hotpluggable,omitempty"`
+	Hotplugged                              bool            `json:"hotplugged,omitempty"`
 	VirtualMachineBlockDeviceAttachmentName string          `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
 }
 

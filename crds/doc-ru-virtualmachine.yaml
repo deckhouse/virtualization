@@ -536,9 +536,9 @@ spec:
                         type: boolean
                         description: |
                           Блочное устройство подключено к виртуальной машине.
-                      hotpluggable:
+                      hotplugged:
                         description: |
-                          Блочное устройство доступно для горячего подключения.
+                          Блочное устройство подключено к виртуальной машине «на лету».
                       kind:
                         description: |
                           Тип блочного устройства.
@@ -553,7 +553,7 @@ spec:
                           Название подключенного блочного устройства.
                       virtualMachineBlockDeviceAttachmentName:
                         description: |
-                          Имя ресурса `VirtualMachineBlockDeviceAttachment`, обеспечивающего «горячее» подключение диска.
+                          Имя ресурса `VirtualMachineBlockDeviceAttachment`, который описывает подключение диска к виртуальной машине «на лету».
                 conditions:
                   description: |
                     Состояния во время работы виртуальной машины.

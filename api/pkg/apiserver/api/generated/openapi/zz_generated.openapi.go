@@ -723,7 +723,7 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref common.Ref
 							Format:  "",
 						},
 					},
-					"hotpluggable": {
+					"hotplugged": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
