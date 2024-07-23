@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,11 +35,11 @@ import (
 )
 
 type AttachmentService struct {
-	client              client.Client
+	client              Client
 	controllerNamespace string
 }
 
-func NewAttachmentService(client client.Client, controllerNamespace string) *AttachmentService {
+func NewAttachmentService(client Client, controllerNamespace string) *AttachmentService {
 	return &AttachmentService{
 		client:              client,
 		controllerNamespace: controllerNamespace,
@@ -183,6 +184,60 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDis
 	return nil
 }
 
+// IsConflictedAttachment returns true if the provided VMBDA conflicts with another
+// previously created or started VMBDA with the same disk and virtual machine.
+// There should be no other Non-Conflicted VMBDAs.
+//
+// Examples: Check if VMBDA A is conflicted:
+//
+// T1: -->VMBDA A Should be Conflicted
+// T1:    VMBDA B Phase: "Attached"
+//
+// T1: -->VMBDA A Should be Non-Conflicted
+// T1:    VMBDA B Phase: "Failed"
+//
+// T1:    VMBDA B Phase: ""
+// T2: -->VMBDA A Should be Conflicted
+//
+// T1: -->VMBDA A Should be Non-Conflicted
+// T2:    VMBDA B Phase: ""
+//
+// T1: -->VMBDA A Should be Non-Conflicted lexicographically
+// T1:    VMBDA B Phase: ""
+func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err := s.client.List(ctx, &vmbdas, &client.ListOptions{Namespace: vmbda.Namespace})
+	if err != nil {
+		return false, "", err
+	}
+
+	for i := range vmbdas.Items {
+		// If the virtual machine and disk do not match, there is no conflict with this VMBDA.
+		if vmbdas.Items[i].Name == vmbda.Name || !isSameAttachmentRequest(vmbdas.Items[i].Spec, vmbda.Spec) {
+			continue
+		}
+
+		// There is already a Non-Conflicted VMBDA.
+		if vmbdas.Items[i].Status.Phase != "" && vmbdas.Items[i].Status.Phase != virtv2.BlockDeviceAttachmentPhaseFailed {
+			return true, vmbdas.Items[i].Name, nil
+		}
+
+		switch vmbdas.Items[i].CreationTimestamp.Time.Compare(vmbda.CreationTimestamp.Time) {
+		case -1:
+			// The current VMBDA undergoing reconciliation conflicts with another previously created VMBDA.
+			return true, vmbdas.Items[i].Name, nil
+		case 0:
+			// Same creation time, the earliest lexicographically should be processed, the others are considered conflicting.
+			if strings.Compare(vmbdas.Items[i].Name, vmbda.Name) == -1 {
+				return true, vmbdas.Items[i].Name, nil
+			}
+		case 1:
+		}
+	}
+
+	return false, "", nil
+}
+
 func (s AttachmentService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
 	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
 }
@@ -201,4 +256,20 @@ func (s AttachmentService) GetKVVM(ctx context.Context, vm *virtv2.VirtualMachin
 
 func (s AttachmentService) GetKVVMI(ctx context.Context, vm *virtv2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
+}
+
+func isSameAttachmentRequest(a, b virtv2.VirtualMachineBlockDeviceAttachmentSpec) bool {
+	if a.VirtualMachineName != b.VirtualMachineName {
+		return false
+	}
+
+	if a.BlockDeviceRef.Kind != b.BlockDeviceRef.Kind {
+		return false
+	}
+
+	if a.BlockDeviceRef.Name != b.BlockDeviceRef.Name {
+		return false
+	}
+
+	return true
 }

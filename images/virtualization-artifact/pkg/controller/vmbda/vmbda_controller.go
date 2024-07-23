@@ -66,7 +66,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator()).
+		WithValidator(NewValidator(attacher)).
 		Complete(); err != nil {
 		return nil, err
 	}
