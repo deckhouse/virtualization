@@ -88,6 +88,6 @@ Rename additional resources previded with Device Plugin API to not overlap with 
 
 Rename unix-socket path used for register devices.
 
-#### `/019-remove-deprecation-warnings-from-crds.patch`
+#### `019-remove-deprecation-warnings-from-crds.patch`
 
-Virtualization-controller don't use deprecated versions. Deprecation warning are distracting in our case.
+Virtualization-controller doesn't use deprecated apiGroup versions. Deprecation warnings are distracting in our case.
