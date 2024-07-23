@@ -80,4 +80,7 @@ const (
 
 	// ReasonVMOPSucceeded is event reason that the operation is successfully completed
 	ReasonVMOPSucceeded = "VirtualMachineOperationSucceeded"
+
+	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
+	ReasonVMClassInUse = "VirtualMachineClassInUse"
 )

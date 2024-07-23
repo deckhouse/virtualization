@@ -37,7 +37,7 @@ const nameDeletionHandler = "DeletionHandler"
 func NewDeletionHandler(client client.Client, logger *slog.Logger) *DeletionHandler {
 	return &DeletionHandler{
 		client:     client,
-		logger:     logger,
+		logger:     logger.With("handler", nameDeletionHandler),
 		protection: service.NewProtectionService(client, virtv2.FinalizerKVVMProtection),
 	}
 }

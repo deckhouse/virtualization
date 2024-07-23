@@ -23,8 +23,8 @@ func (t Type) String() string {
 }
 
 const (
-	TypeCPUModelReady                       Type = "CPUModelReady"
 	TypeIPAddressReady                      Type = "VirtualMachineIPAddressReady"
+	TypeClassReady                          Type = "ClassReady"
 	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
@@ -45,8 +45,8 @@ func (r Reason) String() string {
 const (
 	ReasonAgentNotReady Reason = "AgentNotReady"
 
-	ReasonCPUModelReady    Reason = "CPUModelReady"
-	ReasonCPUModelNotReady Reason = "CPUModelNotReady"
+	ReasonClassReady    Reason = "ClassReady"
+	ReasonClassNotReady Reason = "ClassNotReady"
 
 	ReasonIPAddressReady        Reason = "VirtualMachineIPAddressReady"
 	ReasonIPAddressNotReady     Reason = "VirtualMachineIPAddressNotReady"

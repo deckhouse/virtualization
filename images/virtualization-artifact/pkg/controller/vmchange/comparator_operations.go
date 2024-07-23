@@ -16,10 +16,20 @@ limitations under the License.
 
 package vmchange
 
+import "k8s.io/apimachinery/pkg/api/resource"
+
 func compareStrings(path, current, desired, defaultValue string, onChange ActionType) []FieldChange {
 	currentValue := NewStringValue(current, defaultValue)
 	desiredValue := NewStringValue(desired, defaultValue)
 	isEqual := current == desired
+
+	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
+}
+
+func compareQuantity(path string, current, desired, defaultValue resource.Quantity, onChange ActionType) []FieldChange {
+	currentValue := NewQuantityValue(current, defaultValue)
+	desiredValue := NewQuantityValue(desired, defaultValue)
+	isEqual := current.Equal(desired)
 
 	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
 }
@@ -147,6 +157,12 @@ func NewValue(value interface{}, isEmpty, isDefault bool) Value {
 func NewStringValue(value, defaultValue string) Value {
 	isEmpty := value == ""
 	isDefault := !isEmpty && value == defaultValue
+	return NewValue(value, isEmpty, isDefault)
+}
+
+func NewQuantityValue(value, defaultValue resource.Quantity) Value {
+	isEmpty := value.IsZero()
+	isDefault := !isEmpty && value.Cmp(defaultValue) == 0
 	return NewValue(value, isEmpty, isDefault)
 }
 

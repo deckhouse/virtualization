@@ -17,6 +17,8 @@ limitations under the License.
 package vmchange
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -29,6 +31,15 @@ const (
 	DefaultEnableParavirtualization      = true
 	DefaultTerminationGracePeriodSeconds = int64(60)
 )
+
+func compareVirtualmachineClass(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	return compareStrings(
+		"virtualMachineClassName",
+		current.VirtualMachineClassName,
+		desired.VirtualMachineClassName,
+		"",
+		ActionRestart)
+}
 
 // compareRunPolicy
 func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
@@ -139,17 +150,12 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 		return fractionChanges
 	}
 
-	modelChanges := compareStrings("cpu.virtualMachineCPUModelName", current.CPU.VirtualMachineCPUModel, desired.CPU.VirtualMachineCPUModel, DefaultCPUModelName, ActionRestart)
-	if HasChanges(modelChanges) {
-		return modelChanges
-	}
-
 	return nil
 }
 
 // compareMemory returns changes in the memory section.
 func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
-	return compareStrings("memory.size", current.Memory.Size, desired.Memory.Size, "", ActionRestart)
+	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, ActionRestart)
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {

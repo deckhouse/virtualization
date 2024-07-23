@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -61,10 +60,6 @@ func conditionStatus(status string) metav1.ConditionStatus {
 	default:
 		return metav1.ConditionUnknown
 	}
-}
-
-func namespacedName(obj client.Object) types.NamespacedName {
-	return types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
 }
 
 func vmIsDegraded(kvvm *virtv1.VirtualMachine) bool {

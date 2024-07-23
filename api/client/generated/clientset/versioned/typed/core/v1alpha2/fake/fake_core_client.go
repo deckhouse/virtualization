@@ -47,8 +47,8 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineBlockDeviceAttachments(namesp
 	return &FakeVirtualMachineBlockDeviceAttachments{c, namespace}
 }
 
-func (c *FakeVirtualizationV1alpha2) VirtualMachineCPUModels() v1alpha2.VirtualMachineCPUModelInterface {
-	return &FakeVirtualMachineCPUModels{c}
+func (c *FakeVirtualizationV1alpha2) VirtualMachineClasses() v1alpha2.VirtualMachineClassInterface {
+	return &FakeVirtualMachineClasses{c}
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddresses(namespace string) v1alpha2.VirtualMachineIPAddressInterface {

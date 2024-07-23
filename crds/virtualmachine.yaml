@@ -856,7 +856,10 @@ spec:
                     * BIOS - use legacy BIOS.
                     * EFI - use Unified Extensible Firmware (EFI/UEFI).
                     * EFIWithSecureBoot - use UEFI/EFI with SecureBoot support.
-
+                virtualMachineClassName:
+                  type: string
+                  description: |
+                    Name of `virtualMachineClass` resource describing the requirements for a virtual CPU and the resource allocation policy.
                 cpu:
                   type: object
                   description: Specifies the CPU settings for the VM.

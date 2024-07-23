@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/log"
@@ -253,16 +254,25 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 			if _, ok := obj.(*virtv2.VirtualImage); !ok {
 				return nil
 			}
-			opts = append(opts, client.InNamespace(obj.GetNamespace()))
+			opts = append(opts,
+				client.InNamespace(obj.GetNamespace()),
+				client.MatchingFields{indexer.IndexFieldVMByVI: obj.GetName()},
+			)
 		case virtv2.ClusterImageDevice:
 			if _, ok := obj.(*virtv2.ClusterVirtualImage); !ok {
 				return nil
 			}
+			opts = append(opts,
+				client.MatchingFields{indexer.IndexFieldVMByCVI: obj.GetName()},
+			)
 		case virtv2.DiskDevice:
 			if _, ok := obj.(*virtv2.VirtualDisk); !ok {
 				return nil
 			}
-			opts = append(opts, client.InNamespace(obj.GetNamespace()))
+			opts = append(opts,
+				client.InNamespace(obj.GetNamespace()),
+				client.MatchingFields{indexer.IndexFieldVMByVD: obj.GetName()},
+			)
 		default:
 			return nil
 		}
@@ -272,17 +282,12 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 		}
 		var result []reconcile.Request
 		for _, vm := range vms.Items {
-			for _, bd := range vm.Spec.BlockDeviceRefs {
-				if bd.Kind == kind && bd.Name == obj.GetName() {
-					result = append(result, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Name:      vm.GetName(),
-							Namespace: vm.GetNamespace(),
-						},
-					})
-					break
-				}
-			}
+			result = append(result, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      vm.GetName(),
+					Namespace: vm.GetNamespace(),
+				},
+			})
 		}
 		return result
 	}
