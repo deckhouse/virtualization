@@ -26,13 +26,13 @@ import:
   add: /images/kubevirt/{{ $.ImageName }}:latest/
   to: /
   after: install
-  includePaths: 
+  includePaths:
   - .version
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/etc/libvirt
   to: /etc/libvirt
   after: install
-  includePaths: 
+  includePaths:
   - qemu.conf
   - virtqemud.conf
 - image: virt-artifact
@@ -45,7 +45,7 @@ import:
   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
   to: /usr/bin
   before: setup
-  includePaths: 
+  includePaths:
   - container-disk
   - node-labeller.sh
   - virt-freezer
@@ -95,6 +95,27 @@ shell:
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
   setup:
+  # TODO restructure ovmfs in /usr/share/OVMF to mimic edk2-ovmf packages from the original kubevirt.
+  - |
+    cd /usr/share/OVMF
+    rm MICROVM.fd
+    rm OVMF.inteltdx.secboot.fd
+    rm OVMF_CODE.fd
+    rm OVMF_CODE.secboot.fd
+    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
+    rm OVMF_CODE_4M.qcow2
+    mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
+    rm OVMF_CODE_4M.secboot.qcow2
+    rm OVMF_VARS.fd
+    rm OVMF_VARS.ms.fd
+    rm OVMF_VARS.secboot.fd
+    mv OVMF_VARS_4M.fd OVMF_VARS.fd
+    rm OVMF_VARS_4M.ms.fd
+    rm OVMF_VARS_4M.ms.qcow2
+    rm OVMF_VARS_4M.qcow2
+    mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
+    rm OVMF_VARS_4M.secboot.qcow2
+    ls -la
   # Replace virt-launcher-monitor with script.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
