@@ -57,7 +57,7 @@ func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.Vi
 }
 
 type state struct {
-	client         client.Client
+	client    client.Client
 	mu        sync.RWMutex
 	vm        *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	kvvm      *virtv1.VirtualMachine
@@ -69,7 +69,7 @@ type state struct {
 	cviByName map[string]*virtv2.ClusterVirtualImage
 	ipAddress *virtv2.VirtualMachineIPAddress
 	cpuModel  *virtv2.VirtualMachineCPUModel
-	shared         Shared
+	shared    Shared
 }
 
 type Shared struct {
