@@ -19,12 +19,12 @@ env:
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - ci/tests/e2e-workflow
-  push:
-    branches:
-      - ci/tests/e2e-workflow
+  # pull_request:
+  #   branches:
+  #     - ci/tests/e2e-workflow
+  # push:
+  #   branches:
+  #     - ci/tests/e2e-workflow
 
 defaults:
   run:
