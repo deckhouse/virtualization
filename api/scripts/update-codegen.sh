@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # Copyright 2024 Flant JSC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,9 +19,9 @@ set -o pipefail
 
 function usage {
   cat <<EOF
-Usage: $(basename "$0") <core/subresources/all>
+Usage: $(basename "$0") <core/subresources/crds/all>
 Example:
-   $(basename "$0") controller
+   $(basename "$0") core
 EOF
 }
 
@@ -30,6 +30,9 @@ function source::settings {
   SCRIPT_ROOT="${SCRIPT_DIR}/.."
   CODEGEN_PKG="$(go env GOMODCACHE)/$(go list -f '{{.Path}}@{{.Version}}' -m k8s.io/code-generator)"
   MODULE="github.com/deckhouse/virtualization/api"
+  PREFIX_GROUP="virtualization.deckhouse.io_"
+  # TODO: legacy, delete after all crds are auto-generated
+  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass ExampleKind1 ExampleKind2")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
@@ -72,6 +75,24 @@ function generate::core {
           cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
 }
 
+function generate:crds() {
+          cd "${SCRIPT_ROOT}/.."
+          OUTPUT_BASE=$(mktemp -d)
+          trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
+
+          "${GOPATH}/bin/controller-gen" crd paths=./api/core/v1alpha2/... output:crd:dir="${OUTPUT_BASE}"
+
+          while IFS= read -r -d '' file
+            do
+              # TODO: legacy, delete after all crds are auto-generated
+              if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(yq '.spec.names.kind' "$file")[[:space:]] ]]; then
+                continue
+              fi
+              cp "$file" "./crds/${file/#"$OUTPUT_BASE/$PREFIX_GROUP"/}"
+          done <   <(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml" -print0)
+
+}
+
 
 WHAT=$1
 if [ "$#" != 1 ] || [ "${WHAT}" == "--help" ] ; then
@@ -88,10 +109,15 @@ case "$WHAT" in
     source::settings
     generate::subresources
     ;;
+  crds)
+    source::settings
+    generate:crds
+    ;;
   all)
     source::settings
     generate::core
     generate::subresources
+    generate:crds
     ;;
 *)
     echo "Invalid argument: $WHAT"
