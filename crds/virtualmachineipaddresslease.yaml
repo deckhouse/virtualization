@@ -17,12 +17,14 @@ spec:
     shortNames:
       - vmipl
       - vmipls
+      - vmiplease
+      - vmipleases
   versions:
     - name: v1alpha2
       schema:
         openAPIV3Schema:
           description: |
-            The resource that defines fact of issued lease for `VirtualMachineIPAddressClaim`.
+            The resource that defines fact of issued lease for `VirtualMachineIPAddress`.
           properties:
             apiVersion:
               type: string
@@ -34,26 +36,17 @@ spec:
               description: |
                 The desired state of `VirtualMachineIPAddressLease`.
               properties:
-                reclaimPolicy:
-                  type: string
-                  default: "Delete"
-                  enum: ["Delete", "Retain"]
+                virtualMachineIPAddressRef:
                   description: |
-                    Reclaim policies to determine the behavior of `VirtualMachineIPAddressLease` upon `VirtualMachineIPAddressClaim` deletion.
-
-                    * `Delete` — this means that a `VirtualMachineIPAddressLease` is automatically deleted when a user deletes the corresponding `VirtualMachineIPAddressClaim`.
-                    * `Retain` — if a user deletes a `VirtualMachineIPAddressClaim`, the corresponding `VirtualMachineIPAddressLease` will not be deleted. Instead, it is moved to the Released phase, where its ip address can be manually reclaimed.
-                claimRef:
-                  description: |
-                    The link to existing `VirtualMachineIPAddressClaim`.
+                    The link to existing `VirtualMachineIPAddress`.
                   properties:
                     name:
                       description: |
-                        The name of the referenced `VirtualMachineIPAddressClaim`.
+                        The name of the referenced `VirtualMachineIPAddress`.
                       type: string
                     namespace:
                       description: |
-                        The Namespace of the referenced `VirtualMachineIPAddressClaim`.
+                        The Namespace of the referenced `VirtualMachineIPAddress`.
                       type: string
                   required:
                     - name
@@ -65,6 +58,37 @@ spec:
               description: |
                 The observed state of `VirtualMachineIPAddressLease`.
               properties:
+                conditions:
+                  description: |
+                    The latest available observations of an object's current state.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - status
+                      - type
                 phase:
                   type: string
                   enum:
@@ -73,16 +97,20 @@ spec:
                   description: |
                     Represents the current state of issued IP address lease.
 
-                    * Bound - the IP address lease is bound to IP address claim.
+                    * Bound - the IP address lease is bound to IP address.
                     * Released - the IP address lease is available for binding.
+                observedGeneration:
+                  type: integer
+                  description: |
+                    The generation last processed by the controller.
           type: object
       served: true
       storage: true
       subresources:
         status: {}
       additionalPrinterColumns:
-        - jsonPath: .spec.claimRef
-          name: Claim
+        - jsonPath: .spec.virtualMachineIPAddressRef
+          name: VirtualMachineIPAddress
           type: string
         - jsonPath: .status.phase
           name: Status

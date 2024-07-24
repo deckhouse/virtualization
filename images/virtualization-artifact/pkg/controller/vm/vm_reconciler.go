@@ -148,15 +148,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
 
-	// Subscribe on VirtualMachineIpAddressClaim.
+	// Subscribe on VirtualMachineIpAddress.
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressClaim{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			claim, ok := obj.(*virtv2.VirtualMachineIPAddressClaim)
+			vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
 			if !ok {
 				return nil
 			}
-			name := claim.Status.VirtualMachine
+			name := vmip.Status.VirtualMachine
 			if name == "" {
 				return nil
 			}
@@ -164,7 +164,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				{
 					NamespacedName: types.NamespacedName{
 						Name:      name,
-						Namespace: claim.GetNamespace(),
+						Namespace: vmip.GetNamespace(),
 					},
 				},
 			}
@@ -173,14 +173,14 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldClaim := e.ObjectOld.(*virtv2.VirtualMachineIPAddressClaim)
-				newClaim := e.ObjectNew.(*virtv2.VirtualMachineIPAddressClaim)
-				return oldClaim.Status.Phase != newClaim.Status.Phase ||
-					oldClaim.Status.VirtualMachine != newClaim.Status.VirtualMachine
+				oldVmip := e.ObjectOld.(*virtv2.VirtualMachineIPAddress)
+				newVmip := e.ObjectNew.(*virtv2.VirtualMachineIPAddress)
+				return oldVmip.Status.Phase != newVmip.Status.Phase ||
+					oldVmip.Status.VirtualMachine != newVmip.Status.VirtualMachine
 			},
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachineIpAddressClaim: %w", err)
+		return fmt.Errorf("error setting watch on VirtualMachineIpAddress: %w", err)
 	}
 
 	// Subscribe on VirtualImage.

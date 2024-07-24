@@ -68,7 +68,7 @@ func main() {
 		log.Fatalf("Cannot fetch ClusterImages: %v", err)
 	}
 	// Fetch list of IPAddressClaims.
-	ipcList, err := client.VirtualMachineIPAddressClaims(namespace).List(context.TODO(), metav1.ListOptions{})
+	ipcList, err := client.VirtualMachineIPAddresses(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Cannot fetch IPAddressClaims in namespace %s: %v", namespace, err)
 	}

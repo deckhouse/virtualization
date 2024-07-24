@@ -41,10 +41,9 @@ import (
 const nameIpamHandler = "IPAMHandler"
 
 type IPAM interface {
-	IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) bool
-	CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error
-	CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
-	DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error
+	IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool
+	CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error
+	CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 }
 
 func NewIPAMHandler(ipam IPAM, cl client.Client, recorder record.EventRecorder, logger *slog.Logger) *IPAMHandler {
@@ -53,7 +52,7 @@ func NewIPAMHandler(ipam IPAM, cl client.Client, recorder record.EventRecorder, 
 		client:     cl,
 		recorder:   recorder,
 		logger:     logger.With("handler", nameIpamHandler),
-		protection: service.NewProtectionService(cl, virtv2.FinalizerIPAddressClaimProtection),
+		protection: service.NewProtectionService(cl, virtv2.FinalizerIPAddressProtection),
 	}
 }
 
@@ -72,33 +71,33 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, string(vmcondition.TypeIPAddressClaimReady)); update {
+	if update := addAllUnknown(changed, string(vmcondition.TypeIPAddressReady)); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeIPAddressClaimReady).
+	cb := conditions.NewConditionBuilder2(vmcondition.TypeIPAddressReady).
 		Generation(current.GetGeneration())
 
-	ipAddressClaim, err := s.IPAddressClaim(ctx)
+	ipAddress, err := s.IPAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	if isDeletion(current) {
-		return reconcile.Result{}, h.protection.RemoveProtection(ctx, ipAddressClaim)
+		return reconcile.Result{}, h.protection.RemoveProtection(ctx, ipAddress)
 	}
-	err = h.protection.AddProtection(ctx, ipAddressClaim)
+	err = h.protection.AddProtection(ctx, ipAddress)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// 1. OK: already bound.
-	if h.ipam.IsBound(current.GetName(), ipAddressClaim) {
+	if h.ipam.IsBound(current.GetName(), ipAddress) {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonIPAddressClaimReady).
+			Reason2(vmcondition.ReasonIPAddressReady).
 			Condition())
-		changed.Status.VirtualMachineIPAddressClaim = ipAddressClaim.GetName()
-		changed.Status.IPAddress = ipAddressClaim.Spec.Address
+		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
+		changed.Status.IPAddress = ipAddress.Status.Address
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -108,17 +107,17 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 				if iface.Name == kvbuilder.NetworkInterfaceName {
 					hasClaimedIP := false
 					for _, ip := range iface.IPs {
-						if ip == ipAddressClaim.Spec.Address {
+						if ip == ipAddress.Status.Address {
 							hasClaimedIP = true
 						}
 					}
 					if !hasClaimedIP {
-						msg := fmt.Sprintf("Claimed IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddressClaim.Spec.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
+						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
 						mgr.Update(cb.Status(metav1.ConditionFalse).
-							Reason2(vmcondition.ReasonIPAddressClaimNotAssigned).
+							Reason2(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).
 							Condition())
-						h.recorder.Event(changed, corev1.EventTypeWarning, vmcondition.ReasonIPAddressClaimNotAssigned.String(), msg)
+						h.recorder.Event(changed, corev1.EventTypeWarning, vmcondition.ReasonIPAddressNotAssigned.String(), msg)
 						h.logger.Error(msg)
 					}
 					break
@@ -131,36 +130,36 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 
 	cb.Status(metav1.ConditionFalse)
 
-	// 2. Claim not found: create if possible or wait for the claim.
-	if ipAddressClaim == nil {
-		cb.Reason2(vmcondition.ReasonIPAddressClaimNotReady)
-		if current.Spec.VirtualMachineIPAddressClaim != "" {
-			h.logger.Info(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", current.Spec.VirtualMachineIPAddressClaim))
-			cb.Message(fmt.Sprintf("The requested ip address claim (%s) for the virtual machine not found: waiting for the Claim", current.Spec.VirtualMachineIPAddressClaim))
+	// 2. Ip address not found: create if possible or wait for the ip address.
+	if ipAddress == nil {
+		cb.Reason2(vmcondition.ReasonIPAddressNotReady)
+		if current.Spec.VirtualMachineIPAddress != "" {
+			h.logger.Info(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
+			cb.Message(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
 			return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 		}
-		h.logger.Info("VirtualMachineIPAddressClaim not found: create the new one", slog.String("claimName", current.GetName()))
-		cb.Message(fmt.Sprintf("VirtualMachineIPAddressClaim %q not found: it may be in the process of being created", current.GetName()))
+		h.logger.Info("VirtualMachineIPAddress not found: create the new one", slog.String("vmipName", current.GetName()))
+		cb.Message(fmt.Sprintf("VirtualMachineIPAddress %q not found: it may be in the process of being created", current.GetName()))
 		mgr.Update(cb.Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, h.ipam.CreateIPAddressClaim(ctx, changed, h.client)
+		return reconcile.Result{RequeueAfter: 2 * time.Second}, h.ipam.CreateIPAddress(ctx, changed, h.client)
 	}
 
-	// 3. Check if possible to bind virtual machine with the found claim.
-	err = h.ipam.CheckClaimAvailableForBinding(current.GetName(), ipAddressClaim)
+	// 3. Check if possible to bind virtual machine with the found ip address.
+	err = h.ipam.CheckIpAddressAvailableForBinding(current.GetName(), ipAddress)
 	if err != nil {
-		h.logger.Info("Claim is not available to be bound", "err", err, "claimName", current.Spec.VirtualMachineIPAddressClaim)
-		reason := vmcondition.ReasonIPAddressClaimNotAvailable.String()
+		h.logger.Info("Ip address is not available to be bound", "err", err, "vmipName", current.Spec.VirtualMachineIPAddress)
+		reason := vmcondition.ReasonIPAddressNotAvailable.String()
 		mgr.Update(cb.Reason(reason).Message(err.Error()).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason, err.Error())
 		return reconcile.Result{}, nil
 	}
 
-	// 4. Claim exists and available for binding with virtual machine: waiting for the claim.
-	h.logger.Info("Waiting for the Claim to be bound to VM", "claimName", current.Spec.VirtualMachineIPAddressClaim)
-	mgr.Update(cb.Reason2(vmcondition.ReasonIPAddressClaimNotReady).
-		Message("Claim not bound: waiting for the Claim").Condition())
+	// 4. Ip address exists and available for binding with virtual machine: waiting for the ip address.
+	h.logger.Info("Waiting for the ip address to be bound to VM", "vmipName", current.Spec.VirtualMachineIPAddress)
+	mgr.Update(cb.Reason2(vmcondition.ReasonIPAddressNotReady).
+		Message("Ip address not bound: waiting for the ip address").Condition())
 	changed.Status.Conditions = mgr.Generate()
 
 	return reconcile.Result{RequeueAfter: 2 * time.Second}, nil

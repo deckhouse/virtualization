@@ -141,14 +141,14 @@ Cоздание дисков для виртуальных машины обес
 Далее таблице представлены матрица доступа для данных ролей
 
 | Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
-| ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
+|--------------------------------------|------|----------------|--------|-------|---------------|--------------|
 | virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualdisks                         | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualimages                        | R    | R              | R      | CRUD  | CRUD          | CRUD         |
 | clustervirtualimages                 | R    | R              | R      | R     | CRUD          | CRUD         |
 | virtualmachineblockdeviceattachments | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
-| virtualmachineipaddressclaims        | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachineipaddresses            | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
 | virtualmachinecpumodels              | R    | R              | R      | R     | CRUD          | CRUD         |
 

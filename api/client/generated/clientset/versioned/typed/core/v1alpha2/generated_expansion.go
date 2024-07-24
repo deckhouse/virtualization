@@ -29,7 +29,7 @@ type VirtualMachineBlockDeviceAttachmentExpansion interface{}
 
 type VirtualMachineCPUModelExpansion interface{}
 
-type VirtualMachineIPAddressClaimExpansion interface{}
+type VirtualMachineIPAddressExpansion interface{}
 
 type VirtualMachineIPAddressLeaseExpansion interface{}
 

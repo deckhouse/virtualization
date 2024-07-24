@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -45,7 +46,7 @@ type VirtualMachineState interface {
 	VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error)
 	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
-	IPAddressClaim(ctx context.Context) (*virtv2.VirtualMachineIPAddressClaim, error)
+	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 	CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error)
 }
 
@@ -54,18 +55,18 @@ func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.Vi
 }
 
 type state struct {
-	client         client.Client
-	mu             sync.RWMutex
-	vm             *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	kvvm           *virtv1.VirtualMachine
-	kvvmi          *virtv1.VirtualMachineInstance
-	pods           *corev1.PodList
-	pod            *corev1.Pod
-	vdByName       map[string]*virtv2.VirtualDisk
-	viByName       map[string]*virtv2.VirtualImage
-	cviByName      map[string]*virtv2.ClusterVirtualImage
-	ipAddressClaim *virtv2.VirtualMachineIPAddressClaim
-	cpuModel       *virtv2.VirtualMachineCPUModel
+	client    client.Client
+	mu        sync.RWMutex
+	vm        *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	kvvm      *virtv1.VirtualMachine
+	kvvmi     *virtv1.VirtualMachineInstance
+	pods      *corev1.PodList
+	pod       *corev1.Pod
+	vdByName  map[string]*virtv2.VirtualDisk
+	viByName  map[string]*virtv2.VirtualImage
+	cviByName map[string]*virtv2.ClusterVirtualImage
+	ipAddress *virtv2.VirtualMachineIPAddress
+	cpuModel  *virtv2.VirtualMachineCPUModel
 }
 
 func (s *state) VirtualMachine() *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus] {
@@ -277,29 +278,45 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	return cviByName, nil
 }
 
-func (s *state) IPAddressClaim(ctx context.Context) (*virtv2.VirtualMachineIPAddressClaim, error) {
+func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
 
-	if s.ipAddressClaim != nil {
-		return s.ipAddressClaim, nil
+	if s.ipAddress != nil {
+		return s.ipAddress, nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	claimName := s.vm.Current().Spec.VirtualMachineIPAddressClaim
-	if claimName == "" {
-		claimName = s.vm.Current().GetName()
-	}
-	claimKey := types.NamespacedName{Name: claimName, Namespace: s.vm.Current().GetNamespace()}
+	vmipName := s.vm.Current().Spec.VirtualMachineIPAddress
+	if vmipName == "" {
+		vmipList := &virtv2.VirtualMachineIPAddressList{}
+		err := s.client.List(ctx, vmipList, &client.ListOptions{
+			Namespace:     s.vm.Current().GetNamespace(),
+			LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineName: s.vm.Current().GetName()}),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list VirtualMachineIPAddress: %w", err)
+		}
 
-	ipAddressClaim, err := helper.FetchObject(ctx, claimKey, s.client, &virtv2.VirtualMachineIPAddressClaim{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch VirtualMachineIPAddressClaim: %w", err)
+		if len(vmipList.Items) == 0 {
+			// TODO add search for resource by owner ref
+			return nil, nil
+		}
+
+		s.ipAddress = &vmipList.Items[0]
+	} else {
+		vmipKey := types.NamespacedName{Name: vmipName, Namespace: s.vm.Current().GetNamespace()}
+
+		ipAddress, err := helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch VirtualMachineIPAddress: %w", err)
+		}
+		s.ipAddress = ipAddress
 	}
-	s.ipAddressClaim = ipAddressClaim
-	return s.ipAddressClaim, nil
+
+	return s.ipAddress, nil
 }
 
 func (s *state) CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error) {

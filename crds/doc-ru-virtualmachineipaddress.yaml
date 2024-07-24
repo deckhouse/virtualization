@@ -1,0 +1,54 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Ресурс, определяющий IP-адрес для виртуальной машины.
+          properties:
+            spec:
+              description: |
+                Настройки `VirtualMachineIPAddress`.
+              properties:
+                type:
+                  description: |
+                    Определяет режим присвоения IP-адреса. Возможные значения: "Auto" для автоматического присвоения IP-адреса
+                    или "Static" для присвоения определенного IP-адреса.
+                staticIP:
+                  description: |
+                    Запрашиваемый статический IP-адрес, который должен быть присвоен виртуальной машине. Это поле является обязательным, только если для параметра type задано значение "Static".
+            status:
+              description: |
+                Состояние ресурса `VirtualMachineIPAddress`.
+              properties:
+                conditions:
+                  description: |
+                    Последние доступные наблюдения текущего состояния объекта.
+                  properties:
+                    type:
+                      description: Тип состояния.
+                    status:
+                      description: Статус состояния (одно из True, False, Unknown).
+                    message:
+                      description: Сообщение c деталями последнего перехода состояния.
+                    reason:
+                      description: Краткая причина последнего перехода состояния.
+                    lastProbeTime:
+                      description: Время последней проверки состояния.
+                    lastTransitionTime:
+                      description: Время последнего перехода состояния из одного статуса в другой.
+                address:
+                  description: |
+                    Назначенный IP-адрес.
+                phase:
+                  description: |
+                    Представляет текущее состояние ресурса `VirtualMachineIPAddress`.
+
+                    * Pending - создание ресурса находится в процессе выполнения.
+                    * Bound - ресурс `VirtualMachineIPAddress` привязан к ресурсу `VirtualMachineIPAddressLease`.
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

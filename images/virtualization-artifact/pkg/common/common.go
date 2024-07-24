@@ -178,6 +178,9 @@ const (
 	// VirtualMachineCIDRs is a list of CIDRs used to allocate static IP addresses for Virtual Machines.
 	VirtualMachineCIDRs = "VIRTUAL_MACHINE_CIDRS"
 
+	// VirtualMachineIPLeasesRetentionDuration is a parameter for configuring the Virtual Machine IP address lease lifetime
+	VirtualMachineIPLeasesRetentionDuration = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
+
 	DockerRegistrySchemePrefix = "docker://"
 
 	KubevirtAPIServerEndpointVar     = "KUBEVIRT_APISERVER_ENDPOINT"

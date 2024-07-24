@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// VirtualMachineIPAddressClaimInformer provides access to a shared informer and lister for
-// VirtualMachineIPAddressClaims.
-type VirtualMachineIPAddressClaimInformer interface {
+// VirtualMachineIPAddressInformer provides access to a shared informer and lister for
+// VirtualMachineIPAddresses.
+type VirtualMachineIPAddressInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualMachineIPAddressClaimLister
+	Lister() v1alpha2.VirtualMachineIPAddressLister
 }
 
-type virtualMachineIPAddressClaimInformer struct {
+type virtualMachineIPAddressInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewVirtualMachineIPAddressClaimInformer constructs a new informer for VirtualMachineIPAddressClaim type.
+// NewVirtualMachineIPAddressInformer constructs a new informer for VirtualMachineIPAddress type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewVirtualMachineIPAddressClaimInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineIPAddressClaimInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewVirtualMachineIPAddressInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredVirtualMachineIPAddressInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredVirtualMachineIPAddressClaimInformer constructs a new informer for VirtualMachineIPAddressClaim type.
+// NewFilteredVirtualMachineIPAddressInformer constructs a new informer for VirtualMachineIPAddress type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredVirtualMachineIPAddressClaimInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredVirtualMachineIPAddressInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineIPAddressClaims(namespace).List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineIPAddresses(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineIPAddressClaims(namespace).Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineIPAddresses(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&corev1alpha2.VirtualMachineIPAddressClaim{},
+		&corev1alpha2.VirtualMachineIPAddress{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *virtualMachineIPAddressClaimInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineIPAddressClaimInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *virtualMachineIPAddressInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredVirtualMachineIPAddressInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *virtualMachineIPAddressClaimInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualMachineIPAddressClaim{}, f.defaultInformer)
+func (f *virtualMachineIPAddressInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&corev1alpha2.VirtualMachineIPAddress{}, f.defaultInformer)
 }
 
-func (f *virtualMachineIPAddressClaimInformer) Lister() v1alpha2.VirtualMachineIPAddressClaimLister {
-	return v1alpha2.NewVirtualMachineIPAddressClaimLister(f.Informer().GetIndexer())
+func (f *virtualMachineIPAddressInformer) Lister() v1alpha2.VirtualMachineIPAddressLister {
+	return v1alpha2.NewVirtualMachineIPAddressLister(f.Informer().GetIndexer())
 }

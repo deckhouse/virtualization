@@ -509,7 +509,7 @@ After creation, the virtual machine will automatically get an IP address from th
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddress
 metadata:
-  name: <claim-name>
+  name: <ip-address-name>
   namespace: <namespace>
 spec:
   type: Static
@@ -520,7 +520,7 @@ spec:
 
 ```yaml
 spec:
-  virtualMachineIPAddressName: <claim-name>
+  virtualMachineIPAddressName: <ip-address-name>
 ```
 
 ### 2. Configuring virtual machine placement rules
