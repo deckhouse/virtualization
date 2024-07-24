@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt
+fromImage: base-alt-p10
 import:
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin

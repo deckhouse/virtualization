@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt
+fromImage: base-alt-p10
 import:
 - image: {{ $.ImageName }}-lib-builder
   add: /usr/local/lib/
@@ -113,7 +113,7 @@ docker:
 ---
 image: {{ $.ImageName }}-lib-builder
 final: false
-fromImage: base-alt
+fromImage: base-alt-p10
 shell:
   beforeInstall:
   # Install build packages.

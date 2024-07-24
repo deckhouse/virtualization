@@ -24,7 +24,7 @@ shell:
   - go build ./cmd/dvcr_uploader
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt
+fromImage: base-alt-p10
 shell:
   install:
   - apt-get -qq update

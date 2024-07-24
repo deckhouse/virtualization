@@ -1,6 +1,5 @@
 image: {{ $.ImageName }}
-from: {{ $.Images.BASE_ALT }}
-# from: docker.io/alt:p10@sha256:aaddacc787afa546cc03a252adf9799d48f7a0498ecb46ea0d477642b03018eb
+from: {{ $.Images.BASE_ALT_P10 }}
 shell:
   setup:
   # Create nonroot-user group and user.
