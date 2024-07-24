@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,19 +15,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"log"
-	"time"
 )
 
 func CVMI(client kubeclient.Client, name string, action string) (*v1alpha2.ClusterVirtualMachineImage, error) {
-
 	cvmi := v1alpha2.ClusterVirtualMachineImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: v1alpha2.ClusterVirtualMachineImageSpec{
-			DataSource: v1alpha2.CVMIDataSource{Type: "HTTP", HTTP: &v1alpha2.DataSourceHTTP{
-				URL: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"},
+			DataSource: v1alpha2.CVMIDataSource{
+				Type: "HTTP", HTTP: &v1alpha2.DataSourceHTTP{
+					URL: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img",
+				},
 			},
 		},
 	}
@@ -121,7 +123,6 @@ func VM(namespace, name string, vmdName v1alpha2.VirtualMachineDisk) v1alpha2.Vi
 }
 
 func VMD(namespace, name string, cvmiName v1alpha2.ClusterVirtualMachineImage) v1alpha2.VirtualMachineDisk {
-
 	vmd := v1alpha2.VirtualMachineDisk{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -151,7 +152,7 @@ func createVM(client kubeclient.Client, vm v1alpha2.VirtualMachine, vmd v1alpha2
 	fmt.Println("VM", resVM.Name, "with VMD", resVMD.Name, "created")
 }
 
-var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordered, ContinueOnFailure, func() {
+var _ = Describe("Performance test 26 vm creation", Label("performance"), Ordered, ContinueOnFailure, func() {
 	const (
 		vmName                         = "perf-test-vm"
 		vmdName                        = "perf-test-vmd"
@@ -162,12 +163,12 @@ var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordere
 	)
 
 	var cvmi *v1alpha2.ClusterVirtualMachineImage
-	var vmMap = make(map[string]string)
+	// vmMap := make(map[string]string)
 
 	clientConfig := kubeclient.DefaultClientConfig(&pflag.FlagSet{})
 	client, err := kubeclient.GetClientFromClientConfig(clientConfig)
 	if err != nil {
-		Expect(err).NotTo(HaveOccurred(),("Cannot obtain Virtualization client")
+		Expect(err).NotTo(HaveOccurred(), ("Cannot obtain Virtualization client"))
 	}
 
 	AfterAll(func() {
@@ -175,7 +176,8 @@ var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordere
 		vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
 		for _, vm := range vmList.Items {
 			err = client.VirtualMachines(conf.Namespace).Delete(context.TODO(), vm.Name, metav1.DeleteOptions{
-				GracePeriodSeconds: ptr.To(deleteGracePeriodSeconds)})
+				GracePeriodSeconds: ptr.To(deleteGracePeriodSeconds),
+			})
 			Expect(err).NotTo(HaveOccurred())
 			if err != nil {
 				fmt.Println(err)
@@ -195,34 +197,48 @@ var _ = Describe("Performance test 20 vm creation", Label("performance"), Ordere
 			}
 		})
 		It("Wait until all virtual machines are running", func() {
-			vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			start := time.Now()
-			fmt.Println("Starting at", start)
-
-			for len(vmMap) != vmCount {
-				vmList, err = client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				now := time.Now()
-				elapsed := now.Sub(start)
-
+			Eventually(func() (int, error) {
+				vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					return 0, err
+				}
+				runningCount := 0
 				for _, vm := range vmList.Items {
-					if vmMap[vm.Name] != vm.Name && string(vm.Status.Phase) == "Running" {
-						vmMap[vm.Name] = string(vm.Status.Phase)
+					if string(vm.Status.Phase) == "Running" {
+						runningCount++
 					}
 				}
+				return runningCount, nil
+			}).WithTimeout(overallTimeout).Should(Equal(vmCount))
 
-				if elapsed > overallTimeout {
-					break
-				}
+			// vmList, err := client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+			// Expect(err).NotTo(HaveOccurred())
 
-				time.Sleep(1 * time.Second)
-			}
-			fmt.Println("Finished at", time.Now())
-			fmt.Println("Duration", time.Now().Sub(start))
-			Expect(len(vmList.Items)).To(Equal(vmCount))
+			// start := time.Now()
+			// fmt.Println("Starting at", start)
+
+			// for len(vmMap) != vmCount {
+			// 	vmList, err = client.VirtualMachines(conf.Namespace).List(context.TODO(), metav1.ListOptions{})
+			// 	Expect(err).NotTo(HaveOccurred())
+
+			// 	now := time.Now()
+			// 	elapsed := now.Sub(start)
+
+			// 	for _, vm := range vmList.Items {
+			// 		if vmMap[vm.Name] != vm.Name && string(vm.Status.Phase) == "Running" {
+			// 			vmMap[vm.Name] = string(vm.Status.Phase)
+			// 		}
+			// 	}
+
+			// 	if elapsed > overallTimeout {
+			// 		break
+			// 	}
+
+			// 	time.Sleep(1 * time.Second)
+			// }
+			// fmt.Println("Finished at", time.Now())
+			// fmt.Println("Duration", time.Now().Sub(start))
+			// Expect(len(vmList.Items)).To(Equal(vmCount))
 		})
 	})
 })

@@ -52,11 +52,13 @@ tasks:
     cmds:
       - |
         {{if .TEST }}
-          export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+          #export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+          export E2E_CLUSTERTRANSPORT_KUBECONFIG="/Users/korolevn/.kube/clusters/e2e/config"
           ginkgo --focus "{{ .TEST }}" -v
         {{else}}
           echo "Specify test to run"
           echo 'Example: TEST="Label and Annotation" task run_one'
+          echo ginkgo --label-filter="performance"
         {{end}}
 
   fix:ssh_key_perm:

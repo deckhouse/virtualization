@@ -3,7 +3,7 @@ module github.com/deckhouse/virtualization/tests/e2e
 go 1.21.4
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20240326113112-979c4f4f17b9
+	github.com/deckhouse/virtualization/api v0.0.0-20240724180640-6ee978ef286d
 	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/spf13/pflag v1.0.5
