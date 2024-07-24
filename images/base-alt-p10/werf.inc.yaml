@@ -1,3 +1,4 @@
+---
 image: {{ $.ImageName }}
 from: {{ $.Images.BASE_ALT_P10 }}
 shell:

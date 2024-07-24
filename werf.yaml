@@ -1,9 +1,8 @@
 project: virtualization
 configVersion: 1
 
----
 {{ $_ := set . "Images" dict }}
----
+
 # Deckhouse Images
 {{- $BaseImagesPath := "base-images/deckhouse_image_versions.yml" }}
 {{ $baseImages := (.Files.Get $BaseImagesPath | fromYaml) }}
@@ -14,7 +13,7 @@ configVersion: 1
       {{- $_ := set $.Images $k $baseImagePath }}
     {{- end }}
   {{- end }}
----
+
 # Base Images
 {{- $BaseVirtImagesPath := "base-images/image_versions.yml" }}
 {{ $baseImages := (.Files.Get $BaseVirtImagesPath | fromYaml) }}
@@ -27,7 +26,6 @@ configVersion: 1
     {{- end }}
 
   {{- end }}
----
 # Modules_images
 {{- define "module_image_template" }}
   {{- if eq .ImageInstructionType "Dockerfile" }}
