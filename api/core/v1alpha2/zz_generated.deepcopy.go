@@ -565,6 +565,11 @@ func (in *SizingPolicy) DeepCopyInto(out *SizingPolicy) {
 		*out = make([]int, len(*in))
 		copy(*out, *in)
 	}
+	if in.DedicatedCores != nil {
+		in, out := &in.DedicatedCores, &out.DedicatedCores
+		*out = make([]bool, len(*in))
+		copy(*out, *in)
+	}
 	if in.Cores != nil {
 		in, out := &in.Cores, &out.Cores
 		*out = new(SizingPolicyCores)

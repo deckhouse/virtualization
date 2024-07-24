@@ -1,7 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineCPUModel
-metadata:
-  name: generic-v1
-spec:
-  type: Model
-  model: "Nehalem"

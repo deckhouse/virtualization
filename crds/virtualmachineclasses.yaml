@@ -245,8 +245,10 @@ spec:
                       - message: The maximum must be greater than the step
                         rule: 'has(self.step) ? self.max > self.step : true'
                     dedicatedCores:
-                      description: Allowed `dedicatedCores` parameter.
-                      type: boolean
+                      description: Allowed values of the `dedicatedCores` parameter.
+                      items:
+                        type: boolean
+                      type: array
                     memory:
                       description: Memory sizing policy.
                       properties:

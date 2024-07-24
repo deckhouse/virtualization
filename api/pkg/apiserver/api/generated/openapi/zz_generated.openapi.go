@@ -1590,9 +1590,17 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicy(ref common.ReferenceCa
 					},
 					"dedicatedCores": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allowed `dedicatedCores` parameter.",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Description: "Allowed values of the `dedicatedCores` parameter.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: false,
+										Type:    []string{"boolean"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"cores": {

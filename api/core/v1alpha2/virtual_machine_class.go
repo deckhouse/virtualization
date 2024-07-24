@@ -106,8 +106,8 @@ type SizingPolicy struct {
 	//
 	// +kubebuilder:validation:Enum={5,10,20,50,100}
 	CoreFractions []int `json:"coreFractions,omitempty"`
-	// Allowed `dedicatedCores` parameter.
-	DedicatedCores bool `json:"dedicatedCores,omitempty"`
+	// Allowed values of the `dedicatedCores` parameter.
+	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
 	// The policy applies for a specified range of the number of CPU cores.
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
