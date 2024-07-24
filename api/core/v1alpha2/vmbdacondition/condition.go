@@ -16,28 +16,45 @@ limitations under the License.
 
 package vmbdacondition
 
+// Type represents the various condition types for the `VirtualMachineBlockDeviceAttachment`.
 type Type = string
 
 const (
-	BlockDeviceReadyType    Type = "BlockDeviceReady"
+	// BlockDeviceReadyType indicates that the block device (for example, a `VirtualDisk`) is ready to be hot-plugged.
+	BlockDeviceReadyType Type = "BlockDeviceReady"
+	// VirtualMachineReadyType indicates that the virtual machine is ready for hot-plugging a block device.
 	VirtualMachineReadyType Type = "VirtualMachineReady"
-	AttachedType            Type = "Attached"
+	// AttachedType indicates that the block device is hot-plugged into the virtual machine.
+	AttachedType Type = "Attached"
 )
 
 type (
-	BlockDeviceReadyReason    = string
+	// BlockDeviceReadyReason represents the various reasons for the `BlockDeviceReady` condition type.
+	BlockDeviceReadyReason = string
+	// VirtualMachineReadyReason represents the various reasons for the `VirtualMachineReady` condition type.
 	VirtualMachineReadyReason = string
-	AttachedReason            = string
+	// AttachedReason represents the various reasons for the `Attached` condition type.
+	AttachedReason = string
 )
 
 const (
-	BlockDeviceReady    BlockDeviceReadyReason = "BlockDeviceReady"
+	// BlockDeviceReady signifies that the block device is ready to be hot-plugged, allowing the hot-plug process to start.
+	BlockDeviceReady BlockDeviceReadyReason = "BlockDeviceReady"
+	// BlockDeviceNotReady signifies that the block device is not ready, preventing the hot-plug process from starting.
 	BlockDeviceNotReady BlockDeviceReadyReason = "BlockDeviceNotReady"
 
-	VirtualMachineReady    VirtualMachineReadyReason = "VirtualMachineReady"
+	// VirtualMachineReady signifies that the virtual machine is ready for hot-plugging a disk, allowing the hot-plug process to start.
+	VirtualMachineReady VirtualMachineReadyReason = "VirtualMachineReady"
+	// VirtualMachineNotReady signifies that the virtual machine is not ready, preventing the hot-plug process from starting.
 	VirtualMachineNotReady VirtualMachineReadyReason = "VirtualMachineNotReady"
 
-	Attached              AttachedReason = "Attached"
-	NotAttached           AttachedReason = "NotAttached"
+	// Attached signifies that the virtual disk is successfully hot-plugged into the virtual machine.
+	Attached AttachedReason = "Attached"
+	// NotAttached signifies that the virtual disk is not yet hot-plugged into the virtual machine.
+	NotAttached AttachedReason = "NotAttached"
+	// AttachmentRequestSent signifies that the attachment request has been sent and the hot-plug process has started.
 	AttachmentRequestSent AttachedReason = "AttachmentRequestSent"
+	// Conflict indicates that there is another `VirtualMachineBlockDeviceAttachment` with the same virtual machine and virtual disk to be hot-plugged.
+	// Only the one that was created or started sooner can be processed.
+	Conflict AttachedReason = "Conflict"
 )

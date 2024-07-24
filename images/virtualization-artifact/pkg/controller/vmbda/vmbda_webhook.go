@@ -24,24 +24,42 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
-	logger *slog.Logger
+	attacher *service.AttachmentService
+	logger   *slog.Logger
 }
 
-func NewValidator() *Validator {
+func NewValidator(attacher *service.AttachmentService) *Validator {
 	return &Validator{
-		logger: slog.Default().With("controller", "vmbda", "webhook", "validator"),
+		attacher: attacher,
+		logger:   slog.Default().With("controller", "vmbda", "webhook", "validator"),
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	// TODO check if vmbda with this block device and vm already exists.
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	vmbda, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	if !ok {
+		return nil, fmt.Errorf("expected a VirtualMachineBlockDeviceAttachment but got a %T", obj)
+	}
 
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	isConflicted, conflictWithName, err := v.attacher.IsConflictedAttachment(ctx, vmbda)
+	if err != nil {
+		v.logger.Error("Failed to validate a VirtualMachineBlockDeviceAttachment creation", "err", err)
+		return nil, nil
+	}
+
+	if isConflicted {
+		return nil, fmt.Errorf(
+			"another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
+				"with the same virtual machine %s and block device %s for hot-plugging",
+			vmbda.Namespace, conflictWithName, vmbda.Spec.VirtualMachineName, vmbda.Spec.BlockDeviceRef.Name,
+		)
+	}
+
 	return nil, nil
 }
 

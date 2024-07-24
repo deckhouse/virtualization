@@ -17,16 +17,13 @@ limitations under the License.
 package service
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-//go:generate moq -rm -out mock.go . Client
-
-type Client = client.Client
-
-type ObjectKind interface {
-	metav1.Object
-	schema.ObjectKind
+func TestServices(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Services")
 }

@@ -73,15 +73,47 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if vmbda.DeletionTimestamp != nil {
+		switch vmbda.Status.Phase {
+		case virtv2.BlockDeviceAttachmentPhasePending,
+			virtv2.BlockDeviceAttachmentPhaseInProgress,
+			virtv2.BlockDeviceAttachmentPhaseAttached:
+			err = h.attacher.UnplugDisk(ctx, vd, kvvm)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
 		condition.Status = metav1.ConditionUnknown
 		condition.Reason = ""
 		condition.Message = ""
 
-		err = h.attacher.UnplugDisk(ctx, vd, kvvm)
-		if err != nil {
-			return reconcile.Result{}, err
+		return reconcile.Result{}, nil
+	}
+
+	// Final phase: avoid processing VMDBA that had a conflict with another VMDBA previously.
+	if vmbda.Status.Phase == virtv2.BlockDeviceAttachmentPhaseFailed {
+		return reconcile.Result{}, nil
+	}
+
+	isConflicted, conflictWithName, err := h.attacher.IsConflictedAttachment(ctx, vmbda)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if isConflicted {
+		if vmbda.Status.Phase != "" {
+			logger.Error("Hot plug has been started for Conflicted VMBDA, please report a bug")
 		}
+
+		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vmbdacondition.Conflict
+		condition.Message = fmt.Sprintf(
+			"Another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
+				"with the same virtual machine %s and block device %s for hot-plugging.",
+			vmbda.Namespace, conflictWithName, vmbda.Spec.VirtualMachineName, vmbda.Spec.BlockDeviceRef.Name,
+		)
 
 		return reconcile.Result{}, nil
 	}

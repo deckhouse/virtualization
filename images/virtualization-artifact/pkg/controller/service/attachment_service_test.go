@@ -1,0 +1,174 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package service
+
+import (
+	"context"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
+	var clientMock *ClientMock
+	var vmbdaAlpha *virtv2.VirtualMachineBlockDeviceAttachment
+	var vmbdaBeta *virtv2.VirtualMachineBlockDeviceAttachment
+
+	spec := virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+		VirtualMachineName: "vm",
+		BlockDeviceRef: virtv2.VMBDAObjectRef{
+			Kind: virtv2.VMBDAObjectRefKindVirtualDisk,
+			Name: "vd",
+		},
+	}
+
+	BeforeEach(func() {
+		vmbdaAlpha = &virtv2.VirtualMachineBlockDeviceAttachment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vmbda-a",
+				CreationTimestamp: metav1.Time{
+					Time: time.Now(),
+				},
+			},
+			Spec: spec,
+		}
+
+		vmbdaBeta = &virtv2.VirtualMachineBlockDeviceAttachment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "vmbda-b",
+				CreationTimestamp: vmbdaAlpha.CreationTimestamp,
+			},
+			Spec: spec,
+		}
+
+		clientMock = &ClientMock{}
+	})
+
+	// T1: -->VMBDA A Should be Conflicted
+	// T1:    VMBDA B Phase: "Attached"
+	It("Should be Conflicted: there is another vmbda that is not Failed", func() {
+		vmbdaBeta.Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+				*vmbdaBeta,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeTrue())
+		Expect(conflictWithName).To(Equal(vmbdaBeta.Name))
+	})
+
+	// T1: -->VMBDA A Should be Non-Conflicted
+	// T1:    VMBDA B Phase: "Failed"
+	It("Should be Non-Conflicted: there is another vmbda that is Failed", func() {
+		vmbdaBeta.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+				*vmbdaBeta,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeFalse())
+		Expect(conflictWithName).To(BeEmpty())
+	})
+
+	// T1:    VMBDA B Phase: ""
+	// T2: -->VMBDA A Should be Conflicted
+	It("Should be Conflicted: there is another vmbda that created earlier", func() {
+		vmbdaBeta.CreationTimestamp = metav1.Time{Time: vmbdaBeta.CreationTimestamp.Add(-time.Hour)}
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+				*vmbdaBeta,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeTrue())
+		Expect(conflictWithName).To(Equal(vmbdaBeta.Name))
+	})
+
+	// T1: -->VMBDA A Should be Non-Conflicted
+	// T2:    VMBDA B Phase: ""
+	It("Should be Non-Conflicted: there is another vmbda that created later", func() {
+		vmbdaBeta.CreationTimestamp = metav1.Time{Time: vmbdaBeta.CreationTimestamp.Add(time.Hour)}
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+				*vmbdaBeta,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeFalse())
+		Expect(conflictWithName).To(BeEmpty())
+	})
+
+	// T1: -->VMBDA A Should be Non-Conflicted lexicographically
+	// T1:    VMBDA B Phase: ""
+	It("Should be Non-Conflicted lexicographically", func() {
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+				*vmbdaBeta,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeFalse())
+		Expect(conflictWithName).To(BeEmpty())
+	})
+
+	It("Only one vmbda", func() {
+		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+				*vmbdaAlpha,
+			}
+			return nil
+		}
+
+		s := NewAttachmentService(clientMock, "")
+		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
+		Expect(err).To(BeNil())
+		Expect(isConflicted).To(BeFalse())
+		Expect(conflictWithName).To(BeEmpty())
+	})
+})
