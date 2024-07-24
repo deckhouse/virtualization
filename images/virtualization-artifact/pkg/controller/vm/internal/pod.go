@@ -53,11 +53,12 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 
 	if isDeletion(current) {
-		objs := make([]client.Object, len(pods.Items))
-		for i, p := range pods.Items {
-			objs[i] = p.DeepCopy()
+		for _, p := range pods.Items {
+			if err = h.protection.RemoveProtection(ctx, &p); err != nil {
+				return reconcile.Result{}, err
+			}
 		}
-		return reconcile.Result{}, h.protection.RemoveProtection(ctx, objs...)
+		return reconcile.Result{}, nil
 	}
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {

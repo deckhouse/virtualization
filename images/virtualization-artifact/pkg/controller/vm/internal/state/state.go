@@ -77,8 +77,6 @@ type Shared struct {
 }
 
 func (s *state) Shared(fn func(s *Shared)) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	fn(&s.shared)
 }
 
