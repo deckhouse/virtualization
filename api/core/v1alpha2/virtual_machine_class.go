@@ -70,8 +70,8 @@ type NodeSelector struct {
 	// A map of {key,value} pairs.
 	// A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value".
 	// The requirements are ANDed.
-	MatchLabels      map[string]string                `json:"matchLabels"`
-	MatchExpressions []corev1.NodeSelectorRequirement `json:"matchExpressions"`
+	MatchLabels      map[string]string                `json:"matchLabels,omitempty"`
+	MatchExpressions []corev1.NodeSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
 // CPU defines the requirements for the virtual CPU model.
@@ -103,14 +103,15 @@ type SizingPolicy struct {
 	// Memory sizing policy.
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
 	// Allowed values of the `coreFraction` parameter.
-	//
-	// +kubebuilder:validation:Enum={5,10,20,50,100}
-	CoreFractions []int `json:"coreFractions,omitempty"`
+	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
 	// The policy applies for a specified range of the number of CPU cores.
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
+
+// +kubebuilder:validation:Enum={5,10,20,50,100}
+type CoreFractionValue int
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`

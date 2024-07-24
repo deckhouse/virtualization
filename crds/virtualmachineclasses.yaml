@@ -193,9 +193,6 @@ spec:
                       A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value".
                       The requirements are ANDed.
                     type: object
-                required:
-                - matchExpressions
-                - matchLabels
                 type: object
               sizingPolicies:
                 items:
@@ -206,13 +203,13 @@ spec:
                   properties:
                     coreFractions:
                       description: Allowed values of the `coreFraction` parameter.
-                      enum:
-                      - 5
-                      - 10
-                      - 20
-                      - 50
-                      - 100
                       items:
+                        enum:
+                        - 5
+                        - 10
+                        - 20
+                        - 50
+                        - 100
                         type: integer
                       type: array
                     cores:

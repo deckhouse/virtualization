@@ -1514,7 +1514,6 @@ func schema_virtualization_api_core_v1alpha2_NodeSelector(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"matchLabels", "matchExpressions"},
 			},
 		},
 		Dependencies: []string{
