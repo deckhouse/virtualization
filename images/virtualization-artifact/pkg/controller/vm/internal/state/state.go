@@ -68,7 +68,7 @@ type state struct {
 	viByName  map[string]*virtv2.VirtualImage
 	cviByName map[string]*virtv2.ClusterVirtualImage
 	ipAddress *virtv2.VirtualMachineIPAddress
-	vmClass        *virtv2.VirtualMachineClass
+	vmClass   *virtv2.VirtualMachineClass
 	shared    Shared
 }
 
