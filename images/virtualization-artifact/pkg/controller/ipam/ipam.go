@@ -36,50 +36,48 @@ func New() *IPAM {
 
 type IPAM struct{}
 
-func (m IPAM) IsBound(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) bool {
-	if claim == nil {
+func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool {
+	if vmip == nil {
 		return false
 	}
 
-	if claim.Status.Phase != virtv2.VirtualMachineIPAddressClaimPhaseBound {
+	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
 		return false
 	}
 
-	return claim.Status.VirtualMachine == vmName
+	return vmip.Status.VirtualMachine == vmName
 }
 
-func (m IPAM) CheckClaimAvailableForBinding(vmName string, claim *virtv2.VirtualMachineIPAddressClaim) error {
-	if claim == nil {
-		return errors.New("cannot to bind with empty claim")
+func (m IPAM) CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error {
+	if vmip == nil {
+		return errors.New("cannot to bind with empty ip address")
 	}
 
-	boundVMName := claim.Status.VirtualMachine
+	boundVMName := vmip.Status.VirtualMachine
 	if boundVMName == "" || boundVMName == vmName {
 		return nil
 	}
 
 	return fmt.Errorf(
-		"unable to bind the claim (%s) to the virtual machine (%s): the claim has already been linked to another one",
-		claim.Name,
+		"unable to bind the ip address (%s) to the virtual machine (%s): the ip address has already been linked to another one",
+		vmip.Name,
 		vmName,
 	)
 }
 
-func (m IPAM) CreateIPAddressClaim(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
-	return client.Create(ctx, &virtv2.VirtualMachineIPAddressClaim{
+func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
+	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
+	return client.Create(ctx, &virtv2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				common.LabelImplicitIPAddressClaim: common.LabelImplicitIPAddressClaimValue,
+				common.LabelVirtualMachineName: vm.Name,
 			},
-			Name:      vm.Name,
-			Namespace: vm.Namespace,
+			GenerateName:    vm.Name + "-",
+			Namespace:       vm.Namespace,
+			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
-		Spec: virtv2.VirtualMachineIPAddressClaimSpec{
-			ReclaimPolicy: virtv2.VirtualMachineIPAddressReclaimPolicyDelete,
+		Spec: virtv2.VirtualMachineIPAddressSpec{
+			Type: virtv2.VirtualMachineIPAddressTypeAuto,
 		},
 	})
-}
-
-func (m IPAM) DeleteIPAddressClaim(ctx context.Context, claim *virtv2.VirtualMachineIPAddressClaim, client client.Client) error {
-	return client.Delete(ctx, claim)
 }

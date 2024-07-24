@@ -4,36 +4,48 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddressClaim`.
+            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddress`.
           properties:
             spec:
               description: |
                 Параметры конфигурации `VirtualMachineIPAddressLease`.
               properties:
-                claimRef:
+                virtualMachineIPAddressRef:
                   description: |
-                    Ссылка на существующие `VirtualMachineIPAddressClaim`.
+                    Ссылка на существующие `VirtualMachineIPAddress`.
                   properties:
                     name:
                       description: |
-                        Имя ссылающегося `VirtualMachineIPAddressClaim`.
+                        Имя ссылающегося `VirtualMachineIPAddress`.
                     namespace:
                       description: |
-                        Пространство имен ссылающегося `VirtualMachineIPAddressClaim`.
-                reclaimPolicy:
-                  description: |
-                    Политика Reclaim, определяющая поведение `VirtualMachineIPAddressLease` при удалении `VirtualMachineIPAddressClaim`.
-
-                    * `Delete` означает, что `VirtualMachineIPAddressLease` автоматически удаляется, когда пользователь удаляет соответствующий `VirtualMachineIPAddressClaim`.
-
-                    * `Retain` — если пользователь удаляет `VirtualMachineIPAddressClaim`, соответствующий `VirtualMachineIPAddressLease` не будет удален. Вместо этого он переходит в фазу Released, где его IP-адрес может быть переиспользован вручную.
+                        Пространство имен ссылающегося `VirtualMachineIPAddress`.
             status:
               description: |
                 Состояние ресурса `VirtualMachineIPAddressLease`.
               properties:
+                conditions:
+                  description: |
+                    Последние доступные наблюдения текущего состояния объекта.
+                  properties:
+                    type:
+                      description: Тип состояния.
+                    status:
+                      description: Статус состояния (одно из True, False, Unknown).
+                    message:
+                      description: Сообщение c деталями последнего перехода состояния.
+                    reason:
+                      description: Краткая причина последнего перехода состояния.
+                    lastProbeTime:
+                      description: Время последней проверки состояния.
+                    lastTransitionTime:
+                      description: Время последнего перехода состояния из одного статуса в другой.
                 phase:
                   description: |
                     Представляет текущее состояние ресурса `VirtualMachineIPAddressLease`.
 
-                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddressClaim`.
-                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddressClaim`.
+                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddress`.
+                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddress`.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

@@ -42,7 +42,7 @@ webhooks:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
         operations:  ["CREATE", "UPDATE"]
-        resources:   ["virtualmachineipaddressclaims"]
+        resources: [ "virtualmachineipaddresses" ]
         scope:       "Namespaced"
     clientConfig:
       service:

@@ -42,11 +42,12 @@ import (
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cpu"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -172,6 +173,12 @@ func main() {
 	}
 	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
 
+	virtualMachineIPLeasesRetentionDuration := os.Getenv(common.VirtualMachineIPLeasesRetentionDuration)
+	if virtualMachineIPLeasesRetentionDuration == "" {
+		log.Info("virtualMachineIPLeasesRetentionDuration not found -> set default value '10m'")
+		virtualMachineIPLeasesRetentionDuration = "10m"
+	}
+
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
@@ -208,12 +215,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := ipam.NewClaimController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
+	if _, err := vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-	if _, err := ipam.NewLeaseController(ctx, mgr, log); err != nil {
+	if _, err := vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

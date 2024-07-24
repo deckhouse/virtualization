@@ -15,7 +15,7 @@ rules:
   - virtualdisks
   - virtualimages
   - virtualmachineblockdeviceattachments
-  - virtualmachineipaddressclaims
+  - virtualmachineipaddresses
   - virtualmachinecpumodels
   - virtualmachineoperations
   verbs:
@@ -72,7 +72,7 @@ rules:
   - virtualmachines
   - virtualdisks
   - virtualmachineblockdeviceattachments
-  - virtualmachineipaddressclaims
+  - virtualmachineipaddresses
   - virtualmachineoperations
   verbs:
   - create

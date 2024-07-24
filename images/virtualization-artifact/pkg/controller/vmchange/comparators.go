@@ -41,11 +41,11 @@ func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChan
 	)
 }
 
-func compareVirtualMachineIPAddressClaim(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareVirtualMachineIPAddress(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
-		"virtualMachineIPAddressClaimName",
-		current.VirtualMachineIPAddressClaim,
-		desired.VirtualMachineIPAddressClaim,
+		"virtualMachineIPAddress",
+		current.VirtualMachineIPAddress,
+		desired.VirtualMachineIPAddress,
 		"",
 		ActionNone,
 	)

@@ -51,8 +51,8 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineCPUModels() v1alpha2.VirtualM
 	return &FakeVirtualMachineCPUModels{c}
 }
 
-func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressClaims(namespace string) v1alpha2.VirtualMachineIPAddressClaimInterface {
-	return &FakeVirtualMachineIPAddressClaims{c, namespace}
+func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddresses(namespace string) v1alpha2.VirtualMachineIPAddressInterface {
+	return &FakeVirtualMachineIPAddresses{c, namespace}
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressLeases() v1alpha2.VirtualMachineIPAddressLeaseInterface {

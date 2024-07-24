@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ipam
+package vmiplease
 
 import (
 	"context"
@@ -25,39 +25,40 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewLeaseValidator(log logr.Logger) *LeaseValidator {
-	return &LeaseValidator{log: log.WithName(leaseControllerName).WithValues("webhook", "validation")}
+func NewValidator(log logr.Logger) *Validator {
+	return &Validator{log: log.WithName(controllerName).WithValues("webhook", "validation")}
 }
 
-type LeaseValidator struct {
+type Validator struct {
 	log logr.Logger
 }
 
-func (v *LeaseValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	lease, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressLease but got a %T", obj)
 	}
 
-	v.log.Info("Validate Lease creating", "name", lease.Name)
+	v.log.Info("Validate VirtualMachineIpAddressLease creating", "name", lease.Name)
 
-	if !isValidAddressFormat(leaseNameToIP(lease.Name)) {
+	if !isValidAddressFormat(common.LeaseNameToIP(lease.Name)) {
 		return nil, fmt.Errorf("the lease address is not a valid textual representation of an IP address")
 	}
 
 	return nil, nil
 }
 
-func (v *LeaseValidator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(_ context.Context, _, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: update operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil
 }
 
-func (v *LeaseValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
 	return nil, nil

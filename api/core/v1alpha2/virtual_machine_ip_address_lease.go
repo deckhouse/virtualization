@@ -18,7 +18,7 @@ package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddressClaim`.
+// VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddress`.
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -40,30 +40,23 @@ type VirtualMachineIPAddressLeaseList struct {
 
 // VirtualMachineIPAddressLeaseSpec is the desired state of `VirtualMachineIPAddressLease`.
 type VirtualMachineIPAddressLeaseSpec struct {
-	// The link to existing `VirtualMachineIPAddressClaim`.
-	ClaimRef *VirtualMachineIPAddressLeaseClaimRef `json:"claimRef,omitempty"`
-	// Determines the behavior of VirtualMachineIPAddressLease upon VirtualMachineIPAddressClaim deletion.
-	ReclaimPolicy VirtualMachineIPAddressReclaimPolicy `json:"reclaimPolicy,omitempty"`
+	// The link to existing `VirtualMachineIPAddress`.
+	VirtualMachineIPAddressRef *VirtualMachineIPAddressLeaseIpAddressRef `json:"virtualMachineIPAddressRef,omitempty"`
 }
 
-type VirtualMachineIPAddressLeaseClaimRef struct {
-	// The Namespace of the referenced `VirtualMachineIPAddressClaim`.
+type VirtualMachineIPAddressLeaseIpAddressRef struct {
+	// The Namespace of the referenced `VirtualMachineIPAddress`.
 	Namespace string `json:"namespace"`
-	// The name of the referenced `VirtualMachineIPAddressClaim`.
+	// The name of the referenced `VirtualMachineIPAddress`.
 	Name string `json:"name"`
 }
-
-type VirtualMachineIPAddressReclaimPolicy string
-
-const (
-	VirtualMachineIPAddressReclaimPolicyDelete VirtualMachineIPAddressReclaimPolicy = "Delete"
-	VirtualMachineIPAddressReclaimPolicyRetain VirtualMachineIPAddressReclaimPolicy = "Retain"
-)
 
 // VirtualMachineIPAddressLeaseStatus is the observed state of `VirtualMachineIPAddressLease`.
 type VirtualMachineIPAddressLeaseStatus struct {
 	// Represents the current state of issued IP address lease.
-	Phase VirtualMachineIPAddressLeasePhase `json:"phase,omitempty"`
+	Phase              VirtualMachineIPAddressLeasePhase `json:"phase,omitempty"`
+	ObservedGeneration int64                             `json:"observedGeneration,omitempty"`
+	Conditions         []metav1.Condition                `json:"conditions,omitempty"`
 }
 
 type VirtualMachineIPAddressLeasePhase string

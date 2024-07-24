@@ -118,7 +118,7 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
 		switch vmcondition.Type(c.Type) {
 		case vmcondition.TypeBlockDevicesReady,
-			vmcondition.TypeIPAddressClaimReady,
+			vmcondition.TypeIPAddressReady,
 			vmcondition.TypeProvisioningReady,
 			vmcondition.TypeCPUModelReady:
 			if c.Status != metav1.ConditionTrue {
@@ -340,12 +340,17 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	if err != nil {
 		return nil, err
 	}
-	ip, err := s.IPAddressClaim(ctx)
+	ip, err := s.IPAddress(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	if ip.Status.Address == "" {
+		return nil, fmt.Errorf("the IP address is not found for VM %q", current.GetName())
+	}
+
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, model.Spec, ip.Spec.Address)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, model.Spec, ip.Status.Address)
 	if err != nil {
 		return nil, err
 	}

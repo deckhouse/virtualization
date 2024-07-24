@@ -1,0 +1,126 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: virtualmachineipaddresses.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
+spec:
+  group: virtualization.deckhouse.io
+  scope: Namespaced
+  names:
+    categories:
+      - all
+      - virtualization
+    plural: virtualmachineipaddresses
+    singular: virtualmachineipaddress
+    kind: VirtualMachineIPAddress
+    shortNames:
+      - vmip
+      - vmips
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            The resource that defines IP address for virtual machine.
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: |
+                The desired state of `VirtualMachineIPAddress`.
+              properties:
+                type:
+                  description: |
+                    Specifies the mode of IP address assignment. Possible values are "Auto" for automatic IP assignment,
+                    or "Static" for assigning a specific IP address.
+                  type: string
+                  enum: ["Auto", "Static"]
+                staticIP:
+                  description: |
+                    The requested static IP address that should be assigned to the virtual machine. This field is required only if type is set to 'Static'.
+                  type: string
+              type: object
+              required:
+                - type
+            status:
+              description: |
+                The observed state of `VirtualMachineIPAddress`.
+              properties:
+                conditions:
+                  description: |
+                    The latest available observations of an object's current state.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - status
+                      - type
+                address:
+                  description: |
+                    The assigned IP address.
+                  type: string
+                virtualMachineName:
+                  description: |
+                    Represents the virtual machine that currently uses this IP address.
+                  type: string
+                phase:
+                  type: string
+                  enum:
+                    - "Pending"
+                    - "Bound"
+                  description: |
+                    Represents the current state of IP address.
+
+                    * Pending - the process of creating is in progress.
+                    * Bound - the IP address is bound to IP address lease.
+                observedGeneration:
+                  type: integer
+                  description: |
+                    The generation last processed by the controller.
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - jsonPath: .status.address
+          name: Address
+          type: string
+        - jsonPath: .status.phase
+          name: Status
+          type: string
+        - jsonPath: .status.virtualMachineName
+          name: VM
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
