@@ -1,6 +1,7 @@
 ---
 image: pre-delete-hook-builder
-fromImage: base-golang-22-bookworm
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /pre-delete-hook
@@ -25,7 +26,7 @@ shell:
   - go build -v -a -o pre-delete-hook main.go
 ---
 image: {{ $.ImageName }}
-fromImage: base-scratch
+from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: pre-delete-hook-builder
   add: /pre-delete-hook/pre-delete-hook

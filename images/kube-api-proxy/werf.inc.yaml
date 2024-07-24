@@ -1,6 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
-fromImage: base-golang-21-bookworm
+final: false
+from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
 git:
   - add: /images/{{ $.ImageName }}
     to: /src/kube-api-proxy
@@ -27,7 +28,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-fromImage: base-scratch
+from: {{ .Images.BASE_SCRATCH }}
 import:
   - image: {{ $.ImageName }}-builder
     add: /src/kube-api-proxy/kube-api-proxy
