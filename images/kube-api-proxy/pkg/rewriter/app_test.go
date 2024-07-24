@@ -33,6 +33,7 @@ func createTestRewriterForApp() *RuleBasedRewriter {
 				Group:            "original.group.io",
 				Versions:         []string{"v1", "v1alpha1"},
 				PreferredVersion: "v1",
+				Renamed:          "prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"someresources": {
@@ -58,9 +59,10 @@ func createTestRewriterForApp() *RuleBasedRewriter {
 		},
 		"other.group.io": {
 			GroupRule: GroupRule{
-				Group:            "original.group.io",
+				Group:            "other.group.io",
 				Versions:         []string{"v2alpha3"},
 				PreferredVersion: "v2alpha3",
+				Renamed:          "other.prefixed.resources.group.io",
 			},
 			ResourceRules: map[string]ResourceRule{
 				"otherresources": {
@@ -81,7 +83,6 @@ func createTestRewriterForApp() *RuleBasedRewriter {
 		ResourceTypePrefix: "prefixed", // kv
 		ShortNamePrefix:    "p",
 		Categories:         []string{"prefixed"},
-		RenamedGroup:       "prefixed.resources.group.io",
 		Rules:              apiGroupRules,
 		Labels: MetadataReplace{
 			Prefixes: []MetadataReplaceRule{

@@ -78,15 +78,17 @@ func TestRewriteMetadata(t *testing.T) {
 			bytes, err := json.Marshal(tt.obj)
 			require.NoError(t, err, "should marshal object %q %s/%s", tt.obj.GetObjectKind().GroupVersionKind().Kind, tt.obj.GetName(), tt.obj.GetNamespace())
 
-			rwBytes, err := RewriteMetadata(rwr.Rules, bytes, tt.action)
+			rwBytes, err := TransformObject(bytes, "metadata", func(metadataObj []byte) ([]byte, error) {
+				return RewriteMetadata(rwr.Rules, metadataObj, tt.action)
+			})
 			require.NoError(t, err, "should rewrite object")
 
 			err = json.Unmarshal(rwBytes, &tt.newObj)
 
 			require.NoError(t, err, "should unmarshal object")
 
-			require.Equal(t, tt.newObj.GetLabels(), tt.expectLabels, "expect rewrite labels '%v' to be '%s', got '%s'", tt.obj.GetLabels(), tt.expectLabels, tt.newObj.GetLabels())
-			require.Equal(t, tt.newObj.GetAnnotations(), tt.expectAnnotations, "expect rewrite annotations '%v' to be '%s', got '%s'", tt.obj.GetAnnotations(), tt.expectAnnotations, tt.newObj.GetAnnotations())
+			require.Equal(t, tt.expectLabels, tt.newObj.GetLabels(), "expect rewrite labels '%v' to be '%s', got '%s'", tt.obj.GetLabels(), tt.expectLabels, tt.newObj.GetLabels())
+			require.Equal(t, tt.expectAnnotations, tt.newObj.GetAnnotations(), "expect rewrite annotations '%v' to be '%s', got '%s'", tt.obj.GetAnnotations(), tt.expectAnnotations, tt.newObj.GetAnnotations())
 		})
 	}
 }
@@ -98,7 +100,7 @@ Host: 127.0.0.1
 `
 	responseBody := `{
 "kind":"PrefixedSomeResourceList",
-"apiVersion":"original.group.io/v1",
+"apiVersion":"prefixed.resources.group.io/v1",
 "metadata":{"resourceVersion":"412742959"},
 "items":[
 	{

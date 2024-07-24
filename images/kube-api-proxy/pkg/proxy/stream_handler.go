@@ -19,6 +19,7 @@ package proxy
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	log "log/slog"
@@ -120,7 +121,7 @@ func (s *StreamHandler) proxy() {
 			// There is nothing to send to the client: no event decoded.
 		} else {
 			rwrEvent, err = s.transformWatchEvent(&got)
-			if err != nil && err == rewriter.SkipItem {
+			if err != nil && errors.Is(err, rewriter.SkipItem) {
 				s.log.Warn(fmt.Sprintf("Watch event '%s': skipped by rewriter", got.Type), logutil.SlogErr(err))
 				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s' skipped", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
 			} else {
@@ -222,7 +223,7 @@ func (s *StreamHandler) transformWatchEvent(ev *metav1.WatchEvent) (*metav1.Watc
 		rwrObjBytes, err = s.rewriter.RewriteJSONPayload(s.targetReq, ev.Object.Raw, rewriter.Restore)
 	}
 	if err != nil {
-		if err == rewriter.SkipItem {
+		if errors.Is(err, rewriter.SkipItem) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("rewrite object in WatchEvent '%s': %w", ev.Type, err)

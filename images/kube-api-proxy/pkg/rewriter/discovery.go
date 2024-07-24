@@ -29,17 +29,16 @@ import (
 //
 // Rewrite each APIGroup in "groups".
 // Response example:
-// {"name":"x.virtualization.deckhouse.io",
+// {"groups":[
+// {"name":"prefixed.resources.group.io",
 //
 //	 "versions":[
-//	   {"groupVersion":"x.virtualization.deckhouse.io/v1","version":"v1"},
-//	   {"groupVersion":"x.virtualization.deckhouse.io/v1beta1","version":"v1beta1"},
-//	   {"groupVersion":"x.virtualization.deckhouse.io/v1alpha3","version":"v1alpha3"},
-//	   {"groupVersion":"x.virtualization.deckhouse.io/v1alpha2","version":"v1alpha2"},
-//	   {"groupVersion":"x.virtualization.deckhouse.io/v1alpha1","version":"v1alpha1"}
+//	   {"groupVersion":"prefixed.resources.group.io/v1","version":"v1"},
+//	   {"groupVersion":"prefixed.resources.group.io/v1beta1","version":"v1beta1"},
+//	   {"groupVersion":"prefixed.resources.group.io/v1alpha3","version":"v1alpha3"}
 //	  ],
-//	 "preferredVersion":{"groupVersion":"x.virtualization.deckhouse.io/v1","version":"v1"}
-//	}
+//	 "preferredVersion":{"groupVersion":"prefixed.resources.group.io/v1","version":"v1"}
+//	}]}
 func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
 	groups := gjson.GetBytes(objBytes, "groups").Array()
 	// TODO get rid of RawExtension, use SetRawBytes.
@@ -47,7 +46,7 @@ func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
 	for _, group := range groups {
 		groupName := gjson.Get(group.Raw, "name").String()
 		// Replace renamed group with groups from rules.
-		if groupName == rules.RenamedGroup {
+		if rules.IsRenamedGroup(groupName) {
 			rwrGroups = append(rwrGroups, rules.GetAPIGroupList()...)
 			continue
 		}
@@ -61,88 +60,63 @@ func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
 	return sjson.SetBytes(objBytes, "groups", rwrGroups)
 }
 
-// RewriteAPIGroup rewrites responses for
-// /apis/x.virtualization.deckhouse.io
+// RewriteAPIGroup restores apiGroup, kinds and versions in responses from renamed APIGroup query:
+// /apis/renamed.resource.group.io
 //
-// This call returns all versions for x.virtualization.deckhouse.io.
+// This call returns all versions for renamed.resource.group.io.
 // Rewriter should reduce versions for only available in original group
 // To reduce further requests with specific versions.
 //
-// Example response:
+// Example response with renamed group:
 // {  "kind":"APIGroup",
 //
 //	   "apiVersion":"v1",
-//	   "name":"x.virtualization.deckhouse.io",
+//	   "name":"renamed.resource.group.io",
 //	   "versions":[
-//		  {"groupVersion":"x.virtualization.deckhouse.io/v1","version":"v1"},
-//	      {"groupVersion":"x.virtualization.deckhouse.io/v1beta1","version":"v1beta1"},
-//		  {"groupVersion":"x.virtualization.deckhouse.io/v1alpha3","version":"v1alpha3"},
-//		  {"groupVersion":"x.virtualization.deckhouse.io/v1alpha2","version":"v1alpha2"},
-//		  {"groupVersion":"x.virtualization.deckhouse.io/v1alpha1","version":"v1alpha1"}
+//		  {"groupVersion":"renamed.resource.group.io/v1","version":"v1"},
+//		  {"groupVersion":"renamed.resource.group.io/v1alpha1","version":"v1alpha1"}
 //	   ],
 //	  "preferredVersion": {
-//	    "groupVersion":"x.virtualization.deckhouse.io/v1",
+//	    "groupVersion":"renamed.resource.group.io/v1",
 //		"version":"v1"}
 //	  }
 //
-// Rewrite for kubevirt.io group should be:
+// Restored response should be:
 // {  "kind":"APIGroup",
 //
 //	   "apiVersion":"v1",
-//	   "name":"kubevirt.io",
+//	   "name":"original.group.io",
 //	   "versions":[
-//		    {"groupVersion":"kubevirt.io/v1","version":"v1"},
-//	     {"groupVersion":"kubevirt.io/v1alpha3","version":"v1alpha3"}
+//		    {"groupVersion":"original.group.io/v1","version":"v1"},
+//	     {"groupVersion":"original.group.io/v1alpha1","version":"v1alpha1"}
 //	   ],
 //		  "preferredVersion": {
-//	     "groupVersion":"kubevirt.io/v1",
+//	     "groupVersion":"original.group.io/v1",
 //			"version":"v1"}
 //		  }
-//
-// And rewrite for clone.kubevirt.io group should be:
-// {  "kind":"APIGroup",
-//
-//	   "apiVersion":"v1",
-//	   "name":"clone.kubevirt.io",
-//	   "versions":[
-//	     {"groupVersion":"clone.kubevirt.io/v1alpha1","version":"v1alpha1"}
-//	   ],
-//		  "preferredVersion": {
-//	     "groupVersion":"clone.kubevirt.io/v1alpha1",
-//			"version":"v1alpha1"}
-//		  }
-func RewriteAPIGroup(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
-	apiGroupRule, ok := rules.Rules[origGroup]
-	if !ok {
-		return nil, fmt.Errorf("no APIGroup rewrites for group '%s'", origGroup)
+func RewriteAPIGroup(rules *RewriteRules, obj []byte) ([]byte, error) {
+	groupName := gjson.GetBytes(obj, "name").String()
+	// Return as-is for group without rules.
+	if !rules.IsRenamedGroup(groupName) {
+		return obj, nil
+	}
+	obj, err := sjson.SetBytes(obj, "name", rules.RestoreApiVersion(groupName))
+	if err != nil {
+		return nil, err
 	}
 
-	// Grab all versions from rules.
-	versions := make([]interface{}, 0)
-	for _, ver := range apiGroupRule.GroupRule.Versions {
-		versions = append(versions, map[string]interface{}{
-			"groupVersion": origGroup + "/" + ver,
-			"version":      ver,
+	obj, err = RewriteArray(obj, "versions", func(versionObj []byte) ([]byte, error) {
+		return TransformString(versionObj, "groupVersion", func(groupVersion string) string {
+			return rules.RestoreApiVersion(groupVersion)
 		})
-	}
-	preferredVersion := map[string]interface{}{
-		"groupVersion": origGroup + "/" + apiGroupRule.GroupRule.PreferredVersion,
-		"version":      apiGroupRule.GroupRule.PreferredVersion,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	obj, err := sjson.SetBytes(obj, "name", origGroup)
-	if err != nil {
-		return nil, err
-	}
-	obj, err = sjson.SetBytes(obj, "versions", versions)
-	if err != nil {
-		return nil, err
-	}
-	obj, err = sjson.SetBytes(obj, "preferredVersion", preferredVersion)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
+	return TransformString(obj, "preferredVersion.groupVersion", func(preferredGroupVersion string) string {
+		return rules.RestoreApiVersion(preferredGroupVersion)
+	})
 }
 
 // RewriteAPIResourceList rewrites server responses on
@@ -315,7 +289,7 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 
 		groupName := gjson.GetBytes(itemBytes, "metadata.name").String()
 
-		if groupName != rules.RenamedGroup {
+		if !rules.IsRenamedGroup(groupName) {
 			// Remove duplicates if cluster have CRDs with original group names.
 			if rules.HasGroup(groupName) {
 				continue

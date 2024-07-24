@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -391,13 +392,13 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 	// Step 2. Rewrite response JSON.
 	statusCode := resp.StatusCode
 	rwrBodyBytes, err := h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, FromTargetAction(h.ProxyMode))
-	if err != nil && err != rewriter.SkipItem {
-		logger.Error("Error rewriting response", logutil.SlogErr(err))
-		http.Error(w, "can't rewrite response", http.StatusInternalServerError)
-		return
-	}
-	// Return NotFound Status object if rewriter decides to skip resource.
-	if err != nil && err == rewriter.SkipItem {
+	if err != nil {
+		if !errors.Is(err, rewriter.SkipItem) {
+			logger.Error("Error rewriting response", logutil.SlogErr(err))
+			http.Error(w, "can't rewrite response", http.StatusInternalServerError)
+			return
+		}
+		// Return NotFound Status object if rewriter decides to skip resource.
 		rwrBodyBytes = notFoundJSON(targetReq.OrigResourceType(), origBodyBytes)
 		statusCode = http.StatusNotFound
 	}
