@@ -38,6 +38,8 @@ func NewValidator() *Validator {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	// TODO check if vmbda with this block device and vm already exists.
+
 	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil

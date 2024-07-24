@@ -532,9 +532,13 @@ spec:
                     Список блочных устройств, подключенных к ВМ.
                   items:
                     properties:
-                      hotpluggable:
+                      attached:
+                        type: boolean
                         description: |
-                          Блочное устройство доступно для горячего подключения.
+                          Блочное устройство подключено к виртуальной машине.
+                      hotplugged:
+                        description: |
+                          Блочное устройство подключено к виртуальной машине «на лету».
                       kind:
                         description: |
                           Тип блочного устройства.
@@ -547,6 +551,9 @@ spec:
                       target:
                         description: |
                           Название подключенного блочного устройства.
+                      virtualMachineBlockDeviceAttachmentName:
+                        description: |
+                          Имя ресурса `VirtualMachineBlockDeviceAttachment`, который описывает подключение диска к виртуальной машине «на лету».
                 conditions:
                   description: |
                     Состояния во время работы виртуальной машины.

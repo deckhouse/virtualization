@@ -53,8 +53,8 @@ const (
 	ReasonIPAddressClaimNotAssigned  Reason = "VirtualMachineIPAddressClaimNotAssigned"
 	ReasonIPAddressClaimNotAvailable Reason = "VirtualMachineIPAddressClaimNotAvailable"
 
-	ReasonBlockDevicesAttachmentReady    Reason = "BlockDevicesAttachmentReady"
-	ReasonBlockDevicesAttachmentNotReady Reason = "BlockDevicesAttachmentNotReady"
+	ReasonBlockDevicesReady    Reason = "BlockDevicesReady"
+	ReasonBlockDevicesNotReady Reason = "BlockDevicesNotReady"
 
 	ReasonProvisioningReady    Reason = "ProvisioningReady"
 	ReasonProvisioningNotReady Reason = "ProvisioningNotReady"

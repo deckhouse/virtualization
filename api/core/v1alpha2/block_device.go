@@ -22,11 +22,13 @@ type BlockDeviceSpecRef struct {
 }
 
 type BlockDeviceStatusRef struct {
-	Kind         BlockDeviceKind `json:"kind"`
-	Name         string          `json:"name"`
-	Hotpluggable bool            `json:"hotpluggable"`
-	Target       string          `json:"target"`
-	Size         string          `json:"size"`
+	Kind                                    BlockDeviceKind `json:"kind"`
+	Name                                    string          `json:"name"`
+	Size                                    string          `json:"size"`
+	Target                                  string          `json:"target"`
+	Attached                                bool            `json:"attached"`
+	Hotplugged                              bool            `json:"hotplugged,omitempty"`
+	VirtualMachineBlockDeviceAttachmentName string          `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
 }
 
 type BlockDeviceKind string

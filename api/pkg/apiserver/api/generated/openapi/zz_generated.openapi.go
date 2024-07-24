@@ -702,10 +702,10 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref common.Ref
 							Format:  "",
 						},
 					},
-					"hotpluggable": {
+					"size": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
+							Default: "",
+							Type:    []string{"string"},
 							Format:  "",
 						},
 					},
@@ -716,15 +716,27 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref common.Ref
 							Format:  "",
 						},
 					},
-					"size": {
+					"attached": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
+							Default: false,
+							Type:    []string{"boolean"},
 							Format:  "",
 						},
 					},
+					"hotplugged": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"virtualMachineBlockDeviceAttachmentName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"kind", "name", "hotpluggable", "target", "size"},
+				Required: []string{"kind", "name", "size", "target", "attached"},
 			},
 		},
 	}

@@ -83,7 +83,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		h.logger.Error(fmt.Sprintf("invalid disks: %s", disksMessage))
 		mgr.Update(cb.
 			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonBlockDevicesAttachmentNotReady).
+			Reason2(vmcondition.ReasonBlockDevicesNotReady).
 			Message(disksMessage).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{Requeue: true}, nil
@@ -102,57 +102,70 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
+	// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
+	changed.Status.BlockDeviceRefs = nil
+
+	// Set BlockDeviceRef from spec to the status.
+	for _, bdSpecRef := range changed.Spec.BlockDeviceRefs {
+		bdStatusRef := h.getDiskStatusRef(bdSpecRef.Kind, bdSpecRef.Name)
+		bdStatusRef.Size = h.getBlockDeviceSize(&bdStatusRef, bdState)
+
+		changed.Status.BlockDeviceRefs = append(
+			changed.Status.BlockDeviceRefs,
+			bdStatusRef,
+		)
+	}
+
+	vmbdas, err := s.VMBDAList(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set hot plugged BlockDeviceRef to the status.
+	for _, vmbda := range vmbdas {
+		switch vmbda.Status.Phase {
+		case virtv2.BlockDeviceAttachmentPhaseInProgress,
+			virtv2.BlockDeviceAttachmentPhaseAttached:
+		default:
+			continue
+		}
+
+		var vd *virtv2.VirtualDisk
+		vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if vd == nil {
+			continue
+		}
+
+		bdStatusRef := h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
+		bdStatusRef.Size = vd.Status.Capacity
+		bdStatusRef.Hotplugged = true
+		bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
+
+		changed.Status.BlockDeviceRefs = append(
+			changed.Status.BlockDeviceRefs,
+			bdStatusRef,
+		)
+	}
+
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
+	// Sync BlockDeviceRef in the status with KVVMI volumes.
 	if kvvmi != nil {
-		// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
-		changed.Status.BlockDeviceRefs = nil
-
-		// Set BlockDeviceRef in the status if the disk exists in KVVMI.
-		for _, ref := range changed.Spec.BlockDeviceRefs {
-			bd := h.createAttachedBlockDevice(ref, bdState, kvvmi)
-			if bd == nil {
+		for i, bdStatusRef := range changed.Status.BlockDeviceRefs {
+			vs := h.findVolumeStatus(GenerateDiskName(bdStatusRef.Kind, bdStatusRef.Name), kvvmi)
+			if vs == nil || (vs.Phase != "" && vs.Phase != virtv1.VolumeReady) {
 				continue
 			}
 
-			changed.Status.BlockDeviceRefs = append(
-				changed.Status.BlockDeviceRefs,
-				*bd,
-			)
-		}
-
-		// Set BlockDeviceRef `Hotpluggable: true` in the status if KVVMI has a hotplugged disk.
-		for _, vs := range kvvmi.Status.VolumeStatus {
-			if vs.HotplugVolume == nil {
-				continue
-			}
-
-			vdName, ok := kvbuilder.GetOriginalDiskName(vs.Name)
-			if !ok {
-				h.logger.Warn("volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
-				h.recorder.Eventf(changed, corev1.EventTypeNormal, virtv2.ReasonUnknownHotPluggedVolume, "Volume %s was hot plugged to VirtualMachineInstance %s, but it is not a VirtualDisk.", vdName, kvvmi.Name)
-				continue
-			}
-
-			var vd *virtv2.VirtualDisk
-			vd, err = s.VirtualDisk(ctx, vdName)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			if vd == nil {
-				h.logger.Warn("VirtualDisk %s not found but pvc hot plugged into VirtualMachineInstance %s", vdName, kvvmi.Name)
-				h.recorder.Eventf(changed, corev1.EventTypeNormal, virtv2.ReasonUnknownHotPluggedVolume, "VirtualDisk %s not found but pvc hot plugged into VirtualMachineInstance %s", vdName, kvvmi.Name)
-				continue
-			}
-
-			changed.Status.BlockDeviceRefs = append(
-				changed.Status.BlockDeviceRefs,
-				h.getHotPluggedDiskStatusRef(vs, vd),
-			)
+			changed.Status.BlockDeviceRefs[i].Target = vs.Target
+			changed.Status.BlockDeviceRefs[i].Attached = true
 		}
 	}
 
@@ -161,7 +174,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if ready, count := h.countReadyBlockDevices(current, bdState); !ready {
 		// Wait until block devices are ready.
 		h.logger.Info("Waiting for block devices to become available")
-		reason := vmcondition.ReasonBlockDevicesAttachmentNotReady.String()
+		reason := vmcondition.ReasonBlockDevicesNotReady.String()
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason, "Waiting for block devices to become available")
 		msg := fmt.Sprintf("Waiting for block devices to become available: %d/%d", count, countBD)
 		mgr.Update(cb.
@@ -174,7 +187,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	mgr.Update(cb.Status(metav1.ConditionTrue).
-		Reason2(vmcondition.ReasonBlockDevicesAttachmentReady).
+		Reason2(vmcondition.ReasonBlockDevicesReady).
 		Condition())
 	changed.Status.Conditions = mgr.Generate()
 	return reconcile.Result{}, nil
@@ -196,7 +209,7 @@ func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) 
 	hotplugged := make(map[string]struct{})
 
 	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Hotpluggable {
+		if bda.Hotplugged {
 			hotplugged[bda.Name] = struct{}{}
 		}
 	}
@@ -305,87 +318,53 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *virtv2.Vi
 	return nil
 }
 
-func (h *BlockDeviceHandler) getHotPluggedDiskStatusRef(vs virtv1.VolumeStatus, vd *virtv2.VirtualDisk) virtv2.BlockDeviceStatusRef {
+func (h *BlockDeviceHandler) getDiskStatusRef(kind virtv2.BlockDeviceKind, name string) virtv2.BlockDeviceStatusRef {
 	return virtv2.BlockDeviceStatusRef{
-		Kind:         virtv2.DiskDevice,
-		Name:         vd.Name,
-		Target:       vs.Target,
-		Size:         vd.Status.Capacity,
-		Hotpluggable: true,
+		Kind: kind,
+		Name: name,
 	}
 }
 
-func (h *BlockDeviceHandler) createAttachedBlockDevice(spec virtv2.BlockDeviceSpecRef, state BlockDevicesState, kvvmi *virtv1.VirtualMachineInstance) *virtv2.BlockDeviceStatusRef {
+func (h *BlockDeviceHandler) getBlockDeviceSize(ref *virtv2.BlockDeviceStatusRef, state BlockDevicesState) string {
+	switch ref.Kind {
+	case virtv2.ImageDevice:
+		vi, hasVI := state.VIByName[ref.Name]
+		if !hasVI {
+			return ""
+		}
+
+		return vi.Status.Size.Unpacked
+	case virtv2.DiskDevice:
+		vd, hasVI := state.VDByName[ref.Name]
+		if !hasVI {
+			return ""
+		}
+
+		return vd.Status.Capacity
+	case virtv2.ClusterImageDevice:
+		cvi, hasCvi := state.CVIByName[ref.Name]
+		if !hasCvi {
+			return ""
+		}
+
+		return cvi.Status.Size.Unpacked
+	}
+
+	return ""
+}
+
+func (h *BlockDeviceHandler) findVolumeStatus(name string, kvvmi *virtv1.VirtualMachineInstance) *virtv1.VolumeStatus {
 	if kvvmi == nil {
 		return nil
 	}
-	switch spec.Kind {
-	case virtv2.ImageDevice:
-		vs := h.findVolumeStatus(kvbuilder.GenerateVMIDiskName(spec.Name), kvvmi)
-		if vs == nil {
-			return nil
-		}
 
-		vi, hasVI := state.VIByName[spec.Name]
-		if !hasVI {
-			return nil
-		}
-
-		return &virtv2.BlockDeviceStatusRef{
-			Kind:   virtv2.ImageDevice,
-			Name:   spec.Name,
-			Target: vs.Target,
-			Size:   vi.Status.Size.Unpacked,
-		}
-
-	case virtv2.DiskDevice:
-		vs := h.findVolumeStatus(kvbuilder.GenerateVMDDiskName(spec.Name), kvvmi)
-		if vs == nil {
-			return nil
-		}
-
-		vd, hasVd := state.VDByName[spec.Name]
-		if !hasVd {
-			return nil
-		}
-
-		return &virtv2.BlockDeviceStatusRef{
-			Kind:   virtv2.DiskDevice,
-			Name:   spec.Name,
-			Target: vs.Target,
-			Size:   vd.Status.Capacity,
-		}
-
-	case virtv2.ClusterImageDevice:
-		vs := h.findVolumeStatus(kvbuilder.GenerateCVMIDiskName(spec.Name), kvvmi)
-		if vs == nil {
-			return nil
-		}
-
-		cvi, hasCvi := state.CVIByName[spec.Name]
-		if !hasCvi {
-			return nil
-		}
-
-		return &virtv2.BlockDeviceStatusRef{
-			Kind:   virtv2.ClusterImageDevice,
-			Name:   spec.Name,
-			Target: vs.Target,
-			Size:   cvi.Status.Size.Unpacked,
+	for i := range kvvmi.Status.VolumeStatus {
+		vs := kvvmi.Status.VolumeStatus[i]
+		if vs.Name == name {
+			return &vs
 		}
 	}
-	return nil
-}
 
-func (h *BlockDeviceHandler) findVolumeStatus(volumeName string, kvvmi *virtv1.VirtualMachineInstance) *virtv1.VolumeStatus {
-	if kvvmi != nil {
-		for i := range kvvmi.Status.VolumeStatus {
-			vs := kvvmi.Status.VolumeStatus[i]
-			if vs.Name == volumeName {
-				return &vs
-			}
-		}
-	}
 	return nil
 }
 
