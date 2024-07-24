@@ -40,7 +40,7 @@ rules:
     - update
     - delete
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
     - upload.cdi.kubevirt.io
   resources:
     - '*'
@@ -123,26 +123,26 @@ rules:
   verbs:
     - get
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationdatavolumes
   verbs:
     - list
     - get
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationdatasources
   verbs:
     - get
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationcdis
   verbs:
     - get
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationcdis/finalizers
   verbs:
@@ -219,7 +219,7 @@ rules:
     - list
     - watch
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - '*'
   verbs:
@@ -274,9 +274,9 @@ rules:
   verbs:
     - create
 - apiGroups:
-    - kubevirt.io
+    - internal.virtualization.deckhouse.io
   resources:
-    - virtualmachines/finalizers
+    - internalvirtualizationvirtualmachines/finalizers
   verbs:
     - update
 - apiGroups:
@@ -286,7 +286,7 @@ rules:
   verbs:
     - get
 - apiGroups:
-    - internal.virtualization.deckhouse.io
+    - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationdataimportcrons
   verbs:

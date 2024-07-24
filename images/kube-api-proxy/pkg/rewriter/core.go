@@ -88,13 +88,12 @@ func RenameServicePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
 
 func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	var err error
-	kind := gjson.GetBytes(obj, "kind").String()
 
-	obj, err = TransformString(obj, "kind", func(field string) string {
+	obj, err = TransformString(obj, "kind", func(kind string) string {
 		if action == Rename {
-			return rules.RenameKind(field)
+			return rules.RenameKind(kind)
 		}
-		return rules.RestoreKind(field)
+		return rules.RestoreKind(kind)
 	})
 	if err != nil {
 		return nil, err
@@ -102,14 +101,8 @@ func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]b
 
 	return TransformString(obj, "apiGroup", func(apiGroup string) string {
 		if action == Rename {
-			return rules.RenamedGroup
+			return rules.RenameApiVersion(apiGroup)
 		}
-		// Renamed to original is a one-to-many relation, so we
-		// need an original kind to get proper group for Restore action.
-		groupRule, _ := rules.GroupResourceRulesByKind(rules.RestoreKind(kind))
-		if groupRule == nil {
-			return apiGroup
-		}
-		return groupRule.Group
+		return rules.RestoreApiVersion(apiGroup)
 	})
 }

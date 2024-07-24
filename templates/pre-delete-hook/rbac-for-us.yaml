@@ -17,8 +17,14 @@ rules:
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationcdis
   - internalvirtualizationkubevirts
+  verbs:
+  - get
+  - delete
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationcdis
   verbs:
   - get
   - delete

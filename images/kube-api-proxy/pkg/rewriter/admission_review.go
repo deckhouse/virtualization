@@ -28,7 +28,7 @@ import (
 // NOTE: only one rewrite direction is supported for now:
 // - Restore object in AdmissionReview request.
 // - Do nothing for AdmissionReview response.
-func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RewriteAdmissionReview(rules *RewriteRules, obj []byte) ([]byte, error) {
 	if gjson.GetBytes(obj, "response").Exists() {
 		return TransformObject(obj, "response", func(responseObj []byte) ([]byte, error) {
 			return RenameAdmissionReviewResponse(rules, responseObj)
@@ -37,7 +37,7 @@ func RewriteAdmissionReview(rules *RewriteRules, obj []byte, origGroup string) (
 
 	request := gjson.GetBytes(obj, "request")
 	if request.Exists() {
-		newRequest, err := RestoreAdmissionReviewRequest(rules, []byte(request.Raw), origGroup)
+		newRequest, err := RestoreAdmissionReviewRequest(rules, []byte(request.Raw))
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +113,7 @@ func RenameAdmissionReviewResponse(rules *RewriteRules, obj []byte) ([]byte, err
 //	  userInfo
 //	  options
 //	  dryRun
-func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
 	// Rewrite "resource" field and find rules.
@@ -122,15 +122,16 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 		group := resourceObj.Get("group")
 		resource := resourceObj.Get("resource")
 		// Ignore reviews for unknown renamed group.
-		if group.String() != rules.RenamedGroup {
+		if !rules.IsRenamedGroup(group.String()) {
 			return nil, nil
 		}
-		newResource := rules.RestoreResource(resource.String())
-		obj, err = sjson.SetBytes(obj, "resource.resource", newResource)
+		restoredResourceType := rules.RestoreResource(resource.String())
+		obj, err = sjson.SetBytes(obj, "resource.resource", restoredResourceType)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = sjson.SetBytes(obj, "resource.group", origGroup)
+		restoredGroup := rules.RestoreApiVersion(group.String())
+		obj, err = sjson.SetBytes(obj, "resource.group", restoredGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -142,15 +143,16 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 		group := fieldObj.Get("group")
 		resource := fieldObj.Get("resource")
 		// Ignore reviews for unknown renamed group.
-		if group.String() != rules.RenamedGroup {
+		if !rules.IsRenamedGroup(group.String()) {
 			return nil, nil
 		}
-		newResource := rules.RestoreResource(resource.String())
-		obj, err = sjson.SetBytes(obj, "requestResource.resource", newResource)
+		restoredResourceType := rules.RestoreResource(resource.String())
+		obj, err = sjson.SetBytes(obj, "requestResource.resource", restoredResourceType)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = sjson.SetBytes(obj, "requestResource.group", origGroup)
+		restoredGroup := rules.RestoreApiVersion(group.String())
+		obj, err = sjson.SetBytes(obj, "requestResource.group", restoredGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -168,12 +170,14 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "kind")
 		kind := fieldObj.Get("kind")
-		newKind := rules.RestoreKind(kind.String())
-		obj, err = sjson.SetBytes(obj, "kind.kind", newKind)
+		restoredKind := rules.RestoreKind(kind.String())
+		obj, err = sjson.SetBytes(obj, "kind.kind", restoredKind)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = sjson.SetBytes(obj, "kind.group", origGroup)
+		group := fieldObj.Get("group")
+		restoredGroup := rules.RestoreApiVersion(group.String())
+		obj, err = sjson.SetBytes(obj, "kind.group", restoredGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -183,12 +187,14 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 	{
 		fieldObj := gjson.GetBytes(obj, "requestKind")
 		kind := fieldObj.Get("kind")
-		newKind := rules.RestoreKind(kind.String())
-		obj, err = sjson.SetBytes(obj, "requestKind.kind", newKind)
+		restoredKind := rules.RestoreKind(kind.String())
+		obj, err = sjson.SetBytes(obj, "requestKind.kind", restoredKind)
 		if err != nil {
 			return nil, err
 		}
-		obj, err = sjson.SetBytes(obj, "requestKind.group", origGroup)
+		group := fieldObj.Get("group")
+		restoredGroup := rules.RestoreApiVersion(group.String())
+		obj, err = sjson.SetBytes(obj, "requestKind.group", restoredGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -196,14 +202,14 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 
 	// Rewrite "object" field.
 	obj, err = TransformObject(obj, "object", func(objectObj []byte) ([]byte, error) {
-		return RestoreAdmissionReviewObject(rules, objectObj, origGroup)
+		return RestoreAdmissionReviewObject(rules, objectObj)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("restore 'object': %w", err)
 	}
 	// Rewrite "object" field.
 	obj, err = TransformObject(obj, "oldObject", func(objectObj []byte) ([]byte, error) {
-		return RestoreAdmissionReviewObject(rules, objectObj, origGroup)
+		return RestoreAdmissionReviewObject(rules, objectObj)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("restore 'oldObject': %w", err)
@@ -214,9 +220,9 @@ func RestoreAdmissionReviewRequest(rules *RewriteRules, obj []byte, origGroup st
 
 // RestoreAdmissionReviewObject fully restores object of known resource.
 // TODO deduplicate with code in RewriteJSONPayload.
-func RestoreAdmissionReviewObject(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
+func RestoreAdmissionReviewObject(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
-	obj, err = RestoreResource(rules, obj, origGroup)
+	obj, err = RestoreResource(rules, obj)
 	if err != nil {
 		return nil, fmt.Errorf("restore resource group, kind: %w", err)
 	}

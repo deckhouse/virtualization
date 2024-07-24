@@ -98,7 +98,7 @@ rules:
   - create
   - patch
 - apiGroups:
-  - internal.virtualization.deckhouse.io
+  - cdi.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationdatavolumes
   verbs:

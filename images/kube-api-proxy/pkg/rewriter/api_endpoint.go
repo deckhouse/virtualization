@@ -93,7 +93,7 @@ func ParseAPIEndpoint(apiURL *url.URL) *APIEndpoint {
 	cleanedPath := strings.Trim(apiURL.Path, "/")
 	pathItems := strings.Split(cleanedPath, "/")
 
-	if len(pathItems) == 0 {
+	if cleanedPath == "" || len(pathItems) == 0 {
 		return &APIEndpoint{
 			IsRoot:   true,
 			IsWatch:  isWatch,

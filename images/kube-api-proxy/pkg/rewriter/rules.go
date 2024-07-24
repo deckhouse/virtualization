@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/tidwall/gjson"
+
+	"kube-api-proxy/pkg/rewriter/indexer"
 )
 
 type RewriteRules struct {
@@ -27,7 +29,6 @@ type RewriteRules struct {
 	ResourceTypePrefix string                  `json:"resourceTypePrefix"`
 	ShortNamePrefix    string                  `json:"shortNamePrefix"`
 	Categories         []string                `json:"categories"`
-	RenamedGroup       string                  `json:"renamedGroup"`
 	Rules              map[string]APIGroupRule `json:"rules"`
 	Webhooks           map[string]WebhookRule  `json:"webhooks"`
 	Labels             MetadataReplace         `json:"labels"`
@@ -39,6 +40,8 @@ type RewriteRules struct {
 	labelsRewriter      *PrefixedNameRewriter
 	annotationsRewriter *PrefixedNameRewriter
 	finalizersRewriter  *PrefixedNameRewriter
+
+	apiGroupsIndex *indexer.MapIndexer
 }
 
 // Init should be called before using rules in the RuleBasedRewriter.
@@ -57,6 +60,12 @@ func (rr *RewriteRules) Init() {
 	if len(originalKinds) > 0 {
 		rr.Excludes = append(rr.Excludes, ExcludeRule{Kinds: originalKinds})
 	}
+
+	// Index apiGroups originals and their renames.
+	rr.apiGroupsIndex = indexer.NewMapIndexer()
+	for _, apiGroupRule := range rr.Rules {
+		rr.apiGroupsIndex.AddPair(apiGroupRule.GroupRule.Group, apiGroupRule.GroupRule.Renamed)
+	}
 }
 
 type APIGroupRule struct {
@@ -68,6 +77,7 @@ type GroupRule struct {
 	Group            string   `json:"group"`
 	Versions         []string `json:"versions"`
 	PreferredVersion string   `json:"preferredVersion"`
+	Renamed          string   `json:"renamed"`
 }
 
 type ResourceRule struct {
@@ -159,10 +169,14 @@ func (rr *RewriteRules) WebhookRule(path string) *WebhookRule {
 }
 
 func (rr *RewriteRules) IsRenamedGroup(apiGroup string) bool {
-	return strings.HasPrefix(apiGroup, rr.RenamedGroup)
+	// Trim version and delimeter.
+	apiGroup, _, _ = strings.Cut(apiGroup, "/")
+	return rr.apiGroupsIndex.IsRenamed(apiGroup)
 }
 
 func (rr *RewriteRules) HasGroup(group string) bool {
+	// Trim version and delimeter.
+	group, _, _ = strings.Cut(group, "/")
 	_, ok := rr.Rules[group]
 	return ok
 }
@@ -199,6 +213,7 @@ func (rr *RewriteRules) ResourceRules(group, resource string) (*GroupRule, *Reso
 	if !ok {
 		return nil, nil
 	}
+	resource, _, _ = strings.Cut(resource, "/")
 	resourceRule, ok := rr.Rules[group].ResourceRules[resource]
 	if !ok {
 		return nil, nil
@@ -207,6 +222,9 @@ func (rr *RewriteRules) ResourceRules(group, resource string) (*GroupRule, *Reso
 }
 
 func (rr *RewriteRules) GroupResourceRules(resourceType string) (*GroupRule, *ResourceRule) {
+	// Trim subresource and delimiter.
+	resourceType, _, _ = strings.Cut(resourceType, "/")
+
 	for _, group := range rr.Rules {
 		for _, res := range group.ResourceRules {
 			if res.Plural == resourceType {
@@ -244,29 +262,32 @@ func (rr *RewriteRules) RestoreKind(kind string) string {
 	return strings.TrimPrefix(kind, rr.KindPrefix)
 }
 
-func (rr *RewriteRules) RestoreApiVersion(apiVersion string, group string) string {
-	// Replace group, keep version.
-	slashVersion, found := strings.CutPrefix(apiVersion, rr.RenamedGroup)
+// RestoreApiVersion returns apiVersion with restored apiGroup part.
+// It keeps with version suffix as-is if present.
+func (rr *RewriteRules) RestoreApiVersion(apiVersion string) string {
+	apiGroup, version, found := strings.Cut(apiVersion, "/")
+
+	// No version suffix find, consider apiVersion is only a group name.
 	if !found {
-		// Do not restore if apiVersion is not renamed.
-		return apiVersion
+		return rr.apiGroupsIndex.Restore(apiVersion)
 	}
 
-	return group + slashVersion
+	// Restore apiGroup part, keep version suffix.
+	return rr.apiGroupsIndex.Restore(apiGroup) + "/" + version
 }
 
+// RenameApiVersion returns apiVersion with renamed apiGroup part.
+// It keeps with version suffix as-is if present.
 func (rr *RewriteRules) RenameApiVersion(apiVersion string) string {
-	// Check if apiVersion is just a group name.
-	if !strings.Contains(apiVersion, "/") && rr.HasGroup(apiVersion) {
-		return rr.RenamedGroup
+	apiGroup, version, found := strings.Cut(apiVersion, "/")
+
+	// No version suffix find, consider apiVersion is only a group name.
+	if !found {
+		return rr.apiGroupsIndex.Rename(apiVersion)
 	}
 
-	// Replace group, keep version.
-	apiVerParts := strings.Split(apiVersion, "/")
-	if len(apiVerParts) != 2 {
-		return apiVersion
-	}
-	return rr.RenamedGroup + "/" + apiVerParts[1]
+	// Rename apiGroup part, keep version suffix.
+	return rr.apiGroupsIndex.Rename(apiGroup) + "/" + version
 }
 
 func (rr *RewriteRules) RenameCategories(categories []string) []string {

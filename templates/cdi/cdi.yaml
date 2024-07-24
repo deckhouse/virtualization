@@ -6,7 +6,7 @@
 {{- $kubeAPIProxyRewriter := true }}
 {{- $webhookProxyPort :=  24192 }}
 ---
-apiVersion: internal.virtualization.deckhouse.io/v1beta1
+apiVersion: cdi.internal.virtualization.deckhouse.io/v1beta1
 kind: InternalVirtualizationCDI
 metadata:
   name: config

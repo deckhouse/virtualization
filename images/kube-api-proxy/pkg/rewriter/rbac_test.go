@@ -63,6 +63,17 @@ func TestRenameRoleRule(t *testing.T) {
 }`,
 		},
 		{
+			"several groups",
+			`{"apiGroups":["original.group.io","other.group.io"],
+"resources": ["*"],
+"verbs": ["watch", "list", "create"]
+}`,
+			`{"apiGroups":["prefixed.resources.group.io","other.prefixed.resources.group.io"],
+"resources": ["*"],
+"verbs": ["watch", "list", "create"]
+}`,
+		},
+		{
 			"allow all",
 			`{"apiGroups":["*"], "resources":["*"], "verbs":["*"]}`,
 			`{"apiGroups":["*"], "resources":["*"], "verbs":["*"]}`,
@@ -120,18 +131,28 @@ func TestRestoreRoleRule(t *testing.T) {
 "verbs": ["watch", "list", "create"]
 }`,
 		},
-		// Impossible to restore with current rules.
-		//		{
-		//			"only group",
-		//			`{"apiGroups":["prefixed.resources.group.io"],
-		//"resources": ["*"],
-		//"verbs": ["watch", "list", "create"]
-		//}`,
-		//			`{"apiGroups":["original.group.io"],
-		//"resources": ["*"],
-		//"verbs": ["watch", "list", "create"]
-		//}`,
-		//		},
+		{
+			"only group",
+			`{"apiGroups":["prefixed.resources.group.io"],
+		"resources": ["*"],
+		"verbs": ["watch", "list", "create"]
+		}`,
+			`{"apiGroups":["original.group.io"],
+		"resources": ["*"],
+		"verbs": ["watch", "list", "create"]
+		}`,
+		},
+		{
+			"several groups",
+			`{"apiGroups":["prefixed.resources.group.io","other.prefixed.resources.group.io"],
+		"resources": ["*"],
+		"verbs": ["watch", "list", "create"]
+		}`,
+			`{"apiGroups":["original.group.io","other.group.io"],
+		"resources": ["*"],
+		"verbs": ["watch", "list", "create"]
+		}`,
+		},
 		{
 			"allow all",
 			`{"apiGroups":["*"], "resources":["*"], "verbs":["*"]}`,
