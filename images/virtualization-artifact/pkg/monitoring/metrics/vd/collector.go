@@ -97,6 +97,7 @@ func (s *scraper) updateDiskStatusPhaseMetrics(disk virtv2.VirtualDisk) {
 	}{
 		{phase == virtv2.DiskPending, string(virtv2.DiskPending)},
 		{phase == virtv2.DiskWaitForUserUpload, string(virtv2.DiskWaitForUserUpload)},
+		{phase == virtv2.DiskWaitForFirstConsumer, string(virtv2.DiskWaitForFirstConsumer)},
 		{phase == virtv2.DiskProvisioning, string(virtv2.DiskProvisioning)},
 		{phase == virtv2.DiskFailed, string(virtv2.DiskFailed)},
 		{phase == virtv2.DiskLost, string(virtv2.DiskLost)},

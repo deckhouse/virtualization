@@ -64,11 +64,13 @@ func (s DiskService) Start(
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
+	wffc bool,
 ) error {
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetPVC(storageClass, pvcSize)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetBindingMode(wffc)
 
 	err := s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {

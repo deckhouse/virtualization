@@ -131,7 +131,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, err
 		}
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen, false)
 		if err != nil {
 			return false, err
 		}

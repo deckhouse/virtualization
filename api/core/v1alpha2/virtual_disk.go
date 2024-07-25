@@ -39,9 +39,17 @@ type VirtualDisk struct {
 }
 
 type VirtualDiskSpec struct {
+	BindingMode           *VirtualDiskBindingMode          `json:"bindingMode,omitempty"`
 	DataSource            *VirtualDiskDataSource           `json:"dataSource,omitempty"`
 	PersistentVolumeClaim VirtualDiskPersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
+
+type VirtualDiskBindingMode string
+
+const (
+	VirtualDiskBindingModeWaitForFirstConsumer = "WaitForFirstConsumer"
+	VirtualDiskBindingModeImmediate            = "Immediate"
+)
 
 type VirtualDiskStatus struct {
 	DownloadSpeed             *StatusSpeed             `json:"downloadSpeed,omitempty"`
@@ -110,12 +118,13 @@ type VirtualDiskList struct {
 type DiskPhase string
 
 const (
-	DiskPending           DiskPhase = "Pending"
-	DiskWaitForUserUpload DiskPhase = "WaitForUserUpload"
-	DiskProvisioning      DiskPhase = "Provisioning"
-	DiskFailed            DiskPhase = "Failed"
-	DiskLost              DiskPhase = "Lost"
-	DiskReady             DiskPhase = "Ready"
-	DiskResizing          DiskPhase = "Resizing"
-	DiskTerminating       DiskPhase = "Terminating"
+	DiskPending              DiskPhase = "Pending"
+	DiskWaitForUserUpload    DiskPhase = "WaitForUserUpload"
+	DiskWaitForFirstConsumer DiskPhase = "WaitForFirstConsumer"
+	DiskProvisioning         DiskPhase = "Provisioning"
+	DiskFailed               DiskPhase = "Failed"
+	DiskLost                 DiskPhase = "Lost"
+	DiskReady                DiskPhase = "Ready"
+	DiskResizing             DiskPhase = "Resizing"
+	DiskTerminating          DiskPhase = "Terminating"
 )

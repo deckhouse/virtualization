@@ -44,8 +44,7 @@ func NewDV(name types.NamespacedName) *DV {
 					Namespace: name.Namespace,
 					Name:      name.Name,
 					Annotations: map[string]string{
-						"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
-						"cdi.kubevirt.io/storage.bind.immediate.requested": "true",
+						"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
 					},
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -53,6 +52,12 @@ func NewDV(name types.NamespacedName) *DV {
 				},
 			}, helper.ResourceBuilderOptions{},
 		),
+	}
+}
+
+func (b *DV) SetBindingMode(wffc bool) {
+	if !wffc {
+		b.AddAnnotation("cdi.kubevirt.io/storage.bind.immediate.requested", "true")
 	}
 }
 

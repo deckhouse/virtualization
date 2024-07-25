@@ -104,7 +104,8 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 
 		source := ds.getSource()
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		wffc := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen, wffc)
 		if err != nil {
 			return false, err
 		}
@@ -146,13 +147,30 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 			return false, err
 		}
 
+		/*
+			Immediate? Add storage.bind.immediate annotation
+			WaitForFirstConsumer?
+				If StorageClass is Immediate: warn user.
+				If StorageClass is WaitForFirstConsumer:
+					If dv PendingPopulation - wait.
+					If dv WaitForFirstConsumer - wait.
+		*/
 		err = ds.diskService.CheckImportProcess(ctx, dv, vd.Spec.PersistentVolumeClaim.StorageClass)
 		switch {
 		case err == nil:
-			vd.Status.Phase = virtv2.DiskProvisioning
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.Provisioning
-			condition.Message = "Import is in the process of provisioning to PVC."
+			switch dv.Status.Phase {
+			case cdiv1.PendingPopulation, cdiv1.WaitForFirstConsumer:
+				vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vdcondition.ProvisioningNotStarted
+				condition.Message = "Wait for VirtualMachine to be created and scheduled."
+			default:
+				vd.Status.Phase = virtv2.DiskProvisioning
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vdcondition.Provisioning
+				condition.Message = "Import is in the process of provisioning to PVC."
+			}
+
 			return false, nil
 		case errors.Is(err, service.ErrDataVolumeNotRunning):
 			vd.Status.Phase = virtv2.DiskFailed

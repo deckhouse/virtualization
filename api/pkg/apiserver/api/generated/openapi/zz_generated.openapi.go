@@ -1723,6 +1723,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"bindingMode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"dataSource": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource"),
@@ -3094,35 +3100,36 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref c
 				Properties: map[string]spec.Schema{
 					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Represents the virtual machine that currently uses this IP address.",
+							Description: "VirtualMachine represents the virtual machine that currently uses this IP address. It's the name of the virtual machine instance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"address": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Assigned IP address.",
+							Description: "Address is the assigned IP address allocated to the virtual machine.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Represents the current state of IP address.",
+							Description: "Phase represents the current state of the IP address. It could indicate whether the IP address is in use, available, or in any other defined state.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Detailed description of the error.",
+							Description: "ObservedGeneration is the most recent generation observed by the controller. This is used to identify changes that have been recently observed and handled.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Conditions represents the latest available observations of the object's state. They provide detailed status and information, such as whether the IP address allocation was successful, in progress, etc.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
