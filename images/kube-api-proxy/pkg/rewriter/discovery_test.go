@@ -103,6 +103,104 @@ func createRewriterForDiscoveryTest() *RuleBasedRewriter {
 	}
 }
 
+func TestRewriteRequestAPIGroupList(t *testing.T) {
+	// Request APIGroupList.
+	request := `GET /apis HTTP/1.1
+Host: 127.0.0.1
+
+`
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(request)))
+	require.NoError(t, err, "should read hardcoded request")
+
+	expectPath := "/apis"
+
+	// Response body with renamed APIGroupList
+	apiGroupResponse := `{
+  "kind": "APIGroupList",
+  "apiVersion": "v1",
+  "groups": [
+    {
+      "name": "original.group.io",
+      "versions": [
+       {"groupVersion":"original.group.io/v1", "version":"v1"},
+       {"groupVersion":"original.group.io/v1alpha1", "version":"v1alpha1"}
+      ],
+      "preferredVersion": {
+        "groupVersion": "original.group.io/v1",
+        "version":"v1"
+      }
+    },
+    {
+      "name": "prefixed.resources.group.io",
+      "versions": [
+       {"groupVersion":"prefixed.resources.group.io/v1", "version":"v1"},
+       {"groupVersion":"prefixed.resources.group.io/v1alpha1", "version":"v1alpha1"}
+      ],
+      "preferredVersion": {
+        "groupVersion": "prefixed.resources.group.io/v1",
+        "version":"v1"
+      }
+    },
+    {
+      "name": "other.prefixed.resources.group.io",
+      "versions": [
+       {"groupVersion":"other.prefixed.resources.group.io/v2alpha3", "version":"v2alpha3"}
+      ],
+      "preferredVersion": {
+        "groupVersion": "other.prefixed.resources.group.io/v2alpha3",
+        "version":"v2alpha3"
+      }
+    }
+  ]
+}`
+
+	// Client proxy mode.
+	rwr := createRewriterForDiscoveryTest()
+
+	var targetReq *TargetRequest
+
+	targetReq = NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.Equal(t, expectPath, targetReq.Path(), "should rewrite api endpoint path")
+
+	resultBytes, err := rwr.RewriteJSONPayload(targetReq, []byte(apiGroupResponse), Restore)
+	if err != nil {
+		t.Fatalf("should rewrite body with renamed resources: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		// Check no prefixed groups left after rewrite.
+		{`groups.#(name=="prefixed.resource.group.io").name`, ""},
+		// Should have only 1 group instance, no duplicates.
+		{`groups.#(name=="original.group.io")#|#`, "1"},
+		{`groups.#(name=="original.group.io").name`, "original.group.io"},
+		{`groups.#(name=="original.group.io").preferredVersion.groupVersion`, "original.group.io/v1"},
+		// Should not add more versions than there are in response.
+		{`groups.#(name=="original.group.io").versions.#`, "2"},
+		{`groups.#(name=="original.group.io").versions.#(version="v1").groupVersion`, "original.group.io/v1"},
+		{`groups.#(name=="original.group.io").versions.#(version="v1alpha1").groupVersion`, "original.group.io/v1alpha1"},
+		// Check other.group.io is restored.
+		{`groups.#(name=="other.group.io")#|#`, "1"},
+		{`groups.#(name=="other.group.io").name`, "other.group.io"},
+		{`groups.#(name=="other.group.io").preferredVersion.groupVersion`, "other.group.io/v2alpha3"},
+		// Should not add more versions than there are in response.
+		{`groups.#(name=="other.group.io").versions.#`, "1"},
+		{`groups.#(name=="other.group.io").versions.#(version="v2alpha3").groupVersion`, "other.group.io/v2alpha3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got '%s', rewritten APIGroupList: %s", tt.path, tt.expected, actual, string(resultBytes))
+			}
+		})
+	}
+}
+
 func TestRewriteRequestAPIGroup(t *testing.T) {
 	// Request APIResourcesList of original, non-renamed resources.
 	request := `GET /apis/original.group.io HTTP/1.1
@@ -165,6 +263,7 @@ Host: 127.0.0.1
 		})
 	}
 }
+
 func TestRewriteRequestAPIGroupUnknownGroup(t *testing.T) {
 	// Request APIGroup discovery for unknown group.
 	request := `GET /apis/unknown.group.io HTTP/1.1
@@ -207,20 +306,21 @@ Host: 127.0.0.1
 
 func TestRewriteRequestAPIResourceList(t *testing.T) {
 	// Request APIResourcesList of original, non-renamed resources.
-	request := `GET /apis/original.group.io/v1 HTTP/1.1
+	// Note: use non preferred version.
+	request := `GET /apis/original.group.io/v1alpha1 HTTP/1.1
 Host: 127.0.0.1
 
 `
 	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(request)))
 	require.NoError(t, err, "should read hardcoded request")
 
-	expectPath := "/apis/prefixed.resources.group.io/v1"
+	expectPath := "/apis/prefixed.resources.group.io/v1alpha1"
 
 	// Response body with renamed APIResourcesList
 	resourceListPayload := `{
   "kind": "APIResourceList",
   "apiVersion": "v1",
-  "groupVersion": "prefixed.resources.group.io/v1",
+  "groupVersion": "prefixed.resources.group.io/v1alpha1",
   "resources": [
     {"name":"prefixedsomeresources",
      "singularName":"prefixedsomeresource",
@@ -237,19 +337,19 @@ Host: 127.0.0.1
      "kind":"PrefixedSomeResource",
      "verbs":["get","patch","update"]},
 
-    {"name":"prefixedotherresources",
-     "singularName":"prefixedotherresource",
+    {"name":"norulesresources",
+     "singularName":"norulesresource",
      "namespaced":true,
-     "kind":"PrefixedOtherResource",
+     "kind":"NoRulesResource",
      "verbs":["delete","deletecollection","get","list","patch","create","update","watch"],
-     "shortNames":["por"],
+     "shortNames":["nrr"],
      "categories":["prefixed"],
      "storageVersionHash":"Nwlto9QquX0="},
 
-    {"name":"prefixedotherresources/status",
+    {"name":"norulesresources/status",
      "singularName":"",
      "namespaced":true,
-     "kind":"PrefixOtherResource",
+     "kind":"NoRulesResource",
      "verbs":["get","patch","update"]}
 ]}`
 
@@ -267,12 +367,39 @@ Host: 127.0.0.1
 		t.Fatalf("should rewrite body with renamed resources: %v", err)
 	}
 
-	actual := string(resultBytes)
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"groupVersion", "original.group.io/v1alpha1"},
+		{"resources.#(name==\"someresources\").name", "someresources"},
+		{"resources.#(name==\"someresources\").kind", "SomeResource"},
+		{"resources.#(name==\"someresources\").singularName", "someresource"},
+		{"resources.#(name==\"someresources\").categories.0", "all"},
+		{"resources.#(name==\"someresources\").shortNames.0", "sr"},
+		{"resources.#(name==\"someresources\").shortNames.1", "srs"},
+		{"resources.#(name==\"someresources/status\").name", "someresources/status"},
+		{"resources.#(name==\"someresources/status\").kind", "SomeResource"},
+		{"resources.#(name==\"someresources/status\").singularName", ""},
+		// norulesresources should not be restored.
+		{"resources.#(name==\"norulesresources\").name", "norulesresources"},
+		{"resources.#(name==\"norulesresources\").kind", "NoRulesResource"},
+		{"resources.#(name==\"norulesresources\").singularName", "norulesresource"},
+		{"resources.#(name==\"norulesresources\").categories.0", "prefixed"},
+		{"resources.#(name==\"norulesresources\").shortNames.0", "nrr"},
+		{"resources.#(name==\"norulesresources/status\").name", "norulesresources/status"},
+		{"resources.#(name==\"norulesresources/status\").kind", "NoRulesResource"},
+		{"resources.#(name==\"norulesresources/status\").singularName", ""},
+	}
 
-	require.Contains(t, actual, `"someresources"`, "should contains original someresources, got: %s", actual)
-	require.Contains(t, actual, `"someresources/status"`, "should contains original someresources/status, got: %s", actual)
-	require.NotContains(t, actual, `"otherresources"`, "should not contains not requested otherresources, got: %s", actual)
-	require.NotContains(t, actual, `"otherresources/status"`, "should not contains not requested otherresources/status, got: %s", actual)
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got '%s', rewritten APIGroupDiscovery: %s", tt.path, tt.expected, actual, string(resultBytes))
+			}
+		})
+	}
 }
 
 func TestRewriteRequestAPIGroupDiscoveryList(t *testing.T) {
