@@ -91,7 +91,10 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 		h.logger.Info("Lease is released: set binding")
 
 		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
-			return reconcile.Result{}, fmt.Errorf("the selected VirtualMachineIP lease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace)
+			msg := fmt.Sprintf("the selected VirtualMachineIP lease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace)
+			h.logger.Error(nil, msg)
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseNotFound, msg)
+			return reconcile.Result{}, nil
 		}
 
 		lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
