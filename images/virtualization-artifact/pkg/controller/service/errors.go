@@ -25,7 +25,6 @@ var (
 )
 
 var (
-	ErrInvalidIpAddress      = errors.New("Invalid IP address format")
-	ErrIpAddressAlreadyExist = errors.New("IP address is already allocated")
-	ErrIpAddressOutOfRange   = errors.New("IP address is out of range")
+	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
+	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
 )

@@ -29,8 +29,7 @@ import (
 )
 
 type IpAddressService struct {
-	logger      logr.Logger
-	ParsedCIDRs []netip.Prefix
+	parsedCIDRs []netip.Prefix
 }
 
 func NewIpAddressService(
@@ -49,34 +48,33 @@ func NewIpAddressService(
 	}
 
 	return &IpAddressService{
-		logger:      logger.WithValues("service", "IpAddressService"),
-		ParsedCIDRs: parsedCIDRs,
+		parsedCIDRs: parsedCIDRs,
 	}
 }
 
 func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common.AllocatedIPs) error {
 	ip, err := netip.ParseAddr(address)
 	if err != nil || !ip.IsValid() {
-		return ErrInvalidIpAddress
+		return errors.New("invalid IP address format")
 	}
 
 	if _, ok := allocatedIPs[ip.String()]; !ok {
-		for _, cidr := range s.ParsedCIDRs {
+		for _, cidr := range s.parsedCIDRs {
 			if cidr.Contains(ip) {
 				// available
 				return nil
 			}
 		}
 		// out of range
-		return ErrIpAddressOutOfRange
+		return ErrIPAddressOutOfRange
 	}
 
 	// already exists
-	return ErrIpAddressAlreadyExist
+	return ErrIPAddressAlreadyExist
 }
 
 func (s IpAddressService) AllocateNewIP(allocatedIPs common.AllocatedIPs) (string, error) {
-	for _, cidr := range s.ParsedCIDRs {
+	for _, cidr := range s.parsedCIDRs {
 		for ip := cidr.Addr(); cidr.Contains(ip); ip = ip.Next() {
 			if k8snet.RangeSize(toIPNet(cidr)) != 1 {
 				isFirstLast, err := isFirstLastIP(ip, cidr)

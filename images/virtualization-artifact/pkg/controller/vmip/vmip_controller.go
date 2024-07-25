@@ -66,7 +66,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineIPAddress{}).
-		WithValidator(NewValidator(log, mgr.GetClient())).
+		WithValidator(NewValidator(log, mgr.GetClient(), ipService)).
 		Complete(); err != nil {
 		return nil, err
 	}

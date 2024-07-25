@@ -34,13 +34,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
-func NewValidator(log logr.Logger, client client.Client) *Validator {
-	return &Validator{log: log.WithName(controllerName).WithValues("webhook", "validation"), client: client}
+func NewValidator(log logr.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
+	return &Validator{
+		log:       log.WithName(controllerName).WithValues("webhook", "validation"),
+		client:    client,
+		ipService: ipAddressService,
+	}
 }
 
 type Validator struct {
-	log    logr.Logger
-	client client.Client
+	log       logr.Logger
+	client    client.Client
+	ipService *service.IpAddressService
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -55,6 +60,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	if err != nil {
 		return nil, fmt.Errorf("error validating VirtualMachineIP creation: %w", err)
 	}
+
+	var warnings admission.Warnings
 
 	if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
 		ip := vmip.Spec.StaticIP
@@ -71,6 +78,14 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 					allocatedLease.Spec.VirtualMachineIPAddressRef.Name != vmip.Name) {
 				return nil, fmt.Errorf("VirtualMachineIPAddress cannot be created: the IP address %s has already been allocated by VirtualMachineIPAddress/%s in ns/%s", ip, allocatedLease.Spec.VirtualMachineIPAddressRef.Name, allocatedLease.Spec.VirtualMachineIPAddressRef.Namespace)
 			}
+
+			err = v.ipService.IsAvailableAddress(vmip.Spec.StaticIP, allocatedIPs)
+			if err != nil {
+				if errors.Is(err, service.ErrIPAddressOutOfRange) {
+					warnings = append(warnings, fmt.Sprintf("The requested address %s is out of the valid range",
+						vmip.Spec.StaticIP))
+				}
+			}
 		}
 	}
 
@@ -78,7 +93,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("VirtualMachineIPAddress cannot be created: The 'Static IP' field is set for the %s IP address with the 'Auto' type", vmip.Name)
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
