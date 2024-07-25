@@ -17,6 +17,9 @@ limitations under the License.
 package vmbda
 
 import (
+	"context"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog/v2"
 
@@ -46,7 +49,7 @@ func SetupCollector(lister Lister, registerer prometheus.Registerer) *Collector 
 }
 
 type Lister interface {
-	List() ([]virtv2.VirtualMachineBlockDeviceAttachment, error)
+	List(ctx context.Context) ([]virtv2.VirtualMachineBlockDeviceAttachment, error)
 }
 
 type Collector struct {
@@ -60,7 +63,9 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
-	vmbdas, err := c.lister.List()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	vmbdas, err := c.lister.List(ctx)
 	if err != nil {
 		klog.Errorf("Failed to get list of VirtualMachineBlockDeviceAttachment: %v", err)
 		return

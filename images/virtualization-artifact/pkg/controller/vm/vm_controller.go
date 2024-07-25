@@ -21,12 +21,12 @@ import (
 	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unsafe"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
@@ -81,19 +81,19 @@ func NewController(
 		return nil, err
 	}
 
-	vmmetrics.SetupCollector(&vmLister{vmCache: mgrCache}, metrics.Registry)
+	vmmetrics.SetupCollector(&vmLister{uc: unsafe.NewClient(mgrCache)}, metrics.Registry)
 
 	log.Info("Initialized VirtualMachine controller")
 	return c, nil
 }
 
 type vmLister struct {
-	vmCache cache.Cache
+	uc unsafe.Client
 }
 
-func (l vmLister) List() ([]v1alpha2.VirtualMachine, error) {
+func (l vmLister) List(ctx context.Context) ([]v1alpha2.VirtualMachine, error) {
 	vmList := v1alpha2.VirtualMachineList{}
-	err := l.vmCache.List(context.Background(), &vmList)
+	err := l.uc.List(ctx, &vmList)
 	if err != nil {
 		return nil, err
 	}

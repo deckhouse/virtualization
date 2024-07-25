@@ -22,12 +22,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/unsafe"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
 	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -71,7 +71,7 @@ func NewController(
 		return nil, err
 	}
 
-	vmbdametrics.SetupCollector(&lister{cache: mgr.GetCache()}, metrics.Registry)
+	vmbdametrics.SetupCollector(&lister{uc: unsafe.NewClient(mgr.GetCache())}, metrics.Registry)
 
 	log.Info("Initialized VirtualMachineBlockDeviceAttachment controller")
 
@@ -79,12 +79,12 @@ func NewController(
 }
 
 type lister struct {
-	cache cache.Cache
+	uc unsafe.Client
 }
 
-func (l lister) List() ([]virtv2.VirtualMachineBlockDeviceAttachment, error) {
+func (l lister) List(ctx context.Context) ([]virtv2.VirtualMachineBlockDeviceAttachment, error) {
 	vmbdas := virtv2.VirtualMachineBlockDeviceAttachmentList{}
-	err := l.cache.List(context.Background(), &vmbdas)
+	err := l.uc.List(ctx, &vmbdas)
 	if err != nil {
 		return nil, err
 	}

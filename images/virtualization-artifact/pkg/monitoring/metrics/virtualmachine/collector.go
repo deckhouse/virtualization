@@ -17,6 +17,9 @@ limitations under the License.
 package virtualmachine
 
 import (
+	"context"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog/v2"
 
@@ -46,7 +49,7 @@ func SetupCollector(vmLister Lister, registerer prometheus.Registerer) *Collecto
 }
 
 type Lister interface {
-	List() ([]virtv2.VirtualMachine, error)
+	List(ctx context.Context) ([]virtv2.VirtualMachine, error)
 }
 
 type Collector struct {
@@ -60,7 +63,9 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
-	vms, err := c.lister.List()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	vms, err := c.lister.List(ctx)
 	if err != nil {
 		klog.Errorf("Failed to get list of VirtualMachine: %v", err)
 		return
