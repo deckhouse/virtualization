@@ -72,7 +72,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 				return reconcile.Result{}, nil
 			}
 
-			return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
+			return reconcile.Result{RequeueAfter: h.retentionDuration - duration}, nil
 		}
 	}
 
