@@ -110,6 +110,14 @@ type SizingPolicy struct {
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
 
+// TODO: add logic
+func (sp *SizingPolicy) Match(vm *VirtualMachine) bool {
+	if vm == nil {
+		return false
+	}
+	return true
+}
+
 // +kubebuilder:validation:Enum={5,10,20,50,100}
 type CoreFractionValue int
 

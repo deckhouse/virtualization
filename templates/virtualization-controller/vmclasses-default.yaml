@@ -35,7 +35,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass # vmc
 metadata:
-  name: hostPassthrough
+  name: host-passthrough
 spec:
   nodeSelector:
     matchExpressions:
