@@ -47,7 +47,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 		return reconcile.Result{}, err
 	}
 
-	if vm == nil {
+	if vm == nil || vm.DeletionTimestamp != nil {
 		h.logger.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	} else if vmip.GetDeletionTimestamp() == nil {
