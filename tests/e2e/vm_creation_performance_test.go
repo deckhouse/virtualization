@@ -161,7 +161,8 @@ var _ = Describe("Performance test 26 vm creation", Label("performance"), Ordere
 		overallTimeout                 = 12 * time.Minute
 		deleteGracePeriodSeconds int64 = 30
 	)
-
+	// TODO:
+	// switch to new api ++
 	var cvmi *v1alpha2.ClusterVirtualMachineImage
 	// vmMap := make(map[string]string)
 
