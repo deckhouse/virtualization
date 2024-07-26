@@ -26,9 +26,10 @@ import collections
 import struct
 import sys
 
+
 def BmpImageDecoder(Buffer):
     ImageType, = struct.unpack('2s', Buffer[0:2])
-    if ImageType!= b'BM': # BMP file type is 'BM'
+    if ImageType!=  b'BM': # BMP file type is 'BM'
         print("error: file type mismatch: not a BMP file.")
         return
     BMP_IMAGE_HEADER = collections.namedtuple('BMP_IMAGE_HEADER', ['bfSize', 'bfReserved1', 'bfReserved2', 'bfOffBits', 'biSize', 'biWidth', 'biHeight', 'biPlanes', 'biBitCount', 'biCompression', 'biSizeImage', 'biXPelsPerMeter', 'biYPelsPerMeter', 'biClrUsed', 'biClrImportant'])
@@ -40,6 +41,7 @@ def BmpImageDecoder(Buffer):
     print("BitCount: %d" % BmpHeader.biBitCount)
     print("Compression: %d" % BmpHeader.biCompression)
     return
+
 
 FileName = sys.argv[1]
 TmpFile = open(FileName, 'rb')
