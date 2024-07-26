@@ -1,0 +1,11 @@
+{
+    "name": "github-action-pr-summary",
+    "version": "1.0.0",
+    "main": ".github/scripts/fetch_prs.mjs",
+    "dependencies": {
+      "@octokit/core": "^3.2.5",
+      "axios": "^0.24.0",
+      "moment": "^2.29.1"
+    },
+    "type": "module"
+}
