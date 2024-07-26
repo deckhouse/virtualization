@@ -31,20 +31,36 @@ async function fetchPullRequests() {
   return pulls.data.filter(pr => !pr.draft);
 }
 
+const recentDays = 2;
+
 function generateSummary(prs) {
   const now = moment();
   const reviewRequired = prs.filter(pr => pr.state === 'open' && pr.requested_reviewers.length > 0);
-  const pending = reviewRequired.filter(pr => now.diff(moment(pr.created_at), 'days') <= 2);
+  const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
+  const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
 
-  return `
-## Daily PR Summary
+  let summary = `## Daily PR Summary\n\n`;
 
-### PRs Requiring Review
-${reviewRequired.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n') || 'No PRs requiring review.'}
+  if reviewRequired.length == 0 {
+    summary += `:tada: No review required for today\n`;
+    return summary;
+  }
+  
+  if (recent.length > 0) {
+    summary += `### Recent PRs requiring review
 
-### PRs Pending (<=2 days)
-${pending.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n') || 'No PRs pending for review (<=2 days).'}
-  `;
+${recent.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n')}
+`;
+  }
+
+  if (lasting.length > 0) {
+    summary += `### PRs requiring review
+
+${lasting.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n')}
+`;
+  }
+
+  return summary
 }
 
 async function sendSummaryToLoop(summary) {
