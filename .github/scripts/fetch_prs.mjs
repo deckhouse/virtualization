@@ -18,6 +18,7 @@ import moment from 'moment';
 
 const owner = 'deckhouse';
 const repo = 'virtualization';
+const project = 'DVP'
 
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 
@@ -39,9 +40,9 @@ function generateSummary(prs) {
   const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
   const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
 
-  let summary = `## Daily PR Summary\n\n`;
+  let summary = `## ${project} PRs ${now.format('YYYY-MM-DD')}\n\n`;
 
-  if reviewRequired.length == 0 {
+  if (reviewRequired.length == 0) {
     summary += `:tada: No review required for today\n`;
     return summary;
   }
