@@ -18,30 +18,19 @@ async function fetchPullRequests() {
 }
 
 function generateSummary(prs) {
+  const now = moment();
   const reviewRequired = prs.filter(pr => pr.state === 'open' && pr.requested_reviewers.length > 0);
-  const pending = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= 2);
+  const pending = reviewRequired.filter(pr => now.diff(moment(pr.created_at), 'days') <= 2);
 
-  let summary = `## Daily PR Summary\n\n### PRs Requiring Review\n\n`;
+  return `
+## Daily PR Summary
 
-  if (reviewRequired.length > 0) {
-    reviewRequired.forEach(pr => {
-      summary += `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})\n`;
-    });
-  } else {
-    summary += `No PRs requiring review.\n`;
-  }
+### PRs Requiring Review
+${reviewRequired.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n') || 'No PRs requiring review.'}
 
-  summary += `\n### PRs Pending (<=2 days)\n\n`;
-
-  if (pending.length > 0) {
-    pending.forEach(pr => {
-      summary += `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})\n`;
-    });
-  } else {
-    summary += `No PRs pending for review (<=2 days).\n`;
-  }
-
-  return summary;
+### PRs Pending (<=2 days)
+${pending.map(pr => `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()})`).join('\n') || 'No PRs pending for review (<=2 days).'}
+  `;
 }
 
 async function sendSummaryToLoop(summary) {
