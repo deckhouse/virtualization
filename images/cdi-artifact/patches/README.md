@@ -26,3 +26,7 @@ Replace "cdi" with "cdi-internal-virtualziation" in the core resource names.
 
 Do not install apiservice v1beta1.upload.cdi.kubevirt.io. This APIService is not used
 by DVP, but conflicts with original CDI.
+
+#### `010-stop-managing-datavolume-crd.patch`
+
+Do not manage DataVolume CRD with cdi-operator. Module will install this CRD using Helm.
