@@ -82,3 +82,7 @@ Rename unix-socket path used for register devices.
 #### `019-remove-deprecation-warnings-from-crds.patch`
 
 Virtualization-controller doesn't use deprecated apiGroup versions. Deprecation warnings are distracting in our case.
+
+#### `020-stop-managing-kvvm-kvvmi-crds.patch`
+
+Stop managing VirtualMachine and VirtualMachineInstance CRDs with virt-operator. Module will install this CRDs using Helm.
