@@ -100,7 +100,7 @@ Supported scopes are the following:
   # Core mechanisms and low-level system functionalities.
   - core
     - api-service
-    - vmi-router
+    - vm-route-forge
     - kubevirt
     - kube-api-rewriter
     - cdi

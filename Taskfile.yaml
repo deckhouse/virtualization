@@ -5,9 +5,9 @@ version: "3"
 silent: true
 
 includes:
-  vmi-router:
-    taskfile: ./images/vmi-router
-    dir: ./images/vmi-router
+  vm-route-forge:
+    taskfile: ./images/vm-route-forge
+    dir: ./images/vm-route-forge
   virtualization-controller:
     taskfile: ./images/virtualization-artifact
     dir: ./images/virtualization-artifact

@@ -4,7 +4,7 @@ final: false
 from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
 git:
 - add: /images/{{ $.ImageName }}
-  to: /app/images/vmi-router
+  to: /app/images/vm-route-forge
   stageDependencies:
     install:
     - go.mod
@@ -21,23 +21,23 @@ mount:
   to: /go/pkg
 shell:
   install:
-  - cd /app/images/vmi-router
+  - cd /app/images/vm-route-forge
   - go mod download
   setup:
-  - cd /app/images/vmi-router
+  - cd /app/images/vm-route-forge
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -v -a -o vmi-router main.go
+  - go build -v -a -o vm-route-forge cmd/vm-route-forge/main.go
 ---
 image: {{ $.ImageName }}
 from: {{ .Images.BASE_SCRATCH }}
 import:
-- image: vmi-router-builder
-  add: /app/images/vmi-router/vmi-router
-  to: /app/vmi-router
+- image: vm-route-forge-builder
+  add: /app/images/vm-route-forge/vm-route-forge
+  to: /app/vm-route-forge
   after: install
 docker:
   USER: "65532:65532"
   WORKDIR: "/app"
-  ENTRYPOINT: ["/app/vmi-router"]
+  ENTRYPOINT: ["/app/vm-route-forge"]

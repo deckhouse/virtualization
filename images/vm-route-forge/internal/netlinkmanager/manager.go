@@ -22,19 +22,24 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2Informers "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/tools/cache"
+
+	virtinformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/core/v1alpha2"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	cache2 "vm-route-forge/internal/cache"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"vmi-router/netlinkwrap"
-	"vmi-router/netutil"
+	netlinkwrap2 "vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/netutil"
 )
 
 const (
@@ -44,28 +49,41 @@ const (
 )
 
 type Manager struct {
-	client    client.Client
+	vmLister  virtlisters.VirtualMachineLister
+	cnIndexer cache.Indexer
+	hasSynced cache.InformerSynced
 	log       logr.Logger
-	nlWrapper *netlinkwrap.Funcs
+	nlWrapper *netlinkwrap2.Funcs
 	tableId   int
 	cidrs     []*net.IPNet
 	nodeName  string
-	vmIPs     map[types.NamespacedName]string
-	vmIPsLock sync.RWMutex
+	cache     cache2.Cache
 }
 
-func New(client client.Client, log logr.Logger, tableId int, cidrs []*net.IPNet, dryRun bool) *Manager {
-	nlWrapper := netlinkwrap.NewFuncs()
+func New(vmInformer virtinformers.VirtualMachineInformer,
+	cnInformer ciliumv2Informers.CiliumNodeInformer,
+	cache cache2.Cache,
+	log logr.Logger,
+	tableId int,
+	cidrs []*net.IPNet,
+	dryRun bool,
+) *Manager {
+	nlWrapper := netlinkwrap2.NewFuncs()
 	if dryRun {
-		nlWrapper = netlinkwrap.DryRunFuncs()
+		nlWrapper = netlinkwrap2.DryRunFuncs()
 	}
 	return &Manager{
-		client:    client,
+		//client:    client,
+		vmLister:  vmInformer.Lister(),
+		cnIndexer: cnInformer.Informer().GetIndexer(),
+		hasSynced: func() bool {
+			return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
+		},
 		log:       log,
 		tableId:   tableId,
 		cidrs:     cidrs,
 		nlWrapper: nlWrapper,
-		vmIPs:     make(map[types.NamespacedName]string),
+		cache:     cache,
 	}
 }
 
@@ -73,7 +91,7 @@ func New(client client.Client, log logr.Logger, tableId int, cidrs []*net.IPNet,
 // Also, it removes existing rules for previously configured CIDRs.
 func (m *Manager) SyncRules() error {
 	// Get rules state.
-	rules, err := m.nlWrapper.RuleListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Rule{Table: m.tableId}, netlink.RT_FILTER_TABLE)
+	rules, err := m.nlWrapper.RuleListFiltered(netlinkwrap2.FAMILY_ALL, &netlink.Rule{Table: m.tableId}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list rules: %v", err)
 	}
@@ -118,8 +136,10 @@ func (m *Manager) SyncRules() error {
 
 func (m *Manager) SyncRoutes(ctx context.Context) error {
 	// List all Virtual Machines to collect all IPs on this Node.
-	vmList := &virtv2.VirtualMachineList{}
-	err := m.client.List(ctx, vmList)
+	if !cache.WaitForNamedCacheSync("netlinkManager", ctx.Done(), m.hasSynced) {
+		return nil
+	}
+	vms, err := m.vmLister.List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("list VirtualMachines: %w", err)
 	}
@@ -127,7 +147,7 @@ func (m *Manager) SyncRoutes(ctx context.Context) error {
 	vmIPsIdx := make(map[string]struct{})
 
 	// Collect managed IPs from all VirtualMachines in the cluster.
-	for _, vm := range vmList.Items {
+	for _, vm := range vms {
 		vmIP := vm.Status.IPAddress
 		if vmIP == "" {
 			continue
@@ -145,7 +165,7 @@ func (m *Manager) SyncRoutes(ctx context.Context) error {
 	}
 
 	// Remove routes unknown for vm IPs.
-	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlinkwrap.FAMILY_ALL, &netlink.Route{Table: m.tableId}, netlink.RT_FILTER_TABLE)
+	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlinkwrap2.FAMILY_ALL, &netlink.Route{Table: m.tableId}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list node routes: %v", err)
 	}
@@ -219,16 +239,18 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 
 	// Save IP to the in-memory cache to restore IP later.
 	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
-	m.vmIPsLock.Lock()
-	m.vmIPs[vmKey] = vmIP
-	m.vmIPsLock.Unlock()
 
 	// Retrieve a Cilium Node by VMs node name.
 	ciliumNode := &ciliumv2.CiliumNode{}
-	err = m.client.Get(ctx, types.NamespacedName{Namespace: "", Name: vm.Status.Node}, ciliumNode)
+
+	obj, exists, err := m.cnIndexer.GetByKey(types.NamespacedName{Namespace: "", Name: vm.Status.Node}.String())
 	if err != nil {
-		m.log.Error(err, "failed to get cilium node for vmi")
+		m.log.Error(err, "failed to get cilium node for vm")
 	}
+	if exists {
+		ciliumNode = obj.(*ciliumv2.CiliumNode)
+	}
+
 	nodeIP := getCiliumInternalIPAddress(ciliumNode)
 	if nodeIP == "" {
 		m.log.Error(nil, "CiliumNode has no %s specified\n", addressing.NodeCiliumInternalIP)
@@ -239,6 +261,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 		m.log.Error(fmt.Errorf(nodeIP), "failed to parse IP address")
 		return
 	}
+	m.cache.Set(vmKey, cache2.Addresses{VMIP: vmIP, NodeIP: nodeIP})
 
 	// Get route for specific nodeIP and create similar for our Virtual Machine.
 	routes, err := m.nlWrapper.RouteGet(nodeIPx)
@@ -281,9 +304,9 @@ func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
 func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	if vmIP == "" {
 		// Try to recover IP from the cache.
-		m.vmIPsLock.RLock()
-		vmIP = m.vmIPs[vmKey]
-		m.vmIPsLock.RUnlock()
+		if addr, found := m.cache.GetAddresses(vmKey); found {
+			vmIP = addr.VMIP
+		}
 	}
 	if vmIP == "" {
 		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %q, it may lead to stale routes.", vmKey.String()))
@@ -292,7 +315,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 
 	// Prepare ip with the mask to use as the route destination.
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
-	_, vmRouteDst, err := net.ParseCIDR(netutil.AppendHostNetmask(vmIP))
+	_, vmRouteDst, err := net.ParseCIDR(vmIPWithNetmask)
 	if err != nil {
 		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %q", vmIPWithNetmask, vmKey.String()))
 		return
@@ -309,9 +332,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	m.log.Info(fmt.Sprintf("route %s deleted for VM %q", fmtRoute(route), vmKey))
 
 	// Delete IP from the cache.
-	m.vmIPsLock.Lock()
-	delete(m.vmIPs, vmKey)
-	m.vmIPsLock.Unlock()
+	m.cache.DeleteByKey(vmKey)
 }
 
 func fmtRoute(route netlink.Route) string {

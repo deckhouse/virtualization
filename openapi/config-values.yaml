@@ -193,7 +193,7 @@ properties:
       - `virtualization-api`
       - `virtualization-controller`
       - `kube-api-proxy`
-      - `vmi-router`
+      - `vm-route-forge`
     enum:
       - "debug"
       - "info"
