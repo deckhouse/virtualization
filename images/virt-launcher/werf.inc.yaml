@@ -2,26 +2,48 @@
 image: {{ $.ImageName }}
 fromImage: base-alt-p10
 import:
-- image: {{ $.ImageName }}-lib-builder
+# Before install stage.
+#   Add edk2-ovmf package
+- image: {{ $.ImageName }}-edk2-builder
+  add: /home/builder/RPM/RPMS/noarch
+  to: /
+  before: install
+  includePaths:
+  - edk2-ovmf-20231115-alt1.noarch.rpm
+
+# After install stage.
+#   Add libxcrypto library.
+- image: {{ $.ImageName }}-libxcrypt-builder
   add: /usr/local/lib/
   to: /lib64
   after: install
   includePaths:
   - libcrypt.so.2.0.0
-  - libpcre.so.1.2.13
-- image: {{ $.ImageName }}-lib-builder
+
+#   Add OpenSSL libraries.
+- image: {{ $.ImageName }}-openssl-builder
   add: /usr/local/lib64/
   to: /lib64
   after: install
   includePaths:
   - libcrypto.so.3
   - libssl.so.3
-- image: {{ $.ImageName }}-lib-builder
+
+#   Add pcre libraries.
+- image: {{ $.ImageName }}-pcre-builder
   add: /lib64
   to: /lib64
   after: install
   includePaths:
   - libpcre2-8.so.0.11.2
+- image: {{ $.ImageName }}-pcre-builder
+  add: /usr/local/lib/
+  to: /lib64
+  after: install
+  includePaths:
+  - libpcre.so.1.2.13
+
+
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/
   to: /
@@ -68,7 +90,7 @@ git:
     includePaths:
     - libvirt.conf
 shell:
-  install:
+  beforeInstall:
   - |
     apt-get update && apt-get install --yes \
     acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
@@ -90,12 +112,16 @@ shell:
     glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1 \
     passt==20240624-alt1:sisyphus+352192.100.1.1 \
     seabios==1.16.3-alt3:sisyphus+339925.100.2.1 \
-    edk2-ovmf==20231115-alt1:sisyphus+339582.600.5.1 \
     libffi8==1:3.4.6-alt1:sisyphus+341904.100.1.1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
-  setup:
-  # TODO restructure ovmfs in /usr/share/OVMF to mimic edk2-ovmf packages from the original kubevirt.
+  install:
+  # Upgrade edk2-ovmf package to custom build and remove its package.
+  - |
+    rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
+    rm /edk2-ovmf-20231115-alt1.noarch.rpm
+  # Restructure firware files in /usr/share/OVMF to mimic structure
+  # in edk2-ovmf package from the original kubevirt.
   - |
     cd /usr/share/OVMF
     rm MICROVM.fd
@@ -116,6 +142,7 @@ shell:
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     rm OVMF_VARS_4M.secboot.qcow2
     ls -la
+  setup:
   # Replace virt-launcher-monitor with script.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
@@ -150,21 +177,95 @@ shell:
     perl-IPC-Cmd==1.04-alt1:sisyphus+234736.100.1.1 \
     wget==1.21.3-alt1:p10+305270.100.3.1 \
     gcc-c++==10-alt1:sisyphus+263054.200.3.1
-  install:
-  # Install libcrypt.so.2.
+---
+image: {{ $.ImageName }}-libxcrypt-builder
+fromImage: {{ $.ImageName }}-lib-builder
+shell:
+  beforeInstall:
+  # Download libxcrypt sources.
   - git clone --branch v4.4.23 https://github.com/besser82/libxcrypt.git /tmp/libxcrypt
+  install:
+  # Build libcrypt.so.2.
   - cd /tmp/libxcrypt
   - ./autogen.sh
   - ./configure --disable-obsolete-api
   - make && make install
-  # Install libcrypto.so.3 and libssl.so.3.
-  - git clone https://github.com/openssl/openssl.git /tmp/openssl
+---
+image: {{ $.ImageName }}-openssl-builder
+fromImage: {{ $.ImageName }}-lib-builder
+shell:
+  beforeInstall:
+  # Download OpenSSL sources.
+  - git clone --branch openssl-3.3.1 https://github.com/openssl/openssl.git /tmp/openssl
+  install:
+  # Build libcrypto.so.3 and libssl.so.3.
   - cd /tmp/openssl
   - ./Configure
   - make && make install
-  # Install libpcre.so.1.
+---
+image: {{ $.ImageName }}-pcre-builder
+fromImage: {{ $.ImageName }}-lib-builder
+shell:
+  beforeInstall:
+  # Download PCRE sources.
   - wget -O /tmp/pcre.tar.gz https://sourceforge.net/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
+  install:
+  # Build libpcre.so.1.
   - tar -xf /tmp/pcre.tar.gz -C /tmp
   - cd /tmp/pcre-8.45
   - ./configure --enable-utf --enable-unicode-properties
   - make && make install
+---
+# Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
+image: {{ $.ImageName }}-edk2-builder
+from: {{ $.Images.BASE_ALT_P11 }}
+git:
+- add: /images/{{ $.ImageName }}/edk2
+  to: /edk2
+  excludePaths:
+    - '*.py'
+    - '*.md'
+  stageDependencies:
+    install:
+      - '*.bmp'
+shell:
+  beforeInstall:
+  # Add SRPM source.
+  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
+  # Install build dependencies.
+  - |
+    apt-get update && apt-get install --yes \
+    bc==1:1.07.1-alt1:sisyphus+346065.200.3.1 \
+    su==0.60-alt36:p11+348779.200.1.1 \
+    git==2.42.2-alt1:sisyphus+348068.100.1.1 \
+    rpm-build==4.0.4.201-alt1:p11+352147.300.3.1 \
+    rpm-build-python3==0.1.25-alt1:sisyphus+344685.100.1.1 \
+    gcc-c++==13-alt1:sisyphus+323337.300.1.1 \
+    acpica==20230628-alt1:sisyphus+346029.200.2.1 \
+    nasm==2.16.03-alt1:sisyphus+347261.300.1.1 \
+    python3-dev==3.12.2-alt1:sisyphus+341702.200.1.1 \
+    python3-modules-sqlite3==3.12.2-alt1:sisyphus+341702.200.1.1 \
+    python3-module-virt-firmware==24.4-alt1:sisyphus+347408.100.1.1 \
+    perl-JSON==4.10-alt1:sisyphus+308299.100.1.3 \
+    perl-IPC-Cmd==1.04-alt1:sisyphus+234736.100.1.1 \
+    libuuid-devel==2.39.2-alt1:p11+348780.400.1.1 \
+    xorriso==1.5.6-alt1:p11+348905.100.1.3 \
+    dosfstools==4.2-alt3:sisyphus+344264.100.1.1 \
+    mtools==1:4.0.43-alt1:sisyphus+317197.100.1.1 \
+    qemu-img==8.2.4-alt1:p11+350544.100.2.1 \
+    zlib-devel==1.3.1-alt1:sisyphus+342532.100.1.1
+
+  install:
+  # AltLinux requires building packages by non-root users.
+  - useradd builder --shell /bin/bash --create-home --group rpm
+  # Download and unpack SRPM.
+  - su - builder -c 'apt-get source edk2-ovmf'
+  # Add DVP logo into SOURCES.
+  - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
+  # Build RPMs. edk2 package prints a huge log with about 770k lines,
+  # we can keep only last 1k lines, it should be enough to get error
+  # context and troubleshoot it locally.
+  - |
+    echo "Build RPMs from:" /home/builder/*.rpm
+    echo "Note: time consuming operation, be patient ..."
+    su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
