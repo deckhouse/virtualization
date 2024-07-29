@@ -60,16 +60,16 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	conditionAttach := conditions.NewConditionBuilder(vmipcondition.AttachedType).
 		Generation(vmip.GetGeneration())
 
-	if vm != nil {
-		vmipStatus.VirtualMachine = vm.Name
-		mgr.Update(conditionAttach.Status(metav1.ConditionTrue).
-			Reason(vmipcondition.Attached).
-			Condition())
-	} else {
+	if vm == nil || vm.DeletionTimestamp != nil {
 		vmipStatus.VirtualMachine = ""
 		mgr.Update(conditionAttach.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineNotFound).
 			Message("Virtual machine not found").
+			Condition())
+	} else {
+		vmipStatus.VirtualMachine = vm.Name
+		mgr.Update(conditionAttach.Status(metav1.ConditionTrue).
+			Reason(vmipcondition.Attached).
 			Condition())
 	}
 
