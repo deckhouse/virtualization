@@ -115,7 +115,7 @@ type CoreFractionValue int
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`
-	// Increase step of memory size from min to max.
+	// Memory size discretization step. I.e. min=2Gi, max=4Gi, step=1Gi allows to set virtual machine memory size to 2Gi, 3Gi, or 4Gi.
 	//
 	// +kubebuilder:example="512Mi"
 	Step resource.Quantity `json:"step"`
