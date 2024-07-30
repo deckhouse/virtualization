@@ -154,7 +154,7 @@ type SizingPolicyCores struct {
 	// +kubebuilder:validation:Maximum=1024
 	// +kubebuilder:example=10
 	Max int `json:"max"`
-	// Increase step of cpu core count from min to max.
+	// Cpu cores count discretization step. I.e. min=2, max=10, step=4 allows to set virtual machine cpu cores to 2, 6, or 10.
 	//
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:example=1
