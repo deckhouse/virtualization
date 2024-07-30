@@ -1,7 +1,5 @@
 ## vm-route-forge
 
-> **NOTE:** Not an accurate name, should be 'cilium-route-updater'.
-
 This controller watches for VirtualMachines in virtualization.deckhouse.io group and updates routes in table 1490 to route traffic between VMs via Cilium agents.
 
 It should be run as a DaemonSet with the `hostNetwork: true` to be able to modify route tables on cluster Nodes.
