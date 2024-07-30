@@ -85,7 +85,8 @@ function generate:crds() {
           while IFS= read -r -d '' file
             do
               # TODO: legacy, delete after all crds are auto-generated
-              if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(yq '.spec.names.kind' "$file")[[:space:]] ]]; then
+              # shellcheck disable=SC2002
+              if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
                 continue
               fi
               cp "$file" "./crds/${file/#"$OUTPUT_BASE/$PREFIX_GROUP"/}"
