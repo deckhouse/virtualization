@@ -30,7 +30,7 @@ import (
 	"vm-route-forge/internal/cache"
 )
 
-func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log *logr.Logger) *HostRouteController {
+func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
 	return &HostRouteController{
 		queue: queue,
 		cidrs: cidrs,
@@ -43,7 +43,7 @@ type HostRouteController struct {
 	queue workqueue.RateLimitingInterface
 	cidrs []*net.IPNet
 	cache cache.Cache
-	log   *logr.Logger
+	log   logr.Logger
 }
 
 func (r *HostRouteController) Run(ctx context.Context) error {

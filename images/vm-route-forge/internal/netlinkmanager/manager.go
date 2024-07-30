@@ -46,6 +46,7 @@ const (
 	CiliumIfaceName         = "cilium_host"
 	DefaultCiliumRouteTable = 1490
 	LocalRouteTable         = 255
+	netlinkManager          = "netlinkManager"
 )
 
 type Manager struct {
@@ -79,7 +80,7 @@ func New(vmInformer virtinformers.VirtualMachineInformer,
 		hasSynced: func() bool {
 			return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
 		},
-		log:       log,
+		log:       log.WithValues("manager", netlinkManager),
 		tableId:   tableId,
 		cidrs:     cidrs,
 		nlWrapper: nlWrapper,
@@ -136,8 +137,8 @@ func (m *Manager) SyncRules() error {
 
 func (m *Manager) SyncRoutes(ctx context.Context) error {
 	// List all Virtual Machines to collect all IPs on this Node.
-	if !cache.WaitForNamedCacheSync("netlinkManager", ctx.Done(), m.hasSynced) {
-		return nil
+	if !cache.WaitForNamedCacheSync(netlinkManager, ctx.Done(), m.hasSynced) {
+		return fmt.Errorf("cache is not synced")
 	}
 	vms, err := m.vmLister.List(labels.Everything())
 	if err != nil {
@@ -241,9 +242,9 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
 
 	// Retrieve a Cilium Node by VMs node name.
-	ciliumNode := &ciliumv2.CiliumNode{}
+	var ciliumNode *ciliumv2.CiliumNode
 
-	obj, exists, err := m.cnIndexer.GetByKey(types.NamespacedName{Namespace: "", Name: vm.Status.Node}.String())
+	obj, exists, err := m.cnIndexer.GetByKey(vm.Status.Node)
 	if err != nil {
 		m.log.Error(err, "failed to get cilium node for vm")
 	}
@@ -253,7 +254,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 
 	nodeIP := getCiliumInternalIPAddress(ciliumNode)
 	if nodeIP == "" {
-		m.log.Error(nil, "CiliumNode has no %s specified\n", addressing.NodeCiliumInternalIP)
+		m.log.Error(fmt.Errorf("nodeIP is empty"), fmt.Sprintf("CiliumNode has no %s specified", addressing.NodeCiliumInternalIP))
 		return
 	}
 	nodeIPx := net.ParseIP(nodeIP)
@@ -286,13 +287,16 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 	route.Table = m.tableId
 	route.Type = 1
 
-	if err := m.nlWrapper.RouteReplace(&route); err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to update route '%s' to '%s' for VM %s/%s", fmtRoute(origRoute), fmtRoute(route), vm.GetNamespace(), vm.GetName()))
+	if err = m.nlWrapper.RouteReplace(&route); err != nil {
+		m.log.Error(err, fmt.Sprintf("failed to update route %q to %q for VM %s/%s", fmtRoute(origRoute), fmtRoute(route), vm.GetNamespace(), vm.GetName()))
 	}
-	m.log.Info(fmt.Sprintf("route '%s' updated for VM %s/%s", fmtRoute(route), vm.GetNamespace(), vm.GetName()))
+	m.log.Info(fmt.Sprintf("route %q updated for VM %s/%s", fmtRoute(route), vm.GetNamespace(), vm.GetName()))
 }
 
 func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
+	if node == nil {
+		return ""
+	}
 	for _, address := range node.Spec.Addresses {
 		if address.Type == addressing.NodeCiliumInternalIP {
 			return address.IP

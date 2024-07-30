@@ -51,6 +51,9 @@ Managing virtual machine routes
 
 const (
 	appName = "vm-route-forge"
+	// The count of workers that will be started for the route controller.
+	// We are currently supporting only one worker.
+	countWorkersRouteController = 1
 )
 
 var (
@@ -128,21 +131,21 @@ func run(opts options.Options) error {
 
 	vmSharedInformerFactory, err := informer.VirtualizationInformerFactory(kubeCfg)
 	if err != nil {
-		log.Error(err, "Failed to create informer factory")
+		log.Error(err, "Failed to create virtualization shared factory")
 		return err
 	}
 	go vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer().Run(ctx.Done())
 
 	kubeSharedInformerFactory, err := informer.KubernetesInformerFactory(kubeCfg)
 	if err != nil {
-		log.Error(err, "Failed to create node factory")
+		log.Error(err, "Failed to create kubernetes shared factory")
 		return err
 	}
 	go kubeSharedInformerFactory.Core().V1().Nodes().Informer().Run(ctx.Done())
 
 	ciliumSharedInformerFactory, err := informer.CiliumInformerFactory(kubeCfg)
 	if err != nil {
-		log.Error(err, "Failed to create cilium factory")
+		log.Error(err, "Failed to create cilium shared factory")
 		return err
 	}
 	go ciliumSharedInformerFactory.Cilium().V2().CiliumNodes().Informer().Run(ctx.Done())
@@ -158,31 +161,31 @@ func run(opts options.Options) error {
 		opts.DryRun,
 	)
 
-	err = preRunSync(ctx, netMgr)
+	err = startupSync(ctx, netMgr)
 	if err != nil {
 		log.Error(err, "Failed to run pre sync")
 		return err
 	}
-	routeCtrl, err := route.NewRouteController(ctx,
+	routeCtrl, err := route.NewRouteController(
 		vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
 		kubeSharedInformerFactory.Core().V1().Nodes(),
 		netMgr,
 		sharedCache,
 		parsedCIDRs,
-		&log,
+		log,
 	)
 	if err != nil {
 		log.Error(err, "Failed to create route controller")
 		return err
 	}
-	go routeCtrl.Run(ctx, 1)
+	go routeCtrl.Run(ctx, countWorkersRouteController)
 
 	httpServer := server.NewServer(opts.ProbeAddr, kubeClient)
 	httpServer.InstallDefaultHandlers()
-	return httpServer.ListenAndServe()
+	return httpServer.ListenAndServe(ctx)
 }
 
-func preRunSync(ctx context.Context, mgr *netlinkmanager.Manager) error {
+func startupSync(ctx context.Context, mgr *netlinkmanager.Manager) error {
 	log.Info("Synchronize route rules at start")
 	err := mgr.SyncRules()
 	if err != nil {

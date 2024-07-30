@@ -17,7 +17,10 @@ limitations under the License.
 package server
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	"k8s.io/client-go/kubernetes"
@@ -44,12 +47,29 @@ func NewServer(addr string, client kubernetes.Interface) *Server {
 	return server
 }
 
-func (s *Server) ListenAndServe() error {
+func (s *Server) ListenAndServe(ctx context.Context) error {
 	server := &http.Server{
 		Addr:    s.address,
 		Handler: s,
 	}
-	return server.ListenAndServe()
+	errCh := make(chan error)
+	go func() {
+		errCh <- server.ListenAndServe()
+	}()
+loop:
+	for {
+		select {
+		case err := <-errCh:
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return err
+			}
+		case <-ctx.Done():
+			break loop
+		}
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return server.Shutdown(shutdownCtx)
 }
 
 func (s *Server) InstallDefaultHandlers() {

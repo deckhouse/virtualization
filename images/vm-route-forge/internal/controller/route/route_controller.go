@@ -51,23 +51,23 @@ type Runnable interface {
 	Run(ctx context.Context) error
 }
 
-func NewRouteController(ctx context.Context,
+func NewRouteController(
 	vmInformer virtinformers.VirtualMachineInformer,
 	nodeInformer coreinformers.NodeInformer,
 	netlinkMgr *netlinkmanager.Manager,
 	sharedCache cache2.Cache,
 	cidrs []*net.IPNet,
-	logger *logr.Logger,
+	logger logr.Logger,
 ) (*Controller, error) {
 
 	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: controllerName})
-
+	log := logger.WithValues("controller", controllerName)
 	routeController := &Controller{
 		queue:          queue,
-		hostReconciler: NewHostController(queue, cidrs, sharedCache, logger),
+		hostReconciler: NewHostController(queue, cidrs, sharedCache, log),
 		cache:          sharedCache,
 		netlinkMgr:     netlinkMgr,
-		log:            logger,
+		log:            log,
 	}
 
 	_, err := vmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -105,7 +105,7 @@ type Controller struct {
 	queue          workqueue.RateLimitingInterface
 	cache          cache2.Cache
 	netlinkMgr     *netlinkmanager.Manager
-	log            *logr.Logger
+	log            logr.Logger
 }
 
 func (c *Controller) addVirtualMachine(obj interface{}) {
@@ -210,14 +210,15 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
-	c.log.Info("Starting namespace controller")
-	defer c.log.Info("Shutting down namespace controller")
+	c.log.Info("Starting route controller")
+	defer c.log.Info("Shutting down route controller")
 
 	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.hasSynced) {
+		c.log.Error(fmt.Errorf("cache is not synced"), "Controller will be stopped", "controller", controllerName)
 		return
 	}
 
-	c.log.Info("Starting workers of namespace controller")
+	c.log.Info("Starting workers of route controller")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
