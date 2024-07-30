@@ -19,7 +19,7 @@ set -o pipefail
 
 function usage {
   cat <<EOF
-Usage: $(basename "$0") <core/subresources/crds/all>
+Usage: $(basename "$0") { core | subresources | crds | all }
 Example:
    $(basename "$0") core
 EOF
