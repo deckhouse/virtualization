@@ -136,13 +136,6 @@ func run(opts options.Options) error {
 	}
 	go vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer().Run(ctx.Done())
 
-	kubeSharedInformerFactory, err := informer.KubernetesInformerFactory(kubeCfg)
-	if err != nil {
-		log.Error(err, "Failed to create kubernetes shared factory")
-		return err
-	}
-	go kubeSharedInformerFactory.Core().V1().Nodes().Informer().Run(ctx.Done())
-
 	ciliumSharedInformerFactory, err := informer.CiliumInformerFactory(kubeCfg)
 	if err != nil {
 		log.Error(err, "Failed to create cilium shared factory")
@@ -168,7 +161,7 @@ func run(opts options.Options) error {
 	}
 	routeCtrl, err := route.NewRouteController(
 		vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
-		kubeSharedInformerFactory.Core().V1().Nodes(),
+		ciliumSharedInformerFactory.Cilium().V2().CiliumNodes(),
 		netMgr,
 		sharedCache,
 		parsedCIDRs,
@@ -180,9 +173,16 @@ func run(opts options.Options) error {
 	}
 	go routeCtrl.Run(ctx, countWorkersRouteController)
 
-	httpServer := server.NewServer(opts.ProbeAddr, kubeClient)
-	httpServer.InstallDefaultHandlers()
-	return httpServer.ListenAndServe(ctx)
+	srv, err := server.NewServer(
+		kubeClient,
+		server.Options{HealthProbeBindAddress: opts.ProbeAddr},
+		log,
+	)
+	if err != nil {
+		log.Error(err, "Failed to create server")
+		return err
+	}
+	return srv.Run(ctx)
 }
 
 func startupSync(ctx context.Context, mgr *netlinkmanager.Manager) error {

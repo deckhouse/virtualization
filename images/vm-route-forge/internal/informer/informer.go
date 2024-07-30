@@ -21,8 +21,6 @@ import (
 
 	ciliumClient "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	ciliumInformers "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
@@ -42,14 +40,6 @@ func VirtualizationInformerFactory(rest *rest.Config) (virtInformers.SharedInfor
 		return nil, fmt.Errorf("unable to construct lister client: %w", err)
 	}
 	return virtInformers.NewSharedInformerFactory(client, defaultResync), nil
-}
-
-func KubernetesInformerFactory(restConfig *rest.Config) (informers.SharedInformerFactory, error) {
-	client, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create Kubernetes client: %w", err)
-	}
-	return informers.NewSharedInformerFactory(client, defaultResync), nil
 }
 
 func CiliumInformerFactory(restConfig *rest.Config) (ciliumInformers.SharedInformerFactory, error) {

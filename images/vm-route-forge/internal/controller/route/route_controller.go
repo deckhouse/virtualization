@@ -23,14 +23,14 @@ import (
 	"strings"
 	"time"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	ciliumv2Informers "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
@@ -53,7 +53,7 @@ type Runnable interface {
 
 func NewRouteController(
 	vmInformer virtinformers.VirtualMachineInformer,
-	nodeInformer coreinformers.NodeInformer,
+	cnInformer ciliumv2Informers.CiliumNodeInformer,
 	netlinkMgr *netlinkmanager.Manager,
 	sharedCache cache2.Cache,
 	cidrs []*net.IPNet,
@@ -78,19 +78,18 @@ func NewRouteController(
 	if err != nil {
 		return nil, err
 	}
-	_, err = nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    routeController.addNode,
-		DeleteFunc: routeController.deleteNode,
-		UpdateFunc: routeController.updateNode,
+	_, err = cnInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    routeController.addCiliumNode,
+		DeleteFunc: routeController.deleteCiliumNode,
+		UpdateFunc: routeController.updateCiliumNode,
 	})
 	if err != nil {
 		return nil, err
 	}
 	routeController.vmIndexer = vmInformer.Informer().GetIndexer()
 	routeController.vmLister = vmInformer.Lister()
-	routeController.nodeLister = nodeInformer.Lister()
 	routeController.hasSynced = func() bool {
-		return vmInformer.Informer().HasSynced() && nodeInformer.Informer().HasSynced()
+		return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
 	}
 
 	return routeController, nil
@@ -99,7 +98,6 @@ func NewRouteController(
 type Controller struct {
 	vmIndexer      cache.Indexer
 	vmLister       virtlisters.VirtualMachineLister
-	nodeLister     corelisters.NodeLister
 	hostReconciler Runnable
 	hasSynced      cache.InformerSynced
 	queue          workqueue.RateLimitingInterface
@@ -137,12 +135,12 @@ func (c *Controller) updateVirtualMachine(oldObj interface{}, newObj interface{}
 	}
 }
 
-func (c *Controller) addNode(_ interface{}) {
+func (c *Controller) addCiliumNode(_ interface{}) {
 	// Do nothing
 }
 
-func (c *Controller) deleteNode(obj interface{}) {
-	node, ok := obj.(*corev1.Node)
+func (c *Controller) deleteCiliumNode(obj interface{}) {
+	node, ok := obj.(*ciliumv2.CiliumNode)
 	if !ok {
 		return
 	}
@@ -159,28 +157,19 @@ func (c *Controller) deleteNode(obj interface{}) {
 	}
 
 }
-func (c *Controller) updateNode(oldObj interface{}, newObj interface{}) {
-	oldNode, ok := oldObj.(*corev1.Node)
+func (c *Controller) updateCiliumNode(oldObj interface{}, newObj interface{}) {
+	oldNode, ok := oldObj.(*ciliumv2.CiliumNode)
 	if !ok {
 		return
 	}
-	newNode, ok := newObj.(*corev1.Node)
+	newNode, ok := newObj.(*ciliumv2.CiliumNode)
 	if !ok {
 		return
 	}
-	var oldIP, newIP string
-	for _, ip := range oldNode.Status.Addresses {
-		if ip.Type == corev1.NodeInternalIP {
-			oldIP = ip.Address
-			break
-		}
-	}
-	for _, ip := range newNode.Status.Addresses {
-		if ip.Type == corev1.NodeInternalIP {
-			newIP = ip.Address
-			break
-		}
-	}
+
+	oldIP := c.getCiliumInternalIP(oldNode)
+	newIP := c.getCiliumInternalIP(newNode)
+
 	if oldIP == newIP {
 		return
 	}
@@ -195,6 +184,15 @@ func (c *Controller) updateNode(oldObj interface{}, newObj interface{}) {
 			c.enqueueVirtualMachine(vm)
 		}
 	}
+}
+
+func (c *Controller) getCiliumInternalIP(node *ciliumv2.CiliumNode) string {
+	for _, addr := range node.Spec.Addresses {
+		if addr.Type == addressing.NodeCiliumInternalIP {
+			return addr.IP
+		}
+	}
+	return ""
 }
 
 func (c *Controller) enqueueVirtualMachine(vm *v1alpha2.VirtualMachine) {

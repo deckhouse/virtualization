@@ -77,7 +77,7 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
 		if !found {
-			r.enqueueKey(key)
+			break
 		}
 		addrs, found := r.cache.GetAddresses(key)
 		if !found {

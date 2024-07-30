@@ -18,89 +18,126 @@ package server
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 
-	"github.com/emicklei/go-restful/v3"
+	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes"
+)
 
-	"vm-route-forge/internal/server/healthz"
+const (
+	defaultGracefulShutdownPeriod = 30 * time.Second
+	defaultReadinessEndpoint      = "/readyz"
+	defaultLivenessEndpoint       = "/healthz"
 )
 
 type Server struct {
-	address          string
-	client           kubernetes.Interface
-	restfulContainer containerInterface
+	runnableGroup           *runnableGroup
+	gracefulShutdownTimeout time.Duration
+	healthProbeListener     net.Listener
+	readyzHandler           http.Handler
+	healthzHandler          http.Handler
+	readinessEndpointRoute  string
+	livenessEndpointRoute   string
+
+	client kubernetes.Interface
+	log    logr.Logger
 }
 
-func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	s.restfulContainer.ServeHTTP(writer, request)
-}
-
-func NewServer(addr string, client kubernetes.Interface) *Server {
-	server := &Server{
-		address:          addr,
-		client:           client,
-		restfulContainer: &filteringContainer{Container: restful.NewContainer()},
-	}
-	return server
-}
-
-func (s *Server) ListenAndServe(ctx context.Context) error {
-	server := &http.Server{
-		Addr:    s.address,
-		Handler: s,
-	}
-	errCh := make(chan error)
-	go func() {
-		errCh <- server.ListenAndServe()
-	}()
-loop:
-	for {
-		select {
-		case err := <-errCh:
-			if err != nil && !errors.Is(err, http.ErrServerClosed) {
-				return err
-			}
-		case <-ctx.Done():
-			break loop
+func (s *Server) Run(ctx context.Context) error {
+	if s.healthProbeListener != nil {
+		if err := s.addHealthProbeServer(); err != nil {
+			return fmt.Errorf("failed to add health probe server: %w", err)
 		}
 	}
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	return server.Shutdown(shutdownCtx)
+	return s.runnableGroup.run(ctx)
 }
 
-func (s *Server) InstallDefaultHandlers() {
-	var reg register
-	reg = healthz.NewHandler(s.client)
-	s.RegisterWebService(reg.WebService())
+func (s *Server) addHealthProbeServer() error {
+	mux := http.NewServeMux()
+	srv := NewHTTPServer(mux)
+
+	if s.readyzHandler != nil {
+		mux.Handle(s.readinessEndpointRoute, http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+		// Append '/' suffix to handle subpaths
+		mux.Handle(s.readinessEndpointRoute+"/", http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+	}
+	if s.healthzHandler != nil {
+		mux.Handle(s.livenessEndpointRoute, http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
+		// Append '/' suffix to handle subpaths
+		mux.Handle(s.livenessEndpointRoute+"/", http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
+	}
+
+	s.Add(&httpServer{
+		name:                    "health",
+		gracefulShutdownTimeout: s.gracefulShutdownTimeout,
+		listener:                s.healthProbeListener,
+		server:                  srv,
+		log:                     s.log,
+	})
+	return nil
 }
 
-func (s *Server) RegisterWebService(ws *restful.WebService) {
-	s.restfulContainer.Add(ws)
+func (s *Server) Add(r Runnable) {
+	s.runnableGroup.Add(r)
 }
 
-// containerInterface defines the restful.Container functions used on the root container
-type containerInterface interface {
-	Add(service *restful.WebService) *restful.Container
-	Handle(path string, handler http.Handler)
-	Filter(filter restful.FilterFunction)
-	ServeHTTP(w http.ResponseWriter, r *http.Request)
-	RegisteredWebServices() []*restful.WebService
+type Options struct {
+	HealthProbeBindAddress  string
+	ReadinessEndpointRoute  string
+	LivenessEndpointRoute   string
+	GracefulShutdownTimeout *time.Duration
+	ReadyzHandler           http.Handler
+	HealthzHandler          http.Handler
 }
 
-// filteringContainer delegates all Handle(...) calls to Container.HandleWithFilter(...),
-// so we can ensure restful.FilterFunctions are used for all handlers
-type filteringContainer struct {
-	*restful.Container
+func setOptionsDefault(options Options) Options {
+	if options.GracefulShutdownTimeout == nil {
+		gracefulShutdownTimeout := defaultGracefulShutdownPeriod
+		options.GracefulShutdownTimeout = &gracefulShutdownTimeout
+	}
+	if options.ReadinessEndpointRoute == "" {
+		options.ReadinessEndpointRoute = defaultReadinessEndpoint
+	}
+	if options.LivenessEndpointRoute == "" {
+		options.LivenessEndpointRoute = defaultLivenessEndpoint
+	}
+	return options
 }
 
-func (c *filteringContainer) Handle(path string, handler http.Handler) {
-	c.HandleWithFilter(path, handler)
+func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*Server, error) {
+	options = setOptionsDefault(options)
+
+	// Create health probes listener. This will throw an error if the bind
+	// address is invalid or already in use.
+	healthProbeListener, err := defaultHealthProbeListener(options.HealthProbeBindAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Server{
+		healthProbeListener:     healthProbeListener,
+		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
+		readinessEndpointRoute:  options.ReadinessEndpointRoute,
+		livenessEndpointRoute:   options.LivenessEndpointRoute,
+		runnableGroup:           newRunnableGroup(),
+		readyzHandler:           options.ReadyzHandler,
+		healthzHandler:          options.HealthzHandler,
+		client:                  client,
+		log:                     log,
+	}, nil
 }
 
-type register interface {
-	WebService() *restful.WebService
+func defaultHealthProbeListener(addr string) (net.Listener, error) {
+	if addr == "" || addr == "0" {
+		return nil, nil
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("error listening on %s: %w", addr, err)
+	}
+	return ln, nil
 }
