@@ -18,6 +18,7 @@ package options
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -45,8 +46,9 @@ const (
 	flagTableId, flagTableIdShort     = "tableId", "t"
 	defaultVerbosity                  = 1
 
-	NodeNameEnv = "NODE_NAME"
-	TableIDEnv  = "TABLE_ID"
+	VerbosityEnv = "VERBOSITY"
+	NodeNameEnv  = "NODE_NAME"
+	TableIDEnv   = "TABLE_ID"
 )
 
 func NewOptions() Options {
@@ -58,10 +60,21 @@ func NewOptions() Options {
 }
 
 func (o *Options) Flags(fs *pflag.FlagSet) {
-	o.Cidrs = *fs.StringSliceP(flagCidr, flagCidrShort, []string{}, "CIDRs enabled to route (multiple flags allowed)")
+	fs.StringSliceVarP((*[]string)(&o.Cidrs), flagCidr, flagCidrShort, []string{}, "CIDRs enabled to route (multiple flags allowed)")
 	fs.BoolVarP(&o.DryRun, flagDryRun, flagDryRunShort, false, "Don't perform any changes on the node.")
 	fs.StringVar(&o.ProbeAddr, flagProbeAddr, ":0", "The address the probe endpoint binds to.")
 	fs.StringVarP(&o.NodeName, flagNodeName, flagNodeNameShort, os.Getenv(NodeNameEnv), "The name of the node.")
 	fs.StringVarP(&o.TableID, flagTableId, flagTableIdShort, os.Getenv(TableIDEnv), "The id of the table.")
-	fs.IntVarP(&o.Verbosity, flagVerbosity, flagVerbosityShort, defaultVerbosity, "Verbosity of output")
+	fs.IntVarP(&o.Verbosity, flagVerbosity, flagVerbosityShort, getDefaultVerbosity(), "Verbosity of output")
+}
+
+func getDefaultVerbosity() int {
+	if v, ok := os.LookupEnv(VerbosityEnv); ok {
+		verbosity, err := strconv.Atoi(v)
+		if err != nil {
+			return defaultVerbosity
+		}
+		return verbosity
+	}
+	return defaultVerbosity
 }

@@ -63,7 +63,7 @@ func NewVmRouteForgeCommand() *cobra.Command {
 		Short: "Managing virtual machine routes",
 		Long:  long,
 		RunE: func(c *cobra.Command, args []string) error {
-			return run(c, args, opts)
+			return run(opts)
 		},
 	}
 	opts.Flags(cmd.Flags())
@@ -83,10 +83,7 @@ func setupLogger(verbosity int) {
 	logf.SetLogger(zap.New(zap.Level(zapcore.Level(-1*verbosity)), zap.UseDevMode(debug)))
 }
 
-func run(c *cobra.Command, args []string, opts options.Options) error {
-	if len(args) == 0 {
-		return c.Help()
-	}
+func run(opts options.Options) error {
 	setupLogger(opts.Verbosity)
 	var parsedCIDRs []*net.IPNet
 	for _, cidr := range opts.Cidrs {
