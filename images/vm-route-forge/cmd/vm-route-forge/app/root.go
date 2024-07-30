@@ -120,7 +120,7 @@ func run(opts options.Options) error {
 	}
 	kubeClient, err := kubernetes.NewForConfig(kubeCfg)
 	if err != nil {
-		log.Error(err, "Failed to het kubeclient")
+		log.Error(err, "Failed to create Kubernetes client")
 		return err
 	}
 
