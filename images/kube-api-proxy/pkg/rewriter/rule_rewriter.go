@@ -225,7 +225,8 @@ func (rw *RuleBasedRewriter) rewriteLabelSelector(rawQuery string) string {
 }
 
 // RewriteJSONPayload does rewrite based on kind.
-func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []byte, action Action) ([]byte, error) {
+// TODO(future refactor): Remove targetReq in all callers.
+func (rw *RuleBasedRewriter) RewriteJSONPayload(_ *TargetRequest, obj []byte, action Action) ([]byte, error) {
 	// Detect Kind
 	kind := gjson.GetBytes(obj, "kind").String()
 
@@ -245,7 +246,7 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(targetReq *TargetRequest, obj []
 		rwrBytes, err = RewriteAPIGroup(rw.Rules, obj)
 
 	case "APIResourceList":
-		rwrBytes, err = RewriteAPIResourceList(rw.Rules, obj, targetReq.OrigGroup())
+		rwrBytes, err = RewriteAPIResourceList(rw.Rules, obj)
 
 	case "APIGroupDiscoveryList":
 		rwrBytes, err = RewriteAPIGroupDiscoveryList(rw.Rules, obj)

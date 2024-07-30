@@ -24,7 +24,7 @@ spec:
         - name: "deckhouse-registry"
       containers:
         - name: proxy-only
-          image: dev-registry.deckhouse.io/virt/dev/${USER}/kube-api-proxy:latest
+          image: "${IMAGE}"
           imagePullPolicy: Always
           command:
             - /proxy
@@ -32,7 +32,7 @@ spec:
             - name: CLIENT_PROXY_PORT
               value: "23916"
         - name: proxy
-          image: dev-registry.deckhouse.io/virt/dev/${USER}/kube-api-proxy:latest
+          image: "${IMAGE}"
           imagePullPolicy: Always
           command:
             - /proxy
@@ -51,7 +51,7 @@ spec:
             - mountPath: /tmp/proxy-webhook/serving-certs
               name: test-admission-webhook
         - name: controller
-          image: dev-registry.deckhouse.io/virt/dev/${USER}/kube-api-proxy:latest
+          image: "${IMAGE}"
           imagePullPolicy: Always
           command:
             - /test-controller

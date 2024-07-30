@@ -18,46 +18,61 @@ package rewriter
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// RewriteAPIGroupList restores groups and kinds in /apis/ response.
+// RewriteAPIGroupList restores groups and kinds in "groups" array in /apis/ response.
 //
-// Rewrite each APIGroup in "groups".
 // Response example:
-// {"groups":[
-// {"name":"prefixed.resources.group.io",
 //
-//	 "versions":[
-//	   {"groupVersion":"prefixed.resources.group.io/v1","version":"v1"},
-//	   {"groupVersion":"prefixed.resources.group.io/v1beta1","version":"v1beta1"},
-//	   {"groupVersion":"prefixed.resources.group.io/v1alpha3","version":"v1alpha3"}
-//	  ],
-//	 "preferredVersion":{"groupVersion":"prefixed.resources.group.io/v1","version":"v1"}
-//	}]}
-func RewriteAPIGroupList(rules *RewriteRules, objBytes []byte) ([]byte, error) {
-	groups := gjson.GetBytes(objBytes, "groups").Array()
-	// TODO get rid of RawExtension, use SetRawBytes.
-	rwrGroups := make([]interface{}, 0)
-	for _, group := range groups {
-		groupName := gjson.Get(group.Raw, "name").String()
-		// Replace renamed group with groups from rules.
-		if rules.IsRenamedGroup(groupName) {
-			rwrGroups = append(rwrGroups, rules.GetAPIGroupList()...)
-			continue
-		}
-		// Remove duplicates if cluster have CRDs with original group names.
+//	{
+//	  "kind": "APIGroupList",
+//	  "apiVersion": "v1",
+//	  "groups": [
+//	    {
+//	      "name": "prefixed.resources.group.io",
+//	      "versions": [
+//	        {"groupVersion":"prefixed.resources.group.io/v1","version":"v1"},
+//	        {"groupVersion":"prefixed.resources.group.io/v1beta1","version":"v1beta1"},
+//	        {"groupVersion":"prefixed.resources.group.io/v1alpha3","version":"v1alpha3"}
+//	      ],
+//	      "preferredVersion": {
+//	        "groupVersion":"prefixed.resources.group.io/v1",
+//	        "version":"v1"
+//	      }
+//	    }
+//	  ]
+//	}
+func RewriteAPIGroupList(rules *RewriteRules, obj []byte) ([]byte, error) {
+	return RewriteArray(obj, "groups", func(groupObj []byte) ([]byte, error) {
+		// Remove original groups to prevent duplicates if cluster have CRDs with original names.
+		groupName := gjson.GetBytes(groupObj, "name").String()
 		if rules.HasGroup(groupName) {
-			continue
+			return nil, SkipItem
 		}
-		rwrGroups = append(rwrGroups, runtime.RawExtension{Raw: []byte(group.Raw)})
-	}
 
-	return sjson.SetBytes(objBytes, "groups", rwrGroups)
+		groupObj, err := TransformString(groupObj, "name", func(name string) string {
+			return rules.RestoreApiVersion(name)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		groupObj, err = TransformString(groupObj, "preferredVersion.groupVersion", func(groupVersion string) string {
+			return rules.RestoreApiVersion(groupVersion)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return RewriteArray(groupObj, "versions", func(versionObj []byte) ([]byte, error) {
+			return TransformString(versionObj, "groupVersion", func(groupVersion string) string {
+				return rules.RestoreApiVersion(groupVersion)
+			})
+		})
+	})
 }
 
 // RewriteAPIGroup restores apiGroup, kinds and versions in responses from renamed APIGroup query:
@@ -119,137 +134,113 @@ func RewriteAPIGroup(rules *RewriteRules, obj []byte) ([]byte, error) {
 	})
 }
 
-// RewriteAPIResourceList rewrites server responses on
-// /apis/GROUP/VERSION requests.
-// This method excludes resources not belonging to original group from request.
+// RewriteAPIResourceList rewrites server responses from /apis/GROUP/VERSION discovery requests.
 //
 // Example:
 //
-// Path rewrite: https://10.222.0.1:443/apis/kubevirt.io/v1 -> https://10.222.0.1:443/apis/x.virtualization.deckhouse.io/v1
-// original Group:  kubevirt.io
-// rewrite name,singularName,kind for each resource.
-// /status -> name and kind
-// /scale -> rewrite resource name in the name field
+// Path rewrite: https://10.222.0.1:443/apis/original.group.io/v1 -> https://10.222.0.1:443/apis/prefixed.resources.group.io/v1
+// 1. Restore "groupVersion" field.
+// 2. Restore items in "resources":
+// 2.1. If name is a resource type: restore "name", "singularName", "kind", "shortNames", and "categories".
+// 2.2. If name contains "/status" suffix: restore "name" and "kind" fields
+// 2.3. If name contains "/scale" suffix: restore "name" field as a resource type
 //
-// Response from /apis/x.virtualization.deckhouse.io/v1:
+// Rewrite of response from /apis/prefixed.resources.group.io/v1:
 //
 //	{
-//	    "kind":"APIResourceList",
-//	    "apiVersion":"v1",
-//
-// --> "groupVersion":"x.virtualization.deckhouse.io/v1"  --> rewrite to origGroup+version: kubevirt.io/v1
-//
-//	    "resources":[
-//		   {
-//
-// -->   "name":"virtualmachineinstancereplicasets",
-// -->   "singularName":"virtualmachineinstancereplicaset",
-//
-//	"namespaced":true,
-//
-// -->   "kind":"VirtualMachineInstanceReplicaSet",
-//
-//	  "verbs":["delete","deletecollection","get","list","patch","create","update","watch"],
-//	  "shortNames":["xvmirs","xvmirss"],
-//	  "categories":["kubevirt"],
-//	  "storageVersionHash":"QUMxLW9gfYs="
-//	},{
-//
-// -->   "name":"virtualmachineinstancereplicasets/status",
-//
-//	"singularName":"",
-//	"namespaced":true,
-//
-// -->   "kind":"VirtualMachineInstanceReplicaSet",
-//
-//		     "verbs":["get","patch","update"]
-//	    },{
-//
-// -->   "name":"virtualmachineinstancereplicasets/scale",
-//
-//	      "singularName":"",
-//		     "namespaced":true,
-//		     "group":"autoscaling",
-//		     "version":"v1",
-//		     "kind":"Scale",
-//		     "verbs":["get","patch","update"]
-//		   }]
+//	  "kind":"APIResourceList",
+//	  "apiVersion":"v1",
+//	  "groupVersion":"prefixed.resources.group.io/v1",  --> Restore apiGroup, keep version: original.group.io/v1
+//	  "resources":[
+//	  {
+//	    "name":"prefixedsomeresources", --> Restore resource type: someresources
+//	    "singularName":"prefixedsomeresource",  --> Restore singular: someresource
+//	    "namespaced":true,
+//	    "kind":"PrefixedSomeResource",  --> restore kind: SomeResource
+//	    "verbs":["delete","deletecollection","get","list","patch","create","update","watch"],
+//	    "shortNames":["psr","psrs"], --> Restore shortNames: ["sr", "srs"]
+//	    "categories":["prefixed"],  --> Restore categories: ["all"]
+//	    "storageVersionHash":"QUMxLW9gfYs="
+//	  },{
+//	    "name":"prefixedsomeresources/status",  --> Restore resource type, keep suffix: someresources/status
+//	    "singularName":"",
+//	    "namespaced":true,
+//	    "kind":"PrefixedSomeResource",  --> Restore kind: SomeResource
+//	    "verbs":["get","patch","update"]
+//	  },{
+//	    "name":"prefixedsomeresources/scale",   --> Restore resource type, keep suffix: someresources/status
+//	    "singularName":"",
+//		"namespaced":true,
+//		"group":"autoscaling",
+//		"version":"v1",
+//		"kind":"Scale",
+//		  "verbs":["get","patch","update"]
+//		}]
+//	  }
 //	}
-func RewriteAPIResourceList(rules *RewriteRules, obj []byte, origGroup string) ([]byte, error) {
-	// Ignore apiGroups not in rules.
-	apiGroupRule, ok := rules.Rules[origGroup]
-	if !ok {
+func RewriteAPIResourceList(rules *RewriteRules, obj []byte) ([]byte, error) {
+	// Check if groupVersion is renamed and save restored group.
+	// No rewrite if groupVersion has no rules.
+	groupVersion := gjson.GetBytes(obj, "groupVersion").String()
+	if !rules.IsRenamedGroup(groupVersion) {
 		return obj, nil
 	}
-	// MVP: rewrite only group for now. (No prefixes in the cluster yet).
-	obj, err := sjson.SetBytes(obj, "groupVersion", origGroup+"/"+apiGroupRule.GroupRule.PreferredVersion)
+	origGroup := rules.RestoreApiVersion(groupVersion)
+	obj, err := sjson.SetBytes(obj, "groupVersion", origGroup)
 	if err != nil {
 		return nil, err
 	}
 
-	resources := []byte(`[]`)
+	// Rewrite "resources" array.
+	return RewriteArray(obj, "resources", func(resource []byte) ([]byte, error) {
+		name := gjson.GetBytes(resource, "name").String()
+		origResourceType := rules.RestoreResource(name)
 
-	for _, resource := range gjson.GetBytes(obj, "resources").Array() {
-		name := resource.Get("name").String()
-		nameParts := strings.Split(name, "/")
-		resourceName := rules.RestoreResource(nameParts[0])
-
-		_, resourceRule := rules.ResourceRules(origGroup, resourceName)
+		// No rewrite if resource has no rules.
+		_, resourceRule := rules.ResourceRules(origGroup, origResourceType)
 		if resourceRule == nil {
-			continue
+			return resource, nil
 		}
 
-		// Rewrite name and kind.
-		resBytes, err := sjson.SetBytes([]byte(resource.Raw), "name", rules.RestoreResource(name))
+		resource, err = TransformString(resource, "name", func(name string) string {
+			return origResourceType
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		kind := gjson.GetBytes(resBytes, "kind").String()
-		if kind != "" {
-			resBytes, err = sjson.SetBytes(resBytes, "kind", rules.RestoreKind(kind))
-			if err != nil {
-				return nil, err
-			}
+		resource, err = TransformString(resource, "kind", func(kind string) string {
+			return rules.RestoreKind(kind)
+		})
+		if err != nil {
+			return nil, err
 		}
 
-		singular := gjson.GetBytes(resBytes, "singularName").String()
-		if singular != "" {
-			resBytes, err = sjson.SetBytes(resBytes, "singularName", rules.RestoreResource(singular))
-			if err != nil {
-				return nil, err
-			}
+		resource, err = TransformString(resource, "singularName", func(singularName string) string {
+			return rules.RestoreResource(singularName)
+		})
+		if err != nil {
+			return nil, err
 		}
 
-		shortNames := gjson.GetBytes(resBytes, "shortNames").Array()
-		if len(shortNames) > 0 {
-			strShortNames := make([]string, 0, len(shortNames))
-			for _, shortName := range shortNames {
-				strShortNames = append(strShortNames, shortName.String())
-			}
-			newShortNames := rules.RestoreShortNames(strShortNames)
-			resBytes, err = sjson.SetBytes(resBytes, "shortNames", newShortNames)
-			if err != nil {
-				return nil, err
-			}
+		resource, err = TransformArrayOfStrings(resource, "shortNames", func(shortName string) string {
+			return rules.RestoreShortName(shortName)
+		})
+		if err != nil {
+			return nil, err
 		}
 
-		categories := gjson.GetBytes(resBytes, "categories")
+		categories := gjson.GetBytes(resource, "categories")
 		if categories.Exists() {
 			restoredCategories := rules.RestoreCategories(resourceRule)
-			resBytes, err = sjson.SetBytes(resBytes, "categories", restoredCategories)
+			resource, err = sjson.SetBytes(resource, "categories", restoredCategories)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		resources, err = sjson.SetRawBytes(resources, "-1", resBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return sjson.SetRawBytes(obj, "resources", resources)
+		return resource, nil
+	})
 }
 
 // RewriteAPIGroupDiscoveryList restores renamed groups and resources in the aggregated

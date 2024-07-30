@@ -8,7 +8,7 @@ includes:
     optional: true
 
 vars:
-  DevRegistry: "dev-registry.deckhouse.io/virt/dev/$USER"
+  DevImage: "localhost:5000/$USER/kube-api-proxy:latest"
 
 tasks:
   default:
@@ -18,8 +18,8 @@ tasks:
     desc: "build latest image with proxy and test-controller"
     cmds:
       - |
-        docker build . -t {{.DevRegistry}}/kube-api-proxy:latest -f local/Dockerfile
-        docker push {{.DevRegistry}}/kube-api-proxy:latest
+        docker build . -t {{.DevImage}} -f local/Dockerfile
+        docker push {{.DevImage}}
 
   dev:deploy:
     desc: "apply manifest with proxy and test-controller"
@@ -30,7 +30,7 @@ tasks:
           exit 1
         fi
       - |
-        cat local/proxy.yaml | USER=${USER} envsubst | kubectl -n kproxy apply -f -
+        cat local/proxy.yaml | IMAGE={{.DevImage}} envsubst | kubectl -n kproxy apply -f -
 
   dev:restart:
     desc: "restart deployment"
@@ -74,8 +74,8 @@ tasks:
     desc: "run kubectl in proxy deployment"
     cmds:
       - |
-        kubectl -n kproxy exec -ti deploy/kube-api-proxy -c proxy-only -- kubectl -s 127.0.0.1:23916 {{.CLI_ARGS}}
-        #kubectl -n d8-virtualization exec -ti deploy/virt-operator -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
+        kubectl -n kproxy exec deploy/kube-api-proxy -c proxy-only -- kubectl -s 127.0.0.1:23916 {{.CLI_ARGS}}
+        #kubectl -n d8-virtualization exec  deploy/virt-operator -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
 
   logs:proxy:
     desc: "Logs for proxy container"

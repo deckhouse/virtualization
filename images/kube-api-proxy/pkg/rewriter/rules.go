@@ -208,7 +208,8 @@ func (rr *RewriteRules) KindRules(apiGroup, kind string) (*GroupRule, *ResourceR
 	return nil, nil
 }
 
-func (rr *RewriteRules) ResourceRules(group, resource string) (*GroupRule, *ResourceRule) {
+func (rr *RewriteRules) ResourceRules(apiGroup, resource string) (*GroupRule, *ResourceRule) {
+	group, _, _ := strings.Cut(apiGroup, "/")
 	groupRule, ok := rr.Rules[group]
 	if !ok {
 		return nil, nil
@@ -254,6 +255,8 @@ func (rr *RewriteRules) RenameKind(kind string) string {
 	return rr.KindPrefix + kind
 }
 
+// RestoreResource restores renamed resource to its original state, keeping suffix.
+// E.g. "prefixedsomeresources/scale" will be restored to "someresources/scale".
 func (rr *RewriteRules) RestoreResource(resource string) string {
 	return strings.TrimPrefix(resource, rr.ResourceTypePrefix)
 }
@@ -302,6 +305,14 @@ func (rr *RewriteRules) RestoreCategories(resourceRule *ResourceRule) []string {
 		return []string{}
 	}
 	return resourceRule.Categories
+}
+
+func (rr *RewriteRules) RenameShortName(shortName string) string {
+	return rr.ShortNamePrefix + shortName
+}
+
+func (rr *RewriteRules) RestoreShortName(shortName string) string {
+	return strings.TrimPrefix(shortName, rr.ShortNamePrefix)
 }
 
 func (rr *RewriteRules) RenameShortNames(shortNames []string) []string {
