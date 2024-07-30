@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -36,15 +35,11 @@ import (
 
 const nameDiscoveryHandler = "DiscoveryHandler"
 
-func NewDiscoveryHandler(client client.Client) *DiscoveryHandler {
-	return &DiscoveryHandler{
-		client: client,
-	}
+func NewDiscoveryHandler() *DiscoveryHandler {
+	return &DiscoveryHandler{}
 }
 
-type DiscoveryHandler struct {
-	client client.Client
-}
+type DiscoveryHandler struct{}
 
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
 	if s.VirtualMachineClass().IsEmpty() {

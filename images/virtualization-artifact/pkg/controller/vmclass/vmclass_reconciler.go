@@ -119,23 +119,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		result = service.MergeResults(result, res)
 	}
 	if handlerErr != nil {
-		err = r.updateVMClass(ctx, class)
+		err = class.Update(ctx)
 		if err != nil {
 			r.logger.Error("Failed to update VirtualMachineClass", slog.String("namespacedName", req.String()))
 		}
 		return reconcile.Result{}, handlerErr
 	}
-	err = r.updateVMClass(ctx, class)
+	err = class.Update(ctx)
 	if err != nil {
 		r.logger.Error("Failed to update VirtualMachineClass", slog.String("namespacedName", req.String()))
 		return reconcile.Result{}, err
 	}
 	r.logger.Info("Finished reconcile VM", slog.String("namespacedName", req.String()))
 	return result, nil
-}
-
-func (r *Reconciler) updateVMClass(ctx context.Context, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) error {
-	return vmClass.Update(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineClass {

@@ -34,9 +34,12 @@ func (r Reason) String() string {
 }
 
 const (
+	// ReasonNoCpuFeaturesEnabled determines that processor functions are not available.
 	ReasonNoCpuFeaturesEnabled Reason = "NoCpuFeaturesEnabled"
+	// ReasonNoSuitableNodesFound determines that no suitable node has been found.
 	ReasonNoSuitableNodesFound Reason = "NoSuitableNodesFound"
-	ReasonSuitableNodesFound   Reason = "SuitableNodesFound"
+	// ReasonSuitableNodesFound determines that suitable node has been found.
+	ReasonSuitableNodesFound Reason = "SuitableNodesFound"
 
 	ReasonDiscoverySucceeded Reason = "DiscoverySucceeded"
 	ReasonDiscoverySkip      Reason = "DiscoverySkip"

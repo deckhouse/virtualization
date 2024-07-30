@@ -142,13 +142,13 @@ func (s *state) NodesByVMNodeSelector(ctx context.Context) ([]corev1.Node, error
 			return nil, fmt.Errorf("failed to create NodeSelector: %w", err)
 		}
 		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtred []corev1.Node
+			var filtered []corev1.Node
 			for _, node := range nodes {
 				if ns.Match(&node) {
-					filtred = append(filtred, node)
+					filtered = append(filtered, node)
 				}
 			}
-			return filtred
+			return filtered
 		}
 	}
 	if filter != nil {
