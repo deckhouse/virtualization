@@ -103,8 +103,9 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   features:
-                    description: Required instructions for the CPU as a list More
-                      information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+                    description: |-
+                      A list of CPU instructions (features) required when type=Features.
+                      More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
                     example:
                     - mmx
                     - vmx
@@ -227,8 +228,9 @@ spec:
                           minimum: 1
                           type: integer
                         step:
-                          description: Increase step of cpu core count from min to
-                            max.
+                          description: Cpu cores count discretization step. I.e. min=2,
+                            max=10, step=4 allows to set virtual machine cpu cores
+                            to 2, 6, or 10.
                           example: 1
                           minimum: 1
                           type: integer
@@ -289,7 +291,9 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          description: Increase step of memory size from min to max.
+                          description: Memory size discretization step. I.e. min=2Gi,
+                            max=4Gi, step=1Gi allows to set virtual machine memory
+                            size to 2Gi, 3Gi, or 4Gi.
                           example: 512Mi
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true

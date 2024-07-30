@@ -772,7 +772,7 @@ func schema_virtualization_api_core_v1alpha2_CPU(ref common.ReferenceCallback) c
 					},
 					"features": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required instructions for the CPU as a list More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)",
+							Description: "A list of CPU instructions (features) required when type=Features. More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1640,7 +1640,7 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref common.Refere
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Increase step of cpu core count from min to max.",
+							Description: "Cpu cores count discretization step. I.e. min=2, max=10, step=4 allows to set virtual machine cpu cores to 2, 6, or 10.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -1672,7 +1672,7 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicyMemory(ref common.Refer
 					},
 					"step": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Increase step of memory size from min to max.",
+							Description: "Memory size discretization step. I.e. min=2Gi, max=4Gi, step=1Gi allows to set virtual machine memory size to 2Gi, 3Gi, or 4Gi.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},

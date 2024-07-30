@@ -87,7 +87,7 @@ type CPU struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:example=IvyBridge
 	Model string `json:"model,omitempty"`
-	// A list of CPU instructions (features) required for virtual machines of this class.
+	// A list of CPU instructions (features) required when type=Features.
 	// More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
 	//
 	// +kubebuilder:validation:MinItems=1
