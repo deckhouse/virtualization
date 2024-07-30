@@ -20,11 +20,11 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,6 +36,7 @@ import (
 	"vm-route-forge/internal/controller/route"
 	"vm-route-forge/internal/informer"
 	"vm-route-forge/internal/netlinkmanager"
+	"vm-route-forge/internal/server"
 )
 
 const long = `
@@ -92,7 +93,7 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 		_, parsedCIDR, err := net.ParseCIDR(cidr)
 		if err != nil || parsedCIDR == nil {
 			log.Error(err, "failed to parse passed CIDRs")
-			os.Exit(1)
+			return err
 		}
 		parsedCIDRs = append(parsedCIDRs, parsedCIDR)
 	}
@@ -108,7 +109,7 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 		tableId, err := strconv.ParseInt(tableIDStr, 10, 32)
 		if err != nil {
 			log.Error(err, "failed to parse Cilium table id, should be integer")
-			os.Exit(1)
+			return err
 		}
 		tableID = int(tableId)
 	}
@@ -118,7 +119,12 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 	kubeCfg, err := config.GetConfig()
 	if err != nil {
 		log.Error(err, "Failed to load Kubernetes config")
-		os.Exit(1)
+		return err
+	}
+	kubeClient, err := kubernetes.NewForConfig(kubeCfg)
+	if err != nil {
+		log.Error(err, "Failed to het kubeclient")
+		return err
 	}
 
 	ctx := signals.SetupSignalHandler()
@@ -126,21 +132,21 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 	vmSharedInformerFactory, err := informer.VirtualizationInformerFactory(kubeCfg)
 	if err != nil {
 		log.Error(err, "Failed to create informer factory")
-		os.Exit(1)
+		return err
 	}
 	go vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer().Run(ctx.Done())
 
 	kubeSharedInformerFactory, err := informer.KubernetesInformerFactory(kubeCfg)
 	if err != nil {
 		log.Error(err, "Failed to create node factory")
-		os.Exit(1)
+		return err
 	}
 	go kubeSharedInformerFactory.Core().V1().Nodes().Informer().Run(ctx.Done())
 
 	ciliumSharedInformerFactory, err := informer.CiliumInformerFactory(kubeCfg)
 	if err != nil {
 		log.Error(err, "Failed to create cilium factory")
-		os.Exit(1)
+		return err
 	}
 	go ciliumSharedInformerFactory.Cilium().V2().CiliumNodes().Informer().Run(ctx.Done())
 
@@ -158,7 +164,7 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 	err = preRunSync(ctx, netMgr)
 	if err != nil {
 		log.Error(err, "Failed to run pre sync")
-		os.Exit(1)
+		return err
 	}
 	routeCtrl, err := route.NewRouteController(ctx,
 		vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
@@ -170,11 +176,13 @@ func run(c *cobra.Command, args []string, opts options.Options) error {
 	)
 	if err != nil {
 		log.Error(err, "Failed to create route controller")
-		os.Exit(1)
+		return err
 	}
-	routeCtrl.Run(ctx, 1)
+	go routeCtrl.Run(ctx, 1)
 
-	return nil
+	httpServer := server.NewServer(opts.ProbeAddr, kubeClient)
+	httpServer.InstallDefaultHandlers()
+	return httpServer.ListenAndServe()
 }
 
 func preRunSync(ctx context.Context, mgr *netlinkmanager.Manager) error {
