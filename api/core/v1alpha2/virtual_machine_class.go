@@ -87,7 +87,8 @@ type CPU struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:example=IvyBridge
 	Model string `json:"model,omitempty"`
-	// Required instructions for the CPU as a list More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+	// A list of CPU instructions (features) required for virtual machines of this class.
+	// More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:example={mmx, vmx, sse2}
