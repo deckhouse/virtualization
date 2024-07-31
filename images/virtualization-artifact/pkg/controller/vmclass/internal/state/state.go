@@ -62,7 +62,7 @@ func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, e
 		indexer.IndexFieldVMByClass: name,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list virtual machine: %w", err)
+		return nil, fmt.Errorf("failed to list virtual machines by vmclass %s: %w", name, err)
 	}
 	return vms.Items, nil
 }
