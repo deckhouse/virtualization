@@ -859,7 +859,7 @@ spec:
                 virtualMachineClassName:
                   type: string
                   description: |
-                    Name of `virtualMachineClass` resource describing the requirements for a virtual CPU and the resource allocation policy.
+                    Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy.
                 cpu:
                   type: object
                   description: Specifies the CPU settings for the VM.
