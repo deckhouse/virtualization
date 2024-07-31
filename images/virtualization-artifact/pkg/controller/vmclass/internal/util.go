@@ -21,6 +21,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
 func isDeletion(class *virtv2.VirtualMachineClass) bool {
@@ -32,6 +33,7 @@ func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...string) (update b
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).
 			Generation(class.GetGeneration()).
+			Reason2(vmclasscondition.ReasonUnknown).
 			Status(metav1.ConditionUnknown).
 			Condition()); add {
 			update = true

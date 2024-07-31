@@ -160,10 +160,25 @@ func (b *KVVM) SetPriorityClassName(priorityClassName string) {
 }
 
 func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []corev1.NodeSelectorRequirement) {
-	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-		corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
-	)
+	if vmAffinity == nil && len(classMatchExpressions) == 0 {
+		b.Resource.Spec.Template.Spec.Affinity = nil
+		return
+	}
+	if vmAffinity == nil {
+		vmAffinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{},
+				},
+			},
+		}
+	}
+	if len(classMatchExpressions) > 0 {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
+		)
+	}
 	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 }
 

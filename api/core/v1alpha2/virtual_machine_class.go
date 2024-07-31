@@ -182,12 +182,12 @@ const (
 
 type VirtualMachineClassStatus struct {
 	Phase       VirtualMachineClassPhase `json:"phase"`
-	CpuFeatures CpuFeatures              `json:"cpuFeatures"`
+	CpuFeatures CpuFeatures              `json:"cpuFeatures,omitempty"`
 	// A list of nodes that support this CPU model.
 	// It is not displayed for the types: `Host`, `HostPassthrough`
 	//
 	// +kubebuilder:example={node-1, node-2}
-	AvailableNodes []string           `json:"availableNodes"`
+	AvailableNodes []string           `json:"availableNodes,omitempty"`
 	Conditions     []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -200,11 +200,11 @@ type CpuFeatures struct {
 	//  A list of CPU features for this model.
 	//
 	// +kubebuilder:example={mmx, vmx, sse2}
-	Enabled []string `json:"enabled"`
+	Enabled []string `json:"enabled,omitempty"`
 	// A list of unused processor features additionally available for a given group of nodes.
 	//
 	// +kubebuilder:example={ssse3, vme}
-	NotEnabledCommon []string `json:"notEnabledCommon"`
+	NotEnabledCommon []string `json:"notEnabledCommon,omitempty"`
 }
 
 // VirtualMachineClassPhase defines current status of resource:

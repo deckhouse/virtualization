@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -115,6 +116,11 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	}
 
 	mgr.Update(cb.Condition())
+
+	sort.Strings(availableNodes)
+	sort.Strings(featuresEnabled)
+	sort.Strings(featuresNotEnabled)
+
 	changed.Status.Conditions = mgr.Generate()
 	changed.Status.AvailableNodes = availableNodes
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
