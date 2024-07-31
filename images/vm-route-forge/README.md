@@ -1,6 +1,4 @@
-## vmi-router
-
-> **NOTE:** Not an accurate name, should be 'cilium-route-updater'.
+## vm-route-forge
 
 This controller watches for VirtualMachines in virtualization.deckhouse.io group and updates routes in table 1490 to route traffic between VMs via Cilium agents.
 
@@ -23,7 +21,7 @@ Use --cidr flags to specify CIDRs to limit managed IPs. Controller will update r
 Example:
 
 ```
-vmi-router --cidr 10.2.0.0/24 --cidr 10.2.1.0/24 --cidr 10.2.2.0/24 
+vm-route-forge --cidr 10.2.0.0/24 --cidr 10.2.1.0/24 --cidr 10.2.2.0/24 
 ```
 
 Controller will update route for VM with IP 10.2.1.32, but will ignore VM with IP 10.2.4.5.
@@ -32,10 +30,9 @@ Controller will update route for VM with IP 10.2.1.32, but will ignore VM with I
 
 Use --dry-run flag to enable non destructive mode. The controller will not actually delete or replace rules and routes, only log these actions.
 
-#### Metrics and healthz addresses
+#### Healthz addresses
 
-Controller can't predict used ports when starting in host network mode. So, be default, metrics and healthz are started on random free ports. Use flags to specify these addresses:
+Controller can't predict used ports when starting in host network mode. So, be default, healthz are started on random free ports. Use flags to specify these addresses:
 
-`--metrics-bind-address` - set port for /metrics endpoint, e.g. `--metrics-bind-address=:9250`
 `--health-probe-bind-address` - set port for /healthz endpoint, e.g. `--health-probe-bind-address=:9321`
 

@@ -1,0 +1,143 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package server
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"time"
+
+	"github.com/go-logr/logr"
+	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	defaultGracefulShutdownPeriod = 30 * time.Second
+	defaultReadinessEndpoint      = "/readyz"
+	defaultLivenessEndpoint       = "/healthz"
+)
+
+type Server struct {
+	runnableGroup           *runnableGroup
+	gracefulShutdownTimeout time.Duration
+	healthProbeListener     net.Listener
+	readyzHandler           http.Handler
+	healthzHandler          http.Handler
+	readinessEndpointRoute  string
+	livenessEndpointRoute   string
+
+	client kubernetes.Interface
+	log    logr.Logger
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	if s.healthProbeListener != nil {
+		if err := s.addHealthProbeServer(); err != nil {
+			return fmt.Errorf("failed to add health probe server: %w", err)
+		}
+	}
+	return s.runnableGroup.run(ctx)
+}
+
+func (s *Server) addHealthProbeServer() error {
+	mux := http.NewServeMux()
+	srv := NewHTTPServer(mux)
+
+	if s.readyzHandler != nil {
+		mux.Handle(s.readinessEndpointRoute, http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+		// Append '/' suffix to handle subpaths
+		mux.Handle(s.readinessEndpointRoute+"/", http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+	}
+	if s.healthzHandler != nil {
+		mux.Handle(s.livenessEndpointRoute, http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
+		// Append '/' suffix to handle subpaths
+		mux.Handle(s.livenessEndpointRoute+"/", http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
+	}
+
+	s.Add(&httpServer{
+		name:                    "health",
+		gracefulShutdownTimeout: s.gracefulShutdownTimeout,
+		listener:                s.healthProbeListener,
+		server:                  srv,
+		log:                     s.log,
+	})
+	return nil
+}
+
+func (s *Server) Add(r Runnable) {
+	s.runnableGroup.Add(r)
+}
+
+type Options struct {
+	HealthProbeBindAddress  string
+	ReadinessEndpointRoute  string
+	LivenessEndpointRoute   string
+	GracefulShutdownTimeout *time.Duration
+	ReadyzHandler           http.Handler
+	HealthzHandler          http.Handler
+}
+
+func setOptionsDefault(options Options) Options {
+	if options.GracefulShutdownTimeout == nil {
+		gracefulShutdownTimeout := defaultGracefulShutdownPeriod
+		options.GracefulShutdownTimeout = &gracefulShutdownTimeout
+	}
+	if options.ReadinessEndpointRoute == "" {
+		options.ReadinessEndpointRoute = defaultReadinessEndpoint
+	}
+	if options.LivenessEndpointRoute == "" {
+		options.LivenessEndpointRoute = defaultLivenessEndpoint
+	}
+	return options
+}
+
+func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*Server, error) {
+	options = setOptionsDefault(options)
+
+	// Create health probes listener. This will throw an error if the bind
+	// address is invalid or already in use.
+	healthProbeListener, err := defaultHealthProbeListener(options.HealthProbeBindAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Server{
+		healthProbeListener:     healthProbeListener,
+		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
+		readinessEndpointRoute:  options.ReadinessEndpointRoute,
+		livenessEndpointRoute:   options.LivenessEndpointRoute,
+		runnableGroup:           newRunnableGroup(),
+		readyzHandler:           options.ReadyzHandler,
+		healthzHandler:          options.HealthzHandler,
+		client:                  client,
+		log:                     log,
+	}, nil
+}
+
+func defaultHealthProbeListener(addr string) (net.Listener, error) {
+	if addr == "" || addr == "0" {
+		return nil, nil
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("error listening on %s: %w", addr, err)
+	}
+	return ln, nil
+}

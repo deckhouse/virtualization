@@ -1,4 +1,4 @@
-module vmi-router
+module vm-route-forge
 
 go 1.21.0
 

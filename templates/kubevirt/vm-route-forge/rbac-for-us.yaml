@@ -3,15 +3,15 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: vmi-router
+  name: vm-route-forge
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "vmi-router")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: d8:{{ .Chart.Name }}:vmi-router
-  {{- include "helm_lib_module_labels" (list . (dict "app" "vmi-router")) | nindent 2 }}
+  name: d8:{{ .Chart.Name }}:vm-route-forge
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
 rules:
   - apiGroups:
     - virtualization.deckhouse.io
@@ -29,18 +29,26 @@ rules:
     - list
     - get
     - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - list
+      - get
+      - watch
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: d8:{{ .Chart.Name }}:vmi-router
-  {{- include "helm_lib_module_labels" (list . (dict "app" "vmi-router")) | nindent 2 }}
+  name: d8:{{ .Chart.Name }}:vm-route-forge
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: vmi-router
+    name: vm-route-forge
     namespace: d8-{{ .Chart.Name }}
 roleRef:
   kind: ClusterRole
-  name: d8:{{ .Chart.Name }}:vmi-router
+  name: d8:{{ .Chart.Name }}:vm-route-forge
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
