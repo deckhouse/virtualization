@@ -105,7 +105,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			cb.Message("").Reason2(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
-		cb.Message("Detection nodes have no features.").
+		cb.Message("No common features are discovered on nodes.").
 			Reason2(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
