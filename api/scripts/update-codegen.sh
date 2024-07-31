@@ -75,7 +75,7 @@ function generate::core {
           cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
 }
 
-function generate:crds() {
+function generate::crds() {
           cd "${SCRIPT_ROOT}/.."
           OUTPUT_BASE=$(mktemp -d)
           trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
