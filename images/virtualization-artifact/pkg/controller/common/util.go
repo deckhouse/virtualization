@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -550,4 +551,45 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, 
 	mergedLabels := common.MergeLabels(obj.GetLabels(), staticLabels, installerLabels)
 
 	obj.SetLabels(mergedLabels)
+}
+
+func NamespacedName(obj client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
+}
+
+func MatchLabelSelector(labels map[string]string, selector metav1.LabelSelector) bool {
+	return MatchLabels(labels, selector.MatchLabels) && MatchExpressions(labels, selector.MatchExpressions)
+}
+
+func MatchLabels(labels, matchLabels map[string]string) bool {
+	for key, value := range matchLabels {
+		if labels[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func MatchExpressions(labels map[string]string, expressions []metav1.LabelSelectorRequirement) bool {
+	for _, expr := range expressions {
+		switch expr.Operator {
+		case metav1.LabelSelectorOpIn:
+			if !slices.Contains(expr.Values, labels[expr.Key]) {
+				return false
+			}
+		case metav1.LabelSelectorOpNotIn:
+			if slices.Contains(expr.Values, labels[expr.Key]) {
+				return false
+			}
+		case metav1.LabelSelectorOpExists:
+			if _, ok := labels[expr.Key]; !ok {
+				return false
+			}
+		case metav1.LabelSelectorOpDoesNotExist:
+			if _, ok := labels[expr.Key]; ok {
+				return false
+			}
+		}
+	}
+	return true
 }

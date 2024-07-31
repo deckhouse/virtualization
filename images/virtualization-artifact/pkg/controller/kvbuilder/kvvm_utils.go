@@ -70,7 +70,7 @@ func ApplyVirtualMachineSpec(
 	vmiByName map[string]*virtv2.VirtualImage,
 	cvmiByName map[string]*virtv2.ClusterVirtualImage,
 	dvcrSettings *dvcr.Settings,
-	cpu virtv2.VirtualMachineCPUModelSpec,
+	class *virtv2.VirtualMachineClass,
 	ipAddress string,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
@@ -82,15 +82,15 @@ func ApplyVirtualMachineSpec(
 	if err := kvvm.SetBootloader(vm.Spec.Bootloader); err != nil {
 		return err
 	}
-	if err := kvvm.SetCPUModel(cpu); err != nil {
+	if err := kvvm.SetCPUModel(class); err != nil {
 		return err
 	}
 
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
-	kvvm.SetNodeSelector(vm.Spec.NodeSelector)
+	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations)
-	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity))
+	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)

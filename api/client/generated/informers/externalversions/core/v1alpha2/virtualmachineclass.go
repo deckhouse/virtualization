@@ -31,58 +31,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// VirtualMachineCPUModelInformer provides access to a shared informer and lister for
-// VirtualMachineCPUModels.
-type VirtualMachineCPUModelInformer interface {
+// VirtualMachineClassInformer provides access to a shared informer and lister for
+// VirtualMachineClasses.
+type VirtualMachineClassInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualMachineCPUModelLister
+	Lister() v1alpha2.VirtualMachineClassLister
 }
 
-type virtualMachineCPUModelInformer struct {
+type virtualMachineClassInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 }
 
-// NewVirtualMachineCPUModelInformer constructs a new informer for VirtualMachineCPUModel type.
+// NewVirtualMachineClassInformer constructs a new informer for VirtualMachineClass type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewVirtualMachineCPUModelInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineCPUModelInformer(client, resyncPeriod, indexers, nil)
+func NewVirtualMachineClassInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredVirtualMachineClassInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredVirtualMachineCPUModelInformer constructs a new informer for VirtualMachineCPUModel type.
+// NewFilteredVirtualMachineClassInformer constructs a new informer for VirtualMachineClass type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredVirtualMachineCPUModelInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredVirtualMachineClassInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineCPUModels().List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineClasses().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineCPUModels().Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineClasses().Watch(context.TODO(), options)
 			},
 		},
-		&corev1alpha2.VirtualMachineCPUModel{},
+		&corev1alpha2.VirtualMachineClass{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *virtualMachineCPUModelInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredVirtualMachineCPUModelInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *virtualMachineClassInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredVirtualMachineClassInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *virtualMachineCPUModelInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualMachineCPUModel{}, f.defaultInformer)
+func (f *virtualMachineClassInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&corev1alpha2.VirtualMachineClass{}, f.defaultInformer)
 }
 
-func (f *virtualMachineCPUModelInformer) Lister() v1alpha2.VirtualMachineCPUModelLister {
-	return v1alpha2.NewVirtualMachineCPUModelLister(f.Informer().GetIndexer())
+func (f *virtualMachineClassInformer) Lister() v1alpha2.VirtualMachineClassLister {
+	return v1alpha2.NewVirtualMachineClassLister(f.Informer().GetIndexer())
 }

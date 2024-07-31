@@ -40,12 +40,13 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/cpu"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
@@ -191,6 +192,11 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
+	if err = indexer.IndexALL(ctx, mgr); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 	if _, err = cvi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
@@ -225,7 +231,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := cpu.NewVMCPUController(ctx, mgr, log); err != nil {
+	if _, err := vmclass.NewController(ctx, mgr, slog.Default()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

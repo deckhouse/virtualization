@@ -367,6 +367,9 @@ spec:
                     * BIOS — использовать BIOS.
                     * EFI — использовать Unified Extensible Firmware (EFI/UEFI).
                     * EFIWithSecureBoot — использовать UEFI/EFI с поддержкой SecureBoot.
+                virtualMachineClassName:
+                  description: |
+                    Имя ресурса `VirtualMachineClass`, который описывает требования к виртуальному CPU, памяти и политику размещения ресурсов.
                 cpu:
                   description: |
                     Блок определяет настройки ЦП для виртуальной машины.

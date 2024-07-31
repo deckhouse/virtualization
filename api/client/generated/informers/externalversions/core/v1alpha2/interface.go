@@ -33,8 +33,8 @@ type Interface interface {
 	VirtualMachines() VirtualMachineInformer
 	// VirtualMachineBlockDeviceAttachments returns a VirtualMachineBlockDeviceAttachmentInformer.
 	VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDeviceAttachmentInformer
-	// VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
-	VirtualMachineCPUModels() VirtualMachineCPUModelInformer
+	// VirtualMachineClasses returns a VirtualMachineClassInformer.
+	VirtualMachineClasses() VirtualMachineClassInformer
 	// VirtualMachineIPAddresses returns a VirtualMachineIPAddressInformer.
 	VirtualMachineIPAddresses() VirtualMachineIPAddressInformer
 	// VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
@@ -79,9 +79,9 @@ func (v *version) VirtualMachineBlockDeviceAttachments() VirtualMachineBlockDevi
 	return &virtualMachineBlockDeviceAttachmentInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// VirtualMachineCPUModels returns a VirtualMachineCPUModelInformer.
-func (v *version) VirtualMachineCPUModels() VirtualMachineCPUModelInformer {
-	return &virtualMachineCPUModelInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+// VirtualMachineClasses returns a VirtualMachineClassInformer.
+func (v *version) VirtualMachineClasses() VirtualMachineClassInformer {
+	return &virtualMachineClassInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineIPAddresses returns a VirtualMachineIPAddressInformer.

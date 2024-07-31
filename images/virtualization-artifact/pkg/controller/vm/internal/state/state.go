@@ -48,7 +48,7 @@ type VirtualMachineState interface {
 	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
-	CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error)
+	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	Shared(fn func(s *Shared))
 }
 
@@ -68,7 +68,7 @@ type state struct {
 	viByName  map[string]*virtv2.VirtualImage
 	cviByName map[string]*virtv2.ClusterVirtualImage
 	ipAddress *virtv2.VirtualMachineIPAddress
-	cpuModel  *virtv2.VirtualMachineCPUModel
+	vmClass   *virtv2.VirtualMachineClass
 	shared    Shared
 }
 
@@ -330,21 +330,19 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	return s.ipAddress, nil
 }
 
-func (s *state) CPUModel(ctx context.Context) (*virtv2.VirtualMachineCPUModel, error) {
+func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
-	if s.cpuModel != nil {
-		return s.cpuModel, nil
+	if s.vmClass != nil {
+		return s.vmClass, nil
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	vmCpuKey := types.NamespacedName{Name: s.vm.Current().Spec.CPU.VirtualMachineCPUModel}
-	model, err := helper.FetchObject(ctx, vmCpuKey, s.client, &virtv2.VirtualMachineCPUModel{})
+	className := s.vm.Current().Spec.VirtualMachineClassName
+	classKey := types.NamespacedName{Name: className}
+	class, err := helper.FetchObject(ctx, classKey, s.client, &virtv2.VirtualMachineClass{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch cpumodel: %w", err)
+		return nil, fmt.Errorf("failed to fetch VirtualMachineClass: %w", err)
 	}
-	s.cpuModel = model
-	return s.cpuModel, nil
+	s.vmClass = class
+	return s.vmClass, nil
 }

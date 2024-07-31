@@ -35,6 +35,7 @@ import (
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -120,7 +121,7 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 		case vmcondition.TypeBlockDevicesReady,
 			vmcondition.TypeIPAddressReady,
 			vmcondition.TypeProvisioningReady,
-			vmcondition.TypeCPUModelReady:
+			vmcondition.TypeClassReady:
 			if c.Status != metav1.ConditionTrue {
 				return true
 			}
@@ -308,7 +309,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, nil
 	}
 	current := s.VirtualMachine().Current()
-	kvvmName := namespacedName(current)
+	kvvmName := common.NamespacedName(current)
 
 	kvvmOpts := kvbuilder.KVVMOptions{
 		EnableParavirtualization:  current.Spec.EnableParavirtualization,
@@ -332,7 +333,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	if err != nil {
 		return nil, fmt.Errorf("failed to relaod blockdevice state for vm %q: %w", current.GetName(), err)
 	}
-	model, err := s.CPUModel(ctx)
+	class, err := s.Class(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +347,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, model.Spec, ip.Status.Address)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, h.dvcrSettings, class, ip.Status.Address)
 	if err != nil {
 		return nil, err
 	}

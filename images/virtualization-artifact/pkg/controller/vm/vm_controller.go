@@ -52,7 +52,7 @@ func NewController(
 	client := mgr.GetClient()
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, logger),
-		internal.NewCPUHandler(client, recorder, logger),
+		internal.NewClassHandler(client, recorder, logger),
 		internal.NewIPAMHandler(ipam.New(), client, recorder, logger),
 		internal.NewBlockDeviceHandler(client, recorder, logger),
 		internal.NewProvisioningHandler(client),
@@ -63,7 +63,7 @@ func NewController(
 		internal.NewLifeCycleHandler(client, recorder, logger),
 		internal.NewStatisticHandler(client),
 	}
-	r := NewReconciler(mgr.GetClient(), logger, handlers...)
+	r := NewReconciler(client, logger, handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
 	if err != nil {

@@ -1,0 +1,101 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: host
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
+  cpu:
+    type: Host
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    - cores:
+        min: 9
+        max: 16
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    - cores:
+        min: 17
+        max: 1024
+      dedicatedCores: [true, false]
+      coreFractions: [100]
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass # vmc
+metadata:
+  name: host-passthrough
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
+  cpu:
+    type: HostPassthrough
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    - cores:
+        min: 9
+        max: 16
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    - cores:
+        min: 17
+        max: 1024
+      dedicatedCores: [true, false]
+      coreFractions: [100]
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass # vmc
+metadata:
+  name: generic
+spec:
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
+  cpu:
+    type: Model
+    model: Nehalem
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    - cores:
+        min: 9
+        max: 16
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    - cores:
+        min: 17
+        max: 1024
+      dedicatedCores: [true, false]
+      coreFractions: [100]
+

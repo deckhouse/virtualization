@@ -6,6 +6,9 @@ env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
 
+vars:
+  CONTROLLER_GEN_VERSION: 0.14.0
+
 tasks:
   generate:
     desc: "Regenerate all"
@@ -33,6 +36,12 @@ tasks:
       - task: generate
       - task: _ci:verify-gen
 
+  generate:crds:
+    desc: "Regenerate crds"
+    deps:
+      - _ensure:k8s-controller-gen
+    cmd: ./scripts/update-codegen.sh crds
+
   _ci:verify-gen:
     desc: "Check generated files are up-to-date."
     internal: true
@@ -58,3 +67,12 @@ tasks:
     status:
       - |
         ls $GOPATH/bin/openapi-gen
+
+  _ensure:k8s-controller-gen:
+    desc: "Ensure sigs.k8s.io/controller-tools/cmd/controller-gen"
+    internal: true
+    cmds:
+      - go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v{{ .CONTROLLER_GEN_VERSION }}
+    status:
+      - |
+        ls $GOPATH/bin/controller-gen

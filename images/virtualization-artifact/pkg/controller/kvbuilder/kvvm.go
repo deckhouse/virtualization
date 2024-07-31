@@ -18,6 +18,7 @@ package kvbuilder
 
 import (
 	"fmt"
+	"maps"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -94,24 +95,26 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
-func (b *KVVM) SetCPUModel(cpuModelSpec virtv2.VirtualMachineCPUModelSpec) error {
+func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	var cpu virtv1.CPU
 
-	switch cpuModelSpec.Type {
-	case virtv2.Host:
+	switch class.Spec.CPU.Type {
+	case virtv2.CPUTypeHost:
+		cpu.Model = virtv1.CPUModeHostModel
+	case virtv2.CPUTypeHostPassthrough:
 		cpu.Model = virtv1.CPUModeHostPassthrough
-	case virtv2.Model:
-		cpu.Model = cpuModelSpec.Model
-	case virtv2.Features:
-		cpu.Features = make([]virtv1.CPUFeature, len(cpuModelSpec.Features))
-		for i, feature := range cpuModelSpec.Features {
+	case virtv2.CPUTypeModel:
+		cpu.Model = class.Spec.CPU.Model
+	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
+		cpu.Features = make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		for i, feature := range class.Status.CpuFeatures.Enabled {
 			cpu.Features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: "require",
 			}
 		}
 	default:
-		return fmt.Errorf("unexpected cpu type: %s", cpuModelSpec.Type)
+		return fmt.Errorf("unexpected cpu type: %q", class.Spec.CPU.Type)
 	}
 
 	b.Resource.Spec.Template.Spec.Domain.CPU = &cpu
@@ -141,8 +144,11 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 	return nil
 }
 
-func (b *KVVM) SetNodeSelector(nodeSelector map[string]string) {
-	b.Resource.Spec.Template.Spec.NodeSelector = nodeSelector
+func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]string) {
+	var selector map[string]string
+	maps.Copy(selector, vmNodeSelector)
+	maps.Copy(selector, classNodeSelector)
+	b.Resource.Spec.Template.Spec.NodeSelector = selector
 }
 
 func (b *KVVM) SetTolerations(tolerations []corev1.Toleration) {
@@ -153,8 +159,27 @@ func (b *KVVM) SetPriorityClassName(priorityClassName string) {
 	b.Resource.Spec.Template.Spec.PriorityClassName = priorityClassName
 }
 
-func (b *KVVM) SetAffinity(affinity *corev1.Affinity) {
-	b.Resource.Spec.Template.Spec.Affinity = affinity
+func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []corev1.NodeSelectorRequirement) {
+	if vmAffinity == nil && len(classMatchExpressions) == 0 {
+		b.Resource.Spec.Template.Spec.Affinity = nil
+		return
+	}
+	if vmAffinity == nil {
+		vmAffinity = &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{},
+				},
+			},
+		}
+	}
+	if len(classMatchExpressions) > 0 {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
+		)
+	}
+	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 }
 
 func (b *KVVM) SetTerminationGracePeriod(period *int64) {
@@ -165,7 +190,7 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 	b.Resource.Spec.Template.Spec.TopologySpreadConstraints = topology
 }
 
-func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize string) error {
+func (b *KVVM) SetResourceRequirements(cores int, coreFraction string, memorySize resource.Quantity) error {
 	cpuRequest, err := b.getCPURequest(cores, coreFraction)
 	if err != nil {
 		return err
@@ -173,11 +198,11 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction, memorySize strin
 	b.Resource.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    *cpuRequest,
-			corev1.ResourceMemory: resource.MustParse(memorySize),
+			corev1.ResourceMemory: memorySize,
 		},
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    *b.getCPULimit(cores),
-			corev1.ResourceMemory: resource.MustParse(memorySize),
+			corev1.ResourceMemory: memorySize,
 		},
 	}
 	return nil

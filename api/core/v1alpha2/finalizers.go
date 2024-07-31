@@ -34,4 +34,5 @@ const (
 	FinalizerIPAddressLeaseCleanup = "virtualization.deckhouse.io/vmipl-cleanup"
 	FinalizerVMBDACleanup          = "virtualization.deckhouse.io/vmbda-cleanup"
 	FinalizerVMOPCleanup           = "virtualization.deckhouse.io/vmop-cleanup"
+	FinalizerVMClassCleanup        = "virtualization.deckhouse.io/vmclass-cleanup"
 )

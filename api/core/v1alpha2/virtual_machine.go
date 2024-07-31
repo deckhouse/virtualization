@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 )
@@ -73,12 +74,13 @@ type VirtualMachineSpec struct {
 	// Default value is true, so omitempty is not specified.
 	EnableParavirtualization bool `json:"enableParavirtualization"`
 
-	OsType          OsType               `json:"osType,omitempty"`
-	Bootloader      BootloaderType       `json:"bootloader,omitempty"`
-	CPU             CPUSpec              `json:"cpu"`
-	Memory          MemorySpec           `json:"memory"`
-	BlockDeviceRefs []BlockDeviceSpecRef `json:"blockDeviceRefs"`
-	Provisioning    *Provisioning        `json:"provisioning"`
+	OsType                  OsType               `json:"osType,omitempty"`
+	Bootloader              BootloaderType       `json:"bootloader,omitempty"`
+	VirtualMachineClassName string               `json:"virtualMachineClassName,omitempty"`
+	CPU                     CPUSpec              `json:"cpu"`
+	Memory                  MemorySpec           `json:"memory"`
+	BlockDeviceRefs         []BlockDeviceSpecRef `json:"blockDeviceRefs"`
+	Provisioning            *Provisioning        `json:"provisioning"`
 }
 
 type RunPolicy string
@@ -107,13 +109,12 @@ const (
 )
 
 type CPUSpec struct {
-	VirtualMachineCPUModel string `json:"virtualMachineCPUModelName"`
-	Cores                  int    `json:"cores"`
-	CoreFraction           string `json:"coreFraction"`
+	Cores        int    `json:"cores"`
+	CoreFraction string `json:"coreFraction"`
 }
 
 type MemorySpec struct {
-	Size string `json:"size"`
+	Size resource.Quantity `json:"size"`
 }
 
 type RestartApprovalMode string
