@@ -8,7 +8,7 @@ metadata:
 spec:
   ports:
     - name: pprof
-      port: 1111
+      port: 8119
       protocol: TCP
       targetPort: pprof
   selector:

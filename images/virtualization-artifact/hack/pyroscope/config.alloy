@@ -5,15 +5,15 @@ local.file "endpoints" {
     // for the Alloy export to.
     filename = "/etc/alloy/endpoints.json"
 }
-pyroscope.write "write_virtualziation_controller" {
+pyroscope.write "write_virtualziation" {
         endpoint {
                 url = json_path(local.file.endpoints.content, ".profiles.url")[0]
         }
 }
 
-pyroscope.scrape "scrape_virtualziation_controller" {
-        targets    = [{"__address__" = "localhost:8081", "service_name" = "virtualziation_controller"}]
-        forward_to = [pyroscope.write.write_virtualziation_controller.receiver]
+pyroscope.scrape "scrape_virtualziation" {
+        targets    = [{"__address__" = "localhost:8081", "service_name" = "virtualziation"}]
+        forward_to = [pyroscope.write.write_virtualziation.receiver]
 
         profiling_config {
                 profile.process_cpu {

@@ -71,7 +71,7 @@ spec:
             {{- end }}
             {{- if eq .Values.virtualization.logLevel "debug" }}
             - name: PPROF_BIND_ADDRESS
-              value: ":1111"
+              value: ":8119"
             {{- end }}
           resources:
             requests:
@@ -79,4 +79,8 @@ spec:
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
               {{- include "vm-route-forge_resources" . | nindent 14 }}
               {{- end }}
+          ports:
+            - containerPort: 8119
+              name: pprof
+              protocol: TCP
 {{- end }}

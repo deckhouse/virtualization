@@ -667,7 +667,7 @@ tasks:
 
   pyroscope:local:run:vm-route-forge:
     desc: "Run pyroscope locally for vm-route-forge"
-    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=vm-route-forge --port=1111
+    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=vm-route-forge --port=8119
 
   pyroscope:local:wipe:vm-route-forge:
     desc: "Wipe local pyroscope for vm-route-forge"
