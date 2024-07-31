@@ -59,6 +59,7 @@ metadata:
   labels:
     vm: win
 spec:
+  virtualMachineClassName: generic
   runPolicy: Manual
   osType: Windows
   bootloader: EFI
@@ -207,6 +208,7 @@ metadata:
   labels:
     vm: win
 spec:
+  virtualMachineClassName: generic
   provisioning:
     type: SysprepRef
     sysprepRef:
