@@ -109,7 +109,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			Reason2(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
-		cb.Message(fmt.Sprintf("Discovery available only cpu.type %q", virtv2.CPUTypeDiscovery)).
+		cb.Message(fmt.Sprintf("Discovery not needed for cpu.type %q", t)).
 			Reason2(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse)
 	}
