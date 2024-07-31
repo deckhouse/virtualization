@@ -50,6 +50,8 @@ func (r *runnableGroup) Run(ctx context.Context) error {
 }
 
 func (r *runnableGroup) run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	wg := sync.WaitGroup{}
 	var mu sync.Mutex
 	var retErr error
@@ -63,6 +65,7 @@ func (r *runnableGroup) run(ctx context.Context) error {
 				retErr = errors.Join(retErr, err)
 				mu.Unlock()
 			}
+			cancel()
 		}()
 	}
 	wg.Wait()
