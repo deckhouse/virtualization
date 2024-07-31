@@ -31,7 +31,7 @@ function source::settings {
   CODEGEN_PKG="$(go env GOMODCACHE)/$(go list -f '{{.Path}}@{{.Version}}' -m k8s.io/code-generator)"
   MODULE="github.com/deckhouse/virtualization/api"
   PREFIX_GROUP="virtualization.deckhouse.io_"
-  # TODO: legacy, delete after all crds are auto-generated
+  # TODO: Temporary filter until all CRDs become auto-generated.
   ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass ExampleKind1 ExampleKind2")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
