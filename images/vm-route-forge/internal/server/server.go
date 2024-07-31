@@ -50,9 +50,7 @@ type Server struct {
 
 func (s *Server) Run(ctx context.Context) error {
 	if s.healthProbeListener != nil {
-		if err := s.addHealthProbeServer(); err != nil {
-			return fmt.Errorf("failed to add health probe server: %w", err)
-		}
+		s.addHealthProbeServer()
 	}
 	if s.pprofListener != nil {
 		s.addPprofServer()
@@ -60,20 +58,17 @@ func (s *Server) Run(ctx context.Context) error {
 	return s.runnableGroup.run(ctx)
 }
 
-func (s *Server) addHealthProbeServer() error {
+func (s *Server) addHealthProbeServer() {
 	mux := http.NewServeMux()
 	srv := NewHTTPServer(mux)
 
-	if s.readyzHandler != nil {
-		mux.Handle(s.readinessEndpointRoute, http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
-		// Append '/' suffix to handle subpaths
-		mux.Handle(s.readinessEndpointRoute+"/", http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
-	}
-	if s.healthzHandler != nil {
-		mux.Handle(s.livenessEndpointRoute, http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
-		// Append '/' suffix to handle subpaths
-		mux.Handle(s.livenessEndpointRoute+"/", http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
-	}
+	mux.Handle(s.readinessEndpointRoute, http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+	// Append '/' suffix to handle subpaths
+	mux.Handle(s.readinessEndpointRoute+"/", http.StripPrefix(s.readinessEndpointRoute, s.getReadyzHandler()))
+
+	mux.Handle(s.livenessEndpointRoute, http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
+	// Append '/' suffix to handle subpaths
+	mux.Handle(s.livenessEndpointRoute+"/", http.StripPrefix(s.livenessEndpointRoute, s.getHealthzHandler()))
 
 	s.Add(&httpServer{
 		name:                    "health",
@@ -82,7 +77,6 @@ func (s *Server) addHealthProbeServer() error {
 		server:                  srv,
 		log:                     s.log,
 	})
-	return nil
 }
 
 func (s *Server) addPprofServer() {

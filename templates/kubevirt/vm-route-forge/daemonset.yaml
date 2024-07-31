@@ -75,6 +75,8 @@ spec:
             - name: PPROF_BIND_ADDRESS
               value: ":8119"
             {{- end }}
+            - name: HEALTH_PROBE_BIND_ADDRESS
+              value: ":8118"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -84,6 +86,9 @@ spec:
           ports:
             - containerPort: 8119
               name: pprof
+              protocol: TCP
+            - containerPort: 8118
+              name: health
               protocol: TCP
           readinessProbe:
             httpGet:
