@@ -32,7 +32,7 @@ const (
 	DefaultTerminationGracePeriodSeconds = int64(60)
 )
 
-func compareVirtualmachineClass(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareVirtualMachineClass(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"virtualMachineClassName",
 		current.VirtualMachineClassName,
