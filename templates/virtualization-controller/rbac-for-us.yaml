@@ -152,13 +152,13 @@ rules:
   - virtualdisks
   - virtualmachinedisksnapshots
   - virtualimages
-  - virtualmachinecpumodels
   - virtualmachineipaddressleases
   - virtualmachineipaddresses
   - virtualmachineblockdeviceattachments
   - virtualmachines
   - clustervirtualimages
   - virtualmachineoperations
+  - virtualmachineclasses
   verbs:
   - create
   - delete
@@ -176,12 +176,11 @@ rules:
   - virtualmachineblockdeviceattachments/finalizers
   - virtualmachines/finalizers
   - clustervirtualimages/finalizers
-  - virtualmachinecpumodels/finalizers
   - virtualmachineipaddressleases/finalizers
   - virtualmachineipaddresses/finalizers
   - virtualmachineoperations/finalizers
+  - virtualmachineclasses/finalizers
   - virtualmachineipaddresses/status
-  - virtualmachinecpumodels/status
   - virtualmachineipaddressleases/status
   - virtualdisks/status
   - virtualmachinedisksnapshots/status
@@ -190,6 +189,7 @@ rules:
   - virtualmachines/status
   - clustervirtualimages/status
   - virtualmachineoperations/status
+  - virtualmachineclasses/status
   verbs:
   - patch
   - update
