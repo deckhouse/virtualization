@@ -84,13 +84,13 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.MatchLabels
 		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtred []corev1.Node
+			var filtered []corev1.Node
 			for _, node := range nodes {
 				if common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.MatchExpressions) {
-					filtred = append(filtred, node)
+					filtered = append(filtered, node)
 				}
 			}
-			return filtred
+			return filtered
 		}
 	case virtv2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}

@@ -32,7 +32,7 @@ function source::settings {
   MODULE="github.com/deckhouse/virtualization/api"
   PREFIX_GROUP="virtualization.deckhouse.io_"
   # TODO: Temporary filter until all CRDs become auto-generated.
-  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass ExampleKind1 ExampleKind2")
+  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass" "ExampleKind1" "ExampleKind2")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
@@ -82,16 +82,15 @@ function generate::crds() {
 
           "${GOPATH}/bin/controller-gen" crd paths=./api/core/v1alpha2/... output:crd:dir="${OUTPUT_BASE}"
 
-          while IFS= read -r -d '' file
-            do
-              # TODO: legacy, delete after all crds are auto-generated
+          # shellcheck disable=SC2044
+          for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do
+              # TODO: Temporary filter until all CRDs become auto-generated.
               # shellcheck disable=SC2002
               if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
                 continue
               fi
               cp "$file" "./crds/${file/#"$OUTPUT_BASE/$PREFIX_GROUP"/}"
-          done <   <(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml" -print0)
-
+          done
 }
 
 
@@ -112,13 +111,13 @@ case "$WHAT" in
     ;;
   crds)
     source::settings
-    generate:crds
+    generate::crds
     ;;
   all)
     source::settings
     generate::core
     generate::subresources
-    generate:crds
+    generate::crds
     ;;
 *)
     echo "Invalid argument: $WHAT"

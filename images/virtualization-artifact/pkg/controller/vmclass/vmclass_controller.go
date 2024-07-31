@@ -43,7 +43,7 @@ func NewController(
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	client := mgr.GetClient()
 	handlers := []Handler{
-		internal.NewProtectionHandler(client, recorder, logger),
+		internal.NewDeletionHandler(client, recorder, logger),
 		internal.NewDiscoveryHandler(),
 		internal.NewLifeCycleHandler(client),
 	}

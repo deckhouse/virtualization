@@ -35,7 +35,7 @@ import (
 
 const nameDeletionHandler = "DeletionHandler"
 
-func NewProtectionHandler(client client.Client, recorder record.EventRecorder, logger *slog.Logger) *DeletionHandler {
+func NewDeletionHandler(client client.Client, recorder record.EventRecorder, logger *slog.Logger) *DeletionHandler {
 	return &DeletionHandler{
 		client:   client,
 		recorder: recorder,

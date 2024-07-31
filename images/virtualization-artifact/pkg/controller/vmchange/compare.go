@@ -23,7 +23,7 @@ import (
 type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
 
 var specComparators = []SpecFieldsComparator{
-	compareVirtualmachineClass,
+	compareVirtualMachineClass,
 	compareRunPolicy,
 	compareVirtualMachineIPAddress,
 	compareTopologySpreadConstraints,
