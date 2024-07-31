@@ -79,25 +79,32 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	src := ru.Src
 
 	key, found := r.cache.GetName(dst.IP.String())
+
+	log := r.log.WithValues(
+		"src", src,
+		"dst", dst.String(),
+		"virtualMachine", key)
+	log.Info("Started processing route")
+
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
 		// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
 		if !found {
 			break
 		}
-		// if the route has been added, but there is no addresses in the cache, then add the VM to the queue.
 		addrs, found := r.cache.GetAddresses(key)
 		if !found {
+			log.Info("The route was added, but there is no addresses in the cache. Add the VM to the queue.")
 			r.enqueueKey(key)
 			break
 		}
-		// if the route was added, but the addresses from the cache and from the route do not match, then add the VM to the queue.
 		if addrs.NodeIP != src.String() || addrs.VMIP != dst.String() {
+			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.")
 			r.enqueueKey(key)
 		}
-		// if the route was deleted but not deleted from the cache, then add the VM to the queue.
 	case unix.RTM_DELROUTE:
 		if found {
+			log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
 			r.enqueueKey(key)
 		}
 	}

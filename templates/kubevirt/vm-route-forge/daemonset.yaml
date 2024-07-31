@@ -51,6 +51,8 @@ spec:
       serviceAccountName: vm-route-forge
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
         - name: vm-route-forge
           args:
@@ -83,4 +85,20 @@ spec:
             - containerPort: 8119
               name: pprof
               protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8118
+              scheme: HTTP
+            initialDelaySeconds: 5
+            failureThreshold: 2
+            periodSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8118
+              scheme: HTTP
+            periodSeconds: 1
+            failureThreshold: 3
+
 {{- end }}
