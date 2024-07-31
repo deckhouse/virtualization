@@ -59,6 +59,11 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 	return nil
 }
 
+// The cache is the source of truth.
+// It contains all relevant information about the cluster,
+// including the name and namespace of the virtual machine, its ip and ip nodes.
+// We monitor updates in the routes and if we find a mismatch with the cache,
+// we put the virtual machine in the queue for processing.
 func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	dst := ru.Dst
 	if dst == nil {
@@ -76,16 +81,21 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	key, found := r.cache.GetName(dst.IP.String())
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
+		// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
 		if !found {
 			break
 		}
+		// if the route has been added, but there is no addresses in the cache, then add the VM to the queue.
 		addrs, found := r.cache.GetAddresses(key)
 		if !found {
 			r.enqueueKey(key)
+			break
 		}
+		// if the route was added, but the addresses from the cache and from the route do not match, then add the VM to the queue.
 		if addrs.NodeIP != src.String() || addrs.VMIP != dst.String() {
 			r.enqueueKey(key)
 		}
+		// if the route was deleted but not deleted from the cache, then add the VM to the queue.
 	case unix.RTM_DELROUTE:
 		if found {
 			r.enqueueKey(key)
