@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -37,6 +38,7 @@ type Server struct {
 	runnableGroup           *runnableGroup
 	gracefulShutdownTimeout time.Duration
 	healthProbeListener     net.Listener
+	pprofListener           net.Listener
 	readyzHandler           http.Handler
 	healthzHandler          http.Handler
 	readinessEndpointRoute  string
@@ -51,6 +53,9 @@ func (s *Server) Run(ctx context.Context) error {
 		if err := s.addHealthProbeServer(); err != nil {
 			return fmt.Errorf("failed to add health probe server: %w", err)
 		}
+	}
+	if s.pprofListener != nil {
+		s.addPprofServer()
 	}
 	return s.runnableGroup.run(ctx)
 }
@@ -80,12 +85,32 @@ func (s *Server) addHealthProbeServer() error {
 	return nil
 }
 
+func (s *Server) addPprofServer() {
+	mux := http.NewServeMux()
+	srv := NewHTTPServer(mux)
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	s.Add(&httpServer{
+		name:                    "pprof",
+		gracefulShutdownTimeout: s.gracefulShutdownTimeout,
+		server:                  srv,
+		log:                     s.log,
+		listener:                s.pprofListener,
+	})
+}
+
 func (s *Server) Add(r Runnable) {
 	s.runnableGroup.Add(r)
 }
 
 type Options struct {
 	HealthProbeBindAddress  string
+	PprofBindAddress        string
 	ReadinessEndpointRoute  string
 	LivenessEndpointRoute   string
 	GracefulShutdownTimeout *time.Duration
@@ -112,13 +137,18 @@ func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*
 
 	// Create health probes listener. This will throw an error if the bind
 	// address is invalid or already in use.
-	healthProbeListener, err := defaultHealthProbeListener(options.HealthProbeBindAddress)
+	healthProbeListener, err := defaultListener(options.HealthProbeBindAddress)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to new healthprobe listener: %w", err)
+	}
+	pprofListener, err := defaultListener(options.PprofBindAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new pprof listener: %w", err)
 	}
 
 	return &Server{
 		healthProbeListener:     healthProbeListener,
+		pprofListener:           pprofListener,
 		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
 		readinessEndpointRoute:  options.ReadinessEndpointRoute,
 		livenessEndpointRoute:   options.LivenessEndpointRoute,
@@ -130,7 +160,7 @@ func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*
 	}, nil
 }
 
-func defaultHealthProbeListener(addr string) (net.Listener, error) {
+func defaultListener(addr string) (net.Listener, error) {
 	if addr == "" || addr == "0" {
 		return nil, nil
 	}

@@ -173,9 +173,13 @@ func run(opts options.Options) error {
 	}
 	go routeCtrl.Run(ctx, countWorkersRouteController)
 
+	serverOptions := server.Options{
+		HealthProbeBindAddress: opts.ProbeAddr,
+		PprofBindAddress:       opts.PprofAddr,
+	}
 	srv, err := server.NewServer(
 		kubeClient,
-		server.Options{HealthProbeBindAddress: opts.ProbeAddr},
+		serverOptions,
 		log,
 	)
 	if err != nil {

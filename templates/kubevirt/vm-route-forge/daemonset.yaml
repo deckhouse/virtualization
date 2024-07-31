@@ -33,7 +33,7 @@ kind: DaemonSet
 metadata:
   name: vm-route-forge
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
 spec:
   selector:
     matchLabels:
@@ -68,6 +68,10 @@ spec:
             {{- if eq .Values.virtualization.logLevel "debug" }}
             - name: VERBOSITY
               value: "10"
+            {{- end }}
+            {{- if eq .Values.virtualization.logLevel "debug" }}
+            - name: PPROF_BIND_ADDRESS
+              value: ":1111"
             {{- end }}
           resources:
             requests:
