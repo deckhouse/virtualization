@@ -154,7 +154,7 @@ Cоздание дисков для виртуальных машины обес
 | virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddresses            | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
-| virtualmachinecpumodels              | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualmachineclasses                | R    | R              | R      | R     | CRUD          | CRUD         |
 
 Команды доступные для операций с утилитой командной строки d8
 
