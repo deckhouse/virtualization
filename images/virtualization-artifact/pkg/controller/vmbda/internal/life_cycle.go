@@ -23,6 +23,7 @@ import (
 	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -67,9 +68,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, err
 	}
 
-	kvvm, err := h.attacher.GetKVVM(ctx, vm)
-	if err != nil {
-		return reconcile.Result{}, err
+	var kvvm *virtv1.VirtualMachine
+	if vm != nil {
+		kvvm, err = h.attacher.GetKVVM(ctx, vm)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if vmbda.DeletionTimestamp != nil {
