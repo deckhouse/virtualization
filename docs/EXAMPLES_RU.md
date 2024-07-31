@@ -52,6 +52,7 @@ metadata:
   labels:
     vm: linux
 spec:
+  virtualMachineClassName: generic # Класс виртуальный машины, который определяет тп vCPU, политику размера ресурсов и размещение виртуальной машины на узлах кластера.
   runPolicy: AlwaysOn # Виртуальная машина должна быть всегда включена.
   enableParavirtualization: true # Использовать паравиртуализацию (virtio).
   osType: Generic
@@ -433,6 +434,7 @@ metadata:
   labels:
     vm: linux
 spec:
+  virtualMachineClassName: generic
   runPolicy: AlwaysOn
   provisioning:
     type: UserData
