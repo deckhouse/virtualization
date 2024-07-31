@@ -61,7 +61,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	if t == virtv2.CPUTypeHostPassthrough || t == virtv2.CPUTypeHost {
 		mgr.Update(conditions.NewConditionBuilder2(vmclasscondition.TypeDiscovered).
 			Generation(current.GetGeneration()).
-			Message(fmt.Sprintf("Discovery available only cpu.type %q", virtv2.CPUTypeDiscovery)).
+			Message(fmt.Sprintf("Discovery not needed for cpu.type %q", t)).
 			Reason2(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse).Condition())
 		changed.Status.Conditions = mgr.Generate()
