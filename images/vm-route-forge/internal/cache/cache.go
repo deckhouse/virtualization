@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"net"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -24,10 +25,10 @@ import (
 
 type Cache interface {
 	GetAddresses(k types.NamespacedName) (Addresses, bool)
-	GetName(ip string) (types.NamespacedName, bool)
+	GetName(ip net.IP) (types.NamespacedName, bool)
 	Set(k types.NamespacedName, addrs Addresses)
 	DeleteByKey(k types.NamespacedName)
-	DeleteByIP(ip string)
+	DeleteByIP(ip net.IP)
 }
 
 func NewCache() Cache {
@@ -50,10 +51,10 @@ func (c *defaultCache) GetAddresses(k types.NamespacedName) (Addresses, bool) {
 	return res, ok
 }
 
-func (c *defaultCache) GetName(ip string) (types.NamespacedName, bool) {
+func (c *defaultCache) GetName(ip net.IP) (types.NamespacedName, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	res, ok := c.addrVm[ip]
+	res, ok := c.addrVm[ip.String()]
 	return res, ok
 }
 
@@ -61,7 +62,7 @@ func (c *defaultCache) Set(k types.NamespacedName, addrs Addresses) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.vmAddr[k] = addrs
-	c.addrVm[addrs.VMIP] = k
+	c.addrVm[addrs.VMIP.String()] = k
 }
 
 func (c *defaultCache) DeleteByKey(k types.NamespacedName) {
@@ -69,22 +70,22 @@ func (c *defaultCache) DeleteByKey(k types.NamespacedName) {
 	defer c.mu.Unlock()
 	addrs, ok := c.vmAddr[k]
 	if ok {
-		delete(c.addrVm, addrs.VMIP)
+		delete(c.addrVm, addrs.VMIP.String())
 	}
 	delete(c.vmAddr, k)
 }
 
-func (c *defaultCache) DeleteByIP(ip string) {
+func (c *defaultCache) DeleteByIP(ip net.IP) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	k, ok := c.addrVm[ip]
+	k, ok := c.addrVm[ip.String()]
 	if ok {
 		delete(c.vmAddr, k)
 	}
-	delete(c.addrVm, ip)
+	delete(c.addrVm, ip.String())
 }
 
 type Addresses struct {
-	NodeIP string
-	VMIP   string
+	NodeIP net.IP
+	VMIP   net.IP
 }

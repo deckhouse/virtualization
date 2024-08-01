@@ -65,24 +65,24 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
 func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
-	dst := ru.Dst.IP
-	if dst == nil {
+	vmIP := ru.Dst.IP
+	if vmIP == nil {
 		return nil
 	}
-	isManaged, err := r.isManagedIP(dst)
+	isManaged, err := r.isManagedIP(vmIP)
 	if err != nil {
 		return err
 	}
 	if !isManaged {
 		return nil
 	}
-	src := ru.Src
+	nodeIP := ru.Src
 
-	key, found := r.cache.GetName(dst.String())
+	key, found := r.cache.GetName(vmIP)
 
 	log := r.log.WithValues(
-		"src", src,
-		"dst", dst.String(),
+		"inHostNodeIP", nodeIP.String(),
+		"inHostVMIP", vmIP.String(),
 		"virtualMachine", key)
 	log.Info("Started processing route")
 
@@ -98,8 +98,11 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 			r.enqueueKey(key)
 			break
 		}
-		if addrs.NodeIP != src.String() || addrs.VMIP != dst.String() {
-			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.")
+		if !addrs.NodeIP.Equal(nodeIP) || !addrs.VMIP.Equal(vmIP) {
+			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.",
+				"inCacheNodeIP", addrs.NodeIP.String(),
+				"inCacheVMIP", addrs.VMIP.String(),
+			)
 			r.enqueueKey(key)
 		}
 	case unix.RTM_DELROUTE:
