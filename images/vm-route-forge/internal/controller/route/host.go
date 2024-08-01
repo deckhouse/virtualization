@@ -78,6 +78,8 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	}
 	nodeIP := ru.Src
 
+	r.log.V(7).Info("Got new RouteUpdate", "value", ru)
+
 	key, found := r.cache.GetName(vmIP)
 
 	log := r.log.WithValues(
