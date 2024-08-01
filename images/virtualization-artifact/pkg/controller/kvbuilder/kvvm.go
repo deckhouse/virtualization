@@ -165,13 +165,16 @@ func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []
 		return
 	}
 	if vmAffinity == nil {
-		vmAffinity = &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{},
-				},
-			},
-		}
+		vmAffinity = &corev1.Affinity{}
+	}
+	if vmAffinity.NodeAffinity == nil {
+		vmAffinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{}
 	}
 
 	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(

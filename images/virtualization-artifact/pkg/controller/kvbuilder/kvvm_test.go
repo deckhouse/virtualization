@@ -105,6 +105,12 @@ func TestSetAffinity(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                  "test affinity is nil, but nodeAffinity nil",
+			expect:                getDefaultAffinity(),
+			affinity:              &corev1.Affinity{},
+			classMatchExpressions: getDefaultMatchExpressions(),
+		},
 	}
 
 	for _, test := range tests {
