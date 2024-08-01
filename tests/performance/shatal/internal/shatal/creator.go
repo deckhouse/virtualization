@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -109,17 +110,17 @@ func (s *Creator) createVMs(ctx context.Context) {
 				},
 			},
 			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName:  "generic-v1",
 				RunPolicy:                v1alpha2.AlwaysOnPolicy,
 				EnableParavirtualization: true,
 				OsType:                   v1alpha2.GenericOs,
 				Bootloader:               "BIOS",
 				CPU: v1alpha2.CPUSpec{
-					VirtualMachineCPUModel: "generic-v1",
-					Cores:                  1,
-					CoreFraction:           "10%",
+					Cores:        1,
+					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: "500Mi",
+					Size: resource.MustParse("512Mi"),
 				},
 				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 					{

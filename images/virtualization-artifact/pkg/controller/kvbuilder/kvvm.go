@@ -160,25 +160,28 @@ func (b *KVVM) SetPriorityClassName(priorityClassName string) {
 }
 
 func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []corev1.NodeSelectorRequirement) {
-	if vmAffinity == nil && len(classMatchExpressions) == 0 {
-		b.Resource.Spec.Template.Spec.Affinity = nil
+	if len(classMatchExpressions) == 0 {
+		b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 		return
 	}
 	if vmAffinity == nil {
-		vmAffinity = &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{},
-				},
-			},
-		}
+		vmAffinity = &corev1.Affinity{}
 	}
-	if len(classMatchExpressions) > 0 {
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
-		)
+	if vmAffinity.NodeAffinity == nil {
+		vmAffinity.NodeAffinity = &corev1.NodeAffinity{}
 	}
+	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{}
+	}
+
+	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+		corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
+	)
+
 	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 }
 
