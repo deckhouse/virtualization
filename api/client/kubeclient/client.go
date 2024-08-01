@@ -62,7 +62,7 @@ type Client interface {
 	VirtualMachineIPAddresses(namespace string) virtualizationv1alpha2.VirtualMachineIPAddressInterface
 	VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface
 	VirtualMachineOperations(namespace string) virtualizationv1alpha2.VirtualMachineOperationInterface
-	VirtualMachineCPUModels() virtualizationv1alpha2.VirtualMachineCPUModelInterface
+	VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface
 }
 type StreamOptions struct {
 	In  io.Reader
@@ -126,6 +126,6 @@ func (c client) VirtualMachineOperations(namespace string) virtualizationv1alpha
 	return c.virtClient.VirtualizationV1alpha2().VirtualMachineOperations(namespace)
 }
 
-func (c client) VirtualMachineCPUModels() virtualizationv1alpha2.VirtualMachineCPUModelInterface {
-	return c.virtClient.VirtualizationV1alpha2().VirtualMachineCPUModels()
+func (c client) VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualMachineClasses()
 }
