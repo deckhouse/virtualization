@@ -35,6 +35,7 @@ spec:
             spec:
               type: object
               required:
+                - virtualMachineClassName
                 - cpu
                 - memory
                 - blockDeviceRefs
@@ -859,18 +860,13 @@ spec:
                 virtualMachineClassName:
                   type: string
                   description: |
-                    Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy.
+                    Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
                 cpu:
                   type: object
                   description: Specifies the CPU settings for the VM.
                   required:
                     - cores
                   properties:
-                    virtualMachineCPUModelName:
-                      type: string
-                      default: "generic-v1"
-                      description: |
-                        Name of `virtualMachineCPUModelName` resource holding the CPU model of the VirtualMachine.
                     cores:
                       format: int32
                       type: integer

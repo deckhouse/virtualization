@@ -16,7 +16,7 @@ rules:
   - virtualimages
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
-  - virtualmachinecpumodels
+  - virtualmachineclasses
   - virtualmachineoperations
   verbs:
   - get
@@ -120,7 +120,7 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - clustervirtualimages
-  - virtualmachinecpumodels
+  - virtualmachineclasses
   verbs:
   - create
   - delete

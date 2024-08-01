@@ -3,6 +3,7 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: host
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
   nodeSelector:
     matchExpressions:
@@ -33,9 +34,10 @@ spec:
       coreFractions: [100]
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass # vmc
+kind: VirtualMachineClass
 metadata:
   name: host-passthrough
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
   nodeSelector:
     matchExpressions:
@@ -66,9 +68,10 @@ spec:
       coreFractions: [100]
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass # vmc
+kind: VirtualMachineClass
 metadata:
   name: generic
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
   nodeSelector:
     matchExpressions:
@@ -98,4 +101,3 @@ spec:
         max: 1024
       dedicatedCores: [true, false]
       coreFractions: [100]
-

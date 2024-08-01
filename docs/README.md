@@ -154,7 +154,7 @@ The following table shows the access matrix for these roles
 | virtualmachineoperations             | R    | CR             | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddresses            | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualmachineipaddressleases        | -    | -              | -      | R     | R             | CRUD         |
-| virtualmachinecpumodels              | R    | R              | R      | R     | CRUD          | CRUD         |
+| virtualmachineclasses                | R    | R              | R      | R     | CRUD          | CRUD         |
 
 | d8 cli                        | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
 | ----------------------------- | ---- | -------------- | ------ | ----- | ------------- | ------------ |

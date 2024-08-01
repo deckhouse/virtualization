@@ -380,9 +380,6 @@ spec:
                     cores:
                       description: |
                         Количество ядер.
-                    virtualMachineCPUModelName:
-                      description: |
-                        Имя ресурса `virtualMachineCPUModelName`, определяющего модель процессора для виртуальной машины.
                 disruptions:
                   description: |
                     Описании политики применения изменений, требующих перезагрузки ВМ.

@@ -52,6 +52,7 @@ metadata:
   labels:
     vm: linux
 spec:
+  virtualMachineClassName: generic # Virtual machine class that defines the vCPU tp, resource sizing policy, and placement of the virtual machine on cluster nodes.
   runPolicy: AlwaysOn # The virtual machine must always be powered on.
   enableParavirtualization: true # Use paravirtualization (virtio).
   osType: Generic
@@ -432,6 +433,7 @@ metadata:
   labels:
     vm: linux
 spec:
+  virtualMachineClassName: generic
   runPolicy: AlwaysOn
   provisioning:
     type: UserData
