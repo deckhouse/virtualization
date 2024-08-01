@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"vm-route-forge/internal/cache"
-	netlinkwrap2 "vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/netlinkwrap"
 )
 
 func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
@@ -37,7 +37,7 @@ func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet
 		cidrs:    cidrs,
 		cache:    cache,
 		log:      log,
-		routeGet: netlinkwrap2.NewFuncs().RouteGet,
+		routeGet: netlinkwrap.NewFuncs().RouteGet,
 	}
 }
 
