@@ -116,7 +116,9 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.ClearDisks()
-	for _, bd := range vm.Spec.BlockDeviceRefs {
+	for i, bd := range vm.Spec.BlockDeviceRefs {
+		// bootOrder starts from 1.
+		bootOrder := uint(i + 1)
 		switch bd.Kind {
 		case virtv2.ImageDevice:
 			// Attach ephemeral disk for storage: Kubernetes.
@@ -132,6 +134,7 @@ func ApplyVirtualMachineSpec(
 					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                name,
+					BootOrder:             bootOrder,
 				}); err != nil {
 					return err
 				}
@@ -141,6 +144,7 @@ func ApplyVirtualMachineSpec(
 					ContainerDisk: util.GetPointer(dvcrImage),
 					IsCdrom:       imageformat.IsISO(vmi.Status.Format),
 					Serial:        name,
+					BootOrder:     bootOrder,
 				}); err != nil {
 					return err
 				}
@@ -159,12 +163,13 @@ func ApplyVirtualMachineSpec(
 				ContainerDisk: util.GetPointer(dvcrImage),
 				IsCdrom:       imageformat.IsISO(cvmi.Status.Format),
 				Serial:        name,
+				BootOrder:     bootOrder,
 			}); err != nil {
 				return err
 			}
 
 		case virtv2.DiskDevice:
-			// VirtualDisk is attached as regular disk.
+			// VirtualDisk is attached as a regular disk.
 
 			vmd := vmdByName[bd.Name]
 
@@ -172,6 +177,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaim),
 				Serial:                name,
+				BootOrder:             bootOrder,
 			}); err != nil {
 				return err
 			}

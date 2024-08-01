@@ -241,6 +241,8 @@ type SetDiskOptions struct {
 	IsEphemeral  bool
 
 	Serial string
+
+	BootOrder uint
 }
 
 func (b *KVVM) ClearDisks() {
@@ -266,6 +268,10 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		Name:       name,
 		DiskDevice: dd,
 		Serial:     opts.Serial,
+	}
+
+	if opts.BootOrder > 0 {
+		disk.BootOrder = &opts.BootOrder
 	}
 
 	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = util.SetArrayElem(
