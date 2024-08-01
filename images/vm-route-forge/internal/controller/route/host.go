@@ -28,22 +28,25 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"vm-route-forge/internal/cache"
+	"vm-route-forge/internal/netlinkwrap"
 )
 
 func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
 	return &HostRouteController{
-		queue: queue,
-		cidrs: cidrs,
-		cache: cache,
-		log:   log,
+		queue:    queue,
+		cidrs:    cidrs,
+		cache:    cache,
+		log:      log,
+		routeGet: netlinkwrap.NewFuncs().RouteGet,
 	}
 }
 
 type HostRouteController struct {
-	queue workqueue.RateLimitingInterface
-	cidrs []*net.IPNet
-	cache cache.Cache
-	log   logr.Logger
+	queue    workqueue.RateLimitingInterface
+	cidrs    []*net.IPNet
+	cache    cache.Cache
+	log      logr.Logger
+	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
 func (r *HostRouteController) Run(ctx context.Context) error {
@@ -65,39 +68,58 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
 func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
-	dst := ru.Dst
-	if dst == nil {
+	vmIP := ru.Dst.IP
+	if vmIP == nil {
 		return nil
 	}
-	isManaged, err := r.isManagedIP(dst.IP)
+	isManaged, err := r.isManagedIP(vmIP)
 	if err != nil {
 		return err
 	}
 	if !isManaged {
 		return nil
 	}
-	src := ru.Src
+	ciliumInternalIP := ru.Src
 
-	key, found := r.cache.GetName(dst.IP.String())
+	r.log.V(7).Info("Got new RouteUpdate", "value", ru)
+
+	key, found := r.cache.GetName(vmIP)
+
+	log := r.log.WithValues(
+		"ciliumInternalIP", ciliumInternalIP,
+		"inHostVMIP", vmIP.String(),
+		"virtualMachine", key)
+	log.Info("Started processing route")
+
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
 		// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
 		if !found {
 			break
 		}
-		// if the route has been added, but there is no addresses in the cache, then add the VM to the queue.
 		addrs, found := r.cache.GetAddresses(key)
 		if !found {
+			log.Info("The route was added, but there is no addresses in the cache. Add the VM to the queue.")
 			r.enqueueKey(key)
 			break
 		}
-		// if the route was added, but the addresses from the cache and from the route do not match, then add the VM to the queue.
-		if addrs.NodeIP != src.String() || addrs.VMIP != dst.String() {
+		routes, err := r.routeGet(addrs.NodeIP)
+		if err != nil || len(routes) == 0 {
+			return fmt.Errorf("failed to get routes: %w", err)
+		}
+		ciliumInternalIPByNodeIP := routes[0].Src
+
+		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.Equal(vmIP) {
+			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.",
+				"inCacheNodeIP", addrs.NodeIP.String(),
+				"inCacheVMIP", addrs.VMIP.String(),
+				"ciliumInternalIPByNodeIP", ciliumInternalIPByNodeIP.String(),
+			)
 			r.enqueueKey(key)
 		}
-		// if the route was deleted but not deleted from the cache, then add the VM to the queue.
 	case unix.RTM_DELROUTE:
 		if found {
+			log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
 			r.enqueueKey(key)
 		}
 	}

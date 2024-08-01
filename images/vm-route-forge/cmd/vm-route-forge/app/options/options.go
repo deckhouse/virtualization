@@ -33,6 +33,7 @@ type Options struct {
 	Cidrs     netutil.CIDRSet
 	DryRun    bool
 	ProbeAddr string
+	PprofAddr string
 	NodeName  string
 	TableID   string
 }
@@ -41,14 +42,17 @@ const (
 	flagCidr, flagCidrShort           = "cidr", "c"
 	flagDryRun, flagDryRunShort       = "dry-run", "d"
 	flagProbeAddr                     = "health-probe-bind-address"
+	flagPprofAddr                     = "pprof-bind-address"
 	flagVerbosity, flagVerbosityShort = "verbosity", "v"
 	flagNodeName, flagNodeNameShort   = "nodeName", "n"
 	flagTableId, flagTableIdShort     = "tableId", "t"
 	defaultVerbosity                  = 1
 
-	VerbosityEnv = "VERBOSITY"
-	NodeNameEnv  = "NODE_NAME"
-	TableIDEnv   = "TABLE_ID"
+	HealthProbeBindAddressEnv = "HEALTH_PROBE_BIND_ADDRESS"
+	PprofBindAddressEnv       = "PPROF_BIND_ADDRESS"
+	VerbosityEnv              = "VERBOSITY"
+	NodeNameEnv               = "NODE_NAME"
+	TableIDEnv                = "TABLE_ID"
 )
 
 func NewOptions() Options {
@@ -62,7 +66,8 @@ func NewOptions() Options {
 func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.StringSliceVarP((*[]string)(&o.Cidrs), flagCidr, flagCidrShort, []string{}, "CIDRs enabled to route (multiple flags allowed)")
 	fs.BoolVarP(&o.DryRun, flagDryRun, flagDryRunShort, false, "Don't perform any changes on the node.")
-	fs.StringVar(&o.ProbeAddr, flagProbeAddr, ":0", "The address the probe endpoint binds to.")
+	fs.StringVar(&o.ProbeAddr, flagProbeAddr, os.Getenv(HealthProbeBindAddressEnv), "The address the probe endpoint binds to.")
+	fs.StringVar(&o.PprofAddr, flagPprofAddr, os.Getenv(PprofBindAddressEnv), "The address the pprof endpoint binds to.")
 	fs.StringVarP(&o.NodeName, flagNodeName, flagNodeNameShort, os.Getenv(NodeNameEnv), "The name of the node.")
 	fs.StringVarP(&o.TableID, flagTableId, flagTableIdShort, os.Getenv(TableIDEnv), "The id of the table.")
 	fs.IntVarP(&o.Verbosity, flagVerbosity, flagVerbosityShort, getDefaultVerbosity(), "Verbosity of output")

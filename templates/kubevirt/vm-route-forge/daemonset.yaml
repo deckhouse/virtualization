@@ -33,7 +33,7 @@ kind: DaemonSet
 metadata:
   name: vm-route-forge
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
 spec:
   selector:
     matchLabels:
@@ -51,6 +51,8 @@ spec:
       serviceAccountName: vm-route-forge
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
         - name: vm-route-forge
           args:
@@ -69,10 +71,39 @@ spec:
             - name: VERBOSITY
               value: "10"
             {{- end }}
+            {{- if eq .Values.virtualization.logLevel "debug" }}
+            - name: PPROF_BIND_ADDRESS
+              value: ":8119"
+            {{- end }}
+            - name: HEALTH_PROBE_BIND_ADDRESS
+              value: ":8118"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
               {{- include "vm-route-forge_resources" . | nindent 14 }}
               {{- end }}
+          ports:
+            - containerPort: 8119
+              name: pprof
+              protocol: TCP
+            - containerPort: 8118
+              name: health
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8118
+              scheme: HTTP
+            initialDelaySeconds: 5
+            failureThreshold: 2
+            periodSeconds: 1
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8118
+              scheme: HTTP
+            periodSeconds: 1
+            failureThreshold: 3
+
 {{- end }}
