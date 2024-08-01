@@ -137,7 +137,7 @@ func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*
 	}
 	pprofListener, err := defaultListener(options.PprofBindAddress)
 	if err != nil {
-		return nil, fmt.Errorf("failed to new pprof listener: %w", err)
+		return nil, fmt.Errorf("failed to create new pprof listener: %w", err)
 	}
 
 	return &Server{
