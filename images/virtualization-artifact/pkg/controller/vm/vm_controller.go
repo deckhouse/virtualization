@@ -20,6 +20,7 @@ import (
 	"context"
 	"log/slog"
 
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -65,7 +66,7 @@ func NewController(
 	}
 	r := NewReconciler(client, logger, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r})
+	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, RecoverPanic: ptr.To(true)})
 	if err != nil {
 		return nil, err
 	}

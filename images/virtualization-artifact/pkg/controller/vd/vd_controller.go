@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -82,7 +83,7 @@ func NewController(
 		internal.NewStatsHandler(stat, importer, uploader),
 	)
 
-	vdController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})
+	vdController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, RecoverPanic: ptr.To(true)})
 	if err != nil {
 		return nil, err
 	}

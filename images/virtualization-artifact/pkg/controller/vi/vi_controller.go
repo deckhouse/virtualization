@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -70,7 +71,7 @@ func NewController(
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
-	viController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})
+	viController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, RecoverPanic: ptr.To(true)})
 	if err != nil {
 		return nil, err
 	}
