@@ -21,6 +21,7 @@ import (
 	"log/slog"
 
 	"github.com/go-logr/logr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -54,7 +55,7 @@ func NewController(
 		internal.NewDeletionHandler(),
 	)
 
-	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler})
+	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, RecoverPanic: ptr.To(true)})
 	if err != nil {
 		return nil, err
 	}

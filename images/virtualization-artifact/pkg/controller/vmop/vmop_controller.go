@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -53,8 +54,9 @@ func NewController(
 		})
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:  reconcilerCore,
-		RateLimiter: workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
+		Reconciler:   reconcilerCore,
+		RateLimiter:  workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
+		RecoverPanic: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err
