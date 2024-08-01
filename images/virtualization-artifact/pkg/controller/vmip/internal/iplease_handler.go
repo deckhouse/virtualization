@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -75,9 +74,8 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 		return h.createNewLease(ctx, state)
 
 	case lease.Status.Phase == "":
-		// TODO: Replace this requeue with proper UpdateFunc in VirtualMachineIPAddressLease watch setup.
 		h.logger.Info("Lease is not ready: waiting for the lease")
-		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, nil
+		return reconcile.Result{}, nil
 
 	case util.IsBoundLease(lease, vmip):
 		h.logger.Info("Lease already exists, VirtualMachineIP ref is valid")
