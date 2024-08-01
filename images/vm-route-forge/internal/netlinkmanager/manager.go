@@ -207,35 +207,33 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 }
 
 // UpdateRoute updates route for a single VirtualMachine.
-func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
+func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
 	if vm.Status.Node == "" {
-		// VMI has no node assigned
-		return
+		// VM has no node assigned
+		return nil
 	}
 	vmIP := vm.Status.IPAddress
 	if vmIP == "" {
-		// VMI has no IP address assigned
-		return
+		// VM has no IP address assigned
+		return nil
 	}
 
 	isManaged, err := m.isManagedIP(vmIP)
 	if err != nil {
-		m.log.Error(err, "failed to parse IP address in VM status")
-		return
+		return fmt.Errorf("failed to parse IP address in VM status: %w", err)
 	}
 	if !isManaged {
 		m.log.Info(fmt.Sprintf("Ignore not managed IP %s assigned to VM/%s", vmIP, vm.GetName()))
-		return
+		return nil
 	}
 
 	// Prepare ip with the mask to use as the route destination.
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
 	_, vmRouteDst, err := net.ParseCIDR(netutil.AppendHostNetmask(vmIP))
 	if err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for vm/%s", vmIPWithNetmask, vm.GetName()))
-		return
+		return fmt.Errorf("failed to parse IP with netmask %s for vm/%s: %w", vmIPWithNetmask, vm.GetName(), err)
 	}
 
 	// Save IP to the in-memory cache to restore IP later.
@@ -254,20 +252,18 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 
 	nodeIP := getCiliumInternalIPAddress(ciliumNode)
 	if nodeIP == "" {
-		m.log.Error(fmt.Errorf("nodeIP is empty"), fmt.Sprintf("CiliumNode has no %s specified", addressing.NodeCiliumInternalIP))
-		return
+		return fmt.Errorf("ciliumNode has no %s specified", addressing.NodeCiliumInternalIP)
 	}
 	nodeIPx := net.ParseIP(nodeIP)
 	if len(nodeIPx) == 0 {
-		m.log.Error(fmt.Errorf(nodeIP), "failed to parse IP address")
-		return
+		return fmt.Errorf("invalid IP address %s", nodeIP)
 	}
 	m.cache.Set(vmKey, cache2.Addresses{VMIP: vmIP, NodeIP: nodeIP})
 
 	// Get route for specific nodeIP and create similar for our Virtual Machine.
 	routes, err := m.nlWrapper.RouteGet(nodeIPx)
 	if err != nil || len(routes) == 0 {
-		m.log.Error(err, "failed to get route for node")
+		return fmt.Errorf("failed to get routes for node %s: %w", nodeIPx, err)
 	}
 	origRoute := routes[0]
 	route := routes[0]
@@ -276,8 +272,7 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 	if route.Table == LocalRouteTable {
 		iface, err := netlink.LinkByName(CiliumIfaceName)
 		if err != nil {
-			m.log.Error(err, fmt.Sprintf("failed to get cilium interface %s", CiliumIfaceName))
-			os.Exit(1)
+			return fmt.Errorf("failed to get cilium interface %s: %w", CiliumIfaceName, err)
 		}
 		// Overwrite `lo` interface with `cilium_host`
 		route.LinkIndex = iface.Attrs().Index
@@ -289,8 +284,10 @@ func (m *Manager) UpdateRoute(ctx context.Context, vm *virtv2.VirtualMachine) {
 
 	if err = m.nlWrapper.RouteReplace(&route); err != nil {
 		m.log.Error(err, fmt.Sprintf("failed to update route %q to %q for VM %s/%s", fmtRoute(origRoute), fmtRoute(route), vm.GetNamespace(), vm.GetName()))
+		return fmt.Errorf("failed to update route: %w", err)
 	}
 	m.log.Info(fmt.Sprintf("route %q updated for VM %s/%s", fmtRoute(route), vm.GetNamespace(), vm.GetName()))
+	return nil
 }
 
 func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
@@ -305,7 +302,7 @@ func getCiliumInternalIPAddress(node *ciliumv2.CiliumNode) string {
 	return ""
 }
 
-func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
+func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) error {
 	if vmIP == "" {
 		// Try to recover IP from the cache.
 		if addr, found := m.cache.GetAddresses(vmKey); found {
@@ -314,15 +311,14 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	}
 	if vmIP == "" {
 		m.log.Info(fmt.Sprintf("Can't retrieve IP for VM %q, it may lead to stale routes.", vmKey.String()))
-		return
+		return nil
 	}
 
 	// Prepare ip with the mask to use as the route destination.
 	vmIPWithNetmask := netutil.AppendHostNetmask(vmIP)
 	_, vmRouteDst, err := net.ParseCIDR(vmIPWithNetmask)
 	if err != nil {
-		m.log.Error(err, fmt.Sprintf("failed to parse IP with netmask %s for VM %q", vmIPWithNetmask, vmKey.String()))
-		return
+		return fmt.Errorf("failed to parse IP with netmask %s for vm/%s: %w", vmIPWithNetmask, vmKey.String(), err)
 	}
 
 	route := netlink.Route{
@@ -331,12 +327,13 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) {
 	}
 
 	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) && !errors.Is(err, unix.ESRCH) {
-		m.log.Error(err, "failed to delete route")
+		return fmt.Errorf("failed to delete route: %w", err)
 	}
 	m.log.Info(fmt.Sprintf("route %s deleted for VM %q", fmtRoute(route), vmKey))
 
 	// Delete IP from the cache.
 	m.cache.DeleteByKey(vmKey)
+	return nil
 }
 
 func fmtRoute(route netlink.Route) string {

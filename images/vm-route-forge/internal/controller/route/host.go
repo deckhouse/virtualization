@@ -65,11 +65,11 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
 func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
-	dst := ru.Dst
+	dst := ru.Dst.IP
 	if dst == nil {
 		return nil
 	}
-	isManaged, err := r.isManagedIP(dst.IP)
+	isManaged, err := r.isManagedIP(dst)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	}
 	src := ru.Src
 
-	key, found := r.cache.GetName(dst.IP.String())
+	key, found := r.cache.GetName(dst.String())
 
 	log := r.log.WithValues(
 		"src", src,

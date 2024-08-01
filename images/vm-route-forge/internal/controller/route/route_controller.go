@@ -247,7 +247,7 @@ func (c *Controller) worker(ctx context.Context) {
 		}
 		defer c.queue.Done(key)
 
-		if err := c.sync(ctx, key.(string)); err != nil {
+		if err := c.sync(key.(string)); err != nil {
 			c.log.Error(err, fmt.Sprintf("re-enqueuing VirtualMachine %v", key))
 			c.queue.AddRateLimited(key)
 		} else {
@@ -265,7 +265,10 @@ func (c *Controller) worker(ctx context.Context) {
 	}
 }
 
-func (c *Controller) sync(ctx context.Context, key string) error {
+func (c *Controller) sync(key string) error {
+	log := c.log.WithValues("virtualmachine", key)
+	log.Info("Started processing vm")
+
 	obj, exists, err := c.vmIndexer.GetByKey(key)
 	if err != nil {
 		return err
@@ -273,19 +276,25 @@ func (c *Controller) sync(ctx context.Context, key string) error {
 	ns, name, _ := strings.Cut(key, "/")
 	k := types.NamespacedName{Name: name, Namespace: ns}
 	if !exists {
-		c.netlinkMgr.DeleteRoute(k, "")
+		if err = c.netlinkMgr.DeleteRoute(k, ""); err != nil {
+			log.Error(err, "Failed to delete route")
+		}
 		return nil
 	}
 	originalVM := obj.(*v1alpha2.VirtualMachine)
 	vm := originalVM.DeepCopy()
-	log := c.log.WithValues("virtualmachine", key)
-	log.Info("Started processing vm")
 
 	if vm.GetDeletionTimestamp() != nil {
-		c.netlinkMgr.DeleteRoute(k, vm.Status.IPAddress)
+		if err = c.netlinkMgr.DeleteRoute(k, vm.Status.IPAddress); err != nil {
+			log.Error(err, "Failed to delete toute")
+			return err
+		}
 		return nil
 	}
 
-	c.netlinkMgr.UpdateRoute(ctx, vm)
+	if err = c.netlinkMgr.UpdateRoute(vm); err != nil {
+		log.Error(err, "Failed to update route")
+		return err
+	}
 	return nil
 }
