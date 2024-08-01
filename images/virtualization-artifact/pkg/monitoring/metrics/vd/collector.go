@@ -17,6 +17,9 @@ limitations under the License.
 package vd
 
 import (
+	"context"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog/v2"
 
@@ -46,7 +49,7 @@ func SetupCollector(lister Lister, registerer prometheus.Registerer) *Collector 
 }
 
 type Lister interface {
-	List() ([]virtv2.VirtualDisk, error)
+	List(ctx context.Context) ([]virtv2.VirtualDisk, error)
 }
 
 type Collector struct {
@@ -60,7 +63,9 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
-	disks, err := c.lister.List()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	disks, err := c.lister.List(ctx)
 	if err != nil {
 		klog.Errorf("Failed to get list of VirtualDisks: %v", err)
 		return
