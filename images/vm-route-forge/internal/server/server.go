@@ -133,7 +133,7 @@ func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*
 	// address is invalid or already in use.
 	healthProbeListener, err := defaultListener(options.HealthProbeBindAddress)
 	if err != nil {
-		return nil, fmt.Errorf("failed to new healthprobe listener: %w", err)
+		return nil, fmt.Errorf("failed to create new healthprobe listener: %w", err)
 	}
 	pprofListener, err := defaultListener(options.PprofBindAddress)
 	if err != nil {
