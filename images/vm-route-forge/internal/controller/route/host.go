@@ -28,22 +28,25 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"vm-route-forge/internal/cache"
+	netlinkwrap2 "vm-route-forge/internal/netlinkwrap"
 )
 
 func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
 	return &HostRouteController{
-		queue: queue,
-		cidrs: cidrs,
-		cache: cache,
-		log:   log,
+		queue:    queue,
+		cidrs:    cidrs,
+		cache:    cache,
+		log:      log,
+		routeGet: netlinkwrap2.NewFuncs().RouteGet,
 	}
 }
 
 type HostRouteController struct {
-	queue workqueue.RateLimitingInterface
-	cidrs []*net.IPNet
-	cache cache.Cache
-	log   logr.Logger
+	queue    workqueue.RateLimitingInterface
+	cidrs    []*net.IPNet
+	cache    cache.Cache
+	log      logr.Logger
+	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
 func (r *HostRouteController) Run(ctx context.Context) error {
@@ -76,14 +79,14 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	if !isManaged {
 		return nil
 	}
-	nodeIP := ru.Src
+	ciliumInternalIP := ru.Src
 
 	r.log.V(7).Info("Got new RouteUpdate", "value", ru)
 
 	key, found := r.cache.GetName(vmIP)
 
 	log := r.log.WithValues(
-		"inHostNodeIP", nodeIP.String(),
+		"ciliumInternalIP", ciliumInternalIP,
 		"inHostVMIP", vmIP.String(),
 		"virtualMachine", key)
 	log.Info("Started processing route")
@@ -100,10 +103,17 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 			r.enqueueKey(key)
 			break
 		}
-		if !addrs.NodeIP.Equal(nodeIP) || !addrs.VMIP.Equal(vmIP) {
+		routes, err := r.routeGet(addrs.NodeIP)
+		if err != nil || len(routes) == 0 {
+			return fmt.Errorf("failed to get routes: %w", err)
+		}
+		ciliumInternalIPByNodeIP := routes[0].Src
+
+		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.Equal(vmIP) {
 			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.",
 				"inCacheNodeIP", addrs.NodeIP.String(),
 				"inCacheVMIP", addrs.VMIP.String(),
+				"ciliumInternalIPByNodeIP", ciliumInternalIPByNodeIP.String(),
 			)
 			r.enqueueKey(key)
 		}
