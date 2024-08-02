@@ -17,7 +17,7 @@ import:
   before: setup
 shell:
   install:
-  # Intall main packages.
+  # Install main packages.
   - |
     apt-get update && apt-get install --yes \
     acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
@@ -27,14 +27,16 @@ shell:
     qemu-kvm-core==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
     selinux-policy-alt==0.0.52-alt1:sisyphus+260794.100.1.1 \
     libaltselinux==0.1.0-alt1
- # Install packages from Sisyphus repository because p10 repository does not have required versions.
-  - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" >> /etc/apt/sources.list.d/sisyphus.list
-  - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic" >> /etc/apt/sources.list.d/sisyphus.list
+
+  # Install newer versions from p11 branch.
+  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" >> /etc/apt/sources.list.d/sisyphus.list
+  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/sisyphus.list
   - |
     apt-get update && apt-get install --yes \
     glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1 \
     seabios==1.16.3-alt3:sisyphus+339925.100.2.1 \
     edk2-ovmf==20231115-alt1:sisyphus+339582.600.5.1
+  # Cleanup
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/libguestfs/BUILD.bazel
