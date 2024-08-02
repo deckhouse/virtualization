@@ -18,7 +18,9 @@ package vmop
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,14 +37,29 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Reconciler struct{}
+type Handler interface {
+	Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error)
+	Name() string
+}
 
-func NewReconciler() *Reconciler {
-	return &Reconciler{}
+type Reconciler struct {
+	handlers []Handler
+	client   client.Client
+	logger   *slog.Logger
+}
+
+func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
+	return &Reconciler{
+		client:   client,
+		logger:   logger,
+		handlers: handlers,
+	}
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -88,6 +105,56 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return nil
 }
 
+func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	vmop := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+
+	err := vmop.Fetch(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if vmop.IsEmpty() {
+		return reconcile.Result{}, nil
+	}
+
+	r.logger.Info("Start reconcile VMOP", "namespacedName", req.String())
+
+	s := state.New(r.client, vmop)
+	var handlerErrs []error
+
+	var result reconcile.Result
+	for _, h := range r.handlers {
+		r.logger.Debug("Run handler", "name", h.Name())
+		res, err := h.Handle(ctx, s)
+		if err != nil {
+			r.logger.Error("Failed to handle VirtualMachineOperation", "err", err, "handler", h.Name())
+			handlerErrs = append(handlerErrs, err)
+		}
+
+		result = service.MergeResults(result, res)
+	}
+
+	err = vmop.Update(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	err = errors.Join(handlerErrs...)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return result, nil
+}
+
+func (r *Reconciler) factory() *virtv2.VirtualMachineOperation {
+	return &virtv2.VirtualMachineOperation{}
+}
+
+func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineOperation) virtv2.VirtualMachineOperationStatus {
+	return obj.Status
+}
+
 func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
 	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
 	switch {
@@ -110,6 +177,7 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 	case state.VmIsEmpty():
 		return nil
 	}
+
 	found, err := state.OtherVMOPInProgress(ctx)
 	if err != nil {
 		return err
@@ -118,6 +186,7 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 		state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 15 * time.Second})
 		return nil
 	}
+
 	if !state.IsInProgress() {
 		err = r.ensureVMFinalizers(ctx, state, opts)
 		if err != nil {
@@ -140,10 +209,12 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 		log.V(2).Info(msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
 		return nil
 	}
+
 	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
 		return nil
 	}
 	state.SetReconcilerResult(&reconcile.Result{RequeueAfter: 60 * time.Second})
+
 	return nil
 }
 

@@ -19,28 +19,28 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(log logr.Logger) *Validator {
+func NewValidator(log *slog.Logger) *Validator {
 	return &Validator{
-		log: log.WithName(controllerName).WithValues("webhook", "validation"),
+		log: log.With("webhook", "validation"),
 	}
 }
 
 type Validator struct {
-	log logr.Logger
+	log *slog.Logger
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }
 
@@ -59,12 +59,12 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	if reflect.DeepEqual(oldVmop.Spec, newVmop.Spec) {
 		return nil, nil
 	}
-	err := fmt.Errorf("vmop %q is invalid. vmop.spec is immutable", oldVmop.GetName())
+	err := fmt.Errorf("recreate VirtualMachineOperation/%s to apply changes: .spec modification is not allowed after creation", oldVmop.GetName())
 	return nil, err
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }

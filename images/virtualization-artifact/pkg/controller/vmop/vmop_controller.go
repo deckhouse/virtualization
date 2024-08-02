@@ -18,17 +18,17 @@ package vmop
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -38,23 +38,23 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	logger *slog.Logger,
 ) (controller.Controller, error) {
-	reconciler := NewReconciler()
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger = logger.With("controller", controllerName)
 
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*ReconcilerState](
-		reconciler,
-		NewReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
-			Recorder: mgr.GetEventRecorderFor(controllerName),
-			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(controllerName),
-		})
+	handlers := []Handler{
+		internal.NewOperationHandler(logger),
+		internal.NewLifecycleHandler(logger),
+		internal.NewProtectionHandler(logger),
+	}
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:   reconcilerCore,
+	reconciler := NewReconciler(mgr.GetClient(), logger, handlers...)
+
+	vmopController, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:   reconciler,
 		RateLimiter:  workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
 		RecoverPanic: ptr.To(true),
 	})
@@ -62,17 +62,18 @@ func NewController(
 		return nil, err
 	}
 
-	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
+	err = reconciler.SetupController(ctx, mgr, vmopController)
+	if err != nil {
 		return nil, err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewValidator(log)).
+		For(&virtv2.VirtualMachineOperation{}).
+		WithValidator(NewValidator(logger)).
 		Complete(); err != nil {
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachineOperation controller")
-	return c, nil
+	logger.Info("Initialized VirtualMachineOperation controller")
+	return vmopController, nil
 }
