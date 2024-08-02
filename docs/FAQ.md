@@ -180,7 +180,7 @@ metadata:
     app: old
 ```
 
-## How to provide windows answer file (Sysprep)
+## How to provide windows answer file(Sysprep)
 
 To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
 Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
@@ -230,4 +230,113 @@ spec:
       name: win-virtio-iso
     - kind: VirtualDisk
       name: win-disk
+```
+
+## Using virtualization in conjunction with the Admission-policy-engine module
+
+Before starting, it is recommended to familiarize yourself with the settings of the [Admission-policy-engine](https://deckhouse.ru/documentation/v1/modules/015-admission-policy-engine/) module.  
+When setting up security policies, it is recommended to follow the security policies that are installed in your company.
+
+Let's look at the example of the enabled Baseline policy.  
+Since Baseline does not allow the Pod of a virtual machine to run by default due to the elevated privileges required for the correct operation of the virtual machine, you will need to manually configure the namespaces in which they will run.
+
+1. Exclusion of the namespace from the Baseline policy.  
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: <namespace>
+    security.deckhouse.io/pod-policy: privileged
+  name: <namespace>
+spec:
+  finalizers:
+  - kubernetes
+```
+2. Setting up a new security policy.  
+This policy is based on Baseline and allows you to run virtual machines in a given namespace.
+```yaml
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: virt-launcher-deny
+spec:
+  enforcementAction: Deny
+  match:
+    namespaceSelector:
+      labelSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: <namespace>
+    labelSelector:
+      matchLabels:
+        kubevirt.internal.virtualization.deckhouse.io: virt-launcher
+  policies:
+    allowPrivilegeEscalation: true
+    allowedCapabilities:
+      - NET_BIND_SERVICE
+      - SYS_NICE
+    runAsUser:
+      ranges:
+        - max: 0
+          min: 0
+      rule: MustRunAs
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: other-deny
+spec:
+  enforcementAction: Deny
+  match:
+    namespaceSelector:
+      labelSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: <namespace>
+    labelSelector:
+      matchExpressions:
+        - key: kubevirt.internal.virtualization.deckhouse.io
+          operator: NotIn
+          values:
+            - virt-launcher
+  policies:
+    allowedCapabilities:
+      - AUDIT_WRITE
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - FSETID
+      - KILL
+      - MKNOD
+      - NET_BIND_SERVICE
+      - SETFCAP
+      - SETGID
+      - SETPCAP
+      - SETUID
+      - SYS_CHROOT
+    allowedProcMount: Default
+    seccompProfiles:
+      allowedProfiles:
+        - RuntimeDefault
+        - Localhost
+        - ""
+        - undefined
+      allowedLocalhostFiles:
+        - '*'
+    allowedUnsafeSysctls:
+      - kernel.shm_rmid_forced
+      - net.ipv4.ip_local_port_range
+      - net.ipv4.ip_unprivileged_port_start
+      - net.ipv4.tcp_syncookies
+      - net.ipv4.ping_group_range
+    allowHostNetwork: false
+    allowPrivileged: false
+    allowPrivilegeEscalation: false
+    seLinux:
+      - type: container_t
+      - type: container_init_t
+      - type: container_kvm_t
+      - level: s0
+    runAsUser:
+      rule: MustRunAsNonRoot
 ```
