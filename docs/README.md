@@ -22,8 +22,7 @@ Scenarios of using the module:
 The virtualization module requires a Deckhouse Kubernetes Platform cluster for its operation.
 
 - The processor requirements for the cluster nodes on which the virtual machines are to run include x86_64 architecture and support for Intel-VT or AMD-V instructions.
-- Other cluster node requirements are described in the document: [Going to Production
-  ](https://deckhouse.io/guides/production.html)
+- Other cluster node requirements are described in the document: [Going to Production](https://deckhouse.io/guides/production.html)
 - Any [compatible](https://deckhouse.io/documentation/v1/supported_versions.html#linux) Linux-based operating system is supported on the cluster nodes.
 - The Linux kernel on cluster nodes must be version 5.7 or newer.
 
@@ -83,6 +82,7 @@ The API provides capabilities for creating and managing the following resources:
 
 - Virtual Images
 - Virtual Disks
+- Virtuam machine Classes
 - Virtual machines
 - Virtual Machine Operations
 
@@ -109,6 +109,15 @@ One of the key features of disks is the ability to resize them without having to
 Furthermore, disks can be attached to virtual machines while they are running, providing flexibility in storage management. The `VirtualMachineBlockDeviceAttachment` resource is used for this task.
 
 Platform-provided storage (`PVC`) is used to store disks.
+
+### Virtual Machine Classes
+
+A virtual machine class is designed for:
+- configuring the type of virtual machine vCPU
+- control the placement of virtual machines on the platform nodes
+- configuring virtual machine resources (vCPU, memory) for more optimal planning and placement of virtual machines on the platform nodes.
+
+The virtual machine class is configured using the `VirtualMachineClass` resource.
 
 ### Virtual Machines
 
