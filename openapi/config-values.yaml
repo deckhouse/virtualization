@@ -189,5 +189,15 @@ properties:
     enum:
       - "debug"
       - "info"
-      - "warning"
+      - "warn"
       - "error"
+  logFormat:
+    type: string
+    description: |
+      Sets a logging format.
+
+      Working for this components:
+      - `virtualization-controller`
+    enum:
+      - "text"
+      - "json"

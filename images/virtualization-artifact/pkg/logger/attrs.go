@@ -14,10 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package log
+package logger
 
 import "log/slog"
 
+const (
+	errAttr        = "err"
+	nameAttr       = "name"
+	namespaceAttr  = "namespace"
+	handlerAttr    = "handler"
+	controllerAttr = "controller"
+)
+
 func SlogErr(err error) slog.Attr {
-	return slog.Any("err", err)
+	return slog.String(errAttr, err.Error())
+}
+
+func SlogName(name string) slog.Attr {
+	return slog.String(nameAttr, name)
+}
+
+func SlogNamespace(namespace string) slog.Attr {
+	return slog.String(namespaceAttr, namespace)
+}
+
+func SlogHandler(handler string) slog.Attr {
+	return slog.String(handlerAttr, handler)
+}
+
+func SlogController(controller string) slog.Attr {
+	return slog.String(controllerAttr, controller)
 }

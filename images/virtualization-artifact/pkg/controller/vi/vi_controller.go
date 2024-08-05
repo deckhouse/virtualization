@@ -18,6 +18,7 @@ package vi
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +53,7 @@ func NewController(
 	uploaderImage string,
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
-	stat := service.NewStatService()
+	stat := service.NewStatService(slog.Default())
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)

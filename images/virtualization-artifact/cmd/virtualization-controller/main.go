@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -26,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap/zapcore"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,7 +32,6 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -50,90 +47,87 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var (
-	log                  = logf.Log.WithName("cmd")
-	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
-		clientgoscheme.AddToScheme,
-		extv1.AddToScheme,
-		virtv2alpha1.AddToScheme,
-		cdiv1beta1.AddToScheme,
-		virtv1.AddToScheme,
-	}
-	importerImage       string
-	uploaderImage       string
-	controllerNamespace string
-	pprofBindAddr       string
-)
+var deprecatedLog = logf.Log.WithName("cmd")
 
 const (
-	defaultVerbosity = "1"
-	pprofBindAddrEnv = "PPROF_BIND_ADDRESS"
+	pprofBindAddrEnv     = "PPROF_BIND_ADDRESS"
+	logLevelEnv          = "LOG_LEVEL"
+	logDebugVerbosityEnv = "LOG_DEBUG_VERBOSITY"
+	logFormatEnv         = "LOG_FORMAT"
+	logOutputEnv         = "LOG_OUTPUT"
 )
 
-func init() {
-	importerImage = getRequiredEnvVar(common.ImporterPodImageNameVar)
-	uploaderImage = getRequiredEnvVar(common.UploaderPodImageNameVar)
-	controllerNamespace = getRequiredEnvVar(common.PodNamespaceVar)
-}
-
-func setupLogger() {
-	verbose := defaultVerbosity
-	if verboseEnvVarVal := os.Getenv("VERBOSITY"); verboseEnvVarVal != "" {
-		verbose = verboseEnvVarVal
-	}
-	// visit actual flags passed in and if passed check -v and set verbose
-	if fv := flag.Lookup("v"); fv != nil {
-		verbose = fv.Value.String()
-	}
-	if verbose == defaultVerbosity {
-		log.V(1).Info(fmt.Sprintf("Note: increase the -v level in the controller deployment for more detailed logging, eg. -v=%d or -v=%d\n", 2, 3))
-	}
-	verbosityLevel, err := strconv.Atoi(verbose)
-	debug := false
-	if err == nil && verbosityLevel > 1 {
-		debug = true
-	}
-
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(zap.New(zap.Level(zapcore.Level(-1*verbosityLevel)), zap.UseDevMode(debug)))
-}
-
-func printVersion() {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-}
-
-func getRequiredEnvVar(name string) string {
-	val := os.Getenv(name)
-	if val == "" {
-		log.Error(fmt.Errorf("environment variable %q undefined", name), "")
-	}
-	return val
-}
-
 func main() {
+	var logLevel string
+	flag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
+
+	var err error
+	var defaultDebugVerbosity int64
+	logDebugVerbosityRaw := os.Getenv(logDebugVerbosityEnv)
+	if logDebugVerbosityRaw != "" {
+		defaultDebugVerbosity, err = strconv.ParseInt(logDebugVerbosityRaw, 10, 64)
+		if err != nil {
+			slog.Default().Error(err.Error())
+			os.Exit(1)
+		}
+	}
+
+	var logDebugVerbosity int
+	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
+
+	var logFormat string
+	flag.StringVar(&logFormat, "log-format", os.Getenv(logFormatEnv), "log format")
+
+	var logOutput string
+	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
+
+	var pprofBindAddr string
 	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
 	flag.Parse()
 
-	setupLogger()
-	printVersion()
+	log := logger.New(logger.Options{
+		Level:          logLevel,
+		DebugVerbosity: logDebugVerbosity,
+		Format:         logFormat,
+		Output:         logOutput,
+	})
+
+	logger.SetDefaultLogger(log)
+
+	printVersion(log)
+
+	importerImage, err := getRequiredEnvVar(common.ImporterPodImageNameVar)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	uploaderImage, err := getRequiredEnvVar(common.UploaderPodImageNameVar)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	controllerNamespace, err := getRequiredEnvVar(common.PodNamespaceVar)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	dvcrSettings, err := appconfig.LoadDVCRSettingsFromEnvs(controllerNamespace)
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
@@ -147,10 +141,17 @@ func main() {
 
 	// Setup scheme for all resources
 	scheme := apiruntime.NewScheme()
-	for _, f := range resourcesSchemeFuncs {
+
+	for _, f := range []func(*apiruntime.Scheme) error{
+		clientgoscheme.AddToScheme,
+		extv1.AddToScheme,
+		virtv2alpha1.AddToScheme,
+		cdiv1beta1.AddToScheme,
+		virtv1.AddToScheme,
+	} {
 		err = f(scheme)
 		if err != nil {
-			log.Error(err, "Failed to add to scheme")
+			log.Error("Failed to add to scheme", logger.SlogErr(err))
 			os.Exit(1)
 		}
 	}
@@ -169,7 +170,7 @@ func main() {
 
 	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)
 	if vmCIDRsRaw == "" {
-		log.Error(errors.New("virtualMachineCIDRs not found, but required"), "Failed to get virtualMachineCIDRs")
+		log.Error("Failed to get virtualMachineCIDRs: virtualMachineCIDRs not found, but required")
 		os.Exit(1)
 	}
 	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
@@ -183,7 +184,7 @@ func main() {
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
@@ -193,59 +194,70 @@ func main() {
 	ctx := signals.SetupSignalHandler()
 
 	if err = indexer.IndexALL(ctx, mgr); err != nil {
-		log.Error(err, "")
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = cvi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
-		log.Error(err, "")
+	if _, err = cvi.NewController(ctx, mgr, deprecatedLog, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	if _, err = vd.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
-		log.Error(err, "")
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-	if _, err = vm.NewController(ctx, mgr, slog.Default(), dvcrSettings); err != nil {
-		log.Error(err, "")
+	if _, err = vi.NewController(ctx, mgr, deprecatedLog, importerImage, uploaderImage, dvcrSettings); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmbda.NewController(ctx, mgr, log, controllerNamespace); err != nil {
-		log.Error(err, "")
+	if _, err = vm.NewController(ctx, mgr, log, dvcrSettings); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err := vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
-		log.Error(err, "")
+	if _, err = vmbda.NewController(ctx, mgr, deprecatedLog, controllerNamespace); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err := vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
-		log.Error(err, "")
+	if _, err = vmip.NewController(ctx, mgr, deprecatedLog, virtualMachineCIDRs); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err := vmclass.NewController(ctx, mgr, slog.Default()); err != nil {
-		log.Error(err, "")
+	if _, err = vmiplease.NewController(ctx, mgr, deprecatedLog, virtualMachineIPLeasesRetentionDuration); err != nil {
 		os.Exit(1)
 	}
 
-	if _, err := vmop.NewController(ctx, mgr, log); err != nil {
-		log.Error(err, "")
+	if _, err = vmclass.NewController(ctx, mgr, log); err != nil {
+		os.Exit(1)
+	}
+
+	if _, err = vmop.NewController(ctx, mgr, deprecatedLog); err != nil {
 		os.Exit(1)
 	}
 
 	log.Info("Starting the Manager.")
 
 	// Start the Manager
-	if err := mgr.Start(ctx); err != nil {
-		log.Error(err, "manager exited non-zero")
+	if err = mgr.Start(ctx); err != nil {
+		log.Error("Manager exited non-zero", logger.SlogErr(err))
 		os.Exit(1)
 	}
+}
+
+func printVersion(log *slog.Logger) {
+	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+}
+
+func getRequiredEnvVar(name string) (string, error) {
+	val := os.Getenv(name)
+	if val == "" {
+		return "", fmt.Errorf("environment variable %q undefined", name)
+	}
+	return val, nil
 }

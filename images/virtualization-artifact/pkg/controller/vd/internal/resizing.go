@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,24 +26,23 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ResizingHandler struct {
 	diskService DiskService
-	logger      *slog.Logger
 }
 
-func NewResizingHandler(logger *slog.Logger, diskService DiskService) *ResizingHandler {
+func NewResizingHandler(diskService DiskService) *ResizingHandler {
 	return &ResizingHandler{
-		logger:      logger,
 		diskService: diskService,
 	}
 }
 
 func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	logger := h.logger.With("name", vd.Name, "ns", vd.Namespace)
+	log := logger.FromContext(ctx).With(logger.SlogHandler("resizing"))
 
 	condition, ok := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 	if !ok {
@@ -95,14 +93,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	pvcSpecSize := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
 	pvcStatusSize := pvc.Status.Capacity[corev1.ResourceStorage]
 
-	logger = logger.With("vdSpecSize", vdSpecSize, "pvcSpecSize", pvcSpecSize.String(), "pvcStatusSize", pvcStatusSize)
+	log.With("vdSpecSize", vdSpecSize, "pvcSpecSize", pvcSpecSize.String(), "pvcStatusSize", pvcStatusSize)
 
 	// Synchronize VirtualDisk size with PVC size.
 	vd.Status.Capacity = pvcStatusSize.String()
 
 	pvcResizing := service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, pvc.Status.Conditions)
 	if pvcResizing != nil && pvcResizing.Status == corev1.ConditionTrue {
-		logger.Info("Resizing is in progress", "msg", pvcResizing.Message)
+		log.Info("Resizing is in progress", "msg", pvcResizing.Message)
 
 		vd.Status.Phase = virtv2.DiskResizing
 		condition.Status = metav1.ConditionFalse
@@ -118,7 +116,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		logger.Info("The virtual disk resizing has started")
+		log.Info("The virtual disk resizing has started")
 
 		vd.Status.Phase = virtv2.DiskResizing
 		condition.Status = metav1.ConditionFalse

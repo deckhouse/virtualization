@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"time"
 
@@ -38,6 +37,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,18 +48,18 @@ type Handler interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
-	logger   *slog.Logger
 }
 
-func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		handlers: handlers,
 		client:   client,
-		logger:   logger,
 	}
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vd := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vd.Fetch(ctx)
@@ -71,19 +71,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	r.logger.Info("Start reconcile VD", slog.String("namespacedName", req.String()))
+	log.Debug("Start vd reconciliation")
 
 	var requeue bool
 
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
-		r.logger.Debug("Run handler", slog.String("handler", reflect.TypeOf(h).Elem().Name()))
+		log.Debug("Run handler", logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 
 		var res reconcile.Result
 		res, err = h.Handle(ctx, vd.Changed())
 		if err != nil {
-			r.logger.Error("Failed to handle VD", "err", err, "handler", reflect.TypeOf(h).Elem().Name())
+			log.Error("Failed to handle vd", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -104,12 +104,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if requeue {
+		log.Debug("Requeue vd reconciliation")
 		return reconcile.Result{
 			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
-	r.logger.Info("Finished reconcile VD", slog.String("namespacedName", req.String()))
+	log.Debug("Finished vd reconciliation")
 	return reconcile.Result{}, nil
 }
 

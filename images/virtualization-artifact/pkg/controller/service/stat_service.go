@@ -36,9 +36,9 @@ type StatService struct {
 	logger *slog.Logger
 }
 
-func NewStatService() *StatService {
+func NewStatService(logger *slog.Logger) *StatService {
 	return &StatService{
-		logger: slog.Default().With("svc", "stat"),
+		logger: logger.With("svc", "stat"),
 	}
 }
 

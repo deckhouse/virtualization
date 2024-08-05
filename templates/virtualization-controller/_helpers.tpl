@@ -2,12 +2,14 @@
 {{- $registry := include "dvcr.get_registry" (list .) }}
 - name: KUBECONFIG
   value: "/kubeconfig.local/proxy.kubeconfig"
-- name: VERBOSITY
-  {{- if eq .Values.virtualization.logLevel "debug" }}
+- name: LOG_LEVEL
+  value: {{ .Values.virtualization.logLevel }}
+{{- if eq .Values.virtualization.logLevel "debug" }}
+- name: LOG_DEBUG_VERBOSITY
   value: "10"
-  {{- else }}
-  value: "3"
-  {{- end }}
+{{- end }}
+- name: LOG_FORMAT
+  value: {{ .Values.virtualization.logFormat }}
 - name: FORCE_BRIDGE_NETWORK_BINDING
   value: "1"
 - name: DISABLE_HYPERV_SYNIC
