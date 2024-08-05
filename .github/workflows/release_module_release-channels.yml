@@ -86,6 +86,9 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Remove unwanted software
         if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: ./.github/actions/remove-unwanted-software
@@ -110,6 +113,9 @@ jobs:
         run: |
           echo $MODULES_MODULE_SOURCE
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Remove unwanted software
         if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: ./.github/actions/remove-unwanted-software
@@ -147,6 +153,8 @@ jobs:
           echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+'
         shell: bash
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Remove unwanted software
         if: ${{ github.event.inputs.enableBuild == 'true' }}
