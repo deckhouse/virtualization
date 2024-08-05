@@ -39,34 +39,30 @@ import (
 
 type KVVMIWatcher struct {
 	client client.Client
-	logger *slog.Logger
 }
 
 var _ handler.EventHandler = &KVVMIEventHandler{}
 
-func NewKVVMIWatcher(logger *slog.Logger, client client.Client) *KVVMIWatcher {
+func NewKVVMIWatcher(client client.Client) *KVVMIWatcher {
 	return &KVVMIWatcher{
 		client: client,
-		logger: logger.With("watcher", "kvvmi"),
 	}
 }
 
 func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
-		NewKVVMIEventHandler(w.client, w.logger),
+		NewKVVMIEventHandler(w.client),
 	)
 }
 
 type KVVMIEventHandler struct {
 	client client.Client
-	logger *slog.Logger
 }
 
-func NewKVVMIEventHandler(client client.Client, logger *slog.Logger) *KVVMIEventHandler {
+func NewKVVMIEventHandler(client client.Client) *KVVMIEventHandler {
 	return &KVVMIEventHandler{
 		client: client,
-		logger: logger,
 	}
 }
 
@@ -99,7 +95,7 @@ func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsTo
 		Namespace: ns,
 	})
 	if err != nil {
-		eh.logger.Error(fmt.Sprintf("failed to list vmbdas: %s", err))
+		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
 		return
 	}
 
@@ -127,7 +123,7 @@ func (eh KVVMIEventHandler) getHotPluggedVolumeStatuses(obj client.Object) map[s
 			var name string
 			name, ok = kvbuilder.GetOriginalDiskName(vs.Name)
 			if !ok {
-				eh.logger.Warn("VolumeStatus is not a Disk", "vsName", vs.Name, "name", kvvmi.Name, "ns", kvvmi.Namespace)
+				slog.Default().Warn("VolumeStatus is not a Disk", "vsName", vs.Name, "name", kvvmi.Name, "ns", kvvmi.Namespace)
 				continue
 			}
 

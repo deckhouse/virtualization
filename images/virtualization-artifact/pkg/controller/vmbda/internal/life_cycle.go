@@ -20,32 +20,30 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 type LifeCycleHandler struct {
 	attacher *service.AttachmentService
-	logger   *slog.Logger
 }
 
-func NewLifeCycleHandler(logger *slog.Logger, attacher *service.AttachmentService) *LifeCycleHandler {
+func NewLifeCycleHandler(attacher *service.AttachmentService) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		logger:   logger,
 		attacher: attacher,
 	}
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	logger := h.logger.With("name", vmbda.Name, "ns", vmbda.Namespace)
-	logger.Info("Sync")
+	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
+
 	// TODO protect vd.
 
 	condition, ok := service.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions)
@@ -107,7 +105,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	if isConflicted {
 		if vmbda.Status.Phase != "" {
-			logger.Error("Hot plug has been started for Conflicted VMBDA, please report a bug")
+			log.Error("Hot plug has been started for Conflicted VMBDA, please report a bug")
 		}
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
@@ -181,8 +179,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
-	logger = logger.With("vmName", vm.Name, "vdName", vd.Name)
-	logger.Info("Check if hot plug is completed and disk is attached")
+	log = log.With("vmName", vm.Name, "vdName", vd.Name)
+	log.Info("Check if hot plug is completed and disk is attached")
 
 	isHotPlugged, err := h.attacher.IsHotPlugged(vd, vm, kvvmi)
 	if err != nil {
@@ -198,7 +196,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if isHotPlugged {
-		logger.Info("Hot plug is completed and disk is attached")
+		log.Info("Hot plug is completed and disk is attached")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
 		condition.Status = metav1.ConditionTrue
@@ -213,7 +211,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if isHotPlugRequestSent {
-		logger.Info("Attachment request sent: attachment is in progress.")
+		log.Info("Attachment request sent: attachment is in progress.")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
 		condition.Status = metav1.ConditionFalse
@@ -222,7 +220,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
-	logger.Info("Send attachment request")
+	log.Info("Send attachment request")
 
 	err = h.attacher.HotPlugDisk(ctx, vd, vm, kvvm)
 	switch {

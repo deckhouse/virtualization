@@ -19,8 +19,8 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -55,11 +55,11 @@ func (op *OperationResult) Message() string {
 	return op.message
 }
 
-func NewReconcilerState(name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache) *ReconcilerState {
+func NewReconcilerState(name types.NamespacedName, logger *slog.Logger, client client.Client, cache cache.Cache) *ReconcilerState {
 	state := &ReconcilerState{
 		Client: client,
 		VMOP: helper.NewResource(
-			name, log, client, cache,
+			name, logger, client, cache,
 			func() *virtv2.VirtualMachineOperation { return &virtv2.VirtualMachineOperation{} },
 			func(obj *virtv2.VirtualMachineOperation) virtv2.VirtualMachineOperationStatus { return obj.Status },
 		),
@@ -67,13 +67,13 @@ func NewReconcilerState(name types.NamespacedName, log logr.Logger, client clien
 	return state
 }
 
-func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request, log logr.Logger, client client.Client) error {
+func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request, logger *slog.Logger, client client.Client) error {
 	err := state.VMOP.Fetch(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
 	}
 	if state.VMOP.IsEmpty() {
-		log.Info("Reconcile observe an absent VMOP: it may be deleted", "vmop.name", req.Name, "vmop.namespace", req.Namespace)
+		logger.Info("Reconcile observe an absent VMOP: it may be deleted", "vmop.name", req.Name, "vmop.namespace", req.Namespace)
 		return nil
 	}
 
@@ -90,18 +90,18 @@ func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request,
 	return nil
 }
 
-func (state *ReconcilerState) ShouldReconcile(_ logr.Logger) bool {
+func (state *ReconcilerState) ShouldReconcile(_ *slog.Logger) bool {
 	return !state.VMOP.IsEmpty()
 }
 
-func (state *ReconcilerState) ApplySync(ctx context.Context, _ logr.Logger) error {
+func (state *ReconcilerState) ApplySync(ctx context.Context, _ *slog.Logger) error {
 	if err := state.VMOP.UpdateMeta(ctx); err != nil {
 		return fmt.Errorf("unable to update VMOP %q meta: %w", state.VMOP.Name(), err)
 	}
 	return nil
 }
 
-func (state *ReconcilerState) ApplyUpdateStatus(ctx context.Context, _ logr.Logger) error {
+func (state *ReconcilerState) ApplyUpdateStatus(ctx context.Context, _ *slog.Logger) error {
 	return state.VMOP.UpdateStatus(ctx)
 }
 

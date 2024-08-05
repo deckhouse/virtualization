@@ -89,17 +89,17 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
+	log := opts.Log.With("vmop.name", state.VMOP.Current().GetName())
 	switch {
 	case state.IsDeletion():
-		log.V(1).Info("Delete VMOP, remove protective finalizers")
+		log.Debug("Delete VMOP, remove protective finalizers")
 		return r.removeFinalizers(ctx, state, opts)
 	case state.IsCompleted():
-		log.V(2).Info("VMOP completed", "namespacedName", req.String())
+		log.Debug("VMOP completed", "namespacedName", req.String())
 		return r.removeFinalizers(ctx, state, opts)
 
 	case state.IsFailed():
-		log.V(2).Info("VMOP failed", "namespacedName", req.String())
+		log.Debug("VMOP failed", "namespacedName", req.String())
 		return r.removeFinalizers(ctx, state, opts)
 	case !state.IsProtected():
 		// Set protective finalizer atomically.
@@ -131,13 +131,13 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 			msg := "The operation completed with an error."
 			state.SetOperationResult(false, fmt.Sprintf("%s %s", msg, err.Error()))
 			opts.Recorder.Event(state.VMOP.Current(), corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
-			log.V(1).Error(err, msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
+			log.Error(msg, "err", err, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
 			return nil
 		}
 		state.SetOperationResult(true, "")
 		msg := "The operation completed without errors."
 		opts.Recorder.Event(state.VMOP.Current(), corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
-		log.V(2).Info(msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
+		log.Debug(msg, "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
 		return nil
 	}
 	if r.IsCompleted(state.VMOP.Current().Spec.Type, state.VM.Status.Phase) {
@@ -148,8 +148,8 @@ func (r *Reconciler) Sync(ctx context.Context, req reconcile.Request, state *Rec
 }
 
 func (r *Reconciler) UpdateStatus(_ context.Context, _ reconcile.Request, state *ReconcilerState, opts two_phase_reconciler.ReconcilerOptions) error {
-	log := opts.Log.WithValues("vmop.name", state.VMOP.Current().GetName())
-	log.V(2).Info("Update VMOP status", "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
+	log := opts.Log.With("vmop.name", state.VMOP.Current().GetName())
+	log.Debug("Update VMOP status", "vmop.name", state.VMOP.Current().GetName(), "vmop.namespace", state.VMOP.Current().GetNamespace())
 
 	if state.IsDeletion() {
 		return nil

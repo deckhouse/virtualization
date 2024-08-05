@@ -33,10 +33,10 @@ type Validator struct {
 	logger   *slog.Logger
 }
 
-func NewValidator(attacher *service.AttachmentService) *Validator {
+func NewValidator(attacher *service.AttachmentService, logger *slog.Logger) *Validator {
 	return &Validator{
 		attacher: attacher,
-		logger:   slog.Default().With("controller", "vmbda", "webhook", "validator"),
+		logger:   logger.With("webhook", "validator"),
 	}
 }
 

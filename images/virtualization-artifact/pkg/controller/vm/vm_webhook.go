@@ -39,9 +39,6 @@ type Validator struct {
 }
 
 func NewValidator(ipam internal.IPAM, client client.Client, log *slog.Logger) *Validator {
-	if log == nil {
-		log = slog.Default().With("controller", controllerName)
-	}
 	return &Validator{
 		validators: []vmValidator{
 			newMetaVMValidator(client),

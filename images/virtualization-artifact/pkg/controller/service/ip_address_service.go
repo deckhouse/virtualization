@@ -19,10 +19,10 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 
-	"github.com/go-logr/logr"
 	k8snet "k8s.io/utils/net"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -33,7 +33,7 @@ type IpAddressService struct {
 }
 
 func NewIpAddressService(
-	logger logr.Logger,
+	logger *slog.Logger,
 	virtualMachineCIDRs []string,
 ) *IpAddressService {
 	parsedCIDRs := make([]netip.Prefix, len(virtualMachineCIDRs))
@@ -41,7 +41,7 @@ func NewIpAddressService(
 	for i, cidr := range virtualMachineCIDRs {
 		parsedCIDR, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			logger.Error(err, fmt.Sprintf("failed to parse CIDR %s:", cidr), "err", err)
+			logger.Error(fmt.Sprintf("Failed to parse CIDR %s:", cidr), "err", err)
 			return nil
 		}
 		parsedCIDRs[i] = parsedCIDR

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -38,7 +38,6 @@ type UploadDataSource struct {
 	statService     Stat
 	uploaderService Uploader
 	dvcrSettings    *dvcr.Settings
-	logger          *slog.Logger
 }
 
 func NewUploadDataSource(
@@ -50,12 +49,11 @@ func NewUploadDataSource(
 		statService:     statService,
 		uploaderService: uploaderService,
 		dvcrSettings:    dvcrSettings,
-		logger:          slog.Default().With("controller", common.VIShortName, "ds", "upload"),
 	}
 }
 
 func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	ds.logger.Info("Sync", "vi", vi.Name)
+	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
@@ -82,7 +80,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vi", vi.Name)
+		log.Info("Virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
@@ -99,7 +97,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 	case common.AnyTerminating(pod, svc, ing):
 		vi.Status.Phase = virtv2.ImagePending
 
-		ds.logger.Info("Cleaning up...", "vi", vi.Name)
+		log.Info("Cleaning up...")
 	case pod == nil && svc == nil && ing == nil:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.Provisioning
@@ -114,7 +112,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Phase = virtv2.ImagePending
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		ds.logger.Info("Create uploader pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", nil)
+		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -143,7 +141,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploadStarted(vi.GetUID(), pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -179,7 +177,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 			return false, err
 		}
 
-		ds.logger.Info("Provisioning...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.WaitForUserUpload
@@ -188,7 +186,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		ds.logger.Info("WaitForUserUpload...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("WaitForUserUpload...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,23 +27,22 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 const LifecycleHandlerName = "LifecycleHandler"
 
-type LifecycleHandler struct {
-	logger logr.Logger
-}
+type LifecycleHandler struct{}
 
-func NewLifecycleHandler(logger logr.Logger) *LifecycleHandler {
-	return &LifecycleHandler{
-		logger: logger.WithValues("handler", LifecycleHandlerName),
-	}
+func NewLifecycleHandler() *LifecycleHandler {
+	return &LifecycleHandler{}
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(LifecycleHandlerName))
+
 	vmip := state.VirtualMachineIP()
 	vmipStatus := &vmip.Status
 
@@ -128,7 +126,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		}
 	}
 
-	h.logger.Info("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
+	log.Info("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
 	vmipStatus.Conditions = mgr.Generate()
 	vmipStatus.ObservedGeneration = vmip.GetGeneration()
 

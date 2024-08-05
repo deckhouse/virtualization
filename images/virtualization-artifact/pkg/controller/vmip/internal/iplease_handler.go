@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -33,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
@@ -41,21 +41,21 @@ const IpLeaseHandlerName = "IPLeaseHandler"
 
 type IPLeaseHandler struct {
 	client    client.Client
-	logger    logr.Logger
 	ipService *service.IpAddressService
 	recorder  record.EventRecorder
 }
 
-func NewIPLeaseHandler(client client.Client, logger logr.Logger, ipAddressService *service.IpAddressService, recorder record.EventRecorder) *IPLeaseHandler {
+func NewIPLeaseHandler(client client.Client, ipAddressService *service.IpAddressService, recorder record.EventRecorder) *IPLeaseHandler {
 	return &IPLeaseHandler{
 		client:    client,
-		logger:    logger.WithValues("handler", IpLeaseHandlerName),
 		ipService: ipAddressService,
 		recorder:  recorder,
 	}
 }
 
 func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	log, ctx := logger.GetHandlerContext(ctx, IpLeaseHandlerName)
+
 	vmip := state.VirtualMachineIP()
 	vmipStatus := &vmip.Status
 
@@ -66,31 +66,31 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 
 	switch {
 	case lease == nil && vmipStatus.Address != "":
-		h.logger.Info("Lease by name not found: waiting for the lease to be available")
+		log.Info("Lease by name not found: waiting for the lease to be available")
 		return reconcile.Result{}, nil
 
 	case lease == nil:
-		h.logger.Info("No Lease for VirtualMachineIP: create the new one", "type", vmip.Spec.Type, "address", vmip.Spec.StaticIP)
+		log.Info("No Lease for VirtualMachineIP: create the new one", "type", vmip.Spec.Type, "address", vmip.Spec.StaticIP)
 		return h.createNewLease(ctx, state)
 
 	case lease.Status.Phase == "":
-		h.logger.Info("Lease is not ready: waiting for the lease")
+		log.Info("Lease is not ready: waiting for the lease")
 		return reconcile.Result{}, nil
 
 	case util.IsBoundLease(lease, vmip):
-		h.logger.Info("Lease already exists, VirtualMachineIP ref is valid")
+		log.Info("Lease already exists, VirtualMachineIP ref is valid")
 		return reconcile.Result{}, nil
 
 	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
-		h.logger.Info("Lease is bounded to another VirtualMachineIP: recreate VirtualMachineIP when the lease is released")
+		log.Info("Lease is bounded to another VirtualMachineIP: recreate VirtualMachineIP when the lease is released")
 		return reconcile.Result{}, nil
 
 	default:
-		h.logger.Info("Lease is released: set binding")
+		log.Info("Lease is released: set binding")
 
 		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
 			msg := fmt.Sprintf("the selected VirtualMachineIP lease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace)
-			h.logger.Error(nil, msg)
+			log.Error(msg)
 			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseNotFound, msg)
 			return reconcile.Result{}, nil
 		}
@@ -111,11 +111,13 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 }
 
 func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vmip := state.VirtualMachineIP()
 	vmipStatus := &vmip.Status
 
 	if vmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeAuto {
-		h.logger.Info("allocate the new VirtualMachineIP address")
+		log.Info("allocate the new VirtualMachineIP address")
 		var err error
 		vmipStatus.Address, err = h.ipService.AllocateNewIP(state.AllocatedIPs())
 		if err != nil {
@@ -129,7 +131,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 	if err != nil {
 		vmipStatus.Address = ""
 		msg := fmt.Sprintf("the VirtualMachineIP cannot be created: %s", err.Error())
-		h.logger.Info(msg)
+		log.Info(msg)
 
 		mgr := conditions.NewManager(vmipStatus.Conditions)
 		conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
@@ -160,7 +162,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 
 	leaseName := common.IpToLeaseName(vmipStatus.Address)
 
-	h.logger.Info("Create lease",
+	log.Info("Create lease",
 		"leaseName", leaseName,
 		"refName", vmip.Name,
 		"refNamespace", vmip.Namespace,

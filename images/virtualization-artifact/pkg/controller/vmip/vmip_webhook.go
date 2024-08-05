@@ -20,9 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,16 +34,16 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
-func NewValidator(log logr.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
+func NewValidator(log *slog.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
 	return &Validator{
-		log:       log.WithName(controllerName).WithValues("webhook", "validation"),
+		log:       log.With("webhook", "validation"),
 		client:    client,
 		ipService: ipAddressService,
 	}
 }
 
 type Validator struct {
-	log       logr.Logger
+	log       *slog.Logger
 	client    client.Client
 	ipService *service.IpAddressService
 }
@@ -147,7 +147,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }
 
@@ -159,7 +159,7 @@ func (v *Validator) validateSpecFields(spec v1alpha2.VirtualMachineIPAddressSpec
 		}
 	case v1alpha2.VirtualMachineIPAddressTypeAuto:
 		if spec.StaticIP != "" {
-			v.log.Error(nil, "Invalid combination: StaticIP is specified with Type 'Auto'.")
+			v.log.Error("Invalid combination: StaticIP is specified with Type 'Auto'")
 		}
 	default:
 		return fmt.Errorf("invalid type for VirtualMachineIP: %s. Type must be either 'Static' or 'Auto'", spec.Type)

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"time"
 
@@ -42,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -53,23 +53,23 @@ var syncKVVMConditions = []string{
 	string(vmcondition.TypeAwaitingRestartToApplyConfiguration),
 }
 
-func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder record.EventRecorder, logger *slog.Logger) *SyncKvvmHandler {
+func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder record.EventRecorder) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
 		dvcrSettings: dvcrSettings,
 		client:       client,
 		recorder:     recorder,
-		logger:       logger.With("handler", nameSyncKvvmHandler),
 	}
 }
 
 type SyncKvvmHandler struct {
 	client       client.Client
 	recorder     record.EventRecorder
-	logger       *slog.Logger
 	dvcrSettings *dvcr.Settings
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log, ctx := logger.GetHandlerContext(ctx, nameSyncKvvmHandler)
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -104,7 +104,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 	if err := h.syncKVVM(ctx, s); err != nil {
-		h.logger.Error(fmt.Sprintf("Failed to sync kvvm: %v", err))
+		log.Error(fmt.Sprintf("Failed to sync kvvm: %v", err))
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, err.Error())
 		return reconcile.Result{}, err
 	}
@@ -131,6 +131,8 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState) error {
+	log := logger.FromContext(ctx)
+
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("VM is empty")
 	}
@@ -168,7 +170,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	lastAppliedSpec := h.loadLastAppliedSpec(current, kvvm)
-	changes := h.detectSpecChanges(kvvm, &current.Spec, lastAppliedSpec)
+	changes := h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
@@ -215,7 +217,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 			cb.Status(metav1.ConditionFalse).
 				Reason2(vmcondition.ReasonRestartAwaitingChangesNotExist).
 				Message(fmt.Sprintf("Failed to generate RestartAwaitingChanges: %s", err.Error()))
-			h.logger.Error(fmt.Sprintf("Error should not occurs when preparing changesInfo, there is a possible bug in code: %v", syncErr))
+			log.Error(fmt.Sprintf("Error should not occurs when preparing changesInfo, there is a possible bug in code: %v", syncErr))
 			syncErr = errors.Join(syncErr, fmt.Errorf("convert pending changes for status: %w", syncErr))
 		} else {
 			cb.Status(metav1.ConditionTrue).
@@ -246,7 +248,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	// Ensure power state according to the runPolicy.
 	err = h.syncPowerState(ctx, s, kvvm, kvvmi, lastAppliedSpec)
 	if err != nil {
-		h.logger.Error(fmt.Sprintf("Failed to sync powerstate for VirtualMachine %q: %v", current.GetName(), err))
+		log.Error(fmt.Sprintf("Failed to sync powerstate for VirtualMachine %q: %v", current.GetName(), err))
 		syncErr = errors.Join(syncErr, fmt.Errorf("failed to sync powerstate: %w", err))
 	}
 
@@ -255,6 +257,8 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 // createKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
 func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachineState) error {
+	log := logger.FromContext(ctx)
+
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("VM is empty")
 	}
@@ -264,18 +268,20 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", current.GetName(), err)
 	}
 
-	if err := h.client.Create(ctx, kvvm); err != nil {
+	if err = h.client.Create(ctx, kvvm); err != nil {
 		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	h.logger.Info("Created new KubeVirt VM", "name", kvvm.Name)
-	h.logger.Debug("Created new KubeVirt VM", "name", kvvm.Name, "kvvm", kvvm)
+	log.Info("Created new KubeVirt VM", "name", kvvm.Name)
+	log.Debug("Created new KubeVirt VM", "name", kvvm.Name, "kvvm", kvvm)
 
 	return nil
 }
 
 // updateKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
 func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachineState) error {
+	log := logger.FromContext(ctx)
+
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("VM is empty")
 	}
@@ -285,12 +291,12 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("prepare to update KubeVirt VM '%s': %w", current.GetName(), err)
 	}
 
-	if err := h.client.Update(ctx, kvvm); err != nil {
+	if err = h.client.Update(ctx, kvvm); err != nil {
 		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	h.logger.Info("Update KubeVirt VM done", "name", kvvm.Name)
-	h.logger.Debug("Update KubeVirt VM done", "name", kvvm.Name, "kvvm", kvvm)
+	log.Info("Update KubeVirt VM done", "name", kvvm.Name)
+	log.Debug("Update KubeVirt VM done", "name", kvvm.Name, "kvvm", kvvm)
 
 	return nil
 }
@@ -399,7 +405,9 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *virtv2.VirtualMachine, kvvm *v
 
 // detectSpecChanges compares KVVM generated from current VM spec with in cluster KVVM
 // to calculate changes and action needed to apply these changes.
-func (h *SyncKvvmHandler) detectSpecChanges(kvvm *virtv1.VirtualMachine, currentSpec, lastSpec *virtv2.VirtualMachineSpec) vmchange.SpecChanges {
+func (h *SyncKvvmHandler) detectSpecChanges(ctx context.Context, kvvm *virtv1.VirtualMachine, currentSpec, lastSpec *virtv2.VirtualMachineSpec) vmchange.SpecChanges {
+	log := logger.FromContext(ctx)
+
 	// Not applicable if KVVM is absent.
 	if kvvm == nil || lastSpec == nil {
 		return vmchange.SpecChanges{}
@@ -409,8 +417,8 @@ func (h *SyncKvvmHandler) detectSpecChanges(kvvm *virtv1.VirtualMachine, current
 	// with the current VM spec (maybe edited by the user).
 	specChanges := vmchange.CompareSpecs(lastSpec, currentSpec)
 
-	h.logger.Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
-	h.logger.Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
+	log.Info(fmt.Sprintf("detected changes: empty %v, disruptive %v, actionType %v", specChanges.IsEmpty(), specChanges.IsDisruptive(), specChanges.ActionType()))
+	log.Info(fmt.Sprintf("detected changes JSON: %s", specChanges.ToJSON()))
 
 	return specChanges
 }
@@ -442,6 +450,8 @@ func (h *SyncKvvmHandler) canApplyChanges(vm *virtv2.VirtualMachine, kvvm *virtv
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
 func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.VirtualMachineState, changes vmchange.SpecChanges) error {
+	log := logger.FromContext(ctx)
+
 	if changes.IsEmpty() || s.VirtualMachine().IsEmpty() {
 		return nil
 	}
@@ -462,7 +472,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 	switch action {
 	case vmchange.ActionRestart:
-		h.logger.Info("Restart VM to apply changes", "vm.name", current.GetName())
+		log.Info("Restart VM to apply changes", "vm.name", current.GetName())
 
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
@@ -481,7 +491,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		if changes.IsDisruptive() {
 			message = "Apply disruptive changes without restart"
 		}
-		h.logger.Info(message, "vm.name", current.GetName(), "action", changes)
+		log.Info(message, "vm.name", current.GetName(), "action", changes)
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
 
 		if err := h.updateKVVM(ctx, s); err != nil {
@@ -489,7 +499,7 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		}
 
 	case vmchange.ActionNone:
-		h.logger.Info("No changes to underlying KVVM, update last-applied-spec annotation", "vm.name", current.GetName())
+		log.Info("No changes to underlying KVVM, update last-applied-spec annotation", "vm.name", current.GetName())
 
 		if err := h.updateKVVMLastAppliedSpec(ctx, current, kvvm); err != nil {
 			return fmt.Errorf("unable to update last-applied-spec on KVVM: %w", err)
@@ -513,13 +523,16 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(ctx context.Context, vm *vir
 		return fmt.Errorf("unable to update KubeVirt VM '%s': %w", kvvm.GetName(), err)
 	}
 
-	h.logger.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
+	log := logger.FromContext(ctx)
+	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
 
 	return nil
 }
 
 // syncPowerState enforces runPolicy on the underlying KVVM.
 func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, effectiveSpec *virtv2.VirtualMachineSpec) error {
+	log := logger.FromContext(ctx)
+
 	if kvvm == nil {
 		return nil
 	}
@@ -559,13 +572,13 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 					// Cleanup KVVMI is enough if VM was stopped from inside.
 					switch shutdownInfo.Reason {
 					case powerstate.GuestResetReason:
-						h.logger.Info("Restart for guest initiated reset")
+						log.Info("Restart for guest initiated reset")
 						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 						if err != nil {
 							return fmt.Errorf("restart VM on guest-reset: %w", err)
 						}
 					default:
-						h.logger.Info("Cleanup Succeeded KVVMI")
+						log.Info("Cleanup Succeeded KVVMI")
 						err = h.client.Delete(ctx, kvvmi)
 						if err != nil && !k8serrors.IsNotFound(err) {
 							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
@@ -574,7 +587,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 				}
 			}
 			if kvvmi.Status.Phase == virtv1.Failed {
-				h.logger.Info("Restart on Failed KVVMI", "obj", kvvmi.GetName())
+				log.Info("Restart on Failed KVVMI", "obj", kvvmi.GetName())
 				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 				if err != nil {
 					return fmt.Errorf("restart VM on failed: %w", err)
@@ -597,7 +610,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 					}
 				default:
 					// Cleanup old version of KVVMI.
-					h.logger.Info("Cleanup Succeeded KVVMI")
+					log.Info("Cleanup Succeeded KVVMI")
 					err = h.client.Delete(ctx, kvvmi)
 					if err != nil && !k8serrors.IsNotFound(err) {
 						return fmt.Errorf("delete Succeeded KVVMI: %w", err)

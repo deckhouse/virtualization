@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -36,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -47,13 +47,11 @@ type Handler interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
-	logger   logr.Logger
 }
 
-func NewReconciler(client client.Client, logger logr.Logger, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
-		logger:   logger,
 		handlers: handlers,
 	}
 }
@@ -94,6 +92,8 @@ func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Objec
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	lease := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	var err error
@@ -106,17 +106,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	r.logger.Info("Start reconcile VMIPLease", "namespacedName", req.String())
+	log.Debug("Start reconcile VMIPLease")
 
 	s := state.New(r.client, lease.Changed())
 	var handlerErrs []error
 
 	var result reconcile.Result
 	for _, h := range r.handlers {
-		r.logger.V(3).Info("Run handler", "name", h.Name())
-		res, err := h.Handle(ctx, s)
+		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+
+		var res reconcile.Result
+		res, err = h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error(err, "Failed to handle VMIPLease", "err", err, "handler", h.Name())
+			log.Error("Failed to handle VMIPLease", "err", err, logger.SlogHandler(h.Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -130,7 +132,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			leaseStatus := lease.Changed().Status.DeepCopy()
 			err = r.client.Update(ctx, lease.Changed())
 			if err != nil {
-				r.logger.Error(err, "Failed to update VirtualMachineIPAddressLease")
+				log.Error("Failed to update VirtualMachineIPAddressLease", "err", err)
 				handlerErrs = append(handlerErrs, err)
 			}
 			lease.Changed().Status = *leaseStatus

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -55,6 +55,8 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vi := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vi.Fetch(ctx)
@@ -68,16 +70,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	var requeue bool
 
-	slog.Info("Start reconcile VI", slog.String("namespacedName", req.String()))
+	log.Debug("Start vi reconciliation")
 
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
-		slog.Info("Run handler", slog.String("name", h.Name()))
+		log.Debug("Run handler", logger.SlogHandler(h.Name()))
 		var res reconcile.Result
 		res, err = h.Handle(ctx, vi.Changed())
 		if err != nil {
-			slog.Error("Failed to handle vi", "err", err)
+			log.Error("Failed to handle vi", logger.SlogErr(err), logger.SlogHandler(h.Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -97,13 +99,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if requeue {
-		slog.Info("Requeue for VI", slog.String("namespacedName", req.String()))
+		log.Debug("Requeue vi reconciliation")
 		return reconcile.Result{
 			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
-	slog.Info("Finished reconcile VI", slog.String("namespacedName", req.String()))
+	log.Debug("Finished vi reconciliation")
 	return reconcile.Result{}, nil
 }
 

@@ -31,7 +31,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -50,8 +49,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-var deprecatedLog = logf.Log.WithName("cmd")
 
 const (
 	pprofBindAddrEnv     = "PPROF_BIND_ADDRESS"
@@ -198,7 +195,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = cvi.NewController(ctx, mgr, deprecatedLog, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -208,7 +205,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, deprecatedLog, importerImage, uploaderImage, dvcrSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -218,17 +215,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmbda.NewController(ctx, mgr, deprecatedLog, controllerNamespace); err != nil {
+	if _, err = vmbda.NewController(ctx, mgr, log, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmip.NewController(ctx, mgr, deprecatedLog, virtualMachineCIDRs); err != nil {
+	if _, err = vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmiplease.NewController(ctx, mgr, deprecatedLog, virtualMachineIPLeasesRetentionDuration); err != nil {
+	if _, err = vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
 		os.Exit(1)
 	}
 
@@ -236,7 +233,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmop.NewController(ctx, mgr, deprecatedLog); err != nil {
+	if _, err = vmop.NewController(ctx, mgr, log); err != nil {
 		os.Exit(1)
 	}
 

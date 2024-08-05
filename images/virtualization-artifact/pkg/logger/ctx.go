@@ -33,6 +33,11 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return logr.FromContextAsSlogLogger(ctx)
 }
 
+func GetDataSourceContext(ctx context.Context, ds string) (*slog.Logger, context.Context) {
+	log := FromContext(ctx).With(SlogHandler(ds))
+	return log, ToContext(context.WithoutCancel(ctx), log)
+}
+
 func GetHandlerContext(ctx context.Context, handler string) (*slog.Logger, context.Context) {
 	log := FromContext(ctx).With(SlogHandler(handler))
 	return log, ToContext(context.WithoutCancel(ctx), log)

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -46,7 +46,6 @@ type HTTPDataSource struct {
 	importerService *service.ImporterService
 	diskService     *service.DiskService
 	dvcrSettings    *dvcr.Settings
-	logger          *slog.Logger
 }
 
 func NewHTTPDataSource(
@@ -54,20 +53,17 @@ func NewHTTPDataSource(
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
-	logger *slog.Logger,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:     statService,
 		importerService: importerService,
 		diskService:     diskService,
 		dvcrSettings:    dvcrSettings,
-		logger:          logger.With("ds", httpDataSource),
 	}
 }
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	logger := ds.logger.With("name", vd.Name, "ns", vd.Namespace)
-	logger.Info("Sync")
+	log, ctx := logger.GetDataSourceContext(ctx, httpDataSource)
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -92,7 +88,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		logger.Info("Disk provisioning finished: clean up")
+		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedDisk(pv, pvc, &condition, &vd.Status.Phase, supgen)
 
@@ -115,9 +111,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		return CleanUpSupplements(ctx, vd, ds)
 	case common.AnyTerminating(pod, dv, pvc, pv):
-		logger.Info("Waiting for supplements to be terminated")
+		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
-		logger.Info("Start import to DVCR")
+		log.Info("Start import to DVCR")
 
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
@@ -132,7 +128,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 			return false, err
 		}
 	case !common.IsPodComplete(pod):
-		logger.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -167,7 +163,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
-		logger.Info("Start import to PVC")
+		log.Info("Start import to PVC")
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -213,7 +209,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		condition.Message = "PVC not found: waiting for creation."
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
-		logger.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
@@ -224,7 +220,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
-		logger.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

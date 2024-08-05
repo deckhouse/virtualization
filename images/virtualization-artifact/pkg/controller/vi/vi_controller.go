@@ -20,7 +20,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,12 +48,14 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	log *slog.Logger,
 	importerImage string,
 	uploaderImage string,
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
-	stat := service.NewStatService(slog.Default())
+	log = log.With(logger.SlogController(ControllerName))
+
+	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
@@ -72,7 +74,11 @@ func NewController(
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
-	viController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, RecoverPanic: ptr.To(true)})
+	viController, err := controller.New(ControllerName, mgr, controller.Options{
+		Reconciler:     reconciler,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +90,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualImage{}).
-		WithValidator(NewValidator()).
+		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return nil, err
 	}

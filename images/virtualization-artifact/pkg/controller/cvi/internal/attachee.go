@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,6 +39,8 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 }
 
 func (h AttacheeHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
+
 	hasAttachedVM, err := h.hasAttachedVM(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -45,9 +48,13 @@ func (h AttacheeHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 	switch {
 	case !hasAttachedVM:
+		log.Debug("Allow cluster virtual image deletion")
 		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVIProtection)
 	case cvi.DeletionTimestamp == nil:
+		log.Debug("Protect cluster virtual image from deletion")
 		controllerutil.AddFinalizer(cvi, virtv2.FinalizerCVIProtection)
+	default:
+		log.Debug("Cluster virtual image deletion is delayed: it's protected by virtual machines")
 	}
 
 	return reconcile.Result{}, nil

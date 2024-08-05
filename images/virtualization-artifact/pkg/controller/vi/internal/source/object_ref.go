@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -42,7 +42,6 @@ type ObjectRefDataSource struct {
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
-	logger          *slog.Logger
 }
 
 func NewObjectRefDataSource(
@@ -56,12 +55,11 @@ func NewObjectRefDataSource(
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		logger:          slog.Default().With("controller", cc.VIShortName, "ds", "objectref"),
 	}
 }
 
 func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	ds.logger.Info("Sync", "vi", vi.Name)
+	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
@@ -74,7 +72,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vi", vi.Name)
+		log.Info("Virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
@@ -91,7 +89,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 	case cc.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
-		ds.logger.Info("Cleaning up...", "vi", vi.Name)
+		log.Info("Cleaning up...")
 	case pod == nil:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.Provisioning
@@ -118,7 +116,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
 
-		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", "nil")
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
 	case cc.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -159,7 +157,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -188,7 +186,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

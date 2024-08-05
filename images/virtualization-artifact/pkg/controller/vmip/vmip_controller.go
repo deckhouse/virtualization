@@ -18,8 +18,8 @@ package vmip
 
 import (
 	"context"
+	"log/slog"
 
-	"github.com/go-logr/logr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,26 +38,30 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	log *slog.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	log = log.WithName(controllerName)
+	log = log.With(logger.SlogController(controllerName))
 
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
 
 	handlers := []Handler{
-		internal.NewProtectionHandler(log),
-		internal.NewIPLeaseHandler(mgr.GetClient(), log, ipService, recorder),
-		internal.NewLifecycleHandler(log),
+		internal.NewProtectionHandler(),
+		internal.NewIPLeaseHandler(mgr.GetClient(), ipService, recorder),
+		internal.NewLifecycleHandler(),
 	}
 
-	r, err := NewReconciler(mgr.GetClient(), log, handlers...)
+	r, err := NewReconciler(mgr.GetClient(), handlers...)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, RecoverPanic: ptr.To(true)})
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:     r,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}

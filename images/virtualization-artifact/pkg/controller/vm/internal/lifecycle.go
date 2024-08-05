@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -42,17 +42,18 @@ var lifeCycleConditions = []string{
 
 const nameLifeCycleHandler = "LifeCycleHandler"
 
-func NewLifeCycleHandler(client client.Client, recorder record.EventRecorder, logger *slog.Logger) *LifeCycleHandler {
-	return &LifeCycleHandler{client: client, recorder: recorder, logger: logger.With("handler", nameLifeCycleHandler)}
+func NewLifeCycleHandler(client client.Client, recorder record.EventRecorder) *LifeCycleHandler {
+	return &LifeCycleHandler{client: client, recorder: recorder}
 }
 
 type LifeCycleHandler struct {
 	client   client.Client
 	recorder record.EventRecorder
-	logger   *slog.Logger
 }
 
 func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
@@ -89,10 +90,10 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	switch phase {
 	case "":
 		phase = virtv2.MachinePending
-		h.logger.Error(fmt.Sprintf("unexpected KVVM state: status %q, fallback VM phase to %q", kvvm.Status.PrintableStatus, phase))
+		log.Error(fmt.Sprintf("unexpected KVVM state: status %q, fallback VM phase to %q", kvvm.Status.PrintableStatus, phase))
 	case virtv2.MachineDegraded:
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMDegraded, "KVVM failure.")
-		h.logger.Error("KVVM failure", "status", kvvm.Status.PrintableStatus, "kvvm", kvvm.GetName())
+		log.Error("KVVM failure", "status", kvvm.Status.PrintableStatus, "kvvm", kvvm.GetName())
 	}
 	changed.Status.Phase = phase
 	kvvmi, err := s.KVVMI(ctx)

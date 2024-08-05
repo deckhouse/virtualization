@@ -18,9 +18,9 @@ package vmop
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -38,7 +38,7 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	logger *slog.Logger,
 ) (controller.Controller, error) {
 	reconciler := NewReconciler()
 
@@ -50,7 +50,7 @@ func NewController(
 			Cache:    mgr.GetCache(),
 			Recorder: mgr.GetEventRecorderFor(controllerName),
 			Scheme:   mgr.GetScheme(),
-			Log:      log.WithName(controllerName),
+			Log:      logger.With("controller", controllerName),
 		})
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
@@ -68,11 +68,11 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator(logger)).
 		Complete(); err != nil {
 		return nil, err
 	}
 
-	log.Info("Initialized VirtualMachineOperation controller")
+	logger.Info("Initialized VirtualMachineOperation controller")
 	return c, nil
 }
