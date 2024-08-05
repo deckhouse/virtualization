@@ -8,9 +8,6 @@ properties:
   virtualMachineCIDRs:
     description: |
       Список подсетей используемых для выделения статических IP-адресов виртуальным машинам.
-  vmCIDRs:
-    description: |
-      Поскольку этот параметр был устаревшим, используйте параметр `virtualMachineCIDRs`.
   ingressClass:
     description: |
       Класс Ingress-контроллера, который использоваться для загрузки изображений.

@@ -18,14 +18,6 @@ properties:
       - ["10.10.10.0/24", "10.10.20.0/24"]
     items:
       type: string
-  vmCIDRs:
-    deprecated: true
-    x-doc-deprecated: true
-    description: |
-      Since the parameter has been deprecated, use the `virtualMachineCIDRs` parameter.
-    type: array
-    items:
-      type: string
   ingressClass:
     type: string
     pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
