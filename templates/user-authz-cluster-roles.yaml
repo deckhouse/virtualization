@@ -92,7 +92,7 @@ rules:
 - apiGroups:
   - virtualization.deckhouse.io
   resources:
-  - virtualmachines
+  - virtualimages
   verbs:
   - create
   - delete
