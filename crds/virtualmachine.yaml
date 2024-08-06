@@ -1148,6 +1148,14 @@ spec:
           type: string
           jsonPath: .spec.memory.size
           priority: 1
+        - name: Need restart
+          type: string
+          jsonPath: .status.conditions[?(@.type=="AwaitingRestartToApplyConfiguration")].status
+          priority: 1
+        - name: Agent
+          type: string
+          jsonPath: .status.conditions[?(@.type=="AgentReady")].status
+          priority: 1
         - name: Node
           type: string
           jsonPath: .status.nodeName
