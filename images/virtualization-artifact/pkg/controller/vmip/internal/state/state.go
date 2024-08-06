@@ -71,6 +71,22 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 	}
 
 	if s.lease == nil {
+		var leases virtv2.VirtualMachineIPAddressLeaseList
+		err = s.client.List(ctx, &leases, &client.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		for i, lease := range leases.Items {
+			if lease.Spec.VirtualMachineIPAddressRef.Name == s.vmip.Name &&
+				lease.Spec.VirtualMachineIPAddressRef.Namespace == s.vmip.Namespace {
+				s.lease = &leases.Items[i]
+				break
+			}
+		}
+	}
+
+	if s.lease == nil {
 		s.allocatedIPs, err = util.GetAllocatedIPs(ctx, s.client, s.vmip.Spec.Type)
 		if err != nil {
 			return nil, err
