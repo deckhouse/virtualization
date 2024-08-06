@@ -30,6 +30,8 @@ const (
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
+
+	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
 )
 
 type indexFunc func(ctx context.Context, mgr manager.Manager) error
@@ -40,6 +42,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMByVD,
 		IndexVMByVI,
 		IndexVMByCVI,
+		IndexVMIPLeaseByVMIP,
 	} {
 		if err := fn(ctx, mgr); err != nil {
 			return err
@@ -89,4 +92,14 @@ func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) [
 		res = append(res, bdr.Name)
 	}
 	return res
+}
+
+func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
+		lease, ok := object.(*virtv2.VirtualMachineIPAddressLease)
+		if !ok || lease == nil {
+			return nil
+		}
+		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
+	})
 }

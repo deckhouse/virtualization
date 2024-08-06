@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -58,32 +59,16 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		return s.lease, nil
 	}
 
-	var err error
-
-	leaseName := common.IpToLeaseName(s.vmip.Status.Address)
-
-	if leaseName != "" {
-		leaseKey := types.NamespacedName{Name: leaseName}
-		s.lease, err = helper.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
-		if err != nil {
-			return nil, fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
-		}
+	var leases virtv2.VirtualMachineIPAddressLeaseList
+	err := s.client.List(ctx, &leases, &client.MatchingFields{
+		indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	if s.lease == nil {
-		var leases virtv2.VirtualMachineIPAddressLeaseList
-		err = s.client.List(ctx, &leases, &client.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		for i, lease := range leases.Items {
-			if lease.Spec.VirtualMachineIPAddressRef.Name == s.vmip.Name &&
-				lease.Spec.VirtualMachineIPAddressRef.Namespace == s.vmip.Namespace {
-				s.lease = &leases.Items[i]
-				break
-			}
-		}
+	if len(leases.Items) > 0 {
+		s.lease = &leases.Items[0]
 	}
 
 	if s.lease == nil {
