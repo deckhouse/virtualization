@@ -59,16 +59,30 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		return s.lease, nil
 	}
 
-	var leases virtv2.VirtualMachineIPAddressLeaseList
-	err := s.client.List(ctx, &leases, &client.MatchingFields{
-		indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
-	})
-	if err != nil {
-		return nil, err
+	var err error
+
+	leaseName := common.IpToLeaseName(s.vmip.Status.Address)
+
+	if leaseName != "" {
+		leaseKey := types.NamespacedName{Name: leaseName}
+		s.lease, err = helper.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
+		if err != nil {
+			return nil, fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
+		}
 	}
 
-	if len(leases.Items) > 0 {
-		s.lease = &leases.Items[0]
+	if s.lease == nil {
+		var leases virtv2.VirtualMachineIPAddressLeaseList
+		err = s.client.List(ctx, &leases, &client.MatchingFields{
+			indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if len(leases.Items) > 0 {
+			s.lease = &leases.Items[0]
+		}
 	}
 
 	if s.lease == nil {
