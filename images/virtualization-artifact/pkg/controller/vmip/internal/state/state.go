@@ -20,13 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
 type VMIPState interface {
@@ -67,6 +71,24 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		s.lease, err = helper.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
+		}
+	}
+
+	if s.lease == nil {
+		var leases virtv2.VirtualMachineIPAddressLeaseList
+		err = s.client.List(ctx, &leases, &client.MatchingFields{
+			indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for i, lease := range leases.Items {
+			boundCondition, exist := service.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+			if exist && boundCondition.Status == metav1.ConditionTrue {
+				s.lease = &leases.Items[i]
+				break
+			}
 		}
 	}
 
