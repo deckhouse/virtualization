@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -78,5 +79,15 @@ func GetPersistentVolumeClaimCondition(conditionType corev1.PersistentVolumeClai
 			return &conditions[i]
 		}
 	}
+	return nil
+}
+
+func GetKVVMCondition(condType string, conditions []virtv1.VirtualMachineCondition) *virtv1.VirtualMachineCondition {
+	for _, condition := range conditions {
+		if string(condition.Type) == condType {
+			return &condition
+		}
+	}
+
 	return nil
 }

@@ -936,13 +936,11 @@ spec:
                     The current phase of the virtual machine:
                     * `Pending` - The process of starting the VM is in progress.
                     * `Running` - VM is running.
-                    * `Degraded` - An error occurred during the startup process or while the VM is running.
                     * `Terminating` - The VM is currently in the process of shutting down.
                     * `Stopped` - The VM is stopped.
                   enum:
                     - "Pending"
                     - "Running"
-                    - "Degraded"
                     - "Terminating"
                     - "Stopped"
                     - "Stopping"
@@ -1057,7 +1055,6 @@ spec:
                             enum:
                               - "Pending"
                               - "Running"
-                              - "Degraded"
                               - "Terminating"
                               - "Stopped"
                               - "Stopping"

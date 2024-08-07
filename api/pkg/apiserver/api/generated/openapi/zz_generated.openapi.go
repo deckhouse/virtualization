@@ -1162,7 +1162,6 @@ func schema_virtualization_api_core_v1alpha2_CpuFeatures(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"enabled", "notEnabledCommon"},
 			},
 		},
 	}
@@ -2048,6 +2047,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"bindingMode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"dataSource": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource"),
@@ -3070,7 +3075,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 						},
 					},
 				},
-				Required: []string{"phase", "cpuFeatures", "availableNodes"},
+				Required: []string{"phase"},
 			},
 		},
 		Dependencies: []string{

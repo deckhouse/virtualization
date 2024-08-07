@@ -171,16 +171,23 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// Update the BlockDevicesReady condition.
-	countBD := len(current.Spec.BlockDeviceRefs)
-	if ready, count := h.countReadyBlockDevices(current, bdState, log); !ready {
-		// Wait until block devices are ready.
-		log.Info("Waiting for block devices to become available")
-		reason := vmcondition.ReasonBlockDevicesNotReady.String()
-		h.recorder.Event(changed, corev1.EventTypeNormal, reason, "Waiting for block devices to become available")
-		msg := fmt.Sprintf("Waiting for block devices to become available: %d/%d", count, countBD)
+	if readyCount, wffc := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
+		var reason vmcondition.Reason
+		var msg string
+		if wffc {
+			reason = vmcondition.ReasonBlockDevicesWaitingForProvisioning
+			msg = fmt.Sprintf("Waiting for block devices to become ready: %d/%d; waiting for the block device provisioning.", readyCount, len(current.Spec.BlockDeviceRefs))
+		} else {
+			reason = vmcondition.ReasonBlockDevicesNotReady
+			msg = fmt.Sprintf("Waiting for block devices to become ready: %d/%d.", readyCount, len(current.Spec.BlockDeviceRefs))
+		}
+
+		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
+
+		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
 		mgr.Update(cb.
 			Status(metav1.ConditionFalse).
-			Reason(reason).
+			Reason(reason.String()).
 			Message(msg).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
@@ -230,25 +237,28 @@ func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) 
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, log *slog.Logger) (bool, int) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, log *slog.Logger) (int, bool) {
 	if vm == nil {
-		return false, 0
+		return 0, false
 	}
 	ready := 0
+	viProvisioned := true
+	cviProvisioned := true
+	vdProvisioned := true
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ImageDevice:
-			if vi, hasKey := s.VIByName[bd.Name]; hasKey {
-				if vi.Status.Phase == virtv2.ImageReady {
-					ready++
-				}
+			if vi, hasKey := s.VIByName[bd.Name]; hasKey && vi.Status.Phase == virtv2.ImageReady {
+				ready++
+				continue
 			}
+			viProvisioned = false
 		case virtv2.ClusterImageDevice:
-			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey {
-				if cvi.Status.Phase == virtv2.ImageReady {
-					ready++
-				}
+			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == virtv2.ImageReady {
+				ready++
+				continue
 			}
+			cviProvisioned = false
 		case virtv2.DiskDevice:
 			if vd, hasKey := s.VDByName[bd.Name]; hasKey {
 				// we can attach vd to only one vm
@@ -256,21 +266,31 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				for _, attached := range vd.Status.AttachedToVirtualMachines {
 					if attached.Name != vm.GetName() {
 						attachReady = false
-						msg := fmt.Sprintf("VirtualDisk was attached to another virtual machine %q", attached.Name)
+						msg := fmt.Sprintf("VirtualDisk %s was attached to another virtual machine %q", vd.Name, attached.Name)
 						log.Warn(msg)
 						h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVDAlreadyInUse, msg)
 						break
 					}
 					attachReady = true
 				}
-				if vd.Status.Phase == virtv2.DiskReady && attachReady {
+
+				if !attachReady || vd.Status.Target.PersistentVolumeClaim == "" {
+					continue
+				}
+
+				switch vd.Status.Phase {
+				case virtv2.DiskReady:
 					ready++
+				case virtv2.DiskWaitForFirstConsumer, virtv2.DiskProvisioning:
+					vdProvisioned = false
 				}
 			}
 		}
 	}
 
-	return len(vm.Spec.BlockDeviceRefs) == ready, ready
+	waitingForTheDiskProvisioning := viProvisioned && cviProvisioned && !vdProvisioned
+
+	return ready, waitingForTheDiskProvisioning
 }
 
 // setFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.

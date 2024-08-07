@@ -188,7 +188,8 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		source := ds.getSource(vd, supgen)
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		wffc := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen, wffc)
 		if err != nil {
 			return false, err
 		}
@@ -231,35 +232,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 			return false, err
 		}
 
-		err = ds.diskService.CheckImportProcess(ctx, dv, vd.Spec.PersistentVolumeClaim.StorageClass)
-		switch {
-		case err == nil:
-			vd.Status.Phase = virtv2.DiskProvisioning
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.Provisioning
-			condition.Message = "Import is in the process of provisioning to PVC."
-			return false, nil
-		case errors.Is(err, service.ErrDataVolumeNotRunning):
-			vd.Status.Phase = virtv2.DiskFailed
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ProvisioningFailed
-			condition.Message = service.CapitalizeFirstLetter(err.Error())
-			return false, nil
-		case errors.Is(err, service.ErrStorageClassNotFound):
-			vd.Status.Phase = virtv2.DiskFailed
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ProvisioningFailed
-			condition.Message = "Provided StorageClass not found in the cluster."
-			return false, nil
-		case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-			vd.Status.Phase = virtv2.DiskFailed
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.ProvisioningFailed
-			condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
-			return false, nil
-		default:
+		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, &condition, ds.diskService)
+		if err != nil {
 			return false, err
 		}
+
+		return false, nil
 	}
 
 	return true, nil

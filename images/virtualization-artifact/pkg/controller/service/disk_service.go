@@ -64,11 +64,19 @@ func (s DiskService) Start(
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
+	wffc bool,
 ) error {
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetPVC(storageClass, pvcSize)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetBindingMode(wffc)
+
+	// WaitForFirstConsumer is mainly needed for local storage.
+	// To prevent virtual machine migrations from failing, we set PVC to RWO so that virtual machines definitely cannot migrate.
+	if wffc {
+		dvBuilder.SetAccessMode(corev1.ReadWriteOnce)
+	}
 
 	err := s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {

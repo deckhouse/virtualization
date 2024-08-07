@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -62,10 +63,6 @@ func conditionStatus(status string) metav1.ConditionStatus {
 	}
 }
 
-func vmIsDegraded(kvvm *virtv1.VirtualMachine) bool {
-	return getPhase(kvvm) == virtv2.MachineDegraded
-}
-
 func vmIsPending(kvvm *virtv1.VirtualMachine) bool {
 	return getPhase(kvvm) == virtv2.MachinePending
 }
@@ -79,14 +76,12 @@ func vmIsCreated(kvvm *virtv1.VirtualMachine) bool {
 }
 
 func getPhase(kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
-	phase := kvvmEmptyPhase
-	if kvvm != nil {
-		phase = kvvm.Status.PrintableStatus
+	if kvvm == nil {
+		return virtv2.MachinePending
 	}
-	return mapPhases[phase]
-}
 
-const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
+	return mapPhases[kvvm.Status.PrintableStatus]
+}
 
 var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
@@ -106,31 +101,67 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	virtv1.VirtualMachineStatusTerminating: virtv2.MachineTerminating,
 	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried.
-	virtv1.VirtualMachineStatusCrashLoopBackOff: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusCrashLoopBackOff: virtv2.MachinePending,
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
 	virtv1.VirtualMachineStatusMigrating: virtv2.MachineMigrating,
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
-	virtv1.VirtualMachineStatusUnknown: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusUnknown: virtv2.MachinePending,
 	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
-	virtv1.VirtualMachineStatusUnschedulable: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusUnschedulable: virtv2.MachinePending,
 	// VirtualMachineStatusErrImagePull indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume.
-	virtv1.VirtualMachineStatusErrImagePull: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusErrImagePull: virtv2.MachinePending,
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
-	virtv1.VirtualMachineStatusImagePullBackOff: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusImagePullBackOff: virtv2.MachinePending,
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
-	virtv1.VirtualMachineStatusPvcNotFound: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusPvcNotFound: virtv2.MachinePending,
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
-	virtv1.VirtualMachineStatusDataVolumeError: virtv2.MachineDegraded,
+	virtv1.VirtualMachineStatusDataVolumeError: virtv2.MachinePending,
 	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
 	// the virtual machine volume are still not bound.
 	virtv1.VirtualMachineStatusWaitingForVolumeBinding: virtv2.MachinePending,
-	kvvmEmptyPhase: virtv2.MachinePending,
+}
+
+func isPodStarted(pod *corev1.Pod) bool {
+	if pod == nil || pod.Status.StartTime == nil {
+		return false
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Started == nil || !*cs.Started {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
+	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
+		virtv1.VirtualMachineStatusErrImagePull,
+		virtv1.VirtualMachineStatusImagePullBackOff,
+		virtv1.VirtualMachineStatusCrashLoopBackOff,
+		virtv1.VirtualMachineStatusUnschedulable,
+		virtv1.VirtualMachineStatusDataVolumeError,
+		virtv1.VirtualMachineStatusPvcNotFound,
+	}, phase)
+}
+
+func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) bool {
+	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
+		virtv1.VirtualMachineStatusErrImagePull,
+		virtv1.VirtualMachineStatusImagePullBackOff,
+		virtv1.VirtualMachineStatusDataVolumeError,
+		virtv1.VirtualMachineStatusPvcNotFound,
+		virtv1.VirtualMachineStatusCrashLoopBackOff,
+		virtv1.VirtualMachineStatusUnschedulable,
+		virtv1.VirtualMachineStatusUnknown,
+	}, phase)
 }
 
 func podFinal(pod corev1.Pod) bool {

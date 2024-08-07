@@ -28,6 +28,7 @@ const (
 	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
+	TypeMigratable                          Type = "Migratable"
 	TypePodStarted                          Type = "PodStarted"
 	TypeProvisioningReady                   Type = "ProvisioningReady"
 	TypeAgentReady                          Type = "AgentReady"
@@ -53,8 +54,9 @@ const (
 	ReasonIPAddressNotAssigned  Reason = "VirtualMachineIPAddressNotAssigned"
 	ReasonIPAddressNotAvailable Reason = "VirtualMachineIPAddressNotAvailable"
 
-	ReasonBlockDevicesReady    Reason = "BlockDevicesReady"
-	ReasonBlockDevicesNotReady Reason = "BlockDevicesNotReady"
+	ReasonBlockDevicesReady                  Reason = "BlockDevicesReady"
+	ReasonBlockDevicesWaitingForProvisioning Reason = "BlockDevicesWaitingForProvisioning"
+	ReasonBlockDevicesNotReady               Reason = "BlockDevicesNotReady"
 
 	ReasonProvisioningReady    Reason = "ProvisioningReady"
 	ReasonProvisioningNotReady Reason = "ProvisioningNotReady"
@@ -65,10 +67,16 @@ const (
 	ReasonRestartAwaitingChangesNotExist Reason = "RestartAwaitingChangesNotExist"
 	ReasonRestartNoNeed                  Reason = "NoNeedRestart"
 
-	ReasonPodNodFound      Reason = "PodNotFound"
-	ReasonPodStarted       Reason = "PodStarted"
-	ReasonVmIsMigrating    Reason = "VirtualMachineMigrating"
-	ReasonVmIsNotMigrating Reason = "VirtualMachineNotMigrating"
-	ReasonVmIsNotRunning   Reason = "VirtualMachineNotRunning"
-	ReasonVmIsRunning      Reason = "VirtualMachineRunning"
+	ReasonPodStarted    Reason = "PodStarted"
+	ReasonPodNotFound   Reason = "PodNotFound"
+	ReasonPodNotStarted Reason = "PodNotStarted"
+
+	ReasonMigratable    Reason = "VirtualMachineMigratable"
+	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
+
+	ReasonVmIsMigrating               Reason = "VirtualMachineMigrating"
+	ReasonVmIsNotMigrating            Reason = "VirtualMachineNotMigrating"
+	ReasonVmIsNotRunning              Reason = "VirtualMachineNotRunning"
+	ReasonVmIsRunning                 Reason = "VirtualMachineRunning"
+	ReasonInternalVirtualMachineError Reason = "InternalVirtualMachineError"
 )

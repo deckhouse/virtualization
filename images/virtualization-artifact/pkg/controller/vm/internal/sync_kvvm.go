@@ -87,7 +87,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	mgr := conditions.NewManager(changed.Status.Conditions)
 
-	if h.isWaiting(current) {
+	if h.isWaiting(changed) {
 		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionFalse).
@@ -118,8 +118,11 @@ func (h *SyncKvvmHandler) Name() string {
 func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
 		switch vmcondition.Type(c.Type) {
-		case vmcondition.TypeBlockDevicesReady,
-			vmcondition.TypeIPAddressReady,
+		case vmcondition.TypeBlockDevicesReady:
+			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonBlockDevicesWaitingForProvisioning.String() {
+				return true
+			}
+		case vmcondition.TypeIPAddressReady,
 			vmcondition.TypeProvisioningReady,
 			vmcondition.TypeClassReady:
 			if c.Status != metav1.ConditionTrue {
@@ -434,7 +437,7 @@ func (h *SyncKvvmHandler) canApplyChanges(vm *virtv2.VirtualMachine, kvvm *virtv
 		return true
 	}
 
-	if vmIsDegraded(kvvm) || vmIsPending(kvvm) {
+	if vmIsPending(kvvm) {
 		return true
 	}
 
