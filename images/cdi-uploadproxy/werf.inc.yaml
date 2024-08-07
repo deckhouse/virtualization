@@ -10,8 +10,13 @@ import:
   before: setup
 shell:
   install:
-  # Install packages from Sisyphus repository because p10 repository does not have required versions.
-  - echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/sisyphus.list
+  # Update GPG keys and vendor IDs list.
+  - |
+    apt-get update && apt-get install --yes \
+    apt-conf-branch \
+    alt-gpgkeys
+  # Install newer versions from p11 branch.
+  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/alt-p11.list
   - |
     apt-get update && apt-get install --yes \
     glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1

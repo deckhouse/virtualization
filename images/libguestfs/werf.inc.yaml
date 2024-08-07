@@ -17,22 +17,22 @@ import:
   before: setup
 shell:
   install:
-  # Install main packages.
+  # Install main packages, update GPG keys and vendor IDs list.
   - |
     apt-get update && apt-get install --yes \
+    apt-conf-branch \
+    alt-gpgkeys \
     acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
     libguestfs==1.48.4-alt2:p10+307399.200.6.1 \
     guestfs-tools==1.48.2-alt1:p10+307399.300.6.1 \
     libvirt-daemon-driver-qemu==9.7.0-alt2.p10.2:p10+343223.200.3.1 \
     qemu-kvm-core==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
     selinux-policy-alt==0.0.52-alt1:sisyphus+260794.100.1.1 \
-    libaltselinux==0.1.0-alt1 \
-    apt-conf-branch \
-    alt-gpgkeys
+    libaltselinux==0.1.0-alt1
 
   # Install newer versions from p11 branch.
-  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" >> /etc/apt/sources.list.d/sisyphus.list
-  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/sisyphus.list
+  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/alt-p11.list
+  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/alt-p11.list
   - |
     apt-get update && apt-get install --yes \
     glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1 \
