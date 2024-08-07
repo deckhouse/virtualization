@@ -20,14 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
 type VMIPState interface {
@@ -80,8 +83,12 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 			return nil, err
 		}
 
-		if len(leases.Items) > 0 {
-			s.lease = &leases.Items[0]
+		for i, lease := range leases.Items {
+			boundCondition, exist := service.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+			if exist && boundCondition.Status == metav1.ConditionTrue {
+				s.lease = &leases.Items[i]
+				break
+			}
 		}
 	}
 
