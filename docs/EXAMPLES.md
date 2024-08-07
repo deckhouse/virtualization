@@ -328,7 +328,6 @@ spec:
     objectRef:
       kind: ClusterVirtualImage
       name: ubuntu-img
-
 ```
 
 ### Change disk size
@@ -506,7 +505,6 @@ After creation, the virtual machine will automatically get an IP address from th
 
 - Create a `VirtualMachineIPAddress` resource that commits the desired IP address of the virtual machine. The requested address must be from the address range specified in the `kubectl get mc virtualization -o jsonpath=“{.spec.settings.virtualMachineCIDRs}”` module settings.
 
-
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddress
@@ -617,3 +615,219 @@ Even though the virtual machine was shut down, it restarted again. Reason for re
 > When a virtual machine is created, the `runPolicy: AlwaysOn` parameter is used. This means that the virtual machine will run even if for some reason there is a shutdown, restart, or failure that causes the virtual machine to stop running.
 
 To shut down the virtual machine, change the policy value to `AlwaysOff`. This will correctly shut down the virtual machine.
+
+## Virtual Machine Classes
+
+The `VirtualMachineClass` resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions and configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, `VirtualMachineClass` provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
+
+The virtualization platform provides 3 predefined `VirtualMachineClass` resources:
+
+```bash
+kubectl get virtualmachineclass
+NAME               PHASE   AGE
+host               Ready   6d1h
+host-passthrough   Ready   6d1h
+generic            Ready   6d1h
+```
+
+- `host` - this class uses a virtual CPU that is as close as possible to the platform node's CPU in terms of instruction set. This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types. For example, VM migration between nodes with Intel and AMD processors will not work. This is also true for different generations of processors, as their instruction set is different.
+- `host-passthrough` - uses the physical CPU of the platform node directly without any modifications. When using this class, the guest VM can only be migrated to a target node that has a CPU that exactly matches the CPU of the source node.
+- `generic` is a universal CPU model that uses a fairly old, but supported by most modern CPUs, Nehalem model. This allows VMs to run on any nodes in the cluster with live migration capability.
+
+`VirtualMachineClass` is mandatory to be specified in the virtual machine configuration, an example of how to specify the class in the VM specification:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  virtualMachineClassName: generic # the name of the resource VirtualMachineClass
+  ...
+```
+
+Platform administrators can create the required classes of VMs according to their needs, but it is recommended to create the required minimum. Let's consider the following example:
+
+### VirtualMachineClass configuration example
+
+![](./images/vmclass-examples.png)
+
+Let's imagine we have a cluster of four nodes. Two of these nodes labeled `group=blue` have a "CPU X" processor with three instruction sets, and the other two nodes labeled `group=green` have a newer "CPU Y" processor with four instruction sets.
+
+To optimally utilize the resources of this cluster, it is recommended to create three additional virtual machine classes (VirtualMachineClass):
+
+- **universal**: This class will allow virtual machines to run on all nodes in the platform and migrate between them. It will use the instruction set for the lowest CPU model to ensure the greatest compatibility.
+- **cpuX**: This class will be for virtual machines that should only run on nodes with a "CPU X" processor. VMs will be able to migrate between these nodes using the available "CPU X" instruction sets.
+- **cpuY**: This class is for VMs that should only run on nodes with a "CPU Y" processor. VMs will be able to migrate between these nodes using the available "CPU Y" instruction sets.
+
+> CPU instruction sets are a list of all the instructions that a processor can execute, such as addition, subtraction, or memory operations. They determine what operations are possible, affect program compatibility and performance, and can change from one generation of processors to the next.
+
+Sample resource configurations for a given cluster:
+
+```yaml
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: universal
+spec:
+  cpu:
+    discovery: {}
+    type: Discovery
+  sizingPolicies: { ... }
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuX
+spec:
+  cpu:
+    discovery: {}
+    type: Discovery
+  nodeSelector:
+    matchExpressions:
+      - key: group
+        operator: In
+        values: ["blue"]
+  sizingPolicies: { ... }
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuY
+spec:
+  cpu:
+    discovery:
+      matchExpressions:
+        - key: group
+          operator: In
+          values: ["green"]
+    type: Discovery
+  sizingPolicies: { ... }
+```
+
+### Other configuration options
+
+Example of `VirtualMachineClass` resource configuration:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: discovery
+spec:
+  cpu:
+    # configure a generic vCPU for a given set of nodes
+    discovery:
+      matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+    type: Discovery
+  # allow VMs with this class to run only on nodes in the worker group
+  nodeSelector:
+    matchExpressions:
+      - key: node.deckhouse.io/group
+        operator: In
+        values:
+          - worker
+  # resource configuration policy
+  sizingPolicies:
+    # for a range of 1 to 4 cores, it is possible to use 1 to 8GB of RAM in 512Mi increments
+    # i.e. 1GB, 1.5GB, 2GB, 2.5GB etc.
+    # no dedicated cores allowed
+    # and all corefraction options are available
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+        step: 512Mi
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    # for a range of 5 to 8 cores, it is possible to use 5 to 16GB of RAM in 1GB increments
+    # i.e. 5GB, 6GB, 7GB, etc.
+    # it is not allowed to use dedicated cores
+    # and some corefraction options are available
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+        step: 1Gi
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    # for a range of 9 to 16 cores, it is possible to use 9 to 32GB of RAM in 1GB increments
+    # it is possible to use dedicated cores (or not)
+    # and some variants of the corefraction parameter are available
+    - cores:
+        min: 9
+        max: 16
+      memory:
+        min: 9Gi
+        max: 32Gi
+        step: 1Gi
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    # for the range from 17 to 1024 cores it is possible to use from 1 to 2 GB of RAM per core
+    # only dedicated cores are available for use
+    # and the only parameter corefraction = 100%
+    - cores:
+        min: 17
+        max: 1024
+      memory:
+        perCore:
+          min: 1Gi
+          max: 2Gi
+      dedicatedCores: [true]
+      coreFractions: [100]
+```
+
+The following are fragments of `VirtualMachineClass` configurations for different tasks:
+
+- a class with a vCPU with the required set of processor instructions, for this we use `type: Features` to specify the required set of supported instructions for the processor:
+
+```yaml
+spec:
+  cpu:
+    features:
+      - vmx
+    type: Features
+```
+
+- class c universal vCPU for a given set of nodes, for this we use `type: Discovery`:
+
+```yaml
+spec:
+  cpu:
+    discovery:
+      matchExpressions:
+        - key: node-role.kubernetes.io/control-plane
+          operator: DoesNotExist
+    type: Discovery
+```
+
+- to create a vCPU of a particular processor with a predefined set of instructions, we use `type: Model`. In advance, to get a list of supported CPU names for a cluster node, run the command:
+
+```bash
+kubectl get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model")) | .key | split("/")[1]'' -r
+
+# Sample output:
+#
+# IvyBridge
+# Nehalem
+# Opteron_G1
+# Penryn
+# SandyBridge
+# Westmere
+```
+
+further specify in the `VirtualMachineClass` resource specification:
+
+```yaml
+spec:
+  cpu:
+    model: IvyBridge
+    type: Model
+```
