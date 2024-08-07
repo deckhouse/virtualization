@@ -101,7 +101,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 			if metaUpdated {
 				if err = h.client.Update(ctx, &pod); err != nil {
-					return reconcile.Result{}, fmt.Errorf("fauled to update KubeVirt Pod %q: %w", pod.GetName(), err)
+					return reconcile.Result{}, fmt.Errorf("failed to update KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
 		}

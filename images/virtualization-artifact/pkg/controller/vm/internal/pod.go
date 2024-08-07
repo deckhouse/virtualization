@@ -28,7 +28,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const namePodHandler = "PodHandler "
+const namePodHandler = "PodHandler"
 
 func NewPodHandler(client client.Client) *PodHandler {
 	return &PodHandler{
@@ -69,11 +69,13 @@ func (h *PodHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		s.Shared(func(s *state.Shared) {
 			s.ShutdownInfo = info
 		})
-		return reconcile.Result{}, h.protection.RemoveProtection(ctx, &info.Pod)
 	}
 
 	for _, p := range pods.Items {
 		if podFinal(p) {
+			if err := h.protection.RemoveProtection(ctx, &p); err != nil {
+				return reconcile.Result{}, err
+			}
 			continue
 		}
 		if err := h.protection.AddProtection(ctx, &p); err != nil {
