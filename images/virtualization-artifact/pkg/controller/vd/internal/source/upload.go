@@ -126,21 +126,20 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		return CleanUpSupplements(ctx, vd, ds)
 	case common.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
-	case pod == nil && svc == nil && ing == nil:
+	case pod == nil || svc == nil || ing == nil:
 		log.Info("Start import to DVCR")
 
 		envSettings := ds.getEnvSettings(supgen)
 		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForUploaderStart(&condition, &vd.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
 
-		vd.Status.Phase = virtv2.DiskPending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
-
 		vd.Status.Progress = "0%"
+
+		return requeue, nil
 	case !common.IsPodComplete(pod):
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 

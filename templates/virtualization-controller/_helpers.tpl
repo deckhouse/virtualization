@@ -40,8 +40,18 @@
   value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
-  {{- if eq .Values.virtualization.logLevel "debug" }}
+{{- with .Values.virtualization.importerResourceRequirements }}
+{{- if hasKey . "limits" }}
+- name: IMPORTER_LIMITS
+  value: {{ .limits | toJson | quote }}
+{{- end }}
+{{- if hasKey . "requests" }}
+- name: IMPORTER_REQUESTS
+  value: {{ .requests | toJson | quote }}
+{{- end }}
+{{- end }}
+{{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"
-  {{- end }}
+{{- end }}
 {{- end }}

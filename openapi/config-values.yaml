@@ -201,3 +201,37 @@ properties:
     enum:
       - "text"
       - "json"
+  importerResourceRequirements:
+    type: object
+    description: ResourceRequirements describes the compute resource requirements.
+    default:
+      limits:
+        cpu: 750m
+        memory: 600M
+      requests:
+        cpu: 100m
+        memory: 60M
+    properties:
+      limits:
+        type: object
+        description: |
+          Limits describes the maximum amount of compute resources allowed.
+          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        additionalProperties:
+          x-kubernetes-int-or-string: true
+          anyOf:
+            - type: integer
+            - type: string
+          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+      requests:
+        type: object
+        additionalProperties:
+          x-kubernetes-int-or-string: true
+          anyOf:
+            - type: integer
+            - type: string
+          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+        description: |
+          Requests describes the minimum amount of compute resources required.
+          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value.
+          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

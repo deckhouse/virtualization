@@ -91,10 +91,6 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
-
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
 		if err != nil {
@@ -108,15 +104,18 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		}
 
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
+
+		return requeue, nil
 	case cc.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {

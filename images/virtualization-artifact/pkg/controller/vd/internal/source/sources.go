@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -170,5 +171,36 @@ func setPhaseConditionForPVCProvisioningDisk(
 		return nil
 	default:
 		return err
+	}
+}
+
+func setPhaseConditionForImporterStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) (bool, error) {
+	return setPhaseConditionForPodStart(ready, phase, err, virtv2.DiskProvisioning, vdcondition.Provisioning)
+}
+
+func setPhaseConditionForUploaderStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) (bool, error) {
+	return setPhaseConditionForPodStart(ready, phase, err, virtv2.DiskPending, vdcondition.WaitForUserUpload)
+}
+
+func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error, okPhase virtv2.DiskPhase, okReason vdcondition.ReadyReason) (bool, error) {
+	switch {
+	case err == nil:
+		*phase = okPhase
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = okReason
+		ready.Message = "DVCR Provisioner not found: create the new one."
+		return true, nil
+	case cc.ErrQuotaExceeded(err):
+		*phase = virtv2.DiskFailed
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = cvicondition.ProvisioningFailed
+		ready.Message = fmt.Sprintf("Quota exceeded: please configure the `importerResourceRequirements` field in the virtualization module configuration; %s.", err)
+		return false, nil
+	default:
+		*phase = virtv2.DiskFailed
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = cvicondition.ProvisioningFailed
+		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
+		return false, err
 	}
 }
