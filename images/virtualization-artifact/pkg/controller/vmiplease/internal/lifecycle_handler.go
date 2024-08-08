@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -31,14 +30,10 @@ import (
 
 const LifecycleHandlerName = "LifecycleHandler"
 
-type LifecycleHandler struct {
-	logger logr.Logger
-}
+type LifecycleHandler struct{}
 
-func NewLifecycleHandler(logger logr.Logger) *LifecycleHandler {
-	return &LifecycleHandler{
-		logger: logger.WithValues("handler", LifecycleHandlerName),
-	}
+func NewLifecycleHandler() *LifecycleHandler {
+	return &LifecycleHandler{}
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {

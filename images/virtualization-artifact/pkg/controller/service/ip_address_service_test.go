@@ -17,9 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"log/slog"
 	"net/netip"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,7 +31,7 @@ var _ = Describe("IpAddressService", func() {
 	var (
 		ipService    *IpAddressService
 		allocatedIPs common.AllocatedIPs
-		logger       logr.Logger
+		logger       *slog.Logger
 	)
 
 	BeforeEach(func() {

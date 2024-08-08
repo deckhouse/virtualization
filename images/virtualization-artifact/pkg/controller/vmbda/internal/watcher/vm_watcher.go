@@ -38,13 +38,11 @@ import (
 
 type VirtualMachineWatcher struct {
 	client client.Client
-	logger *slog.Logger
 }
 
-func NewVirtualMachineWatcher(logger *slog.Logger, client client.Client) *VirtualMachineWatcher {
+func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 	return &VirtualMachineWatcher{
 		client: client,
-		logger: logger.With("watcher", "vm"),
 	}
 }
 
@@ -66,7 +64,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list vmbdas: %s", err))
+		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
 		return
 	}
 
@@ -89,13 +87,13 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldVM, ok := e.ObjectOld.(*virtv2.VirtualMachine)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
+		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
 		return false
 	}
 
 	newVM, ok := e.ObjectNew.(*virtv2.VirtualMachine)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
+		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
 		return false
 	}
 

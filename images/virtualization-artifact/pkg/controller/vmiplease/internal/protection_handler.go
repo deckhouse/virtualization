@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -29,14 +28,10 @@ import (
 
 const ProtectionHandlerName = "ProtectionHandler"
 
-type ProtectionHandler struct {
-	logger logr.Logger
-}
+type ProtectionHandler struct{}
 
-func NewProtectionHandler(logger logr.Logger) *ProtectionHandler {
-	return &ProtectionHandler{
-		logger: logger.WithValues("handler", ProtectionHandlerName),
-	}
+func NewProtectionHandler() *ProtectionHandler {
+	return &ProtectionHandler{}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {

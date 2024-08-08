@@ -38,13 +38,11 @@ import (
 
 type VirtualDiskWatcher struct {
 	client client.Client
-	logger *slog.Logger
 }
 
-func NewVirtualDiskWatcher(logger *slog.Logger, client client.Client) *VirtualDiskWatcher {
+func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 	return &VirtualDiskWatcher{
 		client: client,
-		logger: logger.With("watcher", "vd"),
 	}
 }
 
@@ -66,7 +64,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list vmbdas: %s", err))
+		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
 		return
 	}
 
@@ -89,13 +87,13 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
+		slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
 		return false
 	}
 
 	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
+		slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
 		return false
 	}
 

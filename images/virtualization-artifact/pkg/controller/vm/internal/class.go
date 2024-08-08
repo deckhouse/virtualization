@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,27 +29,28 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameClassHandler = "ClassHandler"
 
-func NewClassHandler(client client.Client, recorder record.EventRecorder, logger *slog.Logger) *ClassHandler {
+func NewClassHandler(client client.Client, recorder record.EventRecorder) *ClassHandler {
 	return &ClassHandler{
 		client:   client,
 		recorder: recorder,
-		logger:   logger.With("handler", nameClassHandler),
 	}
 }
 
 type ClassHandler struct {
 	client   client.Client
 	recorder record.EventRecorder
-	logger   *slog.Logger
 }
 
 func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameClassHandler))
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -94,7 +94,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if class == nil {
 		msg = fmt.Sprintf("VirtualMachineClassName %q not found", className)
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), "VirtualMachineClass not available: waiting for the VirtualMachineClass")
-		h.logger.Error("VirtualMachineClass not available: waiting for the CPU model")
+		log.Info("VirtualMachineClass not available: waiting for the CPU class")
 	}
 	mgr.Update(cb.Status(metav1.ConditionFalse).
 		Message(msg).

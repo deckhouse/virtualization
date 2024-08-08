@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
 const (
@@ -36,21 +37,22 @@ func NewController(
 	mgr manager.Manager,
 	log *slog.Logger,
 ) (controller.Controller, error) {
-	if log == nil {
-		log = slog.Default()
-	}
-	logger := log.With("controller", controllerName)
+	log = log.With(logger.SlogController(controllerName))
 
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	client := mgr.GetClient()
 	handlers := []Handler{
-		internal.NewDeletionHandler(client, recorder, logger),
+		internal.NewDeletionHandler(client, recorder, log),
 		internal.NewDiscoveryHandler(),
 		internal.NewLifeCycleHandler(client),
 	}
-	r := NewReconciler(client, logger, handlers...)
+	r := NewReconciler(client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, RecoverPanic: ptr.To(true)})
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:     r,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}

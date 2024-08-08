@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,20 +46,15 @@ type Handler interface {
 	Name() string
 }
 
-func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
-	if logger == nil {
-		logger = slog.Default().With("controller", controllerName)
-	}
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
-		logger:   logger,
 		handlers: handlers,
 	}
 }
 
 type Reconciler struct {
 	client   client.Client
-	logger   *slog.Logger
 	handlers []Handler
 }
 
@@ -294,6 +288,8 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vm := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vm.Fetch(ctx)
@@ -302,38 +298,44 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if vm.IsEmpty() {
-		r.logger.Info("Reconcile observe an absent VirtualMachine: it may be deleted", slog.String("namespacedName", req.String()))
+		log.Info("Reconcile observe an absent VirtualMachine: it may be deleted")
 		return reconcile.Result{}, nil
 	}
+
 	s := state.New(r.client, vm)
 
-	r.logger.Info("Start reconcile VM", slog.String("namespacedName", req.String()))
+	log.Debug("Start reconcile VM")
 
 	var result reconcile.Result
 	var handlerErr error
 
 	for _, h := range r.handlers {
-		r.logger.Debug("Run handler", slog.String("name", h.Name()))
-		res, err := h.Handle(ctx, s)
+		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+
+		var res reconcile.Result
+		res, err = h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error("The handler failed with an error", slog.String("name", h.Name()), logger.SlogErr(err))
+			log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
 			handlerErr = errors.Join(handlerErr, err)
 		}
 		result = service.MergeResults(result, res)
 	}
+
 	if handlerErr != nil {
 		err = r.updateVM(ctx, vm)
 		if err != nil {
-			r.logger.Error("Failed to update VirtualMachine", slog.String("namespacedName", req.String()))
+			log.Error("Failed to update VirtualMachine")
 		}
 		return reconcile.Result{}, handlerErr
 	}
+
 	err = r.updateVM(ctx, vm)
 	if err != nil {
-		r.logger.Error("Failed to update VirtualMachine", slog.String("namespacedName", req.String()))
+		log.Error("Failed to update VirtualMachine")
 		return reconcile.Result{}, err
 	}
-	r.logger.Info("Finished reconcile VM", slog.String("namespacedName", req.String()))
+
+	log.Debug("Finished reconcile VM")
 	return result, nil
 }
 

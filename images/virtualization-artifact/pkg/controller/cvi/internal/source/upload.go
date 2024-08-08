@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -39,7 +39,6 @@ type UploadDataSource struct {
 	uploaderService     Uploader
 	dvcrSettings        *dvcr.Settings
 	controllerNamespace string
-	logger              *slog.Logger
 }
 
 func NewUploadDataSource(
@@ -53,12 +52,11 @@ func NewUploadDataSource(
 		uploaderService:     uploaderService,
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
-		logger:              slog.Default().With("controller", common.CVIShortName, "ds", "upload"),
 	}
 }
 
 func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	ds.logger.Info("Sync", "cvi", cvi.Name)
+	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
@@ -85,7 +83,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "cvi", cvi.Name)
+		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = cvicondition.Ready
@@ -103,7 +101,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	case common.AnyTerminating(pod, svc, ing):
 		cvi.Status.Phase = virtv2.ImagePending
 
-		ds.logger.Info("Cleaning up...", "cvi", cvi.Name)
+		log.Info("Cleaning up...")
 	case pod == nil && svc == nil && ing == nil:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.Provisioning
@@ -118,7 +116,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		cvi.Status.Phase = virtv2.ImagePending
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
-		ds.logger.Info("Create uploader pod...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", nil)
+		log.Info("Create uploader pod...", "progress", cvi.Status.Progress, "pod.phase", nil)
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -147,7 +145,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
-		ds.logger.Info("Ready", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploadStarted(cvi.GetUID(), pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -183,7 +181,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			return false, err
 		}
 
-		ds.logger.Info("Provisioning...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.WaitForUserUpload
@@ -192,7 +190,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		cvi.Status.Phase = virtv2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
-		ds.logger.Info("WaitForUserUpload...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("WaitForUserUpload...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -44,7 +44,6 @@ type RegistryDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	controllerNamespace string
-	logger              *slog.Logger
 }
 
 func NewRegistryDataSource(
@@ -60,12 +59,11 @@ func NewRegistryDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		controllerNamespace: controllerNamespace,
-		logger:              slog.Default().With("controller", common.CVIShortName, "ds", "registry"),
 	}
 }
 
 func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	ds.logger.Info("Sync", "cvi", cvi.Name)
+	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
@@ -78,7 +76,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "cvi", cvi.Name)
+		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = cvicondition.Ready
@@ -96,7 +94,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 	case common.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
-		ds.logger.Info("Cleaning up...", "cvi", cvi.Name)
+		log.Info("Cleaning up...")
 	case pod == nil:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.Provisioning
@@ -112,7 +110,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		cvi.Status.Progress = "0%"
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
-		ds.logger.Info("Create importer pod...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", "nil")
+		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -140,7 +138,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		cvi.Status.Progress = "100%"
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
-		ds.logger.Info("Ready", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -170,7 +168,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		cvi.Status.Progress = "0%"
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
-		ds.logger.Info("Provisioning...", "cvi", cvi.Name, "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

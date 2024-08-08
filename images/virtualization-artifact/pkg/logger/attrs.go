@@ -23,6 +23,7 @@ const (
 	nameAttr       = "name"
 	namespaceAttr  = "namespace"
 	handlerAttr    = "handler"
+	dataSourceAttr = "ds"
 	controllerAttr = "controller"
 )
 
@@ -36,6 +37,10 @@ func SlogName(name string) slog.Attr {
 
 func SlogNamespace(namespace string) slog.Attr {
 	return slog.String(namespaceAttr, namespace)
+}
+
+func SlogDataSource(handler string) slog.Attr {
+	return slog.String(dataSourceAttr, handler)
 }
 
 func SlogHandler(handler string) slog.Attr {

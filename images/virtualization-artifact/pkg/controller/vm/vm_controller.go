@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -44,29 +45,30 @@ func NewController(
 	log *slog.Logger,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
-	if log == nil {
-		log = slog.Default()
-	}
-	logger := log.With("controller", controllerName)
+	log = log.With(logger.SlogHandler(controllerName))
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	handlers := []Handler{
-		internal.NewDeletionHandler(client, logger),
-		internal.NewClassHandler(client, recorder, logger),
-		internal.NewIPAMHandler(ipam.New(), client, recorder, logger),
-		internal.NewBlockDeviceHandler(client, recorder, logger),
+		internal.NewDeletionHandler(client),
+		internal.NewClassHandler(client, recorder),
+		internal.NewIPAMHandler(ipam.New(), client, recorder),
+		internal.NewBlockDeviceHandler(client, recorder),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewPodHandler(client),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, logger),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncMetadataHandler(client),
-		internal.NewLifeCycleHandler(client, recorder, logger),
+		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
 	}
-	r := NewReconciler(client, logger, handlers...)
+	r := NewReconciler(client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, RecoverPanic: ptr.To(true)})
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:     r,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +79,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), logger)).
+		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), log)).
 		Complete(); err != nil {
 		return nil, err
 	}

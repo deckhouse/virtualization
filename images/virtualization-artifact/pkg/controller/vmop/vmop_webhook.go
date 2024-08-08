@@ -19,28 +19,28 @@ package vmop
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(log logr.Logger) *Validator {
+func NewValidator(log *slog.Logger) *Validator {
 	return &Validator{
-		log: log.WithName(controllerName).WithValues("webhook", "validation"),
+		log: log.With("controller", controllerName).With("webhook", "validation"),
 	}
 }
 
 type Validator struct {
-	log logr.Logger
+	log *slog.Logger
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }
 
@@ -65,6 +65,6 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error(err, "Ensure the correctness of ValidatingWebhookConfiguration")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }

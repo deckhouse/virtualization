@@ -35,17 +35,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder record.EventRecorder, logger *slog.Logger) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, recorder record.EventRecorder) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:   cl,
 		recorder: recorder,
-		logger:   logger.With("handler", nameBlockDeviceHandler),
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
 		cviProtection: service.NewProtectionService(cl, virtv2.FinalizerCVIProtection),
@@ -56,7 +56,6 @@ func NewBlockDeviceHandler(cl client.Client, recorder record.EventRecorder, logg
 type BlockDeviceHandler struct {
 	client   client.Client
 	recorder record.EventRecorder
-	logger   *slog.Logger
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
@@ -64,6 +63,8 @@ type BlockDeviceHandler struct {
 }
 
 func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameBlockDeviceHandler))
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -80,7 +81,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	disksMessage := h.checkBlockDevicesSanity(current)
 	if !isDeletion(current) && disksMessage != "" {
-		h.logger.Error(fmt.Sprintf("invalid disks: %s", disksMessage))
+		log.Error(fmt.Sprintf("invalid disks: %s", disksMessage))
 		mgr.Update(cb.
 			Status(metav1.ConditionFalse).
 			Reason2(vmcondition.ReasonBlockDevicesNotReady).
@@ -171,9 +172,9 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	// Update the BlockDevicesReady condition.
 	countBD := len(current.Spec.BlockDeviceRefs)
-	if ready, count := h.countReadyBlockDevices(current, bdState); !ready {
+	if ready, count := h.countReadyBlockDevices(current, bdState, log); !ready {
 		// Wait until block devices are ready.
-		h.logger.Info("Waiting for block devices to become available")
+		log.Info("Waiting for block devices to become available")
 		reason := vmcondition.ReasonBlockDevicesNotReady.String()
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason, "Waiting for block devices to become available")
 		msg := fmt.Sprintf("Waiting for block devices to become available: %d/%d", count, countBD)
@@ -229,7 +230,7 @@ func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) 
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState) (bool, int) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, log *slog.Logger) (bool, int) {
 	if vm == nil {
 		return false, 0
 	}
@@ -256,7 +257,7 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 					if attached.Name != vm.GetName() {
 						attachReady = false
 						msg := fmt.Sprintf("VirtualDisk was attached to another virtual machine %q", attached.Name)
-						h.logger.Warn(msg)
+						log.Warn(msg)
 						h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVDAlreadyInUse, msg)
 						break
 					}

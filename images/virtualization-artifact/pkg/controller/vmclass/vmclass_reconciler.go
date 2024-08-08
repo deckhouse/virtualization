@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,17 +42,15 @@ type Handler interface {
 	Name() string
 }
 
-func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
-		logger:   logger,
 		handlers: handlers,
 	}
 }
 
 type Reconciler struct {
 	client   client.Client
-	logger   *slog.Logger
 	handlers []Handler
 }
 
@@ -84,13 +81,16 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			}
 			return result
 		}),
-		predicate.LabelChangedPredicate{}); err != nil {
+		predicate.LabelChangedPredicate{},
+	); err != nil {
 		return fmt.Errorf("error setting watch on Node: %w", err)
 	}
 	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	class := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := class.Fetch(ctx)
@@ -99,21 +99,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if class.IsEmpty() {
-		r.logger.Info("Reconcile observe an absent VirtualMachineClass: it may be deleted", slog.String("namespacedName", req.String()))
+		log.Info("Reconcile observe an absent VirtualMachineClass: it may be deleted")
 		return reconcile.Result{}, nil
 	}
 	s := state.New(r.client, class)
 
-	r.logger.Info("Start reconcile VMClass", slog.String("namespacedName", req.String()))
+	log.Debug("Start reconcile VMClass")
 
 	var result reconcile.Result
 	var handlerErr error
 
 	for _, h := range r.handlers {
-		r.logger.Debug("Run handler", slog.String("name", h.Name()))
-		res, err := h.Handle(ctx, s)
+		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+
+		var res reconcile.Result
+		res, err = h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error("The handler failed with an error", slog.String("name", h.Name()), logger.SlogErr(err))
+			log.Error("The handler failed with an error", logger.SlogErr(err), logger.SlogHandler(h.Name()))
 			handlerErr = errors.Join(handlerErr, err)
 		}
 		result = service.MergeResults(result, res)
@@ -121,16 +123,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if handlerErr != nil {
 		err = class.Update(ctx)
 		if err != nil {
-			r.logger.Error("Failed to update VirtualMachineClass", slog.String("namespacedName", req.String()))
+			log.Error("Failed to update VirtualMachineClass")
 		}
 		return reconcile.Result{}, handlerErr
 	}
 	err = class.Update(ctx)
 	if err != nil {
-		r.logger.Error("Failed to update VirtualMachineClass", slog.String("namespacedName", req.String()))
+		log.Error("Failed to update VirtualMachineClass")
 		return reconcile.Result{}, err
 	}
-	r.logger.Info("Finished reconcile VM", slog.String("namespacedName", req.String()))
+
+	log.Debug("Finished reconcile VirtualMachineClass")
 	return result, nil
 }
 

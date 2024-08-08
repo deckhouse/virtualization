@@ -18,15 +18,16 @@ package vmiplease
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/go-logr/logr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,25 +38,29 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	log *slog.Logger,
 	retentionDurationStr string,
 ) (controller.Controller, error) {
-	log = log.WithName(controllerName)
+	log = log.With(logger.SlogController(controllerName))
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
-		log.Error(err, "failed to parse retention duration")
+		log.Error("Failed to parse retention duration", "err", err)
 		return nil, err
 	}
 
 	handlers := []Handler{
-		internal.NewProtectionHandler(log),
-		internal.NewRetentionHandler(log, retentionDuration),
-		internal.NewLifecycleHandler(log),
+		internal.NewProtectionHandler(),
+		internal.NewRetentionHandler(retentionDuration),
+		internal.NewLifecycleHandler(),
 	}
 
-	r := NewReconciler(mgr.GetClient(), log, handlers...)
+	r := NewReconciler(mgr.GetClient(), handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{Reconciler: r, RecoverPanic: ptr.To(true)})
+	c, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:     r,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}

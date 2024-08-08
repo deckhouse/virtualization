@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -44,18 +44,18 @@ type Watcher interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
-	logger   *slog.Logger
 }
 
-func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
-		logger:   logger,
 		handlers: handlers,
 	}
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vmbda := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vmbda.Fetch(ctx)
@@ -74,7 +74,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		var res reconcile.Result
 		res, err = h.Handle(ctx, vmbda.Changed())
 		if err != nil {
-			r.logger.Error("Failed to handle vmbda", "err", err)
+			log.Error("Failed to handle vmbda", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -98,10 +98,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
-		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(r.logger, mgr.GetClient()),
-		watcher.NewVirtualMachineWatcher(r.logger, mgr.GetClient()),
-		watcher.NewVirtualDiskWatcher(r.logger, mgr.GetClient()),
-		watcher.NewKVVMIWatcher(r.logger, mgr.GetClient()),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewKVVMIWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

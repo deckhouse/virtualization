@@ -19,9 +19,9 @@ package helper
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -47,15 +47,15 @@ type Resource[T Object[T, ST], ST any] struct {
 
 	objFactory      ObjectFactory[T]
 	objStatusGetter ObjectStatusGetter[T, ST]
-	log             logr.Logger
+	log             *slog.Logger
 	client          client.Client
 	cache           cache.Cache
 }
 
-func NewResource[T Object[T, ST], ST any](name types.NamespacedName, log logr.Logger, client client.Client, cache cache.Cache, objFactory ObjectFactory[T], objStatusGetter ObjectStatusGetter[T, ST]) *Resource[T, ST] {
+func NewResource[T Object[T, ST], ST any](name types.NamespacedName, logger *slog.Logger, client client.Client, cache cache.Cache, objFactory ObjectFactory[T], objStatusGetter ObjectStatusGetter[T, ST]) *Resource[T, ST] {
 	return &Resource[T, ST]{
 		name:            name,
-		log:             log,
+		log:             logger,
 		client:          client,
 		cache:           cache,
 		objFactory:      objFactory,
@@ -79,8 +79,8 @@ func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	r.log.V(2).Info("Resource.Fetch", "name", r.name.String())
-	r.log.V(5).Info("Resource.Fetch", "name", r.name.String(), "obj", currentObj, "status", r.getObjStatus(currentObj))
+	r.log.Debug("Resource.Fetch", "name", r.name.String())
+	r.log.Debug("Resource.Fetch", "name", r.name.String(), "obj", currentObj, "status", r.getObjStatus(currentObj))
 
 	r.currentObj = currentObj
 	if r.IsEmpty() {
@@ -112,7 +112,7 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 		return nil
 	}
 
-	r.log.V(4).Info("UpdateMeta obj meta before update", "currentObj", r.currentObj.GetObjectMeta(), "changedObj", r.changedObj.GetObjectMeta())
+	r.log.Debug("UpdateMeta obj meta before update", "currentObj", r.currentObj.GetObjectMeta(), "changedObj", r.changedObj.GetObjectMeta())
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
 		return fmt.Errorf("status update is not allowed in the meta updater: %#v changed to %#v", r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj))
 	}
@@ -121,10 +121,10 @@ func (r *Resource[T, ST]) UpdateMeta(ctx context.Context) error {
 			return fmt.Errorf("error updating: %w", err)
 		}
 		r.currentObj = r.changedObj.DeepCopy()
-		r.log.V(1).Info("UpdateMeta applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
-		r.log.V(4).Info("UpdateMeta obj meta after update", "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
+		r.log.Debug("UpdateMeta applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
+		r.log.Debug("UpdateMeta obj meta after update", "changedObj.ObjectMeta", r.changedObj.GetObjectMeta())
 	} else {
-		r.log.V(2).Info("UpdateMeta skipped: no changes", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta())
+		r.log.Debug("UpdateMeta skipped: no changes", "currentObj.ObjectMeta", r.currentObj.GetObjectMeta())
 	}
 	return nil
 }
@@ -134,7 +134,7 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		return nil
 	}
 
-	r.log.V(4).Info("UpdateStatus obj before status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
+	r.log.Debug("UpdateStatus obj before status update", "currentObj.Status", r.getObjStatus(r.currentObj), "changedObj.Status", r.getObjStatus(r.changedObj))
 	if !reflect.DeepEqual(r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta()) {
 		return fmt.Errorf("meta update is not allowed in the status updater: %#v changed to %#v", r.currentObj.GetObjectMeta(), r.changedObj.GetObjectMeta())
 	}
@@ -147,10 +147,10 @@ func (r *Resource[T, ST]) UpdateStatus(ctx context.Context) error {
 		}
 		r.currentObj = r.changedObj.DeepCopy()
 
-		r.log.V(1).Info("UpdateStatus applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
-		r.log.V(4).Info("UpdateStatus obj after status update", "changedObj.Status", r.getObjStatus(r.changedObj))
+		r.log.Debug("UpdateStatus applied", "obj", r.currentObj.GetObjectKind().GroupVersionKind().Kind+"/"+r.currentObj.GetName())
+		r.log.Debug("UpdateStatus obj after status update", "changedObj.Status", r.getObjStatus(r.changedObj))
 	} else {
-		r.log.V(2).Info("UpdateStatus skipped: no changes", "currentObj.Status", r.getObjStatus(r.currentObj))
+		r.log.Debug("UpdateStatus skipped: no changes", "currentObj.Status", r.getObjStatus(r.currentObj))
 	}
 	return nil
 }

@@ -19,27 +19,25 @@ package internal
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ProtectionHandlerName = "ProtectionHandler"
 
-type ProtectionHandler struct {
-	logger logr.Logger
-}
+type ProtectionHandler struct{}
 
-func NewProtectionHandler(logger logr.Logger) *ProtectionHandler {
-	return &ProtectionHandler{
-		logger: logger.WithValues("handler", ProtectionHandlerName),
-	}
+func NewProtectionHandler() *ProtectionHandler {
+	return &ProtectionHandler{}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
+
 	vmip := state.VirtualMachineIP()
 
 	vm, err := state.VirtualMachine(ctx)
@@ -48,11 +46,11 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 	}
 
 	if vm == nil || vm.DeletionTimestamp != nil {
-		h.logger.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
+		log.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	} else if vmip.GetDeletionTimestamp() == nil {
 		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
-		h.logger.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
+		log.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
 	}
 
 	return reconcile.Result{}, nil

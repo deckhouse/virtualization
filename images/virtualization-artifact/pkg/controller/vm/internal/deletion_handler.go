@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,27 +27,28 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const nameDeletionHandler = "DeletionHandler"
 
-func NewDeletionHandler(client client.Client, logger *slog.Logger) *DeletionHandler {
+func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
 		client:     client,
-		logger:     logger.With("handler", nameDeletionHandler),
 		protection: service.NewProtectionService(client, virtv2.FinalizerKVVMProtection),
 	}
 }
 
 type DeletionHandler struct {
 	client     client.Client
-	logger     *slog.Logger
 	protection *service.ProtectionService
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameDeletionHandler))
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -57,7 +57,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
-	h.logger.Info("Delete VM, remove protective finalizers")
+	log.Info("Delete VM, remove protective finalizers")
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err

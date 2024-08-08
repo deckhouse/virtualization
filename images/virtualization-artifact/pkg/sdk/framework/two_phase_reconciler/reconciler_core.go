@@ -19,8 +19,8 @@ package two_phase_reconciler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -33,7 +33,7 @@ type ReconcilerOptions struct {
 	Cache    cache.Cache
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
-	Log      logr.Logger
+	Log      *slog.Logger
 }
 
 type ReconcilerCore[T ReconcilerState] struct {
@@ -51,7 +51,7 @@ func NewReconcilerCore[T ReconcilerState](reconciler TwoPhaseReconciler[T], stat
 }
 
 func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	r.ReconcilerOptions.Log.V(3).Info(fmt.Sprintf("Start Reconcile for %s", req.String()), "obj", req.String())
+	r.ReconcilerOptions.Log.Debug(fmt.Sprintf("Start Reconcile for %s", req.String()), "obj", req.String())
 	state := r.StateFactory(req.NamespacedName, r.Log, r.Client, r.Cache)
 
 	if err := state.Reload(ctx, req, r.Log, r.Client); err != nil {
@@ -66,10 +66,10 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 		resErr = syncErr
 		res = state.GetReconcilerResult()
 		if res != nil {
-			r.Log.V(3).Info(fmt.Sprintf("Reconcile result after Sync: %+v", res), "obj", req.String())
+			r.Log.Debug(fmt.Sprintf("Reconcile result after Sync: %+v", res), "obj", req.String())
 		}
 	} else {
-		r.Log.V(3).Info("No Sync required", "obj", req.String())
+		r.Log.Debug("No Sync required", "obj", req.String())
 	}
 
 	if state.ShouldReconcile(r.Log) {
@@ -81,23 +81,23 @@ func (r *ReconcilerCore[T]) Reconcile(ctx context.Context, req reconcile.Request
 			resErr = updateStatusErr
 		}
 	} else {
-		r.Log.V(3).Info("No UpdateStatus after Sync", "obj", req.String())
+		r.Log.Debug("No UpdateStatus after Sync", "obj", req.String())
 	}
 
 	if res == nil {
 		res = &reconcile.Result{}
 	}
-	r.Log.V(3).Info(fmt.Sprintf("Reconcile result after UpdateStatus: %+v", res), "obj", req.String())
+	r.Log.Debug(fmt.Sprintf("Reconcile result after UpdateStatus: %+v", res), "obj", req.String())
 
 	return *res, resErr
 }
 
 func (r *ReconcilerCore[T]) sync(ctx context.Context, req reconcile.Request, state T) error {
-	r.ReconcilerOptions.Log.V(3).Info("Call Sync", "obj", req.String())
+	r.ReconcilerOptions.Log.Debug("Call Sync", "obj", req.String())
 	if err := r.Reconciler.Sync(ctx, req, state, r.ReconcilerOptions); err != nil {
 		return err
 	}
-	r.ReconcilerOptions.Log.V(3).Info("Call ApplySync", "obj", req.String())
+	r.ReconcilerOptions.Log.Debug("Call ApplySync", "obj", req.String())
 	if err := state.ApplySync(ctx, r.Log); err != nil {
 		return fmt.Errorf("unable to apply sync changes: %w", err)
 	}
@@ -105,11 +105,11 @@ func (r *ReconcilerCore[T]) sync(ctx context.Context, req reconcile.Request, sta
 }
 
 func (r *ReconcilerCore[T]) updateStatus(ctx context.Context, req reconcile.Request, state T) error {
-	r.ReconcilerOptions.Log.V(3).Info("Call UpdateStatus", "obj", req.String())
+	r.ReconcilerOptions.Log.Debug("Call UpdateStatus", "obj", req.String())
 	if err := r.Reconciler.UpdateStatus(ctx, req, state, r.ReconcilerOptions); err != nil {
 		return fmt.Errorf("update status phase failed: %w", err)
 	}
-	r.ReconcilerOptions.Log.V(3).Info("Call ApplyUpdateStatus", "obj", req.String())
+	r.ReconcilerOptions.Log.Debug("Call ApplyUpdateStatus", "obj", req.String())
 	if err := state.ApplyUpdateStatus(ctx, r.Log); err != nil {
 		return fmt.Errorf("apply update status failed: %w", err)
 	}

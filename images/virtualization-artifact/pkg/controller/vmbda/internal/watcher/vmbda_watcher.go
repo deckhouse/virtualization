@@ -17,8 +17,6 @@ limitations under the License.
 package watcher
 
 import (
-	"log/slog"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -32,13 +30,11 @@ import (
 
 type VirtualMachineBlockDeviceAttachmentWatcher struct {
 	client client.Client
-	logger *slog.Logger
 }
 
-func NewVirtualMachineBlockDeviceAttachmentWatcher(logger *slog.Logger, client client.Client) *VirtualMachineBlockDeviceAttachmentWatcher {
+func NewVirtualMachineBlockDeviceAttachmentWatcher(client client.Client) *VirtualMachineBlockDeviceAttachmentWatcher {
 	return &VirtualMachineBlockDeviceAttachmentWatcher{
 		client: client,
-		logger: logger.With("watcher", "vmbda"),
 	}
 }
 

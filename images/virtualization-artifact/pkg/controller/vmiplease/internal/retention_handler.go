@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -33,19 +33,19 @@ import (
 const RetentionHandlerName = "RetentionHandler"
 
 type RetentionHandler struct {
-	logger            logr.Logger
 	retentionDuration time.Duration
 }
 
-func NewRetentionHandler(logger logr.Logger, retentionDuration time.Duration,
+func NewRetentionHandler(retentionDuration time.Duration,
 ) *RetentionHandler {
 	return &RetentionHandler{
-		logger:            logger.WithValues("handler", RetentionHandlerName),
 		retentionDuration: retentionDuration,
 	}
 }
 
 func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(RetentionHandlerName))
+
 	lease := state.VirtualMachineIPAddressLease()
 
 	vmip, err := state.VirtualMachineIPAddress(ctx)
@@ -55,7 +55,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 	if vmip == nil {
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" {
-			h.logger.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
+			log.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
 			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
 		}
@@ -67,7 +67,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 			duration := currentTime.Sub(boundCondition.LastTransitionTime.Time)
 			if duration >= h.retentionDuration {
-				h.logger.Info(fmt.Sprintf("Retain VMIPLease after %s of being not claimed", h.retentionDuration.String()))
+				log.Info(fmt.Sprintf("Retain VMIPLease after %s of being not claimed", h.retentionDuration.String()))
 				state.SetDeletion(true)
 				return reconcile.Result{}, nil
 			}

@@ -19,7 +19,6 @@ package source
 import (
 	"context"
 	"errors"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -37,7 +37,6 @@ type HTTPDataSource struct {
 	statService     Stat
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
-	logger          *slog.Logger
 }
 
 func NewHTTPDataSource(
@@ -49,12 +48,11 @@ func NewHTTPDataSource(
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
-		logger:          slog.Default().With("controller", common.VIShortName, "ds", "http"),
 	}
 }
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	ds.logger.Info("Sync", "vi", vi.Name)
+	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
@@ -67,7 +65,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.logger.Info("Finishing...", "vi", vi.Name)
+		log.Info("Virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
@@ -84,7 +82,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
-		ds.logger.Info("Cleaning up...", "vi", vi.Name)
+		log.Info("Cleaning up...")
 	case pod == nil:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.Provisioning
@@ -100,7 +98,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 			return false, err
 		}
 
-		ds.logger.Info("Create importer pod...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", "nil")
+		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -129,7 +127,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		ds.logger.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -165,7 +163,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		ds.logger.Info("Provisioning...", "vi", vi.Name, "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

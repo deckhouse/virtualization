@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
+	"reflect"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +35,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -55,6 +56,8 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	cvi := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := cvi.Fetch(ctx)
@@ -66,18 +69,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	var requeue bool
+	log.Debug("Start cvi reconciliation")
 
-	slog.Info("Start")
+	var requeue bool
 
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
-		slog.Info("Handle...")
+		log.Debug("Run handler", logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
+
 		var res reconcile.Result
 		res, err = h.Handle(ctx, cvi.Changed())
 		if err != nil {
-			slog.Error("Failed to handle cvi", "err", err)
+			log.Error("Failed to handle cvi", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
@@ -86,8 +90,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	cvi.Changed().Status.ObservedGeneration = cvi.Changed().Generation
-
-	slog.Info("Update")
 
 	err = cvi.Update(ctx)
 	if err != nil {
@@ -100,14 +102,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	if requeue {
-		slog.Info("Requeue")
+		log.Debug("Requeue cvi reconciliation")
 		return reconcile.Result{
 			RequeueAfter: 2 * time.Second,
 		}, nil
 	}
 
-	slog.Info("Done")
-
+	log.Debug("Finished cvi reconciliation")
 	return reconcile.Result{}, nil
 }
 
