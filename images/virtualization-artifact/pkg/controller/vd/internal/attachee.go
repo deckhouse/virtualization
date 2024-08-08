@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,6 +39,8 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 }
 
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
+
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -51,11 +54,19 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		})
 	}
 
+	if len(vd.Status.AttachedToVirtualMachines) > 1 {
+		log.Error("virtual disk connected to multiple virtual machines", "vms", len(attachedVMs))
+	}
+
 	switch {
 	case len(vd.Status.AttachedToVirtualMachines) == 0:
+		log.Debug("Allow virtual disk deletion")
 		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
 	case vd.DeletionTimestamp == nil:
+		log.Debug("Protect virtual disk from deletion")
 		controllerutil.AddFinalizer(vd, virtv2.FinalizerVDProtection)
+	default:
+		log.Debug("Virtual disk deletion is delayed: it's protected by virtual machines")
 	}
 
 	return reconcile.Result{}, nil

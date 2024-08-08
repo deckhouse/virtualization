@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,20 +26,19 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type LifeCycleHandler struct {
-	logger  *slog.Logger
 	client  client.Client
 	blank   source.Handler
 	sources *source.Sources
 }
 
-func NewLifeCycleHandler(logger *slog.Logger, blank source.Handler, sources *source.Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(blank source.Handler, sources *source.Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		logger:  logger,
 		client:  client,
 		blank:   blank,
 		sources: sources,
@@ -48,7 +46,7 @@ func NewLifeCycleHandler(logger *slog.Logger, blank source.Handler, sources *sou
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	logger := h.logger.With("name", vd.Name, "ns", vd.Namespace)
+	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
@@ -79,7 +77,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost && h.sources.Changed(ctx, vd) {
-		logger.Info("Spec changes are detected: restart import process")
+		log.Info("Spec changes are detected: restart import process")
 
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,

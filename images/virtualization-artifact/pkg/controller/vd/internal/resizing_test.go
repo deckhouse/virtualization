@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -95,9 +96,9 @@ var _ = Describe("Resizing handler Run", func() {
 			return pvc, nil
 		}
 
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
@@ -107,9 +108,9 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize is not requested (vd.spec.size == nil)", func() {
 		vd.Spec.PersistentVolumeClaim.Size = nil
 
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
@@ -119,9 +120,9 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
 		vd.Spec.PersistentVolumeClaim.Size.Sub(resource.MustParse("1G"))
 
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
@@ -129,9 +130,9 @@ var _ = Describe("Resizing handler Run", func() {
 	})
 
 	It("Resize is not requested (vd.spec.size == pvc.spec.size)", func() {
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
@@ -141,9 +142,9 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {
 		vd.Spec.PersistentVolumeClaim.Size.Add(size)
 
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
@@ -157,12 +158,16 @@ var _ = Describe("Resizing handler Run", func() {
 			Reason: vdcondition.InProgress,
 		})
 
-		h := NewResizingHandler(slog.Default(), diskService)
+		h := NewResizingHandler(diskService)
 
-		_, err := h.Handle(context.Background(), vd)
+		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.Resized))
 	})
 })
+
+func testContext() context.Context {
+	return logger.ToContext(context.Background(), slog.Default())
+}

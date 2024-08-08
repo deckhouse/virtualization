@@ -20,7 +20,6 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -33,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vdcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -51,39 +51,42 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log logr.Logger,
+	log *slog.Logger,
 	importerImage string,
 	uploaderImage string,
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
-	logger := slog.Default().With("controller", ControllerName)
+	log = log.With(logger.SlogController(ControllerName))
 
-	stat := service.NewStatService()
+	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
-	blank := source.NewBlankDataSource(stat, disk, logger)
+	blank := source.NewBlankDataSource(stat, disk, log)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, logger))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient(), logger))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient(), logger))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, logger))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, log))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient(), log))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient(), log))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, log))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		logger,
 		internal.NewDatasourceReadyHandler(blank, sources),
-		internal.NewLifeCycleHandler(logger, blank, sources, mgr.GetClient()),
-		internal.NewResizingHandler(logger, disk),
+		internal.NewLifeCycleHandler(blank, sources, mgr.GetClient()),
+		internal.NewResizingHandler(disk),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 	)
 
-	vdController, err := controller.New(ControllerName, mgr, controller.Options{Reconciler: reconciler, RecoverPanic: ptr.To(true)})
+	vdController, err := controller.New(ControllerName, mgr, controller.Options{
+		Reconciler:     reconciler,
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +98,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualDisk{}).
-		WithValidator(NewValidator()).
+		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return nil, err
 	}

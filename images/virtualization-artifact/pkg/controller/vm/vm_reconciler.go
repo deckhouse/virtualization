@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -316,7 +316,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		r.logger.Debug("Run handler", slog.String("name", h.Name()))
 		res, err := h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error("The handler failed with an error", slog.String("name", h.Name()), log.SlogErr(err))
+			r.logger.Error("The handler failed with an error", slog.String("name", h.Name()), logger.SlogErr(err))
 			handlerErr = errors.Join(handlerErr, err)
 		}
 		result = service.MergeResults(result, res)

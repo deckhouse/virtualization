@@ -98,3 +98,10 @@ properties:
       - `virtualization-controller`
       - `kube-api-proxy`
       - `vm-route-forge`
+  logFormat:
+    type: string
+    description: |
+      Устанавливает формат логирования.
+
+      Работает для следующих компонентов:
+      - `virtualization-controller`

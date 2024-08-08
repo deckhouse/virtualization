@@ -18,6 +18,7 @@ package cvi
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +54,7 @@ func NewController(
 	dvcr *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
-	stat := service.NewStatService()
+	stat := service.NewStatService(slog.Default())
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerCVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, PodPullPolicy, PodVerbose, ControllerName, protection)
