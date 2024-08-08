@@ -70,8 +70,6 @@ const (
 	// ReasonErrVmNotSynced is event reason that vm is not synced.
 	ReasonErrVmNotSynced = "VirtualMachineNotSynced"
 
-	// ReasonVMDegraded is event reason that vm is degraded.
-	ReasonVMDegraded = "VirtualmachineDegraded"
 	// ReasonErrVMOPNotPermitted is event reason that vmop is not permitted.
 	ReasonErrVMOPNotPermitted = "VirtualMachineOperationNotPermitted"
 

@@ -1,0 +1,100 @@
+diff --git a/pkg/controller/util.go b/pkg/controller/util.go
+index 6828590fc..7c022d7e0 100644
+--- a/pkg/controller/util.go
++++ b/pkg/controller/util.go
+@@ -36,6 +36,7 @@ import (
+ 	"k8s.io/klog/v2"
+
+ 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+@@ -196,28 +197,12 @@ func GetFilesystemOverhead(ctx context.Context, client client.Client, pvc *v1.Pe
+ 	return cc.GetFilesystemOverheadForStorageClass(ctx, client, pvc.Spec.StorageClassName)
+ }
+
+-// GetScratchPvcStorageClass tries to determine which storage class to use for use with a scratch persistent
+-// volume claim. The order of preference is the following:
+-// 1. Defined value in CDI Config field scratchSpaceStorageClass.
+-// 2. If 1 is not available, use the storage class name of the original pvc that will own the scratch pvc.
+-// 3. If none of those are available, return blank.
+-func GetScratchPvcStorageClass(client client.Client, pvc *v1.PersistentVolumeClaim) string {
+-	config := &cdiv1.CDIConfig{}
+-	if err := client.Get(context.TODO(), types.NamespacedName{Name: common.ConfigName}, config); err != nil {
+-		return ""
+-	}
+-	storageClassName := config.Status.ScratchSpaceStorageClass
+-	if storageClassName == "" {
+-		// Unable to determine scratch storage class, attempt to read the storage class from the pvc.
+-		if pvc.Spec.StorageClassName != nil {
+-			storageClassName = *pvc.Spec.StorageClassName
+-			if storageClassName != "" {
+-				return storageClassName
+-			}
+-		}
+-	} else {
+-		return storageClassName
++// GetScratchPvcStorageClass returns the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
++func GetScratchPvcStorageClass(_ client.Client, pvc *v1.PersistentVolumeClaim) string {
++	if pvc.Spec.StorageClassName != nil {
++		return *pvc.Spec.StorageClassName
+ 	}
++
+ 	return ""
+ }
+
+diff --git a/pkg/controller/util_test.go b/pkg/controller/util_test.go
+index 8423107b8..87898b890 100644
+--- a/pkg/controller/util_test.go
++++ b/pkg/controller/util_test.go
+@@ -16,6 +16,7 @@ import (
+ 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+ 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	. "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	"kubevirt.io/containerized-data-importer/pkg/util/cert"
+@@ -60,38 +61,15 @@ var _ = Describe("CheckIfLabelExists", func() {
+ })
+
+ var _ = Describe("GetScratchPVCStorageClass", func() {
+-	It("Should return default storage class from status in CDIConfig", func() {
+-		storageClassName := "test3"
+-		client := CreateClient(CreateStorageClass("test1", nil), CreateStorageClass("test2", nil), CreateStorageClass("test3", map[string]string{
+-			AnnDefaultStorageClass: "true",
+-		}), createCDIConfigWithStorageClass(common.ConfigName, storageClassName))
+-		pvc := CreatePvc("test", "test", nil, nil)
+-		Expect(GetScratchPvcStorageClass(client, pvc)).To(Equal(storageClassName))
+-	})
+-
+-	It("Should return default storage class from status in CDIConfig", func() {
+-		storageClassName := "test1"
+-		config := createCDIConfigWithStorageClass(common.ConfigName, storageClassName)
+-		config.Spec.ScratchSpaceStorageClass = &storageClassName
+-		client := CreateClient(CreateStorageClass("test1", nil), CreateStorageClass("test2", nil), CreateStorageClass("test3", map[string]string{
+-			AnnDefaultStorageClass: "true",
+-		}), config)
+-		pvc := CreatePvc("test", "test", nil, nil)
+-		Expect(GetScratchPvcStorageClass(client, pvc)).To(Equal(storageClassName))
+-	})
+-
+ 	It("Should return storage class from pvc", func() {
+ 		storageClassName := "storageClass"
+-		client := CreateClient(createCDIConfigWithStorageClass(common.ConfigName, ""))
+ 		pvc := CreatePvcInStorageClass("test", "test", &storageClassName, nil, nil, v1.ClaimBound)
+-		Expect(GetScratchPvcStorageClass(client, pvc)).To(Equal(storageClassName))
++		Expect(GetScratchPvcStorageClass(nil, pvc)).To(Equal(storageClassName))
+ 	})
+
+ 	It("Should return blank if CDIConfig not there", func() {
+-		storageClassName := "storageClass"
+-		client := CreateClient()
+-		pvc := CreatePvcInStorageClass("test", "test", &storageClassName, nil, nil, v1.ClaimBound)
+-		Expect(GetScratchPvcStorageClass(client, pvc)).To(Equal(""))
++		pvc := CreatePvcInStorageClass("test", "test", nil, nil, nil, v1.ClaimBound)
++		Expect(GetScratchPvcStorageClass(nil, pvc)).To(Equal(""))
+ 	})
+ })
+

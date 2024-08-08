@@ -18,12 +18,15 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -117,5 +120,55 @@ func setPhaseConditionForFinishedDisk(
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.Ready
 		condition.Message = ""
+	}
+}
+
+type CheckImportProcess interface {
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, storageClassName *string) error
+}
+
+func setPhaseConditionForPVCProvisioningDisk(
+	ctx context.Context,
+	dv *cdiv1.DataVolume,
+	vd *virtv2.VirtualDisk,
+	condition *metav1.Condition,
+	checker CheckImportProcess,
+) error {
+	err := checker.CheckImportProcess(ctx, dv, vd.Spec.PersistentVolumeClaim.StorageClass)
+	switch {
+	case err == nil:
+		if dv != nil && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vdcondition.WaitForFirstConsumer
+			condition.Message = "The provisioning has been suspended: a created and scheduled virtual machine is awaited"
+			return nil
+		}
+
+		vd.Status.Phase = virtv2.DiskProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Provisioning
+		condition.Message = "Import is in the process of provisioning to PVC."
+		return nil
+	case errors.Is(err, service.ErrDataVolumeNotRunning):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		return nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return nil
+	default:
+		return err
 	}
 }

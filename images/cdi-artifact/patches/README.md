@@ -30,3 +30,7 @@ by DVP, but conflicts with original CDI.
 #### `010-stop-managing-datavolume-crd.patch`
 
 Do not manage DataVolume CRD with cdi-operator. Module will install this CRD using Helm.
+
+#### `011-change-storage-class-for-scratch-pvc.patch`
+
+Set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.

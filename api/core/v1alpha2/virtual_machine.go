@@ -234,7 +234,6 @@ const (
 	MachineStarting    MachinePhase = "Starting"
 	MachineMigrating   MachinePhase = "Migrating"
 	MachinePause       MachinePhase = "Pause"
-	MachineDegraded    MachinePhase = "Degraded"
 )
 
 // VirtualMachineList contains a list of VirtualMachine

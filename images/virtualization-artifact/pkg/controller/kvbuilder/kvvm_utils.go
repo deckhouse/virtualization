@@ -116,9 +116,9 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.ClearDisks()
-	for i, bd := range vm.Spec.BlockDeviceRefs {
+	bootOrder := uint(1)
+	for _, bd := range vm.Spec.BlockDeviceRefs {
 		// bootOrder starts from 1.
-		bootOrder := uint(i + 1)
 		switch bd.Kind {
 		case virtv2.ImageDevice:
 			// Attach ephemeral disk for storage: Kubernetes.
@@ -151,6 +151,7 @@ func ApplyVirtualMachineSpec(
 			default:
 				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vmi.Spec.Storage, vmi.Name, common.ErrUnknownType)
 			}
+			bootOrder++
 
 		case virtv2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
@@ -167,11 +168,16 @@ func ApplyVirtualMachineSpec(
 			}); err != nil {
 				return err
 			}
+			bootOrder++
 
 		case virtv2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
 
 			vmd := vmdByName[bd.Name]
+			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
+			if vmd.Status.Target.PersistentVolumeClaim == "" {
+				continue
+			}
 
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
@@ -181,7 +187,7 @@ func ApplyVirtualMachineSpec(
 			}); err != nil {
 				return err
 			}
-
+			bootOrder++
 		default:
 			return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}

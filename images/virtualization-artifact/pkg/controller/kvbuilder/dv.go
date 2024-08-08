@@ -17,6 +17,7 @@ limitations under the License.
 package kvbuilder
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,8 +45,7 @@ func NewDV(name types.NamespacedName) *DV {
 					Namespace: name.Namespace,
 					Name:      name.Name,
 					Annotations: map[string]string{
-						"cdi.kubevirt.io/storage.deleteAfterCompletion":    "false",
-						"cdi.kubevirt.io/storage.bind.immediate.requested": "true",
+						"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
 					},
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -53,6 +53,16 @@ func NewDV(name types.NamespacedName) *DV {
 				},
 			}, helper.ResourceBuilderOptions{},
 		),
+	}
+}
+
+func (b *DV) SetAccessMode(accessMode corev1.PersistentVolumeAccessMode) {
+	b.Resource.Spec.PVC.AccessModes = []corev1.PersistentVolumeAccessMode{accessMode}
+}
+
+func (b *DV) SetBindingMode(wffc bool) {
+	if !wffc {
+		b.AddAnnotation("cdi.kubevirt.io/storage.bind.immediate.requested", "true")
 	}
 }
 
