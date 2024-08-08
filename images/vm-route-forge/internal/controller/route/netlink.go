@@ -25,15 +25,18 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
 
 	"vm-route-forge/internal/cache"
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
-	return &HostRouteController{
-		queue:    queue,
+const (
+	defaultChanSize = 100
+)
+
+func NewNetlinkWatcher(cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *NetlinkWatcher {
+	return &NetlinkWatcher{
+		ch:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
 		log:      log,
@@ -41,25 +44,27 @@ func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet
 	}
 }
 
-type HostRouteController struct {
-	queue    workqueue.RateLimitingInterface
+type NetlinkWatcher struct {
+	ch       chan types.NamespacedName
 	cidrs    []*net.IPNet
 	cache    cache.Cache
 	log      logr.Logger
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (r *HostRouteController) Run(ctx context.Context) error {
-	ch := make(chan netlink.RouteUpdate)
-	if err := netlink.RouteSubscribe(ch, ctx.Done()); err != nil {
-		return fmt.Errorf("failed to subscribe to route updates: %w", err)
+func (r *NetlinkWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
+	routeCh := make(chan netlink.RouteUpdate)
+	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
+		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
 	}
-	for ru := range ch {
-		if err := r.sync(ru); err != nil {
-			r.log.Error(err, "failed to sync route update")
+	go func() {
+		for ru := range routeCh {
+			if err := r.sync(ru); err != nil {
+				r.log.Error(err, "failed to sync route update")
+			}
 		}
-	}
-	return nil
+	}()
+	return r.ch, nil
 }
 
 // The cache is the source of truth.
@@ -67,7 +72,7 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 // including the name and namespace of the virtual machine, its ip and ip nodes.
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
-func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
+func (r *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 	vmIP := ru.Dst.IP
 	if vmIP == nil {
 		return nil
@@ -126,7 +131,7 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	return nil
 }
 
-func (r *HostRouteController) isManagedIP(ip net.IP) (bool, error) {
+func (r *NetlinkWatcher) isManagedIP(ip net.IP) (bool, error) {
 	if len(ip) == 0 {
 		return false, fmt.Errorf("invalid IP address %s", ip)
 	}
@@ -140,6 +145,6 @@ func (r *HostRouteController) isManagedIP(ip net.IP) (bool, error) {
 	return false, nil
 }
 
-func (r *HostRouteController) enqueueKey(key types.NamespacedName) {
-	r.queue.Add(key.String())
+func (r *NetlinkWatcher) enqueueKey(key types.NamespacedName) {
+	r.ch <- key
 }

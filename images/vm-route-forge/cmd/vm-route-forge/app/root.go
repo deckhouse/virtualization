@@ -159,12 +159,16 @@ func run(opts options.Options) error {
 		log.Error(err, "Failed to run pre sync")
 		return err
 	}
-	routeCtrl, err := route.NewRouteController(
+	routeWatcher, err := route.WatchFactory(route.NetlinkKind, parsedCIDRs, sharedCache, log)
+	if err != nil {
+		log.Error(err, "Failed to create route watcher")
+		return err
+	}
+	routeCtrl, err := route.NewController(
 		vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
 		ciliumSharedInformerFactory.Cilium().V2().CiliumNodes(),
+		routeWatcher,
 		netMgr,
-		sharedCache,
-		parsedCIDRs,
 		log,
 	)
 	if err != nil {
