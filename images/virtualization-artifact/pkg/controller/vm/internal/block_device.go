@@ -79,17 +79,6 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	cb := conditions.NewConditionBuilder2(vmcondition.TypeBlockDevicesReady).
 		Generation(current.GetGeneration())
 
-	disksMessage := h.checkBlockDevicesSanity(current)
-	if !isDeletion(current) && disksMessage != "" {
-		log.Error(fmt.Sprintf("invalid disks: %s", disksMessage))
-		mgr.Update(cb.
-			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonBlockDevicesNotReady).
-			Message(disksMessage).Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	bdState := NewBlockDeviceState(s)
 	err := bdState.Reload(ctx)
 	if err != nil {
@@ -99,65 +88,30 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if isDeletion(current) {
 		return reconcile.Result{}, h.removeFinalizersOnBlockDevices(ctx, changed, bdState)
 	}
+
 	if err = h.setFinalizersOnBlockDevices(ctx, changed, bdState); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
-	// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
-	changed.Status.BlockDeviceRefs = nil
-
-	// Set BlockDeviceRef from spec to the status.
-	for _, bdSpecRef := range changed.Spec.BlockDeviceRefs {
-		bdStatusRef := h.getDiskStatusRef(bdSpecRef.Kind, bdSpecRef.Name)
-		bdStatusRef.Size = h.getBlockDeviceSize(&bdStatusRef, bdState)
-
-		changed.Status.BlockDeviceRefs = append(
-			changed.Status.BlockDeviceRefs,
-			bdStatusRef,
-		)
-	}
-
-	vmbdas, err := s.VMBDAList(ctx)
+	// Get hot plugged BlockDeviceRefs from vmbdas.
+	vmbdaStatusRefs, err := h.getBlockDeviceStatusRefsFromVMBDA(ctx, s)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to get hotplugged block devices: %w", err)
 	}
 
-	// Set hot plugged BlockDeviceRef to the status.
-	for _, vmbda := range vmbdas {
-		switch vmbda.Status.Phase {
-		case virtv2.BlockDeviceAttachmentPhaseInProgress,
-			virtv2.BlockDeviceAttachmentPhaseAttached:
-		default:
-			continue
-		}
+	// Get BlockDeviceRefs from spec.
+	bdStatusRefs, conflictWarning := h.getBlockDeviceStatusRefsFromSpec(current.Spec.BlockDeviceRefs, bdState, vmbdaStatusRefs)
 
-		var vd *virtv2.VirtualDisk
-		vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if vd == nil {
-			continue
-		}
-
-		bdStatusRef := h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
-		bdStatusRef.Size = vd.Status.Capacity
-		bdStatusRef.Hotplugged = true
-		bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
-
-		changed.Status.BlockDeviceRefs = append(
-			changed.Status.BlockDeviceRefs,
-			bdStatusRef,
-		)
-	}
+	// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
+	changed.Status.BlockDeviceRefs = bdStatusRefs
+	changed.Status.BlockDeviceRefs = append(changed.Status.BlockDeviceRefs, vmbdaStatusRefs...)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Sync BlockDeviceRef in the status with KVVMI volumes.
+	// Sync BlockDeviceRefs in the status with KVVMI volumes.
 	if kvvmi != nil {
 		for i, bdStatusRef := range changed.Status.BlockDeviceRefs {
 			vs := h.findVolumeStatus(GenerateDiskName(bdStatusRef.Kind, bdStatusRef.Name), kvvmi)
@@ -168,6 +122,17 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 			changed.Status.BlockDeviceRefs[i].Target = vs.Target
 			changed.Status.BlockDeviceRefs[i].Attached = true
 		}
+	}
+
+	// Update the BlockDevicesReady condition if there are conflicted virtual disks.
+	if conflictWarning != "" {
+		log.Info(fmt.Sprintf("Conflicted virtual disks: %s", conflictWarning))
+
+		mgr.Update(cb.Status(metav1.ConditionFalse).
+			Reason2(vmcondition.ReasonBlockDevicesNotReady).
+			Message(conflictWarning).Condition())
+		changed.Status.Conditions = mgr.Generate()
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Update the BlockDevicesReady condition.
@@ -189,8 +154,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
 
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
-		mgr.Update(cb.
-			Status(metav1.ConditionFalse).
+		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(reason.String()).
 			Message(msg).
 			Condition())
@@ -209,35 +173,74 @@ func (h *BlockDeviceHandler) Name() string {
 	return nameBlockDeviceHandler
 }
 
-// checkBlockDevicesSanity compares spec.blockDevices and status.blockDevicesAttached.
-// It returns false if the same disk contains in both arrays.
-// It is a precaution to not apply changes in spec.blockDevices if disk is already
-// hotplugged using the VMBDA resource. The reverse check is done by the vmbda-controller.
-func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) string {
-	if vm == nil {
-		return ""
-	}
-	disks := make([]string, 0)
-	hotplugged := make(map[string]struct{})
-
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Hotplugged {
-			hotplugged[bda.Name] = struct{}{}
-		}
+func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromSpec(bdSpecRefs []virtv2.BlockDeviceSpecRef, bdState BlockDevicesState, hotplugs []virtv2.BlockDeviceStatusRef) ([]virtv2.BlockDeviceStatusRef, string) {
+	hotplugsByName := make(map[string]struct{}, len(hotplugs))
+	for _, hotplug := range hotplugs {
+		hotplugsByName[hotplug.Name] = struct{}{}
 	}
 
-	for _, bd := range vm.Spec.BlockDeviceRefs {
-		if bd.Kind == virtv2.DiskDevice {
-			if _, ok := hotplugged[bd.Name]; ok {
-				disks = append(disks, bd.Name)
+	var conflictedRefs []string
+	var refs []virtv2.BlockDeviceStatusRef
+
+	for _, bdSpecRef := range bdSpecRefs {
+		// It is a precaution to not apply changes in spec.blockDeviceRefs if disk is already
+		// hotplugged using the VMBDA resource. The reverse check is done by the vmbda-controller.
+		if bdSpecRef.Kind == virtv2.DiskDevice {
+			if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
+				conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
+				continue
 			}
 		}
+
+		bdStatusRef := h.getDiskStatusRef(bdSpecRef.Kind, bdSpecRef.Name)
+		bdStatusRef.Size = h.getBlockDeviceSize(&bdStatusRef, bdState)
+
+		refs = append(refs, bdStatusRef)
 	}
 
-	if len(disks) == 0 {
-		return ""
+	var warning string
+	if len(conflictedRefs) > 0 {
+		warning = fmt.Sprintf("spec.blockDeviceRefs field contains hotplugged disks (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
 	}
-	return fmt.Sprintf("spec.blockDeviceRefs contain hotplugged disks: %s. Unplug or remove them from spec to continue.", strings.Join(disks, ", "))
+
+	return refs, warning
+}
+
+func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromVMBDA(ctx context.Context, s state.VirtualMachineState) ([]virtv2.BlockDeviceStatusRef, error) {
+	vmbdas, err := s.VMBDAList(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var refs []virtv2.BlockDeviceStatusRef
+
+	for _, vmbda := range vmbdas {
+		switch vmbda.Status.Phase {
+		case virtv2.BlockDeviceAttachmentPhaseInProgress,
+			virtv2.BlockDeviceAttachmentPhaseAttached:
+		default:
+			continue
+		}
+
+		var vd *virtv2.VirtualDisk
+		vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if vd == nil {
+			continue
+		}
+
+		bdStatusRef := h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
+		bdStatusRef.Size = vd.Status.Capacity
+		bdStatusRef.Hotplugged = true
+		bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
+
+		refs = append(refs, bdStatusRef)
+	}
+
+	return refs, nil
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
