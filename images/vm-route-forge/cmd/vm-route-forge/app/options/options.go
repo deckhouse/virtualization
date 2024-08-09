@@ -36,7 +36,7 @@ type Options struct {
 	ProbeAddr        string
 	PprofAddr        string
 	NodeName         string
-	TableID          string
+	RouteTableID     string
 	KindRouteWatcher string
 }
 
@@ -56,7 +56,7 @@ const (
 	PprofBindAddressEnv       = "PPROF_BIND_ADDRESS"
 	VerbosityEnv              = "VERBOSITY"
 	NodeNameEnv               = "NODE_NAME"
-	TableIDEnv                = "TABLE_ID"
+	RouteTableIDEnv           = "ROUTE_TABLE_ID"
 	KindRouteWatcherEnv       = "KIND_ROUTE_WATCHER"
 )
 
@@ -74,7 +74,7 @@ func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ProbeAddr, flagProbeAddr, os.Getenv(HealthProbeBindAddressEnv), "The address the probe endpoint binds to.")
 	fs.StringVar(&o.PprofAddr, flagPprofAddr, os.Getenv(PprofBindAddressEnv), "The address the pprof endpoint binds to.")
 	fs.StringVarP(&o.NodeName, flagNodeName, flagNodeNameShort, os.Getenv(NodeNameEnv), "The name of the node.")
-	fs.StringVarP(&o.TableID, flagTableId, flagTableIdShort, os.Getenv(TableIDEnv), "The id of the table.")
+	fs.StringVarP(&o.RouteTableID, flagTableId, flagTableIdShort, os.Getenv(RouteTableIDEnv), "The id of the table.")
 	fs.IntVarP(&o.Verbosity, flagVerbosity, flagVerbosityShort, getDefaultVerbosity(), "Verbosity of output.")
 	fs.StringVar(&o.KindRouteWatcher, flagKindRouteWatcher, getEnvWithDefault(KindRouteWatcherEnv, string(route.TickerKind)), "Kind of route watcher.")
 }

@@ -24,7 +24,8 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
+	netlinkwrap "vm-route-forge/internal/netlinkwrap"
 )
 
 const (
@@ -32,7 +33,7 @@ const (
 )
 
 type Watcher interface {
-	Watch(ctx context.Context) (chan types.NamespacedName, error)
+	Watch(ctx context.Context) (<-chan types.NamespacedName, error)
 }
 
 type KindRouteWatcher string
@@ -45,17 +46,18 @@ const (
 
 func WatchFactory(kind KindRouteWatcher,
 	cidrs []*net.IPNet,
-	cache cache.Cache,
-	tableID int,
+	cache vmipcache.Cache,
+	routeTableID int,
+	nlWrapper *netlinkwrap.Funcs,
 	log logr.Logger,
 ) (Watcher, error) {
 	switch kind {
 	case NetlinkKind:
-		return NewNetlinkWatcher(cidrs, cache, log), nil
+		return NewNetlinkWatcher(cidrs, cache, nlWrapper, log), nil
 	case TickerKind:
-		return NewTickerWatcher(cidrs, cache, tableID, log), nil
+		return NewTickerWatcher(cidrs, cache, routeTableID, nlWrapper, log), nil
 	case EbpfKind:
-		return NewEbpfWatcher(cidrs, cache, log)
+		return NewEbpfWatcher(cidrs, cache, nlWrapper, log)
 	default:
 		return nil, fmt.Errorf("unknown kind %s", kind)
 	}

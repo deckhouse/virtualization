@@ -32,10 +32,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"vm-route-forge/cmd/vm-route-forge/app/options"
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
 	"vm-route-forge/internal/controller/route"
 	"vm-route-forge/internal/informer"
 	"vm-route-forge/internal/netlinkmanager"
+	"vm-route-forge/internal/netlinkwrap"
 	"vm-route-forge/internal/server"
 )
 
@@ -103,17 +104,17 @@ func run(opts options.Options) error {
 		log.Info("Dry run mode is enabled, will not change network rules and routes")
 	}
 
-	tableID := netlinkmanager.DefaultCiliumRouteTable
-	tableIDStr := opts.TableID
-	if tableIDStr != "" {
-		tableId, err := strconv.ParseInt(tableIDStr, 10, 32)
+	routeTableID := netlinkmanager.DefaultCiliumRouteTable
+	routeTableIDStr := opts.RouteTableID
+	if routeTableIDStr != "" {
+		tableId, err := strconv.ParseInt(routeTableIDStr, 10, 32)
 		if err != nil {
 			log.Error(err, "failed to parse Cilium table id, should be integer")
 			return err
 		}
-		tableID = int(tableId)
+		routeTableID = int(tableId)
 	}
-	log.Info(fmt.Sprintf("Use cilium route table id %d", tableID))
+	log.Info(fmt.Sprintf("Use cilium route table id %d", routeTableID))
 
 	// Load configuration to connect to Kubernetes API Server.
 	kubeCfg, err := config.GetConfig()
@@ -143,15 +144,20 @@ func run(opts options.Options) error {
 	}
 	go ciliumSharedInformerFactory.Cilium().V2().CiliumNodes().Informer().Run(ctx.Done())
 
-	sharedCache := cache.NewCache()
+	sharedCache := vmipcache.NewCache()
+
+	nlWrapper := netlinkwrap.NewFuncs()
+	if opts.DryRun {
+		nlWrapper = netlinkwrap.DryRunFuncs()
+	}
 
 	netMgr := netlinkmanager.New(vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
 		ciliumSharedInformerFactory.Cilium().V2().CiliumNodes(),
 		sharedCache,
 		log,
-		tableID,
+		routeTableID,
 		parsedCIDRs,
-		opts.DryRun,
+		nlWrapper,
 	)
 
 	err = startupSync(ctx, netMgr)
@@ -163,7 +169,8 @@ func run(opts options.Options) error {
 		route.KindRouteWatcher(opts.KindRouteWatcher),
 		parsedCIDRs,
 		sharedCache,
-		tableID,
+		routeTableID,
+		nlWrapper,
 		log,
 	)
 	if err != nil {

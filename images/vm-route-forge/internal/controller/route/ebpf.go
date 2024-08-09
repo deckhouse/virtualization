@@ -24,16 +24,17 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
+	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewEbpfWatcher(cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) (*EbpfWatcher, error) {
+func NewEbpfWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) (*EbpfWatcher, error) {
 	return &EbpfWatcher{}, fmt.Errorf("not implemented")
 }
 
 type EbpfWatcher struct {
 }
 
-func (w *EbpfWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
+func (w *EbpfWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
 	return nil, nil
 }

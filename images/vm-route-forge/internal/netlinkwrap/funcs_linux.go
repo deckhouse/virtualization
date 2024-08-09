@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
 Copyright 2024 Flant JSC
 
@@ -14,9 +17,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:build linux
-// +build linux
-
 package netlinkwrap
 
 import (
@@ -25,12 +25,6 @@ import (
 
 // Aliases for some netlink functions and constants available only for Linux.
 
-const (
-	FAMILY_ALL = orignetlink.FAMILY_ALL
-)
-
 var RuleAdd = orignetlink.RuleAdd
-
 var RuleDel = orignetlink.RuleDel
-
 var RuleListFiltered = orignetlink.RuleListFiltered

@@ -26,33 +26,31 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
 
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewTickerWatcher(cidrs []*net.IPNet, cache cache.Cache, tableID int, log logr.Logger) *TickerWatcher {
+func NewTickerWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, routeTableID int, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *TickerWatcher {
 	return &TickerWatcher{
-		ch:        make(chan types.NamespacedName, defaultChanSize),
-		cidrs:     cidrs,
-		cache:     cache,
-		tableID:   tableID,
-		log:       log.WithValues("watcher", TickerKind),
-		routeGet:  netlinkwrap.NewFuncs().RouteGet,
-		routeList: netlinkwrap.NewFuncs().RouteListFiltered,
+		ch:           make(chan types.NamespacedName, defaultChanSize),
+		cidrs:        cidrs,
+		cache:        cache,
+		routeTableID: routeTableID,
+		log:          log.WithValues("watcher", TickerKind),
+		nlWrapper:    nlWrapper,
 	}
 }
 
 type TickerWatcher struct {
-	ch        chan types.NamespacedName
-	cidrs     []*net.IPNet
-	cache     cache.Cache
-	tableID   int
-	log       logr.Logger
-	routeGet  func(net.IP) ([]netlink.Route, error)
-	routeList func(int, *netlink.Route, uint64) ([]netlink.Route, error)
+	ch           chan types.NamespacedName
+	cidrs        []*net.IPNet
+	cache        vmipcache.Cache
+	routeTableID int
+	log          logr.Logger
+	nlWrapper    *netlinkwrap.Funcs
 }
 
-func (w *TickerWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
+func (w *TickerWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	go func() {
 		for {
@@ -71,7 +69,7 @@ func (w *TickerWatcher) Watch(ctx context.Context) (chan types.NamespacedName, e
 }
 
 func (w *TickerWatcher) sync() error {
-	routes, err := w.routeList(netlink.FAMILY_V4, &netlink.Route{Table: w.tableID}, netlink.RT_FILTER_TABLE)
+	routes, err := w.nlWrapper.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: w.routeTableID}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list routes: %w", err)
 	}
@@ -81,7 +79,7 @@ func (w *TickerWatcher) sync() error {
 	}
 
 	// enqueue vm with missing routes
-	w.cache.Iterate(func(k types.NamespacedName, v cache.Addresses) (next bool) {
+	w.cache.Iterate(func(k types.NamespacedName, v vmipcache.Addresses) (next bool) {
 		if _, found := routeMap[v.VMIP.String()]; !found {
 			w.log.Info(fmt.Sprintf("Missing route. Add the VM %q to the queue.", k))
 			w.enqueueKey(k)
@@ -130,7 +128,7 @@ func (w *TickerWatcher) syncRoute(route *netlink.Route) error {
 		w.enqueueKey(key)
 		return nil
 	}
-	routes, err := w.routeGet(addrs.NodeIP.NetIP())
+	routes, err := w.nlWrapper.RouteGet(addrs.NodeIP.NetIP())
 	if err != nil || len(routes) == 0 {
 		return fmt.Errorf("failed to get routes: %w", err)
 	}

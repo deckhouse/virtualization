@@ -26,29 +26,29 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewNetlinkWatcher(cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *NetlinkWatcher {
+func NewNetlinkWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkWatcher {
 	return &NetlinkWatcher{
 		ch:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
 		log:      log.WithValues("watcher", NetlinkKind),
-		routeGet: netlinkwrap.NewFuncs().RouteGet,
+		routeGet: nlWrapper.RouteGet,
 	}
 }
 
 type NetlinkWatcher struct {
 	ch       chan types.NamespacedName
 	cidrs    []*net.IPNet
-	cache    cache.Cache
+	cache    vmipcache.Cache
 	log      logr.Logger
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (w *NetlinkWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
+func (w *NetlinkWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
 	routeCh := make(chan netlink.RouteUpdate)
 	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
 		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
