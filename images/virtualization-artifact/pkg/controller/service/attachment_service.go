@@ -46,7 +46,12 @@ func NewAttachmentService(client Client, controllerNamespace string) *Attachment
 	}
 }
 
-var ErrVolumeStatusNotReady = errors.New("hotplug is not ready")
+var (
+	ErrVolumeStatusNotReady                  = errors.New("hotplug is not ready")
+	ErrDiskIsSpecAttached                    = errors.New("virtual disk is already attached to the virtual machine spec")
+	ErrHotPlugRequestAlreadySent             = errors.New("attachment request is already sent")
+	ErrVirtualMachineWaitsForRestartApproval = errors.New("virtual machine waits for restart approval")
+)
 
 func (s AttachmentService) IsHotPlugged(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if vd == nil {
@@ -74,14 +79,26 @@ func (s AttachmentService) IsHotPlugged(vd *virtv2.VirtualDisk, vm *virtv2.Virtu
 	return false, nil
 }
 
-func (s AttachmentService) IsHotPlugRequestSent(vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) (bool, error) {
-	name := kvbuilder.GenerateVMDDiskName(vd.Name)
+func (s AttachmentService) CanHotPlug(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if vd == nil {
+		return false, errors.New("cannot hot plug a nil VirtualDisk")
+	}
 
-	for _, vr := range kvvm.Status.VolumeRequests {
-		if vr.AddVolumeOptions.Name == name {
-			return true, nil
+	if vm == nil {
+		return false, errors.New("cannot hot plug a disk into a nil VirtualMachine")
+	}
+
+	if kvvm == nil {
+		return false, errors.New("cannot hot plug a disk into a nil KVVM")
+	}
+
+	for _, bdr := range vm.Spec.BlockDeviceRefs {
+		if bdr.Kind == virtv2.DiskDevice && bdr.Name == vd.Name {
+			return false, fmt.Errorf("%w: virtual machine has a virtual disk reference, but it is not a hot-plugged volume", ErrDiskIsSpecAttached)
 		}
 	}
+
+	name := kvbuilder.GenerateVMDDiskName(vd.Name)
 
 	if kvvm.Spec.Template != nil {
 		for _, vs := range kvvm.Spec.Template.Spec.Volumes {
@@ -91,21 +108,26 @@ func (s AttachmentService) IsHotPlugRequestSent(vd *virtv2.VirtualDisk, kvvm *vi
 				}
 
 				if !vs.PersistentVolumeClaim.Hotpluggable {
-					return false, fmt.Errorf("kvvm %s/%s spec volume %s has a pvc reference, but it is not a hot-plugged volume", kvvm.Namespace, kvvm.Name, vs.Name)
+					return false, fmt.Errorf("%w: virtual machine has a virtual disk reference, but it is not a hot-plugged volume", ErrDiskIsSpecAttached)
 				}
 
-				return true, nil
+				return false, ErrHotPlugRequestAlreadySent
 			}
 		}
 	}
 
-	return false, nil
-}
+	for _, vr := range kvvm.Status.VolumeRequests {
+		if vr.AddVolumeOptions.Name == name {
+			return false, ErrHotPlugRequestAlreadySent
+		}
+	}
 
-var (
-	ErrVirtualDiskIsAlreadyAttached          = errors.New("virtual disk is already attached to virtual machine")
-	ErrVirtualMachineWaitsForRestartApproval = errors.New("virtual machine waits for restart approval")
-)
+	if len(vm.Status.RestartAwaitingChanges) > 0 {
+		return false, ErrVirtualMachineWaitsForRestartApproval
+	}
+
+	return true, nil
+}
 
 func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	if vd == nil {
@@ -116,14 +138,8 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 		return errors.New("cannot hot plug a disk into a nil VirtualMachine")
 	}
 
-	for _, bdr := range vm.Spec.BlockDeviceRefs {
-		if bdr.Kind == virtv2.DiskDevice && bdr.Name == vd.Name {
-			return ErrVirtualDiskIsAlreadyAttached
-		}
-	}
-
-	if len(vm.Status.RestartAwaitingChanges) > 0 {
-		return ErrVirtualMachineWaitsForRestartApproval
+	if kvvm == nil {
+		return errors.New("cannot hot plug a disk into a nil KVVM")
 	}
 
 	name := kvbuilder.GenerateVMDDiskName(vd.Name)

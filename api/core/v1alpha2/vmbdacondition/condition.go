@@ -54,7 +54,9 @@ const (
 	NotAttached AttachedReason = "NotAttached"
 	// AttachmentRequestSent signifies that the attachment request has been sent and the hot-plug process has started.
 	AttachmentRequestSent AttachedReason = "AttachmentRequestSent"
-	// Conflict indicates that there is another `VirtualMachineBlockDeviceAttachment` with the same virtual machine and virtual disk to be hot-plugged.
+	// Conflict indicates that virtual disk is already attached to the virtual machine:
+	// Either there is another `VirtualMachineBlockDeviceAttachment` with the same virtual machine and virtual disk to be hot-plugged.
+	// or the virtual disk is already attached to the virtual machine spec.
 	// Only the one that was created or started sooner can be processed.
 	Conflict AttachedReason = "Conflict"
 )
