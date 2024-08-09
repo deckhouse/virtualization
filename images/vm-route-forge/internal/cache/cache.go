@@ -29,6 +29,7 @@ type Cache interface {
 	Set(k types.NamespacedName, addrs Addresses)
 	DeleteByKey(k types.NamespacedName)
 	DeleteByIP(ip net.IP)
+	Iterate(fn func(key types.NamespacedName, v Addresses) (next bool))
 }
 
 func NewCache() Cache {
@@ -85,7 +86,25 @@ func (c *defaultCache) DeleteByIP(ip net.IP) {
 	delete(c.addrVm, ip.String())
 }
 
+func (c *defaultCache) Iterate(fn func(k types.NamespacedName, v Addresses) (next bool)) {
+	for k, v := range c.vmAddr {
+		if next := fn(k, v); !next {
+			break
+		}
+	}
+}
+
 type Addresses struct {
-	NodeIP net.IP
-	VMIP   net.IP
+	NodeIP IP
+	VMIP   IP
+}
+
+type IP string
+
+func (ip IP) String() string {
+	return string(ip)
+}
+
+func (ip IP) NetIP() net.IP {
+	return net.ParseIP(string(ip))
 }

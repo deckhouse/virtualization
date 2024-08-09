@@ -25,41 +25,42 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
 
-	"vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewHostController(queue workqueue.RateLimitingInterface, cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *HostRouteController {
-	return &HostRouteController{
-		queue:    queue,
+func NewNetlinkWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkWatcher {
+	return &NetlinkWatcher{
+		ch:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
-		log:      log,
-		routeGet: netlinkwrap.NewFuncs().RouteGet,
+		log:      log.WithValues("watcher", NetlinkKind),
+		routeGet: nlWrapper.RouteGet,
 	}
 }
 
-type HostRouteController struct {
-	queue    workqueue.RateLimitingInterface
+type NetlinkWatcher struct {
+	ch       chan types.NamespacedName
 	cidrs    []*net.IPNet
-	cache    cache.Cache
+	cache    vmipcache.Cache
 	log      logr.Logger
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (r *HostRouteController) Run(ctx context.Context) error {
-	ch := make(chan netlink.RouteUpdate)
-	if err := netlink.RouteSubscribe(ch, ctx.Done()); err != nil {
-		return fmt.Errorf("failed to subscribe to route updates: %w", err)
+func (w *NetlinkWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
+	routeCh := make(chan netlink.RouteUpdate)
+	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
+		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
 	}
-	for ru := range ch {
-		if err := r.sync(ru); err != nil {
-			r.log.Error(err, "failed to sync route update")
+	go func() {
+		for ru := range routeCh {
+			if err := w.sync(ru); err != nil {
+				w.log.Error(err, "failed to sync route update")
+			}
 		}
-	}
-	return nil
+	}()
+	return w.ch, nil
 }
 
 // The cache is the source of truth.
@@ -67,12 +68,12 @@ func (r *HostRouteController) Run(ctx context.Context) error {
 // including the name and namespace of the virtual machine, its ip and ip nodes.
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
-func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
+func (w *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 	vmIP := ru.Dst.IP
 	if vmIP == nil {
 		return nil
 	}
-	isManaged, err := r.isManagedIP(vmIP)
+	isManaged, err := isManagedIP(vmIP, w.cidrs)
 	if err != nil {
 		return err
 	}
@@ -81,11 +82,15 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 	}
 	ciliumInternalIP := ru.Src
 
-	r.log.V(7).Info("Got new RouteUpdate", "value", ru)
+	w.log.V(7).Info("Got new RouteUpdate", "value", ru)
 
-	key, found := r.cache.GetName(vmIP)
+	key, found := w.cache.GetName(vmIP)
+	// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
+	if !found {
+		return nil
+	}
 
-	log := r.log.WithValues(
+	log := w.log.WithValues(
 		"ciliumInternalIP", ciliumInternalIP,
 		"inHostVMIP", vmIP.String(),
 		"virtualMachine", key)
@@ -93,53 +98,33 @@ func (r *HostRouteController) sync(ru netlink.RouteUpdate) error {
 
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
-		// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
-		if !found {
-			break
-		}
-		addrs, found := r.cache.GetAddresses(key)
+		addrs, found := w.cache.GetAddresses(key)
 		if !found {
 			log.Info("The route was added, but there is no addresses in the cache. Add the VM to the queue.")
-			r.enqueueKey(key)
+			w.enqueueKey(key)
 			break
 		}
-		routes, err := r.routeGet(addrs.NodeIP)
+		routes, err := w.routeGet(addrs.NodeIP.NetIP())
 		if err != nil || len(routes) == 0 {
 			return fmt.Errorf("failed to get routes: %w", err)
 		}
 		ciliumInternalIPByNodeIP := routes[0].Src
 
-		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.Equal(vmIP) {
+		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.NetIP().Equal(vmIP) {
 			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.",
 				"inCacheNodeIP", addrs.NodeIP.String(),
 				"inCacheVMIP", addrs.VMIP.String(),
 				"ciliumInternalIPByNodeIP", ciliumInternalIPByNodeIP.String(),
 			)
-			r.enqueueKey(key)
+			w.enqueueKey(key)
 		}
 	case unix.RTM_DELROUTE:
-		if found {
-			log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
-			r.enqueueKey(key)
-		}
+		log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
+		w.enqueueKey(key)
 	}
 	return nil
 }
 
-func (r *HostRouteController) isManagedIP(ip net.IP) (bool, error) {
-	if len(ip) == 0 {
-		return false, fmt.Errorf("invalid IP address %s", ip)
-	}
-
-	for _, cidr := range r.cidrs {
-		if cidr.Contains(ip) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (r *HostRouteController) enqueueKey(key types.NamespacedName) {
-	r.queue.Add(key.String())
+func (w *NetlinkWatcher) enqueueKey(key types.NamespacedName) {
+	w.ch <- key
 }

@@ -19,7 +19,6 @@ package route
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -37,7 +36,6 @@ import (
 	virtinformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	cache2 "vm-route-forge/internal/cache"
 	"vm-route-forge/internal/netlinkmanager"
 )
 
@@ -51,23 +49,21 @@ type Runnable interface {
 	Run(ctx context.Context) error
 }
 
-func NewRouteController(
+func NewController(
 	vmInformer virtinformers.VirtualMachineInformer,
 	cnInformer ciliumv2Informers.CiliumNodeInformer,
+	routeWatcher Watcher,
 	netlinkMgr *netlinkmanager.Manager,
-	sharedCache cache2.Cache,
-	cidrs []*net.IPNet,
 	logger logr.Logger,
 ) (*Controller, error) {
 
 	queue := workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{Name: controllerName})
 	log := logger.WithValues("controller", controllerName)
 	routeController := &Controller{
-		queue:          queue,
-		hostReconciler: NewHostController(queue, cidrs, sharedCache, log),
-		cache:          sharedCache,
-		netlinkMgr:     netlinkMgr,
-		log:            log,
+		queue:        queue,
+		routeWatcher: routeWatcher,
+		netlinkMgr:   netlinkMgr,
+		log:          log,
 	}
 
 	_, err := vmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,14 +92,13 @@ func NewRouteController(
 }
 
 type Controller struct {
-	vmIndexer      cache.Indexer
-	vmLister       virtlisters.VirtualMachineLister
-	hostReconciler Runnable
-	hasSynced      cache.InformerSynced
-	queue          workqueue.RateLimitingInterface
-	cache          cache2.Cache
-	netlinkMgr     *netlinkmanager.Manager
-	log            logr.Logger
+	vmIndexer    cache.Indexer
+	vmLister     virtlisters.VirtualMachineLister
+	routeWatcher Watcher
+	hasSynced    cache.InformerSynced
+	queue        workqueue.RateLimitingInterface
+	netlinkMgr   *netlinkmanager.Manager
+	log          logr.Logger
 }
 
 func (c *Controller) addVirtualMachine(obj interface{}) {
@@ -201,6 +196,10 @@ func (c *Controller) enqueueVirtualMachine(vm *v1alpha2.VirtualMachine) {
 		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %#v: %w", vm, err))
 		return
 	}
+	c.queueAdd(key)
+}
+
+func (c *Controller) queueAdd(key string) {
 	c.queue.Add(key)
 }
 
@@ -223,7 +222,14 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	c.log.Info("Starting localhost route controller")
 	errCh := make(chan error)
 	go func() {
-		errCh <- c.hostReconciler.Run(ctx)
+		keyCh, err := c.routeWatcher.Watch(ctx)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		for key := range keyCh {
+			c.queueAdd(key.String())
+		}
 	}()
 
 	for {

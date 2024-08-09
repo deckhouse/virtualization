@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
 Copyright 2024 Flant JSC
 
@@ -17,14 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package netlinkwrap
+package route
 
 import (
-	orignetlink "github.com/vishvananda/netlink"
+	"fmt"
+	"net"
 )
 
-// Aliases for some netlink functions and constants available only for Linux.
+func isManagedIP(ip net.IP, cidrs []*net.IPNet) (bool, error) {
+	if len(ip) == 0 {
+		return false, fmt.Errorf("invalid IP address %s", ip)
+	}
 
-var RuleAdd = orignetlink.RuleAdd
-var RuleDel = orignetlink.RuleDel
-var RuleListFiltered = orignetlink.RuleListFiltered
+	for _, cidr := range cidrs {
+		if cidr.Contains(ip) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
