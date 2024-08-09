@@ -30,16 +30,12 @@ import (
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-const (
-	defaultChanSize = 100
-)
-
 func NewNetlinkWatcher(cidrs []*net.IPNet, cache cache.Cache, log logr.Logger) *NetlinkWatcher {
 	return &NetlinkWatcher{
 		ch:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
-		log:      log,
+		log:      log.WithValues("watcher", NetlinkKind),
 		routeGet: netlinkwrap.NewFuncs().RouteGet,
 	}
 }
@@ -52,19 +48,19 @@ type NetlinkWatcher struct {
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (r *NetlinkWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
+func (w *NetlinkWatcher) Watch(ctx context.Context) (chan types.NamespacedName, error) {
 	routeCh := make(chan netlink.RouteUpdate)
 	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
 		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
 	}
 	go func() {
 		for ru := range routeCh {
-			if err := r.sync(ru); err != nil {
-				r.log.Error(err, "failed to sync route update")
+			if err := w.sync(ru); err != nil {
+				w.log.Error(err, "failed to sync route update")
 			}
 		}
 	}()
-	return r.ch, nil
+	return w.ch, nil
 }
 
 // The cache is the source of truth.
@@ -72,12 +68,12 @@ func (r *NetlinkWatcher) Watch(ctx context.Context) (chan types.NamespacedName, 
 // including the name and namespace of the virtual machine, its ip and ip nodes.
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
-func (r *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
+func (w *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 	vmIP := ru.Dst.IP
 	if vmIP == nil {
 		return nil
 	}
-	isManaged, err := r.isManagedIP(vmIP)
+	isManaged, err := isManagedIP(vmIP, w.cidrs)
 	if err != nil {
 		return err
 	}
@@ -86,11 +82,15 @@ func (r *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 	}
 	ciliumInternalIP := ru.Src
 
-	r.log.V(7).Info("Got new RouteUpdate", "value", ru)
+	w.log.V(7).Info("Got new RouteUpdate", "value", ru)
 
-	key, found := r.cache.GetName(vmIP)
+	key, found := w.cache.GetName(vmIP)
+	// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
+	if !found {
+		return nil
+	}
 
-	log := r.log.WithValues(
+	log := w.log.WithValues(
 		"ciliumInternalIP", ciliumInternalIP,
 		"inHostVMIP", vmIP.String(),
 		"virtualMachine", key)
@@ -98,53 +98,33 @@ func (r *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 
 	switch ru.Type {
 	case unix.RTM_NEWROUTE:
-		// if the route was added but not added to cache, then do nothing, because we can't get name of vm.
-		if !found {
-			break
-		}
-		addrs, found := r.cache.GetAddresses(key)
+		addrs, found := w.cache.GetAddresses(key)
 		if !found {
 			log.Info("The route was added, but there is no addresses in the cache. Add the VM to the queue.")
-			r.enqueueKey(key)
+			w.enqueueKey(key)
 			break
 		}
-		routes, err := r.routeGet(addrs.NodeIP)
+		routes, err := w.routeGet(addrs.NodeIP.NetIP())
 		if err != nil || len(routes) == 0 {
 			return fmt.Errorf("failed to get routes: %w", err)
 		}
 		ciliumInternalIPByNodeIP := routes[0].Src
 
-		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.Equal(vmIP) {
+		if !ciliumInternalIP.Equal(ciliumInternalIPByNodeIP) || !addrs.VMIP.NetIP().Equal(vmIP) {
 			log.Info("The route was added, but the addresses from the cache and from the route do not match. Add the VM to the queue.",
 				"inCacheNodeIP", addrs.NodeIP.String(),
 				"inCacheVMIP", addrs.VMIP.String(),
 				"ciliumInternalIPByNodeIP", ciliumInternalIPByNodeIP.String(),
 			)
-			r.enqueueKey(key)
+			w.enqueueKey(key)
 		}
 	case unix.RTM_DELROUTE:
-		if found {
-			log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
-			r.enqueueKey(key)
-		}
+		log.Info("The route was deleted but not deleted from the cache. Add the VM to the queue.")
+		w.enqueueKey(key)
 	}
 	return nil
 }
 
-func (r *NetlinkWatcher) isManagedIP(ip net.IP) (bool, error) {
-	if len(ip) == 0 {
-		return false, fmt.Errorf("invalid IP address %s", ip)
-	}
-
-	for _, cidr := range r.cidrs {
-		if cidr.Contains(ip) {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (r *NetlinkWatcher) enqueueKey(key types.NamespacedName) {
-	r.ch <- key
+func (w *NetlinkWatcher) enqueueKey(key types.NamespacedName) {
+	w.ch <- key
 }

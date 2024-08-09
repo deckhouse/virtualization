@@ -159,7 +159,13 @@ func run(opts options.Options) error {
 		log.Error(err, "Failed to run pre sync")
 		return err
 	}
-	routeWatcher, err := route.WatchFactory(route.NetlinkKind, parsedCIDRs, sharedCache, log)
+	routeWatcher, err := route.WatchFactory(
+		route.KindRouteWatcher(opts.KindRouteWatcher),
+		parsedCIDRs,
+		sharedCache,
+		tableID,
+		log,
+	)
 	if err != nil {
 		log.Error(err, "Failed to create route watcher")
 		return err

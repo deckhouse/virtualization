@@ -258,7 +258,7 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
 	if len(nodeIPx) == 0 {
 		return fmt.Errorf("invalid IP address %s", nodeIP)
 	}
-	m.cache.Set(vmKey, cache2.Addresses{VMIP: net.ParseIP(vmIP), NodeIP: net.ParseIP(nodeIP)})
+	m.cache.Set(vmKey, cache2.Addresses{VMIP: cache2.IP(vmIP), NodeIP: cache2.IP(nodeIP)})
 
 	// Get route for specific nodeIP and create similar for our Virtual Machine.
 	routes, err := m.nlWrapper.RouteGet(nodeIPx)
