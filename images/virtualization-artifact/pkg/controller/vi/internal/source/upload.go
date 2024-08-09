@@ -98,21 +98,20 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
-	case pod == nil && svc == nil && ing == nil:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
-
+	case pod == nil || svc == nil || ing == nil:
 		envSettings := ds.getEnvSettings(supgen)
 		err = ds.uploaderService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForUploaderStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
 
-		vi.Status.Phase = virtv2.ImagePending
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
+
+		return requeue, nil
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {

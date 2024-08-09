@@ -84,6 +84,7 @@ func main() {
 
 	var pprofBindAddr string
 	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
+
 	flag.Parse()
 
 	log := logger.New(logger.Options{
@@ -97,25 +98,19 @@ func main() {
 
 	printVersion(log)
 
-	importerImage, err := getRequiredEnvVar(common.ImporterPodImageNameVar)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	uploaderImage, err := getRequiredEnvVar(common.UploaderPodImageNameVar)
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	controllerNamespace, err := getRequiredEnvVar(common.PodNamespaceVar)
+	controllerNamespace, err := appconfig.GetRequiredEnvVar(common.PodNamespaceVar)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	dvcrSettings, err := appconfig.LoadDVCRSettingsFromEnvs(controllerNamespace)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	importSettings, err := appconfig.LoadImportSettingsFromEnv()
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -195,17 +190,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = cvi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings, controllerNamespace); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importerImage, uploaderImage, dvcrSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -249,12 +244,4 @@ func main() {
 func printVersion(log *slog.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-}
-
-func getRequiredEnvVar(name string) (string, error) {
-	val := os.Getenv(name)
-	if val == "" {
-		return "", fmt.Errorf("environment variable %q undefined", name)
-	}
-	return val, nil
 }

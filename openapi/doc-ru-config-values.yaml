@@ -105,3 +105,19 @@ properties:
 
       Работает для следующих компонентов:
       - `virtualization-controller`
+  importerResourceRequirements:
+    type: object
+    description: |
+      ResourceRequirements describes the compute resource requirements.
+    properties:
+      limits:
+        type: object
+        description: |
+          Ограничения описывают максимальный разрешенный объем вычислительных ресурсов.
+          Подробнее: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+      requests:
+        type: object
+        description: |
+          Запросы описывают минимальный объем требуемых вычислительных ресурсов.
+          Если параметр запросов для контейнера опущен, то по умолчанию используются значения лимитов, если это явно указано, в противном случае - значение, определенное реализацией.
+          Подробнее: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

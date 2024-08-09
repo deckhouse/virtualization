@@ -18,11 +18,13 @@ package source
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -84,4 +86,35 @@ func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, err
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready
+}
+
+func setPhaseConditionForImporterStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) (bool, error) {
+	return setPhaseConditionForPodStart(ready, phase, err, virtv2.ImageProvisioning, vicondition.Provisioning)
+}
+
+func setPhaseConditionForUploaderStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) (bool, error) {
+	return setPhaseConditionForPodStart(ready, phase, err, virtv2.ImagePending, vicondition.WaitForUserUpload)
+}
+
+func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error, okPhase virtv2.ImagePhase, okReason vicondition.ReadyReason) (bool, error) {
+	switch {
+	case err == nil:
+		*phase = okPhase
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = okReason
+		ready.Message = "DVCR Provisioner not found: create the new one."
+		return true, nil
+	case cc.ErrQuotaExceeded(err):
+		*phase = virtv2.ImageFailed
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = cvicondition.ProvisioningFailed
+		ready.Message = fmt.Sprintf("Quota exceeded: please configure the `importerResourceRequirements` field in the virtualization module configuration; %s.", err)
+		return false, nil
+	default:
+		*phase = virtv2.ImageFailed
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = cvicondition.ProvisioningFailed
+		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
+		return false, err
+	}
 }

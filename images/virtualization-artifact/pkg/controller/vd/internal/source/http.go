@@ -115,18 +115,17 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 	case pod == nil:
 		log.Info("Start import to DVCR")
 
-		vd.Status.Phase = virtv2.DiskProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
-
 		vd.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vd, supgen)
 		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForImporterStart(&condition, &vd.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
+
+		return requeue, nil
 	case !common.IsPodComplete(pod):
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 

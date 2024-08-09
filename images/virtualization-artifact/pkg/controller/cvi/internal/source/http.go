@@ -88,21 +88,20 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
-
-		cvi.Status.Phase = virtv2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
 		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForImporterStart(&condition, &cvi.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
+
+		return requeue, nil
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {

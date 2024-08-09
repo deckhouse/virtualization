@@ -35,6 +35,7 @@ type ImporterService struct {
 	dvcrSettings   *dvcr.Settings
 	client         client.Client
 	image          string
+	requirements   corev1.ResourceRequirements
 	pullPolicy     string
 	verbose        string
 	controllerName string
@@ -45,6 +46,7 @@ func NewImporterService(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	image string,
+	requirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
 	controllerName string,
@@ -54,6 +56,7 @@ func NewImporterService(
 		dvcrSettings:   dvcrSettings,
 		client:         client,
 		image:          image,
+		requirements:   requirements,
 		pullPolicy:     pullPolicy,
 		verbose:        verbose,
 		controllerName: controllerName,
@@ -131,12 +134,13 @@ func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator)
 func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
-		Name:            importerPod.Name,
-		Namespace:       importerPod.Namespace,
-		Image:           s.image,
-		PullPolicy:      s.pullPolicy,
-		OwnerReference:  *ownerRef,
-		ControllerName:  s.controllerName,
-		InstallerLabels: map[string]string{},
+		Name:                 importerPod.Name,
+		Namespace:            importerPod.Namespace,
+		Image:                s.image,
+		PullPolicy:           s.pullPolicy,
+		OwnerReference:       *ownerRef,
+		ControllerName:       s.controllerName,
+		InstallerLabels:      map[string]string{},
+		ResourceRequirements: &s.requirements,
 	}
 }

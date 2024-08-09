@@ -18,6 +18,19 @@ spec:
     {{- include "helm_lib_node_selector" (tuple . "system") | nindent 4 }}
     {{- include "helm_lib_tolerations" (tuple . "system") | nindent 4 }}
   config:
+    {{- with .Values.virtualization.importerResourceRequirements }}
+    {{- if or (hasKey . "limits") (hasKey . "requests") }}
+    podResourceRequirements:
+      {{- if hasKey . "limits" }}
+      limits:
+        {{- .limits | toYaml | nindent 8 }}
+      {{- end }}
+      {{- if hasKey . "requests" }}
+      requests:
+        {{- .requests | toYaml | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    {{- end }}
     imagePullSecrets:
     - name: virtualization-module-registry
   {{- if .Values.global.modules.publicDomainTemplate }}

@@ -36,6 +36,7 @@ type UploaderService struct {
 	dvcrSettings   *dvcr.Settings
 	client         client.Client
 	image          string
+	requirements   corev1.ResourceRequirements
 	pullPolicy     string
 	verbose        string
 	controllerName string
@@ -46,6 +47,7 @@ func NewUploaderService(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	image string,
+	requirements corev1.ResourceRequirements,
 	pullPolicy string,
 	verbose string,
 	controllerName string,
@@ -55,6 +57,7 @@ func NewUploaderService(
 		dvcrSettings:   dvcrSettings,
 		client:         client,
 		image:          image,
+		requirements:   requirements,
 		pullPolicy:     pullPolicy,
 		verbose:        verbose,
 		controllerName: controllerName,
@@ -190,14 +193,15 @@ func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 	uploaderPod := sup.UploaderPod()
 	uploaderSvc := sup.UploaderService()
 	return &uploader.PodSettings{
-		Name:            uploaderPod.Name,
-		Image:           s.image,
-		PullPolicy:      s.pullPolicy,
-		Namespace:       uploaderPod.Namespace,
-		OwnerReference:  *ownerRef,
-		ControllerName:  s.controllerName,
-		InstallerLabels: map[string]string{},
-		ServiceName:     uploaderSvc.Name,
+		Name:                 uploaderPod.Name,
+		Image:                s.image,
+		PullPolicy:           s.pullPolicy,
+		Namespace:            uploaderPod.Namespace,
+		OwnerReference:       *ownerRef,
+		ControllerName:       s.controllerName,
+		InstallerLabels:      map[string]string{},
+		ServiceName:          uploaderSvc.Name,
+		ResourceRequirements: &s.requirements,
 	}
 }
 
