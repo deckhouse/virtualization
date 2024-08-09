@@ -186,8 +186,8 @@ const (
 	KubevirtAPIServerEndpointVar     = "KUBEVIRT_APISERVER_ENDPOINT"
 	KubevirtAPIServerCABundlePathVar = "KUBEVIRT_APISERVER_CABUNDLE"
 
-	ImporterLimitsVar   = "IMPORTER_LIMITS"
-	ImporterRequestsVar = "IMPORTER_REQUESTS"
+	ProvisioningPodLimitsVar   = "PROVISIONING_POD_LIMITS"
+	ProvisioningPodRequestsVar = "PROVISIONING_POD_REQUESTS"
 
 	VirtualizationApiAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
 	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
