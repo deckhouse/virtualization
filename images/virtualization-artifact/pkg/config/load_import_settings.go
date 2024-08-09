@@ -45,14 +45,14 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 		return ImportSettings{}, err
 	}
 
-	limits := os.Getenv(common.ImporterLimitsVar)
+	limits := os.Getenv(common.ProvisioningPodLimitsVar)
 	if limits != "" {
 		err = json.Unmarshal([]byte(limits), &settings.Requirements.Limits)
 		if err != nil {
 			return ImportSettings{}, err
 		}
 	}
-	requests := os.Getenv(common.ImporterRequestsVar)
+	requests := os.Getenv(common.ProvisioningPodRequestsVar)
 	if requests != "" {
 		err = json.Unmarshal([]byte(requests), &settings.Requirements.Requests)
 		if err != nil {
