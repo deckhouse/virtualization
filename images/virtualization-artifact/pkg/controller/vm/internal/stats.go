@@ -75,18 +75,33 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 
 	launchTimeDuration := stats.LaunchTimeDuration
 
+	var emptyOSInfo virtv1.VirtualMachineInstanceGuestOSInfo
+
+	switch changed.Status.Phase {
+	case virtv2.MachinePending:
+		launchTimeDuration.WaitingForDependencies = nil
+		launchTimeDuration.VirtualMachineStarting = nil
+		launchTimeDuration.GuestOSAgentStarting = nil
+	case virtv2.MachineStarting:
+		launchTimeDuration.VirtualMachineStarting = nil
+		launchTimeDuration.GuestOSAgentStarting = nil
+	case virtv2.MachineRunning:
+		if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo {
+			launchTimeDuration.GuestOSAgentStarting = nil
+		}
+	}
+
 	for i, pt := range pts.Items {
 		switch pt.Phase {
 		case virtv2.MachineStarting:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] && current.Status.Phase != changed.Status.Phase {
+			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] {
 				launchTimeDuration.WaitingForDependencies = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
 			}
 		case virtv2.MachineRunning:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] && current.Status.Phase != changed.Status.Phase {
+			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] {
 				launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
 			}
-			var empty virtv1.VirtualMachineInstanceGuestOSInfo
-			if kvvmi != nil && empty == current.Status.GuestOSInfo && empty != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
+			if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo && emptyOSInfo != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
 				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
 			}
 		}
