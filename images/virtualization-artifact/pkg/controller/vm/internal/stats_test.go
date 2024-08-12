@@ -41,6 +41,7 @@ func oldTime() time.Time {
 	diff := time.Duration(offset) * time.Second
 	return t.Add(-diff).In(time.Local)
 }
+
 func TestStatisticHandler(t *testing.T) {
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
@@ -275,6 +276,7 @@ func createKVVMI(key types.NamespacedName,
 func factory() *virtv2.VirtualMachine {
 	return &virtv2.VirtualMachine{}
 }
+
 func statusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
 	return obj.Status
 }
