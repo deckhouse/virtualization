@@ -45,7 +45,7 @@ func NewController(
 	log *slog.Logger,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogHandler(controllerName))
+	log = log.With(logger.SlogController(controllerName))
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()

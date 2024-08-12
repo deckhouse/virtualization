@@ -294,6 +294,7 @@ func (r *Reconciler) isOperationAllowedForVmPhase(op virtv2.VMOPOperation, phase
 		return phase == virtv2.MachineStopped || phase == virtv2.MachineStopping
 	case virtv2.VMOPOperationTypeStop, virtv2.VMOPOperationTypeRestart:
 		return phase == virtv2.MachineRunning ||
+			phase == virtv2.MachineDegraded ||
 			phase == virtv2.MachineStarting ||
 			phase == virtv2.MachinePause
 	default:
