@@ -17,24 +17,18 @@ limitations under the License.
 package netlinkmanager
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	ciliumv2Informers "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
-	virtinformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/core/v1alpha2"
-	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	vmipcache "vm-route-forge/internal/cache"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -50,9 +44,6 @@ const (
 )
 
 type Manager struct {
-	vmLister     virtlisters.VirtualMachineLister
-	cnIndexer    cache.Indexer
-	hasSynced    cache.InformerSynced
 	log          logr.Logger
 	nlWrapper    *netlinkwrap.Funcs
 	routeTableID int
@@ -61,21 +52,13 @@ type Manager struct {
 	cache        vmipcache.Cache
 }
 
-func New(vmInformer virtinformers.VirtualMachineInformer,
-	cnInformer ciliumv2Informers.CiliumNodeInformer,
-	cache vmipcache.Cache,
+func New(cache vmipcache.Cache,
 	log logr.Logger,
 	routeTableID int,
 	cidrs []*net.IPNet,
 	nlWrapper *netlinkwrap.Funcs,
 ) *Manager {
 	return &Manager{
-		//client:    client,
-		vmLister:  vmInformer.Lister(),
-		cnIndexer: cnInformer.Informer().GetIndexer(),
-		hasSynced: func() bool {
-			return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
-		},
 		log:          log.WithValues("manager", netlinkManager),
 		routeTableID: routeTableID,
 		cidrs:        cidrs,
@@ -131,61 +114,6 @@ func (m *Manager) SyncRules() error {
 	return nil
 }
 
-func (m *Manager) SyncRoutes(ctx context.Context) error {
-	// List all Virtual Machines to collect all IPs on this Node.
-	if !cache.WaitForNamedCacheSync(netlinkManager, ctx.Done(), m.hasSynced) {
-		return fmt.Errorf("cache is not synced")
-	}
-	vms, err := m.vmLister.List(labels.Everything())
-	if err != nil {
-		return fmt.Errorf("list VirtualMachines: %w", err)
-	}
-
-	vmIPsIdx := make(map[string]struct{})
-
-	// Collect managed IPs from all VirtualMachines in the cluster.
-	for _, vm := range vms {
-		vmIP := vm.Status.IPAddress
-		if vmIP == "" {
-			continue
-		}
-		isManaged, err := m.isManagedIP(vmIP)
-		if err != nil {
-			m.log.Error(err, fmt.Sprintf("failed to parse IP address from status in VM %s/%s", vm.GetNamespace(), vm.GetName()))
-			continue
-		}
-		if !isManaged {
-			m.log.Info(fmt.Sprintf("Ignore not managed IP %s assigned to VM %s/%s", vmIP, vm.GetNamespace(), vm.GetName()))
-		}
-		// Save managed IP to index.
-		vmIPsIdx[vmIP] = struct{}{}
-	}
-
-	// Remove routes unknown for vm IPs.
-	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: m.routeTableID}, netlink.RT_FILTER_TABLE)
-	if err != nil {
-		return fmt.Errorf("failed to list node routes: %v", err)
-	}
-
-	for _, route := range nodeRoutes {
-		// Ignore routes without Dst.
-		if route.Dst == nil {
-			continue
-		}
-		// Ignore routes with managed IPs.
-		routeIP := route.Dst.IP.String()
-		if _, ok := vmIPsIdx[routeIP]; ok {
-			continue
-		}
-
-		if err := m.nlWrapper.RouteDel(&route); err != nil {
-			return fmt.Errorf("failed to delete stale route '%s': %v", fmtRoute(route), err)
-		}
-		m.log.Info(fmt.Sprintf("route %s removed", fmtRoute(route)))
-	}
-	return nil
-}
-
 // isManagedIP detects if IP belongs to configured CIDRs.
 func (m *Manager) isManagedIP(ip string) (bool, error) {
 	netIP := net.ParseIP(ip)
@@ -203,7 +131,7 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 }
 
 // UpdateRoute updates route for a single VirtualMachine.
-func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
+func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine, ciliumNode *ciliumv2.CiliumNode) error {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
 	if vm.Status.Node == "" {
@@ -234,17 +162,6 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
 
 	// Save IP to the in-memory cache to restore IP later.
 	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
-
-	// Retrieve a Cilium Node by VMs node name.
-	var ciliumNode *ciliumv2.CiliumNode
-
-	obj, exists, err := m.cnIndexer.GetByKey(vm.Status.Node)
-	if err != nil {
-		m.log.Error(err, "failed to get cilium node for vm")
-	}
-	if exists {
-		ciliumNode = obj.(*ciliumv2.CiliumNode)
-	}
 
 	nodeIP := getCiliumInternalIPAddress(ciliumNode)
 	if nodeIP == "" {

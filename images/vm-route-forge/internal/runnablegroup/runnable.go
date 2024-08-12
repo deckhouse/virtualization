@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package runnablegroup
 
 import (
 	"context"
@@ -26,30 +26,30 @@ type Runnable interface {
 	Run(ctx context.Context) error
 }
 
-func newRunnableGroup() *runnableGroup {
-	return &runnableGroup{
+func NewRunnableGroup() *RunnableGroup {
+	return &RunnableGroup{
 		runnable: make([]Runnable, 0),
 	}
 }
 
-type runnableGroup struct {
+type RunnableGroup struct {
 	runnable  []Runnable
 	startOnce sync.Once
 	err       error
 }
 
-func (r *runnableGroup) Add(runnable Runnable) {
+func (r *RunnableGroup) Add(runnable Runnable) {
 	r.runnable = append(r.runnable, runnable)
 }
 
-func (r *runnableGroup) Run(ctx context.Context) error {
+func (r *RunnableGroup) Run(ctx context.Context) error {
 	r.startOnce.Do(func() {
 		r.err = r.run(ctx)
 	})
 	return r.err
 }
 
-func (r *runnableGroup) run(ctx context.Context) error {
+func (r *RunnableGroup) run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wg := sync.WaitGroup{}

@@ -26,6 +26,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes"
+
+	"vm-route-forge/internal/runnablegroup"
 )
 
 const (
@@ -35,7 +37,7 @@ const (
 )
 
 type Server struct {
-	runnableGroup           *runnableGroup
+	runnableGroup           *runnablegroup.RunnableGroup
 	gracefulShutdownTimeout time.Duration
 	healthProbeListener     net.Listener
 	pprofListener           net.Listener
@@ -55,7 +57,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if s.pprofListener != nil {
 		s.addPprofServer()
 	}
-	return s.runnableGroup.run(ctx)
+	return s.runnableGroup.Run(ctx)
 }
 
 func (s *Server) addHealthProbeServer() {
@@ -98,7 +100,7 @@ func (s *Server) addPprofServer() {
 	})
 }
 
-func (s *Server) Add(r Runnable) {
+func (s *Server) Add(r runnablegroup.Runnable) {
 	s.runnableGroup.Add(r)
 }
 
@@ -146,7 +148,7 @@ func NewServer(client kubernetes.Interface, options Options, log logr.Logger) (*
 		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
 		readinessEndpointRoute:  options.ReadinessEndpointRoute,
 		livenessEndpointRoute:   options.LivenessEndpointRoute,
-		runnableGroup:           newRunnableGroup(),
+		runnableGroup:           runnablegroup.NewRunnableGroup(),
 		readyzHandler:           options.ReadyzHandler,
 		healthzHandler:          options.HealthzHandler,
 		client:                  client,

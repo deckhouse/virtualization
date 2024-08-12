@@ -84,6 +84,7 @@ func NewController(
 	}
 	routeController.vmIndexer = vmInformer.Informer().GetIndexer()
 	routeController.vmLister = vmInformer.Lister()
+	routeController.cnIndexer = cnInformer.Informer().GetIndexer()
 	routeController.hasSynced = func() bool {
 		return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
 	}
@@ -93,6 +94,7 @@ func NewController(
 
 type Controller struct {
 	vmIndexer    cache.Indexer
+	cnIndexer    cache.Indexer
 	vmLister     virtlisters.VirtualMachineLister
 	routeWatcher Watcher
 	hasSynced    cache.InformerSynced
@@ -203,7 +205,7 @@ func (c *Controller) queueAdd(key string) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) Run(ctx context.Context, workers int) {
+func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
@@ -211,8 +213,11 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	defer c.log.Info("Shutting down route controller")
 
 	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.hasSynced) {
-		c.log.Error(fmt.Errorf("cache is not synced"), "Controller will be stopped", "controller", controllerName)
-		return
+		return fmt.Errorf("cache is not synced")
+	}
+
+	if err := c.netlinkMgr.SyncRules(); err != nil {
+		return fmt.Errorf("failed to synchronize routing rules at start: %w", err)
 	}
 
 	c.log.Info("Starting workers of route controller")
@@ -238,9 +243,9 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 			if err != nil {
 				c.log.Error(err, "host reconciliation failed")
 			}
-			return
+			return nil
 		case <-ctx.Done():
-			return
+			return nil
 		}
 	}
 }
@@ -298,7 +303,18 @@ func (c *Controller) sync(key string) error {
 		return nil
 	}
 
-	if err = c.netlinkMgr.UpdateRoute(vm); err != nil {
+	// Retrieve a Cilium Node by VMs node name.
+	var ciliumNode *ciliumv2.CiliumNode
+	obj, exists, err = c.cnIndexer.GetByKey(vm.Status.Node)
+	if err != nil {
+		c.log.Error(err, "failed to get cilium node for vm")
+		return err
+	}
+	if exists {
+		ciliumNode = obj.(*ciliumv2.CiliumNode)
+	}
+
+	if err = c.netlinkMgr.UpdateRoute(vm, ciliumNode); err != nil {
 		log.Error(err, "Failed to update route")
 		return err
 	}
