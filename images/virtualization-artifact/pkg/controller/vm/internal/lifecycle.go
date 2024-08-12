@@ -81,7 +81,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, nil
 	}
 
-	if updated := addAllUnknown(changed, lifeCycleConditions...); updated {
+	if updated := addAllUnknown(changed, lifeCycleConditions...); updated || changed.Status.Phase == "" {
 		changed.Status.Phase = virtv2.MachinePending
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -91,7 +91,12 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	changed.Status.Phase = getPhase(kvvm)
+	phase := getPhase(kvvm)
+	if phase == "" {
+		phase = virtv2.MachinePending
+		log.Error(fmt.Sprintf("unexpected KVVM state: status %q, fallback VM phase to %q", kvvm.Status.PrintableStatus, phase))
+	}
+	changed.Status.Phase = phase
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
