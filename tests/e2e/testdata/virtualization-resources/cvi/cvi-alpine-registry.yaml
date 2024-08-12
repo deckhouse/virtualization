@@ -1,0 +1,10 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: cvi-alpine-registry
+spec:
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: docker.io/fl64/alpine-3.20:latest

@@ -1,0 +1,30 @@
+# https://github.com/kubernetes-sigs/kustomize/blob/master/examples/transformerconfigs/README.md#transformer-configurations
+nameReference:
+  - kind: VirtualDisk
+    version: v1alpha2 # optional
+    fieldSpecs:
+      - path: spec/blockDeviceRefs/name
+        kind: VirtualMachine
+  - kind: Secret
+    fieldSpecs:
+      - path: spec/provisioning/userDataRef/name
+        version: v1alpha2
+        kind: VirtualMachine
+  - kind: VirtualMachineIPAddressClaim
+    version: v1alpha2
+    fieldSpecs:
+      - path: spec/virtualMachineIPAddressClaimName
+        version: v1alpha2
+        kind: VirtualMachine
+  - kind: VirtualMachine
+    version: v1alpha2
+    fieldSpecs:
+      - path: spec/virtualMachineName
+        version: v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment
+  - kind: VirtualDisk
+    version: v1alpha2
+    fieldSpecs:
+      - path: spec/blockDeviceRef/name
+        version: v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment

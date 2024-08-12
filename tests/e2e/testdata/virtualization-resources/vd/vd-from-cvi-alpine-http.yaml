@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-from-cvi-alpine-http
+spec:
+  persistentVolumeClaim:
+    size: 200Mi
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: ClusterVirtualImage
+      name: cvi-alpine-http

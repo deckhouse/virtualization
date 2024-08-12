@@ -44,9 +44,11 @@ type Kubectl interface {
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(filepath string, opts DeleteOptions) *executor.CMDResult
 	DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult
+	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
 	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
+	WaitResources(resource Resource, names []string, opts WaitOptions) *executor.CMDResult
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
@@ -70,6 +72,12 @@ type DeleteOptions struct {
 type GetOptions struct {
 	Namespace string
 	Output    string
+}
+
+type KustomizeOptions struct {
+	Namespace string
+	Output    string
+	Force     bool
 }
 
 type WaitOptions struct {
@@ -205,6 +213,14 @@ func (k KubectlCMD) DeleteResource(resource Resource, name string, opts DeleteOp
 	return k.Exec(cmd)
 }
 
+func (k KubectlCMD) Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s apply --kustomize %s", k.cmd, directory)
+	cmd = k.kustomizeOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
 func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
@@ -228,7 +244,19 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout
+		timeout = opts.Timeout * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) WaitResources(resource Resource, names []string, opts WaitOptions) *executor.CMDResult {
+	namesList := strings.Join(names, " ")
+	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, namesList), opts)
+	timeout := MediumTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -276,6 +304,12 @@ func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
 	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
 }
 
+func (k KubectlCMD) kustomizeOptions(cmd string, opts KustomizeOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addOutput(cmd, opts.Output)
+	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
+}
+
 func (k KubectlCMD) createOptions(cmd string, opts CreateOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
@@ -298,7 +332,7 @@ func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
 		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
 	}
 	if opts.Timeout != 0 {
-		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
+		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout*time.Second)
 	}
 	return cmd
 }

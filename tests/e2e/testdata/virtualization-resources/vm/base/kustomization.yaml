@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./vm.yaml
+  - ./vd-root.yaml
+  - ./vd-blank.yaml
+  # - ./vmbda.yaml
+  # - ./vd-attach.yaml
+configurations:
+  - transformer.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+secretGenerator:
+  - name: cloud-init
+    files:
+      - userdata=cfg/cloudinit.yaml
+    type: Opaque

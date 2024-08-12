@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+nameSuffix: "-always-on"
+commonLabels:
+  vm: always-on
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: VirtualMachine
+      name: vm
+    patch: |-
+      - op: replace
+        path: /spec/runPolicy
+        value: AlwaysOn
+
+# patches:
+# #- path: vm.image.patch.yaml
+# - target:
+#     kind: VirtualMachineIPAddressClaimName
+#     name: vm
+#   patch: |-
+#     - op: replace
+#       path: /spec/address
+#       value: 10.66.10.1
+# - target:
+#     kind: VirtualMachine
+#     name: vm
+#   patch: |-
+#     - op: add
+#       path: /spec/blockDevices/-
+#       value: {
+#             "type": "ClusterVirtualMachineImage",
+#             "clusterVirtualMachineImage": {
+#                 "name": "echo"
+#             }
+#         }
+# # remove provisioning
+# - target:
+#     kind: VirtualMachine
+#     name: vm
+#   patch: |-
+#     - op: remove
+#       path: /spec/provisioning
+# use random ip-address
+# - target:
+#     kind: VirtualMachine
+#     name: vm
+#   patch: |-
+#     - op: remove
+#       path: /spec/VirtualMachineIPAddressClaimName
+# - patch: |
+#     $patch: delete
+#     apiVersion: virtualization.deckhouse.io/v1alpha2
+#     kind: VirtualMachineIPAddressClaim
+#     metadata:
+#       name: vm

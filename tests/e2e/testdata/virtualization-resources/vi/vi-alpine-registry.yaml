@@ -1,0 +1,12 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-alpine-registry
+  namespace: default
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: docker.io/fl64/alpine-3.20:latest

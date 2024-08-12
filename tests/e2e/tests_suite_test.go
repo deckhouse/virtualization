@@ -36,12 +36,14 @@ const (
 	PhaseBound             = "Bound"
 	PhaseReleased          = "Released"
 	PhaseSucceeded         = "Succeeded"
+	PhaseRunning           = "Running"
 	PhaseWaitForUserUpload = "WaitForUserUpload"
 )
 
 var (
 	conf             *config.Config
 	kubectl          kc.Kubectl
+	kustomize        *config.Kustomize
 	virtctl          virt.Virtctl
 	d8Virtualization d8.D8Virtualization
 )
@@ -60,11 +62,9 @@ func init() {
 	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
 		panic(err)
 	}
+	kustomizeFilePath := conf.VirtualizationResources + "/kustomization.yaml"
+	kustomize.SetNamespace(kustomizeFilePath, conf.Namespace)
 	Cleanup()
-	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
-	if !res.WasSuccess() {
-		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
-	}
 }
 
 func TestTests(t *testing.T) {

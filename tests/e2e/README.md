@@ -8,16 +8,24 @@ point the tests to the cluster.
 You can override the config file using the env var ```E2E_CONFIG```.
 (default config - ```default_config.yaml```)
 
-You must also have a default class declared
-Mark a ReplicatedStorageClass as default:
+You must also have a default storage class declared.  
+Mark a StorageClass as default:
 ```yaml
-spec:
-  isDefault: true
+metadata:
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
 ```
 Example:
 ```bash
-kubectl patch replicatedstorageclasses.storage.deckhouse.io linstor-thin-r3 --type=json  -p='[{"op": "replace", "path":"/spec/isDefault", "value":true}]'
+kubectl patch storageclasses.storage.k8s.io linstor-thin-r1 --type=merge --patch='{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
 ```
+
+### Local running
+With "$HOME/.kube/config" by default and current cluster context:
+```bash
+task run_local
+```
+
 ### Configuration
 To override a configuration option, create an environment variable named ```E2E_variable``` where variable is the name of the configuration option and the _ (underscore) represents indention levels. 
 For example, you can configure the ```token``` of the ```kubectl``` and ```virtctl```:
@@ -30,8 +38,7 @@ To override this value, set an environment variable like this:
 export E2E_CLUSTERTRANSPORT_TOKEN="your token"
 ```
 
-### RUN
-
+### Run
 ```bash
 task run
 ```

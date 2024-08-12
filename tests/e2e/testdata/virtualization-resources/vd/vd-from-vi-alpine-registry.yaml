@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-from-vi-alpine-registry
+spec:
+  persistentVolumeClaim:
+    size: 200Mi
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: vi-alpine-registry

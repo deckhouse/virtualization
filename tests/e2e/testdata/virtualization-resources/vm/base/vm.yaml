@@ -1,0 +1,27 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  # runPolicy: AlwaysOn
+  # enableParavirtualization: true
+  # osType: Generic
+  # bootloader: BIOS
+  virtualMachineClassName: generic
+  cpu:
+    cores: 1
+    coreFraction: 5%
+  memory:
+    size: 256Mi
+  disruptions:
+    restartApprovalMode: Manual
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: vd-root
+    - kind: VirtualDisk
+      name: vd-blank

@@ -17,9 +17,11 @@ limitations under the License.
 package config
 
 import (
+	"log"
 	"os"
 	"strconv"
 
+	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
@@ -44,12 +46,20 @@ func GetConfig() (*Config, error) {
 }
 
 type Config struct {
-	Namespace        string           `yaml:"namespace"`
-	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
-	Disks            DisksConf        `yaml:"disks"`
-	VM               VmConf           `yaml:"vm"`
-	Ipam             IpamConf         `yaml:"ipam"`
-	HelperImages     HelperImages     `yaml:"helperImages"`
+	Namespace               string           `yaml:"namespace"`
+	ClusterTransport        ClusterTransport `yaml:"clusterTransport"`
+	Disks                   DisksConf        `yaml:"disks"`
+	VM                      VmConf           `yaml:"vm"`
+	Ipam                    IpamConf         `yaml:"ipam"`
+	HelperImages            HelperImages     `yaml:"helperImages"`
+	VirtualizationResources string           `yaml:"virtualizationResources"`
+}
+
+type Kustomize struct {
+	ApiVersion string   `yaml:"apiVersion"`
+	Kind       string   `yaml:"kind"`
+	Namespace  string   `yaml:"namespace"`
+	Resources  []string `yaml:"resources"`
 }
 
 type ClusterTransport struct {
@@ -126,4 +136,29 @@ func (c *Config) setEnvs() error {
 	}
 	return nil
 
+}
+
+func (k *Kustomize) SetNamespace(filePath, namespace string) {
+	var kustomizeFile Kustomize
+
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		log.Fatal(readErr)
+	}
+
+	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	if unmarshalErr != nil {
+		log.Fatal(unmarshalErr)
+	}
+
+	kustomizeFile.Namespace = namespace
+	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
+	if marshalErr != nil {
+		log.Fatal(updatedKustomizeFile)
+	}
+
+	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0644)
+	if writeErr != nil {
+		log.Fatal(writeErr)
+	}
 }

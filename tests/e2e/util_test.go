@@ -63,6 +63,7 @@ func ItApplyFromFile(filepath string) {
 	})
 
 }
+
 func ApplyFromFile(filepath string) {
 	GinkgoHelper()
 	fmt.Printf("Apply file %s\n", filepath)

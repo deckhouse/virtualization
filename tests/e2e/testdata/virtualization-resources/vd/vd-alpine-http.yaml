@@ -1,0 +1,13 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-alpine-http
+  namespace: default
+spec:
+  dataSource:
+    type: HTTP
+    http:
+      url: https://share.lv426.space/alpine-3-18.qcow2
+  persistentVolumeClaim:
+    size: 200Mi
