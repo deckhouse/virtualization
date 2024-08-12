@@ -31,6 +31,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -317,4 +318,22 @@ func (s DiskService) checkStorageClass(ctx context.Context, storageClassName str
 	}
 
 	return nil
+}
+
+var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
+
+func (s DiskService) AdjustPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
+	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(requiredSize) == -1 {
+		return resource.Quantity{}, fmt.Errorf("%w: %sB < %sB", ErrInsufficientPVCSize, pvcSize.AsDec().String(), requiredSize.AsDec().String())
+	}
+
+	// Adjust PVC size to feat image onto scratch PVC.
+	// TODO(future): remove size adjusting after get rid of scratch.
+	adjustedSize := dvutil.AdjustPVCSize(requiredSize)
+
+	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
+		return *pvcSize, nil
+	}
+
+	return adjustedSize, nil
 }

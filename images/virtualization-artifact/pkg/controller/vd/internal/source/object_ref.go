@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
-	vdutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -115,9 +114,18 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, nil
 		}
 
+		vd.Status.Progress = "0%"
+		vd.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
+
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd, dvcrDataSource)
 		if err != nil {
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return false, nil
+			}
+
 			return false, err
 		}
 
@@ -137,9 +145,6 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
-
-		vd.Status.Progress = "0%"
-		vd.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
 
 		return true, nil
 	case pvc == nil:
@@ -264,18 +269,5 @@ func (ds ObjectRefDataSource) getPVCSize(vd *virtv2.VirtualDisk, dvcrDataSource 
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	pvcSize := vd.Spec.PersistentVolumeClaim.Size
-	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
-		return resource.Quantity{}, ErrPVCSizeSmallerImageVirtualSize
-	}
-
-	// Adjust PVC size to feat image onto scratch PVC.
-	// TODO(future): remove size adjusting after get rid of scratch.
-	adjustedSize := vdutil.AdjustPVCSize(unpackedSize)
-
-	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
-		return *pvcSize, nil
-	}
-
-	return adjustedSize, nil
+	return ds.diskService.AdjustPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }

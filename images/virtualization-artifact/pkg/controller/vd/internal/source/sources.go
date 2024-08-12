@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -193,14 +192,18 @@ func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.DiskPha
 	case cc.ErrQuotaExceeded(err):
 		*phase = virtv2.DiskFailed
 		ready.Status = metav1.ConditionFalse
-		ready.Reason = cvicondition.ProvisioningFailed
+		ready.Reason = vdcondition.ProvisioningFailed
 		ready.Message = fmt.Sprintf("Quota exceeded: please configure the `importerResourceRequirements` field in the virtualization module configuration; %s.", err)
 		return false, nil
 	default:
-		*phase = virtv2.DiskFailed
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = cvicondition.ProvisioningFailed
-		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
+		setPhaseConditionToFailed(ready, phase, fmt.Errorf("unexpected error: %w", err))
 		return false, err
 	}
+}
+
+func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) {
+	*phase = virtv2.DiskFailed
+	ready.Status = metav1.ConditionFalse
+	ready.Reason = vdcondition.ProvisioningFailed
+	ready.Message = service.CapitalizeFirstLetter(err.Error())
 }

@@ -28,7 +28,6 @@ import (
 
 	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	vdutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -204,9 +203,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			}
 		}
 
+		vd.Status.Progress = "50%"
+		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
+
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd, pod)
 		if err != nil {
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return false, nil
+			}
+
 			return false, err
 		}
 
@@ -222,9 +230,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
-
-		vd.Status.Progress = "50%"
-		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
 		return true, nil
 	case pvc == nil:
@@ -352,18 +357,5 @@ func (ds UploadDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	pvcSize := vd.Spec.PersistentVolumeClaim.Size
-	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(unpackedSize) == -1 {
-		return resource.Quantity{}, ErrPVCSizeSmallerImageVirtualSize
-	}
-
-	// Adjust PVC size to feat image onto scratch PVC.
-	// TODO(future): remove size adjusting after get rid of scratch.
-	adjustedSize := vdutil.AdjustPVCSize(unpackedSize)
-
-	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
-		return *pvcSize, nil
-	}
-
-	return adjustedSize, nil
+	return ds.diskService.AdjustPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
