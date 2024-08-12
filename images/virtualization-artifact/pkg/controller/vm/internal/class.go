@@ -94,7 +94,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	if class == nil {
 		msg = fmt.Sprintf("VirtualMachineClassName %q not found", className)
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), "VirtualMachineClass not available: waiting for the VirtualMachineClass")
-		log.Info("VirtualMachineClass not available: waiting for the CPU class")
+		log.Info("VirtualMachineClass not available: waiting for the VirtualMachineClass")
 	}
 	mgr.Update(cb.Status(metav1.ConditionFalse).
 		Message(msg).
