@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.12.0](https://github.com/deckhouse/virtualization/compare/v0.11.0...v0.12.0) (2024-08-12)
+
+
+### Features
+
+* **api:** add importer's requests and limits for virtualization config ([#266](https://github.com/deckhouse/virtualization/issues/266)) ([363283d](https://github.com/deckhouse/virtualization/commit/363283de85856161d3f88970c2b6c867ee2db3dc))
+* **api:** remove provisioner pod req and lim settings ([7f4e38a](https://github.com/deckhouse/virtualization/commit/7f4e38a2f91bd010907c4be0662900ae58fcb2a7))
+* **api:** remove req/lim settings from virtualization mc ([7f4e38a](https://github.com/deckhouse/virtualization/commit/7f4e38a2f91bd010907c4be0662900ae58fcb2a7))
+* **api:** set common logger slog ([7f62061](https://github.com/deckhouse/virtualization/commit/7f62061f65d0bce9e02e9bd4589db97fb88bd9e4))
+* **vd:** add binding mode ([da65e56](https://github.com/deckhouse/virtualization/commit/da65e56a660bddcbc29f826f551bf1f45e5b1899))
+* **vd:** set common logger slog for controller ([f37c5df](https://github.com/deckhouse/virtualization/commit/f37c5df0406364a1ffb9f988d94544f3ee757a1a))
+* **vm-route-forge:** add route interface ([#268](https://github.com/deckhouse/virtualization/issues/268)) ([1343160](https://github.com/deckhouse/virtualization/commit/134316075f45b9624cd2e1c49d323fff89683473))
+
+
+### Bug Fixes
+
+* **module:** add 'need restart' and 'agent' status to brief output ([#262](https://github.com/deckhouse/virtualization/issues/262)) ([d4646a6](https://github.com/deckhouse/virtualization/commit/d4646a64d62b21f2d4b138b4d3627de7bb25053f))
+* **module:** fix RBAC for Admin ([#259](https://github.com/deckhouse/virtualization/issues/259)) ([896073b](https://github.com/deckhouse/virtualization/commit/896073beca0563820e60f77966badc6480f80031))
+* **module:** remove deprecated vmipCIDRs from module config ([#263](https://github.com/deckhouse/virtualization/issues/263)) ([dbb1181](https://github.com/deckhouse/virtualization/commit/dbb11815d8fb1b85f2493ae42b84c5048a0c2386))
+* **vd:** revert degraded phase ([4db841b](https://github.com/deckhouse/virtualization/commit/4db841b0e2f6c8265135a07bb358dd3aa001ce7f))
+* **vm:** add unittests for statistic handler ([#271](https://github.com/deckhouse/virtualization/issues/271)) ([767bb44](https://github.com/deckhouse/virtualization/commit/767bb4491029164516b15e75a85a78c8b02f3cc6))
+* **vmip:** create double lease ([#261](https://github.com/deckhouse/virtualization/issues/261)) ([8bdf8c3](https://github.com/deckhouse/virtualization/commit/8bdf8c3ee5c4ad21df625cf0adc6d53c6caf250c))
+* **vm:** remove pod finalizers after pod completion ([#265](https://github.com/deckhouse/virtualization/issues/265)) ([6de10fd](https://github.com/deckhouse/virtualization/commit/6de10fdd4f4d5d4ee9054c1690e0fe73b25892ff))
+
 ## [0.11.0](https://github.com/deckhouse/virtualization/compare/v0.10.1...v0.11.0) (2024-08-01)
 
 
