@@ -1,3 +1,6 @@
+//go:build !linux
+// +build !linux
+
 /*
 Copyright 2024 Flant JSC
 
@@ -14,9 +17,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:build !linux
-// +build !linux
-
 package netlinkwrap
 
 import (
@@ -25,14 +25,8 @@ import (
 
 // Aliases for netlink functions and constants not available for non-Linux.
 
-const (
-	FAMILY_ALL = 0
-)
-
 var RuleAdd = func(*orignetlink.Rule) error { return orignetlink.ErrNotImplemented }
-
 var RuleDel = func(*orignetlink.Rule) error { return orignetlink.ErrNotImplemented }
-
 var RuleListFiltered = func(int, *orignetlink.Rule, uint64) ([]orignetlink.Rule, error) {
 	return nil, orignetlink.ErrNotImplemented
 }

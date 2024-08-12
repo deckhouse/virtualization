@@ -35,10 +35,10 @@ import (
 
 	virtinformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	cache2 "vm-route-forge/internal/cache"
+	vmipcache "vm-route-forge/internal/cache"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	netlinkwrap2 "vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/netlinkwrap"
 	"vm-route-forge/internal/netutil"
 )
 
@@ -50,29 +50,25 @@ const (
 )
 
 type Manager struct {
-	vmLister  virtlisters.VirtualMachineLister
-	cnIndexer cache.Indexer
-	hasSynced cache.InformerSynced
-	log       logr.Logger
-	nlWrapper *netlinkwrap2.Funcs
-	tableId   int
-	cidrs     []*net.IPNet
-	nodeName  string
-	cache     cache2.Cache
+	vmLister     virtlisters.VirtualMachineLister
+	cnIndexer    cache.Indexer
+	hasSynced    cache.InformerSynced
+	log          logr.Logger
+	nlWrapper    *netlinkwrap.Funcs
+	routeTableID int
+	cidrs        []*net.IPNet
+	nodeName     string
+	cache        vmipcache.Cache
 }
 
 func New(vmInformer virtinformers.VirtualMachineInformer,
 	cnInformer ciliumv2Informers.CiliumNodeInformer,
-	cache cache2.Cache,
+	cache vmipcache.Cache,
 	log logr.Logger,
-	tableId int,
+	routeTableID int,
 	cidrs []*net.IPNet,
-	dryRun bool,
+	nlWrapper *netlinkwrap.Funcs,
 ) *Manager {
-	nlWrapper := netlinkwrap2.NewFuncs()
-	if dryRun {
-		nlWrapper = netlinkwrap2.DryRunFuncs()
-	}
 	return &Manager{
 		//client:    client,
 		vmLister:  vmInformer.Lister(),
@@ -80,11 +76,11 @@ func New(vmInformer virtinformers.VirtualMachineInformer,
 		hasSynced: func() bool {
 			return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
 		},
-		log:       log.WithValues("manager", netlinkManager),
-		tableId:   tableId,
-		cidrs:     cidrs,
-		nlWrapper: nlWrapper,
-		cache:     cache,
+		log:          log.WithValues("manager", netlinkManager),
+		routeTableID: routeTableID,
+		cidrs:        cidrs,
+		nlWrapper:    nlWrapper,
+		cache:        cache,
 	}
 }
 
@@ -92,7 +88,7 @@ func New(vmInformer virtinformers.VirtualMachineInformer,
 // Also, it removes existing rules for previously configured CIDRs.
 func (m *Manager) SyncRules() error {
 	// Get rules state.
-	rules, err := m.nlWrapper.RuleListFiltered(netlinkwrap2.FAMILY_ALL, &netlink.Rule{Table: m.tableId}, netlink.RT_FILTER_TABLE)
+	rules, err := m.nlWrapper.RuleListFiltered(netlink.FAMILY_ALL, &netlink.Rule{Table: m.routeTableID}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list rules: %v", err)
 	}
@@ -101,8 +97,8 @@ func (m *Manager) SyncRules() error {
 	cidrIdx := make(map[string]struct{})
 	for _, cidr := range m.cidrs {
 		rule := netlink.NewRule()
-		rule.Table = m.tableId
-		rule.Priority = m.tableId
+		rule.Table = m.routeTableID
+		rule.Priority = m.routeTableID
 		rule.Dst = cidr
 		cidrIdx[cidr.String()] = struct{}{}
 		if err := m.nlWrapper.RuleAdd(rule); err != nil && !os.IsExist(err) {
@@ -166,7 +162,7 @@ func (m *Manager) SyncRoutes(ctx context.Context) error {
 	}
 
 	// Remove routes unknown for vm IPs.
-	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlinkwrap2.FAMILY_ALL, &netlink.Route{Table: m.tableId}, netlink.RT_FILTER_TABLE)
+	nodeRoutes, err := m.nlWrapper.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: m.routeTableID}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list node routes: %v", err)
 	}
@@ -258,7 +254,7 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
 	if len(nodeIPx) == 0 {
 		return fmt.Errorf("invalid IP address %s", nodeIP)
 	}
-	m.cache.Set(vmKey, cache2.Addresses{VMIP: net.ParseIP(vmIP), NodeIP: net.ParseIP(nodeIP)})
+	m.cache.Set(vmKey, vmipcache.Addresses{VMIP: vmipcache.IP(vmIP), NodeIP: vmipcache.IP(nodeIP)})
 
 	// Get route for specific nodeIP and create similar for our Virtual Machine.
 	routes, err := m.nlWrapper.RouteGet(nodeIPx)
@@ -279,7 +275,7 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine) error {
 	}
 
 	route.Dst = vmRouteDst
-	route.Table = m.tableId
+	route.Table = m.routeTableID
 	route.Type = 1
 
 	if err = m.nlWrapper.RouteReplace(&route); err != nil {
@@ -323,7 +319,7 @@ func (m *Manager) DeleteRoute(vmKey types.NamespacedName, vmIP string) error {
 
 	route := netlink.Route{
 		Dst:   vmRouteDst,
-		Table: m.tableId,
+		Table: m.routeTableID,
 	}
 
 	if err := m.nlWrapper.RouteDel(&route); err != nil && !os.IsNotExist(err) && !errors.Is(err, unix.ESRCH) {

@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
 Copyright 2024 Flant JSC
 
@@ -17,14 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package netlinkwrap
+package route
 
 import (
-	orignetlink "github.com/vishvananda/netlink"
+	"context"
+	"fmt"
+	"net"
+
+	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
+
+	vmipcache "vm-route-forge/internal/cache"
+	"vm-route-forge/internal/netlinkwrap"
 )
 
-// Aliases for some netlink functions and constants available only for Linux.
+func NewEbpfWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) (*EbpfWatcher, error) {
+	return &EbpfWatcher{}, fmt.Errorf("not implemented")
+}
 
-var RuleAdd = orignetlink.RuleAdd
-var RuleDel = orignetlink.RuleDel
-var RuleListFiltered = orignetlink.RuleListFiltered
+type EbpfWatcher struct {
+}
+
+func (w *EbpfWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
+	return nil, nil
+}
