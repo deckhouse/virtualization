@@ -1,6 +1,6 @@
 ---
-title: "Примеры конфигурации"
-weight: 40
+title: "Руководство пользователя"
+weight: 50
 ---
 
 ## Быстрый старт
@@ -168,56 +168,56 @@ kubectl get clustervirtualimage -o wide
 
 ### Создание и использование образа из container registry
 
-1. Cформируйте образ для хранения в `container registry`.
+Cформируйте образ для хранения в `container registry`.
 
 Ниже представлен пример создания образа c диском Ubuntu 22.04.
 
 - Загрузите образ локально:
 
-```bash
-curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
-```
+  ```bash
+  curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+  ```
 
 - Создайте Dockerfile со следующим содержимым:
 
-```Dockerfile
-FROM scratch
-COPY ubuntu2204.img /disk/ubuntu2204.img
-```
+  ```Dockerfile
+  FROM scratch
+  COPY ubuntu2204.img /disk/ubuntu2204.img
+  ```
 
 - Соберите образ и загрузите его в `container registry`. В качестве `container registry` в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
 
-```bash
-docker build -t docker.io/username/ubuntu2204:latest
-```
+  ```bash
+  docker build -t docker.io/username/ubuntu2204:latest
+  ```
 
-где `username` — имя пользователя, указанное при регистрации в docker.io.
+  где `username` — имя пользователя, указанное при регистрации в docker.io.
 
 - Загрузите созданный образ в `container registry` с помощью команды:
 
-```bash
-docker push docker.io/username/ubuntu2204:latest
-```
+  ```bash
+  docker push docker.io/username/ubuntu2204:latest
+  ```
 
 - Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualImage`:
 
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
-metadata:
-  name: ubuntu-2204
-spec:
-  dataSource:
-    type: ContainerImage
-    containerImage:
-      image: docker.io/username/ubuntu2204:latest
-```
+  ```yaml
+  apiVersion: virtualization.deckhouse.io/v1alpha2
+  kind: ClusterVirtualImage
+  metadata:
+    name: ubuntu-2204
+  spec:
+    dataSource:
+      type: ContainerImage
+      containerImage:
+        image: docker.io/username/ubuntu2204:latest
+  ```
 
 - Чтобы посмотреть ресурс и его статус, выполните команду:
 
-```bash
-kubectl get clustervirtualimage
-```
+  ```bash
+  kubectl get clustervirtualimage
+  ```
 
 ### Загрузка образа из командной строки
 
