@@ -3,7 +3,7 @@ title: "Настройки"
 weight: 30
 ---
 
-Пример конфигурации модуля virtualization:
+Пример конфигурации Deckhouse Virtualization Platform:
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
