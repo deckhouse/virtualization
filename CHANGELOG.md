@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.1](https://github.com/deckhouse/virtualization/compare/v0.12.0...v0.12.1) (2024-08-13)
+
+
+### Bug Fixes
+
+* **vmip:** changes to the resource name generation algorithm ([#276](https://github.com/deckhouse/virtualization/issues/276)) ([54c8b49](https://github.com/deckhouse/virtualization/commit/54c8b49a0df41d1ecc10cec645f5f561710b405b))
+* **vm:** wait for virtual disk's target pvc to be created before start internal virtual machine ([9be8ab7](https://github.com/deckhouse/virtualization/commit/9be8ab74c8de88f57c553df821dd2e73e6cbdb06))
+
 ## [0.12.0](https://github.com/deckhouse/virtualization/compare/v0.11.0...v0.12.0) (2024-08-12)
 
 
