@@ -20,6 +20,12 @@ spec:
         action: replace
         targetLabel: __name__
         replacement: d8_$1
+      - action: replace
+        sourceLabels:
+        - exported_namespace
+        targetLabel: namespace
+      - action: labeldrop
+        regex: (container|endpoint|job|service|pod|exported_namespace|uid)
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}

@@ -28,27 +28,39 @@ spec:
           regex: kubevirt_vmi_(migration_)?phase_(.*)
           action: drop
         - sourceLabels: [__name__, drive]
+          regex: "kubevirt_vmi_storage_(.*);((cvi|vi|vd)-)?(.+)"
+          separator: ;
+          action: replace
+          targetLabel: block_device_name
+          replacement: $4
+        - sourceLabels: [__name__, drive]
           regex: "kubevirt_vmi_storage_(.*);vd-(.*)"
           separator: ;
           action: replace
-          targetLabel: __name__
-          replacement: d8_virtualization_virtualdisk_$1
+          targetLabel: type
+          replacement: virtualdisk
         - sourceLabels: [__name__, drive]
           regex: "kubevirt_vmi_storage_(.*);vi-(.*)"
           separator: ;
           action: replace
-          targetLabel: __name__
-          replacement: d8_virtualization_virtualimage_$1
+          targetLabel: type
+          replacement: virtualimage
         - sourceLabels: [__name__, drive]
           regex: "kubevirt_vmi_storage_(.*);cvi-(.*)"
           separator: ;
           action: replace
+          targetLabel: type
+          replacement: clustervirtualimage
+        - sourceLabels: [__name__]
+          regex: kubevirt_vmi_storage_(.*)
+          action: replace
           targetLabel: __name__
-          replacement: d8_virtualization_clustervirtualimage_$1
-        - sourceLabels: [__name__, drive]
-          regex: "kubevirt_vmi_storage_(.*);cloudinit"
-          separator: ;
-          action: drop
+          replacement: d8_virtualization_virtualmachine_block_device_$1
+        - sourceLabels: [__name__]
+          regex: kubevirt_vmi_filesystem_(.*)
+          action: replace
+          targetLabel: __name__
+          replacement: d8_virtualization_virtualmachine_block_device_filesystem_$1
         - sourceLabels: [__name__]
           regex: kubevirt_vmi_(.*)
           action: replace
@@ -67,10 +79,10 @@ spec:
           regex: kubernetes_vmi_(.+)
           replacement: kubernetes_$1
         - action: labeldrop
-          regex: (container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+)|(.+)kubevirt_io(.+))
+          regex: (drive|container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+)|(.+)kubevirt_io(.+))
   namespaceSelector:
     matchNames:
-      - d8-virtualization
+      - d8-{{ .Chart.Name }}
   selector:
     matchLabels:
       prometheus.kubevirt.internal.virtualization.deckhouse.io: "true"
