@@ -13,19 +13,68 @@ spec:
       name: prometheus-token
     path: /metrics
     port: metrics
-    # relabelings:
-    # - action: labeldrop
-    #   regex: endpoint|namespace|pod|container
-    # - action: replace
-    #   replacement: linstor-controller
-    #   targetLabel: job
-    # - action: replace
-    #   replacement: cluster
-    #   targetLabel: tier
-    # - action: keep
-    #   regex: "true"
-    #   sourceLabels:
-    #   - __meta_kubernetes_endpoint_ready
+spec:
+  endpoints:
+    - bearerTokenSecret:
+        key: token
+        name: prometheus-token
+      path: /metrics
+      port: metrics
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: kubevirt_vmi_(migration_)?phase_(.*)
+          action: drop
+        - sourceLabels: [__name__, drive]
+          regex: "kubevirt_vmi_storage_(.*);vd-(.*)"
+          separator: ;
+          action: replace
+          targetLabel: __name__
+          replacement: d8_virtualization_virtualdisk_$1
+        - sourceLabels: [__name__, drive]
+          regex: "kubevirt_vmi_storage_(.*);vi-(.*)"
+          separator: ;
+          action: replace
+          targetLabel: __name__
+          replacement: d8_virtualization_virtualimage_$1
+        - sourceLabels: [__name__, drive]
+          regex: "kubevirt_vmi_storage_(.*);cvi-(.*)"
+          separator: ;
+          action: replace
+          targetLabel: __name__
+          replacement: d8_virtualization_clustervirtualimage_$1
+        - sourceLabels: [__name__, drive]
+          regex: "kubevirt_vmi_storage_(.*);cloudinit"
+          separator: ;
+          action: drop
+        - sourceLabels: [__name__]
+          regex: kubevirt_vmi_(.*)
+          action: replace
+          targetLabel: __name__
+          replacement: d8_virtualization_virtualmachine_$1
+        - sourceLabels: [__name__]
+          regex: kubevirt_(.*)
+          action: replace
+          targetLabel: __name__
+          replacement: d8_internal_virtualization_kubevirt_$1
+        - action: replace
+          sourceLabels:
+          - exported_namespace
+          targetLabel: namespace
+        - action: labelmap
+          regex: kubernetes_vmi_(.+)
+          replacement: kubernetes_$1
+        - action: labeldrop
+          regex: (container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+)|(.+)kubevirt_io(.+))
+  namespaceSelector:
+    matchNames:
+      - d8-virtualization
+  selector:
+    matchLabels:
+      prometheus.kubevirt.internal.virtualization.deckhouse.io: "true"
+
     scheme: https
     tlsConfig:
       insecureSkipVerify: true

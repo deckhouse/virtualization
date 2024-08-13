@@ -13,6 +13,13 @@ spec:
     path: /metrics
     port: metrics
     scheme: http
+    metricRelabelings:
+      - sourceLabels: [__name__]
+        regex: "(.*)"
+        separator: ;
+        action: replace
+        targetLabel: __name__
+        replacement: d8_$1
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}
