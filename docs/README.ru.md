@@ -17,7 +17,7 @@ Deckhouse Virtualization Platform позволяет декларативно с
   ![](./images/cases-pods-and-vms.ru.png)
 
 {{< alert level="warning" >}}
-Если вы планируете использовать Deckhouse Virtualization Platform в production-среде, рекомендуется разворачивать его на физических серверах. Развертывание модуля на виртуальных машинах также возможно, но в этом случае необходимо включить nested-виртуализацию.
+Если вы планируете использовать Deckhouse Virtualization Platform в production-среде, рекомендуется разворачивать его на физических серверах. Развертывание Deckhouse Virtualization Platform на виртуальных машинах также возможно, но в этом случае необходимо включить nested-виртуализацию.
 {{< /alert >}}
 
 Для работы виртуализации требуется кластер Deckhouse Kubernetes Platform. Пользователям редакции Enterprise Edition доступна возможность управления ресурсами через графический интерфейс (UI).
