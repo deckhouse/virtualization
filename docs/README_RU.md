@@ -1,6 +1,6 @@
 ---
-title: "Модуль виртуализации"
-menuTitle: "Виртуализация"
+title: "Deckhouse Virtualization Platform"
+menuTitle: "Deckhouse Virtualization Platform"
 moduleStatus: preview
 ---
 
