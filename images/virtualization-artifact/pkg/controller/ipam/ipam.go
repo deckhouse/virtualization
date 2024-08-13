@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,7 +73,7 @@ func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, cl
 			Labels: map[string]string{
 				common.LabelVirtualMachineName: vm.Name,
 			},
-			GenerateName:    vm.Name + "-",
+			GenerateName:    GenerateName(vm),
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
@@ -80,4 +81,33 @@ func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, cl
 			Type: virtv2.VirtualMachineIPAddressTypeAuto,
 		},
 	})
+}
+
+const generateNameSuffix = "-"
+
+func GenerateName(vm *virtv2.VirtualMachine) string {
+	if vm == nil {
+		return ""
+	}
+	return vm.GetName() + generateNameSuffix
+}
+
+func GetVirtualMachineName(vmip *virtv2.VirtualMachineIPAddress) string {
+	if vmip == nil {
+		return ""
+	}
+	if gn := vmip.GenerateName; gn != "" {
+		return strings.TrimSuffix(vmip.GenerateName, generateNameSuffix)
+	}
+	if name := vmip.GetLabels()[common.LabelVirtualMachineName]; name != "" {
+		return name
+	}
+	name := vmip.GetName()
+	for _, ow := range vmip.GetOwnerReferences() {
+		if ow.Kind == virtv2.VirtualMachineKind {
+			name = ow.Name
+			break
+		}
+	}
+	return name
 }
