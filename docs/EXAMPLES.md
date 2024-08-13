@@ -1,5 +1,6 @@
 ---
 title: "Configuration examples"
+weight: 40
 ---
 
 ## Quick start

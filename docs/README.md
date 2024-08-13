@@ -2,6 +2,7 @@
 title: "The virtualization module"
 menuTitle: "Virtualization"
 moduleStatus: preview
+weight: 10
 ---
 
 ## Description
