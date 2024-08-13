@@ -119,7 +119,7 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 	for _, c := range vm.Status.Conditions {
 		switch vmcondition.Type(c.Type) {
 		case vmcondition.TypeBlockDevicesReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonBlockDevicesWaitingForProvisioning.String() {
+			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
 				return true
 			}
 		case vmcondition.TypeIPAddressReady,
