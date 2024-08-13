@@ -171,15 +171,19 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// Update the BlockDevicesReady condition.
-	if readyCount, wffc := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
+	if readyCount, canStartKVVM, warnings := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
 		var reason vmcondition.Reason
-		var msg string
-		if wffc {
-			reason = vmcondition.ReasonBlockDevicesWaitingForProvisioning
-			msg = fmt.Sprintf("Waiting for block devices to become ready: %d/%d; waiting for the block device provisioning.", readyCount, len(current.Spec.BlockDeviceRefs))
-		} else {
+
+		msg := fmt.Sprintf("Waiting for block devices to become ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
+		if len(warnings) > 0 {
+			msg = msg + "; " + strings.Join(warnings, "; ")
+		}
+		msg += "."
+
+		if !canStartKVVM {
 			reason = vmcondition.ReasonBlockDevicesNotReady
-			msg = fmt.Sprintf("Waiting for block devices to become ready: %d/%d.", readyCount, len(current.Spec.BlockDeviceRefs))
+		} else {
+			reason = vmcondition.ReasonWaitingForProvisioningToPVC
 		}
 
 		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
@@ -237,14 +241,14 @@ func (h *BlockDeviceHandler) checkBlockDevicesSanity(vm *virtv2.VirtualMachine) 
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, log *slog.Logger) (int, bool) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, log *slog.Logger) (int, bool, []string) {
 	if vm == nil {
-		return 0, false
+		return 0, false, nil
 	}
+
+	var warnings []string
 	ready := 0
-	viProvisioned := true
-	cviProvisioned := true
-	vdProvisioned := true
+	canStartKVVM := true
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ImageDevice:
@@ -252,45 +256,56 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				ready++
 				continue
 			}
-			viProvisioned = false
+			canStartKVVM = false
 		case virtv2.ClusterImageDevice:
 			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == virtv2.ImageReady {
 				ready++
 				continue
 			}
-			cviProvisioned = false
+			canStartKVVM = false
 		case virtv2.DiskDevice:
-			if vd, hasKey := s.VDByName[bd.Name]; hasKey {
-				// we can attach vd to only one vm
-				attachReady := len(vd.Status.AttachedToVirtualMachines) == 0
-				for _, attached := range vd.Status.AttachedToVirtualMachines {
-					if attached.Name != vm.GetName() {
-						attachReady = false
-						msg := fmt.Sprintf("VirtualDisk %s was attached to another virtual machine %q", vd.Name, attached.Name)
-						log.Warn(msg)
-						h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVDAlreadyInUse, msg)
-						break
-					}
-					attachReady = true
-				}
+			vd, hasKey := s.VDByName[bd.Name]
+			if !hasKey {
+				canStartKVVM = false
+				continue
+			}
 
-				if !attachReady || vd.Status.Target.PersistentVolumeClaim == "" {
-					continue
-				}
+			var canAttach bool
 
-				switch vd.Status.Phase {
-				case virtv2.DiskReady:
-					ready++
-				case virtv2.DiskWaitForFirstConsumer, virtv2.DiskProvisioning:
-					vdProvisioned = false
+			switch {
+			case len(vd.Status.AttachedToVirtualMachines) == 0:
+				canAttach = true
+			case len(vd.Status.AttachedToVirtualMachines) == 1:
+				if vd.Status.AttachedToVirtualMachines[0].Name != vm.GetName() {
+					canAttach = false
+					msg := fmt.Sprintf("unable to attach virtual disk %s because it is already attached to another virtual machine %s", vd.Name, vd.Status.AttachedToVirtualMachines[0].Name)
+					warnings = append(warnings, msg)
+					h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVDAlreadyInUse, msg)
+				} else {
+					canAttach = true
 				}
+			default:
+				canAttach = false
+				msg := fmt.Sprintf("unable to attach virtual disk %s because it is currently attached to multiple virtual machines", vd.Name)
+				warnings = append(warnings, msg)
+				log.Error(msg)
+			}
+
+			if !canAttach || vd.Status.Target.PersistentVolumeClaim == "" {
+				canStartKVVM = false
+				continue
+			}
+
+			if vd.Status.Phase == virtv2.DiskReady {
+				ready++
+			} else {
+				msg := fmt.Sprintf("virtual disk %s is waiting for the it's pvc to be bound", vd.Name)
+				warnings = append(warnings, msg)
 			}
 		}
 	}
 
-	waitingForTheDiskProvisioning := viProvisioned && cviProvisioned && !vdProvisioned
-
-	return ready, waitingForTheDiskProvisioning
+	return ready, canStartKVVM, warnings
 }
 
 // setFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.

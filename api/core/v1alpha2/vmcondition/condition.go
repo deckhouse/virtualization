@@ -54,9 +54,9 @@ const (
 	ReasonIPAddressNotAssigned  Reason = "VirtualMachineIPAddressNotAssigned"
 	ReasonIPAddressNotAvailable Reason = "VirtualMachineIPAddressNotAvailable"
 
-	ReasonBlockDevicesReady                  Reason = "BlockDevicesReady"
-	ReasonBlockDevicesWaitingForProvisioning Reason = "BlockDevicesWaitingForProvisioning"
-	ReasonBlockDevicesNotReady               Reason = "BlockDevicesNotReady"
+	ReasonBlockDevicesReady           Reason = "BlockDevicesReady"
+	ReasonWaitingForProvisioningToPVC Reason = "WaitingForTheProvisioningToPersistentVolumeClaim"
+	ReasonBlockDevicesNotReady        Reason = "BlockDevicesNotReady"
 
 	ReasonProvisioningReady    Reason = "ProvisioningReady"
 	ReasonProvisioningNotReady Reason = "ProvisioningNotReady"

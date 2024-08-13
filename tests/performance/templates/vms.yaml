@@ -30,6 +30,7 @@ spec:
   memory:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  virtualMachineClassName: host
   blockDeviceRefs:
     - kind: VirtualDisk
       name: {{ $.Values.resourcesPrefix }}-{{ . }}
