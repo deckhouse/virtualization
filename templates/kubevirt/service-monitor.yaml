@@ -24,62 +24,108 @@ spec:
       tlsConfig:
         insecureSkipVerify: true
       metricRelabelings:
-        - sourceLabels: [__name__]
+        # drop _phases
+        - action: drop
           regex: kubevirt_vmi_(migration_)?phase_(.*)
-          action: drop
-        - sourceLabels: [__name__, drive]
-          regex: "kubevirt_vmi_storage_(.*);((cvi|vi|vd)-)?(.+)"
+          sourceLabels:
+          - __name__
+        # add block_device_name without prefix only for cvi, vi, vd
+        - action: replace
+          regex: kubevirt_vmi_storage_.*;(cvi|vi|vd)-(.+)
+          replacement: $2
           separator: ;
-          action: replace
+          sourceLabels:
+          - __name__
+          - drive
           targetLabel: block_device_name
-          replacement: $4
-        - sourceLabels: [__name__, drive]
-          regex: "kubevirt_vmi_storage_(.*);vd-(.*)"
-          separator: ;
-          action: replace
-          targetLabel: type
+        # add type for vd
+        - action: replace
+          regex: kubevirt_vmi_storage_(.*);vd-(.*)
           replacement: virtualdisk
-        - sourceLabels: [__name__, drive]
-          regex: "kubevirt_vmi_storage_(.*);vi-(.*)"
           separator: ;
-          action: replace
+          sourceLabels:
+          - __name__
+          - drive
           targetLabel: type
+        # add type for vi
+        - action: replace
+          regex: kubevirt_vmi_storage_(.*);vi-(.*)
           replacement: virtualimage
-        - sourceLabels: [__name__, drive]
-          regex: "kubevirt_vmi_storage_(.*);cvi-(.*)"
           separator: ;
-          action: replace
+          sourceLabels:
+          - __name__
+          - drive
           targetLabel: type
+        # add type for cvi
+        - action: replace
+          regex: kubevirt_vmi_storage_(.*);cvi-(.*)
           replacement: clustervirtualimage
-        - sourceLabels: [__name__]
+          separator: ;
+          sourceLabels:
+          - __name__
+          - drive
+          targetLabel: type
+        # add type for cloudinit
+        - action: replace
+          regex: kubevirt_vmi_storage_(.*);cloudinit
+          replacement: cloudinit
+          separator: ;
+          sourceLabels:
+          - __name__
+          - drive
+          targetLabel: type
+        # add type for sysprep
+        - action: replace
+          regex: kubevirt_vmi_storage_(.*);sysprep
+          replacement: sysprep
+          separator: ;
+          sourceLabels:
+          - __name__
+          - drive
+          targetLabel: type
+        # add network=default for all kubevirt_vmi_network_
+        - action: replace
+          regex: kubevirt_vmi_network_(.*)
+          replacement: default
+          sourceLabels:
+          - __name__
+          targetLabel: network
+        # rename kubevirt_vmi_storage_ -> d8_virtualization_virtualmachine_block_device_
+        - action: replace
           regex: kubevirt_vmi_storage_(.*)
-          action: replace
-          targetLabel: __name__
           replacement: d8_virtualization_virtualmachine_block_device_$1
-        - sourceLabels: [__name__]
-          regex: kubevirt_vmi_filesystem_(.*)
-          action: replace
+          sourceLabels:
+          - __name__
           targetLabel: __name__
-          replacement: d8_virtualization_virtualmachine_block_device_filesystem_$1
-        - sourceLabels: [__name__]
+        # kubevirt_vmi_outdated_ -> d8_internal_virtualization_kubevirt_vmi_outdated_
+        - action: replace
+          regex: kubevirt_vmi_outdated_(.*)
+          replacement: d8_internal_virtualization_kubevirt_vmi_outdated_$1
+          sourceLabels:
+          - __name__
+          targetLabel: __name__
+        # renave kubevirt_vmi_ -> d8_virtualization_virtualmachine
+        - action: replace
           regex: kubevirt_vmi_(.*)
-          action: replace
-          targetLabel: __name__
           replacement: d8_virtualization_virtualmachine_$1
-        - sourceLabels: [__name__]
-          regex: kubevirt_(.*)
-          action: replace
+          sourceLabels:
+          - __name__
           targetLabel: __name__
+        # all other metrics -> d8_internal_virtualization_kubevirt_
+        - action: replace
+          regex: kubevirt_(.*)
           replacement: d8_internal_virtualization_kubevirt_$1
+          sourceLabels:
+          - __name__
+          targetLabel: __name__
+        # exported_namespace -> namespace
         - action: replace
           sourceLabels:
           - exported_namespace
           targetLabel: namespace
-        - action: labelmap
-          regex: kubernetes_vmi_(.+)
-          replacement: kubernetes_$1
+        # drop labels
         - action: labeldrop
-          regex: (drive|container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+)|(.+)kubevirt_io(.+))
+          regex: (interface|drive|container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+))
   namespaceSelector:
     matchNames:
       - d8-{{ .Chart.Name }}
