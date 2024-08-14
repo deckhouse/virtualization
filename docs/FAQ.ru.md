@@ -134,7 +134,7 @@ docker push docker.io/username/image:latest
 1. Для этого создайте сервис с требуемыми настройками.
 
    В качестве примера приведена виртуальная машина с HTTP-сервисом, опубликованным на порте 80, и следующим набором меток:
-   
+
    ```yaml
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualMachine
@@ -205,7 +205,7 @@ docker push docker.io/username/image:latest
    ```shell
    kubectl patch mc virtualization \
      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
-   
+
    #Output
    moduleconfig.deckhouse.io/virtualization patched
    ```
@@ -216,7 +216,7 @@ docker push docker.io/username/image:latest
    kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
    #Output
    {"size":"59G","storageClass":"linstor-thick-data-r1"}
-   
+
    kubectl get pvc dvcr -n d8-virtualization
    #Output
    NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
@@ -274,116 +274,3 @@ spec:
     - kind: VirtualDisk
       name: win-disk
 ```
-
-## Использование виртуализации совместно с модулем Admission-policy-engine
-
-Для начала рекомендуется ознакомиться с настройками модуля [Admission-policy-engine](https://deckhouse.ru/documentation/v1/modules/015-admission-policy-engine/).  
-При настройке политик безопасности рекомендуется руководствоваться политиками безопасности, которые установленны в вашей компании.
-
-Рассмотрим на примере включенной политики Baseline.
-  
-Так как Baseline не позволяет по умолчанию запускать Pod виртуальной машины из-за повышенных привилегий, необходимых для корректной работы виртуальной машины, то потребуется вручную настроить пространства имён, в которых они будут запускаться.
-
-- Исключение пространства имён из политики Baseline.
-  
-  ```yaml
-  apiVersion: v1
-  kind: Namespace
-  metadata:
-    labels:
-      kubernetes.io/metadata.name: <название пространства имён>
-      security.deckhouse.io/pod-policy: privileged
-    name: <название пространства имён>
-  spec:
-    finalizers:
-    - kubernetes
-  ```
-
-- Настройка новой политики безопасности.  
-
-  Эта политика основана на Baseline и позволяет запускать виртуальные машины в заданном прострастве имён.
-
-  ```yaml
-  apiVersion: deckhouse.io/v1alpha1
-  kind: SecurityPolicy
-  metadata:
-    name: virt-launcher-deny
-  spec:
-    enforcementAction: Deny
-    match:
-      namespaceSelector:
-        labelSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: <название пространства имён>
-      labelSelector:
-        matchLabels:
-          kubevirt.internal.virtualization.deckhouse.io: virt-launcher
-    policies:
-      allowPrivilegeEscalation: true
-      allowedCapabilities:
-        - NET_BIND_SERVICE
-        - SYS_NICE
-      runAsUser:
-        ranges:
-          - max: 0
-            min: 0
-        rule: MustRunAs
-  ---
-  apiVersion: deckhouse.io/v1alpha1
-  kind: SecurityPolicy
-  metadata:
-    name: other-deny
-  spec:
-    enforcementAction: Deny
-    match:
-      namespaceSelector:
-        labelSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: <название пространства имён>
-      labelSelector:
-        matchExpressions:
-          - key: kubevirt.internal.virtualization.deckhouse.io
-            operator: NotIn
-            values:
-              - virt-launcher
-    policies:
-      allowedCapabilities:
-        - AUDIT_WRITE
-        - CHOWN
-        - DAC_OVERRIDE
-        - FOWNER
-        - FSETID
-        - KILL
-        - MKNOD
-        - NET_BIND_SERVICE
-        - SETFCAP
-        - SETGID
-        - SETPCAP
-        - SETUID
-        - SYS_CHROOT
-      allowedProcMount: Default
-      seccompProfiles:
-        allowedProfiles:
-          - RuntimeDefault
-          - Localhost
-          - ""
-          - undefined
-        allowedLocalhostFiles:
-          - '*'
-      allowedUnsafeSysctls:
-        - kernel.shm_rmid_forced
-        - net.ipv4.ip_local_port_range
-        - net.ipv4.ip_unprivileged_port_start
-        - net.ipv4.tcp_syncookies
-        - net.ipv4.ping_group_range
-      allowHostNetwork: false
-      allowPrivileged: false
-      allowPrivilegeEscalation: false
-      seLinux:
-        - type: container_t
-        - type: container_init_t
-        - type: container_kvm_t
-        - level: s0
-      runAsUser:
-        rule: MustRunAsNonRoot
-  ```
