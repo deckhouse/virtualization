@@ -107,7 +107,12 @@ func run(opts options.Options) error {
 
 	routeTableID := netlinkmanager.DefaultCiliumRouteTable
 	routeTableIDStr := opts.RouteTableID
-	if routeTableIDStr != "" {
+	if opts.KindRouteWatcher == string(route.EbpfKind) {
+		if routeTableIDStr != "" {
+			log.Info(fmt.Sprintf("Ignoring the use of the route table %q from the configuration. With ebpf only supported %q",
+				routeTableIDStr, netlinkmanager.DefaultCiliumRouteTable))
+		}
+	} else if routeTableIDStr != "" {
 		tableId, err := strconv.ParseInt(routeTableIDStr, 10, 32)
 		if err != nil {
 			log.Error(err, "failed to parse Cilium table id, should be integer")
@@ -115,7 +120,7 @@ func run(opts options.Options) error {
 		}
 		routeTableID = int(tableId)
 	}
-	log.Info(fmt.Sprintf("Use cilium route table id %d", routeTableID))
+	log.Info(fmt.Sprintf("Use route table id %d", routeTableID))
 
 	// Load configuration to connect to Kubernetes API Server.
 	kubeCfg, err := config.GetConfig()

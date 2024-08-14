@@ -36,6 +36,13 @@ import (
 	"vm-route-forge/internal/netutil"
 )
 
+type Action uint32
+
+const (
+	ActionAdd Action = iota
+	ActionDelete
+)
+
 const (
 	CiliumIfaceName         = "cilium_host"
 	DefaultCiliumRouteTable = 1490
@@ -84,7 +91,7 @@ func (m *Manager) SyncRules() error {
 		rule.Priority = m.routeTableID
 		rule.Dst = cidr
 		cidrIdx[cidr.String()] = struct{}{}
-		if err := m.nlWrapper.RuleAdd(rule); err != nil && !os.IsExist(err) {
+		if err = m.nlWrapper.RuleAdd(rule); err != nil && !os.IsExist(err) {
 			return fmt.Errorf("failed to add rule: %v", err)
 		}
 		m.log.Info(fmt.Sprintf("rule %s added", rule.String()))
@@ -103,9 +110,9 @@ func (m *Manager) SyncRules() error {
 		}
 
 		// Dst is not for the configured CIDR, remove it.
-		err := m.nlWrapper.RuleDel(&rule)
+		err = m.nlWrapper.RuleDel(&rule)
 		if err != nil {
-			m.log.Error(err, fmt.Sprintf("failed to deleted rule %s", rule.String()))
+			return fmt.Errorf("failed to deleted rule %s: %w", rule.String(), err)
 		} else {
 			m.log.Info(fmt.Sprintf("deleted %s", rule.String()))
 		}
@@ -134,10 +141,18 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine, ciliumNode *ciliumv2.CiliumNode) error {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
-	if vm.Status.Node == "" {
-		// VM has no node assigned
+	if vm == nil {
 		return nil
 	}
+	nodeIP := getCiliumInternalIPAddress(ciliumNode)
+	if nodeIP == "" {
+		return fmt.Errorf("ciliumNode has no %s specified", addressing.NodeCiliumInternalIP)
+	}
+	nodeIPx := net.ParseIP(nodeIP)
+	if len(nodeIPx) == 0 {
+		return fmt.Errorf("invalid IP address %s", nodeIP)
+	}
+
 	vmIP := vm.Status.IPAddress
 	if vmIP == "" {
 		// VM has no IP address assigned
@@ -162,15 +177,6 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine, ciliumNode *ciliumv2.Ci
 
 	// Save IP to the in-memory cache to restore IP later.
 	vmKey := types.NamespacedName{Name: vm.GetName(), Namespace: vm.GetNamespace()}
-
-	nodeIP := getCiliumInternalIPAddress(ciliumNode)
-	if nodeIP == "" {
-		return fmt.Errorf("ciliumNode has no %s specified", addressing.NodeCiliumInternalIP)
-	}
-	nodeIPx := net.ParseIP(nodeIP)
-	if len(nodeIPx) == 0 {
-		return fmt.Errorf("invalid IP address %s", nodeIP)
-	}
 	m.cache.Set(vmKey, vmipcache.Addresses{VMIP: vmipcache.IP(vmIP), NodeIP: vmipcache.IP(nodeIP)})
 
 	// Get route for specific nodeIP and create similar for our Virtual Machine.

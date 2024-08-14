@@ -30,17 +30,17 @@ import (
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewNetlinkWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkWatcher {
-	return &NetlinkWatcher{
+func NewNetlinkSubscriberWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkSubscriberWatcher {
+	return &NetlinkSubscriberWatcher{
 		ch:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
-		log:      log.WithValues("watcher", NetlinkKind),
+		log:      log.WithValues("watcher", NetlinkSubscriberKind),
 		routeGet: nlWrapper.RouteGet,
 	}
 }
 
-type NetlinkWatcher struct {
+type NetlinkSubscriberWatcher struct {
 	ch       chan types.NamespacedName
 	cidrs    []*net.IPNet
 	cache    vmipcache.Cache
@@ -48,7 +48,7 @@ type NetlinkWatcher struct {
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (w *NetlinkWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
+func (w *NetlinkSubscriberWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
 	routeCh := make(chan netlink.RouteUpdate)
 	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
 		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
@@ -68,7 +68,7 @@ func (w *NetlinkWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName
 // including the name and namespace of the virtual machine, its ip and ip nodes.
 // We monitor updates in the routes and if we find a mismatch with the cache,
 // we put the virtual machine in the queue for processing.
-func (w *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
+func (w *NetlinkSubscriberWatcher) sync(ru netlink.RouteUpdate) error {
 	vmIP := ru.Dst.IP
 	if vmIP == nil {
 		return nil
@@ -125,6 +125,6 @@ func (w *NetlinkWatcher) sync(ru netlink.RouteUpdate) error {
 	return nil
 }
 
-func (w *NetlinkWatcher) enqueueKey(key types.NamespacedName) {
+func (w *NetlinkSubscriberWatcher) enqueueKey(key types.NamespacedName) {
 	w.ch <- key
 }

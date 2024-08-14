@@ -30,18 +30,18 @@ import (
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewTickerWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, routeTableID int, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *TickerWatcher {
-	return &TickerWatcher{
+func NewNetlinkTickerWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, routeTableID int, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkTickerWatcher {
+	return &NetlinkTickerWatcher{
 		ch:           make(chan types.NamespacedName, defaultChanSize),
 		cidrs:        cidrs,
 		cache:        cache,
 		routeTableID: routeTableID,
-		log:          log.WithValues("watcher", TickerKind),
+		log:          log.WithValues("watcher", NetlinkTickerKind),
 		nlWrapper:    nlWrapper,
 	}
 }
 
-type TickerWatcher struct {
+type NetlinkTickerWatcher struct {
 	ch           chan types.NamespacedName
 	cidrs        []*net.IPNet
 	cache        vmipcache.Cache
@@ -50,7 +50,7 @@ type TickerWatcher struct {
 	nlWrapper    *netlinkwrap.Funcs
 }
 
-func (w *TickerWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
+func (w *NetlinkTickerWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	go func() {
 		for {
@@ -68,7 +68,7 @@ func (w *TickerWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName,
 	return w.ch, nil
 }
 
-func (w *TickerWatcher) sync() error {
+func (w *NetlinkTickerWatcher) sync() error {
 	routes, err := w.nlWrapper.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{Table: w.routeTableID}, netlink.RT_FILTER_TABLE)
 	if err != nil {
 		return fmt.Errorf("failed to list routes: %w", err)
@@ -95,7 +95,7 @@ func (w *TickerWatcher) sync() error {
 	return nil
 }
 
-func (w *TickerWatcher) syncRoute(route *netlink.Route) error {
+func (w *NetlinkTickerWatcher) syncRoute(route *netlink.Route) error {
 	if route == nil {
 		return nil
 	}
@@ -144,6 +144,6 @@ func (w *TickerWatcher) syncRoute(route *netlink.Route) error {
 	return nil
 }
 
-func (w *TickerWatcher) enqueueKey(key types.NamespacedName) {
+func (w *NetlinkTickerWatcher) enqueueKey(key types.NamespacedName) {
 	w.ch <- key
 }
