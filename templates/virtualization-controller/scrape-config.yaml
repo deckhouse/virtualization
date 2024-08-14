@@ -1,0 +1,33 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: virtualization-controller
+  namespace: d8-monitoring
+  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller" "prometheus" "main")) | nindent 2 }}
+spec:
+  honorLabels: true
+  authorization:
+    credentials:
+      key: token
+      name: prometheus-token
+  scheme: HTTP
+  tlsConfig:
+    insecureSkipVerify: true
+  staticConfigs:
+    - targets: ['virtualization-controller-metrics.d8-{{ .Chart.Name }}.svc.{{ .Values.global.discovery.clusterDomain }}.:8080']
+  relabelings:
+    - action: labeldrop
+      regex: (container|endpoint|job|service|pod|exported_namespace|uid)
+  metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: "(.*)"
+      separator: ;
+      action: replace
+      targetLabel: __name__
+      replacement: d8_$1
+    - action: replace
+      sourceLabels:
+      - exported_namespace
+      targetLabel: namespace
+  metricsPath: '/metrics'

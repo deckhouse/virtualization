@@ -15,10 +15,6 @@ spec:
       port: 9443
       targetPort: controller
       protocol: TCP
-    - name: metrics
-      port: 8080
-      protocol: TCP
-      targetPort: metrics
     - name: pprof
       port: 8081
       protocol: TCP
