@@ -77,9 +77,11 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 
 	if s.lease == nil {
 		var leases virtv2.VirtualMachineIPAddressLeaseList
-		err = s.client.List(ctx, &leases, &client.MatchingFields{
-			indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
-		})
+		err = s.client.List(ctx, &leases,
+			client.InNamespace(s.vmip.Namespace),
+			&client.MatchingFields{
+				indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
+			})
 		if err != nil {
 			return nil, err
 		}
