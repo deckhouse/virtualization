@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.2](https://github.com/deckhouse/virtualization/compare/v0.12.1...v0.12.2) (2024-08-14)
+
+
+### Miscellaneous Chores
+
+* release 0.12.2 ([ae2d14a](https://github.com/deckhouse/virtualization/commit/ae2d14abd30f235d676638508400c40ee88c5e7f))
+
 ## [0.12.1](https://github.com/deckhouse/virtualization/compare/v0.12.0...v0.12.1) (2024-08-13)
 
 
