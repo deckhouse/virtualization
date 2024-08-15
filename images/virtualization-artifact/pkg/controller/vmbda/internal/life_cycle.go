@@ -79,9 +79,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		case virtv2.BlockDeviceAttachmentPhasePending,
 			virtv2.BlockDeviceAttachmentPhaseInProgress,
 			virtv2.BlockDeviceAttachmentPhaseAttached:
-			err = h.attacher.UnplugDisk(ctx, vd, kvvm)
-			if err != nil {
-				return reconcile.Result{}, err
+			if h.attacher.CanUnplug(vd, kvvm) {
+				err = h.attacher.UnplugDisk(ctx, vd, kvvm)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 		}
 
@@ -108,8 +110,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		condition.Reason = vmbdacondition.Conflict
 		condition.Message = fmt.Sprintf(
 			"Another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
-				"with the same virtual machine %s and block device %s for hot-plugging.",
-			vmbda.Namespace, conflictWithName, vmbda.Spec.VirtualMachineName, vmbda.Spec.BlockDeviceRef.Name,
+				"with the same block device %q for hot-plugging.",
+			vmbda.Namespace, conflictWithName, vmbda.Spec.BlockDeviceRef.Name,
 		)
 
 		return reconcile.Result{}, nil
@@ -216,7 +218,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		condition.Message = "Attachment request has sent: attachment is in progress."
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrDiskIsSpecAttached):
-		log.Info("VirtualDisk is already attached to the virtual machine spec.")
+		log.Info("VirtualDisk is already attached to the virtual machine spec")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
 		condition.Status = metav1.ConditionFalse
@@ -240,7 +242,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	default:
-
 		return reconcile.Result{}, err
 	}
 }

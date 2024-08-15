@@ -152,7 +152,7 @@ func verifyVolumeOption(volumes []virtv1.Volume, volumeRequest *virtv1.VirtualMa
 			if volumeSourceExists(volume, volSourceName) {
 				return fmt.Errorf("unable to add volume source [%s] because it already exists", volSourceName)
 			}
-		} else if volumeRequest.RemoveVolumeOptions != nil && volumeExists(volume, volumeRequest.RemoveVolumeOptions.Name) {
+		} else if volumeRequest.RemoveVolumeOptions != nil && VolumeExists(volume, volumeRequest.RemoveVolumeOptions.Name) {
 			if !volumeHotpluggable(volume) {
 				return fmt.Errorf("unable to remove volume [%s] because it is not hotpluggable", volume.Name)
 			}
@@ -178,7 +178,7 @@ func volumeSourceName(volumeSource *virtv1.HotplugVolumeSource) string {
 	return ""
 }
 
-func volumeExists(volume virtv1.Volume, volumeName string) bool {
+func VolumeExists(volume virtv1.Volume, volumeName string) bool {
 	return volumeNameExists(volume, volumeName) || volumeSourceExists(volume, volumeName)
 }
 
