@@ -63,9 +63,10 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	condition, _ := service.GetCondition(vmipcondition.BoundType, vmipStatus.Conditions)
 
 	switch {
-	case lease == nil && vmipStatus.Address != "":
+	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlready:
 		log.Info("Lease by name not found: waiting for the lease to be available")
 		return reconcile.Result{}, nil
 
@@ -89,9 +90,9 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 		log.Info("Lease is released: set binding")
 
 		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
-			msg := fmt.Sprintf("the selected VirtualMachineIP lease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace)
-			log.Error(msg)
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseNotFound, msg)
+			log.Warn(fmt.Sprintf("The VirtualMachineIPLease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace))
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlready, "The VirtualMachineIPLease belongs to a different namespace")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -150,7 +151,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlready).
-				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIP",
+				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress",
 					common.IpToLeaseName(vmipStatus.Address))).
 				Condition())
 			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlready, msg)
