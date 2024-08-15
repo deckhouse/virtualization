@@ -165,6 +165,7 @@ func run(opts options.Options) error {
 	)
 
 	routeWatcher, err := route.WatchFactory(
+		ctx,
 		route.KindRouteWatcher(opts.KindRouteWatcher),
 		parsedCIDRs,
 		sharedCache,
@@ -172,6 +173,7 @@ func run(opts options.Options) error {
 		nlWrapper,
 		log,
 	)
+	defer routeWatcher.Stop()
 	if err != nil {
 		log.Error(err, "Failed to create route watcher")
 		return err

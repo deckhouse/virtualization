@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/vishvananda/netlink"
@@ -30,37 +31,66 @@ import (
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewNetlinkSubscriberWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkSubscriberWatcher {
-	return &NetlinkSubscriberWatcher{
-		ch:       make(chan types.NamespacedName, defaultChanSize),
+func NewNetlinkSubscriberWatcher(ctx context.Context,
+	cidrs []*net.IPNet,
+	cache vmipcache.Cache,
+	nlWrapper *netlinkwrap.Funcs,
+	log logr.Logger,
+) (*NetlinkSubscriberWatcher, error) {
+	routeCh := make(chan netlink.RouteUpdate)
+	ctx, cancel := context.WithCancel(ctx)
+	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
+	}
+	w := &NetlinkSubscriberWatcher{
+		ctx:      ctx,
+		cancel:   cancel,
+		routeCh:  routeCh,
+		result:   make(chan types.NamespacedName, defaultChanSize),
 		cidrs:    cidrs,
 		cache:    cache,
 		log:      log.WithValues("watcher", NetlinkSubscriberKind),
 		routeGet: nlWrapper.RouteGet,
 	}
+	go w.watch()
+	return w, nil
 }
 
 type NetlinkSubscriberWatcher struct {
-	ch       chan types.NamespacedName
+	sync.Mutex
+	ctx      context.Context
+	cancel   context.CancelFunc
+	routeCh  chan netlink.RouteUpdate
+	result   chan types.NamespacedName
 	cidrs    []*net.IPNet
 	cache    vmipcache.Cache
 	log      logr.Logger
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (w *NetlinkSubscriberWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
-	routeCh := make(chan netlink.RouteUpdate)
-	if err := netlink.RouteSubscribe(routeCh, ctx.Done()); err != nil {
-		return nil, fmt.Errorf("failed to subscribe to route updates: %w", err)
+func (w *NetlinkSubscriberWatcher) ResultChanel() <-chan types.NamespacedName {
+	return w.result
+}
+
+func (w *NetlinkSubscriberWatcher) Stop() {
+	w.Lock()
+	defer w.Unlock()
+	select {
+	case <-w.ctx.Done():
+	default:
+		w.cancel()
 	}
-	go func() {
-		for ru := range routeCh {
-			if err := w.sync(ru); err != nil {
-				w.log.Error(err, "failed to sync route update")
-			}
+}
+
+func (w *NetlinkSubscriberWatcher) watch() {
+	defer close(w.result)
+	defer w.Stop()
+	for ru := range w.routeCh {
+		if err := w.sync(ru); err != nil {
+			w.log.Error(err, "failed to sync route update")
 		}
-	}()
-	return w.ch, nil
+	}
 }
 
 // The cache is the source of truth.
@@ -126,5 +156,5 @@ func (w *NetlinkSubscriberWatcher) sync(ru netlink.RouteUpdate) error {
 }
 
 func (w *NetlinkSubscriberWatcher) enqueueKey(key types.NamespacedName) {
-	w.ch <- key
+	w.result <- key
 }

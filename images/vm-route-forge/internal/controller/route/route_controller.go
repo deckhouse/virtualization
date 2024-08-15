@@ -225,26 +225,20 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
 	c.log.Info("Starting localhost route controller")
-	errCh := make(chan error)
+
+	watcherDone := make(chan struct{})
 	go func() {
-		keyCh, err := c.routeWatcher.Watch(ctx)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		for key := range keyCh {
+		for key := range c.routeWatcher.ResultChanel() {
 			c.queueAdd(key.String())
 		}
+		watcherDone <- struct{}{}
 	}()
 
 	for {
 		select {
-		case err := <-errCh:
-			if err != nil {
-				c.log.Error(err, "host reconciliation failed")
-			}
-			return nil
 		case <-ctx.Done():
+			return nil
+		case <-watcherDone:
 			return nil
 		}
 	}

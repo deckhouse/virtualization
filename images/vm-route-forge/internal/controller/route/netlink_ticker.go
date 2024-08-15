@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,19 +31,33 @@ import (
 	"vm-route-forge/internal/netlinkwrap"
 )
 
-func NewNetlinkTickerWatcher(cidrs []*net.IPNet, cache vmipcache.Cache, routeTableID int, nlWrapper *netlinkwrap.Funcs, log logr.Logger) *NetlinkTickerWatcher {
-	return &NetlinkTickerWatcher{
-		ch:           make(chan types.NamespacedName, defaultChanSize),
+func NewNetlinkTickerWatcher(ctx context.Context,
+	cidrs []*net.IPNet,
+	cache vmipcache.Cache,
+	routeTableID int,
+	nlWrapper *netlinkwrap.Funcs,
+	log logr.Logger,
+) *NetlinkTickerWatcher {
+	ctx, cancel := context.WithCancel(ctx)
+	w := &NetlinkTickerWatcher{
+		ctx:          ctx,
+		cancel:       cancel,
+		result:       make(chan types.NamespacedName, defaultChanSize),
 		cidrs:        cidrs,
 		cache:        cache,
 		routeTableID: routeTableID,
 		log:          log.WithValues("watcher", NetlinkTickerKind),
 		nlWrapper:    nlWrapper,
 	}
+	go w.watch()
+	return w
 }
 
 type NetlinkTickerWatcher struct {
-	ch           chan types.NamespacedName
+	sync.Mutex
+	ctx          context.Context
+	cancel       context.CancelFunc
+	result       chan types.NamespacedName
 	cidrs        []*net.IPNet
 	cache        vmipcache.Cache
 	routeTableID int
@@ -50,22 +65,35 @@ type NetlinkTickerWatcher struct {
 	nlWrapper    *netlinkwrap.Funcs
 }
 
-func (w *NetlinkTickerWatcher) Watch(ctx context.Context) (<-chan types.NamespacedName, error) {
+func (w *NetlinkTickerWatcher) ResultChanel() <-chan types.NamespacedName {
+	return w.result
+}
+
+func (w *NetlinkTickerWatcher) Stop() {
+	w.Lock()
+	defer w.Unlock()
+	select {
+	case <-w.ctx.Done():
+	default:
+		w.cancel()
+	}
+}
+
+func (w *NetlinkTickerWatcher) watch() {
 	ticker := time.NewTicker(500 * time.Millisecond)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				if err := w.sync(); err != nil {
-					w.log.Error(err, "failed to sync routes")
-				}
+	defer ticker.Stop()
+	defer close(w.result)
+	defer w.Stop()
+	for {
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-ticker.C:
+			if err := w.sync(); err != nil {
+				w.log.Error(err, "failed to sync routes")
 			}
 		}
-	}()
-	return w.ch, nil
+	}
 }
 
 func (w *NetlinkTickerWatcher) sync() error {
@@ -145,5 +173,5 @@ func (w *NetlinkTickerWatcher) syncRoute(route *netlink.Route) error {
 }
 
 func (w *NetlinkTickerWatcher) enqueueKey(key types.NamespacedName) {
-	w.ch <- key
+	w.result <- key
 }

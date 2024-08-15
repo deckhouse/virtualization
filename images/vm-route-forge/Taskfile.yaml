@@ -6,3 +6,7 @@ tasks:
   lint:
     cmds:
       - golangci-lint run --sort-results
+
+  gen:
+    desc: "Generate"
+    cmd: go generate ./...
