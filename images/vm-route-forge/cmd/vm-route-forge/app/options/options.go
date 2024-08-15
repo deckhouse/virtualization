@@ -76,7 +76,7 @@ func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.NodeName, flagNodeName, flagNodeNameShort, os.Getenv(NodeNameEnv), "The name of the node.")
 	fs.StringVarP(&o.RouteTableID, flagTableId, flagTableIdShort, os.Getenv(RouteTableIDEnv), "The id of the table.")
 	fs.IntVarP(&o.Verbosity, flagVerbosity, flagVerbosityShort, getDefaultVerbosity(), "Verbosity of output.")
-	fs.StringVar(&o.KindRouteWatcher, flagKindRouteWatcher, getEnvWithDefault(KindRouteWatcherEnv, string(route.NetlinkTickerKind)), "Kind of route watcher.")
+	fs.StringVar(&o.KindRouteWatcher, flagKindRouteWatcher, getEnvWithDefault(KindRouteWatcherEnv, string(route.EbpfKind)), "Kind of route watcher.")
 }
 
 func getEnvWithDefault(env string, defaultValue string) string {

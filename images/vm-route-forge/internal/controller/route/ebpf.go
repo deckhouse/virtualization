@@ -178,12 +178,13 @@ func (w *EbpfWatcher) watch() {
 				var event ebpfRouteEvent
 				if err := w.bpfMap.LookupAndDelete(nil, &event); err != nil {
 					if !errors.Is(err, ebpf.ErrKeyNotExist) {
-						w.log.Error(err, "failed to lookup and delete key")
+						w.log.Error(err, "Failed to lookup and delete key.", "event", event)
 					}
 					break
 				}
+				w.log.V(7).Info("Received a new ebpf event", "event", event)
 				if err := w.sync(event); err != nil {
-					w.log.Error(err, "failed to sync ebpf event")
+					w.log.Error(err, "Failed to sync ebpf event.", "event", event)
 				}
 			}
 		}
@@ -260,5 +261,5 @@ func (w *EbpfWatcher) enqueueKey(key types.NamespacedName) {
 func ipUint32ToNetIP(ip uint32) net.IP {
 	ipBytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(ipBytes, ip)
-	return net.IP(ipBytes)
+	return ipBytes
 }
