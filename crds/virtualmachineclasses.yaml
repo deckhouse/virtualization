@@ -16,6 +16,8 @@ spec:
     shortNames:
       - vmc
       - vmcs
+      - vmclass
+      - vmclasses
     singular: virtualmachineclass
   scope: Cluster
   versions:
