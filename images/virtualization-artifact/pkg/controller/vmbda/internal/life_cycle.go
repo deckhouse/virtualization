@@ -93,11 +93,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
-	// Final phase: avoid processing VMDBA that had a conflict with another VMDBA previously.
-	if vmbda.Status.Phase == virtv2.BlockDeviceAttachmentPhaseFailed {
-		return reconcile.Result{}, nil
-	}
-
 	isConflicted, conflictWithName, err := h.attacher.IsConflictedAttachment(ctx, vmbda)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -205,12 +200,30 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
-	isHotPlugRequestSent, err := h.attacher.IsHotPlugRequestSent(vd, kvvm)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	_, err = h.attacher.CanHotPlug(vd, vm, kvvm)
+	switch {
+	case err == nil:
+		log.Info("Send attachment request")
 
-	if isHotPlugRequestSent {
+		err = h.attacher.HotPlugDisk(ctx, vd, vm, kvvm)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vmbdacondition.AttachmentRequestSent
+		condition.Message = "Attachment request has sent: attachment is in progress."
+		return reconcile.Result{}, nil
+	case errors.Is(err, service.ErrDiskIsSpecAttached):
+		log.Info("VirtualDisk is already attached to the virtual machine spec.")
+
+		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vmbdacondition.Conflict
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		return reconcile.Result{}, nil
+	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
@@ -218,26 +231,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		condition.Reason = vmbdacondition.AttachmentRequestSent
 		condition.Message = "Attachment request sent: attachment is in progress."
 		return reconcile.Result{}, nil
-	}
+	case errors.Is(err, service.ErrVirtualMachineWaitsForRestartApproval):
+		log.Info("Virtual machine waits for restart approval")
 
-	log.Info("Send attachment request")
-
-	err = h.attacher.HotPlugDisk(ctx, vd, vm, kvvm)
-	switch {
-	case err == nil:
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.AttachmentRequestSent
-		condition.Message = "Attachment request has sent: attachment is in progress."
-		return reconcile.Result{}, nil
-	case errors.Is(err, service.ErrVirtualDiskIsAlreadyAttached),
-		errors.Is(err, service.ErrVirtualMachineWaitsForRestartApproval):
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vmbdacondition.NotAttached
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	default:
+
 		return reconcile.Result{}, err
 	}
 }
