@@ -57,6 +57,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" {
 			log.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
+
 			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
 		}
 
