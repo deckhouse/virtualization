@@ -124,20 +124,30 @@ func setPhaseConditionForFinishedDisk(
 }
 
 type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, storageClassName *string) error
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error
 }
 
 func setPhaseConditionForPVCProvisioningDisk(
 	ctx context.Context,
 	dv *cdiv1.DataVolume,
 	vd *virtv2.VirtualDisk,
+	pvc *corev1.PersistentVolumeClaim,
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
-	err := checker.CheckImportProcess(ctx, dv, vd.Spec.PersistentVolumeClaim.StorageClass)
+	err := checker.CheckImportProcess(ctx, dv, pvc, vd.Spec.PersistentVolumeClaim.StorageClass)
 	switch {
 	case err == nil:
-		if dv != nil && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+		if dv == nil {
+			vd.Status.Phase = virtv2.DiskProvisioning
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vdcondition.Provisioning
+			condition.Message = "Waiting for the pvc importer to be created"
+			return nil
+		}
+
+		isWFFC := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		if isWFFC && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vdcondition.WaitForFirstConsumer

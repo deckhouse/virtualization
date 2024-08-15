@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
@@ -266,7 +267,7 @@ func (s DiskService) GetPersistentVolume(ctx context.Context, pvc *corev1.Persis
 	return helper.FetchObject(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, s.client, &corev1.PersistentVolume{})
 }
 
-func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, storageClassName *string) error {
+func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {
 	var err error
 
 	if storageClassName == nil || *storageClassName == "" {
@@ -278,10 +279,42 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 		return err
 	}
 
-	if dv != nil {
-		dvRunning := GetDataVolumeCondition(cdiv1.DataVolumeRunning, dv.Status.Conditions)
-		if dvRunning != nil && dvRunning.Status == corev1.ConditionFalse && dvRunning.Reason == "Error" {
-			return fmt.Errorf("%w: %s", ErrDataVolumeNotRunning, dvRunning.Message)
+	if dv == nil {
+		return nil
+	}
+
+	dvRunning := GetDataVolumeCondition(cdiv1.DataVolumeRunning, dv.Status.Conditions)
+	if dvRunning == nil || dvRunning.Status != corev1.ConditionFalse {
+		return nil
+	}
+
+	if strings.Contains(dvRunning.Reason, "Error") {
+		return fmt.Errorf("%w: %s", ErrDataVolumeNotRunning, dvRunning.Message)
+	}
+
+	if pvc == nil {
+		return nil
+	}
+
+	key := types.NamespacedName{
+		Namespace: dv.Namespace,
+		Name:      dvutil.GetImporterPrimeName(pvc.UID),
+	}
+
+	cdiImporterPrime, err := helper.FetchObject(ctx, key, s.client, &corev1.Pod{})
+	if err != nil {
+		return err
+	}
+
+	if cdiImporterPrime != nil {
+		podInitializedCond, ok := GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
+		if ok && podInitializedCond.Status == corev1.ConditionFalse && strings.Contains(podInitializedCond.Reason, "Error") {
+			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podInitializedCond.Reason, podInitializedCond.Message)
+		}
+
+		podScheduledCond, ok := GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
+		if ok && podScheduledCond.Status == corev1.ConditionFalse && (podScheduledCond.Reason == corev1.PodReasonUnschedulable || strings.Contains(podScheduledCond.Reason, "Error")) {
+			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podScheduledCond.Reason, podScheduledCond.Message)
 		}
 	}
 
