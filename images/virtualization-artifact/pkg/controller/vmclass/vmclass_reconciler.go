@@ -75,7 +75,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				return nil
 			}
 			for _, class := range classList.Items {
-				if common.MatchLabelSelector(node.GetLabels(), class.Spec.CPU.Discovery) {
+				if common.MatchLabelSelector(node.GetLabels(), class.Spec.CPU.Discovery.NodeSelector) {
 					result = append(result, reconcile.Request{NamespacedName: common.NamespacedName(&class)})
 				}
 			}

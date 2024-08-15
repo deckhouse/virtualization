@@ -94,7 +94,12 @@ type CPU struct {
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Features []string `json:"features,omitempty"`
 	// Create CPU model based on an intersection CPU features for selected nodes.
-	Discovery metav1.LabelSelector `json:"discovery,omitempty"`
+	Discovery CpuDiscovery `json:"discovery,omitempty"`
+}
+
+type CpuDiscovery struct {
+	// A selection of nodes on the basis of which a universal CPU model will be created.
+	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 // SizingPolicy define policy for allocating computational resources to VMs.
