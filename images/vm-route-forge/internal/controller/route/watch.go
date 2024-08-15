@@ -59,7 +59,7 @@ func WatchFactory(ctx context.Context,
 	case NetlinkTickerKind:
 		return NewNetlinkTickerWatcher(ctx, cidrs, cache, routeTableID, nlWrapper, log), nil
 	case EbpfKind:
-		return NewEbpfWatcher(ctx, cidrs, cache, nlWrapper, log)
+		return NewEbpfWatcher(ctx, cidrs, routeTableID, cache, nlWrapper, log)
 	default:
 		return nil, fmt.Errorf("unknown kind %s", kind)
 	}
