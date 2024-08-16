@@ -55,8 +55,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	if isConflicted {
 		return nil, fmt.Errorf(
 			"another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
-				"with the same virtual machine %s and block device %s for hot-plugging",
-			vmbda.Namespace, conflictWithName, vmbda.Spec.VirtualMachineName, vmbda.Spec.BlockDeviceRef.Name,
+				"with the same block device %s for hot-plugging",
+			vmbda.Namespace, conflictWithName, vmbda.Spec.BlockDeviceRef.Name,
 		)
 	}
 

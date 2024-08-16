@@ -44,7 +44,7 @@ func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) er
 
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		if _, ok := blockDevicesByRef[bdRef]; ok {
-			return fmt.Errorf("cannot specify the same block device reference more than once: %s with name %s has a duplicate reference", bdRef.Kind, bdRef.Name)
+			return fmt.Errorf("cannot specify the same block device reference more than once: %s with name %q has a duplicate reference", bdRef.Kind, bdRef.Name)
 		}
 
 		blockDevicesByRef[bdRef] = struct{}{}

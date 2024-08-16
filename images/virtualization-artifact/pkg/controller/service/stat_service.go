@@ -96,13 +96,17 @@ var (
 )
 
 func (s StatService) CheckPod(pod *corev1.Pod) error {
-	podInitializedCond, ok := getPodCondition(corev1.PodInitialized, pod.Status.Conditions)
-	if !ok || podInitializedCond.Status == corev1.ConditionFalse {
+	if pod == nil {
+		return errors.New("nil pod")
+	}
+
+	podInitializedCond, ok := GetPodCondition(corev1.PodInitialized, pod.Status.Conditions)
+	if ok && podInitializedCond.Status == corev1.ConditionFalse {
 		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotInitialized, podInitializedCond.Message)
 	}
 
-	podScheduledCond, ok := getPodCondition(corev1.PodScheduled, pod.Status.Conditions)
-	if !ok || podScheduledCond.Status == corev1.ConditionFalse {
+	podScheduledCond, ok := GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+	if ok && podScheduledCond.Status == corev1.ConditionFalse {
 		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotScheduled, podScheduledCond.Message)
 	}
 
@@ -249,14 +253,4 @@ func (s StatService) GetImportDuration(pod *corev1.Pod) time.Duration {
 	}
 
 	return report.Duration
-}
-
-func getPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
-	for _, cond := range conds {
-		if cond.Type == condType {
-			return cond, true
-		}
-	}
-
-	return corev1.PodCondition{}, false
 }

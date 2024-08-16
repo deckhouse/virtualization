@@ -178,6 +178,20 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 	return nil
 }
 
+func (s AttachmentService) CanUnplug(vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) bool {
+	if vd == nil || kvvm == nil || kvvm.Spec.Template == nil {
+		return false
+	}
+
+	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
+		if kvapi.VolumeExists(volume, kvbuilder.GenerateVMDDiskName(vd.Name)) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) error {
 	if vd == nil || kvvm == nil {
 		return nil
@@ -201,7 +215,7 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDis
 }
 
 // IsConflictedAttachment returns true if the provided VMBDA conflicts with another
-// previously created or started VMBDA with the same disk and virtual machine.
+// previously created or started VMBDA with the same disk.
 // There should be no other Non-Conflicted VMBDAs.
 //
 // Examples: Check if VMBDA A is conflicted:
@@ -229,7 +243,7 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *vi
 
 	for i := range vmbdas.Items {
 		// If the virtual machine and disk do not match, there is no conflict with this VMBDA.
-		if vmbdas.Items[i].Name == vmbda.Name || !isSameAttachmentRequest(vmbdas.Items[i].Spec, vmbda.Spec) {
+		if vmbdas.Items[i].Name == vmbda.Name || !isSameBlockDeviceRefs(vmbdas.Items[i].Spec.BlockDeviceRef, vmbda.Spec.BlockDeviceRef) {
 			continue
 		}
 
@@ -274,18 +288,6 @@ func (s AttachmentService) GetKVVMI(ctx context.Context, vm *virtv2.VirtualMachi
 	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
 }
 
-func isSameAttachmentRequest(a, b virtv2.VirtualMachineBlockDeviceAttachmentSpec) bool {
-	if a.VirtualMachineName != b.VirtualMachineName {
-		return false
-	}
-
-	if a.BlockDeviceRef.Kind != b.BlockDeviceRef.Kind {
-		return false
-	}
-
-	if a.BlockDeviceRef.Name != b.BlockDeviceRef.Name {
-		return false
-	}
-
-	return true
+func isSameBlockDeviceRefs(a, b virtv2.VMBDAObjectRef) bool {
+	return a.Kind == b.Kind && a.Name == b.Name
 }

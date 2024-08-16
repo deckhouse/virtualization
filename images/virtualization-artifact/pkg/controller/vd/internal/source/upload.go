@@ -263,7 +263,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, &condition, ds.diskService)
+		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, &condition, ds.diskService)
 		if err != nil {
 			return false, err
 		}

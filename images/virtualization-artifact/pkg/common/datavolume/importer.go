@@ -14,17 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package datavolume
 
-import "errors"
+import "k8s.io/apimachinery/pkg/types"
 
-var (
-	ErrStorageClassNotFound        = errors.New("storage class not found")
-	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning        = errors.New("pvc importer is not running")
-)
+const importerPrimePrefix = "importer-prime-"
 
-var (
-	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
-	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
-)
+func GetImporterPrimeName(pvcUID types.UID) string {
+	return importerPrimePrefix + string(pvcUID)
+}
