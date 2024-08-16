@@ -169,6 +169,8 @@ func (w *EbpfWatcher) watch() {
 	defer w.Stop()
 
 	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-w.ctx.Done():
