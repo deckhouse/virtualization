@@ -92,9 +92,13 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 	case dv == nil:
 		log.Info("Start import to PVC")
 
+		vd.Status.Progress = "0%"
+
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd)
 		if err != nil {
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+
 			return false, err
 		}
 
@@ -110,8 +114,6 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
-
-		vd.Status.Progress = "0%"
 
 		return true, nil
 	case pvc == nil:

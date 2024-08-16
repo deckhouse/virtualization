@@ -21,10 +21,7 @@ import (
 	"fmt"
 )
 
-var (
-	ErrSecretNotFound                 = errors.New("container registry secret not found")
-	ErrPVCSizeSmallerImageVirtualSize = errors.New("persistentVolumeClaim size is smaller than image virtual size")
-)
+var ErrSecretNotFound = errors.New("container registry secret not found")
 
 type ImageNotReadyError struct {
 	name string
