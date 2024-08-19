@@ -1,37 +1,27 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-nameSuffix: "-embedded-cloudinit"
-commonLabels:
-  vm: embedded-cloudinit
+nameSuffix: -embedded-cloudinit
 resources:
   - ../../base
-# TODO: remove when runPolicy AlwaysOnUntilStoppedMannualy will be fixed
+# remove provisioning
+#cloud-config
+# passwd: cloud
+# testcases
 patches:
-  - target:
-      kind: VirtualMachine
-      name: vm
-    patch: |-
-      - op: replace
-        path: /spec/runPolicy
-        value: AlwaysOn
-  # remove provisioning
-  - target:
-      kind: VirtualMachine
-      name: vm
-    patch: |-
+  - patch: |-
       - op: replace
         path: /spec/provisioning/type
         value: UserData
-  - target:
+    target:
       kind: VirtualMachine
       name: vm
-    patch: |-
+  - patch: |-
       - op: remove
         path: /spec/provisioning/userDataRef
-  - target:
+    target:
       kind: VirtualMachine
       name: vm
-    patch: |-
+  - patch: |-
       - op: replace
         path: /spec/provisioning/userData
         value: |
@@ -47,45 +37,10 @@ patches:
               ssh_authorized_keys:
                 # testcases
                 - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC9bSJ6RpHDB0jc8oSHk4kgEaoNzv3vNqMhNosLpXYVE6R7CHO3OjOK3eXulVcgiMCRH6EGcDOkMXGM2lvSr5t5HfnqZ1bGxGRCUtMeYs8zDSCMMOuyb57LNjwNAD7cjNhTGvGqFSXqoH5P6lHGIT0M82lU8jo0BIurcnjMgiFU8w== testcases
-
-# patches:
-# #- path: vm.image.patch.yaml
-# - target:
-#     kind: VirtualMachineIPAddressClaimName
-#     name: vm
-#   patch: |-
-#     - op: replace
-#       path: /spec/address
-#       value: 10.66.10.1
-# - target:
-#     kind: VirtualMachine
-#     name: vm
-#   patch: |-
-#     - op: add
-#       path: /spec/blockDevices/-
-#       value: {
-#             "type": "ClusterVirtualMachineImage",
-#             "clusterVirtualMachineImage": {
-#                 "name": "echo"
-#             }
-#         }
-# # remove provisioning
-# - target:
-#     kind: VirtualMachine
-#     name: vm
-#   patch: |-
-#     - op: remove
-#       path: /spec/provisioning
-# use random ip-address
-# - target:
-#     kind: VirtualMachine
-#     name: vm
-#   patch: |-
-#     - op: remove
-#       path: /spec/VirtualMachineIPAddressClaimName
-# - patch: |
-#     $patch: delete
-#     apiVersion: virtualization.deckhouse.io/v1alpha2
-#     kind: VirtualMachineIPAddressClaim
-#     metadata:
-#       name: vm
+    target:
+      kind: VirtualMachine
+      name: vm
+labels:
+  - includeSelectors: true
+    pairs:
+      vm: embedded-cloudinit

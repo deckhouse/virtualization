@@ -3,7 +3,6 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: vd-blank
-  namespace: default
 spec:
   persistentVolumeClaim:
     size: 200Mi

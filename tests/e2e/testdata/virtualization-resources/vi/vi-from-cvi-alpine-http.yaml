@@ -3,7 +3,6 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
   name: vi-from-cvi-alpine-http
-  namespace: default
 spec:
   storage: ContainerRegistry
   dataSource:

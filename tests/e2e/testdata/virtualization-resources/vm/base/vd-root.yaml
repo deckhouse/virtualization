@@ -8,5 +8,5 @@ spec:
   dataSource:
     type: ObjectRef
     objectRef:
-      kind: ClusterVirtualImage
-      name: cvi-alpine-http
+      kind: VirtualImage
+      name: vi-alpine-http

@@ -1,10 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-nameSuffix: "-b-not-a"
-commonLabels:
-  vm: vm-b
+nameSuffix: -b-not-a
 resources:
   - ../../base
 patches:
   - path: vm.affinity.patch.yaml
   - path: vm.tolerations.patch.yaml
+labels:
+  - includeSelectors: true
+    pairs:
+      vm: vm-b

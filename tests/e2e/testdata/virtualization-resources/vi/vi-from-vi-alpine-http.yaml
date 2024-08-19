@@ -3,7 +3,6 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
   name: vi-from-vi-alpine-http
-  namespace: default
 spec:
   dataSource:
     type: ObjectRef

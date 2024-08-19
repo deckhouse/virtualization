@@ -1,26 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-nameSuffix: "-with-mounted-vi"
-commonLabels:
-  vm: with-mounted-vi
+nameSuffix: -with-mounted-vi
 resources:
   - ../../base
-# TODO: remove when runPolicy AlwaysOnUntilStoppedMannualy will be fixed
 patches:
-  - target:
-      kind: VirtualMachine
-      name: vm
-    patch: |-
-      - op: replace
-        path: /spec/runPolicy
-        value: AlwaysOn
-  - target:
-      kind: VirtualMachine
-      name: vm
-    patch: |-
+  - patch: |-
       - op: add
         path: /spec/blockDeviceRefs/-
         value: {
               "kind": "VirtualImage",
               "name": "vi-alpine-http"
           }
+    target:
+      kind: VirtualMachine
+      name: vm
+labels:
+  - includeSelectors: true
+    pairs:
+      vm: with-mounted-vi

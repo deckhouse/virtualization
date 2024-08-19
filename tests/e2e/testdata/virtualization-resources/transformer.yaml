@@ -1,5 +1,3 @@
-# https://github.com/kubernetes-sigs/kustomize/blob/master/examples/transformerconfigs/README.md#transformer-configurations
-
 namespace:
   - kind: ClusterVirtualImage
     path: spec/dataSource/objectRef/namespace

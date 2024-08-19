@@ -8,4 +8,3 @@ spec:
     type: HTTP
     http:
       url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-3.20.qcow2
-      #url: https://share.lv426.space/alpine-3-18.qcow2

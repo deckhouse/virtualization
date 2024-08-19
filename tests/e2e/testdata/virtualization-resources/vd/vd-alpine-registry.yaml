@@ -3,7 +3,6 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: vd-alpine-registry
-  namespace: default
 spec:
   dataSource:
     type: ContainerImage

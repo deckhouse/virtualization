@@ -4,8 +4,6 @@ resources:
   - overlays/default
   - overlays/always-on
   - overlays/embedded-cloudinit
-  - overlays/with-mounted-cvi
-  - overlays/with-mounted-vi
   - overlays/custom-ip
   - overlays/automatic
   - overlays/automatic-with-hotplug
@@ -13,3 +11,5 @@ resources:
   - overlays/vm-a-not-b
   - overlays/vm-b-not-a
   - overlays/vm-c-and-a
+  - overlays/with-mounted-cvi
+  - overlays/with-mounted-vi

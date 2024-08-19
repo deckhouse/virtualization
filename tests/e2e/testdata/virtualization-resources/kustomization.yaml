@@ -1,9 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: testcases
+namePrefix: pr-number-or-commit-hash-
 resources:
-  - ns.yaml
-  - cvi
-  - vi
-  - vd
-  - vm
+    - ns.yaml
+    - cvi
+    - vi
+    - vd
+    - vm
+configurations:
+    - transformer.yaml

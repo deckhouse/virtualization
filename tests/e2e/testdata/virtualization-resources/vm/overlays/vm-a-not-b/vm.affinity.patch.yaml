@@ -4,14 +4,6 @@ metadata:
   name: vm
 spec:
   affinity:
-    # nodeAffinity:
-    #   requiredDuringSchedulingIgnoredDuringExecution:
-    #     nodeSelectorTerms:
-    #       - matchExpressions:
-    #           - key: kubernetes.io/hostname
-    #             operator: In
-    #             values:
-    #               - virtlab-pt-1
     virtualMachineAndPodAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:

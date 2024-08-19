@@ -4,14 +4,14 @@ resources:
   - ./vm.yaml
   - ./vd-root.yaml
   - ./vd-blank.yaml
-  # - ./vmbda.yaml
-  # - ./vd-attach.yaml
+# - ./vmbda.yaml
+# - ./vd-attach.yaml
 configurations:
   - transformer.yaml
 generatorOptions:
   disableNameSuffixHash: true
 secretGenerator:
-  - name: cloud-init
-    files:
+  - files:
       - userdata=cfg/cloudinit.yaml
+    name: cloud-init
     type: Opaque
