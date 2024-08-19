@@ -82,11 +82,11 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
 		return nil, nil
 	case virtv2.CPUTypeDiscovery:
-		matchLabels = curr.Spec.CPU.Discovery.MatchLabels
+		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
 		filter = func(nodes []corev1.Node) []corev1.Node {
 			var filtered []corev1.Node
 			for _, node := range nodes {
-				if common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.MatchExpressions) {
+				if common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions) {
 					filtered = append(filtered, node)
 				}
 			}

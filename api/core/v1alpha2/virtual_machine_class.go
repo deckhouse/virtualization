@@ -34,7 +34,7 @@ const (
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=virtualization,scope=Cluster,shortName={vmc,vmcs},singular=virtualmachineclass
+// +kubebuilder:resource:categories=virtualization,scope=Cluster,shortName={vmc,vmcs,vmclass,vmclasses},singular=virtualmachineclass
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
 // +genclient
@@ -94,7 +94,12 @@ type CPU struct {
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Features []string `json:"features,omitempty"`
 	// Create CPU model based on an intersection CPU features for selected nodes.
-	Discovery metav1.LabelSelector `json:"discovery,omitempty"`
+	Discovery CpuDiscovery `json:"discovery,omitempty"`
+}
+
+type CpuDiscovery struct {
+	// A selection of nodes on the basis of which a universal CPU model will be created.
+	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
 // SizingPolicy define policy for allocating computational resources to VMs.
@@ -163,8 +168,12 @@ type SizingPolicyCores struct {
 }
 
 // CPUType defines cpu type, the following options are supported:
-// * `Host` - use the virtual CPU closest to the host. This offers maximum functionality and performance, includes crucial guest CPU flags for security, and assesses live migration compatibility.
-// * `HostPassthrough` - use the host's physical CPU directly with no modifications. In `HostPassthrough` mode, the guest can only be live-migrated to a target host that matches the source host extremely closely.
+// * `Host` - a virtual CPU is used that is as close as possible to the platform node's CPU in terms of instruction set.
+// This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types.
+// For example, VM migration between nodes with Intel and AMD processors will not work.
+// This is also true for different generations of processors, as their instruction set is different.
+// * `HostPassthrough` - uses the physical CPU of the platform node directly without any modifications.
+// When using this class, the guest VM can only be transferred to a target node that has a CPU that exactly matches the CPU of the source node.
 // * `Discovery` - create a CPU model based on an intersecton CPU features for selected nodes.
 // * `Model` - CPU model name. A CPU model is a named and previously defined set of supported CPU instructions.
 // * `Features` - the required set of supported instructions for the CPU.

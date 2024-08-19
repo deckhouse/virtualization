@@ -64,49 +64,55 @@ spec:
                         Create CPU model based on an intersection CPU features
                         for selected nodes.
                       properties:
-                        matchExpressions:
+                        nodeSelector:
                           description:
-                            matchExpressions is a list of label selector
-                            requirements. The requirements are ANDed.
-                          items:
-                            description: |-
-                              A label selector requirement is a selector that contains values, a key, and an operator that
-                              relates the key and values.
-                            properties:
-                              key:
-                                description:
-                                  key is the label key that the selector
-                                  applies to.
-                                type: string
-                              operator:
+                            A selection of nodes on the basis of which a
+                            universal CPU model will be created.
+                          properties:
+                            matchExpressions:
+                              description:
+                                matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
                                 description: |-
-                                  operator represents a key's relationship to a set of values.
-                                  Valid operators are In, NotIn, Exists and DoesNotExist.
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description:
+                                      key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                  - key
+                                  - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
                                 type: string
-                              values:
-                                description: |-
-                                  values is an array of string values. If the operator is In or NotIn,
-                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                                  the values array must be empty. This array is replaced during a strategic
-                                  merge patch.
-                                items:
-                                  type: string
-                                type: array
-                            required:
-                              - key
-                              - operator
-                            type: object
-                          type: array
-                        matchLabels:
-                          additionalProperties:
-                            type: string
-                          description: |-
-                            matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                            map is equivalent to an element of matchExpressions, whose key field is "key", the
-                            operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
                           type: object
+                          x-kubernetes-map-type: atomic
                       type: object
-                      x-kubernetes-map-type: atomic
                     features:
                       description: |-
                         A list of CPU instructions (features) required when type=Features.
@@ -129,8 +135,12 @@ spec:
                     type:
                       description: |-
                         CPUType defines cpu type, the following options are supported:
-                        * `Host` - a virtual CPU is used that is as close as possible to the platform node's CPU in terms of instruction set. This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types. For example, VM migration between nodes with Intel and AMD processors will not work. This is also true for different generations of processors, as their instruction set is different.
-                        * `HostPassthrough` - uses the physical CPU of the platform node directly without any modifications. When using this class, the guest VM can only be transferred to a target node that has a CPU that exactly matches the CPU of the source node.
+                        * `Host` - a virtual CPU is used that is as close as possible to the platform node's CPU in terms of instruction set.
+                        This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types.
+                        For example, VM migration between nodes with Intel and AMD processors will not work.
+                        This is also true for different generations of processors, as their instruction set is different.
+                        * `HostPassthrough` - uses the physical CPU of the platform node directly without any modifications.
+                        When using this class, the guest VM can only be transferred to a target node that has a CPU that exactly matches the CPU of the source node.
                         * `Discovery` - create a CPU model based on an intersecton CPU features for selected nodes.
                         * `Model` - CPU model name. A CPU model is a named and previously defined set of supported CPU instructions.
                         * `Features` - the required set of supported instructions for the CPU.

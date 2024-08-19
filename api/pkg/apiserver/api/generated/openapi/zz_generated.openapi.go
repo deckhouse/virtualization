@@ -44,6 +44,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef":              schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageSpec":                   schema_virtualization_api_core_v1alpha2_ClusterVirtualImageSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatus":                 schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery":                              schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures":                               schema_virtualization_api_core_v1alpha2_CpuFeatures(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry":               schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP":                            schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref),
@@ -789,7 +790,7 @@ func schema_virtualization_api_core_v1alpha2_CPU(ref common.ReferenceCallback) c
 						SchemaProps: spec.SchemaProps{
 							Description: "Create CPU model based on an intersection CPU features for selected nodes.",
 							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery"),
 						},
 					},
 				},
@@ -797,7 +798,7 @@ func schema_virtualization_api_core_v1alpha2_CPU(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery"},
 	}
 }
 
@@ -1121,6 +1122,27 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A selection of nodes on the basis of which a universal CPU model will be created.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
