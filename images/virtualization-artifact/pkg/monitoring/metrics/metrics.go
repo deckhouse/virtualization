@@ -17,5 +17,5 @@ limitations under the License.
 package metrics
 
 const (
-	MetricNamespace = "virtualization"
+	MetricNamespace = "d8_virtualization"
 )
