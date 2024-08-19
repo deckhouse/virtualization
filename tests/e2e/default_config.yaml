@@ -1,4 +1,4 @@
-namespace: "rs-testcases"
+namespace: "testcases"
 
 clusterTransport:
   kubeConfig: ""

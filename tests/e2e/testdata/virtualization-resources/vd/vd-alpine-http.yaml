@@ -7,6 +7,6 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-3.20.qcow2
+      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-3-20.qcow2
   persistentVolumeClaim:
     size: 200Mi

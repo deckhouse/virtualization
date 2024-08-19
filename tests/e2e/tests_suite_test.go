@@ -78,11 +78,12 @@ func init() {
 	if err = kustomize.SetParams(kustomizeFilePath, conf.Namespace, namePrefix); err != nil {
 		panic(err)
 	}
+	Cleanup()
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
 		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
 	}
-	Cleanup()
+
 }
 
 func TestTests(t *testing.T) {
