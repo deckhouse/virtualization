@@ -111,10 +111,10 @@ type ebpfCloseFuncs struct {
 	items []func()
 }
 
-func (e ebpfCloseFuncs) Add(fn func()) {
+func (e *ebpfCloseFuncs) Add(fn func()) {
 	e.items = append(e.items, fn)
 }
-func (e ebpfCloseFuncs) Close() {
+func (e *ebpfCloseFuncs) Close() {
 	for i := len(e.items) - 1; i >= 0; i-- {
 		e.items[i]()
 	}
@@ -136,7 +136,7 @@ func (w *EbpfWatcher) loadEbpf() (*ebpf.Map, ebpfCloseFuncs, error) {
 	// Open a Kprobe at the entry point of the kernel function and attach the
 	// pre-compiled program. Each time the kernel function enters, the program
 	// will emit an event containing pid and command of the execved task.
-	kpFibTableInsert, err := link.Kprobe(KprobeFibTableInsert, objs.KprobeFibTableInsert, nil)
+	kpFibTableInsert, err := link.Kprobe(KprobeFibTableInsert, objs.FibTableInsert, nil)
 	if err != nil {
 		return nil, closeFuncs, fmt.Errorf("opening kprobe: %w", err)
 	}
@@ -146,7 +146,7 @@ func (w *EbpfWatcher) loadEbpf() (*ebpf.Map, ebpfCloseFuncs, error) {
 		}
 	})
 
-	KpFibTableDelete, err := link.Kprobe(KprobeFibTableDelete, objs.KprobeFibTableDelete, nil)
+	KpFibTableDelete, err := link.Kprobe(KprobeFibTableDelete, objs.FibTableDelete, nil)
 	if err != nil {
 		return nil, closeFuncs, fmt.Errorf("opening kprobe: %w", err)
 	}
@@ -155,6 +155,7 @@ func (w *EbpfWatcher) loadEbpf() (*ebpf.Map, ebpfCloseFuncs, error) {
 			w.log.Error(err, "failed to close kprobe link", "symbol", KprobeFibTableDelete)
 		}
 	})
+
 	bpfMap := objs.RouteEventsMap
 	closeFuncs.Add(func() {
 		if err = bpfMap.Close(); err != nil {
@@ -170,6 +171,7 @@ func (w *EbpfWatcher) watch() {
 
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
+	defer w.log.Info("Shutting down ebpf watch.")
 
 	for {
 		select {

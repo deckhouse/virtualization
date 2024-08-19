@@ -19,7 +19,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_QUEUE);
     __uint(key_size, 0);
     __uint(value_size, sizeof(struct route_event));
-    __uint(max_entries, 1 << 10);
+    __uint(max_entries, 1 << 16);
     __uint(map_flags, 0);
 } route_events_map SEC(".maps");
 
@@ -31,35 +31,35 @@ static inline int insert_event(struct pt_regs *ctx, u32 action) {
     struct fib_config *cfg;
     int ret;
 
-    ret = bpf_probe_read(&tb, sizeof(tb), (void *)&PT_REGS_PARM2(ctx));
+    ret = bpf_probe_read_kernel(&tb, sizeof(tb), (void *)&PT_REGS_PARM2(ctx));
     if (!tb) {
         static const char msg[] = "Failed to read fib_table pointer: %d";
         bpf_trace_printk(msg, sizeof(msg), ret);
         return ret;
     }
 
-    ret = bpf_probe_read(&evt.table, sizeof(evt.table), &tb->tb_id);
+    ret = bpf_probe_read_kernel(&evt.table, sizeof(evt.table), &tb->tb_id);
     if (ret < 0) {
         static const char msg[] = "Failed to read tb_id: %d";
         bpf_trace_printk(msg, sizeof(msg), ret);
         return ret;
     }
 
-    ret = bpf_probe_read(&cfg, sizeof(cfg), (void *)&PT_REGS_PARM3(ctx));
+    ret = bpf_probe_read_kernel(&cfg, sizeof(cfg), (void *)&PT_REGS_PARM3(ctx));
     if (!cfg) {
         static const char msg[] = "Failed to read fib_config pointer: %d";
         bpf_trace_printk(msg, sizeof(msg), ret);
         return ret;
     }
 
-    ret = bpf_probe_read(&evt.dst, sizeof(evt.dst), &cfg->fc_dst);
+    ret = bpf_probe_read_kernel(&evt.dst, sizeof(evt.dst), &cfg->fc_dst);
     if (ret < 0) {
         static const char msg[] = "Failed to read dst: %d";
         bpf_trace_printk(msg, sizeof(msg), ret);
         return ret;
     }
 
-    ret = bpf_probe_read(&evt.src, sizeof(evt.src), &cfg->fc_prefsrc);
+    ret = bpf_probe_read_kernel(&evt.src, sizeof(evt.src), &cfg->fc_prefsrc);
     if (ret < 0) {
         static const char msg[] = "Failed to read src: %d";
         bpf_trace_printk(msg, sizeof(msg), ret);
@@ -70,13 +70,13 @@ static inline int insert_event(struct pt_regs *ctx, u32 action) {
 }
 
 SEC("kprobe/fib_table_insert")
-int kprobe__fib_table_insert(struct pt_regs *ctx) {
+int fib_table_insert(struct pt_regs *ctx) {
     insert_event(ctx, 0);
     return 0;
 }
 
 SEC("kprobe/fib_table_delete")
-int kprobe__fib_table_delete(struct pt_regs *ctx) {
+int fib_table_delete(struct pt_regs *ctx) {
     insert_event(ctx, 1);
     return 0;
 }

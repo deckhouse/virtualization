@@ -2,6 +2,9 @@
 
 version: "3"
 
+vars:
+  DLV_IMAGE_ENV: "DLV_IMAGE"
+
 tasks:
   lint:
     cmds:
@@ -10,3 +13,23 @@ tasks:
   gen:
     desc: "Generate"
     cmd: go generate ./...
+
+  dlv:build:
+    desc: "Build image vm-route-forge with dlv"
+    preconditions:
+      - sh: if [ -z $DLV_IMAGE ]; then exit 1 ; fi
+        msg: "export env {{ .DLV_IMAGE_ENV }}"
+    cmd: cd ../../ && docker build -f ./images/vm-route-forge/Dockerfile -t "${DLV_IMAGE}" .
+
+  dlv:push:
+    desc: "Push image vm-route-forge with dlv"
+    preconditions:
+      - sh: if [ -z $DLV_IMAGE ]; then exit 1 ; fi
+        msg: "export env {{ .DLV_IMAGE_ENV }}"
+    cmd: cd ../../ && docker build -f ./images/vm-route-forge/Dockerfile -t "${DLV_IMAGE}" .
+
+  dlv:build-push:
+    desc: "Build and Push image vm-route-forge with dlv"
+    cmds:
+      - task: build
+      - task: push

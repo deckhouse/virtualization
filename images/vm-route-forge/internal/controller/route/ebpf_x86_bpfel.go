@@ -60,8 +60,8 @@ type ebpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
-	KprobeFibTableDelete *ebpf.ProgramSpec `ebpf:"kprobe__fib_table_delete"`
-	KprobeFibTableInsert *ebpf.ProgramSpec `ebpf:"kprobe__fib_table_insert"`
+	FibTableDelete *ebpf.ProgramSpec `ebpf:"fib_table_delete"`
+	FibTableInsert *ebpf.ProgramSpec `ebpf:"fib_table_insert"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -103,14 +103,14 @@ func (m *ebpfMaps) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfPrograms struct {
-	KprobeFibTableDelete *ebpf.Program `ebpf:"kprobe__fib_table_delete"`
-	KprobeFibTableInsert *ebpf.Program `ebpf:"kprobe__fib_table_insert"`
+	FibTableDelete *ebpf.Program `ebpf:"fib_table_delete"`
+	FibTableInsert *ebpf.Program `ebpf:"fib_table_insert"`
 }
 
 func (p *ebpfPrograms) Close() error {
 	return _EbpfClose(
-		p.KprobeFibTableDelete,
-		p.KprobeFibTableInsert,
+		p.FibTableDelete,
+		p.FibTableInsert,
 	)
 }
 
@@ -125,5 +125,5 @@ func _EbpfClose(closers ...io.Closer) error {
 
 // Do not access this directly.
 //
-//go:embed ebpf_bpfel_x86.o
+//go:embed ebpf_x86_bpfel.o
 var _EbpfBytes []byte
