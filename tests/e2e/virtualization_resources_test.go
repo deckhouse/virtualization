@@ -17,37 +17,15 @@ limitations under the License.
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	storagev1 "k8s.io/api/storage/v1"
 )
 
 var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
-	checkDefaultStorageClass := func() {
-		storageClass := kc.Resource("sc")
-		res := kubectl.List(storageClass, kc.GetOptions{Output: "json"})
-		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-
-		defaultStorageClassFlag := false
-		var scList storagev1.StorageClassList
-		err := json.Unmarshal([]byte(res.StdOut()), &scList)
-		Expect(err).NotTo(HaveOccurred(), err)
-
-		for _, sc := range scList.Items {
-			isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
-			if ok && isDefault == "true" {
-				defaultStorageClassFlag = true
-				break
-			}
-		}
-		Expect(defaultStorageClassFlag).To(Equal(true), "error: missing default storage class in the cluster")
-	}
-
 	checkPhase := func(resource, phase string) {
 		resourceType := kc.Resource(resource)
 		jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
@@ -59,17 +37,14 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 		resources := strings.Split(res.StdOut(), " ")
-		waitResult := kubectl.WaitResources(resourceType, resources, kc.WaitOptions{
+		waitOpts := kc.WaitOptions{
 			Namespace: conf.Namespace,
 			For:       jsonPath,
 			Timeout:   600,
-		})
+		}
+		waitResult := kubectl.WaitResources(resourceType, waitOpts, resources...)
 		Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
 	}
-
-	BeforeAll(func() {
-		checkDefaultStorageClass()
-	})
 
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
@@ -96,18 +71,18 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 		})
 	})
 
-	Context("Virtual machines", func() {
-		When("VM applied", func() {
-			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
-				checkPhase("vm", PhaseRunning)
-			})
-		})
-	})
-
 	Context("Virtual machines IP addresses", func() {
 		When("VMIP applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseBound), func() {
 				checkPhase("vmip", PhaseBound)
+			})
+		})
+	})
+
+	Context("Virtual machines", func() {
+		When("VM applied", func() {
+			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
+				checkPhase("vm", PhaseRunning)
 			})
 		})
 	})

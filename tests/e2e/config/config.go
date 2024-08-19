@@ -17,13 +17,25 @@ limitations under the License.
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 
+	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
+
+var (
+	git gt.Git
+	err error
+)
+
+func init() {
+	if git, err = gt.NewGit(); err != nil {
+		panic(err)
+	}
+}
 
 func GetConfig() (*Config, error) {
 	cfg := "./default_config.yaml"
@@ -56,10 +68,12 @@ type Config struct {
 }
 
 type Kustomize struct {
-	ApiVersion string   `yaml:"apiVersion"`
-	Kind       string   `yaml:"kind"`
-	Namespace  string   `yaml:"namespace"`
-	Resources  []string `yaml:"resources"`
+	ApiVersion     string   `yaml:"apiVersion"`
+	Configurations []string `yaml:"configurations"`
+	Kind           string   `yaml:"kind"`
+	Namespace      string   `yaml:"namespace"`
+	NamePrefix     string   `yaml:"namePrefix"`
+	Resources      []string `yaml:"resources"`
 }
 
 type ClusterTransport struct {
@@ -138,27 +152,45 @@ func (c *Config) setEnvs() error {
 
 }
 
-func (k *Kustomize) SetNamespace(filePath, namespace string) {
+func GetNamePrefix() (string, error) {
+	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
+		return prNumber, nil
+	}
+
+	res := git.GetHeadHash()
+	if !res.WasSuccess() {
+		return "", fmt.Errorf(res.StdErr())
+	}
+
+	commitHash := res.StdOut()
+	commitHash = commitHash[:len(commitHash)-1] + "-"
+	return commitHash, nil
+}
+
+func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	var kustomizeFile Kustomize
 
 	data, readErr := os.ReadFile(filePath)
 	if readErr != nil {
-		log.Fatal(readErr)
+		return readErr
 	}
 
 	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
 	if unmarshalErr != nil {
-		log.Fatal(unmarshalErr)
+		return unmarshalErr
 	}
 
 	kustomizeFile.Namespace = namespace
+	kustomizeFile.NamePrefix = namePrefix
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
-		log.Fatal(updatedKustomizeFile)
+		return marshalErr
 	}
 
 	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0644)
 	if writeErr != nil {
-		log.Fatal(writeErr)
+		return writeErr
 	}
+
+	return nil
 }

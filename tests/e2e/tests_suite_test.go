@@ -23,6 +23,7 @@ import (
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 	. "github.com/onsi/ginkgo/v2"
@@ -46,6 +47,7 @@ var (
 	kustomize        *config.Kustomize
 	virtctl          virt.Virtctl
 	d8Virtualization d8.D8Virtualization
+	git              gt.Git
 )
 
 func init() {
@@ -62,8 +64,24 @@ func init() {
 	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
 		panic(err)
 	}
+	if git, err = gt.NewGit(); err != nil {
+		panic(err)
+	}
+	if err = CheckDefaultStorageClass(); err != nil {
+		panic(err)
+	}
+	var namePrefix string
+	if namePrefix, err = config.GetNamePrefix(); err != nil {
+		panic(err)
+	}
 	kustomizeFilePath := conf.VirtualizationResources + "/kustomization.yaml"
-	kustomize.SetNamespace(kustomizeFilePath, conf.Namespace)
+	if err = kustomize.SetParams(kustomizeFilePath, conf.Namespace, namePrefix); err != nil {
+		panic(err)
+	}
+	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
+	if !res.WasSuccess() {
+		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
+	}
 	Cleanup()
 }
 

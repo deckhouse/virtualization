@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -25,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
@@ -123,11 +125,12 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 
 func WaitResource(resource kc.Resource, name, For string, timeout time.Duration) {
 	GinkgoHelper()
-	res := kubectl.WaitResource(resource, name, kc.WaitOptions{
+	waitOpts := kc.WaitOptions{
 		Namespace: conf.Namespace,
 		For:       For,
 		Timeout:   timeout,
-	})
+	}
+	res := kubectl.WaitResources(resource, waitOpts, name)
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
@@ -202,4 +205,33 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func CheckDefaultStorageClass() error {
+	storageClass := kc.Resource("sc")
+	res := kubectl.List(storageClass, kc.GetOptions{Output: "json"})
+	if !res.WasSuccess() {
+		return fmt.Errorf(res.StdErr())
+	}
+
+	defaultStorageClassFlag := false
+	var scList storagev1.StorageClassList
+	err := json.Unmarshal([]byte(res.StdOut()), &scList)
+	if err != nil {
+		return err
+	}
+
+	for _, sc := range scList.Items {
+		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
+		if ok && isDefault == "true" {
+			defaultStorageClassFlag = true
+			break
+		}
+	}
+	if !defaultStorageClassFlag {
+		return fmt.Errorf(
+			"Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.",
+		)
+	}
+	return nil
 }

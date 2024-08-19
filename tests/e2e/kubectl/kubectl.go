@@ -47,8 +47,7 @@ type Kubectl interface {
 	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
-	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
-	WaitResources(resource Resource, names []string, opts WaitOptions) *executor.CMDResult
+	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
@@ -251,9 +250,8 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) WaitResources(resource Resource, names []string, opts WaitOptions) *executor.CMDResult {
-	namesList := strings.Join(names, " ")
-	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, namesList), opts)
+func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...string) *executor.CMDResult {
+	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout * time.Second

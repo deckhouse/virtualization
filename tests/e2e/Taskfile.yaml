@@ -8,6 +8,12 @@ vars:
   VERSION: "v1.0.0"
 
 tasks:
+  copy:
+    cmds:
+      - |
+        rm --force --recursive /tmp/testdata
+        mkdir /tmp/testdata
+        cp --archive testdata/virtualization-resources /tmp/testdata/virtualization-resources
   virtctl:
     cmds:
       - |
@@ -37,6 +43,7 @@ tasks:
   run_local:
     desc: "Run locally e2e tests"
     deps:
+      - copy
       - virtctl
       - ginkgo
     cmds:
