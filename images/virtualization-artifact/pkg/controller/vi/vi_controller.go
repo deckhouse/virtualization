@@ -60,12 +60,13 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	imageService := service.NewImageService(mgr.GetClient(), dvcr, protection)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, importer, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, dvcr))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, imageService))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, dvcr, mgr.GetClient(), imageService))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, importer, dvcr, mgr.GetClient(), imageService))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, dvcr, imageService))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

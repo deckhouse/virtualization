@@ -37,17 +37,20 @@ type HTTPDataSource struct {
 	statService     Stat
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
+	imageService    *service.ImageService
 }
 
 func NewHTTPDataSource(
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
+	imageService *service.ImageService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
+		imageService:    imageService,
 	}
 }
 
