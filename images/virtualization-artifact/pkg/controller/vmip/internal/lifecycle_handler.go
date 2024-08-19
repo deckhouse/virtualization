@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -76,6 +77,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		return reconcile.Result{}, err
 	}
 
+	needRequeue := false
 	switch {
 	case lease == nil && vmipStatus.Address != "":
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
@@ -108,12 +110,24 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+			log.Warn(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource: %s/%s",
+				lease.Name, lease.Spec.VirtualMachineIPAddressRef.Name, lease.Spec.VirtualMachineIPAddressRef.Namespace))
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlready).
-				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIP",
-					common.IpToLeaseName(vmipStatus.Address))).
+				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
+				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource",
+					lease.Name)).
 				Condition())
 		}
+
+	case lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace:
+		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
+			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
+				Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name)).
+				Condition())
+		}
+		needRequeue = true
 
 	default:
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
@@ -121,7 +135,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is not ready",
-					common.IpToLeaseName(vmipStatus.Address))).
+					lease.Name)).
 				Condition())
 		}
 	}
@@ -129,8 +143,12 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	log.Info("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
 	vmipStatus.Conditions = mgr.Generate()
 	vmipStatus.ObservedGeneration = vmip.GetGeneration()
-
-	return reconcile.Result{}, nil
+	if !needRequeue {
+		return reconcile.Result{}, nil
+	} else {
+		// TODO add requeue with with exponential BackOff time interval using condition Bound -> probeTime
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+	}
 }
 
 func (h *LifecycleHandler) Name() string {

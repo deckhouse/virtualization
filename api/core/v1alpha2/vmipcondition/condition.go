@@ -38,8 +38,8 @@ const (
 	// VirtualMachineIPAddressIsOutOfTheValidRange is a BoundReason indicating when specified IP address is out of the range in controller settings.
 	VirtualMachineIPAddressIsOutOfTheValidRange BoundReason = "VirtualMachineIPAddressIsOutOfTheValidRange"
 
-	// VirtualMachineIPAddressLeaseAlready is a BoundReason indicating the IP address lease already exists.
-	VirtualMachineIPAddressLeaseAlready BoundReason = "VirtualMachineIPAddressLeaseAlready"
+	// VirtualMachineIPAddressLeaseAlreadyExists is a BoundReason indicating the IP address lease already exists.
+	VirtualMachineIPAddressLeaseAlreadyExists BoundReason = "VirtualMachineIPAddressLeaseAlreadyExists"
 
 	// VirtualMachineIPAddressLeaseLost is a BoundReason indicating the IP address lease was lost.
 	VirtualMachineIPAddressLeaseLost BoundReason = "VirtualMachineIPAddressLeaseLost"
