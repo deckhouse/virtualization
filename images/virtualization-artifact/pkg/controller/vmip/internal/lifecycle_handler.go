@@ -113,7 +113,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			log.Warn(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource: %s/%s",
 				lease.Name, lease.Spec.VirtualMachineIPAddressRef.Name, lease.Spec.VirtualMachineIPAddressRef.Namespace))
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist).
+				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource",
 					lease.Name)).
 				Condition())
@@ -123,7 +123,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist).
+				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 				Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name)).
 				Condition())
 		}
