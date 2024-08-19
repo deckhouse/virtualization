@@ -87,6 +87,7 @@ spec:
                     Тип хранилища для хранения образа:
 
                     * `ContainerRegistry` — использовать container registry (DVCR). В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации).
+                    * `Kubernetes` - использовать Persistent Volume Claim (PVC).
             status:
               properties:
                 conditions:
