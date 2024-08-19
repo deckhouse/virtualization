@@ -43,6 +43,7 @@ type RegistryDataSource struct {
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
+	imageService    *service.ImageService
 }
 
 func NewRegistryDataSource(
@@ -50,12 +51,14 @@ func NewRegistryDataSource(
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
+	imageService *service.ImageService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
+		imageService:    imageService,
 	}
 }
 

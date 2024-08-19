@@ -38,17 +38,20 @@ type UploadDataSource struct {
 	statService     Stat
 	uploaderService Uploader
 	dvcrSettings    *dvcr.Settings
+	imageService    *service.ImageService
 }
 
 func NewUploadDataSource(
 	statService Stat,
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
+	imageService *service.ImageService,
 ) *UploadDataSource {
 	return &UploadDataSource{
 		statService:     statService,
 		uploaderService: uploaderService,
 		dvcrSettings:    dvcrSettings,
+		imageService:    imageService,
 	}
 }
 
