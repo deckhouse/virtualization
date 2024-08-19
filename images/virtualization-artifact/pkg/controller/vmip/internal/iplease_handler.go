@@ -66,7 +66,7 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 	condition, _ := service.GetCondition(vmipcondition.BoundType, vmipStatus.Conditions)
 
 	switch {
-	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlready:
+	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist:
 		log.Info("Lease by name not found: waiting for the lease to be available")
 		return reconcile.Result{}, nil
 
@@ -91,7 +91,7 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 
 		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
 			log.Warn(fmt.Sprintf("The VirtualMachineIPLease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace))
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlready, "The VirtualMachineIPLease belongs to a different namespace")
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist, "The VirtualMachineIPLease belongs to a different namespace")
 
 			return reconcile.Result{}, nil
 		}
@@ -150,11 +150,11 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 		case errors.Is(err, service.ErrIPAddressAlreadyExist):
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlready).
+				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress",
 					common.IpToLeaseName(vmipStatus.Address))).
 				Condition())
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlready, msg)
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExist, msg)
 		}
 
 		vmipStatus.Conditions = mgr.Generate()
