@@ -398,16 +398,11 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
 	}
 
-	storedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).StoredBytes)
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
-	}
-
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return ds.imageService.AdjustPVCSize(storedSize, unpackedSize)
+	return ds.imageService.AdjustPVCSize(unpackedSize, unpackedSize)
 }
 
 func (ds HTTPDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {
