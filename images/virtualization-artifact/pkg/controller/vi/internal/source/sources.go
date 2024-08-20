@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -30,6 +32,7 @@ import (
 
 type Handler interface {
 	Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	Validate(ctx context.Context, vi *virtv2.VirtualImage) error
 }
@@ -117,4 +120,8 @@ func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePh
 		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
 		return false, err
 	}
+}
+
+type CheckImportProcess interface {
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName string) error
 }

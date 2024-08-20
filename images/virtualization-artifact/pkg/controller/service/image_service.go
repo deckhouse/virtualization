@@ -236,13 +236,13 @@ func (s ImageService) GetPersistentVolume(ctx context.Context, pvc *corev1.Persi
 	return helper.FetchObject(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, s.client, &corev1.PersistentVolume{})
 }
 
-func (s ImageService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {
+func (s ImageService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName string) error {
 	var err error
 
-	if storageClassName == nil || *storageClassName == "" {
+	if storageClassName == "" {
 		err = s.checkDefaultStorageClass(ctx)
 	} else {
-		err = s.checkStorageClass(ctx, *storageClassName)
+		err = s.checkStorageClass(ctx, storageClassName)
 	}
 	if err != nil {
 		return err
@@ -322,8 +322,8 @@ func (s ImageService) checkStorageClass(ctx context.Context, storageClassName st
 	return nil
 }
 
-func (s ImageService) AdjustPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
-	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(requiredSize) == -1 {
+func (s ImageService) AdjustPVCSize(pvcSize resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
+	if !pvcSize.IsZero() && pvcSize.Cmp(requiredSize) == -1 {
 		return resource.Quantity{}, fmt.Errorf("%w: %sB < %sB", ErrInsufficientPVCSize, pvcSize.AsDec().String(), requiredSize.AsDec().String())
 	}
 
@@ -331,8 +331,8 @@ func (s ImageService) AdjustPVCSize(pvcSize *resource.Quantity, requiredSize res
 	// TODO(future): remove size adjusting after get rid of scratch.
 	adjustedSize := dvutil.AdjustPVCSize(requiredSize)
 
-	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
-		return *pvcSize, nil
+	if pvcSize.Cmp(adjustedSize) == 1 {
+		return pvcSize, nil
 	}
 
 	return adjustedSize, nil

@@ -93,7 +93,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vi.Spec.DataSource.Type)
 	}
 
-	requeue, err := ds.Sync(ctx, vi)
+	var requeue bool
+	var err error
+	if vi.Spec.Storage == virtv2.StorageKubernetes {
+		requeue, err = ds.SyncPVC(ctx, vi)
+	} else {
+		requeue, err = ds.Sync(ctx, vi)
+	}
+
 	if err != nil {
 		return reconcile.Result{}, err
 	}

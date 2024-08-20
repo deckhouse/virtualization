@@ -62,6 +62,10 @@ func NewRegistryDataSource(
 	}
 }
 
+func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	return true, nil
+}
+
 func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 

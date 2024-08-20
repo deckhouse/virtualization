@@ -55,6 +55,10 @@ func NewUploadDataSource(
 	}
 }
 
+func (ds UploadDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	return true, nil
+}
+
 func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 

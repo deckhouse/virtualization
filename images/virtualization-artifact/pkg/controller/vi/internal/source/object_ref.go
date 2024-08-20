@@ -61,6 +61,10 @@ func NewObjectRefDataSource(
 	}
 }
 
+func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	return true, nil
+}
+
 func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
