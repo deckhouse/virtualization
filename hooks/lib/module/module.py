@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from lib.module import values as module_values
-from common import MODULE_NAME
 # import re
 # import os
 
@@ -37,7 +36,3 @@ def get_https_mode(module_name: str, values: dict) -> str:
     if https_mode is not None:
         return str(https_mode)
     raise Exception("https mode is not defined")
-
-
-def get_module_name() -> str:
-    return MODULE_NAME

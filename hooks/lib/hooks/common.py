@@ -15,7 +15,6 @@
 
 PUBLIC_DOMAIN_PREFIX = "%PUBLIC_DOMAIN%://"
 CLUSTER_DOMAIN_PREFIX = "%CLUSTER_DOMAIN%://"
-MODULE_NAME = "virtualization"
 
 def cluster_domain_san(san: str) -> str:
     """
