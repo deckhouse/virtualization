@@ -10,3 +10,21 @@ tasks:
         python3 -m unittest discover -s . -v
         deactivate
       - rm -rf .venv
+
+  local_test_prep:
+    cmds:
+      - python3 -m venv .venv
+      - |
+        source .venv/bin/activate 
+        pip3 install -r ../lib/python/requirements.txt
+
+  local_test:
+    cmds:
+      - |
+        source .venv/bin/activate 
+        python3 -m unittest discover -s . -v
+
+  local_clean:
+    cmds:
+      - deactivate
+      - rm -rf .venv

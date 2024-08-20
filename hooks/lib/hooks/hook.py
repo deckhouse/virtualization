@@ -15,7 +15,6 @@
 
 from deckhouse import hook
 from typing import Callable
-from common import MODULE_NAME
 from lib.module import module
 from lib.module import values as module_values
 import yaml
@@ -23,8 +22,7 @@ import yaml
 
 class Hook:
     def __init__(self, module_name: str = None) -> None:
-        self.module_name = MODULE_NAME
-        # self.module_name = self.get_module_name(module_name)
+        self.module_name = self.get_module_name(module_name)
 
     def generate_config(self):
         pass
@@ -41,11 +39,11 @@ class Hook:
     def delete_value(path: str, values: dict) -> None:
         return module_values.delete_value(path, values)
 
-    # @staticmethod
-    # def get_module_name(module_name: str) -> str:
-    #     if module_name is not None:
-    #         return module_name
-    #     return module.get_module_name()
+    @staticmethod
+    def get_module_name(module_name: str) -> str:
+        if module_name is not None:
+            return module_name
+        return module.get_module_name()
 
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context) -> None:
