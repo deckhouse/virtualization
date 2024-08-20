@@ -125,7 +125,11 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
 	// the virtual machine volume are still not bound.
 	virtv1.VirtualMachineStatusWaitingForVolumeBinding: virtv2.MachinePending,
+
+	kvvmEmptyPhase: virtv2.MachinePending,
 }
+
+const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
 
 func isPodStarted(pod *corev1.Pod) bool {
 	if pod == nil || pod.Status.StartTime == nil {
