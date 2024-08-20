@@ -53,4 +53,6 @@ const (
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
+
+	Lost ReadyReason = "PVCLost"
 )

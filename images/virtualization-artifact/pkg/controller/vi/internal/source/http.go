@@ -19,9 +19,14 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -30,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -53,6 +59,8 @@ func NewHTTPDataSource(
 		imageService:    imageService,
 	}
 }
+
+var storageClass = "linstor-thin-r2"
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
@@ -170,6 +178,190 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 	return true, nil
 }
 
+func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	log, ctx := logger.GetDataSourceContext(ctx, "http")
+
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	pod, err := ds.importerService.GetPod(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+	dv, err := ds.imageService.GetDataVolume(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+	pvc, err := ds.imageService.GetPersistentVolumeClaim(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+	pv, err := ds.imageService.GetPersistentVolume(ctx, pvc)
+	if err != nil {
+		return false, err
+	}
+
+	switch {
+	case isDiskProvisioningFinished(condition):
+		log.Info("Image provisioning finished: clean up")
+
+		setPhaseConditionForFinishedImage(pv, pvc, &condition, &vi.Status.Phase, supgen)
+
+		// Protect Ready Disk and underlying PVC and PV.
+		err = ds.imageService.Protect(ctx, vi, nil, pvc, pv)
+		if err != nil {
+			return false, err
+		}
+
+		// Unprotect import time supplements to delete them later.
+		err = ds.importerService.Unprotect(ctx, pod)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.imageService.Unprotect(ctx, dv)
+		if err != nil {
+			return false, err
+		}
+
+		return CleanUp(ctx, vi, ds)
+	case common.AnyTerminating(pod, dv, pvc, pv):
+		log.Info("Waiting for supplements to be terminated")
+	case pod == nil:
+		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+
+		envSettings := ds.getEnvSettings(vi, supgen)
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		var requeue bool
+		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
+		if err != nil {
+			return false, err
+		}
+
+		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
+
+		return requeue, nil
+	case !common.IsPodComplete(pod):
+		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+
+		err = ds.statService.CheckPod(pod)
+		if err != nil {
+			vi.Status.Phase = virtv2.ImageFailed
+
+			switch {
+			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningNotStarted
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			case errors.Is(err, service.ErrProvisioningFailed):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+
+		err = ds.importerService.Protect(ctx, pod)
+		if err != nil {
+			return false, err
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "Import is in the process of provisioning to DVCR."
+
+		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
+		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
+	case dv == nil:
+		log.Info("Start import to PVC")
+
+		err = ds.statService.CheckPod(pod)
+		if err != nil {
+			vi.Status.Phase = virtv2.ImageFailed
+
+			switch {
+			case errors.Is(err, service.ErrProvisioningFailed):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+
+		vi.Status.Progress = "50%"
+		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
+
+		var diskSize resource.Quantity
+		diskSize, err = ds.getPVCSize(pod)
+		if err != nil {
+			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		source := ds.getSource(vi, supgen)
+
+		err = ds.imageService.Start(ctx, diskSize, &storageClass, source, vi, supgen)
+		if err != nil {
+			return false, err
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Provisioning
+		condition.Message = "PVC Provisioner not found: create the new one."
+
+		return true, nil
+	case pvc == nil:
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.Provisioning
+		condition.Message = "PVC not found: waiting for creation."
+		return true, nil
+	case ds.imageService.IsImportDone(dv, pvc):
+		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Phase = virtv2.ImageReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vdcondition.Ready
+		condition.Message = ""
+
+		vi.Status.Progress = "100%"
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+	default:
+		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Progress = ds.imageService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+
+		err = ds.imageService.Protect(ctx, vi, dv, pvc, pv)
+		if err != nil {
+			return false, err
+		}
+
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.imageService)
+		if err != nil {
+			return false, err
+		}
+
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
@@ -197,4 +389,122 @@ func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplem
 	)
 
 	return &settings
+}
+
+func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) {
+	// Get size from the importer Pod to detect if specified PVC size is enough.
+	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
+	}
+
+	storedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).StoredBytes)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
+	}
+
+	if unpackedSize.IsZero() {
+		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
+	}
+
+	return ds.imageService.AdjustPVCSize(storedSize, unpackedSize)
+}
+
+func (ds HTTPDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {
+	// The image was preloaded from source into dvcr.
+	// We can't use the same data source a second time, but we can set dvcr as the data source.
+	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
+	dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+
+	url := cc.DockerRegistrySchemePrefix + dvcrSourceImageName
+	secretName := sup.DVCRAuthSecretForDV().Name
+	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
+
+	return &cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
+			URL:           &url,
+			SecretRef:     &secretName,
+			CertConfigMap: &certConfigMapName,
+		},
+	}
+}
+
+func setPhaseConditionForFinishedImage(
+	pv *corev1.PersistentVolume,
+	pvc *corev1.PersistentVolumeClaim,
+	condition *metav1.Condition,
+	phase *virtv2.ImagePhase,
+	supgen *supplements.Generator,
+) {
+	switch {
+	case pvc == nil:
+		*phase = virtv2.ImageLost
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Lost
+		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
+	case pv == nil:
+		*phase = virtv2.ImageLost
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Lost
+		condition.Message = fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName)
+	default:
+		*phase = virtv2.ImageReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vdcondition.Ready
+		condition.Message = ""
+	}
+}
+
+func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) {
+	*phase = virtv2.ImageFailed
+	ready.Status = metav1.ConditionFalse
+	ready.Reason = vicondition.ProvisioningFailed
+	ready.Message = service.CapitalizeFirstLetter(err.Error())
+}
+
+func setPhaseConditionForPVCProvisioningImage(
+	ctx context.Context,
+	dv *cdiv1.DataVolume,
+	vi *virtv2.VirtualImage,
+	pvc *corev1.PersistentVolumeClaim,
+	condition *metav1.Condition,
+	checker CheckImportProcess,
+) error {
+	err := checker.CheckImportProcess(ctx, dv, pvc, storageClass)
+	switch {
+	case err == nil:
+		if dv == nil {
+			vi.Status.Phase = virtv2.ImageProvisioning
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.Provisioning
+			condition.Message = "Waiting for the pvc importer to be created"
+			return nil
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "Import is in the process of provisioning to PVC."
+		return nil
+	case errors.Is(err, service.ErrDataVolumeNotRunning):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		return nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return nil
+	default:
+		return err
+	}
 }
