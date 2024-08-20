@@ -94,7 +94,6 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	phase := getPhase(kvvm)
 	if phase == "" {
 		phase = virtv2.MachinePending
-		log.Error(fmt.Sprintf("unexpected KVVM state: status %q, fallback VM phase to %q", kvvm.Status.PrintableStatus, phase))
 	}
 	changed.Status.Phase = phase
 
