@@ -43,16 +43,24 @@ const (
 
 var (
 	conf             *config.Config
-	kubectl          kc.Kubectl
+	mc               *config.ModuleConfig
 	kustomize        *config.Kustomize
+	kubectl          kc.Kubectl
 	virtctl          virt.Virtctl
 	d8Virtualization d8.D8Virtualization
 	git              gt.Git
+	namePrefix       string
 )
 
 func init() {
 	var err error
 	if conf, err = config.GetConfig(); err != nil {
+		panic(err)
+	}
+	if mc, err = config.GetModuleConfig(); err != nil {
+		panic(err)
+	}
+	if err = config.SetupCustomSubnet(mc, conf.CustomSubnet); err != nil {
 		panic(err)
 	}
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
@@ -70,11 +78,11 @@ func init() {
 	if err = CheckDefaultStorageClass(); err != nil {
 		panic(err)
 	}
-	var namePrefix string
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
 		panic(err)
 	}
-	kustomizeFilePath := conf.VirtualizationResources + "/kustomization.yaml"
+	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
+	kustomizeFilePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "kustomization.yaml")
 	if err = kustomize.SetParams(kustomizeFilePath, conf.Namespace, namePrefix); err != nil {
 		panic(err)
 	}
@@ -83,7 +91,6 @@ func init() {
 	if !res.WasSuccess() {
 		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
 	}
-
 }
 
 func TestTests(t *testing.T) {
@@ -95,4 +102,7 @@ func TestTests(t *testing.T) {
 
 func Cleanup() {
 	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
+	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
+		Label: fmt.Sprintf("testcase=%s", namePrefix),
+	})
 }

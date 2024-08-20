@@ -26,6 +26,18 @@ import (
 )
 
 var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
+	BeforeAll(func() {
+		By("Setup virtual machine custom IP address")
+		var (
+			err          error
+			unassignedIP string
+		)
+		filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
+		unassignedIP, err = FindCustomSubnetUnassignedIP(conf.CustomSubnet)
+		Expect(err).NotTo(HaveOccurred())
+		err = SetCustomIPAddress(filePath, unassignedIP)
+		Expect(err).NotTo(HaveOccurred())
+	})
 	checkPhase := func(resource, phase string) {
 		resourceType := kc.Resource(resource)
 		jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)

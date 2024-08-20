@@ -65,12 +65,14 @@ type CreateOptions struct {
 }
 
 type DeleteOptions struct {
+	Label     string
 	Namespace string
 }
 
 type GetOptions struct {
-	Namespace string
-	Output    string
+	Namespace      string
+	Output         string
+	IgnoreNotFound bool
 }
 
 type KustomizeOptions struct {
@@ -289,9 +291,23 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
+func (k KubectlCMD) addLabel(cmd, label string) string {
+	if label != "" {
+		return fmt.Sprintf("%s -l %s", cmd, label)
+	}
+	return cmd
+}
+
 func (k KubectlCMD) addOutput(cmd, output string) string {
 	if output != "" {
 		return fmt.Sprintf("%s -o %s", cmd, output)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
+	if ignoreNotFound {
+		return fmt.Sprintf("%s --ignore-not-found", cmd)
 	}
 	return cmd
 }
@@ -317,11 +333,14 @@ func (k KubectlCMD) createOptions(cmd string, opts CreateOptions) string {
 func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
+	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	return cmd
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
-	return k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabel(cmd, opts.Label)
+	return cmd
 }
 
 func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {

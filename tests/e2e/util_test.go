@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,10 +30,12 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 
+	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -233,5 +236,49 @@ func CheckDefaultStorageClass() error {
 			"Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.",
 		)
 	}
+	return nil
+}
+
+func FindCustomSubnetUnassignedIP(subnet string) (string, error) {
+	subnetOctets := strings.Split(subnet, ".")
+	subnetPrefix := strings.Join(subnetOctets[:3], ".")
+	for addressSuffix := 254; addressSuffix > 1; addressSuffix-- {
+		name := fmt.Sprintf("ip-%s-%d", strings.ReplaceAll(subnetPrefix, ".", "-"), addressSuffix)
+		res := kubectl.GetResource(kc.ResourceVMIPLease, name, kc.GetOptions{IgnoreNotFound: true})
+		if !res.WasSuccess() {
+			return "", fmt.Errorf(res.StdErr())
+		}
+
+		if res.WasSuccess() && res.StdOut() == "" {
+			return fmt.Sprintf("%s.%d", subnetPrefix, addressSuffix), nil
+		}
+	}
+
+	return "", fmt.Errorf("error: cannot find unassigned IP address")
+}
+
+func SetCustomIPAddress(filePath, ipaddress string) error {
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return readErr
+	}
+
+	var vmip config.VirtualMachineIPAddress
+	unmarshalErr := yamlv3.Unmarshal([]byte(data), &vmip)
+	if unmarshalErr != nil {
+		return unmarshalErr
+	}
+
+	vmip.Spec.StaticIP = ipaddress
+	updatedVMIP, marshalErr := yamlv3.Marshal(&vmip)
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	writeErr := os.WriteFile(filePath, updatedVMIP, 0644)
+	if writeErr != nil {
+		return writeErr
+	}
+
 	return nil
 }

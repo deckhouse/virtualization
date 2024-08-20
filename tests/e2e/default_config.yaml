@@ -19,3 +19,5 @@ ipam:
 helperImages:
   curlImage: "curlimages/curl"
 virtualizationResources: "/tmp/testdata/virtualization-resources"
+
+customSubnet: "10.255.255.0/24"
