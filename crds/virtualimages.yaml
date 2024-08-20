@@ -191,7 +191,9 @@ spec:
               oneOf:
                 - properties:
                     storage:
-                      enum: ["ContainerRegistry"]
+                      enum:
+                        - "ContainerRegistry"
+                        - "Kubernetes"
             status:
               type: object
               properties:
