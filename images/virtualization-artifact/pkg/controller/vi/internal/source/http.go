@@ -365,12 +365,17 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	imageRequeue, err := ds.imageService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || imageRequeue, nil
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
