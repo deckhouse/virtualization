@@ -39,26 +39,33 @@ def get_https_mode(module_name: str, values: dict) -> str:
 
 
 def get_module_name() -> str:
-    module = ""
-    file_path = os.path.abspath(__file__)
-    external_modules_dir = os.getenv("EXTERNAL_MODULES_DIR")
-    for dir in os.getenv("MODULES_DIR").split(":"):
-        if dir.startswith(external_modules_dir):
-            dir = external_modules_dir
-        if file_path.startswith(dir):
-            module = re.sub(f"{dir}/?\d?\d?\d?-?", "",
-                            file_path, 1).split("/")[0]
-            # /deckhouse/external-modules/virtualization/mr/hooks/hook_name.py
-            # {-------------------------- file_path --------------------------}
-            # {------ MODULES_DIR ------}{---------- regexp result ----------}}
-            #                             virtualization/mr/hooks/hook_name.py
-            #                            {-module-name-}{---------------------}
-            #                                  or
-            # /deckhouse/modules/900-virtualization/hooks/hook_name.py
-            # {---------------------- file_path ----------------------}
-            # {-- MODULES_DIR --}{---{-------- regexp result --------}}
-            #                        virtualization/hooks/hook_name.py
-            #                        {-module-name-}{-----------------}
+    # module = "virtualization"
+    # file_path = os.path.abspath(__file__)
+    # # TODO: remove after some time
+    # if os.getenv("EXTERNAL_MODULES_DIR") != '':
+    #     external_modules_dir = os.getenv("EXTERNAL_MODULES_DIR")
+    
+    # if os.getenv("DOWNLOADED_MODULES_DIR") != '':
+    #     external_modules_dir = os.getenv("DOWNLOADED_MODULES_DIR")
 
-            break
-    return module
+    # for dir in os.getenv("MODULES_DIR").split(":"):
+    #     if dir.startswith(external_modules_dir):
+    #         dir = external_modules_dir
+    #     if file_path.startswith(dir):
+    #         module = re.sub(f"{dir}/?\d?\d?\d?-?", "",
+    #                         file_path, 1).split("/")[0]
+    #         # /deckhouse/external-modules/virtualization/mr/hooks/hook_name.py
+    #         # {-------------------------- file_path --------------------------}
+    #         # {------ MODULES_DIR ------}{---------- regexp result ----------}}
+    #         #                             virtualization/mr/hooks/hook_name.py
+    #         #                            {-module-name-}{---------------------}
+    #         #                                  or
+    #         # /deckhouse/modules/900-virtualization/hooks/hook_name.py
+    #         # {---------------------- file_path ----------------------}
+    #         # {-- MODULES_DIR --}{---{-------- regexp result --------}}
+    #         #                        virtualization/hooks/hook_name.py
+    #         #                        {-module-name-}{-----------------}
+
+    #         break
+    # return module
+    return "virtualization"
