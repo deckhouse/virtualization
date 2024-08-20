@@ -70,6 +70,7 @@ func (s ImageService) Start(
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetPVC(storageClass, pvcSize)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetBindingMode(false)
 
 	err := s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
