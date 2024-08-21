@@ -77,11 +77,20 @@ func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, er
 
 type Cleaner interface {
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 }
 
 func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
 	if cc.ShouldCleanupSubResources(vi) {
 		return c.CleanUp(ctx, vi)
+	}
+
+	return false, nil
+}
+
+func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
+	if cc.ShouldCleanupSubResources(vi) {
+		return c.CleanUpSupplements(ctx, vi)
 	}
 
 	return false, nil

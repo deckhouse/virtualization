@@ -218,3 +218,19 @@ func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *sup
 
 	return &settings
 }
+
+func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
+}

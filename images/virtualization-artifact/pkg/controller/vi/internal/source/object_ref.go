@@ -248,3 +248,14 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *suppl
 
 	return &settings, nil
 }
+
+func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
+	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return requeue, nil
+}

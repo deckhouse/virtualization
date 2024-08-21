@@ -89,7 +89,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 			return false, err
 		}
 
-		return CleanUp(ctx, vi, ds)
+		return CleanUpSupplements(ctx, vi, ds)
 	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
@@ -371,6 +371,22 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
+}
+
+func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
