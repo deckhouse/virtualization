@@ -23,8 +23,8 @@ import common
 class DiscoveryClusterIPServiceHook(Hook):
     SNAPSHOT_NAME = "discovery-service"
 
-    def __init__(self, module_name: str = None):
-        super().__init__(module_name=module_name)
+    def __init__(self, module_name):
+        self.module_name = module_name
         self.namespace = common.NAMESPACE
         self.service_name = "dvcr"
         self.value_path = f"{self.module_name}.internal.dvcr.serviceIP"

@@ -3,28 +3,23 @@ version: "3"
 tasks:
   test:
     cmds:
-      - python3 -m venv .venv
-      - |
-        source .venv/bin/activate 
-        pip3 install -r ../lib/python/requirements.txt
-        python3 -m unittest discover -s . -v
-        deactivate
-      - rm -rf .venv
+      - task test:prepare
+      - task test:run
+      # - task test:clean
 
-  local_test_prep:
+  test:prepare:
     cmds:
       - python3 -m venv .venv
       - |
         source .venv/bin/activate 
         pip3 install -r ../lib/python/requirements.txt
 
-  local_test:
+  test:run:
     cmds:
-      - |
-        source .venv/bin/activate 
-        python3 -m unittest discover -s . -v
+      - source .venv/bin/activate 
+      - python3 -m unittest discover -s . -v
 
-  local_clean:
+  test:clean:
     cmds:
-      - deactivate
+      - source .venv/bin/deactivate
       - rm -rf .venv

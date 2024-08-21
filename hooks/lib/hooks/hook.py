@@ -21,9 +21,6 @@ import yaml
 
 
 class Hook:
-    def __init__(self, module_name: str = None) -> None:
-        self.module_name = module_name
-
     def generate_config(self):
         pass
 

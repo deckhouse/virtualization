@@ -51,8 +51,9 @@ class GenerateSecretHook(Hook):
                  *keys: Key,
                  secret_name: str,
                  namespace: str,
-                 module_name: str = None):
-        super().__init__(module_name=module_name)
+                 module_name: str,
+                 ):
+        self.module_name = module_name
         self.keys = keys
         self.secret_name = secret_name
         self.namespace = namespace

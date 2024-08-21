@@ -27,10 +27,11 @@ class ManageTenantSecretsHook(Hook):
     def __init__(self,
                  source_namespace: str,
                  source_secret_name: str,
+                 module_name: str,
                  pod_labels_to_follow: dict,
                  destination_secret_labels: dict = {},
-                 module_name: str = None):
-        super().__init__(module_name=module_name)
+                 ):
+        self.module_name = module_name
         self.source_namespace = source_namespace
         self.source_secret_name = source_secret_name
         self.pod_labels_to_follow = pod_labels_to_follow

@@ -14,8 +14,6 @@
 # limitations under the License.
 
 from lib.module import values as module_values
-# import re
-# import os
 
 
 def get_values_first_defined(values: dict, *keys):
