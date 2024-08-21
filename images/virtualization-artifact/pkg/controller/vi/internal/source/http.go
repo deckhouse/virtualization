@@ -225,7 +225,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 			return false, err
 		}
 
-		return ds.CleanUp(ctx, vi)
+		return CleanUp(ctx, vi, ds)
 	case common.AnyTerminating(pod, dv, pvc, pv):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
@@ -370,12 +370,12 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 		return false, err
 	}
 
-	imageRequeue, err := ds.imageService.CleanUp(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
+	// imageRequeue, err := ds.imageService.CleanUp(ctx, supgen)
+	// if err != nil {
+	// 	return false, err
+	// }
 
-	return importerRequeue || imageRequeue, nil
+	return importerRequeue, nil
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
