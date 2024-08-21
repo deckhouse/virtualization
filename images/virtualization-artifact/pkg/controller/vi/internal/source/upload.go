@@ -223,3 +223,19 @@ func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *suppl
 
 	return &settings
 }
+
+func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
+	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return uploaderRequeue || diskRequeue, nil
+}
