@@ -43,24 +43,24 @@ type HTTPDataSource struct {
 	statService     Stat
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
-	imageService    *service.ImageService
+	diskService     *service.DiskService
 }
 
 func NewHTTPDataSource(
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
-	imageService *service.ImageService,
+	diskService *service.DiskService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
-		imageService:    imageService,
+		diskService:     diskService,
 	}
 }
 
-var storageClass = "linstor-thin-r2"
+var storageClass = "linstor-thin-r2" // FIXME add seting settings in controller
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
@@ -189,15 +189,15 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 	if err != nil {
 		return false, err
 	}
-	dv, err := ds.imageService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
-	pvc, err := ds.imageService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
-	pv, err := ds.imageService.GetPersistentVolume(ctx, pvc)
+	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
 	if err != nil {
 		return false, err
 	}
@@ -209,7 +209,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 		setPhaseConditionForFinishedImage(pv, pvc, &condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.imageService.Protect(ctx, vi, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, nil, pvc, pv)
 		if err != nil {
 			return false, err
 		}
@@ -220,7 +220,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 			return false, err
 		}
 
-		err = ds.imageService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, dv)
 		if err != nil {
 			return false, err
 		}
@@ -296,7 +296,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 			}
 		}
 
-		vi.Status.Progress = "50%"
+		vi.Status.Progress = "50.0%"
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		var diskSize resource.Quantity
@@ -313,7 +313,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 
 		source := ds.getSource(vi, supgen)
 
-		err = ds.imageService.Start(ctx, diskSize, &storageClass, source, vi, supgen)
+		err = ds.diskService.Start(ctx, diskSize, &storageClass, source, vi, supgen, false)
 		if err != nil {
 			return false, err
 		}
@@ -330,7 +330,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC not found: waiting for creation."
 		return true, nil
-	case ds.imageService.IsImportDone(dv, pvc):
+	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Phase = virtv2.ImageReady
@@ -343,15 +343,15 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
-		vi.Status.Progress = ds.imageService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
+		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.imageService.Protect(ctx, vi, dv, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, dv, pvc, pv)
 		if err != nil {
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.imageService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
 		if err != nil {
 			return false, err
 		}
@@ -370,12 +370,12 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 		return false, err
 	}
 
-	// imageRequeue, err := ds.imageService.CleanUp(ctx, supgen)
-	// if err != nil {
-	// 	return false, err
-	// }
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
 
-	return importerRequeue, nil
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
@@ -407,7 +407,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return ds.imageService.AdjustPVCSize(unpackedSize, unpackedSize)
+	return ds.diskService.AdjustPVCSize(&unpackedSize, unpackedSize)
 }
 
 func (ds HTTPDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {
@@ -470,7 +470,7 @@ func setPhaseConditionForPVCProvisioningImage(
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc, storageClass)
+	err := checker.CheckImportProcess(ctx, dv, pvc, &storageClass)
 	switch {
 	case err == nil:
 		if dv == nil {

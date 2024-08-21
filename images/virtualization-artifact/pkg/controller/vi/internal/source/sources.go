@@ -123,5 +123,5 @@ func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePh
 }
 
 type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName string) error
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error
 }
