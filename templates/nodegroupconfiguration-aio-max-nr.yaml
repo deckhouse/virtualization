@@ -1,0 +1,56 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: NodeGroupConfiguration
+metadata:
+  name: virt-increase-aio-max-nr
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  bundles:
+  - '*'
+  nodeGroups:
+  - '*'
+  weight: 30
+  content: |
+    # Copyright 2024 Flant JSC
+    #
+    # Licensed under the Apache License, Version 2.0 (the "License");
+    # you may not use this file except in compliance with the License.
+    # You may obtain a copy of the License at
+    #
+    #     http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+
+    function is_virtualization_enabled() {
+      if grep -E --color=never -q "vmx|svm" /proc/cpuinfo; then
+        return 0
+      else
+        return 1
+      fi
+    }
+    
+    if is_virtualization_enabled; then
+
+      current_value=$(cat /proc/sys/fs/aio-max-nr)
+      new_value=1048576
+      if [ $current_value -eq $new_value ]; then
+        exit 0
+      fi
+
+      bb-sync-file /etc/sysctl.d/99-virtualization-kernel-settings.conf - virtualization-kernel-settings-changed <<"EOF"
+      fs.aio-max-nr = 1048576
+    EOF
+
+      bb-event-on 'virtualization-kernel-settings-changed' '_virtualization-kernel-settings'
+      function _virtualization-kernel-settings() {
+        sysctl -p /etc/sysctl.conf
+      }
+
+      echo 1048576 > /proc/sys/fs/aio-max-nr
+      bb-log-info "aio-max-nr set to 1048576"
+    else
+      exit 0
+    fi
