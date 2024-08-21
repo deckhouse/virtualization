@@ -16,7 +16,6 @@
 PUBLIC_DOMAIN_PREFIX = "%PUBLIC_DOMAIN%://"
 CLUSTER_DOMAIN_PREFIX = "%CLUSTER_DOMAIN%://"
 
-
 def cluster_domain_san(san: str) -> str:
     """
     Create template to enrich specified san with a cluster domain

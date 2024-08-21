@@ -22,9 +22,8 @@ from lib.hooks.hook import Hook
 class CopyCustomCertificatesHook(Hook):
     CUSTOM_CERTIFICATES_SNAPSHOT_NAME = "custom_certificates"
 
-    def __init__(self,
-                 module_name: str = None):
-        super().__init__(module_name=module_name)
+    def __init__(self, module_name: str):
+        self.module_name = module_name
         self.queue = f"/modules/{self.module_name}/copy-custom-certificates"
 
     def generate_config(self) -> dict:

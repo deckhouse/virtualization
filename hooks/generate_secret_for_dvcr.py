@@ -51,8 +51,9 @@ class GenerateSecretHook(Hook):
                  *keys: Key,
                  secret_name: str,
                  namespace: str,
-                 module_name: str = None):
-        super().__init__(module_name=module_name)
+                 module_name: str,
+                 ):
+        self.module_name = module_name
         self.keys = keys
         self.secret_name = secret_name
         self.namespace = namespace
@@ -136,6 +137,7 @@ if __name__ == "__main__":
         Key(name="salt",
             value_path=f"{common.MODULE_NAME}.internal.dvcr.salt"),
         secret_name="dvcr-secrets",
-        namespace=common.NAMESPACE
+        namespace=common.NAMESPACE,
+        module_name=common.MODULE_NAME
     )
     hook.run()

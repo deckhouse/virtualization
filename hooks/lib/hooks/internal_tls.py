@@ -254,10 +254,10 @@ class GenerateCertificatesHook(Hook):
 
     def __init__(self, *certificate_requests: CertitifacteRequest,
                  namespace: str,
-                 module_name: str = None,
+                 module_name: str,
                  algo: str = "rsa",
                  ca_request: CACertitifacteRequest = None) -> None:
-        super().__init__(module_name=module_name)
+        self.module_name=module_name
         self.namespace = namespace
         self.algo = algo
         self.ca_request = ca_request

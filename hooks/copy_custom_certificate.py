@@ -15,7 +15,8 @@
 # limitations under the License.
 
 from lib.hooks.copy_custom_certificate import CopyCustomCertificatesHook
+import common
 
 if __name__ == "__main__":
-    hook = CopyCustomCertificatesHook()
+    hook = CopyCustomCertificatesHook(common.MODULE_NAME)
     hook.run()

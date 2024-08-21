@@ -22,6 +22,7 @@ import common
 def main():
     hook = ManageTenantSecretsHook(source_namespace=common.NAMESPACE,
                                    source_secret_name="virtualization-module-registry",
+                                   module_name=common.MODULE_NAME,
                                    pod_labels_to_follow={
                                        "app": "containerized-data-importer",
                                        "app.kubernetes.io/managed-by": "cdi-controller"
