@@ -25,6 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -46,6 +47,7 @@ func NewDV(name types.NamespacedName) *DV {
 					Name:      name.Name,
 					Annotations: map[string]string{
 						"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
+						cc.AnnUnpackFormat: "qcow2",
 					},
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -56,18 +58,16 @@ func NewDV(name types.NamespacedName) *DV {
 	}
 }
 
-func (b *DV) SetAccessMode(accessMode corev1.PersistentVolumeAccessMode) {
-	b.Resource.Spec.PVC.AccessModes = []corev1.PersistentVolumeAccessMode{accessMode}
-}
-
-func (b *DV) SetBindingMode(wffc bool) {
-	if !wffc {
-		b.AddAnnotation("cdi.kubevirt.io/storage.bind.immediate.requested", "true")
-	}
-}
-
-func (b *DV) SetPVC(storageClassName *string, size resource.Quantity) {
-	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName, size)
+func (b *DV) SetPVC(storageClassName *string,
+	size resource.Quantity,
+	accessMode corev1.PersistentVolumeAccessMode,
+	volumeMode corev1.PersistentVolumeMode,
+) {
+	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName,
+		size,
+		accessMode,
+		volumeMode,
+	)
 }
 
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {

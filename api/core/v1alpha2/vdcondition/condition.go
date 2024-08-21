@@ -53,8 +53,8 @@ const (
 	Provisioning ReadyReason = "Provisioning"
 	// ProvisioningNotStarted indicates that the provisioning process has not started yet.
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
-	// WaitForFirstConsumer indicates that the provisioning has been suspended: a created and scheduled virtual machine is awaited.
-	WaitForFirstConsumer ReadyReason = "WaitForFirstConsumer"
+	// WaitingForFirstConsumer indicates that the provisioning has been suspended: a created and scheduled virtual machine is awaited.
+	WaitingForFirstConsumer ReadyReason = "WaitingForFirstConsumer"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `VirtualDisk` is ready for use.

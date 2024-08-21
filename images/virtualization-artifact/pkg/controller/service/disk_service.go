@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -66,21 +68,24 @@ func (s DiskService) Start(
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
-	wffc bool,
 ) error {
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetPVC(storageClass, pvcSize)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
-	dvBuilder.SetBindingMode(wffc)
 
-	// WaitForFirstConsumer is mainly needed for local storage.
-	// To prevent virtual machine migrations from failing, we set PVC to RWO so that virtual machines definitely cannot migrate.
-	if wffc {
-		dvBuilder.SetAccessMode(corev1.ReadWriteOnce)
+	sc, err := s.GetStorageClass(ctx, storageClass)
+	if err != nil {
+		return err
 	}
+	sprofile, err := s.GetStorageProfile(ctx, storageClass)
+	if err != nil {
+		return err
+	}
+	storageCaps := s.parseVolumeMode(sprofile.Status)
 
-	err := s.client.Create(ctx, dvBuilder.GetResource())
+	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, storageCaps.AccessMode, storageCaps.VolumeMode)
+
+	err = s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
@@ -251,6 +256,92 @@ func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	return ""
 }
 
+func (s DiskService) GetStorageProfile(ctx context.Context, storageClassName *string) (*cdiv1.StorageProfile, error) {
+	sc, err := s.GetStorageClass(ctx, storageClassName)
+	if err != nil {
+		return nil, err
+	}
+	var sp cdiv1.StorageProfile
+	if err = s.client.Get(ctx, types.NamespacedName{Name: sc.GetName()}, &sp); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("storageProfile not found: %w", err)
+		}
+		return nil, err
+	}
+	return &sp, nil
+}
+
+type StorageCapabilities struct {
+	AccessMode corev1.PersistentVolumeAccessMode
+	VolumeMode corev1.PersistentVolumeMode
+}
+
+func (cp StorageCapabilities) IsEmpty() bool {
+	return cp.AccessMode == "" && cp.VolumeMode == ""
+}
+
+func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageCapabilities {
+	// FIXME: delete this after test
+	if true {
+		return StorageCapabilities{
+			AccessMode: corev1.ReadWriteOnce,
+			VolumeMode: corev1.PersistentVolumeFilesystem,
+		}
+	}
+	accessModeWeights := map[corev1.PersistentVolumeAccessMode]int{
+		corev1.ReadOnlyMany:     0,
+		corev1.ReadWriteOncePod: 1,
+		corev1.ReadWriteOnce:    2,
+		corev1.ReadWriteMany:    3,
+	}
+
+	volumeModeWeights := map[corev1.PersistentVolumeMode]int{
+		corev1.PersistentVolumeFilesystem: 0,
+		corev1.PersistentVolumeBlock:      1,
+	}
+
+	getAccessModeMax := func(modes []corev1.PersistentVolumeAccessMode) corev1.PersistentVolumeAccessMode {
+		weight := -1
+		var m corev1.PersistentVolumeAccessMode
+		for _, mode := range modes {
+			if accessModeWeights[mode] > weight {
+				weight = accessModeWeights[mode]
+				m = mode
+			}
+		}
+		return m
+	}
+
+	var scaps []StorageCapabilities
+	for _, cp := range status.ClaimPropertySets {
+		var mode corev1.PersistentVolumeMode
+		if cp.VolumeMode == nil || *cp.VolumeMode == "" {
+			mode = corev1.PersistentVolumeFilesystem
+		} else {
+			mode = *cp.VolumeMode
+		}
+		scaps = append(scaps, StorageCapabilities{
+			AccessMode: getAccessModeMax(cp.AccessModes),
+			VolumeMode: mode,
+		})
+	}
+	slices.SortFunc(scaps, func(a, b StorageCapabilities) int {
+		if c := cmp.Compare(accessModeWeights[a.AccessMode], accessModeWeights[b.AccessMode]); c != 0 {
+			return c
+		}
+		return cmp.Compare(volumeModeWeights[a.VolumeMode], volumeModeWeights[b.VolumeMode])
+	})
+
+	if len(scaps) == 0 {
+		return StorageCapabilities{
+			AccessMode: corev1.ReadWriteOnce,
+			VolumeMode: corev1.PersistentVolumeFilesystem,
+		}
+	}
+
+	return scaps[len(scaps)-1]
+}
+
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
 	return helper.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
 }
@@ -268,13 +359,7 @@ func (s DiskService) GetPersistentVolume(ctx context.Context, pvc *corev1.Persis
 }
 
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {
-	var err error
-
-	if storageClassName == nil || *storageClassName == "" {
-		err = s.checkDefaultStorageClass(ctx)
-	} else {
-		err = s.checkStorageClass(ctx, *storageClassName)
-	}
+	_, err := s.GetStorageClass(ctx, storageClassName)
 	if err != nil {
 		return err
 	}
@@ -321,36 +406,43 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 	return nil
 }
 
-func (s DiskService) checkDefaultStorageClass(ctx context.Context) error {
+func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
+	if storageClassName == nil || *storageClassName == "" {
+		return s.getDefaultStorageClass(ctx)
+	}
+	return s.getStorageClass(ctx, *storageClassName)
+}
+
+func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	var scs storev1.StorageClassList
 	err := s.client.List(ctx, &scs, &client.ListOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, sc := range scs.Items {
 		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
-			return nil
+			return &sc, nil
 		}
 	}
 
-	return ErrDefaultStorageClassNotFound
+	return nil, ErrDefaultStorageClassNotFound
 }
 
-func (s DiskService) checkStorageClass(ctx context.Context, storageClassName string) error {
+func (s DiskService) getStorageClass(ctx context.Context, storageClassName string) (*storev1.StorageClass, error) {
 	var sc storev1.StorageClass
 	err := s.client.Get(ctx, types.NamespacedName{
 		Name: storageClassName,
 	}, &sc, &client.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return ErrStorageClassNotFound
+			return nil, ErrStorageClassNotFound
 		}
 
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &sc, nil
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
