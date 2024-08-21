@@ -225,7 +225,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 			return false, err
 		}
 
-		return CleanUp(ctx, vi, ds)
+		return ds.CleanUp(ctx, vi)
 	case common.AnyTerminating(pod, dv, pvc, pv):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
