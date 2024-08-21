@@ -42,7 +42,7 @@ type ObjectRefDataSource struct {
 	importerService Importer
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
-	imageService    *service.ImageService
+	diskService     *service.DiskService
 }
 
 func NewObjectRefDataSource(
@@ -50,14 +50,14 @@ func NewObjectRefDataSource(
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
-	imageService *service.ImageService,
+	diskService *service.DiskService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		statService:     statService,
 		importerService: importerService,
 		dvcrSettings:    dvcrSettings,
 		client:          client,
-		imageService:    imageService,
+		diskService:     diskService,
 	}
 }
 
