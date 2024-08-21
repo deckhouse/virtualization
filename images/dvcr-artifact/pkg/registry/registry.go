@@ -32,8 +32,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/djherbis/buffer"
-	"github.com/djherbis/nio/v3"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -132,7 +130,7 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	progressMeter.Start()
 	defer progressMeter.Stop()
 
-	pipeReader, pipeWriter := nio.Pipe(buffer.New(pipeBufSize))
+	pipeReader, pipeWriter := io.Pipe()
 
 	informer := NewImageInformer()
 
@@ -169,7 +167,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 	sourceImageFilename string,
 	sourceImageSize int,
 	sourceImageReader io.ReadCloser,
-	pipeWriter *nio.PipeWriter,
+	pipeWriter io.WriteCloser,
 	informer *ImageInformer,
 ) error {
 	var tarWriter *tar.Writer
@@ -226,7 +224,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 
 	errsGroup, ctx := errgroup.WithContext(ctx)
 
-	imageInfoReader, imageInfoWriter := nio.Pipe(buffer.New(imageInfoSize))
+	imageInfoReader, imageInfoWriter := io.Pipe()
 
 	errsGroup.Go(func() error {
 		defer tarWriter.Close()
@@ -273,7 +271,7 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 
 func (p DataProcessor) uploadLayersAndImage(
 	ctx context.Context,
-	pipeReader *nio.PipeReader,
+	pipeReader io.ReadCloser,
 	sourceImageSize int,
 	informer *ImageInformer,
 ) error {

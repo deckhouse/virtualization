@@ -17,19 +17,43 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/importer"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/runnablegroup"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/server"
+)
+
+const (
+	flagProbeAddr = "health-probe-bind-address"
+	flagPprofAddr = "pprof-bind-address"
+
+	HealthProbeBindAddressEnv = "HEALTH_PROBE_BIND_ADDRESS"
+	PprofBindAddressEnv       = "PPROF_BIND_ADDRESS"
 )
 
 func init() {
 	klog.InitFlags(nil)
 	flag.Parse()
+}
+
+type Options struct {
+	ProbeAddr string
+	PprofAddr string
+}
+
+func NewOptions() Options {
+	return Options{}
+}
+
+func (o *Options) Flags(fs *flag.FlagSet) {
+	fs.StringVar(&o.ProbeAddr, flagProbeAddr, os.Getenv(HealthProbeBindAddressEnv), "The address the probe endpoint binds to.")
+	fs.StringVar(&o.PprofAddr, flagPprofAddr, os.Getenv(PprofBindAddressEnv), "The address the pprof endpoint binds to.")
 }
 
 func main() {
@@ -38,10 +62,31 @@ func main() {
 	logs.Progress.SetOutput(os.Stdout)
 	logs.Warn.SetOutput(os.Stderr)
 
+	opts := NewOptions()
+	opts.Flags(flag.CommandLine)
+	flag.Parse()
+
 	klog.Infoln("Starting registry importer")
 
+	rgroup := runnablegroup.NewRunnableGroup()
+
 	imp := importer.New()
-	if err := imp.Run(context.Background()); err != nil {
+	rgroup.Add(imp)
+
+	serverOptions := server.Options{
+		HealthProbeBindAddress: opts.ProbeAddr,
+		PprofBindAddress:       opts.PprofAddr,
+	}
+
+	srv, err := server.NewServer(serverOptions)
+	if err != nil {
+		klog.Fatalf("Error starting registry importer: %+v", err)
+	}
+	rgroup.Add(srv)
+
+	ctx := signals.SetupSignalHandler()
+
+	if err = rgroup.Run(ctx); err != nil {
 		klog.Fatalf("Error running registry importer: %+v", err)
 	}
 
