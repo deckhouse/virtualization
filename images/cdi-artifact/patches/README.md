@@ -35,6 +35,14 @@ Do not manage DataVolume CRD with cdi-operator. Module will install this CRD usi
 
 Set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
 
+#### `012-add-caps-for-deckhouse-provisioners.patch`
+
+Add capabilities for deckhouse provisioners to cdi StorageProfile.
+
+#### `013-support-converting-images-to-different-formats.patch`
+
+Support for converting images to different formats.
+
 #### `014-delete-service-monitor.patch`
 
 Removed the creation of a service monitor from the cdi-operator.

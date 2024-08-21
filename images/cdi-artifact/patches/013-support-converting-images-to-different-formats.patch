@@ -1,0 +1,231 @@
+diff --git a/pkg/common/common.go b/pkg/common/common.go
+index 7edc88040..9a2682d90 100644
+--- a/pkg/common/common.go
++++ b/pkg/common/common.go
+@@ -287,6 +287,8 @@ const (
+ 
+ 	// CDIControllerLeaderElectionHelperName is the name of the configmap that is used as a helper for controller leader election
+ 	CDIControllerLeaderElectionHelperName = "cdi-controller-leader-election-helper"
++
++	ConvertImageFormatEnv = "IMPORTER_CONVERT_IMAGE_FORMAT"
+ )
+ 
+ // ProxyPaths are all supported paths
+diff --git a/pkg/controller/common/util.go b/pkg/controller/common/util.go
+index 8cab9ab08..2b2c637dd 100644
+--- a/pkg/controller/common/util.go
++++ b/pkg/controller/common/util.go
+@@ -55,15 +55,16 @@ import (
+ 
+ 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+ 	cdiv1utils "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1/utils"
++	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
++	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
++	"sigs.k8s.io/controller-runtime/pkg/client"
++	"sigs.k8s.io/controller-runtime/pkg/client/fake"
++
+ 	"kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+ 	"kubevirt.io/containerized-data-importer/pkg/token"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+-	runtimecache "sigs.k8s.io/controller-runtime/pkg/cache"
+-	"sigs.k8s.io/controller-runtime/pkg/client"
+-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+ )
+ 
+ const (
+@@ -74,7 +75,8 @@ const (
+ 	ScratchVolName = "cdi-scratch-vol"
+ 
+ 	// AnnAPIGroup is the APIGroup for CDI
+-	AnnAPIGroup = "cdi.kubevirt.io"
++	AnnAPIGroup          = "cdi.kubevirt.io"
++	AnnDeckhouseApiGroup = "virt.deckhouse.io"
+ 	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC
+ 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
+ 	// AnnPodPhase is a PVC annotation indicating the related pod progress (phase)
+@@ -241,6 +243,7 @@ const (
+ 	// be dynamically provisioned. Its value is the name of the selected node.
+ 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
+ 
++	AnnUnpackFormat = AnnDeckhouseApiGroup + "/unpack.format"
+ 	// CloneUniqueID is used as a special label to be used when we search for the pod
+ 	CloneUniqueID = "cdi.kubevirt.io/storage.clone.cloneUniqeId"
+ 
+diff --git a/pkg/controller/datavolume/controller-base.go b/pkg/controller/datavolume/controller-base.go
+index a24523e80..9fc7a945b 100644
+--- a/pkg/controller/datavolume/controller-base.go
++++ b/pkg/controller/datavolume/controller-base.go
+@@ -48,6 +48,7 @@ import (
+ 	"sigs.k8s.io/controller-runtime/pkg/source"
+ 
+ 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+@@ -709,6 +710,9 @@ func (r *ReconcilerBase) createPvcForDatavolume(datavolume *cdiv1.DataVolume, pv
+ 		return nil, err
+ 	}
+ 	util.SetRecommendedLabels(newPvc, r.installerLabels, "cdi-controller")
++	if ann := datavolume.GetAnnotations()[cc.AnnUnpackFormat]; ann != "" {
++		newPvc.Annotations[cc.AnnUnpackFormat] = ann
++	}
+ 	if err := r.client.Create(context.TODO(), newPvc); err != nil {
+ 		return nil, err
+ 	}
+diff --git a/pkg/controller/import-controller.go b/pkg/controller/import-controller.go
+index 011be11f6..8c6368206 100644
+--- a/pkg/controller/import-controller.go
++++ b/pkg/controller/import-controller.go
+@@ -29,12 +29,13 @@ import (
+ 	"sigs.k8s.io/controller-runtime/pkg/source"
+ 
+ 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
++
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+ 	"kubevirt.io/containerized-data-importer/pkg/util/naming"
+-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+ )
+ 
+ const (
+@@ -99,6 +100,7 @@ type importPodEnvVar struct {
+ 	certConfigMapProxy string
+ 	extraHeaders       []string
+ 	secretExtraHeaders []string
++	convertImageFormat string
+ }
+ 
+ type importerPodArgs struct {
+@@ -542,6 +544,7 @@ func (r *ImportReconciler) createImportEnvVar(pvc *corev1.PersistentVolumeClaim)
+ 	podEnvVar := &importPodEnvVar{}
+ 	podEnvVar.source = cc.GetSource(pvc)
+ 	podEnvVar.contentType = string(cc.GetPVCContentType(pvc))
++	podEnvVar.convertImageFormat = getValueFromAnnotation(pvc, cc.AnnUnpackFormat)
+ 
+ 	var err error
+ 	if podEnvVar.source != cc.SourceNone {
+@@ -1296,6 +1299,10 @@ func makeImportEnv(podEnvVar *importPodEnvVar, uid types.UID) []corev1.EnvVar {
+ 			Name:  common.Preallocation,
+ 			Value: strconv.FormatBool(podEnvVar.preallocation),
+ 		},
++		{
++			Name:  common.ConvertImageFormatEnv,
++			Value: podEnvVar.convertImageFormat,
++		},
+ 	}
+ 	if podEnvVar.secretName != "" && podEnvVar.source != cc.SourceGCS {
+ 		env = append(env, corev1.EnvVar{
+diff --git a/pkg/controller/populators/populator-base.go b/pkg/controller/populators/populator-base.go
+index 562c327f7..1713bc58a 100644
+--- a/pkg/controller/populators/populator-base.go
++++ b/pkg/controller/populators/populator-base.go
+@@ -179,6 +179,9 @@ func (r *ReconcilerBase) createPVCPrime(pvc *corev1.PersistentVolumeClaim, sourc
+ 	if _, ok := pvc.Annotations[cc.AnnPodRetainAfterCompletion]; ok {
+ 		annotations[cc.AnnPodRetainAfterCompletion] = pvc.Annotations[cc.AnnPodRetainAfterCompletion]
+ 	}
++	if _, ok := pvc.Annotations[cc.AnnUnpackFormat]; ok {
++		annotations[cc.AnnUnpackFormat] = pvc.Annotations[cc.AnnUnpackFormat]
++	}
+ 
+ 	// Assemble PVC' spec
+ 	pvcPrime := &corev1.PersistentVolumeClaim{
+diff --git a/pkg/image/qemu.go b/pkg/image/qemu.go
+index 651fb5fc8..85bd85672 100644
+--- a/pkg/image/qemu.go
++++ b/pkg/image/qemu.go
+@@ -61,6 +61,7 @@ type ImgInfo struct {
+ // QEMUOperations defines the interface for executing qemu subprocesses
+ type QEMUOperations interface {
+ 	ConvertToRawStream(*url.URL, string, bool) error
++	ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error
+ 	Resize(string, resource.Quantity, bool) error
+ 	Info(url *url.URL) (*ImgInfo, error)
+ 	Validate(*url.URL, int64) error
+@@ -114,6 +115,36 @@ func NewQEMUOperations() QEMUOperations {
+ 	return &qemuOperations{}
+ }
+ 
++func convertTo(format, src, dest string, preallocate bool) error {
++	switch format {
++	case "qcow2", "vmdk", "vdi", "iso", "raw":
++		// Do nothing.
++	default:
++		format = "raw"
++	}
++	args := []string{"convert", "-t", "writeback", "-p", "-O", format, src, dest}
++	var err error
++
++	if preallocate {
++		err = addPreallocation(args, convertPreallocationMethods, func(args []string) ([]byte, error) {
++			return qemuExecFunction(nil, reportProgress, "qemu-img", args...)
++		})
++	} else {
++		klog.V(1).Infof("Running qemu-img with args: %v", args)
++		_, err = qemuExecFunction(nil, reportProgress, "qemu-img", args...)
++	}
++	if err != nil {
++		os.Remove(dest)
++		errorMsg := fmt.Sprintf("could not convert image to %s", format)
++		if nbdkitLog, err := os.ReadFile(common.NbdkitLogPath); err == nil {
++			errorMsg += " " + string(nbdkitLog)
++		}
++		return errors.Wrap(err, errorMsg)
++	}
++
++	return nil
++}
++
+ func convertToRaw(src, dest string, preallocate bool) error {
+ 	args := []string{"convert", "-t", "writeback", "-p", "-O", "raw", src, dest}
+ 	var err error
+@@ -145,6 +176,13 @@ func (o *qemuOperations) ConvertToRawStream(url *url.URL, dest string, prealloca
+ 	return convertToRaw(url.String(), dest, preallocate)
+ }
+ 
++func (o *qemuOperations) ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error {
++	if len(url.Scheme) > 0 && url.Scheme != "nbd+unix" {
++		return fmt.Errorf("not valid schema %s", url.Scheme)
++	}
++	return convertTo(format, url.String(), dest, preallocate)
++}
++
+ // convertQuantityToQemuSize translates a quantity string into a Qemu compatible string.
+ func convertQuantityToQemuSize(size resource.Quantity) string {
+ 	int64Size, asInt := size.AsInt64()
+@@ -246,6 +284,10 @@ func ConvertToRawStream(url *url.URL, dest string, preallocate bool) error {
+ 	return qemuIterface.ConvertToRawStream(url, dest, preallocate)
+ }
+ 
++func ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error {
++	return qemuIterface.ConvertToFormatStream(url, format, dest, preallocate)
++}
++
+ // Validate does basic validation of a qemu image
+ func Validate(url *url.URL, availableSize int64) error {
+ 	return qemuIterface.Validate(url, availableSize)
+diff --git a/pkg/importer/data-processor.go b/pkg/importer/data-processor.go
+index ca7b2e853..dd983cd62 100644
+--- a/pkg/importer/data-processor.go
++++ b/pkg/importer/data-processor.go
+@@ -276,8 +276,12 @@ func (dp *DataProcessor) convert(url *url.URL) (ProcessingPhase, error) {
+ 	if err != nil {
+ 		return ProcessingPhaseError, err
+ 	}
+-	klog.V(3).Infoln("Converting to Raw")
+-	err = qemuOperations.ConvertToRawStream(url, dp.dataFile, dp.preallocation)
++	format := "raw"
++	if f := os.Getenv(common.ConvertImageFormatEnv); f != "" {
++		format = f
++	}
++	klog.V(3).Infoln("Converting to", "format", format)
++	err = qemuOperations.ConvertToFormatStream(url, format, dp.dataFile, dp.preallocation)
+ 	if err != nil {
+ 		return ProcessingPhaseError, errors.Wrap(err, "Conversion to Raw failed")
+ 	}

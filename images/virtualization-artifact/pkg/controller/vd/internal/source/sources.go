@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -131,6 +132,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	dv *cdiv1.DataVolume,
 	vd *virtv2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
+	sc *storev1.StorageClass,
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
@@ -144,12 +146,11 @@ func setPhaseConditionForPVCProvisioningDisk(
 			condition.Message = "Waiting for the pvc importer to be created"
 			return nil
 		}
-
-		isWFFC := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
 		if isWFFC && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.WaitForFirstConsumer
+			condition.Reason = vdcondition.WaitingForFirstConsumer
 			condition.Message = "The provisioning has been suspended: a created and scheduled virtual machine is awaited"
 			return nil
 		}

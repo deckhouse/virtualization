@@ -36,16 +36,6 @@ spec:
             spec:
               type: object
               properties:
-                bindingMode:
-                  type: string
-                  enum:
-                    - "WaitForFirstConsumer"
-                    - "Immediate"
-                  description: |
-                    The types of disk binding modes are:
-
-                    * `WaitForFirstConsumer` — delay the provisioning of a disk until a `VirtualMachine` that uses the disk is scheduled.
-                    * `Immediate` — start creating the disk without waiting for the scheduling of the virtual machine.
                 persistentVolumeClaim:
                   type: object
                   description: |
