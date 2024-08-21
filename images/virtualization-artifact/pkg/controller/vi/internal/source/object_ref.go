@@ -21,9 +21,12 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	common "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -34,8 +37,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
+
+const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
 	statService     Stat
@@ -62,6 +68,128 @@ func NewObjectRefDataSource(
 }
 
 func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
+
+	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
+	if err != nil {
+		return false, err
+	}
+
+	switch {
+	case isDiskProvisioningFinished(condition):
+		log.Info("Disk provisioning finished: clean up")
+
+		setPhaseConditionForFinishedImage(pv, pvc, &condition, &vi.Status.Phase, supgen)
+
+		// Protect Ready Disk and underlying PVC and PV.
+		err = ds.diskService.Protect(ctx, vi, nil, pvc, pv)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.diskService.Unprotect(ctx, dv)
+		if err != nil {
+			return false, err
+		}
+
+		return CleanUpSupplements(ctx, vi, ds)
+	case cc.AnyTerminating(dv, pvc, pv):
+		log.Info("Waiting for supplements to be terminated")
+	case dv == nil:
+		log.Info("Start import to PVC")
+
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
+
+		if !dvcrDataSource.IsReady() {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.ProvisioningFailed
+			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
+			return false, nil
+		}
+
+		vi.Status.Progress = "0%"
+		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
+
+		var diskSize resource.Quantity
+		diskSize, err = ds.getPVCSize(dvcrDataSource)
+		if err != nil {
+			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		var source *cdiv1.DataVolumeSource
+		source, err = ds.getSource(supgen, dvcrDataSource)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, &storageClass, source, vi, supgen, false)
+		if err != nil {
+			return false, err
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "PVC Provisioner not found: create the new one."
+
+		return true, nil
+	case pvc == nil:
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "PVC not found: waiting for creation."
+		return true, nil
+	case ds.diskService.IsImportDone(dv, pvc):
+		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Phase = virtv2.ImageReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.Ready
+		condition.Message = ""
+
+		vi.Status.Progress = "100%"
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+	default:
+		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+
+		err = ds.diskService.Protect(ctx, vi, dv, pvc, pv)
+		if err != nil {
+			return false, err
+		}
+
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
+		if err != nil {
+			return false, err
+		}
+
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -258,4 +386,39 @@ func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2
 	}
 
 	return requeue, nil
+}
+
+func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSource) (resource.Quantity, error) {
+	if !dvcrDataSource.IsReady() {
+		return resource.Quantity{}, errors.New("dvcr data source is not ready")
+	}
+
+	unpackedSize, err := resource.ParseQuantity(dvcrDataSource.GetSize().UnpackedBytes)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", dvcrDataSource.GetSize().UnpackedBytes, err)
+	}
+
+	if unpackedSize.IsZero() {
+		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
+	}
+
+	return ds.diskService.AdjustPVCSize(&unpackedSize, unpackedSize)
+}
+
+func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
+	if !dvcrDataSource.IsReady() {
+		return nil, errors.New("dvcr data source is not ready")
+	}
+
+	url := common.DockerRegistrySchemePrefix + dvcrDataSource.GetTarget()
+	secretName := sup.DVCRAuthSecretForDV().Name
+	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
+
+	return &cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
+			URL:           &url,
+			SecretRef:     &secretName,
+			CertConfigMap: &certConfigMapName,
+		},
+	}, nil
 }
