@@ -89,7 +89,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 			return false, err
 		}
 
-		return CleanUpSupplements(ctx, vi, ds)
+		return CleanUp(ctx, vi, ds)
 	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
@@ -225,7 +225,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 			return false, err
 		}
 
-		return CleanUp(ctx, vi, ds)
+		return CleanUpSupplements(ctx, vi, ds)
 	case common.AnyTerminating(pod, dv, pvc, pv):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
