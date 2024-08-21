@@ -137,6 +137,7 @@ if __name__ == "__main__":
         Key(name="salt",
             value_path=f"{common.MODULE_NAME}.internal.dvcr.salt"),
         secret_name="dvcr-secrets",
-        namespace=common.NAMESPACE
+        namespace=common.NAMESPACE,
+        module_name=common.MODULE_NAME
     )
     hook.run()

@@ -5,7 +5,7 @@ tasks:
     cmds:
       - task test:prepare
       - task test:run
-      # - task test:clean
+      - task test:clean
 
   test:prepare:
     cmds:
