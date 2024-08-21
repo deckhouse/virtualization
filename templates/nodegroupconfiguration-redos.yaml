@@ -1,12 +1,12 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
-  name: redos-selinux-packages
+  name: virt-redos-selinux-packages
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
 spec:
   bundles:
   - 'redos'
-  weight: 100
+  weight: 30
   nodeGroups:
    - '*'
   content: |
@@ -23,12 +23,6 @@ spec:
     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     # See the License for the specific language governing permissions and
     # limitations under the License.
-
-    # bb-event-on 'bb-package-installed' 'post-install'
-    # post-install() {
-    #   bb-log-info "Setting reboot flag due to selinux-policy was installed"
-    #   bb-flag-set reboot
-    # }
 
     # Check if SELinux is enabled
     function is_selinux_enabled() {
@@ -57,6 +51,11 @@ spec:
     if is_selinux_enabled; then
 
       if is_package_installed "selinux-policy"; then
+        
+        if is_package_installed "container-selinux"; then 
+          exit 0
+        fi
+        
         bb-log-info "install container-selinux"
         install_package "container-selinux"
       else
