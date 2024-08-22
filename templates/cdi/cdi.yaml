@@ -20,7 +20,7 @@ spec:
   config:
     podResourceRequirements:
       limits:
-        cpu: 750m
+        cpu: 1000m
         memory: 600M
       requests:
         cpu: 100m
