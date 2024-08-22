@@ -85,7 +85,7 @@ type Spec struct {
 }
 
 type Settings struct {
-	Loglevel            string   `yaml:"logLevel"`
+	Loglevel            string   `yaml:"logLevel,omitempty"`
 	VirtualMachineCIDRs []string `yaml:"virtualMachineCIDRs"`
 	Dvcr                Dvcr     `yaml:"dvcr"`
 	HighAvailability    bool     `yaml:"highAvailability,omitempty"`

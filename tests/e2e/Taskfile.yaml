@@ -11,9 +11,9 @@ tasks:
   copy:
     cmds:
       - |
-        rm --force --recursive /tmp/testdata
+        rm -fr /tmp/testdata
         mkdir /tmp/testdata
-        cp --archive testdata/virtualization-resources /tmp/testdata/virtualization-resources
+        cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
   virtctl:
     cmds:
       - |
@@ -38,7 +38,8 @@ tasks:
       - virtctl
       - ginkgo
     cmds:
-      - ginkgo --focus "Virtualization resources"
+      - export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+      - ginkgo --focus "Virtualization resources" -v
 
   run_local:
     desc: "Run locally e2e tests"
@@ -49,7 +50,7 @@ tasks:
     cmds:
       - |
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-        ginkgo --focus "Virtualization resources"
+        ginkgo --focus "Virtualization resources" -v
 
   run_one:
     desc: "Run one test or group"

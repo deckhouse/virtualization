@@ -3,10 +3,6 @@ kind: Kustomization
 nameSuffix: -embedded-cloudinit
 resources:
   - ../../base
-# remove provisioning
-#cloud-config
-# passwd: cloud
-# testcases
 patches:
   - patch: |-
       - op: replace
