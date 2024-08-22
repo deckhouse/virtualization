@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.3](https://github.com/deckhouse/virtualization/compare/v0.12.2...v0.12.3) (2024-08-22)
+
+
+### Bug Fixes
+
+* **provisioner:** fix provisioner pods buffer issue ([#302](https://github.com/deckhouse/virtualization/issues/302)) ([e332b64](https://github.com/deckhouse/virtualization/commit/e332b64dfc5e592eac397c9168d8dec4d823d241))
+* **vd,vmbda:** write occurred data volume errors to condition ([4694b5e](https://github.com/deckhouse/virtualization/commit/4694b5e917039f74fdfbb70d26ec7b5721a6b421))
+* **vd:** write error to condition if pvc size is smaller than virtual size of source image ([de61f96](https://github.com/deckhouse/virtualization/commit/de61f9672d0cb4b81fd5b705b41d8cacc2612583))
+* **vd:** write size error to condition ([de61f96](https://github.com/deckhouse/virtualization/commit/de61f9672d0cb4b81fd5b705b41d8cacc2612583))
+* **vm:** added processing of an empty phase for a VM and KVVM ([#274](https://github.com/deckhouse/virtualization/issues/274)) ([683bb70](https://github.com/deckhouse/virtualization/commit/683bb70318210e89755de237d813a9720911395d))
+* **vmbda:** write to condition message if disk is already attached to vm spec ([#267](https://github.com/deckhouse/virtualization/issues/267)) ([8b5551d](https://github.com/deckhouse/virtualization/commit/8b5551d327b2db3cebd570fc69b9d8dcab328fee))
+* **vmclass:** add missing nodeSelector for discovery type ([#293](https://github.com/deckhouse/virtualization/issues/293)) ([1a461a4](https://github.com/deckhouse/virtualization/commit/1a461a4a50fa00144058a675da18baebb82ca390))
+* **vmip:** fix bug of creating two VirtualMachineIPAddress with the same name in different namespaces ([#287](https://github.com/deckhouse/virtualization/issues/287)) ([af7dd97](https://github.com/deckhouse/virtualization/commit/af7dd975fd5232d2f44cbd84a3465761230517f2))
+* **vmip:** fix bug with create VirtualMachineIPAddress in different namespace, when VirtualMahineIPAddressLease 'Released' ([#296](https://github.com/deckhouse/virtualization/issues/296)) ([4425e79](https://github.com/deckhouse/virtualization/commit/4425e7924f6e72915c5a881ce34cba2a8a144d95))
+
 ## [0.12.2](https://github.com/deckhouse/virtualization/compare/v0.12.1...v0.12.2) (2024-08-14)
 
 
