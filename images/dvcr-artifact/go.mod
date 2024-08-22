@@ -7,8 +7,6 @@ toolchain go1.21.0
 require (
 	github.com/containers/image/v5 v5.19.1
 	github.com/distribution/reference v0.5.0
-	github.com/djherbis/buffer v1.1.0
-	github.com/djherbis/nio/v3 v3.0.1
 	github.com/docker/cli v23.0.5+incompatible
 	github.com/golang/snappy v0.0.3
 	github.com/google/go-containerregistry v0.15.2

@@ -54,7 +54,6 @@ function run() {
         usage_exit 1
     fi
     exec -a "${PROCESS_NAME}" kubectl port-forward "services/${SERVICE}" "${PYROSCOPE_PORT}:${PORT}" &
-    echo  "kubectl port-forward services/${SERVICE} ${PYROSCOPE_PORT}:${PORT}"
     docker compose -f "${DOCKER_COMPOSE_FILE}" up -d
 }
 

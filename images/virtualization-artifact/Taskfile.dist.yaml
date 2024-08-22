@@ -673,14 +673,6 @@ tasks:
     desc: "Wipe local pyroscope for vm-route-forge"
     cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
 
-  pyroscope:local:run:dvcr-importer:
-    desc: "Run pyroscope locally for dvcr-importer"
-    cmd: ./hack/pyroscope.sh run --namespace=importer-test --service=importer-fedora40-server-test --port=8081
-
-  pyroscope:local:wipe:dvcr-importer:
-    desc: "Wipe local pyroscope for dvcr-importer"
-    cmd: ./hack/pyroscope.sh wipe --namespace=importer-test
-
   _copy_d8_registry_secret:
     internal: true
     vars:
