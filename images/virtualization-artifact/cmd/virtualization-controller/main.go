@@ -228,7 +228,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmop.NewController(ctx, mgr, log); err != nil {
+	if err = vmop.SetupController(ctx, mgr, log); err != nil {
+		os.Exit(1)
+	}
+	if err = vmop.SetupGC(mgr, log); err != nil {
 		os.Exit(1)
 	}
 

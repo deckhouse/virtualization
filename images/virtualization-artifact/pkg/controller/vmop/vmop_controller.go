@@ -35,11 +35,11 @@ const (
 	controllerName = "vmop-controller"
 )
 
-func NewController(
+func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	logger *slog.Logger,
-) (controller.Controller, error) {
+) error {
 	reconciler := NewReconciler()
 
 	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*ReconcilerState](
@@ -59,20 +59,20 @@ func NewController(
 		RecoverPanic: ptr.To(true),
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineOperation{}).
 		WithValidator(NewValidator(logger)).
 		Complete(); err != nil {
-		return nil, err
+		return err
 	}
 
 	logger.Info("Initialized VirtualMachineOperation controller")
-	return c, nil
+	return nil
 }
