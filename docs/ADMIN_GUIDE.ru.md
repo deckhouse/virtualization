@@ -229,10 +229,11 @@ metadata:
 spec:
   cpu:
     discovery:
-      matchExpressions:
-        - key: group
-          operator: In
-          values: ["green"]
+      nodeSelector:
+        matchExpressions:
+          - key: group
+            operator: In
+            values: ["green"]
     type: Discovery
   sizingPolicies: { ... }
 ```
@@ -250,9 +251,10 @@ spec:
   cpu:
     # сконфигурировать универсальный vCPU для заданного набора узлов
     discovery:
-      matchExpressions:
-        - key: node-role.kubernetes.io/control-plane
-          operator: DoesNotExist
+      nodeSelector:
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
     type: Discovery
   # разрешать запуск ВМ с данным классом только на узлах группы worker
   nodeSelector:
@@ -333,9 +335,10 @@ spec:
   spec:
     cpu:
       discovery:
-        matchExpressions:
-          - key: node-role.kubernetes.io/control-plane
-            operator: DoesNotExist
+        nodeSelector:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
       type: Discovery
   ```
 
