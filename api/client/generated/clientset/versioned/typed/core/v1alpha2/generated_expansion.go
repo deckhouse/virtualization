@@ -21,6 +21,8 @@ type ClusterVirtualImageExpansion interface{}
 
 type VirtualDiskExpansion interface{}
 
+type VirtualDiskSnapshotExpansion interface{}
+
 type VirtualImageExpansion interface{}
 
 type VirtualMachineExpansion interface{}

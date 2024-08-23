@@ -111,6 +111,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
 	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == 1 {
+		snapshotting, _ := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+		if snapshotting.Status == metav1.ConditionTrue {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vdcondition.ResizingNotAvailable
+			condition.Message = "The virtual disk cannot be selected for resizing as it is currently snapshotting."
+			return reconcile.Result{}, nil
+		}
+
 		err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -133,7 +141,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		condition.Message = ""
 	default:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.NotRequested
+		condition.Reason = vdcondition.ResizingNotRequested
 		condition.Message = ""
 	}
 

@@ -92,6 +92,11 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		condition.Reason = vdcondition.ClusterImageNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.VirtualDiskSnapshotNotReady
+		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)
 	}

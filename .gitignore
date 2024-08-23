@@ -39,6 +39,7 @@ tmp/*
 tmp
 # Kubernetes
 .kube
+local.Dockerfile
 
 # direnv
 .envrc

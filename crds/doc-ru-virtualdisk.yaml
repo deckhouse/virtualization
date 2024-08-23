@@ -69,14 +69,14 @@ spec:
                             * xz.
                     objectRef:
                       description: |
-                        Для создания образа использовать существующий `VirtualImage` или `ClusterVirtualImage`.
+                        Для создания образа использовать существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDiskSnapshot`.
                       properties:
                         kind:
                           description: |
-                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
+                            Ссылка на существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDiskSnapshot`.
                         name:
                           description: |
-                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
+                            Имя существующего `VirtualImage`, `ClusterVirtualImage` или `VirtualDiskSnapshot`.
                     type:
                       description: |
                         Тип источника, из которого будет создан диск:

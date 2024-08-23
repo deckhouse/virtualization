@@ -56,6 +56,7 @@ func SetupController(
 		internal.NewBlockDeviceHandler(client, recorder),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
+		internal.NewFilesystemHandler(),
 		internal.NewPodHandler(client),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncMetadataHandler(client),

@@ -25,9 +25,11 @@ import (
 	"strconv"
 	"strings"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -39,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
@@ -131,6 +134,7 @@ func main() {
 
 	// Override content type to JSON so proxy can rewrite payloads.
 	cfg.ContentType = apiruntime.ContentTypeJSON
+	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
 
 	leaderElectionNS := os.Getenv(common.PodNamespaceVar)
 	if leaderElectionNS == "" {
@@ -146,6 +150,7 @@ func main() {
 		virtv2alpha1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
+		vsv1.AddToScheme,
 	} {
 		err = f(scheme)
 		if err != nil {
@@ -181,6 +186,12 @@ func main() {
 
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	restClient, err := rest.UnversionedRESTClientFor(cfg)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -240,10 +251,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = vmop.SetupController(ctx, mgr, log); err != nil {
+	if _, err = vmop.NewController(ctx, mgr, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
+	if _, err = vdsnapshot.NewController(ctx, mgr, log, restClient); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

@@ -106,7 +106,7 @@ spec:
                     * InProgress - the disk is in the process of being attached.
                     * Attached - the disk is attached to virtual machine.
                     * Failed - there was a problem with attaching the disk.
-                    * Terminating - The process of resource deletion is in progress.
+                    * Terminating - the process of resource deletion is in progress.
                   enum:
                     - "Pending"
                     - "InProgress"

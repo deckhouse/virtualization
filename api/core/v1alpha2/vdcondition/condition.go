@@ -26,6 +26,8 @@ const (
 	ReadyType Type = "Ready"
 	// ResizedType indicates whether the disk resizing operation is completed.
 	ResizedType Type = "Resized"
+	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
+	SnapshottingType Type = "Snapshotting"
 )
 
 type (
@@ -35,6 +37,8 @@ type (
 	ReadyReason = string
 	// ResizedReason represents the various reasons for the Resized condition type.
 	ResizedReason = string
+	// SnapshottingReason represents the various reasons for the Snapshotting condition type.
+	SnapshottingReason = string
 )
 
 const (
@@ -46,6 +50,8 @@ const (
 	ImageNotReady DatasourceReadyReason = "ImageNotReady"
 	// ClusterImageNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
 	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
+	// VirtualDiskSnapshotNotReady indicates that the `VirtualDiskSnapshot` datasource is not ready, which prevents the import process from starting.
+	VirtualDiskSnapshotNotReady DatasourceReadyReason = "VirtualDiskSnapshot"
 
 	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
@@ -62,10 +68,19 @@ const (
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
 	Lost ReadyReason = "PVCLost"
 
-	// NotRequested indicates that the resize operation has not been requested yet.
-	NotRequested ResizedReason = "NotRequested"
+	// ResizingNotRequested indicates that the resize operation has not been requested yet.
+	ResizingNotRequested ResizedReason = "NotRequested"
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"
 	// Resized indicates that the resize operation has been successfully completed.
 	Resized ResizedReason = "Resized"
+	// ResizingNotAvailable indicates that the resize operation is not available for now.
+	ResizingNotAvailable SnapshottingReason = "NotAvailable"
+
+	// SnapshottingNotRequested indicates that the snapshotting operation has been successfully started and is in progress now.
+	SnapshottingNotRequested SnapshottingReason = "NotRequested"
+	// Snapshotting indicates that the snapshotting operation has been successfully started and is in progress now.
+	Snapshotting SnapshottingReason = "Snapshotting"
+	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
+	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
 )

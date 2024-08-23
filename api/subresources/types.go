@@ -60,3 +60,21 @@ type VirtualMachineAddVolume struct {
 type VirtualMachineRemoveVolume struct {
 	metav1.TypeMeta
 }
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineFreeze struct {
+	metav1.TypeMeta
+
+	UnfreezeTimeout *metav1.Duration
+}
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineUnfreeze struct {
+	metav1.TypeMeta
+}

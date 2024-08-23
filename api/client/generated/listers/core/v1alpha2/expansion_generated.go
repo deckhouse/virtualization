@@ -29,6 +29,14 @@ type VirtualDiskListerExpansion interface{}
 // VirtualDiskNamespaceLister.
 type VirtualDiskNamespaceListerExpansion interface{}
 
+// VirtualDiskSnapshotListerExpansion allows custom methods to be added to
+// VirtualDiskSnapshotLister.
+type VirtualDiskSnapshotListerExpansion interface{}
+
+// VirtualDiskSnapshotNamespaceListerExpansion allows custom methods to be added to
+// VirtualDiskSnapshotNamespaceLister.
+type VirtualDiskSnapshotNamespaceListerExpansion interface{}
+
 // VirtualImageListerExpansion allows custom methods to be added to
 // VirtualImageLister.
 type VirtualImageListerExpansion interface{}

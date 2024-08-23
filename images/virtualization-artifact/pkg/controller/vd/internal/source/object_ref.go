@@ -45,6 +45,8 @@ type ObjectRefDataSource struct {
 	statService *service.StatService
 	diskService *service.DiskService
 	client      client.Client
+
+	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
 }
 
 func NewObjectRefDataSource(
@@ -53,9 +55,10 @@ func NewObjectRefDataSource(
 	client client.Client,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService: statService,
-		diskService: diskService,
-		client:      client,
+		statService:      statService,
+		diskService:      diskService,
+		client:           client,
+		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(diskService),
 	}
 }
 
@@ -64,6 +67,10 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+
+	if vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
+		return ds.vdSnapshotSyncer.Sync(ctx, vd, &condition)
+	}
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
@@ -214,6 +221,10 @@ func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2
 func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return errors.New("object ref missed for data source")
+	}
+
+	if vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
+		return ds.vdSnapshotSyncer.Validate(ctx, vd)
 	}
 
 	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, ds.client)

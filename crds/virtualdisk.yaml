@@ -167,19 +167,20 @@ spec:
                     objectRef:
                       type: object
                       description: |
-                        Use an existing `VirtualImage` or `ClusterVirtualImage` to create an image.
+                        Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot` to create a disk.
                       required: ["kind", "name"]
                       properties:
                         kind:
                           type: string
-                          description: A kind of existing `VirtualImage` or `ClusterVirtualImage`.
+                          description: A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.
                           enum:
-                            - "ClusterVirtualImage"
                             - "VirtualImage"
+                            - "ClusterVirtualImage"
+                            - "VirtualDiskSnapshot"
                         name:
                           type: string
                           description: |
-                            A name of existing `VirtualImage` or `ClusterVirtualImage`.
+                            A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.
                   oneOf:
                     - properties:
                         type:

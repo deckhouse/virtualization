@@ -65,3 +65,23 @@ type VirtualMachineAddVolume struct {
 type VirtualMachineRemoveVolume struct {
 	metav1.TypeMeta `json:",inline"`
 }
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineFreeze struct {
+	metav1.TypeMeta `json:",inline"`
+
+	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+}
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineUnfreeze struct {
+	metav1.TypeMeta `json:",inline"`
+}

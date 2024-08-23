@@ -27,6 +27,8 @@ type Interface interface {
 	ClusterVirtualImages() ClusterVirtualImageInformer
 	// VirtualDisks returns a VirtualDiskInformer.
 	VirtualDisks() VirtualDiskInformer
+	// VirtualDiskSnapshots returns a VirtualDiskSnapshotInformer.
+	VirtualDiskSnapshots() VirtualDiskSnapshotInformer
 	// VirtualImages returns a VirtualImageInformer.
 	VirtualImages() VirtualImageInformer
 	// VirtualMachines returns a VirtualMachineInformer.
@@ -62,6 +64,11 @@ func (v *version) ClusterVirtualImages() ClusterVirtualImageInformer {
 // VirtualDisks returns a VirtualDiskInformer.
 func (v *version) VirtualDisks() VirtualDiskInformer {
 	return &virtualDiskInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualDiskSnapshots returns a VirtualDiskSnapshotInformer.
+func (v *version) VirtualDiskSnapshots() VirtualDiskSnapshotInformer {
+	return &virtualDiskSnapshotInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualImages returns a VirtualImageInformer.

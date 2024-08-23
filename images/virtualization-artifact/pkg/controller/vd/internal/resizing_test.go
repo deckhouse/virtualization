@@ -114,7 +114,7 @@ var _ = Describe("Resizing handler Run", func() {
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.NotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
 
 	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
@@ -126,7 +126,7 @@ var _ = Describe("Resizing handler Run", func() {
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.NotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
 
 	It("Resize is not requested (vd.spec.size == pvc.spec.size)", func() {
@@ -136,7 +136,7 @@ var _ = Describe("Resizing handler Run", func() {
 		Expect(err).To(BeNil())
 		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.NotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
 
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {

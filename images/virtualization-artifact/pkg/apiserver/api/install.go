@@ -63,6 +63,8 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/portforward":  store.PortForwardREST(),
 		"virtualmachines/addvolume":    store.AddVolumeREST(),
 		"virtualmachines/removevolume": store.RemoveVolumeREST(),
+		"virtualmachines/freeze":       store.FreezeREST(),
+		"virtualmachines/unfreeze":     store.UnfreezeREST(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[v1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo

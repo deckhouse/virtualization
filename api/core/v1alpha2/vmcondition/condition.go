@@ -35,6 +35,7 @@ const (
 	TypeAgentVersionNotSupported            Type = "AgentVersionNotSupported"
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
+	TypeFilesystemReady                     Type = "FilesystemReady"
 )
 
 type Reason string
@@ -79,4 +80,8 @@ const (
 	ReasonVmIsNotRunning              Reason = "VirtualMachineNotRunning"
 	ReasonVmIsRunning                 Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError Reason = "InternalVirtualMachineError"
+
+	ReasonFilesystemReady    Reason = "Ready"
+	ReasonFilesystemFrozen   Reason = "Frozen"
+	ReasonFilesystemNotReady Reason = "NotReady"
 )

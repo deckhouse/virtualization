@@ -56,6 +56,24 @@ func (m *Manager) Update(c metav1.Condition) {
 	meta.SetStatusCondition(&m.conds, c)
 }
 
+type Conditioner interface {
+	Condition() metav1.Condition
+}
+
+// Update2 TODO will be refactored soon.
+func (m *Manager) Update2(conditioner Conditioner) {
+	c := conditioner.Condition()
+
+	if i, found := m.indexConds[c.Type]; found {
+		if !equalConditions(c, m.conds[i]) {
+			m.conds[i] = c
+		}
+		return
+	}
+	m.conds = append(m.conds, c)
+	m.indexConds[c.Type] = len(m.conds) - 1
+}
+
 func (m *Manager) Generate() []metav1.Condition {
 	return slices.Clone(m.conds)
 }

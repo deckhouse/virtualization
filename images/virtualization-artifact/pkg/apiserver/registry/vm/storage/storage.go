@@ -46,6 +46,8 @@ type VirtualMachineStorage struct {
 	portforward   *vmrest.PortForwardREST
 	addVolume     *vmrest.AddVolumeREST
 	removeVolume  *vmrest.RemoveVolumeREST
+	freeze        *vmrest.FreezeREST
+	unfreeze      *vmrest.UnfreezeREST
 	convertor     rest.TableConvertor
 }
 
@@ -89,6 +91,8 @@ func NewStorage(
 		portforward:   vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
 		addVolume:     vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
 		removeVolume:  vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
+		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
+		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		convertor:     convertor,
 	}
 }
@@ -111,6 +115,14 @@ func (store VirtualMachineStorage) AddVolumeREST() *vmrest.AddVolumeREST {
 
 func (store VirtualMachineStorage) RemoveVolumeREST() *vmrest.RemoveVolumeREST {
 	return store.removeVolume
+}
+
+func (store VirtualMachineStorage) FreezeREST() *vmrest.FreezeREST {
+	return store.freeze
+}
+
+func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
+	return store.unfreeze
 }
 
 // New implements rest.Storage interface
