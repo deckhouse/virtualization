@@ -24,7 +24,7 @@ ADD local/test-controller/main.go /app/
 RUN GOOS=linux \
     go build -o test-controller .
 
-FROM alpine:3.19
+FROM alpine:3.20@sha256:0a4eaa0eecf5f8c050e5bba433f58c052be7587ee8af3e8b3910ef9ab5fbe9f5
 RUN apk --no-cache add ca-certificates bash sed tini curl && \
     kubectlArch=linux/amd64 && \
     echo "Download kubectl for ${kubectlArch}" && \
