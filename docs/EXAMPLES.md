@@ -13,7 +13,23 @@ Example of creating a virtual machine with Ubuntu 22.04.
 kubectl create ns vms
 ```
 
-2. Let's create a virtual disk from an external source:
+2. Let's create a virtual image from an external source:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu
+  namespace: vms
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+```
+
+3. Let's create a virtual disk from created image:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -24,11 +40,12 @@ metadata:
 spec:
   persistentVolumeClaim:
     size: 10Gi
-    storageClassName: linstor-thin-r2 # Substitute your SC name `kubectl get storageclass`.
+    storageClassName: linstor-thin-r2
   dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: ubuntu
 ```
 
 After creating a `VirtualDisk` in the vms namespace, a `pod` named `vd-importer-*` will start, which will load the specified image.
@@ -263,18 +280,22 @@ kubectl get clustervirtualimages -o wide
 
 ## Disks
 
-Disks are used in virtual machines to write and store data. The storage provided by the platform is used to store disks.
+The disks in virtual machines are required to write and store data, allowing applications and operating systems to function fully. Under the hood of these disks is the storage provided by the platform.
 
-1. To see the available options, run the command:
+To find out the available storage on the platform, run the following command:
 
 ```bash
 kubectl get storageclass
 
-# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# ceph-pool-r2-csi-rbd          rbd.csi.ceph.com         Delete          WaitForFirstConsumer   true                   85d
-# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
-# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
-# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# NAME                  PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd  rbd.csi.ceph.com                      Delete          Immediate              true                   85d
+# i-linstor-thin-r1     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# i-linstor-thin-r2     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# i-linstor-thin-r3     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# linstor-thin-r1       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# linstor-thin-r2       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# linstor-thin-r3       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# nfs-4-1-wffc          nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   24h
 ```
 
 ### Creating a blank disk

@@ -92,7 +92,7 @@ Next, modify the `VirtualMachine` resource and apply the changes:
 ```yaml
 spec:
   # ...
-  runPolicy: AlwaysON
+  runPolicy: AlwaysOn
   # ...
   blockDeviceRefs:
     # remove all ClusterVirtualImage resources with iso disks from this section

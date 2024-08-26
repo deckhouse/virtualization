@@ -14,7 +14,7 @@ weight: 15
    - ядро Linux на узлах кластера должно быть версии 5.7 или более новой;
    - прочие требования к узлам кластера описаны в документе: [Подготовка к production](https://deckhouse.ru/guides/production.html).
 
-1. Включите необходимые модули.
+2. Включите необходимые модули.
 
    Для хранения данных виртуальных машин необходимо включить один из следующих модулей согласно инструкции по их установке:
 
@@ -23,33 +23,33 @@ weight: 15
 
    Также возможно использовать другие варианты хранилищ, поддерживающие создание блочных устройств с режимом доступа `RWX` (`ReadWriteMany`).
 
-1. Создайте манифест mc.yaml со следующим содержимым:
+3. Создайте манифест mc.yaml со следующим содержимым:
 
-   ```yaml
-   apiVersion: deckhouse.io/v1alpha1
-   kind: ModuleConfig
-   metadata:
-     name: virtualization
-   spec:
-     # Включаем модуль.
-   enabled: true
-   version: 1
-   settings:
-     # Перечень подсетей для виртуальных машин.
-   virtualMachineCIDRs:
-     - 10.10.10.0/24
-     - 10.20.10.0/24
-     - 10.30.10.0/24
-     - 11.11.22.33/32
-     # Настройки параметров хранилища образов виртуальных машин.
-   dvcr:
-     storage:
-       persistentVolumeClaim:
-         size: 50G
-         type: PersistentVolumeClaim
-   ```
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+# Включаем модуль.
+enabled: true
+version: 1
+settings:
+  # Перечень подсетей для виртуальных машин.
+  virtualMachineCIDRs:
+    - 10.10.10.0/24
+    - 10.20.10.0/24
+    - 10.30.10.0/24
+    - 11.11.22.33/32
+  # Настройки параметров хранилища образов виртуальных машин.
+  dvcr:
+    storage:
+      persistentVolumeClaim:
+        size: 50G
+      type: PersistentVolumeClaim
+```
 
-   Примените созданный манифест с использованием команды `d8 k apply -f mc.yaml`.
+Примените созданный манифест с использованием команды `d8 k apply -f mc.yaml`.
 
 {{< alert level="info" >}}
 Полный перечень параметров конфигурации приведен в разеле ["Настройки"](./configuration.html)

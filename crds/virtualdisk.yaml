@@ -27,16 +27,14 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Describes a virtual disk that can be mounted in `VirtualMachines`. Once the resource is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
+            The `VirtualDisk` resource describes the desired virtual machine disk configuration. A `VirtualDisk` can be mounted statically in the virtual machine by specifying it in the `.spec.blockDeviceRefs` disk list, or mounted on-the-fly using the `VirtualMachineBlockDeviceAttachments` resource.
 
-            A PVC is created under the hood of the resource, into which the data from the source is filled.
+            Once `VirtualDisk` is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
           required:
             - spec
           properties:
             spec:
               type: object
-              required:
-                - persistentVolumeClaim
               properties:
                 bindingMode:
                   type: string
@@ -57,11 +55,31 @@ spec:
                       type: string
                       description: |
                         Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
+
+                        This parameter can be omitted if the `.spec.dataSource` block is specified, in which case the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.
                       pattern: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
                     storageClassName:
                       type: string
                       description: |
                         The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+
+                        When creating disks, the user can specify the required StorageClass to create the disk, or not explicitly, in which case the default StorageClass will be used.
+
+                        The disk features and virtual machine behavior depend on the selected StorageClass.
+
+                        The `VolumeBindingMode` parameter in the StorageClass affects the disk creation process:
+                        - `Immediate` - The disk will be created and available for use immediately after creation.
+                        - `WaitForFirstConsumer` - The disk will be created only when it is used in a virtual machine. In this case, the disk will be created on the host where the virtual machine will be started.
+
+                        StorageClass can support different storage settings:
+                        - Creating a block device (`Block`) or file system (`FileSystem`).
+                        - Multiple Access (`ReadWriteMany`) or Single Access (`ReadWriteOnce`). `ReadWriteMany` disks support multiple access, which enables live migration of virtual machines. In contrast, `ReadWriteOnce` disks, which are limited to access from only one host, cannot provide this capability.
+
+                        For known storage types, the platform will independently determine the most effective settings when creating disks (in descending order of priority):
+                        1. `Block` + `ReadWriteMany`
+                        2. `FileSystem` + `ReadWriteMany`
+                        3. `Block` + `ReadWriteOnce`
+                        4. `FileSystem` + `ReadWriteOnce`
                 dataSource:
                   type: object
                   description: |
@@ -81,7 +99,7 @@ spec:
 
                         * `HTTP` — create an image from a file published on http/https service at a given url
                         * `ContainerImage` — create the image from image stored in container registry.
-                        * `ObjectRef` — fill the disk from another existing `VirtualImage` or `ClusterVirtualImage`.
+                        * `ObjectRef` — fill the disk from another existing resource.
                         * `Upload` — fill the disk with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -114,7 +132,7 @@ spec:
                           type: string
                           format: byte
                           description: |
-                            The CA chain in base64 format to verify the url.
+                            A certificate bundle in Base64 format to verify the TLS certificate of the server hosting the image.
                           example: |
                             YWFhCg==
                         checksum:

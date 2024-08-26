@@ -79,6 +79,23 @@ The module includes the following components:
 - Virtualization-API - controller that implements a user API for creating and managing virtual machine resources.
 - Routing Controller (ROUTER) - A controller that manages routes to provide network connectivity for virtual machines.
 
+List of controllers and operators deployed in the `d8-virtualization` namespace after enabling the module
+
+| Name                          | Component | Comment                                                                                                                                           |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cdi-operator-*`              | CORE      | The virtualization kernel component for disk and image management.                                                                                |
+| `cdi-apiserver-*`             | CORE      | The virtualization kernel component for disk and image management.                                                                                |
+| `cdi-deployment-*`            | CORE      | The virtualization kernel component for disk and image management.                                                                                |
+| `dvcr-*`                      | DVCR      | A registry for storing images                                                                                                                     |
+| `virt-api-*`                  | CORE      | A component of the virtualization kernel for disk and image management.                                                                           |
+| `virt-controller-*`           | CORE      | The virtualization kernel component for disk and image management.                                                                                |
+| `virt-exportproxy-*`          | CORE      | The virtualization kernel component for disk and image management.                                                                                |
+| `virt-handler-*`              | CORE      | A component of the virtualization kernel for disk and image management. Must be present on all nodes in the cluster where the VM will be running. |
+| `virt-operator-*`             | CORE      | The component of the virtualization kernel for disk and image management.                                                                         |
+| `virtualization-api-*`        | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                                          |
+| `virtualization-controller-*` | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                                          |
+| `vm-route-forge-*`            | ROUTER    | Router, for configuring routes to VMs. Must be present on all nodes in the cluster where the VM will be running.                                  |
+
 The API provides capabilities for creating and managing the following resources:
 
 - Virtual Images
@@ -114,6 +131,7 @@ Platform-provided storage (`PVC`) is used to store disks.
 ### Virtual Machine Classes
 
 A virtual machine class is designed for:
+
 - configuring the type of virtual machine vCPU
 - control the placement of virtual machines on the platform nodes
 - configuring virtual machine resources (vCPU, memory) for more optimal planning and placement of virtual machines on the platform nodes.
@@ -155,7 +173,7 @@ The following table shows the access matrix for these roles
 | D            | delete | delete, deletecollection |
 
 | Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
-|--------------------------------------|------|----------------|--------|-------|---------------|--------------|
+| ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
 | virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualdisks                         | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualimages                        | R    | R              | R      | CRUD  | CRUD          | CRUD         |

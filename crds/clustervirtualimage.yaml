@@ -58,7 +58,7 @@ spec:
 
                         * `HTTP` — create an image from a file published on http/https service at a given url
                         * `ContainerImage` — create the image from image stored in container registry.
-                        * `ObjectRef` — fill the cluster image from another existing `VirtualImage` or `ClusterVirtualImage`.
+                        * `ObjectRef` — fill the disk from another existing resource.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
