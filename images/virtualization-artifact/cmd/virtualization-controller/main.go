@@ -116,6 +116,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	gcSettings, err := appconfig.LoadGcSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -231,7 +237,7 @@ func main() {
 	if err = vmop.SetupController(ctx, mgr, log); err != nil {
 		os.Exit(1)
 	}
-	if err = vmop.SetupGC(mgr, log); err != nil {
+	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
 		os.Exit(1)
 	}
 

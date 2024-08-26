@@ -1,13 +1,33 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package vmop
 
 import (
 	"log/slog"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -17,19 +37,44 @@ const gcControllerName = "vmop-gc-controller"
 func SetupGC(
 	mgr manager.Manager,
 	log *slog.Logger,
+	gcSettings config.BaseGcSettings,
 ) error {
+	ttl := 24 * time.Hour
+	if gcSettings.TTL.Duration > 0 {
+		ttl = gcSettings.TTL.Duration
+	}
 	return gc.SetupGcController(gcControllerName,
 		mgr,
 		log,
 		gc.NewCronSource(mgr.GetClient(),
-			"0 * * * *",
+			gcSettings.Schedule,
 			&virtv2.VirtualMachineOperationList{},
 			gc.CronSourceOption{
 				GetOlder: func(objList client.ObjectList) client.ObjectList {
-					return objList
+					var objs client.ObjectList
+					var items []runtime.Object
+
+					if err := meta.EachListItem(objList, func(o runtime.Object) error {
+						obj, ok := o.(client.Object)
+						if !ok {
+							return nil
+						}
+						if helper.GetAge(obj) > ttl {
+							items = append(items, o)
+						}
+						return nil
+					}); err != nil {
+						log.Error("failed to populate list", logger.SlogErr(err))
+					}
+
+					if err := meta.SetList(objs, items); err != nil {
+						log.Error("failed to set list", logger.SlogErr(err))
+					}
+
+					return objs
 				},
 			},
-			log,
+			log.With("resource", "vmop"),
 		),
 		func() client.Object {
 			return &virtv2.VirtualMachineOperation{}
@@ -39,7 +84,7 @@ func SetupGC(
 			if !ok {
 				return false
 			}
-			if vmopIsFinal(vmop) && helper.GetAge(vmop) > 24*time.Hour {
+			if vmopIsFinal(vmop) && helper.GetAge(vmop) > ttl {
 				return true
 			}
 			return false
