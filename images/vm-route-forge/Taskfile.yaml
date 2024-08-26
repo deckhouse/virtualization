@@ -17,16 +17,16 @@ tasks:
   dlv:build:
     desc: "Build image vm-route-forge with dlv"
     preconditions:
-      - sh: if [ -z $DLV_IMAGE ]; then exit 1 ; fi
+      - sh: if [ -z ${{ .DLV_IMAGE_ENV }}]; then exit 1 ; fi
         msg: "export env {{ .DLV_IMAGE_ENV }}"
-    cmd: cd ../../ && docker build -f ./images/vm-route-forge/dlv.Dockerfile -t "${DLV_IMAGE}" .
+    cmd: cd ../../ && docker build -f ./images/vm-route-forge/dlv.Dockerfile -t "${{ .DLV_IMAGE_ENV }}" .
 
   dlv:push:
     desc: "Push image vm-route-forge with dlv"
     preconditions:
-      - sh: if [ -z $DLV_IMAGE ]; then exit 1 ; fi
+      - sh: if [ -z ${{ .DLV_IMAGE_ENV }}]; then exit 1 ; fi
         msg: "export env {{ .DLV_IMAGE_ENV }}"
-    cmd: cd ../../ && docker build -f ./images/vm-route-forge/dlv.Dockerfile -t "${DLV_IMAGE}" .
+    cmd: docker push "${{ .DLV_IMAGE_ENV }}"
 
   dlv:build-push:
     desc: "Build and Push image vm-route-forge with dlv"
