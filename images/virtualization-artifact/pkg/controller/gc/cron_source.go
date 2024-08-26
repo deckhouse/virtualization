@@ -69,15 +69,14 @@ type CronSourceOption struct {
 	GetOlder func(objList client.ObjectList) client.ObjectList
 }
 
-func NewDefaultCronSourceOption(ttl time.Duration, log *slog.Logger) CronSourceOption {
+func NewDefaultCronSourceOption(objs client.ObjectList, ttl time.Duration, log *slog.Logger) CronSourceOption {
 	return CronSourceOption{
-		GetOlder: DefaultGetOlder(ttl, log),
+		GetOlder: DefaultGetOlder(objs, ttl, log),
 	}
 }
 
-func DefaultGetOlder(ttl time.Duration, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
+func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
 	return func(objList client.ObjectList) client.ObjectList {
-		var objs client.ObjectList
 		var items []runtime.Object
 
 		if err := meta.EachListItem(objList, func(o runtime.Object) error {

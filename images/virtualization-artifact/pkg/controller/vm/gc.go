@@ -46,7 +46,7 @@ func SetupGC(
 		gc.NewCronSource(mgr.GetClient(),
 			gcSettings.Schedule,
 			&virtv1.VirtualMachineInstanceMigrationList{},
-			gc.NewDefaultCronSourceOption(ttl, log),
+			gc.NewDefaultCronSourceOption(&virtv1.VirtualMachineInstanceMigrationList{}, ttl, log),
 			log.With("resource", "vmi-migration"),
 		),
 		func() client.Object {

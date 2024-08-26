@@ -46,7 +46,7 @@ func SetupGC(
 		gc.NewCronSource(mgr.GetClient(),
 			gcSettings.Schedule,
 			&virtv2.VirtualMachineOperationList{},
-			gc.NewDefaultCronSourceOption(ttl, log),
+			gc.NewDefaultCronSourceOption(&virtv2.VirtualMachineOperationList{}, ttl, log),
 			log.With("resource", "vmop"),
 		),
 		func() client.Object {
