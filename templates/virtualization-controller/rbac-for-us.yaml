@@ -114,6 +114,7 @@ rules:
   resources:
   - internalvirtualizationvirtualmachines
   - internalvirtualizationvirtualmachineinstances
+  - internalvirtualizationvirtualmachineinstancemigrations
   verbs:
   - get
   - watch
