@@ -38,32 +38,42 @@ type BaseGcSettings struct {
 
 func LoadGcSettings() (GCSettings, error) {
 	var gcSettings GCSettings
-	if err := setBaseGCSettingsFromEnv(&gcSettings.VMOP,
-		common.GcVmopScheduleVar,
-		common.GcVmopTtlVar); err != nil {
+	base, err := GetBaseGCSettingsFromEnv(common.GcVmopScheduleVar, common.GcVmopTtlVar)
+	if err != nil {
 		return gcSettings, err
 	}
-	if err := setBaseGCSettingsFromEnv(&gcSettings.VMIMigration,
-		common.GcVMIMigrationScheduleVar,
-		common.GcVMIMigrationTtlVar); err != nil {
+	gcSettings.VMOP = base
+
+	base, err = GetBaseGCSettingsFromEnv(common.GcVMIMigrationScheduleVar, common.GcVMIMigrationTtlVar)
+	if err != nil {
 		return gcSettings, err
 	}
+	gcSettings.VMIMigration = base
+
 	return gcSettings, nil
 }
 
-func setBaseGCSettingsFromEnv(base *BaseGcSettings, envSchedule, envTTL string) error {
-	if base == nil {
-		return fmt.Errorf("baseGCSettings cannot be nil")
-	}
+func GetBaseGCSettingsFromEnv(envSchedule, envTTL string) (BaseGcSettings, error) {
+	base := NewDefaultBaseGcSettings()
 	if v, ok := os.LookupEnv(envSchedule); ok {
 		base.Schedule = v
 	}
 	if v, ok := os.LookupEnv(envTTL); ok {
 		t, err := time.ParseDuration(v)
 		if err != nil {
-			return fmt.Errorf("invalid GC settings: %w", err)
+			return BaseGcSettings{}, fmt.Errorf("invalid GC settings: %w", err)
+		}
+		if t == 0 {
+			return BaseGcSettings{}, fmt.Errorf("invalid GC settings: TTL cannot be 0: %w", err)
 		}
 		base.TTL = metav1.Duration{Duration: t}
 	}
-	return nil
+	return base, nil
+}
+
+func NewDefaultBaseGcSettings() BaseGcSettings {
+	return BaseGcSettings{
+		TTL:      metav1.Duration{Duration: 24 * time.Hour * 7},
+		Schedule: "0 0 * * *",
+	}
 }
