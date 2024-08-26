@@ -211,7 +211,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vm.NewController(ctx, mgr, log, dvcrSettings); err != nil {
+	if err = vm.SetupController(ctx, mgr, log, dvcrSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = vm.SetupGC(mgr, log, gcSettings.VMIMigration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -227,17 +231,21 @@ func main() {
 	}
 
 	if _, err = vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	if _, err = vmclass.NewController(ctx, mgr, log); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
 	if err = vmop.SetupController(ctx, mgr, log); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 

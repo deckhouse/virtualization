@@ -48,6 +48,10 @@
   value: "24h"
 - name: GC_VMOP_SCHEDULE
   value: "0 3 * * *"
+- name: GC_VMI_MIGRATION_TTL
+  value: "24h"
+- name: GC_VMI_MIGRATION_SCHEDULE
+  value: "0 4 * * *"
 
 {{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS

@@ -14,22 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vmop
+package vm
 
 import (
 	"log/slog"
 	"time"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const gcControllerName = "vmop-gc-controller"
+const gcVMMigrationControllerName = "vmi-migration-gc-controller"
 
 func SetupGC(
 	mgr manager.Manager,
@@ -40,24 +40,24 @@ func SetupGC(
 	if gcSettings.TTL.Duration > 0 {
 		ttl = gcSettings.TTL.Duration
 	}
-	return gc.SetupGcController(gcControllerName,
+	return gc.SetupGcController(gcVMMigrationControllerName,
 		mgr,
 		log,
 		gc.NewCronSource(mgr.GetClient(),
 			gcSettings.Schedule,
-			&virtv2.VirtualMachineOperationList{},
+			&virtv1.VirtualMachineInstanceMigrationList{},
 			gc.NewDefaultCronSourceOption(ttl, log),
-			log.With("resource", "vmop"),
+			log.With("resource", "vmi-migration"),
 		),
 		func() client.Object {
-			return &virtv2.VirtualMachineOperation{}
+			return &virtv1.VirtualMachineInstanceMigration{}
 		},
 		func(obj client.Object) bool {
-			vmop, ok := obj.(*virtv2.VirtualMachineOperation)
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
 			if !ok {
 				return false
 			}
-			if vmopIsFinal(vmop) && helper.GetAge(vmop) > ttl {
+			if vmiMigrationIsFinal(migration) && helper.GetAge(migration) > ttl {
 				return true
 			}
 			return false
@@ -65,6 +65,6 @@ func SetupGC(
 	)
 }
 
-func vmopIsFinal(vmop *virtv2.VirtualMachineOperation) bool {
-	return vmop.Status.Phase == virtv2.VMOPPhaseCompleted || vmop.Status.Phase == virtv2.VMOPPhaseFailed
+func vmiMigrationIsFinal(migration *virtv1.VirtualMachineInstanceMigration) bool {
+	return migration.Status.Phase == virtv1.MigrationFailed || migration.Status.Phase == virtv1.MigrationSucceeded
 }

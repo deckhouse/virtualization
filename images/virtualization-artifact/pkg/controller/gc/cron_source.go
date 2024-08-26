@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 var _ source.Source = &CronSource{}
@@ -66,6 +67,37 @@ type CronSource struct {
 
 type CronSourceOption struct {
 	GetOlder func(objList client.ObjectList) client.ObjectList
+}
+
+func NewDefaultCronSourceOption(ttl time.Duration, log *slog.Logger) CronSourceOption {
+	return CronSourceOption{
+		GetOlder: DefaultGetOlder(ttl, log),
+	}
+}
+
+func DefaultGetOlder(ttl time.Duration, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
+	return func(objList client.ObjectList) client.ObjectList {
+		var objs client.ObjectList
+		var items []runtime.Object
+
+		if err := meta.EachListItem(objList, func(o runtime.Object) error {
+			obj, ok := o.(client.Object)
+			if !ok {
+				return nil
+			}
+			if helper.GetAge(obj) > ttl {
+				items = append(items, o)
+			}
+			return nil
+		}); err != nil {
+			log.Error("failed to populate list", logger.SlogErr(err))
+		}
+
+		if err := meta.SetList(objs, items); err != nil {
+			log.Error("failed to set list", logger.SlogErr(err))
+		}
+		return objs
+	}
 }
 
 func (c *CronSource) Start(ctx context.Context, _ handler.EventHandler, queue workqueue.RateLimitingInterface, predicates ...predicate.Predicate) error {

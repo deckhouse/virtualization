@@ -39,12 +39,12 @@ const (
 	controllerName = "vm-controller"
 )
 
-func NewController(
+func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *slog.Logger,
 	dvcrSettings *dvcr.Settings,
-) (controller.Controller, error) {
+) error {
 	log = log.With(logger.SlogController(controllerName))
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
@@ -70,24 +70,24 @@ func NewController(
 		LogConstructor: logger.NewConstructor(log),
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = r.SetupController(ctx, mgr, c); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
 		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), log)).
 		Complete(); err != nil {
-		return nil, err
+		return err
 	}
 
 	vmmetrics.SetupCollector(&vmLister{vmCache: mgrCache}, metrics.Registry)
 
 	log.Info("Initialized VirtualMachine controller")
-	return c, nil
+	return nil
 }
 
 type vmLister struct {
