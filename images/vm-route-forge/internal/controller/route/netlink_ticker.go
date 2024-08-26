@@ -152,7 +152,7 @@ func (w *NetlinkTickerWatcher) syncRoute(route *netlink.Route) error {
 
 	addrs, found := w.cache.GetAddresses(key)
 	if !found {
-		log.Info("The route was added, but there is no addresses in the cache. Add the VM to the queue.")
+		log.Info("The route was added, but there are no addresses in the cache. Add the VM to the queue.")
 		w.enqueueKey(key)
 		return nil
 	}

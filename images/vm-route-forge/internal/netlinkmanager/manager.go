@@ -36,13 +36,6 @@ import (
 	"vm-route-forge/internal/netutil"
 )
 
-type Action uint32
-
-const (
-	ActionAdd Action = iota
-	ActionDelete
-)
-
 const (
 	CiliumIfaceName         = "cilium_host"
 	DefaultCiliumRouteTable = 1490
