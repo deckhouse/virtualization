@@ -194,7 +194,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return true
 				}
 
-				return oldPVC.Status.Phase != newPVC.Status.Phase && newPVC.Status.Phase == corev1.ClaimBound
+				return oldPVC.Status.Phase != newPVC.Status.Phase
 			},
 		},
 	); err != nil {
