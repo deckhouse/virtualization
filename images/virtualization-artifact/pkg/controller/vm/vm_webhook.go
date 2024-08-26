@@ -27,12 +27,12 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineValidator interface {
-	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualMachine) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -52,7 +52,7 @@ func NewValidator(ipam internal.IPAM, client client.Client, log *slog.Logger) *V
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vm, ok := obj.(*v1alpha2.VirtualMachine)
+	vm, ok := obj.(*virtv2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
@@ -73,12 +73,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVM, ok := oldObj.(*v1alpha2.VirtualMachine)
+	oldVM, ok := oldObj.(*virtv2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachine but got a %T", oldObj)
 	}
 
-	newVM, ok := newObj.(*v1alpha2.VirtualMachine)
+	newVM, ok := newObj.(*virtv2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", newObj)
 	}

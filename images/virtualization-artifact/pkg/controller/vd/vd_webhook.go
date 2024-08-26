@@ -18,31 +18,38 @@ package vd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
-type Validator struct {
-	logger *slog.Logger
+type VirtualDiskValidator interface {
+	ValidateCreate(ctx context.Context, vm *virtv2.VirtualDisk) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualDisk) (admission.Warnings, error)
 }
 
-func NewValidator(logger *slog.Logger) *Validator {
+type Validator struct {
+	validators []VirtualDiskValidator
+	logger     *slog.Logger
+}
+
+func NewValidator(client client.Client, logger *slog.Logger) *Validator {
 	return &Validator{
+		validators: []VirtualDiskValidator{
+			validators.NewPVCSizeValidator(client),
+			validators.NewSpecChangesValidator(),
+		},
 		logger: logger.With("webhook", "validator"),
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vd, ok := obj.(*virtv2.VirtualDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
@@ -50,18 +57,20 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	v.logger.Info("Validating virtual disk", "spec.pvc.size", vd.Spec.PersistentVolumeClaim.Size)
 
-	if vd.Spec.PersistentVolumeClaim.Size != nil && vd.Spec.PersistentVolumeClaim.Size.IsZero() {
-		return nil, fmt.Errorf("virtual machine disk size must be greater than 0")
+	var warnings admission.Warnings
+
+	for _, validator := range v.validators {
+		warn, err := validator.ValidateCreate(ctx, vd)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, warn...)
 	}
 
-	if vd.Spec.DataSource == nil && (vd.Spec.PersistentVolumeClaim.Size == nil || vd.Spec.PersistentVolumeClaim.Size.IsZero()) {
-		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank virtual disk")
-	}
-
-	return nil, nil
+	return warnings, nil
 }
 
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	newVD, ok := newObj.(*virtv2.VirtualDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", newObj)
@@ -77,42 +86,17 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		"new.spec.pvc.size", newVD.Spec.PersistentVolumeClaim.Size,
 	)
 
-	if newVD.Spec.PersistentVolumeClaim.Size == oldVD.Spec.PersistentVolumeClaim.Size {
-		return nil, nil
-	}
+	var warnings admission.Warnings
 
-	if newVD.Spec.PersistentVolumeClaim.Size == nil {
-		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
-	}
-
-	if newVD.Spec.PersistentVolumeClaim.Size.IsZero() {
-		return nil, fmt.Errorf("virtual machine disk size must be greater than 0")
-	}
-
-	if oldVD.Spec.PersistentVolumeClaim.Size != nil && newVD.Spec.PersistentVolumeClaim.Size.Cmp(*oldVD.Spec.PersistentVolumeClaim.Size) == -1 {
-		return nil, fmt.Errorf(
-			"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
-			newVD.Spec.PersistentVolumeClaim.Size.String(),
-			oldVD.Spec.PersistentVolumeClaim.Size.String(),
-		)
-	}
-
-	if oldVD.Generation == newVD.Generation {
-		return nil, nil
-	}
-
-	ready, _ := service.GetCondition(cvicondition.ReadyType, newVD.Status.Conditions)
-	if newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || ready.Status == metav1.ConditionTrue {
-		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualDisk has already been created: data source cannot be changed after disk is created")
+	for _, validator := range v.validators {
+		warn, err := validator.ValidateUpdate(ctx, oldVD, newVD)
+		if err != nil {
+			return nil, err
 		}
-
-		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualDisk has already been created: storage class cannot be changed after disk is created")
-		}
+		warnings = append(warnings, warn...)
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {

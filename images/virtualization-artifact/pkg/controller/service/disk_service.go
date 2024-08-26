@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -331,18 +332,30 @@ func (s DiskService) checkStorageClass(ctx context.Context, storageClassName str
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
 
-func (s DiskService) AdjustPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
-	if pvcSize != nil && !pvcSize.IsZero() && pvcSize.Cmp(requiredSize) == -1 {
-		return resource.Quantity{}, fmt.Errorf("%w: %sB < %sB", ErrInsufficientPVCSize, pvcSize.AsDec().String(), requiredSize.AsDec().String())
+func GetValidatedPVCSize(pvcSize *resource.Quantity, requiredSize resource.Quantity) (resource.Quantity, error) {
+	if requiredSize.IsZero() {
+		return resource.Quantity{}, errors.New("got zero size from data source, please report a bug")
 	}
 
-	// Adjust PVC size to feat image onto scratch PVC.
-	// TODO(future): remove size adjusting after get rid of scratch.
-	adjustedSize := dvutil.AdjustPVCSize(requiredSize)
+	if pvcSize == nil {
+		return requiredSize, nil
+	}
 
-	if pvcSize != nil && pvcSize.Cmp(adjustedSize) == 1 {
+	if pvcSize.IsZero() {
+		return resource.Quantity{}, errors.New("cannot create disk with zero pvc size")
+	}
+
+	switch pvcSize.Cmp(requiredSize) {
+	case -1:
+		specPart := strconv.FormatUint(uint64(pvcSize.Value()), 10)
+		if specPart != pvcSize.String() {
+			specPart += fmt.Sprintf(" (%s)", pvcSize.String())
+		}
+
+		return resource.Quantity{}, fmt.Errorf("%w: %s < %d", ErrInsufficientPVCSize, specPart, requiredSize.Value())
+	case 1:
 		return *pvcSize, nil
+	default:
+		return requiredSize, nil
 	}
-
-	return adjustedSize, nil
 }

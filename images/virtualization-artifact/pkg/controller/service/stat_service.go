@@ -24,11 +24,14 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -81,11 +84,17 @@ func (s StatService) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
 		return virtv2.ImageStatusSize{}
 	}
 
+	unpackedSizeBytes := resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
+
+	// Adjust PVC size to feat image onto scratch PVC.
+	// TODO(future): remove size adjusting after get rid of scratch.
+	adjustedImageSize := internal.AdjustImageSize(*unpackedSizeBytes)
+
 	return virtv2.ImageStatusSize{
-		Stored:        finalReport.StoredSize(),
+		Stored:        util.HumanizeIBytes(finalReport.StoredSizeBytes),
 		StoredBytes:   strconv.FormatUint(finalReport.StoredSizeBytes, 10),
-		Unpacked:      finalReport.UnpackedSize(),
-		UnpackedBytes: strconv.FormatUint(finalReport.UnpackedSizeBytes, 10),
+		Unpacked:      util.HumanizeIBytes(uint64(adjustedImageSize.Value())),
+		UnpackedBytes: strconv.FormatInt(adjustedImageSize.Value(), 10),
 	}
 }
 

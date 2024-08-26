@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package datavolume
+package internal
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// AdjustPVCSize calculates increased PVC size to feat disk image onto scratch PVC.
+// AdjustImageSize calculates increased image size to feat disk image onto scratch PVC.
 //
 // Virtualization-controller calculates unpacked size while importing image
 // into DVCR. This unpacked size is used to create PVC if size is not specified,
@@ -33,14 +33,19 @@ import (
 // If the volume is backed by a block device and the device is empty, Kubernetes
 // creates a filesystem on the device before mounting it for the first time.
 //
-// That is why virtualization-controller increases PVC size to feat disk image.
+// That is why virtualization-controller increases image size to feat disk image.
 // There is no strict formula for ext4 filesystem overhead, so these ratios are from experiments:
+// - return 0 for size == 0
 // - add 25% for size < 512Mi
 // - add 15% for size < 4096Mi
 // - add 10% for size >= 4096Mi
 //
 // Also, increased size is aligned to MiB by rounding up.
-func AdjustPVCSize(in resource.Quantity) resource.Quantity {
+func AdjustImageSize(in resource.Quantity) resource.Quantity {
+	if in.IsZero() {
+		return in
+	}
+
 	size := int64(adjustRatio(in.Value()) * float64(in.Value()))
 
 	// Align to MiB and round up.
