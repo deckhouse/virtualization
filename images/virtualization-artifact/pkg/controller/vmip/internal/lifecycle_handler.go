@@ -52,6 +52,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		return reconcile.Result{}, err
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(vmipStatus.Conditions)
 	conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
 		Generation(vmip.GetGeneration())

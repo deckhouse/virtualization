@@ -72,11 +72,13 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, string(vmcondition.TypeIPAddressReady)); update {
+	if update := addAllUnknown(changed, vmcondition.TypeIPAddressReady); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
+
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeIPAddressReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeIPAddressReady).
 		Generation(current.GetGeneration())
 
 	ipAddress, err := s.IPAddress(ctx)
@@ -95,7 +97,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	// 1. OK: already bound.
 	if h.ipam.IsBound(current.GetName(), ipAddress) {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonIPAddressReady).
+			Reason(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
 		changed.Status.IPAddress = ipAddress.Status.Address
@@ -115,7 +117,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 					if !hasClaimedIP {
 						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
 						mgr.Update(cb.Status(metav1.ConditionFalse).
-							Reason2(vmcondition.ReasonIPAddressNotAssigned).
+							Reason(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).
 							Condition())
 						h.recorder.Event(changed, corev1.EventTypeWarning, vmcondition.ReasonIPAddressNotAssigned.String(), msg)
@@ -133,7 +135,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 
 	// 2. Ip address not found: create if possible or wait for the ip address.
 	if ipAddress == nil {
-		cb.Reason2(vmcondition.ReasonIPAddressNotReady)
+		cb.Reason(vmcondition.ReasonIPAddressNotReady)
 		if current.Spec.VirtualMachineIPAddress != "" {
 			log.Info(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
 			cb.Message(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
@@ -151,7 +153,8 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	if err != nil {
 		log.Info("Ip address is not available to be bound", "err", err, "vmipName", current.Spec.VirtualMachineIPAddress)
 		reason := vmcondition.ReasonIPAddressNotAvailable.String()
-		mgr.Update(cb.Reason(reason).Message(err.Error()).Condition())
+		//nolint:staticcheck
+		mgr.Update(cb.Reason(conditions.DeprecatedWrappedString(reason)).Message(err.Error()).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		h.recorder.Event(changed, corev1.EventTypeWarning, reason, err.Error())
 		return reconcile.Result{}, nil
@@ -159,7 +162,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 
 	// 4. Ip address exists and available for binding with virtual machine: waiting for the ip address.
 	log.Info("Waiting for the ip address to be bound to VM", "vmipName", current.Spec.VirtualMachineIPAddress)
-	mgr.Update(cb.Reason2(vmcondition.ReasonIPAddressNotReady).
+	mgr.Update(cb.Reason(vmcondition.ReasonIPAddressNotReady).
 		Message("Ip address not bound: waiting for the ip address").Condition())
 	changed.Status.Conditions = mgr.Generate()
 

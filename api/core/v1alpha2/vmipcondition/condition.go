@@ -16,7 +16,7 @@ limitations under the License.
 
 package vmipcondition
 
-type Type = string
+type Type string
 
 const (
 	// BoundType represents the condition type when a Virtual Machine IP is bound.
@@ -26,13 +26,25 @@ const (
 	AttachedType Type = "Attached"
 )
 
+func (t Type) String() string {
+	return string(t)
+}
+
 type (
 	// BoundReason represents specific reasons for the 'Bound' condition type.
-	BoundReason = string
+	BoundReason string
 
 	// AttachedReason represents specific reasons for the 'Attached' condition type.
-	AttachedReason = string
+	AttachedReason string
 )
+
+func (r BoundReason) String() string {
+	return string(r)
+}
+
+func (r AttachedReason) String() string {
+	return string(r)
+}
 
 const (
 	// VirtualMachineIPAddressIsOutOfTheValidRange is a BoundReason indicating when specified IP address is out of the range in controller settings.

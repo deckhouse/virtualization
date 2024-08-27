@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func isDeletion(vm *virtv2.VirtualMachine) bool {
@@ -37,7 +38,8 @@ func isDeletion(vm *virtv2.VirtualMachine) bool {
 
 type updaterProtection func(p *service.ProtectionService) func(ctx context.Context, objs ...client.Object) error
 
-func addAllUnknown(vm *virtv2.VirtualMachine, conds ...string) (update bool) {
+func addAllUnknown(vm *virtv2.VirtualMachine, conds ...vmcondition.Type) (update bool) {
+	//nolint:staticcheck
 	mgr := conditions.NewManager(vm.Status.Conditions)
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).

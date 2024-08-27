@@ -87,7 +87,7 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		}
 
 		for i, lease := range leases.Items {
-			boundCondition, exist := service.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+			boundCondition, exist := service.GetCondition(vmiplcondition.BoundType.String(), lease.Status.Conditions)
 			if exist && boundCondition.Status == metav1.ConditionTrue {
 				s.lease = &leases.Items[i]
 				break

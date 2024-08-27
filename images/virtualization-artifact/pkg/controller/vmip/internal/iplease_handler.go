@@ -63,10 +63,10 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	condition, _ := service.GetCondition(vmipcondition.BoundType, vmipStatus.Conditions)
+	condition, _ := service.GetCondition(vmipcondition.BoundType.String(), vmipStatus.Conditions)
 
 	switch {
-	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists:
+	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String():
 		log.Info("Lease by name not found: waiting for the lease to be available")
 		return reconcile.Result{}, nil
 
@@ -91,7 +91,7 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 
 		if lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace {
 			log.Warn(fmt.Sprintf("The VirtualMachineIPLease belongs to a different namespace: %s", lease.Spec.VirtualMachineIPAddressRef.Namespace))
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists, "The VirtualMachineIPLease belongs to a different namespace")
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String(), "The VirtualMachineIPLease belongs to a different namespace")
 
 			return reconcile.Result{}, nil
 		}
@@ -134,6 +134,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 		msg := fmt.Sprintf("the VirtualMachineIP cannot be created: %s", err.Error())
 		log.Info(msg)
 
+		//nolint:staticcheck
 		mgr := conditions.NewManager(vmipStatus.Conditions)
 		conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
 			Generation(vmip.GetGeneration())
@@ -146,7 +147,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 				Message(fmt.Sprintf("The requested address %s is out of the valid range",
 					vmip.Spec.StaticIP)).
 				Condition())
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange, msg)
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange.String(), msg)
 		case errors.Is(err, service.ErrIPAddressAlreadyExist):
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
@@ -154,7 +155,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress",
 					common.IpToLeaseName(vmipStatus.Address))).
 				Condition())
-			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists, msg)
+			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String(), msg)
 		}
 
 		vmipStatus.Conditions = mgr.Generate()

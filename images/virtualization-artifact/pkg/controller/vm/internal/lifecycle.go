@@ -36,11 +36,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-var lifeCycleConditions = []string{
-	string(vmcondition.TypeRunning),
-	string(vmcondition.TypeMigrating),
-	string(vmcondition.TypeMigratable),
-	string(vmcondition.TypePodStarted),
+var lifeCycleConditions = []vmcondition.Type{
+	vmcondition.TypeRunning,
+	vmcondition.TypeMigrating,
+	vmcondition.TypeMigratable,
+	vmcondition.TypePodStarted,
 }
 
 const nameLifeCycleHandler = "LifeCycleHandler"
@@ -127,30 +127,31 @@ func (h *LifeCycleHandler) syncMigrationState(vm *virtv2.VirtualMachine, kvvm *v
 		vm.Status.MigrationState = h.wrapMigrationState(kvvmi.Status.MigrationState)
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(vm.Status.Conditions)
-	cbMigrating := conditions.NewConditionBuilder2(vmcondition.TypeMigrating).Generation(vm.GetGeneration())
+	cbMigrating := conditions.NewConditionBuilder(vmcondition.TypeMigrating).Generation(vm.GetGeneration())
 	if vm.Status.MigrationState != nil &&
 		vm.Status.MigrationState.StartTimestamp != nil &&
 		vm.Status.MigrationState.EndTimestamp == nil {
 		mgr.Update(cbMigrating.
 			Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonVmIsMigrating).
+			Reason(vmcondition.ReasonVmIsMigrating).
 			Condition())
 	} else {
 		mgr.Update(cbMigrating.
 			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonVmIsNotMigrating).
+			Reason(vmcondition.ReasonVmIsNotMigrating).
 			Condition())
 	}
 
-	cbMigratable := conditions.NewConditionBuilder2(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
+	cbMigratable := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
 	if kvvm != nil {
 		liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
 		if liveMigratable != nil && liveMigratable.Status == corev1.ConditionFalse && liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
 			mgr.Update(cbMigratable.
 				Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonNotMigratable).
+				Reason(vmcondition.ReasonNotMigratable).
 				Message("Live migration requires that all PVCs must be shared (using ReadWriteMany access mode)").
 				Condition())
 			vm.Status.Conditions = mgr.Generate()
@@ -160,7 +161,7 @@ func (h *LifeCycleHandler) syncMigrationState(vm *virtv2.VirtualMachine, kvvm *v
 
 	mgr.Update(cbMigratable.
 		Status(metav1.ConditionTrue).
-		Reason2(vmcondition.ReasonMigratable).
+		Reason(vmcondition.ReasonMigratable).
 		Condition())
 	vm.Status.Conditions = mgr.Generate()
 }
@@ -170,12 +171,13 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 		return
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(vm.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypePodStarted).Generation(vm.GetGeneration())
+	cb := conditions.NewConditionBuilder(vmcondition.TypePodStarted).Generation(vm.GetGeneration())
 
 	if isPodStarted(pod) {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonPodStarted).
+			Reason(vmcondition.ReasonPodStarted).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
 		return
@@ -184,7 +186,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 	// Try to extract error from pod.
 	if pod != nil && pod.Status.Message != "" {
 		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonPodNotStarted).
+			Reason(vmcondition.ReasonPodNotStarted).
 			Message(fmt.Sprintf("%s: %s", pod.Status.Reason, pod.Status.Message)).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
@@ -197,7 +199,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Message != "" {
 			mgr.Update(cb.
 				Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonPodNotStarted).
+				Reason(vmcondition.ReasonPodNotStarted).
 				Message(fmt.Sprintf("%s: %s", cond.Reason, cond.Message)).
 				Condition())
 			vm.Status.Conditions = mgr.Generate()
@@ -215,7 +217,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 				msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
 			}
 			mgr.Update(cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonPodNotStarted).
+				Reason(vmcondition.ReasonPodNotStarted).
 				Message(msg).
 				Condition())
 			vm.Status.Conditions = mgr.Generate()
@@ -224,7 +226,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 	}
 
 	mgr.Update(cb.Status(metav1.ConditionFalse).
-		Reason2(vmcondition.ReasonPodNotFound).
+		Reason(vmcondition.ReasonPodNotFound).
 		Message("Pod of the virtual machine was not found").
 		Condition())
 }
@@ -234,8 +236,9 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		return
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(vm.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeRunning).Generation(vm.GetGeneration())
+	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if kvvm != nil && isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
 		msg := fmt.Sprintf("Internal virtual machine error: %s", kvvm.Status.PrintableStatus)
@@ -253,7 +256,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 
 		mgr.Update(cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonInternalVirtualMachineError.String()).
+			Reason(vmcondition.ReasonInternalVirtualMachineError).
 			Message(msg).
 			Condition())
 		vm.Status.Conditions = mgr.Generate()
@@ -265,7 +268,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 
 		if vm.Status.Phase == virtv2.MachineRunning {
 			mgr.Update(cb.
-				Reason2(vmcondition.ReasonVmIsRunning).
+				Reason(vmcondition.ReasonVmIsRunning).
 				Status(metav1.ConditionTrue).
 				Condition())
 			vm.Status.Conditions = mgr.Generate()
@@ -275,7 +278,8 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 			if c.Type == virtv1.VirtualMachineInstanceReady {
 				mgr.Update(cb.
 					Status(conditionStatus(string(c.Status))).
-					Reason(c.Reason).
+					//nolint:staticcheck
+					Reason(conditions.DeprecatedWrappedString(c.Reason)).
 					Message(c.Message).
 					Condition())
 				vm.Status.Conditions = mgr.Generate()
@@ -284,7 +288,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		}
 	}
 	mgr.Update(cb.
-		Reason2(vmcondition.ReasonVmIsNotRunning).
+		Reason(vmcondition.ReasonVmIsNotRunning).
 		Status(metav1.ConditionFalse).
 		Condition())
 	vm.Status.Conditions = mgr.Generate()

@@ -20,14 +20,13 @@ import (
 	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
-func GetCondition(condType cvicondition.Type, conds []metav1.Condition) (metav1.Condition, bool) {
+func GetCondition(condType string, conds []metav1.Condition) (metav1.Condition, bool) {
 	for _, cond := range conds {
 		if cond.Type == condType {
 			return cond, true
@@ -38,18 +37,7 @@ func GetCondition(condType cvicondition.Type, conds []metav1.Condition) (metav1.
 }
 
 func SetCondition(cond metav1.Condition, conditions *[]metav1.Condition) {
-	if conditions == nil {
-		return
-	}
-
-	for i := range *conditions {
-		if (*conditions)[i].Type == cond.Type {
-			(*conditions)[i] = cond
-			return
-		}
-	}
-
-	*conditions = append(*conditions, cond)
+	meta.SetStatusCondition(conditions, cond)
 }
 
 func CapitalizeFirstLetter(s string) string {

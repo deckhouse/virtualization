@@ -71,12 +71,13 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeBlockDevicesReady.String()); update {
+	if update := addAllUnknown(changed, vmcondition.TypeBlockDevicesReady); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeBlockDevicesReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 		Generation(current.GetGeneration())
 
 	bdState := NewBlockDeviceState(s)
@@ -129,7 +130,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		log.Info(fmt.Sprintf("Conflicted virtual disks: %s", conflictWarning))
 
 		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonBlockDevicesNotReady).
+			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(conflictWarning).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{Requeue: true}, nil
@@ -155,7 +156,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
 		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason(reason.String()).
+			Reason(reason).
 			Message(msg).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
@@ -163,7 +164,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	mgr.Update(cb.Status(metav1.ConditionTrue).
-		Reason2(vmcondition.ReasonBlockDevicesReady).
+		Reason(vmcondition.ReasonBlockDevicesReady).
 		Condition())
 	changed.Status.Conditions = mgr.Generate()
 	return reconcile.Result{}, nil
