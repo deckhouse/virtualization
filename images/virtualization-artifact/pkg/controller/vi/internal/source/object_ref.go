@@ -72,8 +72,144 @@ func NewObjectRefDataSource(
 	}
 }
 
-func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	return true, nil // логика загрузки на DVCR из примонтированного в pod PVC
+func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
+	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
+
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	pod, err := ds.importerService.GetPod(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
+
+	refPvc, err := ds.cloneService.GetPersistentVolumeClaim(ctx, refSupgen)
+	if err != nil {
+		return false, err
+	}
+
+	switch {
+	case isDiskProvisioningFinished(condition):
+		log.Info("Virtual image provisioning finished: clean up")
+
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.Ready
+		condition.Message = ""
+
+		vi.Status.Phase = virtv2.ImageReady
+
+		err = ds.importerService.Unprotect(ctx, pod)
+		if err != nil {
+			return false, err
+		}
+
+		return CleanUp(ctx, vi, ds)
+	case cc.IsTerminating(pod):
+		vi.Status.Phase = virtv2.ImagePending
+
+		log.Info("Cleaning up...")
+	case pod == nil:
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
+
+		var envSettings *importer.Settings
+		envSettings, err = ds.getEnvSettings(vi, supgen, dvcrDataSource)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name)
+		var requeue bool
+		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
+		if err != nil {
+			return false, err
+		}
+
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
+
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
+
+		return requeue, nil
+	case cc.IsPodComplete(pod):
+		err = ds.statService.CheckPod(pod)
+		if err != nil {
+			vi.Status.Phase = virtv2.ImageFailed
+
+			switch {
+			case errors.Is(err, service.ErrProvisioningFailed):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
+
+		if !dvcrDataSource.IsReady() {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.ProvisioningFailed
+			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
+			return false, nil
+		}
+
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.Ready
+		condition.Message = ""
+
+		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Size = dvcrDataSource.GetSize()
+		vi.Status.CDROM = dvcrDataSource.IsCDROM()
+		vi.Status.Format = dvcrDataSource.GetFormat()
+		vi.Status.Progress = "100%"
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+	default:
+		err = ds.statService.CheckPod(pod)
+		if err != nil {
+			vi.Status.Phase = virtv2.ImageFailed
+
+			switch {
+			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningNotStarted
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			case errors.Is(err, service.ErrProvisioningFailed):
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				return false, nil
+			default:
+				return false, err
+			}
+		}
+
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "Import is in the process of provisioning to DVCR."
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+
+		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+	}
+
+	return true, nil
 }
 
 func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
@@ -354,7 +490,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 
 		// если в spec указан испочник Kubernetes - новая логика по выгрузке образа с файловой системы на DVCR
 		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.SyncDVCRFromPVC(ctx, vi)
+			return ds.SyncDVCRFromPVC(ctx, vi, viObjetcRef)
 		}
 	}
 
@@ -397,7 +533,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 			return false, err
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), "")
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {

@@ -48,6 +48,8 @@ import (
 const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
+
+	PVCMountDir = "/mnt"
 )
 
 func New() *Importer {
@@ -194,6 +196,12 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		result, err = datasource.NewContainerRegistryDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir, i.srcInsecure)
 		if err != nil {
 			return nil, fmt.Errorf("error creating container registry data source: %w", err)
+		}
+	case "pvc":
+		var err error
+		result, err = datasource.NewPvcDataSource(PVCMountDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating PVC data source: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)

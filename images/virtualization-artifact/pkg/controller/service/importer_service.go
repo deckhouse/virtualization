@@ -64,11 +64,11 @@ func NewImporterService(
 	}
 }
 
-func (s ImporterService) Start(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+func (s ImporterService) Start(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
 	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
 	settings.Verbose = s.verbose
 
-	pod, err := importer.NewImporter(s.getPodSettings(ownerRef, sup), settings).CreatePod(ctx, s.client)
+	pod, err := importer.NewImporter(s.getPodSettings(ownerRef, sup), settings, pvcName).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
