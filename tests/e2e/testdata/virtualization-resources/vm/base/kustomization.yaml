@@ -4,8 +4,6 @@ resources:
   - ./vm.yaml
   - ./vd-root.yaml
   - ./vd-blank.yaml
-# - ./vmbda.yaml
-# - ./vd-attach.yaml
 configurations:
   - transformer.yaml
 generatorOptions:

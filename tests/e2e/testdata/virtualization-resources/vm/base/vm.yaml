@@ -3,10 +3,6 @@ kind: VirtualMachine
 metadata:
   name: vm
 spec:
-  # runPolicy: AlwaysOn
-  # enableParavirtualization: true
-  # osType: Generic
-  # bootloader: BIOS
   virtualMachineClassName: generic
   cpu:
     cores: 1
