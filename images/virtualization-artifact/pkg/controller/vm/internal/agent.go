@@ -78,19 +78,17 @@ func (h *AgentHandler) syncAgentReady(vm *virtv2.VirtualMachine, kvvmi *virtv1.V
 		return
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(vm.Status.Conditions)
-
 	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentReady).Generation(vm.GetGeneration())
 
+	defer func() { conditions.SetCondition(cb, &vm.Status.Conditions) }()
+
 	if kvvmi == nil {
-		mgr.Update(cb.Status(metav1.ConditionFalse).
+		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNotReady).
-			Message("VirtualMachine is not running.").
-			Condition())
-		vm.Status.Conditions = mgr.Generate()
+			Message("VirtualMachine is not running.")
 		return
 	}
+
 	for _, c := range kvvmi.Status.Conditions {
 		// TODO: wrap kvvmi reasons
 		if c.Type == virtv1.VirtualMachineInstanceAgentConnected {
@@ -100,16 +98,13 @@ func (h *AgentHandler) syncAgentReady(vm *virtv2.VirtualMachine, kvvmi *virtv1.V
 			if status != metav1.ConditionTrue {
 				cb.Message(c.Message)
 			}
-			mgr.Update(cb.Condition())
-			vm.Status.Conditions = mgr.Generate()
 			return
 		}
 	}
-	mgr.Update(cb.Status(metav1.ConditionFalse).
+
+	cb.Status(metav1.ConditionFalse).
 		Reason(vmcondition.ReasonAgentNotReady).
-		Message("Failed to connect to VM Agent.").
-		Condition())
-	vm.Status.Conditions = mgr.Generate()
+		Message("Failed to connect to VM Agent.")
 }
 
 func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
@@ -117,18 +112,17 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 		return
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(vm.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentVersionNotSupported).Generation(vm.GetGeneration())
 
+	defer func() { conditions.SetCondition(cb, &vm.Status.Conditions) }()
+
 	if kvvmi == nil {
-		mgr.Update(cb.Status(metav1.ConditionFalse).
+		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonAgentNotReady).
-			Message("Failed to check version, because Vm is not running.").
-			Condition())
-		vm.Status.Conditions = mgr.Generate()
+			Message("Failed to check version, because Vm is not running.")
 		return
 	}
+
 	for _, c := range kvvmi.Status.Conditions {
 		if c.Type == virtv1.VirtualMachineInstanceUnsupportedAgent {
 			status := conditionStatus(string(c.Status))
@@ -137,14 +131,11 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 			if status != metav1.ConditionTrue {
 				cb.Message(c.Message)
 			}
-			mgr.Update(cb.Condition())
-			vm.Status.Conditions = mgr.Generate()
 			return
 		}
 	}
-	mgr.Update(cb.Status(metav1.ConditionFalse).
+
+	cb.Status(metav1.ConditionFalse).
 		Reason(vmcondition.ReasonAgentNotReady).
-		Message("Failed to connect to VM Agent.").
-		Condition())
-	vm.Status.Conditions = mgr.Generate()
+		Message("Failed to connect to VM Agent.")
 }

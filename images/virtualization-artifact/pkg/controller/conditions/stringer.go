@@ -21,7 +21,7 @@ type Stringer interface {
 }
 
 // Deprecated: avoid using this wrapper.
-// TODO: get rif of this wrapepr.
+// TODO: get rid of this wrapper.
 type DeprecatedWrappedString string
 
 func (s DeprecatedWrappedString) String() string {
