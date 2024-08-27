@@ -57,25 +57,21 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 	if err != nil {
 		return false, err
 	}
-	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
-	if err != nil {
-		return false, err
-	}
 
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pv, pvc, condition, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, condition, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
 			return false, err
 		}
 
 		return false, nil
-	case common.AnyTerminating(pvc, pv):
+	case common.IsTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
 		return true, nil
 	case pvc == nil:
