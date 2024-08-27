@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -55,41 +56,38 @@ var (
 func init() {
 	var err error
 	if conf, err = config.GetConfig(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if mc, err = config.GetModuleConfig(); err != nil {
-		panic(err)
-	}
-	if err = config.SetupCustomSubnet(mc, conf.CustomSubnet); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if virtctl, err = virt.NewVirtctl(virt.VirtctlConf(conf.ClusterTransport)); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if git, err = gt.NewGit(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if err = CheckDefaultStorageClass(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
 	kustomizeFilePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "kustomization.yaml")
 	if err = kustomize.SetParams(kustomizeFilePath, conf.Namespace, namePrefix); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	Cleanup()
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
-		panic(fmt.Sprintf("err: %v\n%s", res.Error(), res.StdErr()))
+		log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
 	}
 }
 

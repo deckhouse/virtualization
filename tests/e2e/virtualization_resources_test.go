@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -26,18 +27,6 @@ import (
 )
 
 var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
-	BeforeAll(func() {
-		By("Setup virtual machine custom IP address")
-		var (
-			err          error
-			unassignedIP string
-		)
-		filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
-		unassignedIP, err = FindCustomSubnetUnassignedIP(conf.CustomSubnet)
-		Expect(err).NotTo(HaveOccurred())
-		err = SetCustomIPAddress(filePath, unassignedIP)
-		Expect(err).NotTo(HaveOccurred())
-	})
 	checkPhase := func(resource, phase string) {
 		resourceType := kc.Resource(resource)
 		jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
@@ -57,6 +46,41 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 		waitResult := kubectl.WaitResources(resourceType, waitOpts, resources...)
 		Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
 	}
+
+	BeforeAll(func() {
+		var (
+			err          error
+			unassignedIP string
+		)
+		filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
+		unassignedIP, err = FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
+		Expect(err).NotTo(HaveOccurred())
+		err = SetCustomIPAddress(filePath, unassignedIP)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	Context("Environment setup", func() {
+		When("Check custom IP address", func() {
+			It("Subnets in module config must contain custom IP address", func() {
+				filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
+				vmip, err := GetVirtualMachineIPAddress(filePath)
+				Expect(err).NotTo(HaveOccurred())
+				staticIP := vmip.Spec.StaticIP
+				ip := net.ParseIP(staticIP)
+				Expect(ip).NotTo(BeNil())
+				isSubnetContainsIP := false
+				for _, subnet := range mc.Spec.Settings.VirtualMachineCIDRs {
+					_, cidr, err := net.ParseCIDR(subnet)
+					Expect(err).NotTo(HaveOccurred())
+					if cidr.Contains(ip) {
+						isSubnetContainsIP = true
+						break
+					}
+				}
+				Expect(isSubnetContainsIP).To(BeTrue())
+			})
+		})
+	})
 
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {

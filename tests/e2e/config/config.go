@@ -18,14 +18,13 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
-	"slices"
 	"strconv"
 
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	yamlv3 "gopkg.in/yaml.v3"
-	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 var (
@@ -37,13 +36,13 @@ var (
 
 func init() {
 	if conf, err = GetConfig(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if git, err = gt.NewGit(); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
@@ -58,7 +57,7 @@ func GetConfig() (*Config, error) {
 	}
 	var conf Config
 
-	if err := yaml.Unmarshal(data, &conf); err != nil {
+	if err := yamlv3.Unmarshal(data, &conf); err != nil {
 		return nil, err
 	}
 	if err := conf.setEnvs(); err != nil {
@@ -111,22 +110,21 @@ type Kustomize struct {
 }
 
 type Config struct {
-	Namespace               string           `yaml:"namespace"`
 	ClusterTransport        ClusterTransport `yaml:"clusterTransport"`
 	Disks                   DisksConf        `yaml:"disks"`
 	VM                      VmConf           `yaml:"vm"`
 	Ipam                    IpamConf         `yaml:"ipam"`
 	HelperImages            HelperImages     `yaml:"helperImages"`
+	Namespace               string           `yaml:"namespaceSuffix"`
 	VirtualizationResources string           `yaml:"virtualizationResources"`
-	CustomSubnet            string           `yaml:"customSubnet"`
 }
 
 type ClusterTransport struct {
 	KubeConfig           string `yaml:"kubeConfig"`
 	Token                string `yaml:"token"`
 	Endpoint             string `yaml:"endpoint"`
-	CertificateAuthority string `yaml:"insecureTls"`
-	InsecureTls          bool   `yaml:"certificateAuthority"`
+	CertificateAuthority string `yaml:"certificateAuthority"`
+	InsecureTls          bool   `yaml:"insecureTls"`
 }
 
 type DisksConf struct {
@@ -248,36 +246,6 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0644)
 	if writeErr != nil {
 		return writeErr
-	}
-
-	return nil
-}
-
-func CheckCustomSubnet(mc *ModuleConfig, subnet string) bool {
-	return slices.Contains(mc.Spec.Settings.VirtualMachineCIDRs, subnet)
-}
-
-func SetupCustomSubnet(mc *ModuleConfig, subnet string) error {
-	subnetConfigured := CheckCustomSubnet(mc, subnet)
-	if subnetConfigured {
-		return nil
-	}
-
-	mc.Spec.Settings.VirtualMachineCIDRs = append(mc.Spec.Settings.VirtualMachineCIDRs, conf.CustomSubnet)
-	updatedModuleConfig, err := yamlv3.Marshal(mc)
-	if err != nil {
-		return err
-	}
-
-	filePath := "/tmp/mc.yaml"
-	writeErr := os.WriteFile(filePath, updatedModuleConfig, 0644)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	res := kubectl.Apply(filePath, kc.ApplyOptions{})
-	if !res.WasSuccess() {
-		return fmt.Errorf(res.StdErr())
 	}
 
 	return nil
