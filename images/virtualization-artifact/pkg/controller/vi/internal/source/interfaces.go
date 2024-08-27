@@ -34,7 +34,7 @@ import (
 //go:generate moq -rm -out mock.go . Importer Uploader Stat
 
 type Importer interface {
-	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
+	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error
 	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)

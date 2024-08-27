@@ -62,12 +62,14 @@ const (
 type Importer struct {
 	PodSettings *PodSettings
 	EnvSettings *Settings
+	pvcName     string
 }
 
-func NewImporter(podSettings *PodSettings, envSettings *Settings) *Importer {
+func NewImporter(podSettings *PodSettings, envSettings *Settings, pvcName string) *Importer {
 	return &Importer{
 		PodSettings: podSettings,
 		EnvSettings: envSettings,
+		pvcName:     pvcName,
 	}
 }
 
@@ -162,6 +164,19 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 	cc.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
 	cc.SetRestrictedSecurityContext(&pod.Spec)
 
+	if imp.pvcName != "" {
+		pod.Spec.Volumes = []corev1.Volume{
+			{
+				Name: "pvc-volume",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "name",
+					},
+				},
+			},
+		}
+	}
+
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
@@ -188,6 +203,13 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 
 	if imp.PodSettings.ResourceRequirements != nil {
 		container.Resources = *imp.PodSettings.ResourceRequirements
+	}
+
+	container.VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      "pvc-volume",
+			MountPath: "/mnt/pvc",
+		},
 	}
 
 	return container
