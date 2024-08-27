@@ -261,9 +261,5 @@ func (ds ObjectRefDataSource) getPVCSize(vd *virtv2.VirtualDisk, dvcrDataSource 
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", dvcrDataSource.GetSize().UnpackedBytes, err)
 	}
 
-	if unpackedSize.IsZero() {
-		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
-	}
-
-	return ds.diskService.AdjustPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
+	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }

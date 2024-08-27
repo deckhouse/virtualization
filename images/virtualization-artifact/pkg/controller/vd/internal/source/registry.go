@@ -346,9 +346,5 @@ func (ds RegistryDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod)
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
 	}
 
-	if unpackedSize.IsZero() {
-		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
-	}
-
-	return ds.diskService.AdjustPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
+	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }

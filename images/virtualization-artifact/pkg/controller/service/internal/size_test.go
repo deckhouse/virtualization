@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package datavolume
+package internal
 
 import (
 	"testing"
@@ -29,6 +29,11 @@ func TestAdjustPVCSize(t *testing.T) {
 		in   int64
 		out  int64
 	}{
+		{
+			"zero",
+			0,
+			0,
+		},
 		{
 			"less than 512Mi",
 			100 * 1024 * 1024,
@@ -48,7 +53,7 @@ func TestAdjustPVCSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res := AdjustPVCSize(*resource.NewQuantity(tt.in, resource.BinarySI))
+			res := AdjustImageSize(*resource.NewQuantity(tt.in, resource.BinarySI))
 			require.Equal(t, tt.out, res.Value())
 		})
 	}
