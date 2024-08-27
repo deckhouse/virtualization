@@ -304,7 +304,7 @@ spec:
                   type: array
                   description: |
                     A list of `VirtualMachines` that use the disk
-                  example: [{ name: "VM100" }, { name: "VM200" }]
+                  example: [{ name: "VM100" }]
                   items:
                     type: object
                     properties:

@@ -102,10 +102,6 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 	if err != nil {
 		return false, err
 	}
-	pv, err := s.GetPersistentVolume(ctx, pvc)
-	if err != nil {
-		return false, err
-	}
 
 	var resourcesHaveDeleted bool
 
@@ -118,20 +114,6 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		}
 
 		err = s.client.Delete(ctx, pvc)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
-		}
-	}
-
-	if pv != nil {
-		resourcesHaveDeleted = true
-
-		err = s.protection.RemoveProtection(ctx, pv)
-		if err != nil {
-			return false, err
-		}
-
-		err = s.client.Delete(ctx, pv)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, err
 		}
@@ -159,7 +141,9 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, err
 		}
-		pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
+
+		var pvc *corev1.PersistentVolumeClaim
+		pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 		if err != nil {
 			return false, err
 		}
@@ -177,13 +161,13 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
-func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, pv *corev1.PersistentVolume) error {
+func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
 	}
 
-	err = s.protection.AddProtection(ctx, dv, pvc, pv)
+	err = s.protection.AddProtection(ctx, dv, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add protection for disk's supplements: %w", err)
 	}
@@ -257,14 +241,6 @@ func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generat
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	return helper.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
-}
-
-func (s DiskService) GetPersistentVolume(ctx context.Context, pvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolume, error) {
-	if pvc == nil {
-		return nil, nil
-	}
-
-	return helper.FetchObject(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, s.client, &corev1.PersistentVolume{})
 }
 
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {

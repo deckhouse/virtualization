@@ -98,7 +98,6 @@ func isDiskProvisioningFinished(c metav1.Condition) bool {
 }
 
 func setPhaseConditionForFinishedDisk(
-	pv *corev1.PersistentVolume,
 	pvc *corev1.PersistentVolumeClaim,
 	condition *metav1.Condition,
 	phase *virtv2.DiskPhase,
@@ -110,7 +109,7 @@ func setPhaseConditionForFinishedDisk(
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Lost
 		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
-	case pv == nil:
+	case pvc.Status.Phase == corev1.ClaimLost:
 		*phase = virtv2.DiskLost
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Lost

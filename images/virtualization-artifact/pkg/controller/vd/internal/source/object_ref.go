@@ -73,19 +73,15 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 	if err != nil {
 		return false, err
 	}
-	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
-	if err != nil {
-		return false, err
-	}
 
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pv, pvc, &condition, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
 			return false, err
 		}
@@ -96,7 +92,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
-	case common.AnyTerminating(dv, pvc, pv):
+	case common.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -171,7 +167,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.diskService.Protect(ctx, vd, dv, pvc, pv)
+		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
 			return false, err
 		}
