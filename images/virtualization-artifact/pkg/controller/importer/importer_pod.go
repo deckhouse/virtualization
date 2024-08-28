@@ -170,7 +170,7 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 				Name: "pvc-volume",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "name",
+						ClaimName: imp.pvcName,
 					},
 				},
 			},
