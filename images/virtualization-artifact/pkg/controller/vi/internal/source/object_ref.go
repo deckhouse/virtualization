@@ -74,7 +74,7 @@ func NewObjectRefDataSource(
 
 func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
-
+	log.Info("exec SyncDVCRFromPVC::")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
@@ -112,14 +112,8 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		var dvcrDataSource controller.DVCRDataSource
-		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
-		if err != nil {
-			return false, err
-		}
-
 		var envSettings *importer.Settings
-		envSettings, err = ds.getEnvSettings(vi, supgen, dvcrDataSource)
+		envSettings, err = ds.getEnvSettings2(vi, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -132,7 +126,7 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 		}
 
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
-		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
+		vi.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
 
@@ -214,7 +208,7 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 
 func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
-
+	log.Info("exec SyncPVCFromPVC::")
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
@@ -335,7 +329,7 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 
 func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
-
+	log.Info("exec SyncPVC::")
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
@@ -476,7 +470,7 @@ func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
-
+	log.Info("exec Sync::")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
@@ -669,6 +663,20 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *suppl
 		ds.dvcrSettings,
 		sup,
 		ds.dvcrSettings.RegistryImageForVI(vi),
+	)
+
+	return &settings, nil
+}
+
+func (ds ObjectRefDataSource) getEnvSettings2(vi *virtv2.VirtualImage, sup *supplements.Generator) (*importer.Settings, error) {
+
+	var settings importer.Settings
+	importer.ApplyPVCSourceSettings(&settings)
+	importer.ApplyDVCRDestinationSettings(
+		&settings,
+		ds.dvcrSettings,
+		sup,
+		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
 	)
 
 	return &settings, nil
