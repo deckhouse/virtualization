@@ -214,5 +214,5 @@ func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.DiskPhase,
 	*phase = virtv2.DiskFailed
 	ready.Status = metav1.ConditionFalse
 	ready.Reason = vdcondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error())
+	ready.Message = service.CapitalizeFirstLetter(err.Error()) + "."
 }

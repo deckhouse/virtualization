@@ -44,6 +44,7 @@ func NewValidator(client client.Client, logger *slog.Logger) *Validator {
 		validators: []VirtualDiskValidator{
 			validators.NewPVCSizeValidator(client),
 			validators.NewSpecChangesValidator(),
+			validators.NewISOSourceValidator(client),
 		},
 		logger: logger.With("webhook", "validator"),
 	}
