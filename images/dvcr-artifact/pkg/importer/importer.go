@@ -195,12 +195,6 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		if err != nil {
 			return nil, fmt.Errorf("error creating container registry data source: %w", err)
 		}
-	case "blockDevice":
-		var err error
-		result, err = datasource.NewBlockDeviceDataSource()
-		if err != nil {
-			return nil, fmt.Errorf("error creating BlockDevice data source: %w", err)
-		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)
 	}
