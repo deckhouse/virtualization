@@ -89,6 +89,14 @@ func RenameServicePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
 func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
 	var err error
 
+	kind := gjson.GetBytes(obj, "kind").String()
+	apiVersion := gjson.GetBytes(obj, "apiVersion").String()
+
+	_, resourceRule := rules.KindRules(apiVersion, kind)
+	if resourceRule == nil {
+		return obj, nil
+	}
+
 	obj, err = TransformString(obj, "kind", func(kind string) string {
 		if action == Rename {
 			return rules.RenameKind(kind)
