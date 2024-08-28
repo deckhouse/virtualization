@@ -106,7 +106,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 			return false, err
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), "")
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &cvi.Status.Phase, err)
 		if err != nil {
