@@ -17,18 +17,24 @@ limitations under the License.
 package importer
 
 import (
+	"archive/tar"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/uuid"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
@@ -87,7 +93,7 @@ func (i *Importer) Run(ctx context.Context) error {
 	}
 
 	if i.srcType == BlockDeviceSource {
-		return i.runForBlockDeviceSource(ctx)
+		return i.runForBlockDeviceSource()
 	}
 	return i.runForDataSource(ctx)
 }
@@ -268,6 +274,111 @@ func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
 	return craneOpts
 }
 
-func (i *Importer) runForBlockDeviceSource(ctx context.Context) error {
+func (i *Importer) runForBlockDeviceSource() error {
+	startTime := time.Now()
+	device := "/dev/xvda"
+	uuid, err := uuid.NewUUID()
+	outputTar := "/tmp/" + uuid.String() + ".tar"
+	destRegistry := registry.DestinationRegistry{
+		ImageName: i.destImageName,
+		Username:  i.destUsername,
+		Password:  i.destPassword,
+		Insecure:  i.destInsecure,
+	}
+
+	fmt.Println("init finish")
+	err = createTarFromDevice(device, uuid.String(), outputTar)
+	if err != nil {
+		fmt.Printf("Error creating tar: %v\n", err)
+		return err
+	}
+	fmt.Println("create tar finish")
+
+	err = uploadToRegistry(outputTar, destRegistry)
+	if err != nil {
+		fmt.Printf("Error uploading to registry: %v\n", err)
+		return err
+	}
+	fmt.Println("upload tar finish")
+	finishTime := time.Now()
+
+	return monitoring.WriteImportCompleteMessage(12345, 12345, 12, "tar", finishTime.Sub(startTime))
+}
+
+func createTarFromDevice(device, sourceImageFilename, targetTar string) error {
+	tarFile, err := os.Create(targetTar)
+	if err != nil {
+		return err
+	}
+	defer tarFile.Close()
+
+	tw := tar.NewWriter(tarFile)
+	defer tw.Close()
+
+	file, err := os.Open(device)
+	if err != nil {
+		return fmt.Errorf("opening block device: %w", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 4096)
+	for {
+		n, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("reading block device: %w", err)
+		}
+		if n == 0 {
+			break
+		}
+
+		hdr := &tar.Header{
+			Name:     path.Join("disk", sourceImageFilename),
+			Size:     int64(n),
+			Mode:     0o644,
+			Typeflag: tar.TypeReg,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return fmt.Errorf("writing tar header: %w", err)
+		}
+
+		if _, err := tw.Write(buffer[:n]); err != nil {
+			return fmt.Errorf("writing tar content: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func uploadToRegistry(tarPath string, destRegistry registry.DestinationRegistry) error {
+	img, err := tarball.ImageFromPath(tarPath, nil)
+	if err != nil {
+		return fmt.Errorf("loading tarball image: %w", err)
+	}
+
+	ref, err := name.ParseReference(destRegistry.ImageName)
+	if err != nil {
+		return fmt.Errorf("parsing image name: %w", err)
+	}
+
+	auth := authn.AuthConfig{
+		Username: destRegistry.Username,
+		Password: destRegistry.Password,
+	}
+
+	authenticator := authn.FromConfig(auth)
+
+	if destRegistry.Insecure {
+		transport := remote.WithTransport(insecureTransport())
+		return remote.Write(ref, img, remote.WithAuth(authenticator), transport)
+	}
+
+	return remote.Write(ref, img, remote.WithAuth(authenticator))
+}
+
+func insecureTransport() http.RoundTripper {
+	trans := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	return trans
 }
