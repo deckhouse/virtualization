@@ -48,6 +48,7 @@ import (
 const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
+	BlockDeviceSource          = "blockDevice"
 )
 
 func New() *Importer {
@@ -83,6 +84,10 @@ func (i *Importer) Run(ctx context.Context) error {
 	}
 	if i.srcType == DVCRSource {
 		return i.runForDVCRSource(ctx)
+	}
+
+	if i.srcType == BlockDeviceSource {
+		return i.runForBlockDeviceSource(ctx)
 	}
 	return i.runForDataSource(ctx)
 }
@@ -261,4 +266,8 @@ func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
 	}
 
 	return craneOpts
+}
+
+func (i *Importer) runForBlockDeviceSource(ctx context.Context) error {
+	return nil
 }
