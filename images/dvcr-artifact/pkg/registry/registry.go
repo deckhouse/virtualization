@@ -116,9 +116,9 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 		return ImportRes{}, fmt.Errorf("error getting source image size: %w", err)
 	}
 
-	// if sourceImageSize == 0 {
-	// 	return ImportRes{}, fmt.Errorf("zero data source image size")
-	// }
+	if sourceImageSize == 0 {
+		return ImportRes{}, fmt.Errorf("zero data source image size")
+	}
 
 	sourceImageReader, err := p.ds.ReadCloser()
 	if err != nil {
