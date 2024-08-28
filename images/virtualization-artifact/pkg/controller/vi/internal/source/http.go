@@ -197,19 +197,15 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 	if err != nil {
 		return false, err
 	}
-	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
-	if err != nil {
-		return false, err
-	}
 
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Image provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pv, pvc, &condition, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.diskService.Protect(ctx, vi, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, nil, pvc)
 		if err != nil {
 			return false, err
 		}
@@ -226,7 +222,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case common.AnyTerminating(pod, dv, pvc, pv):
+	case common.AnyTerminating(pod, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
@@ -346,7 +342,7 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.diskService.Protect(ctx, vi, dv, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, dv, pvc)
 		if err != nil {
 			return false, err
 		}
@@ -423,7 +419,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return ds.diskService.AdjustPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
 func (ds HTTPDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {

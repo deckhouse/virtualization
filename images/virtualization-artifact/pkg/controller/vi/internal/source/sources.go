@@ -140,7 +140,6 @@ type CheckImportProcess interface {
 }
 
 func setPhaseConditionForFinishedImage(
-	pv *corev1.PersistentVolume,
 	pvc *corev1.PersistentVolumeClaim,
 	condition *metav1.Condition,
 	phase *virtv2.ImagePhase,
@@ -152,11 +151,6 @@ func setPhaseConditionForFinishedImage(
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.Lost
 		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
-	case pv == nil:
-		*phase = virtv2.ImageLost
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Lost
-		condition.Message = fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName)
 	default:
 		*phase = virtv2.ImageReady
 		condition.Status = metav1.ConditionTrue
