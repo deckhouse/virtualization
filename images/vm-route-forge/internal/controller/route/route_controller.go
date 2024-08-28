@@ -209,10 +209,13 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 
+	newCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	c.log.Info("Starting route controller")
 	defer c.log.Info("Shutting down route controller")
 
-	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.hasSynced) {
+	if !cache.WaitForNamedCacheSync(controllerName, newCtx.Done(), c.hasSynced) {
 		return fmt.Errorf("cache is not synced")
 	}
 
@@ -222,26 +225,19 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 
 	c.log.Info("Starting workers of route controller")
 	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.worker, time.Second)
+		go wait.UntilWithContext(newCtx, c.worker, time.Second)
 	}
 	c.log.Info("Starting localhost route controller")
 
-	watcherDone := make(chan struct{})
 	go func() {
 		for key := range c.routeWatcher.ResultChanel() {
 			c.queueAdd(key.String())
 		}
-		watcherDone <- struct{}{}
+		cancel()
 	}()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-watcherDone:
-			return nil
-		}
-	}
+	<-newCtx.Done()
+	return nil
 }
 
 func (c *Controller) worker(ctx context.Context) {
