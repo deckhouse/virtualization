@@ -205,11 +205,13 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 		container.Resources = *imp.PodSettings.ResourceRequirements
 	}
 
-	container.VolumeMounts = []corev1.VolumeMount{
-		{
-			Name:      "pvc-volume",
-			MountPath: "/mnt/pvc",
-		},
+	if imp.pvcName != "" {
+		container.VolumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "pvc-volume",
+				MountPath: "/mnt/pvc",
+			},
+		}
 	}
 
 	return container
