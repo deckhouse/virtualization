@@ -121,5 +121,5 @@ func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
 
 // ApplyPVCSourceSettings updates importer Pod settings to use PVC source.
 func ApplyPVCSourceSettings(podEnvVars *Settings) {
-	podEnvVars.Source = "pvc"
+	podEnvVars.Source = "blockDevice"
 }
