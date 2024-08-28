@@ -263,3 +263,19 @@ func (s StatService) GetImportDuration(pod *corev1.Pod) time.Duration {
 
 	return report.Duration
 }
+
+func (s StatService) GetDVCRImageName(pod *corev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+
+	for _, container := range pod.Spec.Containers {
+		for _, envVar := range container.Env {
+			if envVar.Name == common.ImporterDestinationEndpoint {
+				return envVar.Value
+			}
+		}
+	}
+
+	return ""
+}

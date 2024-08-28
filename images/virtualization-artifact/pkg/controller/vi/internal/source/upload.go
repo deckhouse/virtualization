@@ -99,15 +99,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
-		envSettings := ds.getEnvSettings(supgen)
+		envSettings := ds.getEnvSettings(vi, supgen)
 		err = ds.uploaderService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForUploaderStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
-
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 
@@ -137,7 +135,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.Format = ds.statService.GetFormat(pod)
 		vi.Status.Progress = "100%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
@@ -168,7 +166,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
@@ -183,7 +181,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 		condition.Message = "Waiting for the user upload."
 
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("WaitForUserUpload...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -206,14 +204,14 @@ func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) e
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForVMI(supgen.Name, supgen.Namespace),
+		ds.dvcrSettings.RegistryImageForVI(vi),
 	)
 
 	return &settings

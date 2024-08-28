@@ -110,7 +110,6 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 			return false, err
 		}
 
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 		vi.Status.SourceUID = util.GetPointer(dvcrDataSource.GetUID())
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
@@ -154,7 +153,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		vi.Status.CDROM = dvcrDataSource.IsCDROM()
 		vi.Status.Format = dvcrDataSource.GetFormat()
 		vi.Status.Progress = "100%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -183,7 +182,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -237,7 +236,7 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *suppl
 		&settings,
 		ds.dvcrSettings,
 		sup,
-		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
+		ds.dvcrSettings.RegistryImageForVI(vi),
 	)
 
 	return &settings, nil

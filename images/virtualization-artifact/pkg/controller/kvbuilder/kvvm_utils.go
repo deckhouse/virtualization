@@ -25,7 +25,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
-	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -66,10 +65,9 @@ type HotPlugDeviceSettings struct {
 
 func ApplyVirtualMachineSpec(
 	kvvm *KVVM, vm *virtv2.VirtualMachine,
-	vmdByName map[string]*virtv2.VirtualDisk,
-	vmiByName map[string]*virtv2.VirtualImage,
-	cvmiByName map[string]*virtv2.ClusterVirtualImage,
-	dvcrSettings *dvcr.Settings,
+	vdByName map[string]*virtv2.VirtualDisk,
+	viByName map[string]*virtv2.VirtualImage,
+	cviByName map[string]*virtv2.ClusterVirtualImage,
 	class *virtv2.VirtualMachineClass,
 	ipAddress string,
 ) error {
@@ -124,14 +122,14 @@ func ApplyVirtualMachineSpec(
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
-			vmi := vmiByName[bd.Name]
+			vi := viByName[bd.Name]
 
 			name := GenerateVMIDiskName(bd.Name)
-			switch vmi.Spec.Storage {
+			switch vi.Spec.Storage {
 			case virtv2.StorageKubernetes:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: util.GetPointer(vmi.Status.Target.PersistentVolumeClaim),
+					PersistentVolumeClaim: util.GetPointer(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                name,
 					BootOrder:             bootOrder,
@@ -139,30 +137,28 @@ func ApplyVirtualMachineSpec(
 					return err
 				}
 			case virtv2.StorageContainerRegistry:
-				dvcrImage := dvcrSettings.RegistryImageForVMI(vmi.Name, vmi.Namespace)
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					ContainerDisk: util.GetPointer(dvcrImage),
-					IsCdrom:       imageformat.IsISO(vmi.Status.Format),
+					ContainerDisk: util.GetPointer(vi.Status.Target.RegistryURL),
+					IsCdrom:       imageformat.IsISO(vi.Status.Format),
 					Serial:        name,
 					BootOrder:     bootOrder,
 				}); err != nil {
 					return err
 				}
 			default:
-				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vmi.Spec.Storage, vmi.Name, common.ErrUnknownType)
+				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
 			}
 			bootOrder++
 
 		case virtv2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
 
-			cvmi := cvmiByName[bd.Name]
+			cvi := cviByName[bd.Name]
 
 			name := GenerateCVMIDiskName(bd.Name)
-			dvcrImage := dvcrSettings.RegistryImageForCVMI(cvmi.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				ContainerDisk: util.GetPointer(dvcrImage),
-				IsCdrom:       imageformat.IsISO(cvmi.Status.Format),
+				ContainerDisk: util.GetPointer(cvi.Status.Target.RegistryURL),
+				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 				Serial:        name,
 				BootOrder:     bootOrder,
 			}); err != nil {
@@ -173,15 +169,15 @@ func ApplyVirtualMachineSpec(
 		case virtv2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
 
-			vmd := vmdByName[bd.Name]
+			vd := vdByName[bd.Name]
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
-			if vmd.Status.Target.PersistentVolumeClaim == "" {
+			if vd.Status.Target.PersistentVolumeClaim == "" {
 				continue
 			}
 
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: util.GetPointer(vmd.Status.Target.PersistentVolumeClaim),
+				PersistentVolumeClaim: util.GetPointer(vd.Status.Target.PersistentVolumeClaim),
 				Serial:                name,
 				BootOrder:             bootOrder,
 			}); err != nil {

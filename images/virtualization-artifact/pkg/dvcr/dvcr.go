@@ -19,6 +19,8 @@ package dvcr
 import (
 	"fmt"
 	"path"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Settings struct {
@@ -46,25 +48,25 @@ type UploaderIngressSettings struct {
 }
 
 const (
-	CVMIImageTmpl = "cvi/%s"
-	VMIImageTmpl  = "vi/%s/%s"
-	VMDImageTmpl  = "vd/%s/%s"
+	CVMIImageTmpl = "cvi/%s:%s"
+	VMIImageTmpl  = "vi/%s/%s:%s"
+	VMDImageTmpl  = "vd/%s/%s:%s"
 )
 
-// RegistryImageForCVMI returns image name for CVMI.
-func (s *Settings) RegistryImageForCVMI(name string) string {
-	imgPath := path.Clean(fmt.Sprintf(CVMIImageTmpl, name))
+// RegistryImageForCVI returns image name for CVI.
+func (s *Settings) RegistryImageForCVI(obj client.Object) string {
+	imgPath := path.Clean(fmt.Sprintf(CVMIImageTmpl, obj.GetName(), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }
 
-// RegistryImageForVMI returns image name for VMI.
-func (s *Settings) RegistryImageForVMI(name, namespace string) string {
-	imgPath := path.Clean(fmt.Sprintf(VMIImageTmpl, namespace, name))
+// RegistryImageForVI returns image name for VI.
+func (s *Settings) RegistryImageForVI(obj client.Object) string {
+	imgPath := path.Clean(fmt.Sprintf(VMIImageTmpl, obj.GetNamespace(), obj.GetName(), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }
 
-// RegistryImageForVMD returns image name for VMD.
-func (s *Settings) RegistryImageForVMD(name, namespace string) string {
-	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, namespace, name))
+// RegistryImageForVD returns image name for VD.
+func (s *Settings) RegistryImageForVD(obj client.Object) string {
+	imgPath := path.Clean(fmt.Sprintf(VMDImageTmpl, obj.GetNamespace(), obj.GetName(), obj.GetUID()))
 	return path.Join(s.RegistryURL, imgPath)
 }

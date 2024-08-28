@@ -195,7 +195,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 			return false, err
 		}
 
-		source := ds.getSource(vd, supgen)
+		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		wffc := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
 		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen, wffc)
@@ -297,18 +297,16 @@ func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *suppleme
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForVMD(vd.Name, vd.Namespace),
+		ds.dvcrSettings.RegistryImageForVD(vd),
 	)
 
 	return &settings
 }
 
-func (ds HTTPDataSource) getSource(vd *virtv2.VirtualDisk, sup *supplements.Generator) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-	dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMD(vd.Name, vd.Namespace)
-
 	url := cc.DockerRegistrySchemePrefix + dvcrSourceImageName
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name

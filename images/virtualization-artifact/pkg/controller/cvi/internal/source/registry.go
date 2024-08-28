@@ -96,6 +96,8 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		cvi.Status.Progress = "0%"
+
 		envSettings := ds.getEnvSettings(cvi, supgen)
 		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
 		var requeue bool
@@ -103,9 +105,6 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		if err != nil {
 			return false, err
 		}
-
-		cvi.Status.Progress = "0%"
-		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
@@ -135,7 +134,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
 		cvi.Status.Progress = "100%"
-		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
+		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -165,7 +164,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
 		cvi.Status.Progress = "0%"
-		cvi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForCVMI(cvi.Name)
+		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -211,7 +210,7 @@ func (ds RegistryDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForCVMI(cvi.Name),
+		ds.dvcrSettings.RegistryImageForCVI(cvi),
 	)
 
 	return &settings
