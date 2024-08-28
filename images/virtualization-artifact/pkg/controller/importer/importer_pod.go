@@ -167,7 +167,7 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 	if imp.pvcName != "" {
 		pod.Spec.Volumes = []corev1.Volume{
 			{
-				Name: "pvc-volume",
+				Name: "volume",
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: imp.pvcName,
@@ -206,10 +206,10 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 	}
 
 	if imp.pvcName != "" {
-		container.VolumeMounts = []corev1.VolumeMount{
+		container.VolumeDevices = []corev1.VolumeDevice{
 			{
-				Name:      "pvc-volume",
-				MountPath: "/mnt/pvc",
+				Name:       "volume",
+				DevicePath: "/dev/xvda",
 			},
 		}
 	}

@@ -60,7 +60,7 @@ func NewHTTPDataSource(
 	}
 }
 
-var storageClass = "linstor-thin-r2" // FIXME add seting settings in controller
+var storageClass = "linstor-thin-r2" // FIXME add setting settings in controller
 
 func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
@@ -226,7 +226,6 @@ func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
-		// vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), "")
