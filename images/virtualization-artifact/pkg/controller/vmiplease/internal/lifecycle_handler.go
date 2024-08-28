@@ -45,6 +45,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		return reconcile.Result{}, nil
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(leaseStatus.Conditions)
 	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).
 		Generation(lease.GetGeneration())

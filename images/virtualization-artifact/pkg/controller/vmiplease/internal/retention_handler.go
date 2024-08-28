@@ -61,8 +61,8 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		}
 
 		leaseStatus := &lease.Status
-		boundCondition, _ := service.GetCondition(vmipcondition.BoundType, leaseStatus.Conditions)
-		if boundCondition.Reason == vmiplcondition.Released {
+		boundCondition, _ := service.GetCondition(vmipcondition.BoundType.String(), leaseStatus.Conditions)
+		if boundCondition.Reason == vmiplcondition.Released.String() {
 			currentTime := time.Now().UTC()
 
 			duration := currentTime.Sub(boundCondition.LastTransitionTime.Time)

@@ -48,9 +48,9 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
-var syncKVVMConditions = []string{
-	string(vmcondition.TypeConfigurationApplied),
-	string(vmcondition.TypeAwaitingRestartToApplyConfiguration),
+var syncKVVMConditions = []vmcondition.Type{
+	vmcondition.TypeConfigurationApplied,
+	vmcondition.TypeAwaitingRestartToApplyConfiguration,
 }
 
 func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder record.EventRecorder) *SyncKvvmHandler {
@@ -85,19 +85,20 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{}, nil
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
 
 	if h.isWaiting(changed) {
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonConfigurationNotApplied).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for dependent resources. Afterwards, configuration may be applied.").
 			Condition())
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration()).
 			Message("Waiting for dependent resources.").
-			Reason2(vmcondition.ReasonRestartNoNeed).
+			Reason(vmcondition.ReasonRestartNoNeed).
 			Status(metav1.ConditionFalse).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
@@ -147,25 +148,26 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
 
 	if kvvm == nil {
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration()).
-			Reason2(vmcondition.ReasonRestartNoNeed).
+			Reason(vmcondition.ReasonRestartNoNeed).
 			Status(metav1.ConditionFalse).
 			Condition())
 
-		cb := conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
+		cb := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration())
 		err = h.createKVVM(ctx, s)
 		if err != nil {
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonConfigurationNotApplied).
+				Reason(vmcondition.ReasonConfigurationNotApplied).
 				Message(fmt.Sprintf("Failed to apply configuration: %s", err.Error()))
 		} else {
 			cb.Status(metav1.ConditionTrue).
-				Reason2(vmcondition.ReasonConfigurationApplied)
+				Reason(vmcondition.ReasonConfigurationApplied)
 		}
 		mgr.Update(cb.Condition())
 		changed.Status.Conditions = mgr.Generate()
@@ -187,63 +189,63 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 	switch {
 	case h.canApplyChanges(current, kvvm, kvvmi, pod, changes):
-		cb := conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
+		cb := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration())
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, changes)
 		if err != nil {
 			syncErr = errors.Join(syncErr, err)
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonConfigurationNotApplied).
+				Reason(vmcondition.ReasonConfigurationNotApplied).
 				Message(fmt.Sprintf("Failed to apply configuration changes: %s", err.Error()))
 		} else {
 			changed.Status.RestartAwaitingChanges = nil
 			cb.Status(metav1.ConditionTrue).
-				Reason2(vmcondition.ReasonConfigurationApplied)
+				Reason(vmcondition.ReasonConfigurationApplied)
 		}
 		mgr.Update(cb.Condition())
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration()).
-			Reason2(vmcondition.ReasonRestartNoNeed).
+			Reason(vmcondition.ReasonRestartNoNeed).
 			Status(metav1.ConditionFalse).
 			Condition())
 		// Changes are applied, consider current spec as last applied.
 		lastAppliedSpec = &current.Spec
 	case !changes.IsEmpty():
 		// Delay changes propagation to KVVM until user restarts VM.
-		cb := conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		cb := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration())
 
 		var statusChanges []apiextensionsv1.JSON
 		statusChanges, err = changes.ConvertPendingChanges()
 		if err != nil {
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonRestartAwaitingChangesNotExist).
+				Reason(vmcondition.ReasonRestartAwaitingChangesNotExist).
 				Message(fmt.Sprintf("Failed to generate RestartAwaitingChanges: %s", err.Error()))
 			log.Error(fmt.Sprintf("Error should not occurs when preparing changesInfo, there is a possible bug in code: %v", syncErr))
 			syncErr = errors.Join(syncErr, fmt.Errorf("convert pending changes for status: %w", syncErr))
 		} else {
 			cb.Status(metav1.ConditionTrue).
-				Reason2(vmcondition.ReasonRestartAwaitingChangesExist)
+				Reason(vmcondition.ReasonRestartAwaitingChangesExist)
 		}
 		mgr.Update(cb.Condition())
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonConfigurationNotApplied).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message("Waiting for restart from user.").
 			Condition())
 		changed.Status.RestartAwaitingChanges = statusChanges
 	default:
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeConfigurationApplied).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonConfigurationApplied).
+			Reason(vmcondition.ReasonConfigurationApplied).
 			Condition())
-		mgr.Update(conditions.NewConditionBuilder2(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 			Generation(current.GetGeneration()).
 			Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonRestartNoNeed).
+			Reason(vmcondition.ReasonRestartNoNeed).
 			Condition())
 		changed.Status.RestartAwaitingChanges = nil
 	}

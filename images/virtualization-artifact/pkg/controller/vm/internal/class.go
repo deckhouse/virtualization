@@ -57,7 +57,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, string(vmcondition.TypeClassReady)); update {
+	if update := addAllUnknown(changed, vmcondition.TypeClassReady); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -70,21 +70,22 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, err
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeClassReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeClassReady).
 		Generation(current.GetGeneration())
 
 	if class != nil && class.Status.Phase == virtv2.ClassPhaseReady {
 		if (class.Spec.CPU.Type == virtv2.CPUTypeDiscovery || class.Spec.CPU.Type == virtv2.CPUTypeFeatures) && len(class.Status.CpuFeatures.Enabled) == 0 {
 			mgr.Update(cb.
 				Message("No enabled processor features found").
-				Reason2(vmcondition.ReasonClassNotReady).
+				Reason(vmcondition.ReasonClassNotReady).
 				Status(metav1.ConditionFalse).
 				Condition())
 			changed.Status.Conditions = mgr.Generate()
 			return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 		}
-		mgr.Update(cb.Reason2(vmcondition.ReasonClassReady).Status(metav1.ConditionTrue).Condition())
+		mgr.Update(cb.Reason(vmcondition.ReasonClassReady).Status(metav1.ConditionTrue).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}
@@ -98,7 +99,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 	mgr.Update(cb.Status(metav1.ConditionFalse).
 		Message(msg).
-		Reason2(reason).
+		Reason(reason).
 		Condition())
 	changed.Status.Conditions = mgr.Generate()
 	return reconcile.Result{RequeueAfter: 2 * time.Second}, nil

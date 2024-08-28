@@ -19,14 +19,17 @@ package conditions
 import (
 	"slices"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Deprecated: use direct SetCondition instead.
 type Manager struct {
 	conds      []metav1.Condition
 	indexConds map[string]int
 }
 
+// Deprecated: use direct SetCondition instead.
 func NewManager(conditions []metav1.Condition) *Manager {
 	conds := make([]metav1.Condition, len(conditions))
 	indexConds := make(map[string]int, len(conds))
@@ -40,13 +43,6 @@ func NewManager(conditions []metav1.Condition) *Manager {
 	}
 }
 
-func (m *Manager) Get(name string) (metav1.Condition, bool) {
-	if i, found := m.indexConds[name]; found {
-		return m.conds[i], true
-	}
-	return metav1.Condition{}, false
-}
-
 func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
 	if _, found := m.indexConds[c.Type]; found {
 		return false
@@ -57,35 +53,9 @@ func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
 }
 
 func (m *Manager) Update(c metav1.Condition) {
-	if i, found := m.indexConds[c.Type]; found {
-		if !equalConditions(c, m.conds[i]) {
-			m.conds[i] = c
-		}
-		return
-	}
-	m.conds = append(m.conds, c)
-	m.indexConds[c.Type] = len(m.conds) - 1
+	meta.SetStatusCondition(&m.conds, c)
 }
 
 func (m *Manager) Generate() []metav1.Condition {
 	return slices.Clone(m.conds)
-}
-
-func equalConditions(c1, c2 metav1.Condition) bool {
-	if c1.Type != c2.Type {
-		return false
-	}
-	if c1.Status != c2.Status {
-		return false
-	}
-	if c1.Reason != c2.Reason {
-		return false
-	}
-	if c1.Message != c2.Message {
-		return false
-	}
-	if c1.ObservedGeneration != c2.ObservedGeneration {
-		return false
-	}
-	return true
 }

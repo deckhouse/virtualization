@@ -52,32 +52,33 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 		return reconcile.Result{}, nil
 	}
 
-	if updated := addAllUnknown(changed, vmclasscondition.TypeReady.String()); updated {
+	if updated := addAllUnknown(changed, vmclasscondition.TypeReady); updated {
 		changed.Status.Phase = virtv2.ClassPhasePending
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmclasscondition.TypeReady).
+	cb := conditions.NewConditionBuilder(vmclasscondition.TypeReady).
 		Generation(current.GetGeneration())
 	var phase virtv2.VirtualMachineClassPhase
 
 	switch current.Spec.CPU.Type {
 	case virtv2.CPUTypeHostPassthrough, virtv2.CPUTypeHost:
 		cb.Message("").
-			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 		phase = virtv2.ClassPhaseReady
 	case virtv2.CPUTypeDiscovery:
 		var notReady bool
 		if len(changed.Status.AvailableNodes) == 0 {
 			cb.Message("No matching nodes found.")
-			cb.Reason2(vmclasscondition.ReasonNoSuitableNodesFound)
+			cb.Reason(vmclasscondition.ReasonNoSuitableNodesFound)
 			notReady = true
 		}
 		if len(changed.Status.CpuFeatures.Enabled) == 0 {
 			cb.Message("No cpu feature enabled.")
-			cb.Reason2(vmclasscondition.ReasonNoCpuFeaturesEnabled)
+			cb.Reason(vmclasscondition.ReasonNoCpuFeaturesEnabled)
 			notReady = true
 		}
 		if notReady {
@@ -87,19 +88,19 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 		}
 		phase = virtv2.ClassPhaseReady
 		cb.Message("").
-			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	default:
 		if len(changed.Status.AvailableNodes) == 0 {
 			phase = virtv2.ClassPhasePending
 			cb.Message("No matching nodes found.").
-				Reason2(vmclasscondition.ReasonNoSuitableNodesFound).
+				Reason(vmclasscondition.ReasonNoSuitableNodesFound).
 				Status(metav1.ConditionFalse)
 			break
 		}
 		phase = virtv2.ClassPhaseReady
 		cb.Message("").
-			Reason2(vmclasscondition.ReasonSuitableNodesFound).
+			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	}
 

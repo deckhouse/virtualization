@@ -49,7 +49,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	current := s.VirtualMachineClass().Current()
 	changed := s.VirtualMachineClass().Changed()
 
-	if updated := addAllUnknown(changed, vmclasscondition.TypeDiscovered.String()); updated {
+	if updated := addAllUnknown(changed, vmclasscondition.TypeDiscovered); updated {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -58,12 +58,13 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	}
 
 	cpuType := current.Spec.CPU.Type
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	if cpuType == virtv2.CPUTypeHostPassthrough || cpuType == virtv2.CPUTypeHost {
-		mgr.Update(conditions.NewConditionBuilder2(vmclasscondition.TypeDiscovered).
+		mgr.Update(conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).
 			Generation(current.GetGeneration()).
 			Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
-			Reason2(vmclasscondition.ReasonDiscoverySkip).
+			Reason(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
@@ -99,19 +100,19 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			}
 		}
 	}
-	cb := conditions.NewConditionBuilder2(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
+	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
 		if len(featuresEnabled) > 0 {
-			cb.Message("").Reason2(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
+			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
 		}
 		cb.Message("No common features are discovered on nodes.").
-			Reason2(vmclasscondition.ReasonDiscoveryFailed).
+			Reason(vmclasscondition.ReasonDiscoveryFailed).
 			Status(metav1.ConditionFalse)
 	default:
 		cb.Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
-			Reason2(vmclasscondition.ReasonDiscoverySkip).
+			Reason(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse)
 	}
 

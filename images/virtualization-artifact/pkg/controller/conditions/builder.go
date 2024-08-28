@@ -17,37 +17,37 @@ limitations under the License.
 package conditions
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type Stringer interface {
-	String() string
+type Conder interface {
+	Condition() metav1.Condition
 }
 
-func NewConditionBuilder2(name Stringer) *ConditionBuilder {
-	return &ConditionBuilder{name: name.String()}
+func SetCondition(c Conder, conditions *[]metav1.Condition) {
+	meta.SetStatusCondition(conditions, c.Condition())
 }
 
-func NewConditionBuilder(name string) *ConditionBuilder {
-	return &ConditionBuilder{name: name}
+func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
+	return &ConditionBuilder{conditionType: conditionType.String()}
 }
 
 type ConditionBuilder struct {
-	status     metav1.ConditionStatus
-	name       string
-	reason     string
-	msg        string
-	generation int64
+	status        metav1.ConditionStatus
+	conditionType string
+	reason        string
+	message       string
+	generation    int64
 }
 
 func (c *ConditionBuilder) Condition() metav1.Condition {
 	return metav1.Condition{
-		Type:               c.name,
+		Type:               c.conditionType,
 		Status:             c.status,
-		ObservedGeneration: c.generation,
-		LastTransitionTime: metav1.Now(),
 		Reason:             c.reason,
-		Message:            c.msg,
+		Message:            c.message,
+		ObservedGeneration: c.generation,
 	}
 }
 
@@ -56,18 +56,13 @@ func (c *ConditionBuilder) Status(status metav1.ConditionStatus) *ConditionBuild
 	return c
 }
 
-func (c *ConditionBuilder) Reason(reason string) *ConditionBuilder {
-	c.reason = reason
-	return c
-}
-
-func (c *ConditionBuilder) Reason2(reason Stringer) *ConditionBuilder {
+func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	c.reason = reason.String()
 	return c
 }
 
 func (c *ConditionBuilder) Message(msg string) *ConditionBuilder {
-	c.msg = msg
+	c.message = msg
 	return c
 }
 

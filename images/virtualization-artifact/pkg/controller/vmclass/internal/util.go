@@ -28,12 +28,13 @@ func isDeletion(class *virtv2.VirtualMachineClass) bool {
 	return class == nil || !class.GetDeletionTimestamp().IsZero()
 }
 
-func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...string) (update bool) {
+func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
+	//nolint:staticcheck
 	mgr := conditions.NewManager(class.Status.Conditions)
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).
 			Generation(class.GetGeneration()).
-			Reason2(vmclasscondition.ReasonUnknown).
+			Reason(vmclasscondition.ReasonUnknown).
 			Status(metav1.ConditionUnknown).
 			Condition()); add {
 			update = true

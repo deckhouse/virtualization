@@ -51,7 +51,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, string(vmcondition.TypeProvisioningReady)); update {
+	if update := addAllUnknown(changed, vmcondition.TypeProvisioningReady); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -59,13 +59,14 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		return reconcile.Result{}, nil
 	}
 
+	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeProvisioningReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeProvisioningReady).
 		Generation(current.GetGeneration())
 
 	if current.Spec.Provisioning == nil {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason2(vmcondition.ReasonProvisioningReady).
+			Reason(vmcondition.ReasonProvisioningReady).
 			Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
@@ -74,16 +75,16 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	switch p.Type {
 	case virtv2.ProvisioningTypeUserData:
 		if p.UserData != "" {
-			cb.Status(metav1.ConditionTrue).Reason2(vmcondition.ReasonProvisioningReady)
+			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonProvisioningReady)
 		} else {
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonProvisioningNotReady).
+				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message("Provisioning is defined but it is empty.")
 		}
 	case virtv2.ProvisioningTypeUserDataRef:
 		if p.UserDataRef == nil || p.UserDataRef.Kind != "Secret" {
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonProvisioningNotReady).
+				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message("userdataRef must be \"Secret\"")
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
@@ -95,7 +96,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	case virtv2.ProvisioningTypeSysprepRef:
 		if p.SysprepRef == nil || p.SysprepRef.Kind != "Secret" {
 			cb.Status(metav1.ConditionFalse).
-				Reason2(vmcondition.ReasonProvisioningNotReady).
+				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message("sysprepRef must be \"Secret\"")
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
@@ -105,7 +106,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 	default:
 		cb.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonProvisioningNotReady).
+			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message("Unexpected provisioning type.")
 	}
 
@@ -126,7 +127,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	}
 	if secret == nil {
 		builder.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonProvisioningNotReady).
+			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(fmt.Sprintf("Secret %q not found.", secretKey.String()))
 		return nil
 	}
@@ -139,10 +140,10 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	}
 	if !validate {
 		builder.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonProvisioningNotReady).
+			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", checkKeys, secretKey.String()))
 		return nil
 	}
-	builder.Reason2(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
+	builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
 	return nil
 }
