@@ -32,6 +32,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/uuid"
@@ -350,9 +353,30 @@ func createTarFromDevice(device, sourceImageFilename, targetTar string) error {
 }
 
 func uploadToRegistry(tarPath string, destRegistry registry.DestinationRegistry) error {
-	img, err := tarball.ImageFromPath(tarPath, nil)
+	layer, err := tarball.LayerFromFile(tarPath)
 	if err != nil {
-		return fmt.Errorf("loading tarball image: %w", err)
+		return fmt.Errorf("loading tarball layer: %w", err)
+	}
+
+	config := v1.ConfigFile{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
+
+	img, err := mutate.ConfigFile(empty.Image, &config)
+	if err != nil {
+		return fmt.Errorf("creating image config: %w", err)
+	}
+
+	image, err := mutate.Append(img, mutate.Addendum{
+		Layer: layer,
+		History: v1.History{
+			Author:    "Author",
+			CreatedBy: "Created by createAndUploadImage",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("appending layer: %w", err)
 	}
 
 	ref, err := name.ParseReference(destRegistry.ImageName)
@@ -369,10 +393,10 @@ func uploadToRegistry(tarPath string, destRegistry registry.DestinationRegistry)
 
 	if destRegistry.Insecure {
 		transport := remote.WithTransport(insecureTransport())
-		return remote.Write(ref, img, remote.WithAuth(authenticator), transport)
+		return remote.Write(ref, image, remote.WithAuth(authenticator), transport)
 	}
 
-	return remote.Write(ref, img, remote.WithAuth(authenticator))
+	return remote.Write(ref, image, remote.WithAuth(authenticator))
 }
 
 func insecureTransport() http.RoundTripper {
