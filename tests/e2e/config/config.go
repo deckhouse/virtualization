@@ -146,18 +146,6 @@ type HelperImages struct {
 	CurlImage string `yaml:"curlImage"`
 }
 
-type VirtualMachineIPAddress struct {
-	ApiVersion string   `yaml:"apiVersion"`
-	Kind       string   `yaml:"kind"`
-	Metadata   Metadata `yaml:"metadata"`
-	Spec       VMIPSpec `yaml:"spec"`
-}
-
-type VMIPSpec struct {
-	Type     string `yaml:"type"`
-	StaticIP string `yaml:"staticIP,omitempty"`
-}
-
 func (c *Config) setEnvs() error {
 	if e, ok := os.LookupEnv("E2E_NAMESPACE"); ok {
 		c.Namespace = e

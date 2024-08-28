@@ -20,8 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
+	"net/netip"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,12 +32,10 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 
-	yamlv3 "gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -147,6 +146,17 @@ func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
 	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
 		res.StdErr())
 }
+
+func MergePatchResource(resource kc.Resource, name string, patch string) {
+	GinkgoHelper()
+	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
+		Namespace:  conf.Namespace,
+		MergePatch: patch,
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
+		res.StdErr())
+}
+
 func CheckField(resource kc.Resource, name, output, compareValue string) {
 	GinkgoHelper()
 	res := kubectl.GetResource(resource, name, kc.GetOptions{
@@ -240,81 +250,31 @@ func CheckDefaultStorageClass() error {
 	return nil
 }
 
-func ipToInt(ip net.IP) (result uint32) {
-	for i := 0; i < 4; i++ {
-		result |= uint32(ip[i]) << (24 - 8*i)
-	}
-	return
-}
-
-func intToIP(ipInt uint32) (result net.IP) {
-	result = net.IPv4(
-		byte(ipInt>>24),
-		byte(ipInt>>16),
-		byte(ipInt>>8),
-		byte(ipInt),
-	)
-	return
-}
-
 func FindUnassignedIP(subnets []string) (string, error) {
-	for _, value := range subnets {
-		ip, subnet, err := net.ParseCIDR(value)
+	findError := fmt.Errorf("error: cannot find unassigned IP address")
+	res := kubectl.List(kc.ResourceVMIPLease, kc.GetOptions{Output: "jsonpath='{.items[*].metadata.name}'"})
+	if !res.WasSuccess() {
+		return "", fmt.Errorf("failed to get vmipl: %s", res.StdErr())
+	}
+
+	reservedIPs := strings.Split(res.StdOut(), " ")
+	for _, rawSubnet := range subnets {
+		prefix, err := netip.ParsePrefix(rawSubnet)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to parse subnet %s: %w", rawSubnet, err)
 		}
-		start := ipToInt(ip.To4())
-		mask := net.IP(subnet.Mask).To4()
-		broadcast := start | ^(ipToInt(mask))
-		// excluding subnet, gateway and broadcast addresses
-		for ip := broadcast - 1; ip > start+1; ip-- {
-			name := fmt.Sprintf("ip-%s", strings.ReplaceAll(intToIP(ip).String(), ".", "-"))
-			res := kubectl.GetResource(kc.ResourceVMIPLease, name, kc.GetOptions{IgnoreNotFound: true})
-			if !res.WasSuccess() {
-				return "", fmt.Errorf(res.StdErr())
+		nextAddr := prefix.Addr().Next()
+		for {
+			nextAddr = nextAddr.Next()
+			ip := fmt.Sprintf("ip-%s", strings.ReplaceAll(nextAddr.String(), ".", "-"))
+			if slices.Contains(reservedIPs, ip) {
+				continue
 			}
-
-			if res.WasSuccess() && res.StdOut() == "" {
-				return intToIP(ip).String(), nil
+			if prefix.Contains(nextAddr) {
+				return nextAddr.String(), nil
 			}
-
+			return "", findError
 		}
 	}
-	return "", fmt.Errorf("error: cannot find unassigned IP address")
-}
-
-func GetVirtualMachineIPAddress(filePath string) (config.VirtualMachineIPAddress, error) {
-	vmip := config.VirtualMachineIPAddress{}
-
-	data, readErr := os.ReadFile(filePath)
-	if readErr != nil {
-		return vmip, readErr
-	}
-
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &vmip)
-	if unmarshalErr != nil {
-		return vmip, unmarshalErr
-	}
-
-	return vmip, nil
-}
-
-func SetCustomIPAddress(filePath, ipaddress string) error {
-	vmip, err := GetVirtualMachineIPAddress(filePath)
-	if err != nil {
-		return err
-	}
-
-	vmip.Spec.StaticIP = ipaddress
-	updatedVMIP, marshalErr := yamlv3.Marshal(&vmip)
-	if marshalErr != nil {
-		return marshalErr
-	}
-
-	writeErr := os.WriteFile(filePath, updatedVMIP, 0644)
-	if writeErr != nil {
-		return writeErr
-	}
-
-	return nil
+	return "", findError
 }

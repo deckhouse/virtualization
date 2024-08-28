@@ -4,4 +4,4 @@ metadata:
   name: vm
 spec:
   type: Static
-  staticIP: 10.255.255.254
+  staticIP: 172.31.255.255

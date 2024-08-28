@@ -88,10 +88,11 @@ type WaitOptions struct {
 }
 
 type PatchOptions struct {
-	Namespace string
-	Type      string
-	PatchFile string
-	JsonPatch *JsonPatch
+	Namespace  string
+	Type       string
+	PatchFile  string
+	MergePatch string
+	JsonPatch  *JsonPatch
 }
 
 type JsonPatch struct {
@@ -364,6 +365,9 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	}
 	if opts.JsonPatch != nil {
 		cmd = fmt.Sprintf("%s --type=json --patch='%s'", cmd, opts.JsonPatch.String())
+	}
+	if opts.MergePatch != "" {
+		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
 	return cmd
 }

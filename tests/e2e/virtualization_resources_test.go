@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"fmt"
-	"net"
 	"strings"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -47,41 +46,6 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 		Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
 	}
 
-	BeforeAll(func() {
-		var (
-			err          error
-			unassignedIP string
-		)
-		filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
-		unassignedIP, err = FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
-		Expect(err).NotTo(HaveOccurred())
-		err = SetCustomIPAddress(filePath, unassignedIP)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	Context("Environment setup", func() {
-		When("Check custom IP address", func() {
-			It("Subnets in module config must contain custom IP address", func() {
-				filePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "vm/overlays/custom-ip/vmip.yaml")
-				vmip, err := GetVirtualMachineIPAddress(filePath)
-				Expect(err).NotTo(HaveOccurred())
-				staticIP := vmip.Spec.StaticIP
-				ip := net.ParseIP(staticIP)
-				Expect(ip).NotTo(BeNil())
-				isSubnetContainsIP := false
-				for _, subnet := range mc.Spec.Settings.VirtualMachineCIDRs {
-					_, cidr, err := net.ParseCIDR(subnet)
-					Expect(err).NotTo(HaveOccurred())
-					if cidr.Contains(ip) {
-						isSubnetContainsIP = true
-						break
-					}
-				}
-				Expect(isSubnetContainsIP).To(BeTrue())
-			})
-		})
-	})
-
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -109,6 +73,13 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 
 	Context("Virtual machines IP addresses", func() {
 		When("VMIP applied", func() {
+			It("Patch custom IP address", func() {
+				unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
+				Expect(err).NotTo(HaveOccurred())
+				vmipMetadataName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
+				mergePatch := fmt.Sprintf("{\"spec\":{\"staticIP\":\"%s\"}}", unassignedIP)
+				MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
+			})
 			It(fmt.Sprintf("Phase should be %s", PhaseBound), func() {
 				checkPhase("vmip", PhaseBound)
 			})
