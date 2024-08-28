@@ -302,7 +302,9 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
-
+		vi.Status.Size = viRef.Status.Size
+		vi.Status.CDROM = viRef.Status.CDROM
+		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
