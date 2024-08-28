@@ -87,19 +87,15 @@ func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImag
 	if err != nil {
 		return false, err
 	}
-	pv, err := ds.diskService.GetPersistentVolume(ctx, pvc)
-	if err != nil {
-		return false, err
-	}
 
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pv, pvc, &condition, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.diskService.Protect(ctx, vi, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, nil, pvc)
 		if err != nil {
 			return false, err
 		}
@@ -233,7 +229,7 @@ func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImag
 		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.diskService.Protect(ctx, vi, dv, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, dv, pvc)
 		if err != nil {
 			return false, err
 		}
@@ -429,7 +425,7 @@ func (ds RegistryDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, err
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return ds.diskService.AdjustPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
 func (ds RegistryDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {
