@@ -196,7 +196,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		source := ds.getSource(vd, supgen)
 
 		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-		if err != nil {
+		if err = setPhaseConditionFromStorageError(err, vd, &condition); err != nil {
 			return false, err
 		}
 
@@ -236,11 +236,10 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		}
 
 		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if err != nil {
+		if err = setPhaseConditionFromStorageError(err, vd, &condition); err != nil {
 			return false, err
 		}
-		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService)
-		if err != nil {
+		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
 			return false, err
 		}
 

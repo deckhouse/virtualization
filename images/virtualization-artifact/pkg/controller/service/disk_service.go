@@ -73,17 +73,13 @@ func (s DiskService) Start(
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
 
-	sc, err := s.GetStorageClass(ctx, storageClass)
-	if err != nil {
-		return err
-	}
 	sprofile, err := s.GetStorageProfile(ctx, storageClass)
 	if err != nil {
 		return err
 	}
 	storageCaps := s.parseVolumeMode(sprofile.Status)
 
-	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, storageCaps.AccessMode, storageCaps.VolumeMode)
+	dvBuilder.SetPVC(ptr.To(sprofile.GetName()), pvcSize, storageCaps.AccessMode, storageCaps.VolumeMode)
 
 	err = s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -264,7 +260,7 @@ func (s DiskService) GetStorageProfile(ctx context.Context, storageClassName *st
 	var sp cdiv1.StorageProfile
 	if err = s.client.Get(ctx, types.NamespacedName{Name: sc.GetName()}, &sp); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, fmt.Errorf("storageProfile not found: %w", err)
+			return nil, ErrStorageProfileNotFound
 		}
 		return nil, err
 	}
@@ -280,32 +276,32 @@ func (cp StorageCapabilities) IsEmpty() bool {
 	return cp.AccessMode == "" && cp.VolumeMode == ""
 }
 
-func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageCapabilities {
-	accessModeWeights := map[corev1.PersistentVolumeAccessMode]int{
-		corev1.ReadOnlyMany:     0,
-		corev1.ReadWriteOncePod: 1,
-		corev1.ReadWriteOnce:    2,
-		corev1.ReadWriteMany:    3,
-	}
+var accessModeWeights = map[corev1.PersistentVolumeAccessMode]int{
+	corev1.ReadOnlyMany:     0,
+	corev1.ReadWriteOncePod: 1,
+	corev1.ReadWriteOnce:    2,
+	corev1.ReadWriteMany:    3,
+}
 
-	volumeModeWeights := map[corev1.PersistentVolumeMode]int{
-		corev1.PersistentVolumeFilesystem: 0,
-		corev1.PersistentVolumeBlock:      1,
-	}
+var volumeModeWeights = map[corev1.PersistentVolumeMode]int{
+	corev1.PersistentVolumeFilesystem: 0,
+	corev1.PersistentVolumeBlock:      1,
+}
 
-	getAccessModeMax := func(modes []corev1.PersistentVolumeAccessMode) corev1.PersistentVolumeAccessMode {
-		weight := -1
-		var m corev1.PersistentVolumeAccessMode
-		for _, mode := range modes {
-			if accessModeWeights[mode] > weight {
-				weight = accessModeWeights[mode]
-				m = mode
-			}
+func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.PersistentVolumeAccessMode {
+	weight := -1
+	var m corev1.PersistentVolumeAccessMode
+	for _, mode := range modes {
+		if accessModeWeights[mode] > weight {
+			weight = accessModeWeights[mode]
+			m = mode
 		}
-		return m
 	}
+	return m
+}
 
-	var scaps []StorageCapabilities
+func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageCapabilities {
+	var storageCapabilities []StorageCapabilities
 	for _, cp := range status.ClaimPropertySets {
 		var mode corev1.PersistentVolumeMode
 		if cp.VolumeMode == nil || *cp.VolumeMode == "" {
@@ -313,26 +309,26 @@ func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageC
 		} else {
 			mode = *cp.VolumeMode
 		}
-		scaps = append(scaps, StorageCapabilities{
+		storageCapabilities = append(storageCapabilities, StorageCapabilities{
 			AccessMode: getAccessModeMax(cp.AccessModes),
 			VolumeMode: mode,
 		})
 	}
-	slices.SortFunc(scaps, func(a, b StorageCapabilities) int {
+	slices.SortFunc(storageCapabilities, func(a, b StorageCapabilities) int {
 		if c := cmp.Compare(accessModeWeights[a.AccessMode], accessModeWeights[b.AccessMode]); c != 0 {
 			return c
 		}
 		return cmp.Compare(volumeModeWeights[a.VolumeMode], volumeModeWeights[b.VolumeMode])
 	})
 
-	if len(scaps) == 0 {
+	if len(storageCapabilities) == 0 {
 		return StorageCapabilities{
 			AccessMode: corev1.ReadWriteOnce,
 			VolumeMode: corev1.PersistentVolumeFilesystem,
 		}
 	}
 
-	return scaps[len(scaps)-1]
+	return storageCapabilities[len(storageCapabilities)-1]
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
@@ -351,12 +347,7 @@ func (s DiskService) GetPersistentVolume(ctx context.Context, pvc *corev1.Persis
 	return helper.FetchObject(ctx, types.NamespacedName{Name: pvc.Spec.VolumeName}, s.client, &corev1.PersistentVolume{})
 }
 
-func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {
-	_, err := s.GetStorageClass(ctx, storageClassName)
-	if err != nil {
-		return err
-	}
-
+func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if dv == nil {
 		return nil
 	}
