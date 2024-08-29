@@ -47,7 +47,7 @@
 - name: GC_VMOP_TTL
   value: "1h"
 - name: GC_VMOP_SCHEDULE
-  value: "*/30 * * * *
+  value: "*/30 * * * *"
 - name: GC_VMI_MIGRATION_TTL
   value: "1h"
 - name: GC_VMI_MIGRATION_SCHEDULE
