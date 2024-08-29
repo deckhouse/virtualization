@@ -124,7 +124,34 @@ func setPhaseConditionForFinishedDisk(
 }
 
 type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+}
+
+func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, service.ErrStorageProfileNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return nil
+	default:
+		return err
+	}
+	return nil
 }
 
 func setPhaseConditionForPVCProvisioningDisk(
@@ -136,7 +163,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc, vd.Spec.PersistentVolumeClaim.StorageClass)
+	err := checker.CheckImportProcess(ctx, dv, pvc)
 	switch {
 	case err == nil:
 		if dv == nil {
@@ -165,18 +192,6 @@ func setPhaseConditionForPVCProvisioningDisk(
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
-		return nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ProvisioningFailed
-		condition.Message = "Provided StorageClass not found in the cluster."
-		return nil
-	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ProvisioningFailed
-		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
 		return nil
 	default:
 		return err

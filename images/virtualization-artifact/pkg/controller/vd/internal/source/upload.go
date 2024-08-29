@@ -223,7 +223,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-		if err != nil {
+		if err = setPhaseConditionFromStorageError(err, vd, &condition); err != nil {
 			return false, err
 		}
 
@@ -264,14 +264,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			return false, err
 		}
 		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if err != nil {
+		if err = setPhaseConditionFromStorageError(err, vd, &condition); err != nil {
 			return false, err
 		}
-		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService)
-		if err != nil {
+		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
 			return false, err
 		}
-
 		return false, nil
 	}
 

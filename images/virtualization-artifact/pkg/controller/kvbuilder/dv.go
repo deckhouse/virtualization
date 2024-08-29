@@ -29,6 +29,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
+const unpackFormatQcow2 = "qcow2"
+
 // DV is a helper to construct DataVolume to import an image from DVCR onto PVC.
 type DV struct {
 	helper.ResourceBuilder[*cdiv1.DataVolume]
@@ -47,7 +49,7 @@ func NewDV(name types.NamespacedName) *DV {
 					Name:      name.Name,
 					Annotations: map[string]string{
 						"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
-						cc.AnnUnpackFormat: "qcow2",
+						cc.AnnUnpackFormat: unpackFormatQcow2,
 					},
 				},
 				Spec: cdiv1.DataVolumeSpec{
