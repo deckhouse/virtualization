@@ -191,4 +191,9 @@ const (
 
 	VirtualizationApiAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
 	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
+
+	GcVmopTtlVar              = "GC_VMOP_TTL"
+	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
+	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL"
+	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
 )
