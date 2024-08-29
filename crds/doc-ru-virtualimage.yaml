@@ -164,6 +164,9 @@ spec:
                     registryURL:
                       description: |
                         Образ, созданный в DVCR.
+                    persistentVolumeClaimName:
+                      description: |
+                        Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 uploadCommand:
                   description: |
                     Команда для загрузки образа для типа 'Upload'.

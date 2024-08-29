@@ -294,6 +294,10 @@ spec:
                       example: dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest
                       description: |
                         Created image in DVCR.
+                    persistentVolumeClaimName:
+                      type: string
+                      description: |
+                        Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
                   type: string
                   description: |
@@ -353,6 +357,10 @@ spec:
           priority: 1
         - name: Registry URL
           jsonPath: .status.target.registryURL
+          type: string
+          priority: 1
+        - name: TargetPVC
+          jsonPath: .status.target.persistentVolumeClaimName
           type: string
           priority: 1
         - name: Age
