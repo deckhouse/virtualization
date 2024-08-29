@@ -22,7 +22,6 @@ import (
 	"log"
 	"net/netip"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -256,8 +255,11 @@ func FindUnassignedIP(subnets []string) (string, error) {
 	if !res.WasSuccess() {
 		return "", fmt.Errorf("failed to get vmipl: %s", res.StdErr())
 	}
-
-	reservedIPs := strings.Split(res.StdOut(), " ")
+	ips := strings.Split(res.StdOut(), " ")
+	reservedIPs := make(map[string]struct{}, len(ips))
+	for _, ip := range ips {
+		reservedIPs[ip] = struct{}{}
+	}
 	for _, rawSubnet := range subnets {
 		prefix, err := netip.ParsePrefix(rawSubnet)
 		if err != nil {
@@ -267,7 +269,7 @@ func FindUnassignedIP(subnets []string) (string, error) {
 		for {
 			nextAddr = nextAddr.Next()
 			ip := fmt.Sprintf("ip-%s", strings.ReplaceAll(nextAddr.String(), ".", "-"))
-			if slices.Contains(reservedIPs, ip) {
+			if _, found := reservedIPs[ip]; found {
 				continue
 			}
 			if prefix.Contains(nextAddr) {
