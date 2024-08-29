@@ -91,7 +91,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), "")
+		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &cvi.Status.Phase, err)
 		if err != nil {
