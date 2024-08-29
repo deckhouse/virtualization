@@ -281,13 +281,6 @@ func (cp StorageCapabilities) IsEmpty() bool {
 }
 
 func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageCapabilities {
-	// FIXME: delete this after test
-	if true {
-		return StorageCapabilities{
-			AccessMode: corev1.ReadWriteOnce,
-			VolumeMode: corev1.PersistentVolumeFilesystem,
-		}
-	}
 	accessModeWeights := map[corev1.PersistentVolumeAccessMode]int{
 		corev1.ReadOnlyMany:     0,
 		corev1.ReadWriteOncePod: 1,
