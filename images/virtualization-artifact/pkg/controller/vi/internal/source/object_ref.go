@@ -322,7 +322,7 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 	return true, nil
 }
 
-func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 	log.Info("exec SyncPVC::")
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
@@ -456,7 +456,7 @@ func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualIma
 	return true, nil
 }
 
-func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 	log.Info("exec Sync::")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -603,12 +603,17 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
@@ -669,12 +674,17 @@ func (ds ObjectRefDataSource) getEnvSettingsForBlockDevice(vi *virtv2.VirtualIma
 func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSource) (resource.Quantity, error) {

@@ -68,7 +68,7 @@ func NewRegistryDataSource(
 	}
 }
 
-func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, registryDataSource)
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
@@ -245,7 +245,7 @@ func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImag
 	return true, nil
 }
 
-func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -357,12 +357,17 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 func (ds RegistryDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds RegistryDataSource) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
