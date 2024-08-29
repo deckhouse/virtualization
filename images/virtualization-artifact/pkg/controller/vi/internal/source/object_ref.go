@@ -115,7 +115,7 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 			return false, err
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name)
+		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -329,20 +329,17 @@ func (ds ObjectRefDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualIma
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
-		// fetch ref объекта и смотрим в его спеку
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
 		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VM %s: %w", viKey, err)
 		}
 
-		// если в spec указан испочник Kubernetes  ->  новая логика c созданием clone service
 		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
 			return ds.SyncPVCFromPVC(ctx, vi, viObjetcRef)
 		}
 	}
 
-	// дальше логика по работе с CVI (PVC нальется из DVCR)
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
@@ -466,14 +463,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
-		// fetch ref объекта и смотрим в его спеку
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
 		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VM %s: %w", viKey, err)
 		}
 
-		// если в spec указан испочник Kubernetes - новая логика по выгрузке образа с файловой системы на DVCR
 		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
 			return ds.SyncDVCRFromPVC(ctx, vi, viObjetcRef)
 		}
@@ -518,7 +513,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage)
 			return false, err
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), "")
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -613,8 +608,6 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualIma
 		return false, err
 	}
 
-	// TODO clean up for clone Service or disk Service (еще один аргурмент объединить их) и тогда внутрь можно передвать нужный сервис для очистки
-
 	return requeue, nil
 }
 
@@ -673,7 +666,7 @@ func (ds ObjectRefDataSource) getEnvSettings2(vi *virtv2.VirtualImage, sup *supp
 	return &settings, nil
 }
 
-func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) { // TODO передавать явно какой сервайс зачистить
+func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)

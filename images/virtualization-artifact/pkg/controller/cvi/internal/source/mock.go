@@ -224,7 +224,7 @@ func (mock *ImporterMock) ProtectCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
+func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
 	if mock.StartFunc == nil {
 		panic("ImporterMock.StartFunc: method is nil but Importer.Start was just called")
 	}

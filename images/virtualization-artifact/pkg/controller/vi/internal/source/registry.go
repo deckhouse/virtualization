@@ -118,7 +118,7 @@ func (ds RegistryDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImag
 		log.Info("Start import to DVCR")
 
 		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), "")
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -279,7 +279,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 		log.Info("Cleaning up...")
 	case pod == nil:
 		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), "")
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
