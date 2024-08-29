@@ -33,6 +33,7 @@ type VirtualDiskReadySnapshotter interface {
 
 type LifeCycleSnapshotter interface {
 	Freeze(ctx context.Context, name, namespace string) error
+	IsFrozen(vm *virtv2.VirtualMachine) bool
 	CanFreeze(vm *virtv2.VirtualMachine) bool
 	CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
 	Unfreeze(ctx context.Context, name, namespace string) error

@@ -31,10 +31,6 @@ import (
 
 const nameFilesystemHandler = "FilesystemHandler"
 
-var filesystemConditions = []string{
-	string(vmcondition.TypeFilesystemReady),
-}
-
 func NewFilesystemHandler() *FilesystemHandler {
 	return &FilesystemHandler{}
 }
@@ -48,7 +44,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, filesystemConditions...); update {
+	if update := addAllUnknown(changed, vmcondition.TypeFilesystemReady); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -61,14 +57,14 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, err
 	}
 
-	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder2(vmcondition.TypeFilesystemReady).Generation(changed.GetGeneration())
-	defer func() { mgr.Update2(cb); changed.Status.Conditions = mgr.Generate() }()
+	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemReady).Generation(changed.GetGeneration())
+
+	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 
 	if kvvmi == nil {
 		cb.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonFilesystemNotReady).
-			Message(fmt.Sprintf("The internal virtual machine %s is not running.", changed.Name))
+			Reason(vmcondition.ReasonFilesystemNotReady).
+			Message(fmt.Sprintf("The internal virtual machine %q is not running.", changed.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -80,13 +76,13 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	if kvvmi.Status.FSFreezeStatus == "frozen" {
 		cb.Status(metav1.ConditionFalse).
-			Reason2(vmcondition.ReasonFilesystemFrozen).
-			Message(fmt.Sprintf("The internal virtual machine %s is frozen.", changed.Name))
+			Reason(vmcondition.ReasonFilesystemFrozen).
+			Message(fmt.Sprintf("The internal virtual machine %q is frozen.", changed.Name))
 		return reconcile.Result{}, nil
 	}
 
 	cb.Status(metav1.ConditionTrue).
-		Reason2(vmcondition.ReasonFilesystemReady)
+		Reason(vmcondition.ReasonFilesystemReady)
 	return reconcile.Result{}, nil
 }
 

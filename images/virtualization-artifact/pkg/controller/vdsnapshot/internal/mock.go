@@ -123,6 +123,9 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			GetVolumeSnapshotFunc: func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
 //				panic("mock out the GetVolumeSnapshot method")
 //			},
+//			IsFrozenFunc: func(vm *virtv2.VirtualMachine) bool {
+//				panic("mock out the IsFrozen method")
+//			},
 //			UnfreezeFunc: func(ctx context.Context, name string, namespace string) error {
 //				panic("mock out the Unfreeze method")
 //			},
@@ -156,6 +159,9 @@ type LifeCycleSnapshotterMock struct {
 
 	// GetVolumeSnapshotFunc mocks the GetVolumeSnapshot method.
 	GetVolumeSnapshotFunc func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error)
+
+	// IsFrozenFunc mocks the IsFrozen method.
+	IsFrozenFunc func(vm *virtv2.VirtualMachine) bool
 
 	// UnfreezeFunc mocks the Unfreeze method.
 	UnfreezeFunc func(ctx context.Context, name string, namespace string) error
@@ -230,6 +236,11 @@ type LifeCycleSnapshotterMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
+		// IsFrozen holds details about calls to the IsFrozen method.
+		IsFrozen []struct {
+			// VM is the vm argument value.
+			VM *virtv2.VirtualMachine
+		}
 		// Unfreeze holds details about calls to the Unfreeze method.
 		Unfreeze []struct {
 			// Ctx is the ctx argument value.
@@ -248,6 +259,7 @@ type LifeCycleSnapshotterMock struct {
 	lockGetVirtualDisk           sync.RWMutex
 	lockGetVirtualMachine        sync.RWMutex
 	lockGetVolumeSnapshot        sync.RWMutex
+	lockIsFrozen                 sync.RWMutex
 	lockUnfreeze                 sync.RWMutex
 }
 
@@ -560,6 +572,38 @@ func (mock *LifeCycleSnapshotterMock) GetVolumeSnapshotCalls() []struct {
 	mock.lockGetVolumeSnapshot.RLock()
 	calls = mock.calls.GetVolumeSnapshot
 	mock.lockGetVolumeSnapshot.RUnlock()
+	return calls
+}
+
+// IsFrozen calls IsFrozenFunc.
+func (mock *LifeCycleSnapshotterMock) IsFrozen(vm *virtv2.VirtualMachine) bool {
+	if mock.IsFrozenFunc == nil {
+		panic("LifeCycleSnapshotterMock.IsFrozenFunc: method is nil but LifeCycleSnapshotter.IsFrozen was just called")
+	}
+	callInfo := struct {
+		VM *virtv2.VirtualMachine
+	}{
+		VM: vm,
+	}
+	mock.lockIsFrozen.Lock()
+	mock.calls.IsFrozen = append(mock.calls.IsFrozen, callInfo)
+	mock.lockIsFrozen.Unlock()
+	return mock.IsFrozenFunc(vm)
+}
+
+// IsFrozenCalls gets all the calls that were made to IsFrozen.
+// Check the length with:
+//
+//	len(mockedLifeCycleSnapshotter.IsFrozenCalls())
+func (mock *LifeCycleSnapshotterMock) IsFrozenCalls() []struct {
+	VM *virtv2.VirtualMachine
+} {
+	var calls []struct {
+		VM *virtv2.VirtualMachine
+	}
+	mock.lockIsFrozen.RLock()
+	calls = mock.calls.IsFrozen
+	mock.lockIsFrozen.RUnlock()
 	return calls
 }
 

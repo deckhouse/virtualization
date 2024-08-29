@@ -17,6 +17,7 @@ limitations under the License.
 package kubeclient
 
 import (
+	"context"
 	"io"
 	"net"
 
@@ -79,6 +80,8 @@ type VirtualMachineInterface interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
+	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
+	Unfreeze(ctx context.Context, name string) error
 }
 
 type client struct {

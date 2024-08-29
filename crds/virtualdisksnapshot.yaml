@@ -47,13 +47,13 @@ spec:
                   type: string
                   description: |
                     The name of the volume snapshot class to use while snapshotting virtual disk.
-                allowPotentiallyInconsistent:
+                requiredConsistency:
                   type: boolean
-                  default: false
+                  default: true
                   description: |
-                    Specify whether to allow the snapshotting of a virtual machine's disk that is attached to a running virtual machine without an agent, and as a result, cannot be frozen.
+                    Create a snapshot of a connected virtual machine's disk only if it is possible to freeze the machine through the agent.
 
-                    If value is false, the snapshot of the virtual disk will be taken only in the following scenarios:
+                    If value is true, the snapshot of the virtual disk will be taken only in the following scenarios:
                     - the virtual disk is not attached to any virtual machine.
                     - the virtual disk is attached to a virtual machine that is powered off.
                     - the virtual disk is attached to a virtual machine with an agent, and the freeze operation was successful.
@@ -95,6 +95,10 @@ spec:
                   type: string
                   description: |
                     The name of the `VolumeSnapshot` created automatically by this resource.
+                consistent:
+                  type: boolean
+                  description: |
+                    The virtual disk snapshot is consistent.
                 phase:
                   type: string
                   description: |
@@ -115,5 +119,11 @@ spec:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Consistent
+          type: boolean
+          jsonPath: .status.consistent
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
       subresources:
         status: {}

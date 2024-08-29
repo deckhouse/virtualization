@@ -29,7 +29,6 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -50,6 +49,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -191,7 +191,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	restClient, err := rest.UnversionedRESTClientFor(cfg)
+	virtClient, err := kubeclient.GetClientFromRESTConfig(cfg)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -251,16 +251,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmop.NewController(ctx, mgr, log); err != nil {
+	if _, err = vdsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vdsnapshot.NewController(ctx, mgr, log, restClient); err != nil {
+	if err = vmop.SetupController(ctx, mgr, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-
 	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

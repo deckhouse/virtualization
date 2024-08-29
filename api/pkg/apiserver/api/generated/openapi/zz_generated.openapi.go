@@ -2185,7 +2185,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref common.
 							Format:  "",
 						},
 					},
-					"allowPotentiallyInconsistent": {
+					"requiredConsistency": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
 							Type:    []string{"boolean"},
@@ -2193,7 +2193,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref common.
 						},
 					},
 				},
-				Required: []string{"virtualDiskName", "volumeSnapshotClassName", "allowPotentiallyInconsistent"},
+				Required: []string{"virtualDiskName", "volumeSnapshotClassName", "requiredConsistency"},
 			},
 		},
 	}
@@ -2215,6 +2215,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotStatus(ref commo
 					"volumeSnapshotName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"consistent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},

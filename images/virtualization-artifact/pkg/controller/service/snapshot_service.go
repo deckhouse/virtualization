@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -27,71 +26,60 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
-const virtualizationSubresourcePath = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s/%s"
-
 type SnapshotService struct {
-	restClient *rest.RESTClient
+	virtClient kubeclient.Client
 	client     Client
 	protection *ProtectionService
 }
 
-func NewSnapshotService(restClient *rest.RESTClient, client Client, protection *ProtectionService) *SnapshotService {
+func NewSnapshotService(virtClient kubeclient.Client, client Client, protection *ProtectionService) *SnapshotService {
 	return &SnapshotService{
-		restClient: restClient,
+		virtClient: virtClient,
 		client:     client,
 		protection: protection,
 	}
 }
 
-func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
-	if vm == nil || vm.Status.Phase != virtv2.MachineRunning {
-		return false
-	}
-
-	agentReady, _ := GetCondition(vmcondition.TypeAgentReady.String(), vm.Status.Conditions)
-	if agentReady.Status != metav1.ConditionTrue {
+func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
+	if vm == nil {
 		return false
 	}
 
 	filesystemReady, _ := GetCondition(vmcondition.TypeFilesystemReady.String(), vm.Status.Conditions)
 
-	return filesystemReady.Status == metav1.ConditionTrue
+	return filesystemReady.Status == metav1.ConditionFalse && filesystemReady.Reason == vmcondition.ReasonFilesystemFrozen.String()
+}
+
+func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
+	if vm == nil || vm.Status.Phase != virtv2.MachineRunning || s.IsFrozen(vm) {
+		return false
+	}
+
+	agentReady, _ := GetCondition(vmcondition.TypeAgentReady.String(), vm.Status.Conditions)
+
+	return agentReady.Status == metav1.ConditionTrue
 }
 
 func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) error {
-	path := fmt.Sprintf(virtualizationSubresourcePath, namespace, name, "freeze")
-
-	body, err := json.Marshal(&virtv1.FreezeUnfreezeTimeout{
-		UnfreezeTimeout: &metav1.Duration{},
-	})
+	err := s.virtClient.VirtualMachines(namespace).Freeze(ctx, name, v1alpha2.VirtualMachineFreeze{})
 	if err != nil {
-		return err
-	}
-
-	err = s.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
-	if err != nil {
-		return fmt.Errorf("failed to freeze internal virtual machine %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("failed to freeze virtual machine %s/%s: %w", namespace, name, err)
 	}
 
 	return nil
 }
 
 func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
-	if vm == nil {
-		return false, nil
-	}
-
-	filesystemReady, _ := GetCondition(vmcondition.TypeFilesystemReady.String(), vm.Status.Conditions)
-	if filesystemReady.Reason != vmcondition.ReasonFilesystemFrozen.String() {
+	if vm == nil || !s.IsFrozen(vm) {
 		return false, nil
 	}
 
@@ -125,9 +113,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 }
 
 func (s *SnapshotService) Unfreeze(ctx context.Context, name, namespace string) error {
-	path := fmt.Sprintf(virtualizationSubresourcePath, namespace, name, "unfreeze")
-
-	err := s.restClient.Put().AbsPath(path).Do(ctx).Error()
+	err := s.virtClient.VirtualMachines(namespace).Unfreeze(ctx, name)
 	if err != nil {
 		return fmt.Errorf("failed to unfreeze internal virtual machine %s/%s: %w", namespace, name, err)
 	}

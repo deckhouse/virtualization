@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -127,7 +128,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != virtv2.MachineStopped {
+		if vm != nil && vm.Status.Phase != virtv2.MachineStopped && !h.snapshotter.IsFrozen(vm) {
 			if h.snapshotter.CanFreeze(vm) {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
@@ -147,7 +148,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 				return reconcile.Result{}, nil
 			}
 
-			if !vdSnapshot.Spec.AllowPotentiallyInconsistent {
+			if vdSnapshot.Spec.RequiredConsistency {
 				vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdscondition.PotentiallyInconsistent
@@ -155,7 +156,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					"The virtual machine %q with an attached virtual disk %q is %s: "+
 						"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
 						"waiting for the virtual machine to be %s or the disk to be detached",
-					vm.Status.Phase, vm.Name, vd.Name, virtv2.MachineStopped,
+					vm.Name, vd.Name, vm.Status.Phase, virtv2.MachineStopped,
 				)
 				return reconcile.Result{}, nil
 			}
@@ -194,7 +195,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	default:
 		log.Debug("The volume snapshot is ready to use")
 
-		if vm != nil {
+		switch {
+		case vm == nil, vm.Status.Phase == virtv2.MachineStopped:
+			vdSnapshot.Status.Consistent = ptr.To(true)
+		case h.snapshotter.IsFrozen(vm):
+			vdSnapshot.Status.Consistent = ptr.To(true)
+
 			var canUnfreeze bool
 			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm)
 			if err != nil {

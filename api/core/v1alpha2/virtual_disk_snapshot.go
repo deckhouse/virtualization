@@ -45,14 +45,15 @@ type VirtualDiskSnapshotList struct {
 }
 
 type VirtualDiskSnapshotSpec struct {
-	VirtualDiskName              string `json:"virtualDiskName"`
-	VolumeSnapshotClassName      string `json:"volumeSnapshotClassName"`
-	AllowPotentiallyInconsistent bool   `json:"allowPotentiallyInconsistent"`
+	VirtualDiskName         string `json:"virtualDiskName"`
+	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
+	RequiredConsistency     bool   `json:"requiredConsistency"`
 }
 
 type VirtualDiskSnapshotStatus struct {
 	Phase              VirtualDiskSnapshotPhase `json:"phase"`
 	VolumeSnapshotName string                   `json:"volumeSnapshotName,omitempty"`
+	Consistent         *bool                    `json:"consistent,omitempty"`
 	Conditions         []metav1.Condition       `json:"conditions,omitempty"`
 	ObservedGeneration int64                    `json:"observedGeneration,omitempty"`
 }

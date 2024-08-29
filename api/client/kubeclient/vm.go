@@ -20,6 +20,8 @@ Initially copied from https://github.com/kubevirt/kubevirt/blob/main/staging/src
 package kubeclient
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +29,9 @@ import (
 	"strconv"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
@@ -105,4 +109,39 @@ func (v vm) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (S
 		params.Add("protocol", opts.Protocol)
 	}
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "portforward", params)
+}
+
+func (v vm) Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error {
+	path := fmt.Sprintf(operationURLTpl, v.namespace, v.resource, name, "freeze")
+
+	unfreezeTimeout := virtv1.FreezeUnfreezeTimeout{
+		UnfreezeTimeout: &metav1.Duration{},
+	}
+
+	if opts.UnfreezeTimeout != nil {
+		unfreezeTimeout.UnfreezeTimeout = opts.UnfreezeTimeout
+	}
+
+	body, err := json.Marshal(&unfreezeTimeout)
+	if err != nil {
+		return err
+	}
+
+	err = v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v vm) Unfreeze(ctx context.Context, name string) error {
+	path := fmt.Sprintf(operationURLTpl, v.namespace, v.resource, name, "unfreeze")
+
+	err := v.restClient.Put().AbsPath(path).Do(ctx).Error()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

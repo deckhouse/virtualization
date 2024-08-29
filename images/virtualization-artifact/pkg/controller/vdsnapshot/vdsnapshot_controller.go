@@ -20,7 +20,6 @@ import (
 	"context"
 	"log/slog"
 
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -29,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,12 +38,12 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *slog.Logger,
-	restClient *rest.RESTClient,
+	virtClient kubeclient.Client,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(ControllerName))
 
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDSnapshotProtection)
-	freezer := service.NewSnapshotService(restClient, mgr.GetClient(), protection)
+	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

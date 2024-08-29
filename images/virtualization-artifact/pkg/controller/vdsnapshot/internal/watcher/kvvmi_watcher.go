@@ -22,7 +22,6 @@ import (
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -32,23 +31,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-type VirtualMachineInstanceWatcher struct {
+type VirtualMachineWatcher struct {
 	client client.Client
 }
 
-func NewVirtualMachineInstanceWatcher(client client.Client) *VirtualMachineInstanceWatcher {
-	return &VirtualMachineInstanceWatcher{
+func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
+	return &VirtualMachineWatcher{
 		client: client,
 	}
 }
 
-func (w VirtualMachineInstanceWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -58,26 +58,20 @@ func (w VirtualMachineInstanceWatcher) Watch(mgr manager.Manager, ctr controller
 	)
 }
 
-func (w VirtualMachineInstanceWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	kvvmi, ok := obj.(*virtv1.VirtualMachineInstance)
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+	vm, ok := obj.(*virtv2.VirtualMachine)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an VirtualMachineInstance but got a %T", obj))
+		slog.Default().Error(fmt.Sprintf("expected an VirtualMachine but got a %T", obj))
 		return
 	}
 
 	vdByName := make(map[string]struct{})
-	for _, volume := range kvvmi.Spec.Volumes {
-		if volume.PersistentVolumeClaim == nil {
+	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.Kind != virtv2.DiskDevice {
 			continue
 		}
 
-		var vdName string
-		vdName, ok = kvbuilder.GetOriginalDiskName(volume.Name)
-		if !ok {
-			continue
-		}
-
-		vdByName[vdName] = struct{}{}
+		vdByName[bdr.Name] = struct{}{}
 	}
 
 	if len(vdByName) == 0 {
@@ -110,18 +104,21 @@ func (w VirtualMachineInstanceWatcher) enqueueRequests(ctx context.Context, obj 
 	return
 }
 
-func (w VirtualMachineInstanceWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldKVVMI, ok := e.ObjectOld.(*virtv1.VirtualMachineInstance)
+func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
+	oldKVVMI, ok := e.ObjectOld.(*virtv2.VirtualMachine)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachineInstance but got a %T", e.ObjectOld))
+		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
 		return false
 	}
 
-	newKVVMI, ok := e.ObjectNew.(*virtv1.VirtualMachineInstance)
+	newKVVMI, ok := e.ObjectNew.(*virtv2.VirtualMachine)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachineInstance but got a %T", e.ObjectNew))
+		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
 		return false
 	}
 
-	return oldKVVMI.Status.FSFreezeStatus != newKVVMI.Status.FSFreezeStatus
+	oldFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), oldKVVMI.Status.Conditions)
+	newFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), newKVVMI.Status.Conditions)
+
+	return oldFSReady.Status != newFSReady.Status
 }
