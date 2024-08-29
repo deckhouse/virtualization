@@ -127,31 +127,31 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
-func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) error {
+func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
 	switch {
 	case err == nil:
-		return nil
+		return false, nil
 	case errors.Is(err, service.ErrStorageProfileNotFound):
 		vd.Status.Phase = virtv2.DiskFailed
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
+		return true, nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
 		vd.Status.Phase = virtv2.DiskFailed
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "Provided StorageClass not found in the cluster."
-		return nil
+		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vd.Status.Phase = virtv2.DiskFailed
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
-		return nil
+		return true, nil
 	default:
-		return err
+		return false, err
 	}
-	return nil
 }
 
 func setPhaseConditionForPVCProvisioningDisk(
