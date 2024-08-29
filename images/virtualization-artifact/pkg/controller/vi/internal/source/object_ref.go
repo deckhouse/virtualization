@@ -110,7 +110,7 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 		log.Info("Cleaning up...")
 	case pod == nil:
 		var envSettings *importer.Settings
-		envSettings, err = ds.getEnvSettings2(vi, supgen)
+		envSettings, err = ds.getEnvSettingsForBlockDevice(vi, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -652,10 +652,10 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *suppl
 	return &settings, nil
 }
 
-func (ds ObjectRefDataSource) getEnvSettings2(vi *virtv2.VirtualImage, sup *supplements.Generator) (*importer.Settings, error) {
+func (ds ObjectRefDataSource) getEnvSettingsForBlockDevice(vi *virtv2.VirtualImage, sup *supplements.Generator) (*importer.Settings, error) {
 
 	var settings importer.Settings
-	importer.ApplyPVCSourceSettings(&settings)
+	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
