@@ -21,7 +21,10 @@ import (
 	"fmt"
 )
 
-var ErrSecretNotFound = errors.New("container registry secret not found")
+var (
+	ErrSecretNotFound        = errors.New("container registry secret not found")
+	ErrISOSourceNotSupported = errors.New("creating a virtual disk from an ISO image is not supported: please use a virtual image or a cluster virtual image instead")
+)
 
 type ImageNotReadyError struct {
 	name string

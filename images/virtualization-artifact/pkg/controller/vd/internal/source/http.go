@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -176,6 +177,11 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		vd.Status.Progress = "50%"
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
+
+		if imageformat.IsISO(ds.statService.GetFormat(pod)) {
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, ErrISOSourceNotSupported)
+			return false, nil
+		}
 
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd, pod)
