@@ -51,7 +51,7 @@ func Test_MakePodSpec(t *testing.T) {
 		DestinationAuthSecret:  "dvcr-auth",
 	}
 
-	imp := NewImporter(podSettings, settings)
+	imp := NewImporter(podSettings, settings, "")
 
 	pod := imp.makeImporterPodSpec()
 
@@ -88,7 +88,7 @@ func Test_MakePodSpec_CABundle(t *testing.T) {
 		DestinationAuthSecret:  "dvcr-auth",
 	}
 
-	imp := NewImporter(podSettings, settings)
+	imp := NewImporter(podSettings, settings, "")
 
 	pod := imp.makeImporterPodSpec()
 
