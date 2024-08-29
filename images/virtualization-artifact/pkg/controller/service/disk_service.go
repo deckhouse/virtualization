@@ -128,6 +128,28 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
+func (s DiskService) StartClone(
+	ctx context.Context,
+	pvcSize resource.Quantity,
+	storageClass *string,
+	source *cdiv1.DataVolumeSource,
+	obj ObjectKind,
+	sup *supplements.Generator,
+) error {
+	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
+	dvBuilder.SetDataSource(source)
+	dvBuilder.SetPVC(storageClass, pvcSize)
+	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetBindingMode(false)
+
+	err := s.client.Create(ctx, dvBuilder.GetResource())
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
 func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {

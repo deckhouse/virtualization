@@ -51,7 +51,6 @@ type ObjectRefDataSource struct {
 	dvcrSettings    *dvcr.Settings
 	client          client.Client
 	diskService     *service.DiskService
-	cloneService    *service.PVCCloneService
 }
 
 func NewObjectRefDataSource(
@@ -60,7 +59,6 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	cloneService *service.PVCCloneService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		statService:     statService,
@@ -68,7 +66,6 @@ func NewObjectRefDataSource(
 		dvcrSettings:    dvcrSettings,
 		client:          client,
 		diskService:     diskService,
-		cloneService:    cloneService,
 	}
 }
 
@@ -86,7 +83,7 @@ func (ds ObjectRefDataSource) SyncDVCRFromPVC(ctx context.Context, vi *virtv2.Vi
 
 	refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
-	refPvc, err := ds.cloneService.GetPersistentVolumeClaim(ctx, refSupgen)
+	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 	if err != nil {
 		return false, err
 	}
@@ -213,15 +210,11 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
-	dv, err := ds.cloneService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
-	pvc, err := ds.cloneService.GetPersistentVolumeClaim(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-	pv, err := ds.cloneService.GetPersistentVolume(ctx, pvc)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
@@ -233,18 +226,18 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC and PV.
-		err = ds.cloneService.Protect(ctx, vi, nil, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, nil, pvc)
 		if err != nil {
 			return false, err
 		}
 
-		err = ds.cloneService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, dv)
 		if err != nil {
 			return false, err
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.AnyTerminating(dv, pvc, pv):
+	case cc.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -254,7 +247,7 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 
 		refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
-		refPvc, err := ds.cloneService.GetPersistentVolumeClaim(ctx, refSupgen)
+		refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 		if err != nil {
 			return false, err
 		}
@@ -278,7 +271,7 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 			},
 		}
 
-		err = ds.cloneService.Start(ctx, size, &storageClass, source, vi, supgen, false)
+		err = ds.diskService.StartClone(ctx, size, &storageClass, source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -295,7 +288,7 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 		condition.Reason = vicondition.Provisioning
 		condition.Message = "PVC not found: waiting for creation."
 		return true, nil
-	case ds.cloneService.IsImportDone(dv, pvc):
+	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Phase = virtv2.ImageReady
@@ -310,15 +303,15 @@ func (ds ObjectRefDataSource) SyncPVCFromPVC(ctx context.Context, vi *virtv2.Vir
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
-		vi.Status.Progress = ds.cloneService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
+		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.cloneService.Protect(ctx, vi, dv, pvc, pv)
+		err = ds.diskService.Protect(ctx, vi, dv, pvc)
 		if err != nil {
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.cloneService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
 		if err != nil {
 			return false, err
 		}
