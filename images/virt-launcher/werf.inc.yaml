@@ -43,7 +43,15 @@ import:
   includePaths:
   - libpcre.so.1.2.13
 
+#   Add liboverride library.
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride/
+  to: /liboverride/
+  after: install
+  includePaths:
+  - liboverride.so
 
+# Add kubeivrt files from virt-artifact.
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/
   to: /
@@ -146,10 +154,14 @@ shell:
     rm OVMF_VARS_4M.secboot.qcow2
     ls -la
   setup:
-  # Replace virt-launcher-monitor with script.
+  # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
+  # Replace virsh with the wrapper.
+  - mv /usr/bin/virsh /usr/bin/virsh-orig
+  - cp /scripts/virsh-wrapper.sh /usr/bin/virsh
+  - chmod +x /usr/bin/virsh
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
   # Create links to required for virt-launcher libs.
@@ -218,6 +230,23 @@ shell:
   - cd /tmp/pcre-8.45
   - ./configure --enable-utf --enable-unicode-properties
   - make && make install
+---
+image: {{ $.ImageName }}-liboverride-builder
+fromImage: {{ $.ImageName }}-lib-builder
+git:
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /liboverride
+    includePaths:
+      - '*.c'
+    stageDependencies:
+      install:
+      - '*.c'
+shell:
+  install:
+  # Build liboverride.
+  - cd /liboverride
+  - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
+  - strip liboverride.so
 ---
 # Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
 image: {{ $.ImageName }}-edk2-builder
