@@ -92,7 +92,7 @@ type EbpfWatcher struct {
 	log          logr.Logger
 }
 
-func (w *EbpfWatcher) ResultChanel() <-chan types.NamespacedName {
+func (w *EbpfWatcher) ResultChannel() <-chan types.NamespacedName {
 	return w.result
 }
 

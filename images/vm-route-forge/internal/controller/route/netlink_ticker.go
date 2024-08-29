@@ -65,7 +65,7 @@ type NetlinkTickerWatcher struct {
 	nlWrapper    *netlinkwrap.Funcs
 }
 
-func (w *NetlinkTickerWatcher) ResultChanel() <-chan types.NamespacedName {
+func (w *NetlinkTickerWatcher) ResultChannel() <-chan types.NamespacedName {
 	return w.result
 }
 

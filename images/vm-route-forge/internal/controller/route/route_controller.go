@@ -230,7 +230,7 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	c.log.Info("Starting localhost route controller")
 
 	go func() {
-		for key := range c.routeWatcher.ResultChanel() {
+		for key := range c.routeWatcher.ResultChannel() {
 			c.queueAdd(key.String())
 		}
 		cancel()

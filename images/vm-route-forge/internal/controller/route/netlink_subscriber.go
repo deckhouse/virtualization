@@ -69,7 +69,7 @@ type NetlinkSubscriberWatcher struct {
 	routeGet func(net.IP) ([]netlink.Route, error)
 }
 
-func (w *NetlinkSubscriberWatcher) ResultChanel() <-chan types.NamespacedName {
+func (w *NetlinkSubscriberWatcher) ResultChannel() <-chan types.NamespacedName {
 	return w.result
 }
 

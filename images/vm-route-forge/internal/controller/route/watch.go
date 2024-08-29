@@ -33,7 +33,7 @@ const (
 )
 
 type Watcher interface {
-	ResultChanel() <-chan types.NamespacedName
+	ResultChannel() <-chan types.NamespacedName
 	Stop()
 }
 
