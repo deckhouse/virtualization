@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -65,7 +64,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
-	log, _ := logger.GetDataSourceContext(ctx, "objectref")
+	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
@@ -103,13 +102,10 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		vi.Status.Progress = "0%"
+		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		var envSettings *importer.Settings
-		envSettings, err = ds.getEnvSettings(vi, supgen)
-		if err != nil {
-			return false, err
-		}
+		envSettings := ds.getEnvSettings(vi, supgen)
 
 		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name)
 		var requeue bool
@@ -118,10 +114,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 			return false, err
 		}
 
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
-		vi.Status.SourceUID = util.GetPointer(viRef.GetUID())
-
-		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
+		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
 	case cc.IsPodComplete(pod):
@@ -140,27 +133,14 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 			}
 		}
 
-		var dvcrDataSource controller.DVCRDataSource
-		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
-		if err != nil {
-			return false, err
-		}
-
-		if !dvcrDataSource.IsReady() {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.ProvisioningFailed
-			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
-			return false, nil
-		}
-
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		vi.Status.Phase = virtv2.ImageReady
-		vi.Status.Size = dvcrDataSource.GetSize()
-		vi.Status.CDROM = dvcrDataSource.IsCDROM()
-		vi.Status.Format = dvcrDataSource.GetFormat()
+		vi.Status.Size = viRef.Status.Size
+		vi.Status.CDROM = viRef.Status.CDROM
+		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
@@ -186,14 +166,20 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 			}
 		}
 
+		err = ds.importerService.Protect(ctx, pod)
+		if err != nil {
+			return false, err
+		}
+
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.Provisioning
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
-		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil
@@ -333,7 +319,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *virtv2
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) (*importer.Settings, error) {
+func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
@@ -343,7 +329,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage,
 		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
 	)
 
-	return &settings, nil
+	return &settings
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
