@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineIPAddress
+metadata:
+  name: vm
+spec:
+  type: Static
+  staticIP: 172.31.255.255

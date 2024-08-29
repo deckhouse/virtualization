@@ -44,9 +44,10 @@ type Kubectl interface {
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(filepath string, opts DeleteOptions) *executor.CMDResult
 	DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult
+	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
-	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
+	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
@@ -64,12 +65,20 @@ type CreateOptions struct {
 }
 
 type DeleteOptions struct {
+	Label     string
 	Namespace string
 }
 
 type GetOptions struct {
+	Namespace      string
+	Output         string
+	IgnoreNotFound bool
+}
+
+type KustomizeOptions struct {
 	Namespace string
 	Output    string
+	Force     bool
 }
 
 type WaitOptions struct {
@@ -79,10 +88,11 @@ type WaitOptions struct {
 }
 
 type PatchOptions struct {
-	Namespace string
-	Type      string
-	PatchFile string
-	JsonPatch *JsonPatch
+	Namespace  string
+	Type       string
+	PatchFile  string
+	MergePatch string
+	JsonPatch  *JsonPatch
 }
 
 type JsonPatch struct {
@@ -205,6 +215,14 @@ func (k KubectlCMD) DeleteResource(resource Resource, name string, opts DeleteOp
 	return k.Exec(cmd)
 }
 
+func (k KubectlCMD) Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s apply --kustomize %s", k.cmd, directory)
+	cmd = k.kustomizeOptions(cmd, opts)
+	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
 func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
@@ -228,7 +246,18 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout
+		timeout = opts.Timeout * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...string) *executor.CMDResult {
+	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
+	timeout := MediumTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout * time.Second
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -263,6 +292,13 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
+func (k KubectlCMD) addLabel(cmd, label string) string {
+	if label != "" {
+		return fmt.Sprintf("%s -l %s", cmd, label)
+	}
+	return cmd
+}
+
 func (k KubectlCMD) addOutput(cmd, output string) string {
 	if output != "" {
 		return fmt.Sprintf("%s -o %s", cmd, output)
@@ -270,7 +306,20 @@ func (k KubectlCMD) addOutput(cmd, output string) string {
 	return cmd
 }
 
+func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
+	if ignoreNotFound {
+		return fmt.Sprintf("%s --ignore-not-found", cmd)
+	}
+	return cmd
+}
+
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addOutput(cmd, opts.Output)
+	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
+}
+
+func (k KubectlCMD) kustomizeOptions(cmd string, opts KustomizeOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
@@ -285,11 +334,14 @@ func (k KubectlCMD) createOptions(cmd string, opts CreateOptions) string {
 func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
+	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	return cmd
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
-	return k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabel(cmd, opts.Label)
+	return cmd
 }
 
 func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
@@ -298,7 +350,7 @@ func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
 		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
 	}
 	if opts.Timeout != 0 {
-		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
+		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout*time.Second)
 	}
 	return cmd
 }
@@ -313,6 +365,9 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	}
 	if opts.JsonPatch != nil {
 		cmd = fmt.Sprintf("%s --type=json --patch='%s'", cmd, opts.JsonPatch.String())
+	}
+	if opts.MergePatch != "" {
+		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
 	return cmd
 }

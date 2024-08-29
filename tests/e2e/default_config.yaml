@@ -1,4 +1,4 @@
-namespace: "test-d8-virtualization"
+namespaceSuffix: "testcases"
 
 clusterTransport:
   kubeConfig: ""
@@ -18,3 +18,4 @@ ipam:
   testDataDir: "./testdata/ipam"
 helperImages:
   curlImage: "curlimages/curl"
+virtualizationResources: "/tmp/testdata/virtualization-resources"

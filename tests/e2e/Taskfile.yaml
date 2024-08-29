@@ -4,10 +4,16 @@ silent: true
 
 vars:
   E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{ .E2E_CLUSTERTRANSPORT_KUBECONFIG | default "$HOME/.kube/config" }}'
-  GINKGO_VERSION: "2.13.2"
+  GINKGO_VERSION: "2.20.0"
   VERSION: "v1.0.0"
 
 tasks:
+  copy:
+    cmds:
+      - |
+        rm -fr /tmp/testdata
+        mkdir /tmp/testdata
+        cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
   virtctl:
     cmds:
       - |
@@ -32,17 +38,19 @@ tasks:
       - virtctl
       - ginkgo
     cmds:
-      - ginkgo
+      - export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
+      - ginkgo --focus "Virtualization resources" -v
 
   run_local:
     desc: "Run locally e2e tests"
     deps:
+      - copy
       - virtctl
       - ginkgo
     cmds:
       - |
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-        ginkgo
+        ginkgo --focus "Virtualization resources" -v
 
   run_one:
     desc: "Run one test or group"

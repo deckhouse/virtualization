@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - overlays/default
+  - overlays/always-on
+  - overlays/embedded-cloudinit
+  - overlays/custom-ip
+  - overlays/automatic
+  - overlays/automatic-with-hotplug
+  - overlays/hotplug
+  - overlays/vm-a-not-b
+  - overlays/vm-b-not-a
+  - overlays/vm-c-and-a
+  - overlays/with-mounted-cvi
+  - overlays/with-mounted-vi

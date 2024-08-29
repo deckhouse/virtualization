@@ -1,0 +1,12 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-alpine-registry
+spec:
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: docker.io/fl64/alpine-3-20:latest
+  persistentVolumeClaim:
+    size: 260Mi

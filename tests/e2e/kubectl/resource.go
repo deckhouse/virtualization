@@ -24,6 +24,7 @@ const (
 	ResourceKubevirtVM  Resource = "internalvirtualizationvirtualmachines.internal.virtualization.deckhouse.io"
 	ResourceKubevirtVMI Resource = "internalvirtualizationvirtualmachineinstances.internal.virtualization.deckhouse.io"
 	ResourceVM          Resource = "virtualmachine.virtualization.deckhouse.io"
-	ResourceVMIPClaim   Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
+	ResourceVMIP        Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
 	ResourceVMIPLease   Resource = "virtualmachineipaddressleases.virtualization.deckhouse.io"
+	ResourceCVI         Resource = "clustervirtualimages.virtualization.deckhouse.io"
 )
