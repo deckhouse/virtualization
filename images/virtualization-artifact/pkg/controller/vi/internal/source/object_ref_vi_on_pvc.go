@@ -103,6 +103,8 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		vi.Status.Progress = "0%"
+
 		var envSettings *importer.Settings
 		envSettings, err = ds.getEnvSettings(vi, supgen)
 		if err != nil {

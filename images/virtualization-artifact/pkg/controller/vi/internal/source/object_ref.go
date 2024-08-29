@@ -181,6 +181,12 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
+		var dvcrDataSource controller.DVCRDataSource
+		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+
+		vi.Status.Size = dvcrDataSource.GetSize()
+		vi.Status.CDROM = dvcrDataSource.IsCDROM()
+		vi.Status.Format = dvcrDataSource.GetFormat()
 		vi.Status.Progress = "100%"
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
@@ -249,6 +255,8 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		vi.Status.Progress = "0%"
+
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
 		if err != nil {
