@@ -119,7 +119,7 @@ func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
 	podEnvVars.Endpoint = dvcrImageName
 }
 
-// ApplyPVCSourceSettings updates importer Pod settings to use PVC source.
-func ApplyPVCSourceSettings(podEnvVars *Settings) {
+// ApplyBlockDeviceSourceSettings updates importer Pod settings to use BlockDevice as source.
+func ApplyBlockDeviceSourceSettings(podEnvVars *Settings) {
 	podEnvVars.Source = "blockDevice"
 }
