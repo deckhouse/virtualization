@@ -2,10 +2,12 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualmachineclasses.virtualization.deckhouse.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
   labels:
     heritage: deckhouse
     module: virtualization
+  name: virtualmachineclasses.virtualization.deckhouse.io
 spec:
   group: virtualization.deckhouse.io
   names:
