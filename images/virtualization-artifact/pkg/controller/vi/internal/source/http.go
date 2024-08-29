@@ -62,7 +62,7 @@ func NewHTTPDataSource(
 
 var storageClass = "linstor-thin-r2" // FIXME add setting settings in controller
 
-func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -178,7 +178,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (boo
 	return true, nil
 }
 
-func (ds HTTPDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)

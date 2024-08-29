@@ -96,9 +96,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	var requeue bool
 	var err error
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
-		requeue, err = ds.SyncPVC(ctx, vi)
+		requeue, err = ds.StoreToPVC(ctx, vi)
 	} else {
-		requeue, err = ds.Sync(ctx, vi)
+		requeue, err = ds.StoreToDVCR(ctx, vi)
 	}
 
 	if err != nil {

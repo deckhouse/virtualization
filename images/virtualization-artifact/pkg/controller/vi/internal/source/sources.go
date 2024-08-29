@@ -35,8 +35,8 @@ import (
 )
 
 type Handler interface {
-	Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
-	SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	Validate(ctx context.Context, vi *virtv2.VirtualImage) error
 }

@@ -62,7 +62,7 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
@@ -268,7 +268,7 @@ func (ds UploadDataSource) SyncPVC(ctx context.Context, vi *virtv2.VirtualImage)
 	return true, nil
 }
 
-func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -408,12 +408,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) (b
 func (ds UploadDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
