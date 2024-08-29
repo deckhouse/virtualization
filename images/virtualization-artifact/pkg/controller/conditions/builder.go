@@ -46,6 +46,7 @@ func (c *ConditionBuilder) Condition() metav1.Condition {
 		Type:               c.conditionType,
 		Status:             c.status,
 		Reason:             c.reason,
+		LastTransitionTime: metav1.Now(),
 		Message:            c.message,
 		ObservedGeneration: c.generation,
 	}
