@@ -1,0 +1,7 @@
+---
+image: {{ $.ImageName }}
+from: {{ $.Images.BASE_ASTRA }}
+shell:
+  setup:
+  # Create nonroot-user group and user.
+  - groupadd --gid 1001 nonroot-user && useradd nonroot-user --uid 1001 --gid 1001 --shell /bin/bash --create-home

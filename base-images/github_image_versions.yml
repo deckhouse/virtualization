@@ -1,0 +1,4 @@
+# REGISTRY_PATH is a special key which is concatenated with other base images
+REGISTRY_PATH: "ghcr.io/deckhouse/virtualization/"
+
+BASE_ASTRA: "astra:1.7.5-se@sha256:cfc6678466eb900952c958619a172904eb2b384d2f141ca6efe53771ed85f325"
