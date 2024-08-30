@@ -673,6 +673,14 @@ tasks:
     desc: "Wipe local pyroscope for vm-route-forge"
     cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
 
+  dlv:build:controller:
+    desc: "Build image virtualization-controller with dlv"
+    cmd: ./hack/dlv.sh build controller --image="$DLV_IMAGE"
+
+  dlv:build-push:controller:
+    desc: "Push image virtualization-controller with dlv"
+    cmd: ./hack/dlv.sh push controller --image="$DLV_IMAGE"
+
   _copy_d8_registry_secret:
     internal: true
     vars:
