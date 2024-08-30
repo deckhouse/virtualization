@@ -8,7 +8,7 @@ shell:
   - |
     apt-get update && apt-get install --yes \
     acl astra-kvm findutils xorriso \
-    glibc-source
+    glibc-source gcc
   # acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
   # qemu-img==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
   # findutils==4.8.0.0.10.1157-alt1:sisyphus+278099.1200.1.1 \
