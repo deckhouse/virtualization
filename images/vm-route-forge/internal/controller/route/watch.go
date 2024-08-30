@@ -33,18 +33,20 @@ const (
 )
 
 type Watcher interface {
-	Watch(ctx context.Context) (<-chan types.NamespacedName, error)
+	ResultChannel() <-chan types.NamespacedName
+	Stop()
 }
 
 type KindRouteWatcher string
 
 const (
-	NetlinkKind KindRouteWatcher = "netlink"
-	TickerKind  KindRouteWatcher = "ticker"
-	EbpfKind    KindRouteWatcher = "ebpf"
+	NetlinkSubscriberKind KindRouteWatcher = "netlinkSubscriber"
+	NetlinkTickerKind     KindRouteWatcher = "netlinkTicker"
+	EbpfKind              KindRouteWatcher = "ebpf"
 )
 
-func WatchFactory(kind KindRouteWatcher,
+func WatchFactory(ctx context.Context,
+	kind KindRouteWatcher,
 	cidrs []*net.IPNet,
 	cache vmipcache.Cache,
 	routeTableID int,
@@ -52,12 +54,12 @@ func WatchFactory(kind KindRouteWatcher,
 	log logr.Logger,
 ) (Watcher, error) {
 	switch kind {
-	case NetlinkKind:
-		return NewNetlinkWatcher(cidrs, cache, nlWrapper, log), nil
-	case TickerKind:
-		return NewTickerWatcher(cidrs, cache, routeTableID, nlWrapper, log), nil
+	case NetlinkSubscriberKind:
+		return NewNetlinkSubscriberWatcher(ctx, cidrs, cache, nlWrapper, log)
+	case NetlinkTickerKind:
+		return NewNetlinkTickerWatcher(ctx, cidrs, cache, routeTableID, nlWrapper, log), nil
 	case EbpfKind:
-		return NewEbpfWatcher(cidrs, cache, nlWrapper, log)
+		return NewEbpfWatcher(ctx, cidrs, routeTableID, cache, nlWrapper, log)
 	default:
 		return nil, fmt.Errorf("unknown kind %s", kind)
 	}

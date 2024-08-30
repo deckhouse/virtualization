@@ -84,6 +84,7 @@ func NewController(
 	}
 	routeController.vmIndexer = vmInformer.Informer().GetIndexer()
 	routeController.vmLister = vmInformer.Lister()
+	routeController.cnIndexer = cnInformer.Informer().GetIndexer()
 	routeController.hasSynced = func() bool {
 		return vmInformer.Informer().HasSynced() && cnInformer.Informer().HasSynced()
 	}
@@ -93,6 +94,7 @@ func NewController(
 
 type Controller struct {
 	vmIndexer    cache.Indexer
+	cnIndexer    cache.Indexer
 	vmLister     virtlisters.VirtualMachineLister
 	routeWatcher Watcher
 	hasSynced    cache.InformerSynced
@@ -203,46 +205,39 @@ func (c *Controller) queueAdd(key string) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) Run(ctx context.Context, workers int) {
+func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
+
+	newCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	c.log.Info("Starting route controller")
 	defer c.log.Info("Shutting down route controller")
 
-	if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), c.hasSynced) {
-		c.log.Error(fmt.Errorf("cache is not synced"), "Controller will be stopped", "controller", controllerName)
-		return
+	if !cache.WaitForNamedCacheSync(controllerName, newCtx.Done(), c.hasSynced) {
+		return fmt.Errorf("cache is not synced")
+	}
+
+	if err := c.netlinkMgr.SyncRules(); err != nil {
+		return fmt.Errorf("failed to synchronize routing rules at start: %w", err)
 	}
 
 	c.log.Info("Starting workers of route controller")
 	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.worker, time.Second)
+		go wait.UntilWithContext(newCtx, c.worker, time.Second)
 	}
 	c.log.Info("Starting localhost route controller")
-	errCh := make(chan error)
+
 	go func() {
-		keyCh, err := c.routeWatcher.Watch(ctx)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		for key := range keyCh {
+		for key := range c.routeWatcher.ResultChannel() {
 			c.queueAdd(key.String())
 		}
+		cancel()
 	}()
 
-	for {
-		select {
-		case err := <-errCh:
-			if err != nil {
-				c.log.Error(err, "host reconciliation failed")
-			}
-			return
-		case <-ctx.Done():
-			return
-		}
-	}
+	<-newCtx.Done()
+	return nil
 }
 
 func (c *Controller) worker(ctx context.Context) {
@@ -298,7 +293,18 @@ func (c *Controller) sync(key string) error {
 		return nil
 	}
 
-	if err = c.netlinkMgr.UpdateRoute(vm); err != nil {
+	// Retrieve a Cilium Node by VMs node name.
+	var ciliumNode *ciliumv2.CiliumNode
+	obj, exists, err = c.cnIndexer.GetByKey(vm.Status.Node)
+	if err != nil {
+		c.log.Error(err, "failed to get cilium node for vm")
+		return err
+	}
+	if exists {
+		ciliumNode = obj.(*ciliumv2.CiliumNode)
+	}
+
+	if err = c.netlinkMgr.UpdateRoute(vm, ciliumNode); err != nil {
 		log.Error(err, "Failed to update route")
 		return err
 	}

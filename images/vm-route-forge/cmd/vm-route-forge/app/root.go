@@ -37,6 +37,7 @@ import (
 	"vm-route-forge/internal/informer"
 	"vm-route-forge/internal/netlinkmanager"
 	"vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/runnablegroup"
 	"vm-route-forge/internal/server"
 )
 
@@ -114,7 +115,7 @@ func run(opts options.Options) error {
 		}
 		routeTableID = int(tableId)
 	}
-	log.Info(fmt.Sprintf("Use cilium route table id %d", routeTableID))
+	log.Info(fmt.Sprintf("Use route table id %d", routeTableID))
 
 	// Load configuration to connect to Kubernetes API Server.
 	kubeCfg, err := config.GetConfig()
@@ -151,21 +152,15 @@ func run(opts options.Options) error {
 		nlWrapper = netlinkwrap.DryRunFuncs()
 	}
 
-	netMgr := netlinkmanager.New(vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
-		ciliumSharedInformerFactory.Cilium().V2().CiliumNodes(),
-		sharedCache,
+	netMgr := netlinkmanager.New(sharedCache,
 		log,
 		routeTableID,
 		parsedCIDRs,
 		nlWrapper,
 	)
 
-	err = startupSync(ctx, netMgr)
-	if err != nil {
-		log.Error(err, "Failed to run pre sync")
-		return err
-	}
 	routeWatcher, err := route.WatchFactory(
+		ctx,
 		route.KindRouteWatcher(opts.KindRouteWatcher),
 		parsedCIDRs,
 		sharedCache,
@@ -177,6 +172,8 @@ func run(opts options.Options) error {
 		log.Error(err, "Failed to create route watcher")
 		return err
 	}
+	defer routeWatcher.Stop()
+
 	routeCtrl, err := route.NewController(
 		vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines(),
 		ciliumSharedInformerFactory.Cilium().V2().CiliumNodes(),
@@ -188,7 +185,6 @@ func run(opts options.Options) error {
 		log.Error(err, "Failed to create route controller")
 		return err
 	}
-	go routeCtrl.Run(ctx, countWorkersRouteController)
 
 	serverOptions := server.Options{
 		HealthProbeBindAddress: opts.ProbeAddr,
@@ -203,22 +199,18 @@ func run(opts options.Options) error {
 		log.Error(err, "Failed to create server")
 		return err
 	}
-	return srv.Run(ctx)
+	runnableGroup := runnablegroup.NewRunnableGroup()
+	runnableGroup.Add(srv)
+	runnableGroup.Add(&wrapRouteController{routeCtrl: routeCtrl, count: countWorkersRouteController})
+
+	return runnableGroup.Run(ctx)
 }
 
-func startupSync(ctx context.Context, mgr *netlinkmanager.Manager) error {
-	log.Info("Synchronize route rules at start")
-	err := mgr.SyncRules()
-	if err != nil {
-		log.Error(err, fmt.Sprintf("failed to synchronize routing rules ar start"))
-		return err
-	}
+type wrapRouteController struct {
+	routeCtrl *route.Controller
+	count     int
+}
 
-	log.Info("Synchronize VM routes at start")
-	err = mgr.SyncRoutes(ctx)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("failed to synchronize VM routes at start"))
-		return err
-	}
-	return nil
+func (c *wrapRouteController) Run(ctx context.Context) error {
+	return c.routeCtrl.Run(ctx, c.count)
 }
