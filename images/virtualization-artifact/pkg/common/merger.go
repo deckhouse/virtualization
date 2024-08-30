@@ -42,7 +42,7 @@ func ApplyMapChanges(target, prev, cur map[string]string) (map[string]string, bo
 	var isChanged bool
 
 	for key, value := range cur {
-		if target[key] != value {
+		if val, ok := target[key]; !ok || val != value {
 			target[key] = value
 			isChanged = true
 		}
