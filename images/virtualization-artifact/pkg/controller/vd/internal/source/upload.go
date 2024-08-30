@@ -125,7 +125,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 	case pod == nil || svc == nil || ing == nil:
 		log.Info("Start import to DVCR")
 
-		envSettings := ds.getEnvSettings(supgen)
+		envSettings := ds.getEnvSettings(vd, supgen)
 		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
 		var requeue bool
 		requeue, err = setPhaseConditionForUploaderStart(&condition, &vd.Status.Phase, err)
@@ -220,7 +220,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			return false, err
 		}
 
-		source := ds.getSource(vd, supgen)
+		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
@@ -316,25 +316,23 @@ func (ds UploadDataSource) Name() string {
 	return uploadDataSource
 }
 
-func (ds UploadDataSource) getEnvSettings(supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForVMD(supgen.Name, supgen.Namespace),
+		ds.dvcrSettings.RegistryImageForVD(vd),
 	)
 
 	return &settings
 }
 
-func (ds UploadDataSource) getSource(vd *virtv2.VirtualDisk, sup *supplements.Generator) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-	dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMD(vd.Name, vd.Namespace)
-
 	url := common2.DockerRegistrySchemePrefix + dvcrSourceImageName
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name

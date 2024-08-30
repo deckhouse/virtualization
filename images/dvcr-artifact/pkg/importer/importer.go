@@ -139,7 +139,7 @@ func (i *Importer) runForDVCRSource(ctx context.Context) error {
 	durCollector := monitoring.NewDurationCollector()
 
 	craneOpts := i.destCraneOptions(ctx)
-	err := crane.CopyRepository(i.src, i.destImageName, craneOpts...)
+	err := crane.Copy(i.src, i.destImageName, craneOpts...)
 	if err != nil {
 		return fmt.Errorf("error copy repository: %w", err)
 	}

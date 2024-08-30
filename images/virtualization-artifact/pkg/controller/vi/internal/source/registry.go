@@ -101,7 +101,6 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 		}
 
 		vi.Status.Progress = "0%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
@@ -131,7 +130,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.Format = ds.statService.GetFormat(pod)
 		vi.Status.Progress = "100%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -161,7 +160,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vi *virtv2.VirtualImage) 
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = "0%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -207,7 +206,7 @@ func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *sup
 		&settings,
 		ds.dvcrSettings,
 		supgen,
-		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
+		ds.dvcrSettings.RegistryImageForVI(vi),
 	)
 
 	return &settings

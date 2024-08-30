@@ -55,6 +55,7 @@ type Stat interface {
 	GetFormat(pod *corev1.Pod) string
 	GetCDROM(pod *corev1.Pod) bool
 	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
+	GetDVCRImageName(pod *corev1.Pod) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
