@@ -201,10 +201,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+		wffc := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen, wffc)
+		if err != nil {
 			return false, err
 		}
+
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
@@ -239,13 +241,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		if err != nil {
 			return false, err
 		}
-		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+
+		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, &condition, ds.diskService)
+		if err != nil {
 			return false, err
 		}
-		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
-			return false, err
-		}
+
 		return false, nil
 	}
 

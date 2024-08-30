@@ -39,9 +39,17 @@ type VirtualDisk struct {
 }
 
 type VirtualDiskSpec struct {
+	BindingMode           *VirtualDiskBindingMode          `json:"bindingMode,omitempty"`
 	DataSource            *VirtualDiskDataSource           `json:"dataSource,omitempty"`
 	PersistentVolumeClaim VirtualDiskPersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
+
+type VirtualDiskBindingMode string
+
+const (
+	VirtualDiskBindingModeWaitForFirstConsumer VirtualDiskBindingMode = "WaitForFirstConsumer"
+	VirtualDiskBindingModeImmediate            VirtualDiskBindingMode = "Immediate"
+)
 
 type VirtualDiskStatus struct {
 	DownloadSpeed             *StatusSpeed             `json:"downloadSpeed,omitempty"`
