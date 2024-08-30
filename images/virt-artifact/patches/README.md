@@ -86,3 +86,7 @@ Virtualization-controller doesn't use deprecated apiGroup versions. Deprecation 
 #### `020-stop-managing-kvvm-kvvmi-crds.patch`
 
 Stop managing VirtualMachine and VirtualMachineInstance CRDs with virt-operator. Module will install this CRDs using Helm.
+
+#### `021-support-qcow2-for-filesystem.patch`
+
+Support format qcow2 for pvc with filesystem mode.

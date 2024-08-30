@@ -26,40 +26,32 @@ import (
 // ForceDVReadWriteOnceVar enables accessMode ReadWriteOnce for testing in local environments.
 const ForceDVReadWriteOnceVar = "FORCE_DV_READ_WRITE_ONCE"
 
-// CreateSpecReadWriteMany returns pvc spec with accessMode ReadWriteMany and volumeMode Block.
-func CreateSpecReadWriteMany(storageClassName *string, size resource.Quantity) *corev1.PersistentVolumeClaimSpec {
-	mode := corev1.PersistentVolumeBlock
-
+func CreateSpec(storageClassName *string,
+	size resource.Quantity,
+	accessMode corev1.PersistentVolumeAccessMode,
+	volumeMode corev1.PersistentVolumeMode,
+) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
 		StorageClassName: storageClassName,
-		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		AccessModes:      []corev1.PersistentVolumeAccessMode{accessMode},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: size,
 			},
 		},
-		VolumeMode: &mode,
-	}
-}
-
-// CreateSpecReadWriteOnce returns pvc spec with accessMode ReadWriteOnce.
-func CreateSpecReadWriteOnce(storageClassName *string, size resource.Quantity) *corev1.PersistentVolumeClaimSpec {
-	return &corev1.PersistentVolumeClaimSpec{
-		StorageClassName: storageClassName,
-		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: size,
-			},
-		},
+		VolumeMode: &volumeMode,
 	}
 }
 
 // CreateSpecForDataVolume returns pvc spec with accessMode ReadWriteMany or
 // with accessMode ReadWriteOnce, depending on environment variable.
-func CreateSpecForDataVolume(storageClassName *string, size resource.Quantity) *corev1.PersistentVolumeClaimSpec {
+func CreateSpecForDataVolume(storageClassName *string,
+	size resource.Quantity,
+	accessMode corev1.PersistentVolumeAccessMode,
+	volumeMode corev1.PersistentVolumeMode,
+) *corev1.PersistentVolumeClaimSpec {
 	if os.Getenv(ForceDVReadWriteOnceVar) == "yes" {
-		return CreateSpecReadWriteOnce(storageClassName, size)
+		return CreateSpec(storageClassName, size, corev1.ReadWriteOnce, volumeMode)
 	}
-	return CreateSpecReadWriteMany(storageClassName, size)
+	return CreateSpec(storageClassName, size, accessMode, volumeMode)
 }
