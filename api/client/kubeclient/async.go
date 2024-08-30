@@ -65,8 +65,11 @@ func (a *AsyncSubresourceError) GetStatusCode() int {
 }
 
 // params are strings with "key=value" format
-func asyncSubresourceHelper(config *rest.Config, resource, namespace, name, subresource string,
-	queryParams url.Values) (StreamInterface, error) {
+func asyncSubresourceHelper(
+	config *rest.Config,
+	resource, namespace, name, subresource string,
+	queryParams url.Values,
+) (StreamInterface, error) {
 	done := make(chan struct{})
 
 	aws := &asyncWSRoundTripper{

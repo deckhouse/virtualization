@@ -32,6 +32,8 @@ const (
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
 
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
+
+	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 )
 
 type indexFunc func(ctx context.Context, mgr manager.Manager) error
@@ -43,6 +45,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMByVI,
 		IndexVMByCVI,
 		IndexVMIPLeaseByVMIP,
+		IndexVDByVDSnapshot,
 	} {
 		if err := fn(ctx, mgr); err != nil {
 			return err

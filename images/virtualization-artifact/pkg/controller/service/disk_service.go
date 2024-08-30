@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DiskService struct {
@@ -91,6 +93,15 @@ func (s DiskService) Start(
 	}
 
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+}
+
+func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	err := s.client.Create(ctx, pvc)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
 }
 
 func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
@@ -244,6 +255,26 @@ func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *suppleme
 	return helper.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
 }
 
+func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &vsv1.VolumeSnapshot{})
+}
+
+func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]virtv2.VirtualDiskSnapshot, error) {
+	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return vdSnapshots.Items, nil
+}
+
+func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+}
+
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error {
 	var err error
 
@@ -290,7 +321,7 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 		}
 
 		podScheduledCond, ok := GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
-		if ok && podScheduledCond.Status == corev1.ConditionFalse && (podScheduledCond.Reason == corev1.PodReasonUnschedulable || strings.Contains(podScheduledCond.Reason, "Error")) {
+		if ok && podScheduledCond.Status == corev1.ConditionFalse && strings.Contains(podScheduledCond.Reason, "Error") {
 			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podScheduledCond.Reason, podScheduledCond.Message)
 		}
 	}

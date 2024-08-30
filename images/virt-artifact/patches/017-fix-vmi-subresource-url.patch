@@ -1,26 +1,3 @@
-diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
-index 8b8313112..2b9061aef 100644
---- a/pkg/virt-operator/resource/generate/rbac/controller.go
-+++ b/pkg/virt-operator/resource/generate/rbac/controller.go
-@@ -363,6 +363,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
- 					"*",
- 				},
- 			},
-+			{
-+				APIGroups: []string{
-+					"subresources.virtualization.deckhouse.io",
-+				},
-+				Resources: []string{
-+					"virtualmachines/addvolume",
-+					"virtualmachines/removevolume",
-+				},
-+				Verbs: []string{
-+					"update",
-+				},
-+			},
- 			{
- 				APIGroups: []string{
- 					"subresources.kubevirt.io",
 diff --git a/staging/src/kubevirt.io/client-go/kubecli/vmi.go b/staging/src/kubevirt.io/client-go/kubecli/vmi.go
 index a9e071350..59c17b0f8 100644
 --- a/staging/src/kubevirt.io/client-go/kubecli/vmi.go

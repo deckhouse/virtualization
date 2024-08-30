@@ -96,6 +96,7 @@ type VirtualDiskObjectRefKind string
 const (
 	VirtualDiskObjectRefKindVirtualImage        VirtualDiskObjectRefKind = "VirtualImage"
 	VirtualDiskObjectRefKindClusterVirtualImage VirtualDiskObjectRefKind = "ClusterVirtualImage"
+	VirtualDiskObjectRefKindVirtualDiskSnapshot VirtualDiskObjectRefKind = "VirtualDiskSnapshot"
 )
 
 type DiskTarget struct {

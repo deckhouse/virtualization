@@ -77,6 +77,7 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewDatasourceReadyHandler(blank, sources),
 		internal.NewLifeCycleHandler(blank, sources, mgr.GetClient()),
+		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(disk),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),

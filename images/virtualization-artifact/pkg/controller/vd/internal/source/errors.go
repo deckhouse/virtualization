@@ -31,7 +31,7 @@ type ImageNotReadyError struct {
 }
 
 func (e ImageNotReadyError) Error() string {
-	return fmt.Sprintf("VirtualImage %s not ready", e.name)
+	return fmt.Sprintf("VirtualImage %q not ready", e.name)
 }
 
 func NewImageNotReadyError(name string) error {
@@ -45,11 +45,25 @@ type ClusterImageNotReadyError struct {
 }
 
 func (e ClusterImageNotReadyError) Error() string {
-	return fmt.Sprintf("ClusterVirtualImage %s not ready", e.name)
+	return fmt.Sprintf("ClusterVirtualImage %q not ready", e.name)
 }
 
 func NewClusterImageNotReadyError(name string) error {
 	return ClusterImageNotReadyError{
+		name: name,
+	}
+}
+
+type VirtualDiskSnapshotNotReadyError struct {
+	name string
+}
+
+func (e VirtualDiskSnapshotNotReadyError) Error() string {
+	return fmt.Sprintf("VirtualDiskSnapshot %q not ready", e.name)
+}
+
+func NewVirtualDiskSnapshotNotReadyError(name string) error {
+	return VirtualDiskSnapshotNotReadyError{
 		name: name,
 	}
 }

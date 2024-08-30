@@ -80,6 +80,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineIPAddressLeaseList{},
 		&VirtualMachineOperation{},
 		&VirtualMachineOperationList{},
+		&VirtualDiskSnapshot{},
+		&VirtualDiskSnapshotList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

@@ -1,5 +1,5 @@
 ARG BUILDER_CACHE_IMAGE=golang:1.21-bookworm
-FROM $BUILDER_CACHE_IMAGE as builder
+FROM $BUILDER_CACHE_IMAGE AS builder
 
 # Cache-friendly download modules.
 ADD go.mod go.sum /app/

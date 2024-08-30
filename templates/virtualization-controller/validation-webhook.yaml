@@ -139,4 +139,20 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-
+  - name: "vdsnapshot.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["virtualdisksnapshots"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualdisksnapshot
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None

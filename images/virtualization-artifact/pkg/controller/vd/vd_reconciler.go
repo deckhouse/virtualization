@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -231,6 +232,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
+	w := watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient())
+	if err := w.Watch(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
+	}
+
 	return nil
 }
 
@@ -251,13 +257,13 @@ func (r *Reconciler) enqueueDisksAttachedToVM() handler.MapFunc {
 
 		var requests []reconcile.Request
 
-		for _, bda := range vm.Status.BlockDeviceRefs {
-			if bda.Kind != virtv2.DiskDevice {
+		for _, bdr := range vm.Status.BlockDeviceRefs {
+			if bdr.Kind != virtv2.DiskDevice {
 				continue
 			}
 
 			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-				Name:      bda.Name,
+				Name:      bdr.Name,
 				Namespace: vm.Namespace,
 			}})
 		}

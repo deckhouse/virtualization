@@ -35,6 +35,10 @@ func (c *FakeVirtualizationV1alpha2) VirtualDisks(namespace string) v1alpha2.Vir
 	return &FakeVirtualDisks{c, namespace}
 }
 
+func (c *FakeVirtualizationV1alpha2) VirtualDiskSnapshots(namespace string) v1alpha2.VirtualDiskSnapshotInterface {
+	return &FakeVirtualDiskSnapshots{c, namespace}
+}
+
 func (c *FakeVirtualizationV1alpha2) VirtualImages(namespace string) v1alpha2.VirtualImageInterface {
 	return &FakeVirtualImages{c, namespace}
 }

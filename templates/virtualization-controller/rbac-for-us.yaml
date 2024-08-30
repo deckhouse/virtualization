@@ -49,6 +49,7 @@ rules:
   - get
   - list
   - update
+  - create
   - delete
   - watch
   - patch
@@ -124,6 +125,18 @@ rules:
   - list
   - delete
 - apiGroups:
+    - snapshot.storage.k8s.io
+  resources:
+    - volumesnapshots
+  verbs:
+    - get
+    - watch
+    - create
+    - patch
+    - update
+    - list
+    - delete
+- apiGroups:
     - internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationkubevirts
@@ -137,6 +150,13 @@ rules:
     - internalvirtualizationvirtualmachines/status
   verbs:
     - patch
+    - update
+- apiGroups:
+    - subresources.virtualization.deckhouse.io
+  resources:
+    - virtualmachines/freeze
+    - virtualmachines/unfreeze
+  verbs:
     - update
 - apiGroups:
   - subresources.kubevirt.io
@@ -160,6 +180,7 @@ rules:
   - clustervirtualimages
   - virtualmachineoperations
   - virtualmachineclasses
+  - virtualdisksnapshots
   verbs:
   - create
   - delete
@@ -181,6 +202,7 @@ rules:
   - virtualmachineipaddresses/finalizers
   - virtualmachineoperations/finalizers
   - virtualmachineclasses/finalizers
+  - virtualdisksnapshots/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualdisks/status
@@ -191,6 +213,7 @@ rules:
   - clustervirtualimages/status
   - virtualmachineoperations/status
   - virtualmachineclasses/status
+  - virtualdisksnapshots/status
   verbs:
   - patch
   - update
