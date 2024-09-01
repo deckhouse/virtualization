@@ -33,7 +33,7 @@
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
-  value: {{ .Values.virtualization.storageClass }}
+  value: {{ .Values.virtualization.virtualImages.storageClass }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
 - name: UPLOADER_INGRESS_HOST

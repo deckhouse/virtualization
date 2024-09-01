@@ -88,8 +88,12 @@ properties:
                   bucket:
                     description: |
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
-  storageClass:
-    type: string
+  virtualImages:
+    type: object
+    required: [ storageClass ]
+    properties:
+      storageClass:
+        type: string
   logLevel:
     type: string
     description: |
