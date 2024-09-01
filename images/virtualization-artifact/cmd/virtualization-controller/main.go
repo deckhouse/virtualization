@@ -184,11 +184,8 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
-	test := os.Getenv("test")
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("test", test)
+	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
+	fmt.Println("storageClassForVirtualImageOnPVC", storageClassForVirtualImageOnPVC)
 
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
