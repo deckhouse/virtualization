@@ -88,6 +88,8 @@ properties:
                   bucket:
                     description: |
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
+  test:
+    type: string
   logLevel:
     type: string
     description: |
