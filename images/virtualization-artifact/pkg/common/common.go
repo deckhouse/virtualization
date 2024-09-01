@@ -181,6 +181,9 @@ const (
 	// VirtualMachineIPLeasesRetentionDuration is a parameter for configuring the Virtual Machine IP address lease lifetime
 	VirtualMachineIPLeasesRetentionDuration = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 
+	// VirtualImageStorageClass is a parameter for configuring the storage class for Virtual Image on PVC.
+	VirtualImageStorageClass = "VIRTUAL_IMAGE_STORAGE_CLASS"
+
 	DockerRegistrySchemePrefix = "docker://"
 
 	KubevirtAPIServerEndpointVar     = "KUBEVIRT_APISERVER_ENDPOINT"

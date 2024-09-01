@@ -176,7 +176,7 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
-  test:
+  storageClass:
     type: string
   logLevel:
     type: string
