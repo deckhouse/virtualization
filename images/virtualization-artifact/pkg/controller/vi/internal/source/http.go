@@ -307,7 +307,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			return false, err
 		}
 
-		source := ds.getSource(vi, supgen)
+		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.Start(ctx, diskSize, &storageClass, source, vi, supgen, false)
 		if err != nil {
@@ -424,12 +424,10 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds HTTPDataSource) getSource(vi *virtv2.VirtualImage, sup *supplements.Generator) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-	dvcrSourceImageName := ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
-
 	url := cc.DockerRegistrySchemePrefix + dvcrSourceImageName
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
