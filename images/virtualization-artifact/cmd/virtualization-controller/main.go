@@ -184,6 +184,12 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
+	test := os.Getenv("test")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("test", test)
+
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
