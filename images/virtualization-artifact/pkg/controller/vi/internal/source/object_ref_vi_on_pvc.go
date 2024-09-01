@@ -103,7 +103,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 		log.Info("Cleaning up...")
 	case pod == nil:
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
@@ -142,7 +142,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 		vi.Status.CDROM = viRef.Status.CDROM
 		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -177,7 +177,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
-		vi.Status.Target.RegistryURL = ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -326,7 +326,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage,
 		&settings,
 		ds.dvcrSettings,
 		sup,
-		ds.dvcrSettings.RegistryImageForVMI(vi.Name, vi.Namespace),
+		ds.dvcrSettings.RegistryImageForVI(vi),
 	)
 
 	return &settings
