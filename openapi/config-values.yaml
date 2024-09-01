@@ -176,8 +176,12 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
-  storageClass:
-    type: string
+  virtualImages:
+    type: object
+    required: [ storageClass ]
+    properties:
+      storageClass:
+        type: string
   logLevel:
     type: string
     description: |
