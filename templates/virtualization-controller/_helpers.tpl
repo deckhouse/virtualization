@@ -33,7 +33,7 @@
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
 - name: test
-  value: testestestest
+  value: {{ .Values.virtualization.test }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
 - name: UPLOADER_INGRESS_HOST
