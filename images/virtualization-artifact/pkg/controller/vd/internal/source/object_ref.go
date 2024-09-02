@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -47,6 +49,7 @@ type ObjectRefDataSource struct {
 	client      client.Client
 
 	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
+	viOnPvcSyncer    *ObjectRefVirtualImageOnPvc
 }
 
 func NewObjectRefDataSource(
@@ -59,6 +62,7 @@ func NewObjectRefDataSource(
 		diskService:      diskService,
 		client:           client,
 		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(diskService),
+		viOnPvcSyncer:    NewObjectRefVirtualImageOnPvc(diskService),
 	}
 }
 
@@ -68,8 +72,19 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
 
-	if vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
+	switch vd.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
 		return ds.vdSnapshotSyncer.Sync(ctx, vd, &condition)
+	case virtv2.VirtualImageKind:
+		viKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		if err != nil {
+			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viOnPvcSyncer.Sync(ctx, vd, viObjetcRef, &condition)
+		}
 	}
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
@@ -88,7 +103,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC and PV.
+		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
 			return false, err

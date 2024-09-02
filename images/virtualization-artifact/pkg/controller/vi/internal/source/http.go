@@ -203,7 +203,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC and PV.
+		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
 		if err != nil {
 			return false, err

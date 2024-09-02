@@ -94,7 +94,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC and PV.
+		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
 			return false, err
