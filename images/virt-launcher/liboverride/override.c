@@ -13,7 +13,7 @@ int getpeercon(int fd, char ** context)
   int ret = (*getpeercon_orig)(fd, context);
   if (ret < 0) {
     if (errno == EINVAL) {
-      fprintf(stderr,"getpeercon overridden to return %d\n", ENOPROTOOPT);
+      fprintf(stderr,"getpeercon override: replace errno %d with %d\n", EINVAL, ENOPROTOOPT);
       errno = ENOPROTOOPT;
     }
   }

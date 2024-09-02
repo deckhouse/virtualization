@@ -90,6 +90,7 @@ git:
       - '**/*'
     includePaths:
     - scripts
+  # Override libvirt daemon configuration.
   - add: /images/{{ $.ImageName }}
     to: /etc/libvirt
     stageDependencies:
@@ -97,6 +98,11 @@ git:
       - '**/*'
     includePaths:
     - libvirt.conf
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc/
+    includePaths:
+    - ld.so.preload
 shell:
   beforeInstall:
   # Install main packages, update GPG keys and vendor IDs list.
@@ -158,10 +164,6 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-  # Replace virsh with the wrapper.
-  - mv /usr/bin/virsh /usr/bin/virsh-orig
-  - cp /scripts/virsh-wrapper.sh /usr/bin/virsh
-  - chmod +x /usr/bin/virsh
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
   # Create links to required for virt-launcher libs.

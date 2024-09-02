@@ -16,3 +16,9 @@ This library provides a wrapper for getpeercon() syscall that translates EINVAL 
 gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
 LD_PRELOAD=./liboverride.so virsh domcapabilities ...
 ```
+
+### Global install
+
+```bash
+cp ld.so.preload /etc/
+```
