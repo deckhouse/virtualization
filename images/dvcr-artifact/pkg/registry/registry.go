@@ -106,6 +106,31 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 	}, nil
 }
 
+func createImgFromDevice(deviceName, imgName string) error {
+	blockDevice, err := os.Open(deviceName)
+	if err != nil {
+		fmt.Errorf("can not get open device")
+		return err
+	}
+	defer blockDevice.Close()
+
+	imgFile, err := os.Create(imgName)
+	if err != nil {
+		fmt.Errorf("can not get create image")
+		return err
+	}
+	defer imgFile.Close()
+
+	buf := make([]byte, 1024*1024)
+	_, err = io.CopyBuffer(imgFile, blockDevice, buf)
+	if err != nil {
+		fmt.Errorf("can not get copy to image")
+		return err
+	}
+
+	return nil
+}
+
 func createTarFromDevice(device, sourceImageFilename, targetTar string) error {
 	tarFile, err := os.Create(targetTar)
 	if err != nil {
@@ -173,18 +198,20 @@ func (p DataProcessor) Process2(ctx context.Context) (ImportRes, error) {
 
 	device := "/dev/xvda"
 	uuid, err := uuid.NewUUID()
-	outputTar := "/tmp/" + uuid.String() + ".tar"
+	// outputTar := "/tmp/" + uuid.String() + ".tar"
+	imgName := "/tmp/" + uuid.String() + ".img"
 
-	err = createTarFromDevice(device, uuid.String(), outputTar)
+	// err = createTarFromDevice(device, uuid.String(), outputTar)
+	err = createImgFromDevice(device, imgName)
 	if err != nil {
-		fmt.Printf("Error creating tar: %v\n", err)
+		fmt.Printf("Error creating image: %v\n", err)
 		return ImportRes{}, err
 	}
 
 	fmt.Println("create TAR")
 	sourceImageFilename := "ubuntu-22.04-minimal-cloudimg-amd64.img"
 
-	fileInfo, err := os.Stat(outputTar)
+	fileInfo, err := os.Stat(imgName)
 	if err != nil {
 		fmt.Println("get size error:", err)
 		return ImportRes{}, err
@@ -194,9 +221,9 @@ func (p DataProcessor) Process2(ctx context.Context) (ImportRes, error) {
 
 	fmt.Println("get size:", sourceImageSize)
 
-	file, err := os.Open(outputTar)
+	file, err := os.Open(imgName)
 	if err != nil {
-		fmt.Printf("Error opening tar file: %v\n", err)
+		fmt.Printf("Error opening img file: %v\n", err)
 		return ImportRes{}, err
 	}
 	defer file.Close()
