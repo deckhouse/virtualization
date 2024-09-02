@@ -131,107 +131,41 @@ func createImgFromDevice(deviceName, imgName string) error {
 	return nil
 }
 
-func createTarFromDevice(device, sourceImageFilename, targetTar string) error {
-	tarFile, err := os.Create(targetTar)
-	if err != nil {
-		return err
-	}
-	defer tarFile.Close()
-
-	tw := tar.NewWriter(tarFile)
-	defer tw.Close()
-
-	file, err := os.Open(device)
-	if err != nil {
-		return fmt.Errorf("opening block device: %w", err)
-	}
-	defer file.Close()
-
-	buffer := make([]byte, 4096)
-	for {
-		n, err := file.Read(buffer)
-		if err != nil && err != io.EOF {
-			return fmt.Errorf("reading block device: %w", err)
-		}
-		if n == 0 {
-			break
-		}
-
-		hdr := &tar.Header{
-			Name:     path.Join("disk", sourceImageFilename),
-			Size:     int64(n),
-			Mode:     0o644,
-			Typeflag: tar.TypeReg,
-		}
-
-		if err := tw.WriteHeader(hdr); err != nil {
-			return fmt.Errorf("writing tar header: %w", err)
-		}
-
-		if _, err := tw.Write(buffer[:n]); err != nil {
-			return fmt.Errorf("writing tar content: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (p DataProcessor) Process2(ctx context.Context) (ImportRes, error) {
-	// sourceImageFilename, err := p.ds.Filename()
-	// if err != nil {
-	// 	return ImportRes{}, fmt.Errorf("error getting source filename: %w", err)
-	// }
-	//
-	// sourceImageSize, err := p.ds.Length()
-	// if err != nil {
-	// 	return ImportRes{}, fmt.Errorf("error getting source image size: %w", err)
-	// }
-	//
-	// if sourceImageSize == 0 {
-	// 	return ImportRes{}, fmt.Errorf("zero data source image size")
-	// }
-	//
-	// sourceImageReader, err := p.ds.ReadCloser()
-	// if err != nil {
-	// 	return ImportRes{}, fmt.Errorf("error getting source image reader: %w", err)
-	// }
-
-	device := "/dev/xvda"
+func (p DataProcessor) ProcessFromBlockDevice(ctx context.Context) (ImportRes, error) {
+	blockDevicePath := "/dev/xvda"
 	uuid, err := uuid.NewUUID()
-	// outputTar := "/tmp/" + uuid.String() + ".tar"
-	imgName := "/tmp/" + uuid.String() + ".img"
+	imgPath := "/tmp/" + uuid.String() + ".raw"
 
-	// err = createTarFromDevice(device, uuid.String(), outputTar)
-	err = createImgFromDevice(device, imgName)
+	err = createImgFromDevice(blockDevicePath, imgPath)
 	if err != nil {
 		fmt.Printf("Error creating image: %v\n", err)
 		return ImportRes{}, err
 	}
 
-	fmt.Println("create TAR")
-	sourceImageFilename := "ubuntu-22.04-minimal-cloudimg-amd64.img"
+	sourceImageFilename := uuid.String() + ".raw"
 
-	fileInfo, err := os.Stat(imgName)
+	fileInfo, err := os.Stat(imgPath)
 	if err != nil {
 		fmt.Println("get size error:", err)
 		return ImportRes{}, err
 	}
 
 	sourceImageSize := fileInfo.Size()
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("Source image size: %v\n", sourceImageSize)
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
 
-	fmt.Println("get size:", sourceImageSize)
-
-	file, err := os.Open(imgName)
+	file, err := os.Open(imgPath)
 	if err != nil {
 		fmt.Printf("Error opening img file: %v\n", err)
 		return ImportRes{}, err
 	}
 	defer file.Close()
 
-	// 	progressMeter := monitoring.NewProgressMeter(sourceImageReader, uint64(sourceImageSize))
-	// Wrap data source reader with progress and speed metrics.
-
-	fmt.Println("exec newProgressMeter")
 	progressMeter := monitoring.NewProgressMeter(file, uint64(sourceImageSize))
 	progressMeter.Start()
 	defer progressMeter.Stop()
@@ -282,6 +216,14 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	if sourceImageSize == 0 {
 		return ImportRes{}, fmt.Errorf("zero data source image size")
 	}
+
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("sourceImageSize: %v\n", sourceImageSize)
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
 
 	sourceImageReader, err := p.ds.ReadCloser()
 	if err != nil {
