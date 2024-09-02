@@ -55,7 +55,7 @@ async function formatPR(pr) {
   const reviewers = await Promise.all(
     pr.requested_reviewers.map(async reviewer => {
       const details = await fetchReviewerDetails(reviewer.login);
-      return details && details.login ? details.login : defaulLogin;
+      return details && details.login ? `${details.login} (${details.name})` : defaulLogin;
     })
   );
   return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - Reviewers: ${reviewers.join(', ')}`;
