@@ -182,7 +182,7 @@ func (p DataProcessor) Process2(ctx context.Context) (ImportRes, error) {
 	}
 
 	fmt.Println("create TAR")
-	sourceImageFilename := "disk/" + uuid.String()
+	sourceImageFilename := "ubuntu-22.04-minimal-cloudimg-amd64.img"
 
 	fileInfo, err := os.Stat(outputTar)
 	if err != nil {
