@@ -185,7 +185,9 @@ func main() {
 	}
 
 	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
-	fmt.Println("storageClassForVirtualImageOnPVC", storageClassForVirtualImageOnPVC)
+	if storageClassForVirtualImageOnPVC == "" {
+		log.Info("virtualImages.StorageClassName not found in ModuleConfig -> will be used default storage class")
+	}
 
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
@@ -220,7 +222,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

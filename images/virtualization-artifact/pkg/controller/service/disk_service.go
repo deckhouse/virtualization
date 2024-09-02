@@ -45,20 +45,23 @@ import (
 )
 
 type DiskService struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
-	protection   *ProtectionService
+	client                           client.Client
+	dvcrSettings                     *dvcr.Settings
+	protection                       *ProtectionService
+	storageClassForVirtualImageOnPVC string
 }
 
 func NewDiskService(
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
+	storageClassForVirtualImageOnPVC string,
 ) *DiskService {
 	return &DiskService{
-		client:       client,
-		dvcrSettings: dvcrSettings,
-		protection:   protection,
+		client:                           client,
+		dvcrSettings:                     dvcrSettings,
+		protection:                       protection,
+		storageClassForVirtualImageOnPVC: storageClassForVirtualImageOnPVC,
 	}
 }
 
@@ -381,6 +384,35 @@ func (s DiskService) checkStorageClass(ctx context.Context, storageClassName str
 	}
 
 	return nil
+}
+
+func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+	var scs storev1.StorageClassList
+	err := s.client.List(ctx, &scs, &client.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sc := range scs.Items {
+		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
+			return &sc, nil
+		}
+	}
+
+	return nil, ErrDefaultStorageClassNotFound
+}
+
+func (s DiskService) GetStorageClassNameForVirtualImageOnPVC(ctx context.Context) (string, error) {
+	if s.storageClassForVirtualImageOnPVC == "" {
+		dsc, err := s.getDefaultStorageClass(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		return dsc.Name, nil
+	}
+
+	return s.storageClassForVirtualImageOnPVC, nil
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
