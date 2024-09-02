@@ -18,13 +18,12 @@ package validators
 
 import (
 	"context"
-	"errors"
-	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,35 +42,26 @@ func (v *ISOSourceValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virt
 		return nil, nil
 	}
 
-	switch vd.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeObjectRef:
-		if vd.Spec.DataSource.ObjectRef == nil {
-			return nil, errors.New("data source object ref is omitted, but expected")
+	if vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vd.Spec.DataSource.ObjectRef == nil {
+		return nil, nil
+	}
+
+	switch vd.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualDiskObjectRefKindVirtualImage,
+		virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, v.client)
+		if err != nil {
+			return nil, err
 		}
 
-		switch vd.Spec.DataSource.ObjectRef.Kind {
-		case virtv2.VirtualDiskObjectRefKindVirtualImage,
-			virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
-			dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, v.client)
-			if err != nil {
-				return nil, err
-			}
-
-			if !dvcrDataSource.IsReady() {
-				return nil, nil
-			}
-
-			if imageformat.IsISO(dvcrDataSource.GetFormat()) {
-				return nil, source.ErrISOSourceNotSupported
-			}
-		}
-	case virtv2.DataSourceTypeHTTP:
-		if vd.Spec.DataSource.HTTP == nil {
-			return nil, errors.New("data source http is omitted, but expected")
+		if !dvcrDataSource.IsReady() {
+			return nil, nil
 		}
 
-		if strings.HasSuffix(strings.ToLower(vd.Spec.DataSource.HTTP.URL), imageformat.FormatISO) {
-			return nil, source.ErrISOSourceNotSupported
+		if imageformat.IsISO(dvcrDataSource.GetFormat()) {
+			return admission.Warnings{
+				service.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
+			}, nil
 		}
 	}
 
@@ -83,41 +73,28 @@ func (v *ISOSourceValidator) ValidateUpdate(ctx context.Context, _, newVD *virtv
 		return nil, nil
 	}
 
-	switch newVD.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeObjectRef:
-		if newVD.Spec.DataSource.ObjectRef == nil {
-			return nil, errors.New("data source object ref is omitted, but expected")
-		}
-
-		switch newVD.Spec.DataSource.ObjectRef.Kind {
-		case virtv2.VirtualDiskObjectRefKindVirtualImage,
-			virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
-			dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, newVD.Spec.DataSource, newVD, v.client)
-			if err != nil {
-				return nil, err
-			}
-
-			if !dvcrDataSource.IsReady() {
-				return nil, nil
-			}
-
-			if imageformat.IsISO(dvcrDataSource.GetFormat()) {
-				return nil, source.ErrISOSourceNotSupported
-			}
-		}
-
-		return nil, nil
-	case virtv2.DataSourceTypeHTTP:
-		if newVD.Spec.DataSource.HTTP == nil {
-			return nil, errors.New("data source http is omitted, but expected")
-		}
-
-		if strings.HasSuffix(strings.ToLower(newVD.Spec.DataSource.HTTP.URL), imageformat.FormatISO) {
-			return nil, source.ErrISOSourceNotSupported
-		}
-
-		return nil, nil
-	default:
+	if newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
 		return nil, nil
 	}
+
+	switch newVD.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualDiskObjectRefKindVirtualImage,
+		virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, newVD.Spec.DataSource, newVD, v.client)
+		if err != nil {
+			return nil, err
+		}
+
+		if !dvcrDataSource.IsReady() {
+			return nil, nil
+		}
+
+		if imageformat.IsISO(dvcrDataSource.GetFormat()) {
+			return admission.Warnings{
+				service.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
+			}, nil
+		}
+	}
+
+	return nil, nil
 }
