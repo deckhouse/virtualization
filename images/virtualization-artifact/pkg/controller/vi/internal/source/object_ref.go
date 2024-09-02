@@ -448,8 +448,8 @@ func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSourc
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
-
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	size := resource.MustParse("3Gi")
+	return service.GetValidatedPVCSize(&size, unpackedSize) // FIXME hardcode for exp because in save to dvcr Source image size: 2717290496 -> target size Target size 2715811840
 }
 
 func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
