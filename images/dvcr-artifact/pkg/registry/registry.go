@@ -151,13 +151,6 @@ func (p DataProcessor) ProcessFromBlockDevice(ctx context.Context) (ImportRes, e
 	}
 
 	sourceImageSize := fileInfo.Size()
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Printf("Source image size: %v\n", sourceImageSize)
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
 
 	file, err := os.Open(imgPath)
 	if err != nil {
@@ -216,14 +209,6 @@ func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	if sourceImageSize == 0 {
 		return ImportRes{}, fmt.Errorf("zero data source image size")
 	}
-
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Printf("sourceImageSize: %v\n", sourceImageSize)
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("")
 
 	sourceImageReader, err := p.ds.ReadCloser()
 	if err != nil {
