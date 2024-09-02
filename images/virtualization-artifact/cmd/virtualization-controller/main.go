@@ -101,6 +101,8 @@ func main() {
 
 	printVersion(log)
 
+	log.Info(logLevel)
+
 	controllerNamespace, err := appconfig.GetRequiredEnvVar(common.PodNamespaceVar)
 	if err != nil {
 		log.Error(err.Error())
