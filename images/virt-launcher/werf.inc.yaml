@@ -46,7 +46,7 @@ import:
 #   Add liboverride library.
 - image: {{ $.ImageName }}-liboverride-builder
   add: /liboverride/
-  to: /liboverride/
+  to: /liboverride
   after: install
   includePaths:
   - liboverride.so
@@ -100,7 +100,7 @@ git:
     - libvirt.conf
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc/
+    to: /etc
     stageDependencies:
       setup:
       - 'ld.so.preload.in'
