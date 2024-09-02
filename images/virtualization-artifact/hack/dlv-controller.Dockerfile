@@ -21,7 +21,7 @@ ENV CGO_ENABLED=0
 
 RUN go build -gcflags "all=-N -l" -a -o virtualization-controller ./cmd/virtualization-controller
 
-FROM busybox:1.36.1-musl
+FROM busybox:1.36.1-musl@sha256:d097373897633648934dce99c57a4ddfc9b31872c64c5bd35ea986fc47a53fcb
 
 WORKDIR /app
 COPY --from=builder /go/bin/dlv /app/dlv

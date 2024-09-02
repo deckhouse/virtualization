@@ -1,5 +1,5 @@
 # Go builder.
-FROM golang:1.21-alpine3.19 AS builder
+FROM golang:1.21-alpine3.19@sha256:05a0855f995505bd8832ac8d5132ed097c08bf7e46119818e8c774cda954b04b AS builder
 
 # Cache-friendly download of go dependencies.
 ADD go.mod go.sum /app/
@@ -12,7 +12,7 @@ RUN GOOS=linux \
     go build -o proxy ./cmd/kube-api-proxy
 
 # Go builder.
-FROM golang:1.21-alpine3.19 AS builder-test-controller
+FROM golang:1.21-alpine3.19@sha256:05a0855f995505bd8832ac8d5132ed097c08bf7e46119818e8c774cda954b04b AS builder-test-controller
 
 # Cache-friendly download of go dependencies.
 ADD local/test-controller/go.mod local/test-controller/go.sum /app/
@@ -24,7 +24,7 @@ ADD local/test-controller/main.go /app/
 RUN GOOS=linux \
     go build -o test-controller .
 
-FROM alpine:3.19
+FROM alpine:3.19@sha256:95c16745f100f44cf9a0939fd3f357905f845f8b6fa7d0cde0e88c9764060185
 RUN apk --no-cache add ca-certificates bash sed tini curl && \
     kubectlArch=linux/amd64 && \
     echo "Download kubectl for ${kubectlArch}" && \

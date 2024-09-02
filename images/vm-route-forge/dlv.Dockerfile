@@ -17,7 +17,7 @@ ENV CGO_ENABLED=0
 
 RUN go build -gcflags "all=-N -l" -v -a -o vm-route-forge cmd/vm-route-forge/main.go
 
-FROM busybox
+FROM busybox@sha256:82742949a3709938cbeb9cec79f5eaf3e48b255389f2dcedf2de29ef96fd841c
 
 COPY --from=builder /go/bin/dlv /app/dlv
 COPY --from=builder /app/images/vm-route-forge/vm-route-forge /app/vm-route-forge
