@@ -75,7 +75,8 @@ async function generateSummary(prs) {
   }
 
   if (recent.length > 0) {
-    summary += `### Recent PRs requiring review\n\n${await Promise.all(recent.map(formatPR)).then(results => results.join('\n'))}\n`;
+    const recentPRsInfo = await Promise.all(recent.map(formatPR)).then(results => results.join('\n'));
+    summary += `### Recent PRs requiring review\n\n${recentPRsInfo}\n`;
   }
 
   if (lasting.length > 0) {
