@@ -83,6 +83,7 @@ func (s DiskService) Start(
 	storageCaps := s.parseVolumeMode(sprofile.Status)
 
 	dvBuilder.SetPVC(ptr.To(sprofile.GetName()), pvcSize, storageCaps.AccessMode, storageCaps.VolumeMode)
+	dvBuilder.SetUnpackFormat(storageCaps.VolumeMode)
 
 	err = s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {

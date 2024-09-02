@@ -29,7 +29,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
-const unpackFormatQcow2 = "qcow2"
+const (
+	unpackFormatQcow2 = "qcow2"
+	unpackFormatRaw   = "raw"
+)
 
 // DV is a helper to construct DataVolume to import an image from DVCR onto PVC.
 type DV struct {
@@ -74,6 +77,22 @@ func (b *DV) SetPVC(storageClassName *string,
 
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {
 	b.Resource.Spec.Source = source
+}
+
+func (b *DV) SetUnpackFormat(mode corev1.PersistentVolumeMode) {
+	format := unpackFormatRaw
+	switch mode {
+	case corev1.PersistentVolumeBlock:
+		format = unpackFormatRaw
+	case corev1.PersistentVolumeFilesystem:
+		format = unpackFormatQcow2
+	}
+	annos := b.Resource.ObjectMeta.GetAnnotations()
+	if annos == nil {
+		annos = map[string]string{}
+	}
+	annos[cc.AnnUnpackFormat] = format
+	b.Resource.ObjectMeta.SetAnnotations(annos)
 }
 
 func (b *DV) SetRegistryDataSource(imageName, authSecret, caBundleConfigMap string) {
