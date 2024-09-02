@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -62,6 +63,8 @@ const (
 )
 
 func main() {
+	exec.Command("env")
+
 	var logLevel string
 	flag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
