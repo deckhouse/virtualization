@@ -18,6 +18,7 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -301,48 +302,46 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	// s := state.New(r.client, vm)
+	s := state.New(r.client, vm)
 
 	log.Debug("Start reconcile VM")
 
 	var result reconcile.Result
-	// var handlerErr error
+	var handlerErr error
 
+	for _, h := range r.handlers {
+		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+
+		var res reconcile.Result
+		res, err = h.Handle(ctx, s)
+		if err != nil {
+			log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
+			handlerErr = errors.Join(handlerErr, err)
+		}
+		result = service.MergeResults(result, res)
+	}
+
+	if handlerErr != nil {
+		err = r.updateVM(ctx, vm)
+		if err != nil {
+			log.Error("Failed to update VirtualMachine")
+		}
+		return reconcile.Result{}, handlerErr
+	}
+
+	err = r.updateVM(ctx, vm)
+	if err != nil {
+		log.Error("Failed to update VirtualMachine")
+		return reconcile.Result{}, err
+	}
+
+	log.Debug("Finished reconcile VM")
 	return result, nil
-
-	// for _, h := range r.handlers {
-	// 	log.Debug("Run handler", logger.SlogHandler(h.Name()))
-
-	// 	var res reconcile.Result
-	// 	res, err = h.Handle(ctx, s)
-	// 	if err != nil {
-	// 		log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
-	// 		handlerErr = errors.Join(handlerErr, err)
-	// 	}
-	// 	result = service.MergeResults(result, res)
-	// }
-
-	// if handlerErr != nil {
-	// 	err = r.updateVM(ctx, vm)
-	// 	if err != nil {
-	// 		log.Error("Failed to update VirtualMachine")
-	// 	}
-	// 	return reconcile.Result{}, handlerErr
-	// }
-
-	// err = r.updateVM(ctx, vm)
-	// if err != nil {
-	// 	log.Error("Failed to update VirtualMachine")
-	// 	return reconcile.Result{}, err
-	// }
-
-	// log.Debug("Finished reconcile VM")
-	// return result, nil
 }
 
-// func (r *Reconciler) updateVM(ctx context.Context, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) error {
-// 	return vm.Update(ctx)
-// }
+func (r *Reconciler) updateVM(ctx context.Context, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) error {
+	return vm.Update(ctx)
+}
 
 func (r *Reconciler) factory() *virtv2.VirtualMachine {
 	return &virtv2.VirtualMachine{}
