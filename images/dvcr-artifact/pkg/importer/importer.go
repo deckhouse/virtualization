@@ -278,12 +278,12 @@ func (i *Importer) runForBlockDeviceSource(ctx context.Context) error {
 	var res registry.ImportRes
 
 	err := retry.Retry(ctx, func(ctx context.Context) error {
-		ds, err := i.newDataSource(ctx)
-		if err != nil {
-			return fmt.Errorf("error creating data source: %w", err)
-		}
-		defer ds.Close()
-		processor, err := registry.NewDataProcessor(ds, registry.DestinationRegistry{
+		// ds, err := i.newDataSource(ctx)
+		// if err != nil {
+		// 	return fmt.Errorf("error creating data source: %w", err)
+		// }
+		// defer ds.Close()
+		processor, err := registry.NewDataProcessor(nil, registry.DestinationRegistry{
 			ImageName: i.destImageName,
 			Username:  i.destUsername,
 			Password:  i.destPassword,
