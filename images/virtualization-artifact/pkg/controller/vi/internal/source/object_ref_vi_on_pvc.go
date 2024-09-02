@@ -200,12 +200,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi *vir
 		return false, err
 	}
 
-	sc, err := ds.diskService.GetStorageClassNameForVirtualImageOnPVC(ctx)
-	if err != nil {
-		setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
-		return false, err
-	}
-
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -257,7 +251,11 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi *vir
 				Namespace: refPvc.Namespace,
 			},
 		}
-
+		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
+		if err != nil {
+			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+			return false, err
+		}
 		err = ds.diskService.StartClone(ctx, size, &sc, source, vi, supgen)
 		if err != nil {
 			return false, err
@@ -298,7 +296,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi *vir
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService, &sc)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
 		if err != nil {
 			return false, err
 		}

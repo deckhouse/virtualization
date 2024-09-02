@@ -57,13 +57,11 @@ func NewDiskService(
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
-	storageClassForVirtualImageOnPVC string,
 ) *DiskService {
 	return &DiskService{
-		client:                           client,
-		dvcrSettings:                     dvcrSettings,
-		protection:                       protection,
-		storageClassForVirtualImageOnPVC: storageClassForVirtualImageOnPVC,
+		client:       client,
+		dvcrSettings: dvcrSettings,
+		protection:   protection,
 	}
 }
 
@@ -536,7 +534,11 @@ func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.Stora
 	return nil, ErrDefaultStorageClassNotFound
 }
 
-func (s DiskService) GetStorageClassNameForVirtualImageOnPVC(ctx context.Context) (string, error) {
+func (s DiskService) SetStorageClassNameForClonePVC(storageClassName string) {
+	s.storageClassForVirtualImageOnPVC = storageClassName
+}
+
+func (s DiskService) GetStorageClassNameForClonePVC(ctx context.Context) (string, error) {
 	if s.storageClassForVirtualImageOnPVC == "" {
 		dsc, err := s.getDefaultStorageClass(ctx)
 		if err != nil {
