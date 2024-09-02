@@ -54,7 +54,7 @@ function print_patches_controller {
     cat <<EOF
 
 Run commands:
-kubectl -n d8-virtualization scale deploy --replicas 1
+kubectl -n d8-virtualization scale deployment virtualization-controller --replicas 1
 kubectl -n d8-virtualization patch deployment virtualization-controller --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/1/image", "value": "${IMAGE}"}]'
 kubectl -n d8-virtualization patch deployment virtualization-controller --type='strategic' -p '{
     "spec": {
