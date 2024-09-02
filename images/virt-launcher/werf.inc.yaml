@@ -101,8 +101,11 @@ git:
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
     to: /etc/
+    stageDependencies:
+      setup:
+      - 'ld.so.preload.in'
     includePaths:
-    - ld.so.preload
+    - ld.so.preload.in
 shell:
   beforeInstall:
   # Install main packages, update GPG keys and vendor IDs list.
@@ -164,6 +167,8 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
+  # Configure liboverride globally.
+  - cp /etc/ld.so.preload.in /etc/ld.so.preload
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
   # Create links to required for virt-launcher libs.
