@@ -21,6 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// VMAffinity [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) as in the pods `spec.affinity` parameter in Kubernetes;
+//
+// The affinity setting is completely similar to the above documentation, the only difference is in the names of some parameters. In fact, the following analogs are used:
+// * podAffinity -> virtualMachineAndPodAffinity
+// * podAffinityTerm -> virtualMachineAndPodAffinityTerm
 type VMAffinity struct {
 	NodeAffinity                     *corev1.NodeAffinity              `json:"nodeAffinity,omitempty"`
 	VirtualMachineAndPodAffinity     *VirtualMachineAndPodAffinity     `json:"virtualMachineAndPodAffinity,omitempty"`

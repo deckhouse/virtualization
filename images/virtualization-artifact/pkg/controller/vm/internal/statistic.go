@@ -21,11 +21,14 @@ import (
 	"sort"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -52,13 +55,121 @@ func (h *StatisticHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
 	h.syncStats(current, changed, kvvmi)
+
+	pods, err := s.Pods(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	h.syncPods(changed, pod, pods)
+
+	err = h.syncResources(changed, kvvmi, pod)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
 func (h *StatisticHandler) Name() string {
 	return nameStatisticHandler
+}
+
+func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
+	kvvmi *virtv1.VirtualMachineInstance,
+	pod *corev1.Pod,
+) error {
+	if changed == nil {
+		return nil
+	}
+	var resources virtv2.ResourcesStatus
+	switch {
+	case pod == nil:
+		var cpuRequest resource.Quantity
+		if kvvmi == nil {
+			req, err := kvbuilder.GetCPURequest(changed.Spec.CPU.Cores, changed.Spec.CPU.CoreFraction)
+			if err != nil {
+				return err
+			}
+			cpuRequest = *req
+		} else {
+			cpuRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+		}
+		resources = virtv2.ResourcesStatus{
+			CPU: virtv2.CPUStatus{
+				Cores:          changed.Spec.CPU.Cores,
+				CoreFraction:   changed.Spec.CPU.CoreFraction,
+				RequestedCores: cpuRequest,
+			},
+			Memory: virtv2.MemoryStatus{
+				Size: changed.Spec.Memory.Size,
+			},
+		}
+	default:
+		var ctr corev1.Container
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "compute" {
+				ctr = container
+			}
+		}
+		cpuLimit := ctr.Resources.Limits[corev1.ResourceCPU]
+		cores := changed.Spec.CPU.Cores
+		cores64, ok := cpuLimit.AsInt64()
+		if ok {
+			cores = int(cores64)
+		}
+		cpuRequest := ctr.Resources.Requests[corev1.ResourceCPU]
+		cpuOverhead := cpuLimit.DeepCopy()
+		cpuOverhead.Sub(cpuRequest)
+
+		memorySize := changed.Spec.Memory.Size
+		if kvvmi != nil {
+			memorySize = kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceMemory]
+		}
+		memoryLimit := ctr.Resources.Limits[corev1.ResourceMemory]
+		memoryOverhead := memoryLimit.DeepCopy()
+		memoryOverhead.Sub(memorySize)
+		resources = virtv2.ResourcesStatus{
+			CPU: virtv2.CPUStatus{
+				Cores:           cores,
+				CoreFraction:    changed.Spec.CPU.CoreFraction,
+				RequestedCores:  cpuRequest,
+				RuntimeOverhead: cpuOverhead,
+			},
+			Memory: virtv2.MemoryStatus{
+				Size:            memorySize,
+				RuntimeOverhead: memoryOverhead,
+			},
+		}
+	}
+	changed.Status.Resources = resources
+	return nil
+}
+
+func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {
+	if changed == nil {
+		return
+	}
+	if pods == nil {
+		changed.Status.VirtualMachinePods = nil
+		return
+	}
+	virtualMachinePods := make([]virtv2.VirtualMachinePod, len(pods.Items))
+	for i, p := range pods.Items {
+		active := false
+		if pod != nil && p.GetUID() == pod.GetUID() {
+			active = true
+		}
+		virtualMachinePods[i] = virtv2.VirtualMachinePod{
+			Name:   p.GetName(),
+			Active: active,
+		}
+	}
+	changed.Status.VirtualMachinePods = virtualMachinePods
 }
 
 func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {

@@ -18,19 +18,33 @@ package v1alpha2
 
 type BlockDeviceSpecRef struct {
 	Kind BlockDeviceKind `json:"kind"`
-	Name string          `json:"name"`
+	// The name of attached resource.
+	Name string `json:"name"`
 }
 
 type BlockDeviceStatusRef struct {
-	Kind                                    BlockDeviceKind `json:"kind"`
-	Name                                    string          `json:"name"`
-	Size                                    string          `json:"size"`
-	Target                                  string          `json:"target"`
-	Attached                                bool            `json:"attached"`
-	Hotplugged                              bool            `json:"hotplugged,omitempty"`
-	VirtualMachineBlockDeviceAttachmentName string          `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
+	Kind BlockDeviceKind `json:"kind"`
+	// The name of attached resource.
+	Name string `json:"name"`
+	// The size of attached block device.
+	Size string `json:"size"`
+	// The block device is attached to the virtual machine.
+	Attached bool `json:"attached"`
+	// The name of attached block device.
+	// +kubebuilder:example=sda
+	Target string `json:"target,omitempty"`
+	// Block device is attached via hot plug connection.
+	Hotplugged bool `json:"hotplugged,omitempty"`
+	// The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.
+	VirtualMachineBlockDeviceAttachmentName string `json:"virtualMachineBlockDeviceAttachmentName,omitempty"`
 }
 
+// The BlockDeviceKind is a type of the block device. Options are:
+//
+// * `ClusterVirtualImage` — Use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+// * `VirtualImage` — Use `VirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
+// * `VirtualDisk` — Use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk}
 type BlockDeviceKind string
 
 const (

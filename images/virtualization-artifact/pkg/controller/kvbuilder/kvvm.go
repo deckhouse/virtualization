@@ -197,7 +197,7 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 }
 
 func (b *KVVM) SetResourceRequirements(cores int, coreFraction string, memorySize resource.Quantity) error {
-	cpuRequest, err := b.getCPURequest(cores, coreFraction)
+	cpuRequest, err := GetCPURequest(cores, coreFraction)
 	if err != nil {
 		return err
 	}
@@ -207,16 +207,16 @@ func (b *KVVM) SetResourceRequirements(cores int, coreFraction string, memorySiz
 			corev1.ResourceMemory: memorySize,
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    *b.getCPULimit(cores),
+			corev1.ResourceCPU:    *GetCPULimit(cores),
 			corev1.ResourceMemory: memorySize,
 		},
 	}
 	return nil
 }
 
-func (b *KVVM) getCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
+func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
 	if coreFraction == "" {
-		return b.getCPULimit(cores), nil
+		return GetCPULimit(cores), nil
 	}
 	fraction := intstr.FromString(coreFraction)
 	req, err := intstr.GetScaledValueFromIntOrPercent(&fraction, cores*1000, true)
@@ -224,12 +224,12 @@ func (b *KVVM) getCPURequest(cores int, coreFraction string) (*resource.Quantity
 		return nil, fmt.Errorf("failed to calculate coreFraction. %w", err)
 	}
 	if req == 0 {
-		return b.getCPULimit(cores), nil
+		return GetCPULimit(cores), nil
 	}
 	return resource.NewMilliQuantity(int64(req), resource.DecimalSI), nil
 }
 
-func (b *KVVM) getCPULimit(cores int) *resource.Quantity {
+func GetCPULimit(cores int) *resource.Quantity {
 	return resource.NewQuantity(int64(cores), resource.DecimalSI)
 }
 
