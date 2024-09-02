@@ -37,6 +37,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef":                      schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU":                                       schema_virtualization_api_core_v1alpha2_CPU(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec":                                   schema_virtualization_api_core_v1alpha2_CPUSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus":                                 schema_virtualization_api_core_v1alpha2_CPUStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum":                                  schema_virtualization_api_core_v1alpha2_Checksum(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImage":                       schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageDataSource":             schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref),
@@ -56,8 +57,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget":                         schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                              schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                              schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus":                           schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy":                              schema_virtualization_api_core_v1alpha2_SizingPolicy(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyCores":                         schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemory":                        schema_virtualization_api_core_v1alpha2_SizingPolicyMemory(ref),
@@ -117,6 +120,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod":                         schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
@@ -684,9 +688,10 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceSpecRef(ref common.Refer
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The name of attached resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -711,46 +716,51 @@ func schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref common.Ref
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The name of attached resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The size of attached block device.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"attached": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Description: "The block device is attached to the virtual machine.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of attached block device.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"hotplugged": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Block device is attached via hot plug connection.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"virtualMachineBlockDeviceAttachmentName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"kind", "name", "size", "target", "attached"},
+				Required: []string{"kind", "name", "size", "attached"},
 			},
 		},
 	}
@@ -812,26 +822,71 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "CPUSpec specifies the CPU settings for the VM.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"cores": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int32",
+							Description: "Specifies the number of cores inside the VM. The value must be greater or equal 1.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"coreFraction": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"cores", "coreFraction"},
+				Required: []string{"cores"},
 			},
 		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPUStatus defines statistics about the CPU resource usage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current number of cores inside the VM.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"coreFraction": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current CoreFraction.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestedCores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Requested cores.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"runtimeOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "runtime overhead.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"cores"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -1284,18 +1339,16 @@ func schema_virtualization_api_core_v1alpha2_Disruptions(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Disruptions describes the policy for applying changes that require rebooting the VM Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"restartApprovalMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RestartApprovalMode defines a restart approving mode: Manual or Automatic.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"restartApprovalMode"},
 			},
 		},
 	}
@@ -1488,11 +1541,40 @@ func schema_virtualization_api_core_v1alpha2_MemorySpec(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MemorySpec specifies the memory settings for the VM.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"size": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"size"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_MemoryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MemoryStatus defines statistics about the Memory resource usage.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current memory size.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"runtimeOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory runtime overhead.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 				},
@@ -1552,7 +1634,8 @@ func schema_virtualization_api_core_v1alpha2_Provisioning(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Provisioning is a block allows you to configure the provisioning script for the VM.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
@@ -1563,8 +1646,9 @@ func schema_virtualization_api_core_v1alpha2_Provisioning(ref common.ReferenceCa
 					},
 					"userData": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Inline cloud-init userdata script.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"userDataRef": {
@@ -1583,6 +1667,33 @@ func schema_virtualization_api_core_v1alpha2_Provisioning(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.SysprepRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.UserDataRef"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourcesStatus defines resource usage statistics.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus"},
 	}
 }
 
@@ -1784,13 +1895,14 @@ func schema_virtualization_api_core_v1alpha2_SysprepRef(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "SysprepRef is reference to an existing Windows sysprep automation. Resource structure for the SysprepRef type: * `.data.autounattend.xml`. * `.data.unattend.xml`.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The kind of existing Windows sysprep automation resource. The following options are supported:\n - Secret",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
@@ -1801,7 +1913,7 @@ func schema_virtualization_api_core_v1alpha2_SysprepRef(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"kind", "name"},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -1811,13 +1923,14 @@ func schema_virtualization_api_core_v1alpha2_UserDataRef(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "UserDataRef is reference to an existing resource with a cloud-init script. Resource structure for userDataRef type: * `.data.userData`.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The kind of existing cloud-init automation resource. The following options are supported:\n  - Secret",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
@@ -1828,7 +1941,7 @@ func schema_virtualization_api_core_v1alpha2_UserDataRef(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"kind", "name"},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -1838,7 +1951,8 @@ func schema_virtualization_api_core_v1alpha2_VMAffinity(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "VMAffinity [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) as in the pods `spec.affinity` parameter in Kubernetes;\n\nThe affinity setting is completely similar to the above documentation, the only difference is in the names of some parameters. In fact, the following analogs are used: * podAffinity -> virtualMachineAndPodAffinity * podAffinityTerm -> virtualMachineAndPodAffinityTerm",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"nodeAffinity": {
 						SchemaProps: spec.SchemaProps{
@@ -2730,7 +2844,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachine(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachine specifies configuration of the virtual machine.",
+				Description: "VirtualMachine describes the configuration and status of a virtual machine (VM). For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly): - `.metadata.labels`. - `.metadata.annotations`. - `.spec.disruptions.restartApprovalMode`. - `.spec.disruptions.runPolicy`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3170,7 +3284,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassList(ref common.
 					},
 					"items": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Items provides a list of CDIs",
+							Description: "Items provides a list of VirtualMachineClasses",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3671,17 +3785,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(re
 				Properties: map[string]spec.Schema{
 					"waitingForDependencies": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "The waiting time for dependent resources. pending -> starting.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"virtualMachineStarting": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "The waiting time for the virtual machine to start. starting -> running.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"guestOSAgentStarting": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "The waiting time for the guestOsAgent to start. running -> running with guestOSAgent.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 				},
@@ -3721,7 +3838,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref common.Refer
 					},
 					"items": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Items provides a list of VirtualMachines",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -3749,14 +3867,16 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref common.R
 				Properties: map[string]spec.Schema{
 					"node": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the node on which the VM is currently migrating.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"pod": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the pod where the VM is currently being migrated.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -3773,12 +3893,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref co
 				Properties: map[string]spec.Schema{
 					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							Description: "Migration start time.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"endTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+							Description: "Migration end time.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"target": {
@@ -3996,6 +4118,35 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimest
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of virtual machine pod.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"active": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current working pod.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "active"},
+			},
+		},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4004,23 +4155,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"runPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RunPolicy is a power-on behaviour of the VM.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"virtualMachineIPAddressName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineIPAddress specifies a name for the associated `VirtualMachineIPAddress` resource. Defaults to `{vm name}`.",
+							Description: "Name for the associated `virtualMachineIPAddress` resource. Specified when it is necessary to use a previously created IP address of the VM. If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"topologySpreadConstraints": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TopologySpreadConstraints specifies how to spread matching pods among the given topology.",
-							Type:        []string{"array"},
+							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4033,13 +4181,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 					},
 					"affinity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Affinity is a group of affinity scheduling rules.",
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity"),
 						},
 					},
 					"nodeSelector": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NodeSelector must match a node's labels for the VM to be scheduled on that node.",
+							Description: "NodeSelector must match a node's labels for the VM to be scheduled on that node. [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -4055,15 +4202,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 					},
 					"priorityClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PriorityClassName",
-							Default:     "",
+							Description: "PriorityClassName [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"tolerations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Tolerations define rules to tolerate node taints.",
+							Description: "Tolerations define rules to tolerate node taints. The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pods `spec.tolerations` parameter in Kubernetes.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4077,21 +4223,19 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 					},
 					"disruptions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Disruptions define an approval mode to apply disruptive (dangerous) changes.",
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions"),
 						},
 					},
 					"terminationGracePeriodSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TerminationGracePeriodSeconds",
+							Description: "Grace period observed after signalling a VM to stop after which the VM is force terminated.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
 					},
 					"enableParavirtualization": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EnableParavirtualization flag disables virtio for virtual machine. Default value is true, so omitempty is not specified.",
-							Default:     false,
+							Description: "Use the `virtio` bus to connect virtual devices of the VM. Set false to disable `virtio` for this VM. Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -4110,8 +4254,10 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 					},
 					"virtualMachineClassName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"cpu": {
@@ -4128,7 +4274,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 					},
 					"blockDeviceRefs": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "List of block devices that can be mounted by disks belonging to the virtual machine. The order of booting is determined by the order in the list.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4145,7 +4292,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"runPolicy", "priorityClassName", "disruptions", "enableParavirtualization", "cpu", "memory", "blockDeviceRefs", "provisioning"},
+				Required: []string{"virtualMachineClassName", "cpu", "memory", "blockDeviceRefs"},
 			},
 		},
 		Dependencies: []string{
@@ -4161,7 +4308,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref common.Refe
 				Properties: map[string]spec.Schema{
 					"phasesTransitions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The history of phases.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4174,8 +4322,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref common.Refe
 					},
 					"launchTimeDuration": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration"),
+							Description: "Launch information.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration"),
 						},
 					},
 				},
@@ -4201,28 +4350,32 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"nodeName": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The name of the node on which the VM is currently running.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"virtualMachineIPAddressName": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"ipAddress": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "IP address of VM.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"blockDeviceRefs": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The list of attached block device attachments.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4241,7 +4394,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Detailed state of the virtual machine lifecycle.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4254,23 +4408,26 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"stats": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats"),
+							Description: "VirtualMachine statistics.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats"),
 						},
 					},
 					"migrationState": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState"),
+							Description: "Migration info.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState"),
 						},
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "Generating a resource that was last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 					"restartAwaitingChanges": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.\n\nChange operation has these fields:\n\n\toperation enum(add|remove|replace)\n\tpath string\n\tcurrentValue any (bool|int|string|struct|array of structs)\n\tdesiredValue any (bool|int|string|struct|array of structs)\n\nSuch 'any' type can't be described using the OpenAPI v3 schema. The workaround is to declare a whole change operation structure using 'type: object' and 'x-kubernetes-preserve-fields: true'.",
+							Description: "RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4281,12 +4438,32 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							},
 						},
 					},
+					"virtualMachinePods": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of virtual machine pods.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod"),
+									},
+								},
+							},
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus"),
+						},
+					},
 				},
-				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress", "blockDeviceRefs", "guestOSInfo"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
 	}
 }
 

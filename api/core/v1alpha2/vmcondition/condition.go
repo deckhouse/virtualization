@@ -45,6 +45,8 @@ func (r Reason) String() string {
 }
 
 const (
+	ReasonUnknown Reason = "Unknown"
+
 	ReasonAgentNotReady Reason = "AgentNotReady"
 
 	ReasonClassReady    Reason = "VirtualMachineClassReady"
