@@ -60,8 +60,6 @@ func NewHTTPDataSource(
 	}
 }
 
-var storageClass = "linstor-thin-r2" // FIXME add setting settings in controller
-
 func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
@@ -199,6 +197,12 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		return false, err
 	}
 
+	sc, err := ds.diskService.GetStorageClassNameForVirtualImageOnPVC(ctx)
+	if err != nil {
+		setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+		return false, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Image provisioning finished: clean up")
@@ -309,7 +313,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, &storageClass, source, vi, supgen, false)
+		err = ds.diskService.Start(ctx, diskSize, &sc, source, vi, supgen, false)
 		if err != nil {
 			return false, err
 		}
@@ -349,7 +353,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService, &sc)
 		if err != nil {
 			return false, err
 		}

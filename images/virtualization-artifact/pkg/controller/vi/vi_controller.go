@@ -53,6 +53,7 @@ func NewController(
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
+	storageClassForVirtualImageOnPVC string,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(ControllerName))
 
@@ -60,7 +61,7 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
+	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, storageClassForVirtualImageOnPVC)
 
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, disk))

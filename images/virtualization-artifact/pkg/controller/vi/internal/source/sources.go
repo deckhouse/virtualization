@@ -173,8 +173,9 @@ func setPhaseConditionForPVCProvisioningImage(
 	pvc *corev1.PersistentVolumeClaim,
 	condition *metav1.Condition,
 	checker CheckImportProcess,
+	storageClassName *string,
 ) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc, &storageClass)
+	err := checker.CheckImportProcess(ctx, dv, pvc, storageClassName)
 	switch {
 	case err == nil:
 		if dv == nil {
