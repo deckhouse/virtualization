@@ -91,7 +91,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 		}
 
 		var size resource.Quantity
-		size, err = ds.getPVCSize(viRef.Status.Size)
+		size, err = ds.getPVCSize(vd, viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(condition, &vd.Status.Phase, err)
 
@@ -108,12 +108,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 				Namespace: refPvc.Namespace,
 			},
 		}
-		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
-		if err != nil {
-			setPhaseConditionToFailed(condition, &vd.Status.Phase, err)
-			return false, err
-		}
-		err = ds.diskService.StartClone(ctx, size, &sc, source, vd, supgen)
+
+		err = ds.diskService.StartClone(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -174,7 +170,7 @@ func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, vd 
 	return diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) getPVCSize(is virtv2.ImageStatusSize) (resource.Quantity, error) {
+func (ds ObjectRefVirtualImageOnPvc) getPVCSize(vd *virtv2.VirtualDisk, is virtv2.ImageStatusSize) (resource.Quantity, error) {
 	unpackedSize, err := resource.ParseQuantity(is.UnpackedBytes)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", is.UnpackedBytes, err)
@@ -184,5 +180,5 @@ func (ds ObjectRefVirtualImageOnPvc) getPVCSize(is virtv2.ImageStatusSize) (reso
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
 
-	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
+	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
