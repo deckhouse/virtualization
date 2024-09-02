@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,6 +48,7 @@ func TestStatisticHandler(t *testing.T) {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		virtv2.AddToScheme,
 		virtv1.AddToScheme,
+		corev1.AddToScheme,
 	} {
 		err := f(scheme)
 		if err != nil {
