@@ -44,6 +44,7 @@ func addAllUnknown(vm *virtv2.VirtualMachine, conds ...vmcondition.Type) (update
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).
 			Generation(vm.GetGeneration()).
+			Reason(vmcondition.ReasonUnknown).
 			Status(metav1.ConditionUnknown).
 			Condition()); add {
 			update = true
