@@ -20,7 +20,7 @@ import moment from 'moment';
 const owner = 'deckhouse';
 const repo = 'virtualization';
 const project = 'DVP';
-const defaulLogin = 'NEED ATTENTION, reviewers are required';
+const defaultLogin = 'NEED ATTENTION, reviewers are required';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
 
@@ -55,7 +55,7 @@ async function formatPR(pr) {
   const reviewers = await Promise.all(
     pr.requested_reviewers.map(async reviewer => {
       const details = await fetchReviewerDetails(reviewer.login);
-      return details && details.login ? `${details.login} (${details.name})` : defaulLogin;
+      return details && details.login ? `${details.login} (${details.name})` : defaultLogin;
     })
   );
   return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - Reviewers: ${reviewers.join(', ')}`;
