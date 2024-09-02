@@ -290,8 +290,6 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	log.Info("Hello, mr. Kek")
-
 	vm := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vm.Fetch(ctx)
