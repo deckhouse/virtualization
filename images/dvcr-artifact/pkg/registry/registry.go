@@ -38,6 +38,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
@@ -102,6 +103,141 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 		sha256Sum,
 		md5Sum,
 		dest.Insecure,
+	}, nil
+}
+
+func createTarFromDevice(device, sourceImageFilename, targetTar string) error {
+	tarFile, err := os.Create(targetTar)
+	if err != nil {
+		return err
+	}
+	defer tarFile.Close()
+
+	tw := tar.NewWriter(tarFile)
+	defer tw.Close()
+
+	file, err := os.Open(device)
+	if err != nil {
+		return fmt.Errorf("opening block device: %w", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 4096)
+	for {
+		n, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("reading block device: %w", err)
+		}
+		if n == 0 {
+			break
+		}
+
+		hdr := &tar.Header{
+			Name:     path.Join("disk", sourceImageFilename),
+			Size:     int64(n),
+			Mode:     0o644,
+			Typeflag: tar.TypeReg,
+		}
+
+		if err := tw.WriteHeader(hdr); err != nil {
+			return fmt.Errorf("writing tar header: %w", err)
+		}
+
+		if _, err := tw.Write(buffer[:n]); err != nil {
+			return fmt.Errorf("writing tar content: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (p DataProcessor) Process2(ctx context.Context) (ImportRes, error) {
+	// sourceImageFilename, err := p.ds.Filename()
+	// if err != nil {
+	// 	return ImportRes{}, fmt.Errorf("error getting source filename: %w", err)
+	// }
+	//
+	// sourceImageSize, err := p.ds.Length()
+	// if err != nil {
+	// 	return ImportRes{}, fmt.Errorf("error getting source image size: %w", err)
+	// }
+	//
+	// if sourceImageSize == 0 {
+	// 	return ImportRes{}, fmt.Errorf("zero data source image size")
+	// }
+	//
+	// sourceImageReader, err := p.ds.ReadCloser()
+	// if err != nil {
+	// 	return ImportRes{}, fmt.Errorf("error getting source image reader: %w", err)
+	// }
+
+	device := "/dev/xvda"
+	uuid, err := uuid.NewUUID()
+	outputTar := "/tmp/" + uuid.String() + ".tar"
+
+	err = createTarFromDevice(device, uuid.String(), outputTar)
+	if err != nil {
+		fmt.Printf("Error creating tar: %v\n", err)
+		return ImportRes{}, err
+	}
+
+	fmt.Println("create TAR")
+	sourceImageFilename := "disk/" + uuid.String()
+
+	fileInfo, err := os.Stat(outputTar)
+	if err != nil {
+		fmt.Println("get size error:", err)
+		return ImportRes{}, err
+	}
+
+	sourceImageSize := fileInfo.Size()
+
+	fmt.Println("get size:", sourceImageSize)
+
+	file, err := os.Open(outputTar)
+	if err != nil {
+		fmt.Printf("Error opening tar file: %v\n", err)
+		return ImportRes{}, err
+	}
+	defer file.Close()
+
+	// 	progressMeter := monitoring.NewProgressMeter(sourceImageReader, uint64(sourceImageSize))
+	// Wrap data source reader with progress and speed metrics.
+
+	fmt.Println("exec newProgressMeter")
+	progressMeter := monitoring.NewProgressMeter(file, uint64(sourceImageSize))
+	progressMeter.Start()
+	defer progressMeter.Stop()
+
+	pipeReader, pipeWriter := io.Pipe()
+
+	informer := NewImageInformer()
+
+	errsGroup, ctx := errgroup.WithContext(ctx)
+	errsGroup.Go(func() error {
+		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, int(sourceImageSize), progressMeter, pipeWriter, informer)
+	})
+	errsGroup.Go(func() error {
+		defer pipeReader.Close()
+		return p.uploadLayersAndImage(ctx, pipeReader, int(sourceImageSize), informer)
+	})
+
+	err = errsGroup.Wait()
+	if err != nil {
+		return ImportRes{}, err
+	}
+
+	select {
+	case <-informer.Wait():
+	default:
+		return ImportRes{}, errors.New("unexpected waiting for the informer, please report a bug")
+	}
+
+	return ImportRes{
+		SourceImageSize: uint64(sourceImageSize),
+		VirtualSize:     informer.GetVirtualSize(),
+		AvgSpeed:        progressMeter.GetAvgSpeed(),
+		Format:          informer.GetFormat(),
 	}, nil
 }
 
