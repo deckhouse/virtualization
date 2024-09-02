@@ -13,6 +13,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sync"
 )
@@ -908,6 +909,9 @@ var _ Stat = &StatMock{}
 //			CheckPodFunc: func(pod *corev1.Pod) error {
 //				panic("mock out the CheckPod method")
 //			},
+//			GetAdjustImageSizeFunc: func(unpackedSizeBytes resource.Quantity) resource.Quantity {
+//				panic("mock out the GetAdjustImageSize method")
+//			},
 //			GetCDROMFunc: func(pod *corev1.Pod) bool {
 //				panic("mock out the GetCDROM method")
 //			},
@@ -939,6 +943,9 @@ type StatMock struct {
 	// CheckPodFunc mocks the CheckPod method.
 	CheckPodFunc func(pod *corev1.Pod) error
 
+	// GetAdjustImageSizeFunc mocks the GetAdjustImageSize method.
+	GetAdjustImageSizeFunc func(unpackedSizeBytes resource.Quantity) resource.Quantity
+
 	// GetCDROMFunc mocks the GetCDROM method.
 	GetCDROMFunc func(pod *corev1.Pod) bool
 
@@ -966,6 +973,11 @@ type StatMock struct {
 		CheckPod []struct {
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
+		}
+		// GetAdjustImageSize holds details about calls to the GetAdjustImageSize method.
+		GetAdjustImageSize []struct {
+			// UnpackedSizeBytes is the unpackedSizeBytes argument value.
+			UnpackedSizeBytes resource.Quantity
 		}
 		// GetCDROM holds details about calls to the GetCDROM method.
 		GetCDROM []struct {
@@ -1013,14 +1025,15 @@ type StatMock struct {
 			Pod *corev1.Pod
 		}
 	}
-	lockCheckPod         sync.RWMutex
-	lockGetCDROM         sync.RWMutex
-	lockGetDVCRImageName sync.RWMutex
-	lockGetDownloadSpeed sync.RWMutex
-	lockGetFormat        sync.RWMutex
-	lockGetProgress      sync.RWMutex
-	lockGetSize          sync.RWMutex
-	lockIsUploadStarted  sync.RWMutex
+	lockCheckPod           sync.RWMutex
+	lockGetAdjustImageSize sync.RWMutex
+	lockGetCDROM           sync.RWMutex
+	lockGetDVCRImageName   sync.RWMutex
+	lockGetDownloadSpeed   sync.RWMutex
+	lockGetFormat          sync.RWMutex
+	lockGetProgress        sync.RWMutex
+	lockGetSize            sync.RWMutex
+	lockIsUploadStarted    sync.RWMutex
 }
 
 // CheckPod calls CheckPodFunc.
@@ -1052,6 +1065,38 @@ func (mock *StatMock) CheckPodCalls() []struct {
 	mock.lockCheckPod.RLock()
 	calls = mock.calls.CheckPod
 	mock.lockCheckPod.RUnlock()
+	return calls
+}
+
+// GetAdjustImageSize calls GetAdjustImageSizeFunc.
+func (mock *StatMock) GetAdjustImageSize(unpackedSizeBytes resource.Quantity) resource.Quantity {
+	if mock.GetAdjustImageSizeFunc == nil {
+		panic("StatMock.GetAdjustImageSizeFunc: method is nil but Stat.GetAdjustImageSize was just called")
+	}
+	callInfo := struct {
+		UnpackedSizeBytes resource.Quantity
+	}{
+		UnpackedSizeBytes: unpackedSizeBytes,
+	}
+	mock.lockGetAdjustImageSize.Lock()
+	mock.calls.GetAdjustImageSize = append(mock.calls.GetAdjustImageSize, callInfo)
+	mock.lockGetAdjustImageSize.Unlock()
+	return mock.GetAdjustImageSizeFunc(unpackedSizeBytes)
+}
+
+// GetAdjustImageSizeCalls gets all the calls that were made to GetAdjustImageSize.
+// Check the length with:
+//
+//	len(mockedStat.GetAdjustImageSizeCalls())
+func (mock *StatMock) GetAdjustImageSizeCalls() []struct {
+	UnpackedSizeBytes resource.Quantity
+} {
+	var calls []struct {
+		UnpackedSizeBytes resource.Quantity
+	}
+	mock.lockGetAdjustImageSize.RLock()
+	calls = mock.calls.GetAdjustImageSize
+	mock.lockGetAdjustImageSize.RUnlock()
 	return calls
 }
 

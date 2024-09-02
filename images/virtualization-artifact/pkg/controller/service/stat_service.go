@@ -73,6 +73,10 @@ func (s StatService) GetCDROM(pod *corev1.Pod) bool {
 	return imageformat.IsISO(finalReport.Format)
 }
 
+func (s StatService) GetAdjustImageSize(unpackedSizeBytes resource.Quantity) resource.Quantity {
+	return internal.AdjustImageSize(unpackedSizeBytes)
+}
+
 func (s StatService) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
 	finalReport, err := monitoring.GetFinalReportFromPod(pod)
 	if err != nil {
