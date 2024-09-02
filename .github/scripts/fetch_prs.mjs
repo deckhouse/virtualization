@@ -20,7 +20,7 @@ import moment from 'moment';
 const owner = 'deckhouse';
 const repo = 'virtualization';
 const project = 'DVP';
-const defaultEmail = 'alert@fl.com'; //<- Need to change or delete
+const defaulLogin = 'NEED ATTENTION, reviewers are required';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
 
@@ -29,7 +29,7 @@ async function fetchPullRequests() {
     const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
       owner,
       repo,
-      per_page: 100,
+      per_page: 500,
       state: 'open',
     });
     return data.filter(pr => !pr.draft);
@@ -44,7 +44,6 @@ async function fetchReviewerDetails(login) {
     const { data } = await octokit.request('GET /users/{username}', {
       username: login,
     });
-    console.log(data.email, data.login, data.created_at)
     return data;
   } catch (error) {
     console.error(`Error fetching details for reviewer ${login}:`, error);
@@ -56,8 +55,7 @@ async function formatPR(pr) {
   const reviewers = await Promise.all(
     pr.requested_reviewers.map(async reviewer => {
       const details = await fetchReviewerDetails(reviewer.login);
-      const email = (details && details.email) ? details.email : defaultEmail;
-      return `${reviewer.login} (${email})`;
+      return details && details.login ? details.login : defaulLogin;
     })
   );
   return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - Reviewers: ${reviewers.join(', ')}`;
