@@ -68,24 +68,24 @@ func (s ImporterService) Start(ctx context.Context, settings *importer.Settings,
 	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
 	settings.Verbose = s.verbose
 
-	pod, err := importer.NewImporter(s.getPodSettings(ownerRef, sup), settings, "", "").CreatePod(ctx, s.client)
+	pod, err := importer.NewImporter(s.getPodSettings(ownerRef, sup), settings).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, false)
 }
 
 func (s ImporterService) StartFromPVC(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName, pvcNamespace string) error {
 	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
 	settings.Verbose = s.verbose
 
-	pod, err := importer.NewImporter(s.getPodSettings2(ownerRef, sup, pvcNamespace), settings, pvcName, pvcNamespace).CreatePod(ctx, s.client)
+	pod, err := importer.NewImporterFromPVC(s.getPodSettingsWithPVC(ownerRef, sup, pvcNamespace), settings, pvcName).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, true)
 }
 
 func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
@@ -157,7 +157,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 	}
 }
 
-func (s ImporterService) getPodSettings2(ownerRef *metav1.OwnerReference, sup *supplements.Generator, ns string) *importer.PodSettings {
+func (s ImporterService) getPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, ns string) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,
