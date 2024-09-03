@@ -155,7 +155,6 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 		}
 	}
 	changed.Status.Resources = resources
-	return
 }
 
 func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
@@ -172,7 +171,6 @@ func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineIn
 	}
 	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 	return int(cpuKVVMIRequest.MilliValue()) * 100 / (h.getCoresByKVVMI(kvvmi) * 1000)
-
 }
 
 func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {
