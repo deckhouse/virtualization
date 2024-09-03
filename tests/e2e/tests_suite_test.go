@@ -34,6 +34,7 @@ import (
 const (
 	ShortWaitDuration      = 60 * time.Second
 	LongWaitDuration       = 300 * time.Second
+	PhaseAttached          = "Attached"
 	PhaseReady             = "Ready"
 	PhaseBound             = "Bound"
 	PhaseReleased          = "Released"
