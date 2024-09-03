@@ -179,9 +179,9 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 		}
 	}
 
-	if imp.pvcNamespace != "" {
-		pod.ObjectMeta.Namespace = imp.pvcNamespace
-	}
+	// if imp.pvcNamespace != "" {
+	// 	pod.ObjectMeta.Namespace = imp.pvcNamespace
+	// }
 
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(pod, container)
