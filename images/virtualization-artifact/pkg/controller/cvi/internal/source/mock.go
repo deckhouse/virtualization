@@ -39,6 +39,9 @@ var _ Importer = &ImporterMock{}
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
 //				panic("mock out the Start method")
 //			},
+//			StartFromPVCFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
+//				panic("mock out the StartFromPVC method")
+//			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod) error {
 //				panic("mock out the Unprotect method")
 //			},
@@ -60,6 +63,9 @@ type ImporterMock struct {
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
+
+	// StartFromPVCFunc mocks the StartFromPVC method.
+	StartFromPVCFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod) error
@@ -100,6 +106,21 @@ type ImporterMock struct {
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
 		}
+		// StartFromPVC holds details about calls to the StartFromPVC method.
+		StartFromPVC []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Settings is the settings argument value.
+			Settings *importer.Settings
+			// Obj is the obj argument value.
+			Obj service.ObjectKind
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+			// CaBundle is the caBundle argument value.
+			CaBundle *datasource.CABundle
+			// PvcName is the pvcName argument value.
+			PvcName string
+		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
 			// Ctx is the ctx argument value.
@@ -108,11 +129,12 @@ type ImporterMock struct {
 			Pod *corev1.Pod
 		}
 	}
-	lockCleanUp   sync.RWMutex
-	lockGetPod    sync.RWMutex
-	lockProtect   sync.RWMutex
-	lockStart     sync.RWMutex
-	lockUnprotect sync.RWMutex
+	lockCleanUp      sync.RWMutex
+	lockGetPod       sync.RWMutex
+	lockProtect      sync.RWMutex
+	lockStart        sync.RWMutex
+	lockStartFromPVC sync.RWMutex
+	lockUnprotect    sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -268,6 +290,58 @@ func (mock *ImporterMock) StartCalls() []struct {
 	mock.lockStart.RLock()
 	calls = mock.calls.Start
 	mock.lockStart.RUnlock()
+	return calls
+}
+
+// StartFromPVC calls StartFromPVCFunc.
+func (mock *ImporterMock) StartFromPVC(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
+	if mock.StartFromPVCFunc == nil {
+		panic("ImporterMock.StartFromPVCFunc: method is nil but Importer.StartFromPVC was just called")
+	}
+	callInfo := struct {
+		Ctx      context.Context
+		Settings *importer.Settings
+		Obj      service.ObjectKind
+		Sup      *supplements.Generator
+		CaBundle *datasource.CABundle
+		PvcName  string
+	}{
+		Ctx:      ctx,
+		Settings: settings,
+		Obj:      obj,
+		Sup:      sup,
+		CaBundle: caBundle,
+		PvcName:  pvcName,
+	}
+	mock.lockStartFromPVC.Lock()
+	mock.calls.StartFromPVC = append(mock.calls.StartFromPVC, callInfo)
+	mock.lockStartFromPVC.Unlock()
+	return mock.StartFromPVCFunc(ctx, settings, obj, sup, caBundle, pvcName)
+}
+
+// StartFromPVCCalls gets all the calls that were made to StartFromPVC.
+// Check the length with:
+//
+//	len(mockedImporter.StartFromPVCCalls())
+func (mock *ImporterMock) StartFromPVCCalls() []struct {
+	Ctx      context.Context
+	Settings *importer.Settings
+	Obj      service.ObjectKind
+	Sup      *supplements.Generator
+	CaBundle *datasource.CABundle
+	PvcName  string
+} {
+	var calls []struct {
+		Ctx      context.Context
+		Settings *importer.Settings
+		Obj      service.ObjectKind
+		Sup      *supplements.Generator
+		CaBundle *datasource.CABundle
+		PvcName  string
+	}
+	mock.lockStartFromPVC.RLock()
+	calls = mock.calls.StartFromPVC
+	mock.lockStartFromPVC.RUnlock()
 	return calls
 }
 
