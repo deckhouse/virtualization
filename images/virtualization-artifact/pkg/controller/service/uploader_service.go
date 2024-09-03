@@ -74,7 +74,7 @@ func (s UploaderService) Start(ctx context.Context, settings *uploader.Settings,
 		return err
 	}
 
-	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, false)
 	if err != nil {
 		return err
 	}
