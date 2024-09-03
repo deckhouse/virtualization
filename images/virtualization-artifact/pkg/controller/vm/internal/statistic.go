@@ -19,16 +19,17 @@ package internal
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -67,10 +68,7 @@ func (h *StatisticHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 	h.syncPods(changed, pod, pods)
 
-	err = h.syncResources(changed, kvvmi, pod)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	h.syncResources(changed, kvvmi, pod)
 
 	return reconcile.Result{}, nil
 }
@@ -82,72 +80,99 @@ func (h *StatisticHandler) Name() string {
 func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
-) error {
+) {
 	if changed == nil {
-		return nil
+		return
 	}
 	var resources virtv2.ResourcesStatus
 	switch {
 	case pod == nil:
-		var cpuRequest resource.Quantity
+		var (
+			cpuKVVMIRequest resource.Quantity
+			memorySize      resource.Quantity
+			cores           int
+			coreFraction    int
+		)
 		if kvvmi == nil {
-			req, err := kvbuilder.GetCPURequest(changed.Spec.CPU.Cores, changed.Spec.CPU.CoreFraction)
-			if err != nil {
-				return err
-			}
-			cpuRequest = *req
+			memorySize = changed.Spec.Memory.Size
+			cores = changed.Spec.CPU.Cores
+			cf := intstr.FromString(strings.TrimSuffix(changed.Spec.CPU.CoreFraction, "%"))
+			coreFraction = cf.IntValue()
 		} else {
-			cpuRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
+
+			cores = h.getCoresByKVVMI(kvvmi)
+			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 		}
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
-				Cores:          changed.Spec.CPU.Cores,
-				CoreFraction:   changed.Spec.CPU.CoreFraction,
-				RequestedCores: cpuRequest,
+				Cores:          cores,
+				CoreFraction:   coreFraction,
+				RequestedCores: cpuKVVMIRequest,
 			},
 			Memory: virtv2.MemoryStatus{
-				Size: changed.Spec.Memory.Size,
+				Size: memorySize,
 			},
 		}
 	default:
+		if kvvmi == nil {
+			return
+		}
 		var ctr corev1.Container
 		for _, container := range pod.Spec.Containers {
 			if container.Name == "compute" {
 				ctr = container
 			}
 		}
-		cpuLimit := ctr.Resources.Limits[corev1.ResourceCPU]
-		cores := changed.Spec.CPU.Cores
-		cores64, ok := cpuLimit.AsInt64()
-		if ok {
-			cores = int(cores64)
-		}
-		cpuRequest := ctr.Resources.Requests[corev1.ResourceCPU]
-		cpuOverhead := cpuLimit.DeepCopy()
-		cpuOverhead.Sub(cpuRequest)
 
-		memorySize := changed.Spec.Memory.Size
-		if kvvmi != nil {
-			memorySize = kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceMemory]
-		}
-		memoryLimit := ctr.Resources.Limits[corev1.ResourceMemory]
-		memoryOverhead := memoryLimit.DeepCopy()
-		memoryOverhead.Sub(memorySize)
+		cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+		cpuPODRequest := ctr.Resources.Requests[corev1.ResourceCPU]
+
+		cpuOverhead := cpuPODRequest.DeepCopy()
+		cpuOverhead.Sub(cpuKVVMIRequest)
+
+		cores := h.getCoresByKVVMI(kvvmi)
+		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
+
+		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
+		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
+
+		memoryOverhead := memoryPodRequest.DeepCopy()
+		memoryOverhead.Sub(memoryKVVMIRequest)
+
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
 				Cores:           cores,
-				CoreFraction:    changed.Spec.CPU.CoreFraction,
-				RequestedCores:  cpuRequest,
+				CoreFraction:    coreFraction,
+				RequestedCores:  cpuKVVMIRequest,
 				RuntimeOverhead: cpuOverhead,
 			},
 			Memory: virtv2.MemoryStatus{
-				Size:            memorySize,
+				Size:            memoryKVVMIRequest,
 				RuntimeOverhead: memoryOverhead,
 			},
 		}
 	}
 	changed.Status.Resources = resources
-	return nil
+	return
+}
+
+func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
+	if kvvmi == nil {
+		return -1
+	}
+	cpuKVVMILimit := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
+	return int(cpuKVVMILimit.Value())
+}
+
+func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
+	if kvvmi == nil {
+		return -1
+	}
+	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
+	return int(cpuKVVMIRequest.MilliValue()) * 100 / (h.getCoresByKVVMI(kvvmi) * 1000)
+
 }
 
 func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {

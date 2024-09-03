@@ -338,7 +338,7 @@ type CPUStatus struct {
 	// Current number of cores inside the VM.
 	Cores int `json:"cores"`
 	// Current CoreFraction.
-	CoreFraction string `json:"coreFraction,omitempty"`
+	CoreFraction int `json:"coreFraction,omitempty"`
 	// Requested cores.
 	RequestedCores resource.Quantity `json:"requestedCores,omitempty"`
 	// runtime overhead.
