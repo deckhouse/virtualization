@@ -59,6 +59,12 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 		}
 	}
 
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("ShouldCopyDVCRAuthSecret", ShouldCopyDVCRAuthSecret(dvcrSettings, supGen))
+	fmt.Println("")
+	fmt.Println("")
+
 	// Create Secret with auth config to use DVCR as destination.
 	if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret := supGen.DVCRAuthSecret()
@@ -77,6 +83,12 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 			return err
 		}
 	}
+
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("ShouldCopyImagePullSecret", ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace))
+	fmt.Println("")
+	fmt.Println("")
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
 	if ds != nil && ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace) {
