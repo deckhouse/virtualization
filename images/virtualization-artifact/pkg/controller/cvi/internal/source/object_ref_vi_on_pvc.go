@@ -93,7 +93,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), refPvc.Name)
+		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), refPvc.Name, refPvc.Namespace)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(condition, &cvi.Status.Phase, err)
 		if err != nil {
