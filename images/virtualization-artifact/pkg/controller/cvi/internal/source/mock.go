@@ -30,6 +30,9 @@ var _ Importer = &ImporterMock{}
 //			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUpSupplements method")
+//			},
 //			GetPodFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
@@ -55,6 +58,9 @@ type ImporterMock struct {
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
+	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
 
@@ -74,6 +80,13 @@ type ImporterMock struct {
 	calls struct {
 		// CleanUp holds details about calls to the CleanUp method.
 		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
+		CleanUpSupplements []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
@@ -131,12 +144,13 @@ type ImporterMock struct {
 			Pod *corev1.Pod
 		}
 	}
-	lockCleanUp      sync.RWMutex
-	lockGetPod       sync.RWMutex
-	lockProtect      sync.RWMutex
-	lockStart        sync.RWMutex
-	lockStartFromPVC sync.RWMutex
-	lockUnprotect    sync.RWMutex
+	lockCleanUp            sync.RWMutex
+	lockCleanUpSupplements sync.RWMutex
+	lockGetPod             sync.RWMutex
+	lockProtect            sync.RWMutex
+	lockStart              sync.RWMutex
+	lockStartFromPVC       sync.RWMutex
+	lockUnprotect          sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -172,6 +186,42 @@ func (mock *ImporterMock) CleanUpCalls() []struct {
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
 	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// CleanUpSupplements calls CleanUpSupplementsFunc.
+func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpSupplementsFunc == nil {
+		panic("ImporterMock.CleanUpSupplementsFunc: method is nil but Importer.CleanUpSupplements was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUpSupplements.Lock()
+	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
+	mock.lockCleanUpSupplements.Unlock()
+	return mock.CleanUpSupplementsFunc(ctx, sup)
+}
+
+// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
+// Check the length with:
+//
+//	len(mockedImporter.CleanUpSupplementsCalls())
+func (mock *ImporterMock) CleanUpSupplementsCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUpSupplements.RLock()
+	calls = mock.calls.CleanUpSupplements
+	mock.lockCleanUpSupplements.RUnlock()
 	return calls
 }
 
