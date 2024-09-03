@@ -35,7 +35,7 @@ index 7ada596d87..f9d6aed9bb 100644
  		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
  		return err
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
-index c64b315d8f..3f02834076 100644
+index c64b315d8f..71bbe50037 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
 +++ b/pkg/virt-launcher/virtwrap/converter/converter.go
 @@ -590,7 +590,6 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
@@ -89,7 +89,7 @@ index c64b315d8f..3f02834076 100644
 +	)
 +	info, err := os.Stat(path)
 +	if err != nil {
-+		if os.IsNotExist(err) {
++		if errors.Is(err, os.ErrNotExist) {
 +			return formatQcow2, nil
 +		}
 +		return "", err
