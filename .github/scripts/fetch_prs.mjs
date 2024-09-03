@@ -53,7 +53,7 @@ async function fetchReviewerDetails(login) {
 
 async function formatPR(pr) {
   let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
-  if (pr.requested_reviewers && pr.requested_reviewers.length > 0 && pr.number != 329 ) {
+  if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
     const reviewers = await Promise.all(
       pr.requested_reviewers.map(async reviewer => {
         const details = await fetchReviewerDetails(reviewer.login);
