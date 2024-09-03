@@ -54,7 +54,7 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *servic
 func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -171,15 +171,20 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 	return true, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
 
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return diskRequeue, nil
+	return importerRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
