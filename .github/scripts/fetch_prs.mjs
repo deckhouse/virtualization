@@ -20,7 +20,7 @@ import moment from 'moment';
 const owner = 'deckhouse';
 const repo = 'virtualization';
 const project = 'DVP';
-const defaultLogin = 'NEED ATTENTION, reviewers are required';
+const defaultLogin = 'Almighty PM';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
 
@@ -52,13 +52,18 @@ async function fetchReviewerDetails(login) {
 }
 
 async function formatPR(pr) {
-  const reviewers = await Promise.all(
-    pr.requested_reviewers.map(async reviewer => {
-      const details = await fetchReviewerDetails(reviewer.login);
-      return details && details.login ? `${details.login} (${details.name})` : defaultLogin;
-    })
-  );
-  return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - Reviewers: ${reviewers.join(', ')}`;
+  let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
+  if (pr.requested_reviewers && pr.requested_reviewers.length > 0 && pr.number != 329 ) {
+    const reviewers = await Promise.all(
+      pr.requested_reviewers.map(async reviewer => {
+        const details = await fetchReviewerDetails(reviewer.login);
+        return details ? `${details.login} (${details.name})` : reviewer.login;
+      })
+    );
+    reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
+  }
+
+  return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
 }
 
 async function generateSummary(prs) {
@@ -75,12 +80,13 @@ async function generateSummary(prs) {
   }
 
   if (recent.length > 0) {
-    const recentPRsInfo = await Promise.all(recent.map(formatPR)).then(results => results.join('\n'));
-    summary += `### Recent PRs requiring review\n\n${recentPRsInfo}\n`;
+    const recentPRsInfo = await Promise.all(recent.map(formatPR));
+    summary += `### Recent PRs requiring review\n\n${recentPRsInfo.join('\n')}\n\n`;
   }
 
   if (lasting.length > 0) {
-    summary += `### PRs requiring review\n\n${await Promise.all(lasting.map(formatPR)).then(results => results.join('\n'))}\n`;
+    const lastingPRsInfo = await Promise.all(lasting.map(formatPR));
+    summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
   }
 
   return summary;
