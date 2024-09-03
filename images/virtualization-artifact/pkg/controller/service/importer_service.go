@@ -73,7 +73,7 @@ func (s ImporterService) Start(ctx context.Context, settings *importer.Settings,
 		return err
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, false)
 }
 
 func (s ImporterService) StartFromPVC(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName, pvcNamespace string) error {
@@ -85,7 +85,7 @@ func (s ImporterService) StartFromPVC(ctx context.Context, settings *importer.Se
 		return err
 	}
 
-	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings, true)
 }
 
 func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
