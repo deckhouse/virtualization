@@ -4453,7 +4453,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress", "blockDeviceRefs", "guestOSInfo"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},
 		},
 		Dependencies: []string{

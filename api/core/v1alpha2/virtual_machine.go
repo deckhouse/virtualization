@@ -241,8 +241,8 @@ type VirtualMachineStatus struct {
 	// IP address of VM.
 	IPAddress string `json:"ipAddress"`
 	// The list of attached block device attachments.
-	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
-	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
+	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
+	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
 	// Specific points in VM's runtime.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// VirtualMachine statistics.
