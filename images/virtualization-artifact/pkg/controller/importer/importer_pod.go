@@ -60,16 +60,18 @@ const (
 )
 
 type Importer struct {
-	PodSettings *PodSettings
-	EnvSettings *Settings
-	pvcName     string
+	PodSettings  *PodSettings
+	EnvSettings  *Settings
+	pvcName      string
+	pvcNamespace string
 }
 
-func NewImporter(podSettings *PodSettings, envSettings *Settings, pvcName string) *Importer {
+func NewImporter(podSettings *PodSettings, envSettings *Settings, pvcName string, pvcNamespace string) *Importer {
 	return &Importer{
-		PodSettings: podSettings,
-		EnvSettings: envSettings,
-		pvcName:     pvcName,
+		PodSettings:  podSettings,
+		EnvSettings:  envSettings,
+		pvcName:      pvcName,
+		pvcNamespace: pvcNamespace,
 	}
 }
 
@@ -175,6 +177,10 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 				},
 			},
 		}
+	}
+
+	if imp.pvcNamespace != "" {
+		pod.ObjectMeta.Namespace = imp.pvcNamespace
 	}
 
 	container := imp.makeImporterContainerSpec()

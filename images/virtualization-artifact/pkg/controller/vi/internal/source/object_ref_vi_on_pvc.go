@@ -107,7 +107,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name)
+		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name, refPvc.Namespace)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {

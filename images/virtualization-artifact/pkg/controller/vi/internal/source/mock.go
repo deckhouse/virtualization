@@ -43,7 +43,7 @@ var _ Importer = &ImporterMock{}
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
 //				panic("mock out the Start method")
 //			},
-//			StartFromPVCFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
+//			StartFromPVCFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error {
 //				panic("mock out the StartFromPVC method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod) error {
@@ -72,7 +72,7 @@ type ImporterMock struct {
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
 
 	// StartFromPVCFunc mocks the StartFromPVC method.
-	StartFromPVCFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error
+	StartFromPVCFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod) error
@@ -134,6 +134,8 @@ type ImporterMock struct {
 			CaBundle *datasource.CABundle
 			// PvcName is the pvcName argument value.
 			PvcName string
+			// PvcNamespace is the pvcNamespace argument value.
+			PvcNamespace string
 		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
@@ -345,29 +347,31 @@ func (mock *ImporterMock) StartCalls() []struct {
 }
 
 // StartFromPVC calls StartFromPVCFunc.
-func (mock *ImporterMock) StartFromPVC(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string) error {
+func (mock *ImporterMock) StartFromPVC(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error {
 	if mock.StartFromPVCFunc == nil {
 		panic("ImporterMock.StartFromPVCFunc: method is nil but Importer.StartFromPVC was just called")
 	}
 	callInfo := struct {
-		Ctx      context.Context
-		Settings *importer.Settings
-		Obj      service.ObjectKind
-		Sup      *supplements.Generator
-		CaBundle *datasource.CABundle
-		PvcName  string
+		Ctx          context.Context
+		Settings     *importer.Settings
+		Obj          service.ObjectKind
+		Sup          *supplements.Generator
+		CaBundle     *datasource.CABundle
+		PvcName      string
+		PvcNamespace string
 	}{
-		Ctx:      ctx,
-		Settings: settings,
-		Obj:      obj,
-		Sup:      sup,
-		CaBundle: caBundle,
-		PvcName:  pvcName,
+		Ctx:          ctx,
+		Settings:     settings,
+		Obj:          obj,
+		Sup:          sup,
+		CaBundle:     caBundle,
+		PvcName:      pvcName,
+		PvcNamespace: pvcNamespace,
 	}
 	mock.lockStartFromPVC.Lock()
 	mock.calls.StartFromPVC = append(mock.calls.StartFromPVC, callInfo)
 	mock.lockStartFromPVC.Unlock()
-	return mock.StartFromPVCFunc(ctx, settings, obj, sup, caBundle, pvcName)
+	return mock.StartFromPVCFunc(ctx, settings, obj, sup, caBundle, pvcName, pvcNamespace)
 }
 
 // StartFromPVCCalls gets all the calls that were made to StartFromPVC.
@@ -375,20 +379,22 @@ func (mock *ImporterMock) StartFromPVC(ctx context.Context, settings *importer.S
 //
 //	len(mockedImporter.StartFromPVCCalls())
 func (mock *ImporterMock) StartFromPVCCalls() []struct {
-	Ctx      context.Context
-	Settings *importer.Settings
-	Obj      service.ObjectKind
-	Sup      *supplements.Generator
-	CaBundle *datasource.CABundle
-	PvcName  string
+	Ctx          context.Context
+	Settings     *importer.Settings
+	Obj          service.ObjectKind
+	Sup          *supplements.Generator
+	CaBundle     *datasource.CABundle
+	PvcName      string
+	PvcNamespace string
 } {
 	var calls []struct {
-		Ctx      context.Context
-		Settings *importer.Settings
-		Obj      service.ObjectKind
-		Sup      *supplements.Generator
-		CaBundle *datasource.CABundle
-		PvcName  string
+		Ctx          context.Context
+		Settings     *importer.Settings
+		Obj          service.ObjectKind
+		Sup          *supplements.Generator
+		CaBundle     *datasource.CABundle
+		PvcName      string
+		PvcNamespace string
 	}
 	mock.lockStartFromPVC.RLock()
 	calls = mock.calls.StartFromPVC
