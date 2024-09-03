@@ -178,7 +178,7 @@ properties:
                 enum: ["ObjectStorage"]
   virtualImages:
     type: object
-    required: [ storageClassName ]
+    required: [storageClassName]
     properties:
       storageClassName:
         type: string

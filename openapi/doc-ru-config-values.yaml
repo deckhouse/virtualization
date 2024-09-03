@@ -90,7 +90,7 @@ properties:
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
   virtualImages:
     type: object
-    required: [ storageClassName ]
+    required: [storageClassName]
     properties:
       storageClassName:
         type: string
