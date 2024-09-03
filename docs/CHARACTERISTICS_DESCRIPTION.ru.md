@@ -4,7 +4,7 @@ linkTitle: "Описание функциональных характерист
 weight: 20
 ---
 
-Программное обеспечение Deckhouse Virtualization Platform предназначен для запуска и управления виртуальными машинами и их ресурсами на платформе Deckhouse Kubernetes Platform.
+Программное обеспечение Deckhouse Virtualization Platform предназначено для запуска и управления виртуальными машинами и их ресурсами на платформе Deckhouse Kubernetes Platform.
 
 Deckhouse Virtualization Platform позволяет:
 
