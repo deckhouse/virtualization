@@ -29,6 +29,7 @@ import (
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
@@ -76,8 +77,15 @@ func Install(
 	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
+	virtClient versionedv1alpha2.VirtualizationV1alpha2Interface,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"), vmLister, kubevirt, proxyCertManager, crd)
+	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
+		vmLister,
+		kubevirt,
+		proxyCertManager,
+		crd,
+		virtClient,
+	)
 	info := Build(vmStorage)
 	return server.InstallAPIGroup(&info)
 }

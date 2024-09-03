@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
+	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -81,10 +82,12 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	genericServer, err := c.Apiserver.Complete(nil).New("virtualziation-api", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return nil, err
 	}
+
 	kubeclient, err := apiextensionsv1.NewForConfig(c.Rest)
 	if err != nil {
 		return nil, err
@@ -93,7 +96,19 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = api.Install(vmInformer.Lister(), genericServer, c.Kubevirt, proxyCertManager, crd); err != nil {
+
+	virtclient, err := virtClient.NewForConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+	virtclient.VirtualizationV1alpha2()
+	if err = api.Install(vmInformer.Lister(),
+		genericServer,
+		c.Kubevirt,
+		proxyCertManager,
+		crd,
+		virtclient.VirtualizationV1alpha2(),
+	); err != nil {
 		return nil, err
 	}
 

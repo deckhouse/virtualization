@@ -35,6 +35,7 @@ import (
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -49,6 +50,7 @@ type VirtualMachineStorage struct {
 	freeze        *vmrest.FreezeREST
 	unfreeze      *vmrest.UnfreezeREST
 	convertor     rest.TableConvertor
+	virtClient    v1alpha2.VirtualizationV1alpha2Interface
 }
 
 var (
@@ -57,6 +59,7 @@ var (
 	_ rest.Scoper               = &VirtualMachineStorage{}
 	_ rest.Lister               = &VirtualMachineStorage{}
 	_ rest.Getter               = &VirtualMachineStorage{}
+	_ rest.GracefulDeleter      = &VirtualMachineStorage{}
 	_ rest.TableConvertor       = &VirtualMachineStorage{}
 	_ rest.SingularNameProvider = &VirtualMachineStorage{}
 )
@@ -67,6 +70,7 @@ func NewStorage(
 	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
+	virtClient v1alpha2.VirtualizationV1alpha2Interface,
 ) *VirtualMachineStorage {
 	var convertor rest.TableConvertor
 	if crd != nil && len(crd.Spec.Versions) > 0 {
@@ -94,6 +98,7 @@ func NewStorage(
 		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		convertor:     convertor,
+		virtClient:    virtClient,
 	}
 }
 
@@ -199,4 +204,16 @@ func (store VirtualMachineStorage) ConvertToTable(ctx context.Context, object, t
 		return store.convertor.ConvertToTable(ctx, object, tableOptions)
 	}
 	return rest.NewDefaultTableConvertor(store.groupResource).ConvertToTable(ctx, object, tableOptions)
+}
+
+func (store VirtualMachineStorage) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	namespace := genericreq.NamespaceValue(ctx)
+	var opts metav1.DeleteOptions
+	if options != nil {
+		opts = *options
+	}
+	if err := store.virtClient.VirtualMachines(namespace).Delete(ctx, name, opts); err != nil {
+		return nil, false, apierrors.NewInternalError(err)
+	}
+	return nil, true, nil
 }
