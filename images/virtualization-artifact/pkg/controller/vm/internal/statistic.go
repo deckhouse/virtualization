@@ -19,13 +19,12 @@ package internal
 import (
 	"context"
 	"sort"
-	"strings"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -91,13 +90,12 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
 			cores           int
-			coreFraction    int
+			coreFraction    string
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
 			cores = changed.Spec.CPU.Cores
-			cf := intstr.FromString(strings.TrimSuffix(changed.Spec.CPU.CoreFraction, "%"))
-			coreFraction = cf.IntValue()
+			coreFraction = changed.Spec.CPU.CoreFraction
 		} else {
 			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
@@ -165,12 +163,12 @@ func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance)
 	return int(cpuKVVMILimit.Value())
 }
 
-func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
+func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) string {
 	if kvvmi == nil {
-		return -1
+		return ""
 	}
 	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
-	return int(cpuKVVMIRequest.MilliValue()) * 100 / (h.getCoresByKVVMI(kvvmi) * 1000)
+	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
 }
 
 func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {

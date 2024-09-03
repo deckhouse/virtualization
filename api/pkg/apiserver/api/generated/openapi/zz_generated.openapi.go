@@ -865,8 +865,8 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 					"coreFraction": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Current CoreFraction.",
-							Type:        []string{"integer"},
-							Format:      "int32",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"requestedCores": {

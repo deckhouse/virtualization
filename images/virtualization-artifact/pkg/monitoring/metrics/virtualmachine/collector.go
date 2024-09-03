@@ -66,22 +66,67 @@ var virtualMachineMetrics = map[string]*prometheus.Desc{
 	MetricVirtualMachineStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineStatusPhase),
 		"The virtualmachine current phase.",
 		WithBaseLabels("phase"),
-		nil),
+		nil,
+	),
 
 	MetricVirtualMachineConfigurationCpuCores: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuCores),
-		"The virtualmachine core count.",
+		"The virtualmachine current core count.",
 		WithBaseLabels(),
-		nil),
+		nil,
+	),
 
 	MetricVirtualMachineConfigurationCpuCoreFraction: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuCoreFraction),
-		"The virtualmachine coreFraction.",
+		"The virtualmachine current coreFraction.",
 		WithBaseLabels(),
-		nil),
+		nil,
+	),
 
 	MetricVirtualMachineConfigurationCpuRequestedCores: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuRequestedCores),
-		"The virtualmachine requested cores.",
+		"The virtualmachine current requested cores.",
 		WithBaseLabels(),
-		nil),
+		nil,
+	),
+
+	MetricVirtualMachineConfigurationCpuRuntimeOverhead: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuRuntimeOverhead),
+		"The virtualmachine current cpu runtime overhead.",
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineConfigurationMemorySize: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationMemorySize),
+		"The virtualmachine current memory size.",
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineConfigurationMemoryRuntimeOverhead: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationMemoryRuntimeOverhead),
+		"The virtualmachine current memory runtime overhead.",
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineAwaitingRestartToApplyConfiguration: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineAwaitingRestartToApplyConfiguration),
+		"The virtualmachine awaiting restart to apply configuration.",
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineConfigurationApplied: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationApplied),
+		"The virtualmachine configuration applied.",
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineConfigurationRunPolicy: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationApplied),
+		"The virtualmachine current runPolicy.",
+		WithBaseLabels("runPolicy"),
+		nil,
+	),
+	MetricVirtualMachinePod: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachinePod),
+		"The virtualmachine current active pod.",
+		WithBaseLabels("pod"),
+		nil,
+	),
 }
 
 func SetupCollector(reader client.Reader, registerer prometheus.Registerer) *Collector {
@@ -135,6 +180,13 @@ func (s *scraper) Report(m *metric) {
 	s.updateVMCpuCoresMetrics(m)
 	s.updateVMCpuCoreFractionMetrics(m)
 	s.updateVMCpuRequestedCoresMetrics(m)
+	s.updateVMCpuRuntimeOverheadMetrics(m)
+	s.updateVMMemorySizeMetrics(m)
+	s.updateVMMemoryRuntimeOverheadMetrics(m)
+	s.updateVMAwaitingRestartToApplyConfigurationMetrics(m)
+	s.updateVMConfigurationAppliedMetrics(m)
+	s.updateVMConfigurationRunPolicyMetrics(m)
+	s.updateVMPodMetrics(m)
 }
 
 func (s *scraper) updateVMStatusPhaseMetrics(m *metric) {
@@ -157,20 +209,72 @@ func (s *scraper) updateVMStatusPhaseMetrics(m *metric) {
 		{phase == virtv2.MachinePause, string(virtv2.MachinePause)},
 	}
 	for _, p := range phases {
-		s.defaultUpdate(MetricVirtualMachineStatusPhase, util.BoolFloat64(p.value), m, p.name)
+		s.defaultUpdate(MetricVirtualMachineStatusPhase,
+			util.BoolFloat64(p.value), m, p.name)
 	}
 }
 
 func (s *scraper) updateVMCpuCoresMetrics(m *metric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores, m.CpuCores, m)
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores,
+		m.CpuCores, m)
 }
 
 func (s *scraper) updateVMCpuCoreFractionMetrics(m *metric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction, m.CpuCoreFraction, m)
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction,
+		m.CpuCoreFraction, m)
 }
 
 func (s *scraper) updateVMCpuRequestedCoresMetrics(m *metric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRequestedCores, m.CpuRequestedCores, m)
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRequestedCores,
+		m.CpuRequestedCores, m)
+}
+
+func (s *scraper) updateVMCpuRuntimeOverheadMetrics(m *metric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
+		m.CpuRuntimeOverhead, m)
+}
+
+func (s *scraper) updateVMMemorySizeMetrics(m *metric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationMemorySize,
+		m.MemorySize, m)
+}
+
+func (s *scraper) updateVMMemoryRuntimeOverheadMetrics(m *metric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationMemoryRuntimeOverhead,
+		m.MemoryRuntimeOverhead, m)
+}
+
+func (s *scraper) updateVMAwaitingRestartToApplyConfigurationMetrics(m *metric) {
+	s.defaultUpdate(MetricVirtualMachineAwaitingRestartToApplyConfiguration,
+		util.BoolFloat64(m.AwaitingRestartToApplyConfiguration), m)
+}
+
+func (s *scraper) updateVMConfigurationAppliedMetrics(m *metric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationApplied,
+		util.BoolFloat64(m.ConfigurationApplied), m)
+}
+
+func (s *scraper) updateVMConfigurationRunPolicyMetrics(m *metric) {
+	policy := m.RunPolicy
+	policies := []struct {
+		value bool
+		name  string
+	}{
+		{policy == virtv2.AlwaysOnPolicy, string(virtv2.AlwaysOnPolicy)},
+		{policy == virtv2.AlwaysOffPolicy, string(virtv2.AlwaysOffPolicy)},
+		{policy == virtv2.ManualPolicy, string(virtv2.ManualPolicy)},
+		{policy == virtv2.AlwaysOnUnlessStoppedManually, string(virtv2.AlwaysOnUnlessStoppedManually)},
+	}
+	for _, p := range policies {
+		s.defaultUpdate(MetricVirtualMachineConfigurationRunPolicy,
+			util.BoolFloat64(p.value), m, p.name)
+	}
+}
+
+func (s *scraper) updateVMPodMetrics(m *metric) {
+	for _, p := range m.Pods {
+		s.defaultUpdate(MetricVirtualMachinePod, util.BoolFloat64(p.Active), m, p.Name)
+	}
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *metric, labels ...string) {

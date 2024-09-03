@@ -16,28 +16,68 @@ limitations under the License.
 
 package virtualmachine
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+)
 
 type metric struct {
-	Name              string
-	Namespace         string
-	Node              string
-	UID               string
-	Phase             virtv2.MachinePhase
-	CpuCores          float64
-	CpuCoreFraction   float64
-	CpuRequestedCores float64
+	Name                                string
+	Namespace                           string
+	Node                                string
+	UID                                 string
+	Phase                               virtv2.MachinePhase
+	CpuCores                            float64
+	CpuCoreFraction                     float64
+	CpuRequestedCores                   float64
+	CpuRuntimeOverhead                  float64
+	MemorySize                          float64
+	MemoryRuntimeOverhead               float64
+	AwaitingRestartToApplyConfiguration bool
+	ConfigurationApplied                bool
+	RunPolicy                           virtv2.RunPolicy
+	Pods                                []virtv2.VirtualMachinePod
 }
 
 func newMetric(vm *virtv2.VirtualMachine) *metric {
 	if vm == nil {
 		return nil
 	}
+	res := vm.Status.Resources
+	cf := intstr.FromString(strings.TrimSuffix(res.CPU.CoreFraction, "%"))
+	var (
+		awaitingRestartToApplyConfiguration bool
+		configurationApplied                bool
+	)
+	if cond, found := service.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+		awaitingRestartToApplyConfiguration = true
+	}
+	if cond, found := service.GetCondition(vmcondition.TypeConfigurationApplied.String(),
+		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+		configurationApplied = true
+	}
 	return &metric{
-		Name:      vm.Name,
-		Namespace: vm.Namespace,
-		Node:      vm.Status.Node,
-		UID:       string(vm.UID),
-		Phase:     vm.Status.Phase,
+		Name:                                vm.Name,
+		Namespace:                           vm.Namespace,
+		Node:                                vm.Status.Node,
+		UID:                                 string(vm.UID),
+		Phase:                               vm.Status.Phase,
+		CpuCores:                            float64(res.CPU.Cores),
+		CpuCoreFraction:                     float64(cf.IntValue()),
+		CpuRequestedCores:                   float64(res.CPU.RequestedCores.MilliValue()),
+		CpuRuntimeOverhead:                  float64(res.CPU.RuntimeOverhead.MilliValue()),
+		MemorySize:                          float64(res.Memory.Size.MilliValue()),
+		MemoryRuntimeOverhead:               float64(res.Memory.RuntimeOverhead.MilliValue()),
+		AwaitingRestartToApplyConfiguration: awaitingRestartToApplyConfiguration,
+		ConfigurationApplied:                configurationApplied,
+		RunPolicy:                           vm.Spec.RunPolicy,
+		Pods:                                vm.Status.VirtualMachinePods,
 	}
 }
