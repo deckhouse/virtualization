@@ -63,7 +63,7 @@ async function formatPR(pr) {
     reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
   }
 
-  return `- [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
+  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
 }
 
 async function generateSummary(prs) {
