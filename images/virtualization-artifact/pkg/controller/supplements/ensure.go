@@ -45,7 +45,7 @@ type DataSource interface {
 // EnsureForPod make supplements for importer or uploader Pod:
 // - It creates ConfigMap with caBundle for http and containerImage data sources.
 // - It copies DVCR auth Secret to use DVCR as destination.
-func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
+func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings, forceCopyDVCRAuthSecret bool) error {
 	// Create ConfigMap with caBundle.
 	if ds.HasCABundle() {
 		fmt.Println("")
@@ -64,12 +64,7 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 	}
 
 	// Create Secret with auth config to use DVCR as destination.
-	// if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
-	if true {
-		fmt.Println("")
-		fmt.Println("execute ShouldCopyDVCRAuthSecret")
-		fmt.Println("")
-
+	if forceCopyDVCRAuthSecret || ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret := supGen.DVCRAuthSecret()
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
@@ -89,9 +84,6 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
 	if ds != nil && ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace) {
-		fmt.Println("")
-		fmt.Println("execute ShouldCopyImagePullSecret")
-		fmt.Println("")
 		imgPull := supGen.ImagePullSecret()
 		imgPullCopier := copier.Secret{
 			Source: types.NamespacedName{
