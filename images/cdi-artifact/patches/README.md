@@ -39,9 +39,9 @@ Set the storage class name for the scratch pvc from the original pvc that will o
 
 Add capabilities for deckhouse provisioners to cdi StorageProfile.
 
-#### `013-support-converting-images-to-different-formats.patch`
+#### `013-converting-images-in-filesystem-to-qcow2.patch`
 
-Support for converting images to different formats.
+Converting images in the file system to qcow2.
 
 #### `014-delete-service-monitor.patch`
 

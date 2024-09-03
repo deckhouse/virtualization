@@ -1,0 +1,109 @@
+diff --git a/pkg/image/qemu.go b/pkg/image/qemu.go
+index 651fb5fc8..1151a2121 100644
+--- a/pkg/image/qemu.go
++++ b/pkg/image/qemu.go
+@@ -61,6 +61,7 @@ type ImgInfo struct {
+ // QEMUOperations defines the interface for executing qemu subprocesses
+ type QEMUOperations interface {
+ 	ConvertToRawStream(*url.URL, string, bool) error
++	ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error
+ 	Resize(string, resource.Quantity, bool) error
+ 	Info(url *url.URL) (*ImgInfo, error)
+ 	Validate(*url.URL, int64) error
+@@ -114,6 +115,36 @@ func NewQEMUOperations() QEMUOperations {
+ 	return &qemuOperations{}
+ }
+ 
++func convertTo(format, src, dest string, preallocate bool) error {
++	switch format {
++	case "qcow2", "raw":
++		// Do nothing.
++	default:
++		return errors.Errorf("unknown format: %s", format)
++	}
++	args := []string{"convert", "-t", "writeback", "-p", "-O", format, src, dest}
++	var err error
++
++	if preallocate {
++		err = addPreallocation(args, convertPreallocationMethods, func(args []string) ([]byte, error) {
++			return qemuExecFunction(nil, reportProgress, "qemu-img", args...)
++		})
++	} else {
++		klog.V(1).Infof("Running qemu-img with args: %v", args)
++		_, err = qemuExecFunction(nil, reportProgress, "qemu-img", args...)
++	}
++	if err != nil {
++		os.Remove(dest)
++		errorMsg := fmt.Sprintf("could not convert image to %s", format)
++		if nbdkitLog, err := os.ReadFile(common.NbdkitLogPath); err == nil {
++			errorMsg += " " + string(nbdkitLog)
++		}
++		return errors.Wrap(err, errorMsg)
++	}
++
++	return nil
++}
++
+ func convertToRaw(src, dest string, preallocate bool) error {
+ 	args := []string{"convert", "-t", "writeback", "-p", "-O", "raw", src, dest}
+ 	var err error
+@@ -145,6 +176,13 @@ func (o *qemuOperations) ConvertToRawStream(url *url.URL, dest string, prealloca
+ 	return convertToRaw(url.String(), dest, preallocate)
+ }
+ 
++func (o *qemuOperations) ConvertToFormatStream(url *url.URL, format, dest string, preallocate bool) error {
++	if len(url.Scheme) > 0 && url.Scheme != "nbd+unix" {
++		return fmt.Errorf("not valid schema %s", url.Scheme)
++	}
++	return convertTo(format, url.String(), dest, preallocate)
++}
++
+ // convertQuantityToQemuSize translates a quantity string into a Qemu compatible string.
+ func convertQuantityToQemuSize(size resource.Quantity) string {
+ 	int64Size, asInt := size.AsInt64()
+diff --git a/pkg/importer/data-processor.go b/pkg/importer/data-processor.go
+index ca7b2e853..82d6fccb9 100644
+--- a/pkg/importer/data-processor.go
++++ b/pkg/importer/data-processor.go
+@@ -276,8 +276,13 @@ func (dp *DataProcessor) convert(url *url.URL) (ProcessingPhase, error) {
+ 	if err != nil {
+ 		return ProcessingPhaseError, err
+ 	}
+-	klog.V(3).Infoln("Converting to Raw")
+-	err = qemuOperations.ConvertToRawStream(url, dp.dataFile, dp.preallocation)
++	format, err := dp.getFormat(dp.dataFile)
++	if err != nil {
++		return ProcessingPhaseError, errors.Wrap(err, "Unable to get format")
++	}
++
++	klog.V(3).Infoln("Converting to", "format", format)
++	err = qemuOperations.ConvertToFormatStream(url, format, dp.dataFile, dp.preallocation)
+ 	if err != nil {
+ 		return ProcessingPhaseError, errors.Wrap(err, "Conversion to Raw failed")
+ 	}
+@@ -286,6 +291,25 @@ func (dp *DataProcessor) convert(url *url.URL) (ProcessingPhase, error) {
+ 	return ProcessingPhaseResize, nil
+ }
+ 
++func (dp *DataProcessor) getFormat(path string) (string, error) {
++	const (
++		formatQcow2 = "qcow2"
++		formatRaw   = "raw"
++	)
++	info, err := os.Stat(path)
++	if err != nil {
++		if os.IsNotExist(err) {
++			return formatQcow2, nil
++		}
++		return "", err
++	}
++	mode := info.Mode()
++	if mode&os.ModeDevice != 0 {
++		return formatRaw, nil
++	}
++	return formatQcow2, nil
++}
++
+ func (dp *DataProcessor) resize() (ProcessingPhase, error) {
+ 	size, _ := getAvailableSpaceBlockFunc(dp.dataFile)
+ 	klog.V(3).Infof("Available space in dataFile: %d", size)

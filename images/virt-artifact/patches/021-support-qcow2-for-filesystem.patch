@@ -35,7 +35,7 @@ index 7ada596d87..f9d6aed9bb 100644
  		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
  		return err
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
-index c64b315d8f..4f3dbce5d3 100644
+index c64b315d8f..3f02834076 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
 +++ b/pkg/virt-launcher/virtwrap/converter/converter.go
 @@ -590,7 +590,6 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
@@ -46,96 +46,61 @@ index c64b315d8f..4f3dbce5d3 100644
  	if source.ContainerDisk != nil {
  		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
  	}
-@@ -732,10 +731,16 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
- 
+@@ -733,7 +732,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
  // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
  func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-+	log.DefaultLogger().Infof("DEBUG. Convert_v1_FilesystemVolumeSource_To_api_Disk. convert source volume %s to disk", volumeName)
-+	file := GetFilesystemVolumePath(volumeName)
-+	info, err := GetImageInfo(file)
-+	if err != nil {
-+		return fmt.Errorf("failed to get image info: %w", err)
-+	}
  	disk.Type = "file"
 -	disk.Driver.Type = "raw"
-+	disk.Driver.Type = info.Format
++	disk.Driver.Type = "qcow2"
  	disk.Driver.ErrorPolicy = "stop"
--	disk.Source.File = GetFilesystemVolumePath(volumeName)
-+	disk.Source.File = file
+ 	disk.Source.File = GetFilesystemVolumePath(volumeName)
  	if !contains(volumesDiscardIgnore, volumeName) {
- 		disk.Driver.Discard = "unmap"
- 	}
-@@ -744,13 +749,18 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
- 
+@@ -745,7 +744,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
  // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
  func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-+	file := GetHotplugFilesystemVolumePath(volumeName)
-+	info, err := GetImageInfo(file)
-+	if err != nil {
-+		return fmt.Errorf("failed to get image info: %w", err)
-+	}
  	disk.Type = "file"
 -	disk.Driver.Type = "raw"
-+	disk.Driver.Type = info.Format
++	disk.Driver.Type = "qcow2"
  	disk.Driver.ErrorPolicy = "stop"
  	if !contains(volumesDiscardIgnore, volumeName) {
  		disk.Driver.Discard = "unmap"
- 	}
--	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
-+	disk.Source.File = file
- 	return nil
- }
- 
-@@ -779,10 +789,15 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
+@@ -779,13 +778,37 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
  }
  
  func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
 +	file := hostdisk.GetMountedHostDiskPath(volumeName, path)
-+	info, err := GetImageInfo(file)
++	format, err := getFormat(file)
 +	if err != nil {
-+		return fmt.Errorf("failed to get image info: %w", err)
++		return fmt.Errorf("cannot detect host disk format: %w", err)
 +	}
  	disk.Type = "file"
 -	disk.Driver.Type = "raw"
-+	disk.Driver.Type = info.Format
++	disk.Driver.Type = format
  	disk.Driver.ErrorPolicy = "stop"
 -	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 +	disk.Source.File = file
  	return nil
  }
  
-@@ -1899,16 +1914,28 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
- }
- 
- func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
-+	infoFile := fmt.Sprintf("/tmp/info-%s", strings.ReplaceAll(strings.TrimPrefix(imagePath, "/"), "/", "-"))
- 
--	// #nosec No risk for attacket injection. Only get information about an image
--	out, err := exec.Command(
--		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
--	).Output()
-+	bytes, err := os.ReadFile(infoFile)
- 	if err != nil {
--		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
-+		if errors.Is(err, os.ErrNotExist) {
-+			// #nosec No risk for attacket injection. Only get information about an image
-+			bytes, err = exec.Command(
-+				"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
-+			).Output()
-+			if err != nil {
-+				return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
-+			}
-+			if err = os.WriteFile(infoFile, bytes, 0644); err != nil {
-+				return nil, fmt.Errorf("failed to write qemu-img: %v", err)
-+			}
-+		} else {
-+			return nil, fmt.Errorf("failed to read qemu-img info: %v", err)
++func getFormat(path string) (string, error) {
++	const (
++		formatQcow2 = "qcow2"
++		formatRaw   = "raw"
++	)
++	info, err := os.Stat(path)
++	if err != nil {
++		if os.IsNotExist(err) {
++			return formatQcow2, nil
 +		}
- 	}
++		return "", err
++	}
++	mode := info.Mode()
++	if mode&os.ModeDevice != 0 {
++		return formatRaw, nil
++	}
++	return formatQcow2, nil
++}
 +
- 	info := &containerdisk.DiskInfo{}
--	err = json.Unmarshal(out, info)
-+	err = json.Unmarshal(bytes, info)
- 	if err != nil {
- 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
- 	}
+ func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) error {
+ 	if disk.Type == "lun" {
+ 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
