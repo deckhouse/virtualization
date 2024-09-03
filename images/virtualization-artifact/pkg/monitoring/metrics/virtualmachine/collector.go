@@ -117,7 +117,7 @@ var virtualMachineMetrics = map[string]*prometheus.Desc{
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationRunPolicy: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationApplied),
+	MetricVirtualMachineConfigurationRunPolicy: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationRunPolicy),
 		"The virtualmachine current runPolicy.",
 		WithBaseLabels("runPolicy"),
 		nil,
