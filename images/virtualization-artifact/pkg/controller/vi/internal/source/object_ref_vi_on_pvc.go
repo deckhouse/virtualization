@@ -63,7 +63,7 @@ func NewObjectRefDataVirtualImageOnPVC(
 	}
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
@@ -185,7 +185,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi *vi
 	return true, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, viRef *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
