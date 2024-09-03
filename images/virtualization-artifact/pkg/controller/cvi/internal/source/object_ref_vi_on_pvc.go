@@ -41,11 +41,12 @@ type ObjectRefVirtualImageOnPvc struct {
 	controllerNamespace string
 }
 
-func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *service.DiskService, controllerNamespace string, statService Stat) *ObjectRefVirtualImageOnPvc {
+func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *service.DiskService, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
 	return &ObjectRefVirtualImageOnPvc{
 		importerService:     importerService,
 		diskService:         diskService,
 		statService:         statService,
+		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
 	}
 }

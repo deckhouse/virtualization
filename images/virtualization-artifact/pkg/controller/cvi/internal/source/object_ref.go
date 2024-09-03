@@ -63,7 +63,7 @@ func NewObjectRefDataSource(
 		client:              client,
 		controllerNamespace: controllerNamespace,
 
-		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, statService),
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -73,8 +73,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
 
-	switch cvi.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualImageKind:
+	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
 		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {

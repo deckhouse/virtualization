@@ -188,6 +188,9 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return false, err
+		}
 
 		vi.Status.Size = dvcrDataSource.GetSize()
 		vi.Status.CDROM = dvcrDataSource.IsCDROM()
