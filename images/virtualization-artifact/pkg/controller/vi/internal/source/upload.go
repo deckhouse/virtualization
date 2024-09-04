@@ -247,6 +247,8 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		condition.Message = ""
 
 		vi.Status.Progress = "100%"
+		vi.Status.Size = ds.statService.GetSize(pod)
+		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		log.Info("Ready", "vi", vi.Name, "progress", vi.Status.Progress, "dv.phase", dv.Status.Phase)
