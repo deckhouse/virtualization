@@ -70,23 +70,37 @@ async function fetchReviewsForPR(prNumber) {
   }
 }
 
-async function formatPR(pr, isReadyForMerge) {
-// async function formatPR(pr) {
+async function formatPR(pr) {
   let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
-  const mergeStatus = isReadyForMerge ? '| :white_check_mark: **Ready for merge** :arrow_forward:' : '';
+  const fetchedReviewers = [];
   
+  // Add requested reviewers
   if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
-    const reviewers = await Promise.all(
-      pr.requested_reviewers.map(async reviewer => {
-        const details = await fetchReviewerDetails(reviewer.login);
-        const rewName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'NoName'
-        return details ? `${details.login} (@${rewName})` : reviewer.login;
-      })
-    );
-    reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
+    for (const reviewer of pr.requested_reviewers) {
+      const details = await fetchReviewerDetails(reviewer.login);
+      const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'No name';
+      fetchedReviewers.push(details ? `${details.login} (@${loopName})` : details.login);
+    }
   }
 
-  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo} ${mergeStatus}`;
+  // Add reviewers from reviews
+  const reviews = await fetchReviewsForPR(pr.number);
+  const uniqueReviewers = new Set(fetchedReviewers); // To avoid duplicates
+  
+  for (const review of reviews) {
+    const details = await fetchReviewerDetails(review.user.login);
+    const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'No name';
+    if (!uniqueReviewers.has(`${details.login} (@${loopName})`)) {
+      fetchedReviewers.push(details ? `${details.login} (@${loopName})` : details.login);
+      uniqueReviewers.add(`${details.login} (@${loopName})`);
+    }
+  }
+
+  if (fetchedReviewers.length > 0) {
+    reviewersInfo = `Reviewers: ${fetchedReviewers.join(', ')}`;
+  }
+
+  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
 }
 
 async function generateSummary(prs) {
@@ -117,7 +131,7 @@ async function generateSummary(prs) {
   }
 
   if (readyForMerge.length > 0) {
-    const readyForMergePRsInfo = await Promise.all(readyForMerge.map(pr => formatPR(pr, ' - **Ready for merge**')));
+    const readyForMergePRsInfo = await Promise.all(readyForMerge.map(pr => formatPR(pr)));
     summary += `### Ready for merge PRs\n\n${readyForMergePRsInfo.join('\n')}\n\n`;
   }
 
@@ -128,22 +142,21 @@ async function generateSummary(prs) {
 
   if (lasting.length > 0) {
     const lastingPRsInfo = await Promise.all(lasting.map(pr => formatPR(pr)));
-    summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
+    summary += `### Requiring review PRs\n\n${lastingPRsInfo.join('\n')}\n`;
   }
 
   return summary;
 }
 
 async function sendSummaryToLoop(summary) {
-  // const url = process.env.LOOP_WEBHOOK_URL;
-  // try {
-  //   await axios.post(url, { text: summary });
-  //   console.log('Summary sent successfully.');
-  // } catch (error) {
-  //   console.error('Error sending summary to Loop:', error);
-  //   throw error;
-  // }
-  console.log(summary)
+  const url = process.env.LOOP_WEBHOOK_URL;
+  try {
+    await axios.post(url, { text: summary });
+    console.log('Summary sent successfully.');
+  } catch (error) {
+    console.error('Error sending summary to Loop:', error);
+    throw error;
+  }
 }
 
 async function run() {
