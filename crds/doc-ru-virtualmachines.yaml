@@ -667,8 +667,7 @@ spec:
                   description: Статистика использования ресурсов.
                   properties:
                     cpu:
-                      description:
-                        Статистика использования ресурсов ЦП.
+                      description: Статистика использования ресурсов ЦП.
                       properties:
                         coreFraction:
                           description: Текущее значение coreFraction.
@@ -679,8 +678,7 @@ spec:
                         runtimeOverhead:
                           description: Накладные расходы на cpu во время выполнения.
                     memory:
-                      description:
-                        Статистика использования ресурсов памяти.
+                      description: Статистика использования ресурсов памяти.
                       properties:
                         runtimeOverhead:
                           description: Накладные расходы на память во время выполнения.
