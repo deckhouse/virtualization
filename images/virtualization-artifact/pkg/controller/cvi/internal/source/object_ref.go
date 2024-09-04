@@ -46,6 +46,7 @@ type ObjectRefDataSource struct {
 	controllerNamespace string
 
 	viOnPvcSyncer *ObjectRefVirtualImageOnPvc
+	vdSyncer      *ObjectRefVirtualDisk
 }
 
 func NewObjectRefDataSource(
@@ -64,6 +65,7 @@ func NewObjectRefDataSource(
 		controllerNamespace: controllerNamespace,
 
 		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, dvcrSettings, statService),
+		vdSyncer:      NewObjectRefVirtualDisk(importerService, diskService, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -73,7 +75,8 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
 
-	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	switch cvi.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
 		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
@@ -83,6 +86,13 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
 			return ds.viOnPvcSyncer.Sync(ctx, cvi, viObjetcRef, &condition)
 		}
+	case virtv2.VirtualDiskKind:
+		vdKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+		vdObjetcRef, err := helper.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
+		if err != nil {
+			return false, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
+		}
+		return ds.vdSyncer.Sync(ctx, cvi, vdObjetcRef, &condition)
 	}
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
