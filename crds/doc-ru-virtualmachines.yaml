@@ -654,3 +654,35 @@ spec:
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером
+                virtualMachinePods:
+                  description: |
+                    Список подов виртуальной машины.
+                  items:
+                    properties:
+                      active:
+                        description: Отметка активного пода.
+                      name:
+                        description: Имя пода.
+                resources:
+                  description: Статистика использования ресурсов.
+                  properties:
+                    cpu:
+                      description:
+                        Статистика использования ресурсов ЦП.
+                      properties:
+                        coreFraction:
+                          description: Текущее значение coreFraction.
+                        cores:
+                          description: Текущее количество ядер виртуальной машины.
+                        requestedCores:
+                          description: Запрошенные ядра.
+                        runtimeOverhead:
+                          description: Накладные расходы на cpu во время выполнения.
+                    memory:
+                      description:
+                        Статистика использования ресурсов памяти.
+                      properties:
+                        runtimeOverhead:
+                          description: Накладные расходы на память во время выполнения.
+                        size:
+                          description: Текущий размер памяти виртуальной машины.
