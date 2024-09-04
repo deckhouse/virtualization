@@ -58,7 +58,7 @@ spec:
 
                         * `HTTP` — create an image from a file published on http/https service at a given url
                         * `ContainerImage` — create the image from image stored in container registry.
-                        * `ObjectRef` — fill the cluster image from another existing `VirtualImage` or `ClusterVirtualImage`.
+                        * `ObjectRef` — fill the cluster image from another existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object
@@ -148,23 +148,24 @@ spec:
                     objectRef:
                       type: object
                       description: |
-                        Use an existing `VirtualImage` or `ClusterVirtualImage` to create an image.
+                        Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
                       required: ["kind", "name"]
                       properties:
                         kind:
                           type: string
-                          description: A kind of existing `VirtualImage` or `ClusterVirtualImage`.
+                          description: A kind of existing `VirtualImage`, `ClusterVirtualImage` or `Virtual Disk`.
                           enum:
                             - "ClusterVirtualImage"
                             - "VirtualImage"
+                            - "VirtualDisk"
                         name:
                           type: string
                           description: |
-                            A name of existing `VirtualImage` or `ClusterVirtualImage`.
+                            A name of existing `VirtualImage`,`ClusterVirtualImage` or `VirtualDisk`.
                         namespace:
                           type: string
                           description: |
-                            A namespace where `VirtualImage` is located.
+                            A namespace where `VirtualImage` or `VirtualDisk` is located.
                   oneOf:
                     - properties:
                         type:
@@ -314,7 +315,7 @@ spec:
                 sourceUID:
                   type: string
                   description: |
-                    The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the cluster virtual image.
+                    The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.
                 observedGeneration:
                   type: integer
                   description: |
