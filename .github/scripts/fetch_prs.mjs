@@ -68,7 +68,7 @@ async function formatPR(pr) {
 
 async function generateSummary(prs) {
   const now = moment();
-  const reviewRequired = prs.filter(pr => pr.requested_reviewers.length > 0);
+  const reviewRequired = prs;
   const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
   const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
 
