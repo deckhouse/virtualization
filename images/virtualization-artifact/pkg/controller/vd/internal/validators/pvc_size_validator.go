@@ -104,11 +104,16 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 	}
 
 	_, err := service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
-	if err != nil {
+	switch {
+	case err == nil:
+		return nil, nil
+	case errors.Is(err, service.ErrInsufficientPVCSize):
+		return admission.Warnings{
+			service.CapitalizeFirstLetter(err.Error()),
+		}, nil
+	default:
 		return nil, err
 	}
-
-	return nil, nil
 }
 
 func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
@@ -136,7 +141,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		return nil, nil
 	}
 
-	var unpackedBytes string
+	var unpackedSize resource.Quantity
 
 	switch newVD.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualDiskObjectRefKindVirtualImage,
@@ -150,22 +155,51 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 			return nil, nil
 		}
 
-		unpackedBytes = dvcrDataSource.GetSize().UnpackedBytes
+		unpackedSize, err = resource.ParseQuantity(dvcrDataSource.GetSize().UnpackedBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse unpacked bytes %s: %w", unpackedSize.String(), err)
+		}
 
-	// TODO validate for snapshot kind also.
+	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
+		vdSnapshot, err := helper.FetchObject(ctx, types.NamespacedName{
+			Name:      newVD.Spec.DataSource.ObjectRef.Name,
+			Namespace: newVD.Namespace,
+		}, v.client, &virtv2.VirtualDiskSnapshot{})
+		if err != nil {
+			return nil, err
+		}
+
+		if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+			return nil, nil
+		}
+
+		vs, err := helper.FetchObject(ctx, types.NamespacedName{
+			Name:      vdSnapshot.Status.VolumeSnapshotName,
+			Namespace: vdSnapshot.Namespace,
+		}, v.client, &vsv1.VolumeSnapshot{})
+		if err != nil {
+			return nil, err
+		}
+
+		if vs == nil || vs.Status == nil || vs.Status.RestoreSize == nil {
+			return nil, nil
+		}
+
+		unpackedSize = *vs.Status.RestoreSize
+
 	default:
 		return nil, nil
 	}
 
-	unpackedSize, err := resource.ParseQuantity(unpackedBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse unpacked bytes %s: %w", unpackedBytes, err)
-	}
-
-	_, err = service.GetValidatedPVCSize(newVD.Spec.PersistentVolumeClaim.Size, unpackedSize)
-	if err != nil {
+	_, err := service.GetValidatedPVCSize(newVD.Spec.PersistentVolumeClaim.Size, unpackedSize)
+	switch {
+	case err == nil:
+		return nil, nil
+	case errors.Is(err, service.ErrInsufficientPVCSize):
+		return admission.Warnings{
+			service.CapitalizeFirstLetter(err.Error()),
+		}, nil
+	default:
 		return nil, err
 	}
-
-	return nil, nil
 }
