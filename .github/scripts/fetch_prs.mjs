@@ -19,10 +19,11 @@ import moment from 'moment';
 
 const owner = 'deckhouse';
 const repo = 'virtualization';
-const project = 'DVP';
+const project = ':dvp: DVP';
 const defaultLogin = 'Almighty PM';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
+const approvalsRequired = 1
 
 async function fetchPullRequests() {
   try {
@@ -55,8 +56,25 @@ async function fetchReviewerDetails(login) {
   }
 }
 
-async function formatPR(pr) {
+async function fetchReviewsForPR(prNumber) {
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching reviews for PR ${prNumber}:`, error);
+    return [];
+  }
+}
+
+async function formatPR(pr, isReadyForMerge) {
+// async function formatPR(pr) {
   let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
+  const mergeStatus = isReadyForMerge ? '| :white_check_mark: **Ready for merge** :arrow_forward:' : '';
+  
   if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
     const reviewers = await Promise.all(
       pr.requested_reviewers.map(async reviewer => {
@@ -68,34 +86,98 @@ async function formatPR(pr) {
     reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
   }
 
-  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
+  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo} ${mergeStatus}`;
 }
 
 async function generateSummary(prs) {
   const now = moment();
-  const reviewRequired = prs;
-  const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
-  const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
+  const recent = [];
+  const lasting = [];
+  const readyForMerge = [];
+
+  for (const pr of prs) {
+    const reviews = await fetchReviewsForPR(pr.number);
+    const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
+    const isReadyForMerge = approvals.length >= approvalsRequired;
+
+    if (isReadyForMerge) {
+      readyForMerge.push(pr);
+    } else if (moment().diff(moment(pr.created_at), 'days') <= recentDays) {
+      recent.push(pr);
+    } else {
+      lasting.push(pr);
+    }
+  }
 
   let summary = `## ${project} PRs ${now.format('YYYY-MM-DD')}\n\n`;
 
-  if (reviewRequired.length === 0) {
+  if (prs.length === 0) {
     summary += `:tada: No review required for today\n`;
     return summary;
   }
 
+  if (readyForMerge.length > 0) {
+    const readyForMergePRsInfo = await Promise.all(readyForMerge.map(pr => formatPR(pr, ' - **Ready for merge**')));
+    summary += `### Ready for merge PRs\n\n${readyForMergePRsInfo.join('\n')}\n\n`;
+  }
+
   if (recent.length > 0) {
-    const recentPRsInfo = await Promise.all(recent.map(formatPR));
+    const recentPRsInfo = await Promise.all(recent.map(pr => formatPR(pr)));
     summary += `### Recent PRs requiring review\n\n${recentPRsInfo.join('\n')}\n\n`;
   }
 
   if (lasting.length > 0) {
-    const lastingPRsInfo = await Promise.all(lasting.map(formatPR));
+    const lastingPRsInfo = await Promise.all(lasting.map(pr => formatPR(pr)));
     summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
   }
 
   return summary;
 }
+
+// async function generateSummary(prs) {
+//   const now = moment();
+//   const reviewRequired = prs;
+//   const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
+//   const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
+
+//   let summary = `## ${project} PRs ${now.format('YYYY-MM-DD')}\n\n`;
+
+//   if (reviewRequired.length === 0) {
+//     summary += `:tada: No review required for today\n`;
+//     return summary;
+//   }
+
+//   const processPRs = async (prList) => {
+//     return await Promise.all(
+//       prList.map(async pr => {
+//         const reviews = await fetchReviewsForPR(pr.number);
+//         const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
+//         const isReadyForMerge = approvals.length >= approvalsRequired;
+//         return formatPR(pr, isReadyForMerge);
+//       })
+//     );
+//   };
+  
+//   if (reviewRequired.length > 0) {
+//     const approved = await processPRs(reviewRequired)
+//     summary += `:tada: No review required for today\n`;
+//     return summary;
+//   }
+
+//   if (recent.length > 0) {
+//     const recentPRsInfo = await processPRs(recent);
+//     // const recentPRsInfo = await Promise.all(recent.map(formatPR));
+//     summary += `### Recent PRs requiring review\n\n${recentPRsInfo.join('\n')}\n\n`;
+//   }
+
+//   if (lasting.length > 0) {
+//     const lastingPRsInfo = await processPRs(lasting);
+//     // const lastingPRsInfo = await Promise.all(lasting.map(formatPR));
+//     summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
+//   }
+
+//   return summary;
+// }
 
 async function sendSummaryToLoop(summary) {
   // const url = process.env.LOOP_WEBHOOK_URL;
