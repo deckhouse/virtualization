@@ -1,3 +1,7 @@
+{{- define "priorityClassName" -}}
+system-cluster-critical
+{{- end }}
+
 {{- define "strategic_affinity_patch" -}}
   {{- $key := index . 0 -}}
   {{- $labelValue := index . 1 -}}

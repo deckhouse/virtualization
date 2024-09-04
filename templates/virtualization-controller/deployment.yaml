@@ -1,3 +1,5 @@
+{{- $priorityClassName := include "priorityClassName" . }}
+
 {{- define "virtualization_controller_resources" }}
 cpu: 10m
 memory: 150Mi
@@ -109,7 +111,7 @@ spec:
 
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
-      {{- include "helm_lib_priority_class" (tuple . "system-cluster-critical") | nindent 6 }}
+      {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
       volumes:
