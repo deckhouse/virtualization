@@ -93,4 +93,13 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 			})
 		})
 	})
+
+	Context("Virtualmachine block device attachments", func() {
+		When("VMBDA applied", func() {
+			It(fmt.Sprintf("Phase should be %s", PhaseAttached), func() {
+				checkPhase("vmbda", PhaseAttached)
+			})
+		})
+	})
+
 })
