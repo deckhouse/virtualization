@@ -215,8 +215,3 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, s
 
 	return &settings
 }
-
-func (ds ObjectRefVirtualDisk) Validate(_ context.Context, _ *virtv2.ClusterVirtualImage) error {
-	// todo
-	return nil
-}
