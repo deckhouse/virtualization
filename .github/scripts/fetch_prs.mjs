@@ -32,7 +32,11 @@ async function fetchPullRequests() {
       per_page: 500,
       state: 'open',
     });
-    return data.filter(pr => !pr.draft);
+    return data.filter(pr => {
+      if (pr.draft) return false;
+      const hasAutoreleaseLabel = pr.labels.some(label => label.name.includes('autorelease'));
+      return !hasAutoreleaseLabel;
+    });
   } catch (error) {
     console.error('Error fetching pull requests:', error);
     throw error;
@@ -57,7 +61,8 @@ async function formatPR(pr) {
     const reviewers = await Promise.all(
       pr.requested_reviewers.map(async reviewer => {
         const details = await fetchReviewerDetails(reviewer.login);
-        return details ? `${details.login} (${details.name})` : reviewer.login;
+        const rewName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'NoName'
+        return details ? `${details.login} (@${rewName})` : reviewer.login;
       })
     );
     reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
@@ -93,14 +98,15 @@ async function generateSummary(prs) {
 }
 
 async function sendSummaryToLoop(summary) {
-  const url = process.env.LOOP_WEBHOOK_URL;
-  try {
-    await axios.post(url, { text: summary });
-    console.log('Summary sent successfully.');
-  } catch (error) {
-    console.error('Error sending summary to Loop:', error);
-    throw error;
-  }
+  // const url = process.env.LOOP_WEBHOOK_URL;
+  // try {
+  //   await axios.post(url, { text: summary });
+  //   console.log('Summary sent successfully.');
+  // } catch (error) {
+  //   console.error('Error sending summary to Loop:', error);
+  //   throw error;
+  // }
+  console.log(summary)
 }
 
 async function run() {
