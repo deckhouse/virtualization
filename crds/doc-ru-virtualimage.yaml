@@ -77,11 +77,10 @@ spec:
                       description: |
                         Тип источника, из которого будет создан образ:
 
-                        * `HTTP` — создать образ из файла, опубликованного на HTTP/HTTPS-сервере.
-                        * `ContainerImage` — создать образ из образа в container registry.
-                        * `VirtualImage` — создать образ из другого существующего `VirtualImage`.
-                        * `ClusterVirtualImage` — создать образ из другого существующего `ClusterVirtualImage`.
-                        * `Upload` — загрузить образ вручную, через веб-интерфейс.
+                        * `HTTP` — создать диск из файла, опубликованного на HTTP/HTTPS-сервере.
+                        * `ContainerImage` — создать диск из образа в container registry.
+                        * `ObjectRef` — создать диск из существующего ресурса.
+                        * `Upload` — загрузить образ диска вручную.
                 storage:
                   description: |
                     Тип хранилища для хранения образа:

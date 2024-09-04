@@ -68,7 +68,7 @@ spec:
 
                         * `HTTP` — fill the image with data from some external http/https url.
                         * `ContainerImage` — use an image, stored in container registry image.
-                        * `ObjectRef` — fill the disk from another existing `VirtualImage` or `ClusterVirtualImage`.
+                        * `ObjectRef` — fill the disk from another existing resource.
                         * `Upload` — fill the image with data, uploaded by user via the special interface.
                     http:
                       type: object

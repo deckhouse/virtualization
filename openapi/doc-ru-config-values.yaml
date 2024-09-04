@@ -10,7 +10,7 @@ properties:
       Список подсетей используемых для выделения статических IP-адресов виртуальным машинам.
   ingressClass:
     description: |
-      Класс Ingress-контроллера, который использоваться для загрузки изображений.
+      Класс Ingress-контроллера, который использоваться для загрузки образов.
       По умолчанию используется глобальное значение `modules.ingressClass`.
   https:
     description: |
@@ -59,7 +59,7 @@ properties:
             properties:
               storageClassName:
                 description: |
-                  Имя StorageClass, используемого для создания persistentvolumeclaim.
+                  Имя StorageClass, используемого для создания persistentvolumeclaim. Если не указан - будет использоваться StorageClass, указанный в кластере по умолчанию.
               size:
                 description: |
                   Размер pvc.

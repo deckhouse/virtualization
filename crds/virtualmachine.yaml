@@ -28,7 +28,12 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Virtual Machine (VM) Configuration.
+            This resource describes the configuration and status of a virtual machine (VM).
+            For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
+            - `.metadata.labels`.
+            - `.metadata.annotations`.
+            - `.spec.disruptions.restartApprovalMode`.
+            - `.spec.disruptions.runPolicy`.
           required:
             - spec
           properties:
@@ -1155,6 +1160,10 @@ spec:
         - name: Agent
           type: string
           jsonPath: .status.conditions[?(@.type=="AgentReady")].status
+          priority: 1
+        - name: Agent
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Migratable")].status
           priority: 1
         - name: Node
           type: string

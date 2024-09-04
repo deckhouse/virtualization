@@ -14,99 +14,116 @@ weight: 50
 
 1. Создайте namespace для виртуальных машин с помощью команды:
 
-   ```bash
-   kubectl create ns vms
-   ```
+```bash
+  kubectl create ns vms
+```
 
-2. Создайте диск виртуальной машины из внешнего источника. Пример:
+2. Создайте образ виртуальной машины из внешнего источника. Пример:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualDisk
-   metadata:
-     name: linux-disk
-     namespace: vms
-   spec:
-     persistentVolumeClaim:
-       size: 10Gi
-       storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
-     dataSource:
-       type: HTTP
-       http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
-   ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu
+  namespace: vms
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+```
+
+3. Создайте диск виртуальной машины из созданного образа. Пример:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: linux-disk
+  namespace: vms
+spec:
+  persistentVolumeClaim:
+    size: 10Gi
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: ubuntu
+```
 
 После создания `VirtualDisk` в namespace vms, запустится `pod` с именем `vd-importer-*`, который осуществит загрузку заданного образа.
 
 3. Посмотрите текущий статус ресурса с помощью команды:
 
-   ```bash
-   kubectl -n vms get virtualdisk -o wide
+```bash
+kubectl -n vms get virtualdisk -o wide
 
-   # NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
-   # linux-disk   Ready   10Gi       100%       linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
-   ```
+# NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+# linux-disk   Ready   10Gi       100%       linstor-thin-r2   vd-linux-disk-2ee8a41a-a0ed-4a65-8718-c18c74026f3c   5m59s
+```
 
 4. Создайте виртуальную машину из следующей спецификации:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualMachine
-   metadata:
-     name: linux-vm
-     namespace: vms
-     labels:
-       vm: linux
-   spec:
-     virtualMachineClassName: generic # Класс виртуальный машины, который определяет тп vCPU, политику размера ресурсов и размещение виртуальной машины на узлах кластера.
-     runPolicy: AlwaysOn # Виртуальная машина должна быть всегда включена.
-     enableParavirtualization: true # Использовать паравиртуализацию (virtio).
-     osType: Generic
-     bootloader: BIOS
-     cpu:
-       cores: 1
-       coreFraction: 10% # Запросить 10% процессорного времени одного ядра.
-     memory:
-       size: 1Gi
-     provisioning: # Пример cloud-init-сценария для создания пользователя cloud с паролем cloud.
-       type: UserData
-       userData: |
-         #cloud-config
-         users:
-         - name: cloud
-           passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
-           shell: /bin/bash
-           sudo: ALL=(ALL) NOPASSWD:ALL
-           chpasswd: { expire: False }
-           lock_passwd: false
-           ssh_authorized_keys:
-             - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
-     blockDeviceRefs:
-       - kind: VirtualDisk
-         name: linux-disk
-   ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+  namespace: vms
+  labels:
+    vm: linux
+spec:
+  virtualMachineClassName: generic # Класс виртуальный машины, который определяет тп vCPU, политику размера ресурсов и размещение виртуальной машины на узлах кластера.
+  runPolicy: AlwaysOn # Виртуальная машина должна быть всегда включена.
+  enableParavirtualization: true # Использовать паравиртуализацию (virtio).
+  osType: Generic
+  bootloader: BIOS
+  cpu:
+    cores: 1
+    coreFraction: 10% # Запросить 10% процессорного времени одного ядра.
+  memory:
+    size: 1Gi
+  provisioning: # Пример cloud-init-сценария для создания пользователя cloud с паролем cloud.
+    type: UserData
+    userData: |
+      #cloud-config
+      users:
+      - name: cloud
+        passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        chpasswd: { expire: False }
+        lock_passwd: false
+        ssh_authorized_keys:
+          - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDTXjTmx3hq2EPDQHWSJN7By1VNFZ8colI5tEeZDBVYAe9Oxq4FZsKCb1aGIskDaiAHTxrbd2efoJTcPQLBSBM79dcELtqfKj9dtjy4S1W0mydvWb2oWLnvOaZX/H6pqjz8jrJAKXwXj2pWCOzXerwk9oSI4fCE7VbqsfT4bBfv27FN4/Vqa6iWiCc71oJopL9DldtuIYDVUgOZOa+t2J4hPCCSqEJK/r+ToHQbOWxbC5/OAufXDw2W1vkVeaZUur5xwwAxIb3wM3WoS3BbwNlDYg9UB2D8+EZgNz1CCCpSy1ELIn7q8RnrTp0+H8V9LoWHSgh3VCWeW8C/MnTW90IR
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk
+```
 
 5. Проверьте с помощью команды, что виртуальная машина создана и запущена:
 
-   ```bash
-   kubectl -n vms get virtualmachine -o wide
+```bash
+kubectl -n vms get virtualmachine -o wide
 
-   # NAME       PHASE     CORES   COREFRACTION   MEMORY   NODE           IPADDRESS    AGE
-   # linux-vm   Running   1       10%            1Gi      virtlab-pt-1   10.66.10.2   61s
-   ```
+# NAME       PHASE     CORES   COREFRACTION   MEMORY   NODE           IPADDRESS    AGE
+# linux-vm   Running   1       10%            1Gi      virtlab-pt-1   10.66.10.2   61s
+```
 
 6. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
 
-   ```bash
-   d8 v console -n vms linux-vm
+```bash
+d8 v console -n vms linux-vm
 
-   # Successfully connected to linux-vm console. The escape sequence is ^]
-   #
-   # linux-vm login: cloud
-   # Password: cloud
-   # ...
-   # cloud@linux-vm:~$
-   ```
+# Successfully connected to linux-vm console. The escape sequence is ^]
+#
+# linux-vm login: cloud
+# Password: cloud
+# ...
+# cloud@linux-vm:~$
+```
 
 ## Проектные образы
 
@@ -125,28 +142,28 @@ weight: 50
 
 1. Создайте `VirtualImage`:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualImage
-   metadata:
-     name: ubuntu-img
-     namespace: vms
-   spec:
-     storage: ContainerRegistry
-     dataSource:
-       type: HTTP
-       http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
-   ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu-img
+  namespace: vms
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
+```
 
 2. Проверьте результат с помощью команды:
 
-   ```bash
-   kubectl -n vms get virtualimage -o wide
+```bash
+kubectl -n vms get virtualimage -o wide
 
-   # NAME         PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                   AGE
-   # ubuntu-img   Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/ubuntu-img   29s
-   ```
+# NAME         PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                   AGE
+# ubuntu-img   Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/ubuntu-img   29s
+```
 
 ### Создание и использование образа из container registry
 
@@ -156,114 +173,118 @@ Cформируйте образ для хранения в `container registry`
 
 - Загрузите образ локально:
 
-  ```bash
-  curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
-  ```
+```bash
+curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+```
 
 - Создайте Dockerfile со следующим содержимым:
 
-  ```Dockerfile
-  FROM scratch
-  COPY ubuntu2204.img /disk/ubuntu2204.img
-  ```
+```Dockerfile
+FROM scratch
+COPY ubuntu2204.img /disk/ubuntu2204.img
+```
 
 - Соберите образ и загрузите его в `container registry`. В качестве `container registry` в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
 
-  ```bash
-  docker build -t docker.io/username/ubuntu2204:latest
-  ```
+```bash
+docker build -t docker.io/username/ubuntu2204:latest
+```
 
-  где `username` — имя пользователя, указанное при регистрации в docker.io.
+где `username` — имя пользователя, указанное при регистрации в docker.io.
 
 - Загрузите созданный образ в `container registry` с помощью команды:
 
-  ```bash
-  docker push docker.io/username/ubuntu2204:latest
-  ```
+```bash
+docker push docker.io/username/ubuntu2204:latest
+```
 
 - Чтобы использовать этот образ, создайте в качестве примера ресурс `VirtualImage`:
 
-  ```yaml
-  apiVersion: virtualization.deckhouse.io/v1alpha2
-  kind: VirtualImage
-  metadata:
-    name: ubuntu-2204
-  spec:
-    storage: ContainerRegistry
-    dataSource:
-      type: ContainerImage
-      containerImage:
-        image: docker.io/username/ubuntu2204:latest
-  ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu-2204
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: docker.io/username/ubuntu2204:latest
+```
 
 - Чтобы посмотреть ресурс и его статус, выполните команду:
 
-  ```bash
-  kubectl get virtualimage
-  ```
+```bash
+kubectl get virtualimage
+```
 
 ### Загрузка образа из командной строки
 
 1. Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `VirtualImage`:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualImage
-   metadata:
-     name: some-image
-   spec:
-     storage: ContainerRegistry
-     dataSource:
-       type: Upload
-   ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: some-image
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: Upload
+```
 
 2. После того как ресурс будет создан, проверьте его статус с помощью команды:
 
-   ```bash
-   kubectl get virtualimages some-image -o json | jq .status.uploadCommand -r
+```bash
+kubectl get virtualimages some-image -o json | jq .status.uploadCommand -r
 
-   > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
-   ```
+> uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
+```
 
-   > VirtualImage с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
+> VirtualImage с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
 
 3. Загрузите образ Cirros (представлено в качестве примера):
 
-   ```bash
-   curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-   ```
+```bash
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+```
 
 4. Выполните загрузку образа:
 
-   ```bash
-   curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
-   ```
+```bash
+curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
+```
 
-   После завершения работы команды `curl` образ должен быть создан.
+После завершения работы команды `curl` образ должен быть создан.
 
 5. Проверьте, что статус созданного образа `Ready`:
 
-   ```bash
-   kubectl get virtualimages -o wide
+```bash
+kubectl get virtualimages -o wide
 
-   # NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
-   # some-image    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/some-image    2m21s
-   ```
+# NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
+# some-image    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/vi/vms/some-image    2m21s
+```
 
 ## Диски
 
-Диски используются в виртуальных машинах для записи и хранения данных. Для хранения дисков используется хранилище, предоставляемое платформой.
+Диски в виртуальных машинах необходимы для записи и хранения данных, обеспечивая полноценное функционирование приложений и операционных систем. Под "капотом" этих дисков используется хранилище, предоставляемое платформой.
 
-Чтобы посмотреть доступные варианты, выполните команду:
+Чтобы узнать доступные варианты хранилищ на платформе, выполните следующую команду:
 
 ```bash
 kubectl get storageclass
 
-# NAME                          PROVISIONER              RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# ceph-pool-r2-csi-rbd          rbd.csi.ceph.com         Delete          WaitForFirstConsumer   true                   85d
-# linstor-thin-r1               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
-# linstor-thin-r2               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
-# linstor-thin-r3               linstor.csi.linbit.com   Delete          WaitForFirstConsumer   true                   27d
+# NAME                  PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd  rbd.csi.ceph.com                      Delete          Immediate              true                   85d
+# i-linstor-thin-r1     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# i-linstor-thin-r2     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# i-linstor-thin-r3     replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   19d
+# linstor-thin-r1       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# linstor-thin-r2       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# linstor-thin-r3       replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   19d
+# nfs-4-1-wffc          nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   24h
 ```
 
 ### Создание пустого диска
@@ -272,28 +293,28 @@ kubectl get storageclass
 
 1. Создайте диск:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: VirtualDisk
-   metadata:
-     name: vd-blank
-     namespace: vms
-   spec:
-     persistentVolumeClaim:
-       storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
-       size: 100M
-   ```
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-blank
+  namespace: vms
+spec:
+  persistentVolumeClaim:
+    storageClassName: linstor-thin-r2 # Подставьте ваше название SC `kubectl get storageclass`.
+    size: 100M
+```
 
-   Созданный диск можно использовать для подключения к виртуальной машине.
+Созданный диск можно использовать для подключения к виртуальной машине.
 
 2. Проверьте состояние созданного ресурса с помощью команды:
 
-   ```bash
-   kubectl -n vms  get virtualdisk -o wide
+```bash
+kubectl -n vms  get virtualdisk -o wide
 
-   #NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
-   #vd-blank     Ready   97657Ki    100%       linstor-thin-r1     vd-vd-blank-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
-   ```
+#NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
+#vd-blank     Ready   97657Ki    100%       linstor-thin-r1     vd-vd-blank-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
+```
 
 ### Создание диска из образа
 

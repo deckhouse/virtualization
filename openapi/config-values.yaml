@@ -108,7 +108,7 @@ properties:
                 type: string
                 x-examples: ["linstor", "nfs"]
                 description: |
-                  What StorageClass to use for creating persistentvolumeclaim.
+                  What StorageClass to use for creating persistentvolumeclaim. If not specified, the default StorageClass specified in the cluster will be used.
               size:
                 type: string
                 x-examples: ["10Gi"]
