@@ -94,10 +94,10 @@ index fe40da5e4..7d97c3b8d 100644
  
 diff --git a/pkg/operator/controller/prometheus.go b/pkg/operator/controller/prometheus.go
 deleted file mode 100644
-index 6f41df60d..000000000
+index b5a8be322..000000000
 --- a/pkg/operator/controller/prometheus.go
 +++ /dev/null
-@@ -1,454 +0,0 @@
+@@ -1,419 +0,0 @@
 -/*
 -Copyright 2018 The CDI Authors.
 -
@@ -278,9 +278,7 @@ index 6f41df60d..000000000
 -		),
 -		generateAlertRule(
 -			"CDIDataVolumeUnusualRestartCount",
--			`kubevirt_cdi_import_pods_high_restart > 0 or
--			kubevirt_cdi_upload_pods_high_restart > 0 or
--			kubevirt_cdi_clone_pods_high_restart > 0`,
+-			"kubevirt_cdi_import_pods_high_restart > 0 or kubevirt_cdi_upload_pods_high_restart > 0 or kubevirt_cdi_clone_pods_high_restart > 0",
 -			promv1.Duration("5m"),
 -			map[string]string{
 -				"summary":     "Some CDI population workloads have an unusual restart count, meaning they are probably failing and need to be investigated",
@@ -295,10 +293,10 @@ index 6f41df60d..000000000
 -		),
 -		generateAlertRule(
 -			"CDIStorageProfilesIncomplete",
--			`sum by(storageclass,provisioner) ((kubevirt_cdi_storageprofile_info{complete="false"}>0))`,
+-			"kubevirt_cdi_incomplete_storageprofiles > 0",
 -			promv1.Duration("5m"),
 -			map[string]string{
--				"summary":     "Incomplete StorageProfile {{ $labels.storageclass }}, accessMode/volumeMode cannot be inferred by CDI for PVC population request",
+-				"summary":     "Incomplete StorageProfiles exist, accessMode/volumeMode cannot be inferred by CDI for PVC population request",
 -				"runbook_url": fmt.Sprintf(runbookURLTemplate, "CDIStorageProfilesIncomplete"),
 -			},
 -			map[string]string{
@@ -310,7 +308,7 @@ index 6f41df60d..000000000
 -		),
 -		generateAlertRule(
 -			"CDIDataImportCronOutdated",
--			`sum by(ns,cron_name) (kubevirt_cdi_dataimportcron_outdated) > 0`,
+-			"kubevirt_cdi_dataimportcron_outdated_aggregated > 0",
 -			promv1.Duration("15m"),
 -			map[string]string{
 -				"summary":     "DataImportCron (recurring polling of VM templates disk image sources, also known as golden images) PVCs are not being updated on the defined schedule",
@@ -324,25 +322,8 @@ index 6f41df60d..000000000
 -			},
 -		),
 -		generateAlertRule(
--			"CDINoDefaultStorageClass",
--			`sum(kubevirt_cdi_storageprofile_info{default="true"} or on() vector(0)) +
--			sum(kubevirt_cdi_storageprofile_info{virtdefault="true"} or on() vector(0)) +
--			(count(kubevirt_cdi_datavolume_pending == 0) or on() vector(0)) == 0`,
--			promv1.Duration("5m"),
--			map[string]string{
--				"summary":     "No default StorageClass or virtualization StorageClass, and a DataVolume is pending for one",
--				"runbook_url": fmt.Sprintf(runbookURLTemplate, "CDINoDefaultStorageClass"),
--			},
--			map[string]string{
--				severityAlertLabelKey:     "warning",
--				healthImpactAlertLabelKey: "none",
--				partOfAlertLabelKey:       partOfAlertLabelValue,
--				componentAlertLabelKey:    componentAlertLabelValue,
--			},
--		),
--		generateAlertRule(
 -			"CDIMultipleDefaultVirtStorageClasses",
--			`sum(kubevirt_cdi_storageprofile_info{virtdefault="true"} or on() vector(0)) > 1`,
+-			"kubevirt_cdi_default_virt_storageclasses > 1",
 -			promv1.Duration("5m"),
 -			map[string]string{
 -				"summary":     "More than one default virtualization StorageClass detected",
@@ -350,23 +331,7 @@ index 6f41df60d..000000000
 -			},
 -			map[string]string{
 -				severityAlertLabelKey:     "warning",
--				healthImpactAlertLabelKey: "none",
--				partOfAlertLabelKey:       partOfAlertLabelValue,
--				componentAlertLabelKey:    componentAlertLabelValue,
--			},
--		),
--		generateAlertRule(
--			"CDIDefaultStorageClassDegraded",
--			`sum(kubevirt_cdi_storageprofile_info{default="true",rwx="true",smartclone="true"} or on() vector(0)) +
--			sum(kubevirt_cdi_storageprofile_info{virtdefault="true",rwx="true",smartclone="true"} or on() vector(0)) == 0`,
--			promv1.Duration("5m"),
--			map[string]string{
--				"summary":     "Default storage class has no smart clone or ReadWriteMany",
--				"runbook_url": fmt.Sprintf(runbookURLTemplate, "CDIDefaultStorageClassDegraded"),
--			},
--			map[string]string{
--				severityAlertLabelKey:     "warning",
--				healthImpactAlertLabelKey: "none",
+-				healthImpactAlertLabelKey: "warning",
 -				partOfAlertLabelKey:       partOfAlertLabelValue,
 -				componentAlertLabelKey:    componentAlertLabelValue,
 -			},
