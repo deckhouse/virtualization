@@ -121,6 +121,8 @@ func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator)
 }
 
 func ShouldCopyImagePullSecret(ctrImg *virtv2.DataSourceContainerRegistry, targetNS string) bool {
+	return true
+
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
 		return false
 	}
