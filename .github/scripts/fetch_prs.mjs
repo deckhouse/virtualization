@@ -134,51 +134,6 @@ async function generateSummary(prs) {
   return summary;
 }
 
-// async function generateSummary(prs) {
-//   const now = moment();
-//   const reviewRequired = prs;
-//   const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
-//   const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
-
-//   let summary = `## ${project} PRs ${now.format('YYYY-MM-DD')}\n\n`;
-
-//   if (reviewRequired.length === 0) {
-//     summary += `:tada: No review required for today\n`;
-//     return summary;
-//   }
-
-//   const processPRs = async (prList) => {
-//     return await Promise.all(
-//       prList.map(async pr => {
-//         const reviews = await fetchReviewsForPR(pr.number);
-//         const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
-//         const isReadyForMerge = approvals.length >= approvalsRequired;
-//         return formatPR(pr, isReadyForMerge);
-//       })
-//     );
-//   };
-  
-//   if (reviewRequired.length > 0) {
-//     const approved = await processPRs(reviewRequired)
-//     summary += `:tada: No review required for today\n`;
-//     return summary;
-//   }
-
-//   if (recent.length > 0) {
-//     const recentPRsInfo = await processPRs(recent);
-//     // const recentPRsInfo = await Promise.all(recent.map(formatPR));
-//     summary += `### Recent PRs requiring review\n\n${recentPRsInfo.join('\n')}\n\n`;
-//   }
-
-//   if (lasting.length > 0) {
-//     const lastingPRsInfo = await processPRs(lasting);
-//     // const lastingPRsInfo = await Promise.all(lasting.map(formatPR));
-//     summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
-//   }
-
-//   return summary;
-// }
-
 async function sendSummaryToLoop(summary) {
   // const url = process.env.LOOP_WEBHOOK_URL;
   // try {
