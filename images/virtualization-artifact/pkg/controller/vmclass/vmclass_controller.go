@@ -21,11 +21,13 @@ import (
 	"log/slog"
 
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -58,6 +60,13 @@ func NewController(
 	}
 
 	if err = r.SetupController(ctx, mgr, c); err != nil {
+		return nil, err
+	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&v1alpha2.VirtualMachineClass{}).
+		WithValidator(NewValidator(mgr.GetClient(), log)).
+		Complete(); err != nil {
 		return nil, err
 	}
 
