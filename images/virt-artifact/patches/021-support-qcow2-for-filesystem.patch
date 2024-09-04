@@ -1,5 +1,5 @@
 diff --git a/pkg/host-disk/host-disk.go b/pkg/host-disk/host-disk.go
-index 7ada596d87..f9d6aed9bb 100644
+index 7ada596d87..5be737e557 100644
 --- a/pkg/host-disk/host-disk.go
 +++ b/pkg/host-disk/host-disk.go
 @@ -22,6 +22,7 @@ package hostdisk
@@ -10,11 +10,12 @@ index 7ada596d87..f9d6aed9bb 100644
  	"path"
  	"path/filepath"
  	"syscall"
-@@ -171,6 +172,14 @@ func createSparseRaw(fullPath string, size int64) (err error) {
+@@ -171,6 +172,15 @@ func createSparseRaw(fullPath string, size int64) (err error) {
  	return nil
  }
  
 +func createQcow2(fullPath string, size int64) (err error) {
++	log.Log.Infof("Create %s with qcow2 format", fullPath)
 +	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", fullPath, fmt.Sprintf("%db", size))
 +	if err = cmd.Run(); err != nil {
 +		return fmt.Errorf("failed to create qcow2: %w", err)
@@ -25,15 +26,36 @@ index 7ada596d87..f9d6aed9bb 100644
  func getPVCDiskImgPath(volumeName string, diskName string) string {
  	return path.Join(pvcBaseDir, volumeName, diskName)
  }
-@@ -261,7 +270,7 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
+@@ -236,7 +246,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
+ 		return err
+ 	}
+ 	if !fileExists {
+-		if err := hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
++		if err := hdc.handleRequestedSizeAndCreateQcow2(vmi, diskDir, diskPath, hostDisk); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -248,7 +258,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
+ 	return nil
+ }
+ 
+-func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
++func (hdc *DiskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
+ 	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
+ 	availableSize := int64(size)
+ 	if err != nil {
+@@ -261,9 +271,9 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
  			return err
  		}
  	}
 -	err = createSparseRaw(diskPath, requestedSize)
 +	err = createQcow2(diskPath, requestedSize)
  	if err != nil {
- 		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
+-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
++		log.Log.Reason(err).Errorf("Couldn't create a qcow2 file for disk path: %s, error: %v", diskPath, err)
  		return err
+ 	}
+ 	return nil
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
 index c64b315d8f..71bbe50037 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
