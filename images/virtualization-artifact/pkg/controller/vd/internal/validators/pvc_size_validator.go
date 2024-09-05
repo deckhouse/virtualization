@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,20 +121,43 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 	if oldVD.Spec.PersistentVolumeClaim.Size == newVD.Spec.PersistentVolumeClaim.Size {
 		return nil, nil
 	}
-
-	if newVD.Spec.PersistentVolumeClaim.Size == nil {
+	var (
+		oldSize resource.Quantity
+		newSize resource.Quantity
+	)
+	if s := oldVD.Spec.PersistentVolumeClaim.Size; s != nil {
+		oldSize = *s
+	}
+	if s := newVD.Spec.PersistentVolumeClaim.Size; s != nil {
+		newSize = *s
+	} else {
 		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
 	}
 
-	if newVD.Spec.PersistentVolumeClaim.Size.IsZero() {
+	if newSize.IsZero() {
 		return nil, fmt.Errorf("virtual disk size must be greater than 0")
 	}
 
-	if oldVD.Spec.PersistentVolumeClaim.Size != nil && newVD.Spec.PersistentVolumeClaim.Size.Cmp(*oldVD.Spec.PersistentVolumeClaim.Size) == -1 {
+	if pvcName := newVD.Status.Target.PersistentVolumeClaim; pvcName != "" {
+		pvc, err := helper.FetchObject(ctx, types.NamespacedName{
+			Name:      pvcName,
+			Namespace: newVD.GetNamespace(),
+		}, v.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return nil, err
+		}
+		if mode := pvc.Spec.VolumeMode; mode != nil &&
+			*mode == corev1.PersistentVolumeFilesystem &&
+			!oldSize.Equal(newSize) {
+			return nil, errors.New("resizing disks in volume mode Filesystem is not supported")
+		}
+	}
+
+	if newSize.Cmp(oldSize) == -1 {
 		return nil, fmt.Errorf(
 			"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
-			newVD.Spec.PersistentVolumeClaim.Size.String(),
-			oldVD.Spec.PersistentVolumeClaim.Size.String(),
+			newSize.String(),
+			oldSize.String(),
 		)
 	}
 
@@ -191,7 +215,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		return nil, nil
 	}
 
-	_, err := service.GetValidatedPVCSize(newVD.Spec.PersistentVolumeClaim.Size, unpackedSize)
+	_, err := service.GetValidatedPVCSize(&newSize, unpackedSize)
 	switch {
 	case err == nil:
 		return nil, nil
