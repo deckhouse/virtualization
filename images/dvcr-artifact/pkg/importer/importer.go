@@ -85,10 +85,6 @@ func (i *Importer) Run(ctx context.Context) error {
 	if i.srcType == DVCRSource {
 		return i.runForDVCRSource(ctx)
 	}
-
-	if i.srcType == BlockDeviceSource {
-		return i.runForBlockDeviceSource(ctx)
-	}
 	return i.runForDataSource(ctx)
 }
 
@@ -200,6 +196,12 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		if err != nil {
 			return nil, fmt.Errorf("error creating container registry data source: %w", err)
 		}
+	case BlockDeviceSource:
+		var err error
+		result, err = datasource.NewBlockDeviceDataSource()
+		if err != nil {
+			return nil, fmt.Errorf("error creating block device data source: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)
 	}
@@ -266,31 +268,4 @@ func (i *Importer) destCraneOptions(ctx context.Context) []crane.Option {
 	}
 
 	return craneOpts
-}
-
-func (i *Importer) runForBlockDeviceSource(ctx context.Context) error {
-	durCollector := monitoring.NewDurationCollector()
-
-	var res registry.ImportRes
-
-	err := retry.Retry(ctx, func(ctx context.Context) error {
-		processor, err := registry.NewDataProcessor(nil, registry.DestinationRegistry{
-			ImageName: i.destImageName,
-			Username:  i.destUsername,
-			Password:  i.destPassword,
-			Insecure:  i.destInsecure,
-		}, i.sha256Sum, i.md5Sum)
-		if err != nil {
-			return err
-		}
-
-		res, err = processor.ProcessFromBlockDevice(ctx)
-		return err
-	})
-
-	if err != nil {
-		return monitoring.WriteImportFailureMessage(err)
-	}
-
-	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }

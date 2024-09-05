@@ -38,7 +38,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
@@ -129,91 +128,6 @@ func createImgFromDevice(deviceName, imgName string) error {
 	}
 
 	return nil
-}
-
-func (p DataProcessor) ProcessFromBlockDevice(ctx context.Context) (ImportRes, error) {
-	// blockDevicePath := "/dev/xvda"
-	// uuid, err := uuid.NewUUID()
-	// imgPath := "/tmp/" + uuid.String() + ".raw"
-	//
-	// err = createImgFromDevice(blockDevicePath, imgPath)
-	// if err != nil {
-	// 	fmt.Printf("Error creating image: %v\n", err)
-	// 	return ImportRes{}, err
-	// }
-	//
-	// sourceImageFilename := uuid.String() + ".raw"
-	//
-	// fileInfo, err := os.Stat(imgPath)
-	// if err != nil {
-	// 	fmt.Println("get size error:", err)
-	// 	return ImportRes{}, err
-	// }
-	//
-	// sourceImageSize := fileInfo.Size()
-	//
-	// file, err := os.Open(imgPath)
-	// if err != nil {
-	// 	fmt.Printf("Error opening img file: %v\n", err)
-	// 	return ImportRes{}, err
-	// }
-	// defer file.Close()
-
-	blockDevicePath := "/dev/xvda"
-
-	blockDevice, err := os.Open(blockDevicePath)
-	if err != nil {
-		return ImportRes{}, fmt.Errorf("can not get open device %s: %w", blockDevicePath, err)
-	}
-	defer blockDevice.Close()
-
-	sourceImageSize, err := blockDevice.Seek(0, io.SeekEnd)
-	if err != nil {
-		return ImportRes{}, fmt.Errorf("error seeking to end: %w", err)
-	}
-
-	_, err = blockDevice.Seek(0, io.SeekStart)
-	if err != nil {
-		return ImportRes{}, fmt.Errorf("error seeking to start: %w", err)
-	}
-
-	uuid, _ := uuid.NewUUID()
-	sourceImageFilename := uuid.String() + ".raw"
-
-	progressMeter := monitoring.NewProgressMeter(blockDevice, uint64(sourceImageSize))
-	progressMeter.Start()
-	defer progressMeter.Stop()
-
-	pipeReader, pipeWriter := io.Pipe()
-
-	informer := NewImageInformer()
-
-	errsGroup, ctx := errgroup.WithContext(ctx)
-	errsGroup.Go(func() error {
-		return p.inspectAndStreamSourceImage(ctx, sourceImageFilename, int(sourceImageSize), progressMeter, pipeWriter, informer)
-	})
-	errsGroup.Go(func() error {
-		defer pipeReader.Close()
-		return p.uploadLayersAndImage(ctx, pipeReader, int(sourceImageSize), informer)
-	})
-
-	err = errsGroup.Wait()
-	if err != nil {
-		return ImportRes{}, err
-	}
-
-	select {
-	case <-informer.Wait():
-	default:
-		return ImportRes{}, errors.New("unexpected waiting for the informer, please report a bug")
-	}
-
-	return ImportRes{
-		SourceImageSize: uint64(sourceImageSize),
-		VirtualSize:     informer.GetVirtualSize(),
-		AvgSpeed:        progressMeter.GetAvgSpeed(),
-		Format:          informer.GetFormat(),
-	}, nil
 }
 
 func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
