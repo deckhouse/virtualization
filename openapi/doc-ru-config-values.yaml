@@ -90,10 +90,14 @@ properties:
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
   virtualImages:
     type: object
-    required: [storageClassName]
+    description: |
+      Настройка класса хранения для виртуальных образов. Если это значение не указано,
+      будет использоваться класс хранения по умолчанию.
     properties:
       storageClassName:
         type: string
+        description: |
+          Указывает имя класса хранения, который будет использоваться для виртуальных образов.
   logLevel:
     type: string
     description: |
