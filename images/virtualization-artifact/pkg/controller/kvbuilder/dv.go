@@ -56,18 +56,16 @@ func NewDV(name types.NamespacedName) *DV {
 	}
 }
 
-func (b *DV) SetAccessMode(accessMode corev1.PersistentVolumeAccessMode) {
-	b.Resource.Spec.PVC.AccessModes = []corev1.PersistentVolumeAccessMode{accessMode}
-}
-
-func (b *DV) SetBindingMode(wffc bool) {
-	if !wffc {
-		b.AddAnnotation("cdi.kubevirt.io/storage.bind.immediate.requested", "true")
-	}
-}
-
-func (b *DV) SetPVC(storageClassName *string, size resource.Quantity) {
-	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName, size)
+func (b *DV) SetPVC(storageClassName *string,
+	size resource.Quantity,
+	accessMode corev1.PersistentVolumeAccessMode,
+	volumeMode corev1.PersistentVolumeMode,
+) {
+	b.Resource.Spec.PVC = pvc.CreateSpec(storageClassName,
+		size,
+		accessMode,
+		volumeMode,
+	)
 }
 
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {

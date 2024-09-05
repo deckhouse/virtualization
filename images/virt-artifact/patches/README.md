@@ -86,3 +86,11 @@ Virtualization-controller doesn't use deprecated apiGroup versions. Deprecation 
 #### `020-stop-managing-kvvm-kvvmi-crds.patch`
 
 Stop managing VirtualMachine and VirtualMachineInstance CRDs with virt-operator. Module will install this CRDs using Helm.
+
+#### `021-support-qcow2-for-filesystem.patch`
+
+Support format qcow2 for pvc with filesystem mode.
+
+When generating XML for libvirt, we utilize converters that translate the virtual machine instance specification into a Domain. We're making a slight adjustment to this process.
+We're changing the raw format for disks to qcow2 for all images created on the file system. These values are hardcoded as we can't determine the disk format used by the virtual machine through qemu-img.
+Additionally, kubevirt can create images on an empty PVC. We're changing this behavior as well, altering the format of the created disk to qcow2. This is achieved using qemu-img.
