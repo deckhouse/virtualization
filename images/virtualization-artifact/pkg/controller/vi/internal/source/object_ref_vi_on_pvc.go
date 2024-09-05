@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -68,13 +68,13 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
+	refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
 	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 	if err != nil {
@@ -97,7 +97,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		}
 
 		return CleanUp(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -117,7 +117,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -190,7 +190,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -218,7 +218,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.AnyTerminating(dv, pvc):
+	case common.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -226,7 +226,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
-		refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
+		refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
 		refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 		if err != nil {
@@ -308,7 +308,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -337,7 +337,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage,
 }
 
 func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {

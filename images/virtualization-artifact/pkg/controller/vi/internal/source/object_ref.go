@@ -27,10 +27,10 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	common "github.com/deckhouse/virtualization-controller/pkg/common"
+	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -90,7 +90,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -118,7 +118,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.AnyTerminating(dv, pvc):
+	case common.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -237,7 +237,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -259,7 +259,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		return CleanUp(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -290,7 +290,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -366,7 +366,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 }
 
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -423,7 +423,7 @@ func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *suppl
 }
 
 func (ds ObjectRefDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -461,7 +461,7 @@ func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSour
 		return nil, errors.New("dvcr data source is not ready")
 	}
 
-	url := common.DockerRegistrySchemePrefix + dvcrDataSource.GetTarget()
+	url := cc.DockerRegistrySchemePrefix + dvcrDataSource.GetTarget()
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
 

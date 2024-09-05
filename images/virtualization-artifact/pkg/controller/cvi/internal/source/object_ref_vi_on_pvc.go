@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -54,13 +54,13 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *servic
 func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
+	refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
 	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 	if err != nil {
@@ -83,7 +83,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -103,7 +103,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
@@ -172,7 +172,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -188,7 +188,7 @@ func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, cvi
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

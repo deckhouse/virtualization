@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -47,7 +47,7 @@ func NewObjectRefVirtualImageOnPvc(diskService *service.DiskService) *ObjectRefV
 func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.VirtualDisk, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	supgen := supplements.NewGenerator(cc.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -75,7 +75,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
-	case cc.AnyTerminating(dv, pvc):
+	case common.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -83,7 +83,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 		vd.Status.Progress = "0%"
 		vd.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
-		refSupgen := supplements.NewGenerator(cc.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
+		refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
 
 		refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
 		if err != nil {
@@ -160,7 +160,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vd.Name, vd.Namespace, vd.UID)
 
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
