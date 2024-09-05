@@ -125,6 +125,7 @@ git:
       - docs
       - hooks
       - openapi
+      - monitoring
       - templates
       - Chart.yaml
       - .helmignore
