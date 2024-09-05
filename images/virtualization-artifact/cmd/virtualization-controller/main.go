@@ -186,7 +186,7 @@ func main() {
 
 	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
 	if storageClassForVirtualImageOnPVC == "" {
-		log.Info("virtualImages.StorageClassName not found in ModuleConfig -> will be used default storage class")
+		log.Info("virtualImages.storageClassName not found in ModuleConfig, will use default storage class for images on PVCs")
 	}
 
 	// Create a new Manager to provide shared dependencies and start components
