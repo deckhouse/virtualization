@@ -45,6 +45,7 @@ type dataMetric struct {
 	Pods                                []virtv2.VirtualMachinePod
 }
 
+// DO NOT mutate VirtualMachine!
 func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	if vm == nil {
 		return nil
@@ -63,6 +64,10 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		configurationApplied = true
 	}
+	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
+	for i, pod := range vm.Status.VirtualMachinePods {
+		pods[i] = *pod.DeepCopy()
+	}
 	return &dataMetric{
 		Name:                                vm.Name,
 		Namespace:                           vm.Namespace,
@@ -78,6 +83,6 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		AwaitingRestartToApplyConfiguration: awaitingRestartToApplyConfiguration,
 		ConfigurationApplied:                configurationApplied,
 		RunPolicy:                           vm.Spec.RunPolicy,
-		Pods:                                vm.Status.VirtualMachinePods,
+		Pods:                                pods,
 	}
 }

@@ -34,6 +34,8 @@ type iterator struct {
 	reader client.Reader
 }
 
+// Iter implements iteration on objects VirtualMachine and create new DTO.
+// DO NOT mutate VirtualMachine!
 func (l *iterator) Iter(ctx context.Context, h handler) error {
 	vms := virtv2.VirtualMachineList{}
 	if err := l.reader.List(ctx, &vms, client.UnsafeDisableDeepCopy); err != nil {
