@@ -38,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 const objectRefDataSource = "objectref"
@@ -77,13 +76,13 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		return ds.vdSnapshotSyncer.Sync(ctx, vd, &condition)
 	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
-		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viOnPvcSyncer.Sync(ctx, vd, viObjetcRef, &condition)
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viOnPvcSyncer.Sync(ctx, vd, vi, &condition)
 		}
 	}
 
@@ -128,7 +127,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 		if !dvcrDataSource.IsReady() {
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.ProvisioningFailed
+			condition.Reason = vdcondition.ProvisioningFailed
 			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
 			return false, nil
 		}

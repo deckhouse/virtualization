@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type ObjectRefVirtualImageOnPvc struct {
@@ -72,7 +72,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
+		condition.Reason = cvicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
@@ -111,7 +111,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
+				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -120,7 +120,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
+		condition.Reason = cvicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
@@ -139,12 +139,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningNotStarted
+				condition.Reason = cvicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
+				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -158,7 +158,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
+		condition.Reason = cvicondition.Provisioning
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
@@ -172,7 +172,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {

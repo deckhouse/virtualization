@@ -35,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -187,7 +186,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vi.Status.Conditions)
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -352,10 +351,10 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context,
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) getPVCSize(is virtv2.ImageStatusSize) (resource.Quantity, error) {
-	unpackedSize, err := resource.ParseQuantity(is.UnpackedBytes)
+func (ds ObjectRefDataVirtualImageOnPVC) getPVCSize(refSize virtv2.ImageStatusSize) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(refSize.UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", is.UnpackedBytes, err)
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", refSize.UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {

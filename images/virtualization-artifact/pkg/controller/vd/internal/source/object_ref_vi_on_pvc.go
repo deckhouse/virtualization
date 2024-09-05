@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ObjectRefVirtualImageOnPvc struct {
@@ -116,14 +116,14 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
+		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		return true, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
+		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC not found: waiting for creation."
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
@@ -131,7 +131,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
+		condition.Reason = vdcondition.Ready
 		condition.Message = ""
 
 		vd.Status.Progress = "100%"

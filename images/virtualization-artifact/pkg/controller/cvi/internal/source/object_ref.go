@@ -75,13 +75,13 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viOnPvcSyncer.Sync(ctx, cvi, viObjetcRef, &condition)
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viOnPvcSyncer.Sync(ctx, cvi, vi, &condition)
 		}
 	}
 

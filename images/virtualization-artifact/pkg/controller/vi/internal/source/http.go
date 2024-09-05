@@ -35,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -319,14 +318,14 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
+		condition.Reason = vicondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
 
 		return true, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
+		condition.Reason = vicondition.Provisioning
 		condition.Message = "PVC not found: waiting for creation."
 		return true, nil
 	case ds.diskService.IsImportDone(dv, pvc):
@@ -334,7 +333,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		vi.Status.Phase = virtv2.ImageReady
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		vi.Status.Progress = "100%"

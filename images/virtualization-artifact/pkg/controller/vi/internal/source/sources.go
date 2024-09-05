@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -155,7 +154,7 @@ func setPhaseConditionForFinishedImage(
 	default:
 		*phase = virtv2.ImageReady
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 	}
 }
