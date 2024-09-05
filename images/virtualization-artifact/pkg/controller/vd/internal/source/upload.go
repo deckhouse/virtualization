@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-const uploadDataSource = "registry"
+const uploadDataSource = "upload"
 
 type UploadDataSource struct {
 	statService     *service.StatService

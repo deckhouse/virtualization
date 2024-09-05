@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-const uploadDataSource = "registry"
+const uploadDataSource = "upload"
 
 type UploadDataSource struct {
 	statService     Stat
