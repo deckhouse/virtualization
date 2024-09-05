@@ -22,7 +22,6 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -160,9 +159,9 @@ func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *meta
 	vm, err := store.vmLister.VirtualMachines(namespace).Get(name)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, apierrors.NewNotFound(store.groupResource, name)
+			return nil, k8serrors.NewNotFound(store.groupResource, name)
 		}
-		return nil, apierrors.NewInternalError(err)
+		return nil, k8serrors.NewInternalError(err)
 	}
 	return vm, nil
 }
@@ -189,7 +188,7 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 
 	items, err := store.vmLister.VirtualMachines(namespace).List(labelSelector)
 	if err != nil {
-		return nil, apierrors.NewInternalError(err)
+		return nil, k8serrors.NewInternalError(err)
 	}
 
 	filtered := &virtv2.VirtualMachineList{}
@@ -216,9 +215,9 @@ func (store VirtualMachineStorage) Delete(ctx context.Context, name string, _ re
 	}
 	if err := store.vmClient.VirtualMachines(genericreq.NamespaceValue(ctx)).Delete(ctx, name, opts); err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, false, apierrors.NewNotFound(store.groupResource, name)
+			return nil, false, k8serrors.NewNotFound(store.groupResource, name)
 		}
-		return nil, false, apierrors.NewInternalError(err)
+		return nil, false, k8serrors.NewInternalError(err)
 	}
 	return nil, true, nil
 }

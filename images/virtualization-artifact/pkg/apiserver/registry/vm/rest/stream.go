@@ -55,7 +55,7 @@ func streamLocation(
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	ns, _ := request.NamespaceFrom(ctx)
-	vm, err := getVM(getter, types.NamespacedName{Namespace: ns, Name: name})
+	vm, err := getter.VirtualMachines(ns).Get(name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,11 +93,6 @@ func streamLocation(
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlsConfig
 	return location, transport, nil
-}
-
-func getVM(getter virtlisters.VirtualMachineLister, key types.NamespacedName) (*virtv2.VirtualMachine, error) {
-	vm, err := getter.VirtualMachines(key.Namespace).Get(key.Name)
-	return vm, err
 }
 
 // TODO: This may be useful in the future
