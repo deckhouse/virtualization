@@ -667,7 +667,7 @@ spec:
                   description: Статистика использования ресурсов.
                   properties:
                     cpu:
-                      description: Статистика использования ресурсов ЦП.
+                      description: Статистика использования ресурсов ЦПУ.
                       properties:
                         coreFraction:
                           description: Текущее значение coreFraction.
