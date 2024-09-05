@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/tools/cache"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
@@ -44,7 +43,6 @@ import (
 type VirtualMachineStorage struct {
 	groupResource schema.GroupResource
 	vmLister      virtlisters.VirtualMachineLister
-	vmIndexer     cache.Indexer
 	console       *vmrest.ConsoleREST
 	vnc           *vmrest.VNCREST
 	portforward   *vmrest.PortForwardREST
