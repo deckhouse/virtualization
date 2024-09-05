@@ -243,7 +243,7 @@ type VirtualMachineStatus struct {
 	// The list of attached block device attachments.
 	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
 	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
-	// Specific points in VM's runtime.
+	// Detailed state of the virtual machine lifecycle.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// VirtualMachine statistics.
 	Stats *VirtualMachineStats `json:"stats,omitempty"`
