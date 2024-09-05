@@ -132,34 +132,55 @@ func createImgFromDevice(deviceName, imgName string) error {
 }
 
 func (p DataProcessor) ProcessFromBlockDevice(ctx context.Context) (ImportRes, error) {
-	blockDevicePath := "/dev/xvda"
-	uuid, err := uuid.NewUUID()
-	imgPath := "/tmp/" + uuid.String() + ".raw"
+	// blockDevicePath := "/dev/xvda"
+	// uuid, err := uuid.NewUUID()
+	// imgPath := "/tmp/" + uuid.String() + ".raw"
+	//
+	// err = createImgFromDevice(blockDevicePath, imgPath)
+	// if err != nil {
+	// 	fmt.Printf("Error creating image: %v\n", err)
+	// 	return ImportRes{}, err
+	// }
+	//
+	// sourceImageFilename := uuid.String() + ".raw"
+	//
+	// fileInfo, err := os.Stat(imgPath)
+	// if err != nil {
+	// 	fmt.Println("get size error:", err)
+	// 	return ImportRes{}, err
+	// }
+	//
+	// sourceImageSize := fileInfo.Size()
+	//
+	// file, err := os.Open(imgPath)
+	// if err != nil {
+	// 	fmt.Printf("Error opening img file: %v\n", err)
+	// 	return ImportRes{}, err
+	// }
+	// defer file.Close()
 
-	err = createImgFromDevice(blockDevicePath, imgPath)
+	blockDevicePath := "/dev/xvda"
+
+	blockDevice, err := os.Open(blockDevicePath)
 	if err != nil {
-		fmt.Printf("Error creating image: %v\n", err)
-		return ImportRes{}, err
+		return ImportRes{}, fmt.Errorf("can not get open device %s: %w", blockDevicePath, err)
+	}
+	defer blockDevice.Close()
+
+	sourceImageSize, err := blockDevice.Seek(0, io.SeekEnd)
+	if err != nil {
+		return ImportRes{}, fmt.Errorf("error seeking to end: %w", err)
 	}
 
+	_, err = blockDevice.Seek(0, io.SeekStart)
+	if err != nil {
+		return ImportRes{}, fmt.Errorf("error seeking to start: %w", err)
+	}
+
+	uuid, _ := uuid.NewUUID()
 	sourceImageFilename := uuid.String() + ".raw"
 
-	fileInfo, err := os.Stat(imgPath)
-	if err != nil {
-		fmt.Println("get size error:", err)
-		return ImportRes{}, err
-	}
-
-	sourceImageSize := fileInfo.Size()
-
-	file, err := os.Open(imgPath)
-	if err != nil {
-		fmt.Printf("Error opening img file: %v\n", err)
-		return ImportRes{}, err
-	}
-	defer file.Close()
-
-	progressMeter := monitoring.NewProgressMeter(file, uint64(sourceImageSize))
+	progressMeter := monitoring.NewProgressMeter(blockDevice, uint64(sourceImageSize))
 	progressMeter.Start()
 	defer progressMeter.Stop()
 

@@ -48,10 +48,6 @@ type DataSource interface {
 func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings, forceCopyDVCRAuthSecret bool) error {
 	// Create ConfigMap with caBundle.
 	if ds.HasCABundle() {
-		fmt.Println("")
-		fmt.Println("execute HasCABundle")
-		fmt.Println("")
-
 		caBundleCM := supGen.CABundleConfigMap()
 		caBundleCopier := copier.CABundleConfigMap{
 			Destination:    caBundleCM,
