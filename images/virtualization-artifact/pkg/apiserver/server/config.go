@@ -74,14 +74,11 @@ func (c Config) Validate() error {
 
 func (c Config) Complete() (*Server, error) {
 	proxyCertManager := filesystem.NewFileCertificateManager(c.ProxyClientCertFile, c.ProxyClientKeyFile)
-	informer, err := virtualizationInformerFactory(c.Rest)
+	vmSharedInformerFactory, err := virtualizationInformerFactory(c.Rest)
 	if err != nil {
 		return nil, err
 	}
-	vmInformer, err := informer.ForResource(virtv2.GroupVersionResource(virtv2.VirtualMachineResource))
-	if err != nil {
-		return nil, err
-	}
+	vmInformer := vmSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines()
 
 	genericServer, err := c.Apiserver.Complete(nil).New("virtualziation-api", genericapiserver.NewEmptyDelegate())
 	if err != nil {
@@ -101,7 +98,6 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	virtclient.VirtualizationV1alpha2()
 	if err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,

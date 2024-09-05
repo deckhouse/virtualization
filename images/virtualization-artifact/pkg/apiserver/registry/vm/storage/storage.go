@@ -23,6 +23,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,13 +36,15 @@ import (
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineStorage struct {
 	groupResource schema.GroupResource
-	vmLister      cache.GenericLister
+	vmLister      virtlisters.VirtualMachineLister
+	vmIndexer     cache.Indexer
 	console       *vmrest.ConsoleREST
 	vnc           *vmrest.VNCREST
 	portforward   *vmrest.PortForwardREST
@@ -50,7 +53,7 @@ type VirtualMachineStorage struct {
 	freeze        *vmrest.FreezeREST
 	unfreeze      *vmrest.UnfreezeREST
 	convertor     rest.TableConvertor
-	virtClient    v1alpha2.VirtualizationV1alpha2Interface
+	vmClient      versionedv1alpha2.VirtualMachinesGetter
 }
 
 var (
@@ -66,11 +69,11 @@ var (
 
 func NewStorage(
 	groupResource schema.GroupResource,
-	vmLister cache.GenericLister,
+	vmLister virtlisters.VirtualMachineLister,
 	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
-	virtClient v1alpha2.VirtualizationV1alpha2Interface,
+	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) *VirtualMachineStorage {
 	var convertor rest.TableConvertor
 	if crd != nil && len(crd.Spec.Versions) > 0 {
@@ -98,7 +101,7 @@ func NewStorage(
 		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		convertor:     convertor,
-		virtClient:    virtClient,
+		vmClient:      vmClient,
 	}
 }
 
@@ -156,9 +159,12 @@ func (store VirtualMachineStorage) GetSingularName() string {
 
 func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
 	namespace := genericreq.NamespaceValue(ctx)
-	vm, err := store.vmLister.ByNamespace(namespace).Get(name)
-	if err != nil || vm == nil {
-		return nil, apierrors.NewNotFound(store.groupResource, name)
+	vm, err := store.vmLister.VirtualMachines(namespace).Get(name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, apierrors.NewNotFound(store.groupResource, name)
+		}
+		return nil, apierrors.NewInternalError(err)
 	}
 	return vm, nil
 }
@@ -171,27 +177,26 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 	namespace := genericreq.NamespaceValue(ctx)
 
 	labelSelector := labels.Everything()
-	if options != nil && options.LabelSelector != nil {
+
+	var opts internalversion.ListOptions
+	if options != nil {
+		opts = *options
 		labelSelector = options.LabelSelector
 	}
 
-	name, err := nameFor(options.FieldSelector)
+	name, err := nameFor(opts.FieldSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	items, err := store.vmLister.ByNamespace(namespace).List(labelSelector)
+	items, err := store.vmLister.VirtualMachines(namespace).List(labelSelector)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
 	}
 
 	filtered := &virtv2.VirtualMachineList{}
 	filtered.Items = make([]virtv2.VirtualMachine, 0, len(items))
-	for _, manifest := range items {
-		vm, ok := manifest.(*virtv2.VirtualMachine)
-		if !ok || vm == nil {
-			continue
-		}
+	for _, vm := range items {
 		if matches(vm, name) {
 			filtered.Items = append(filtered.Items, *vm)
 		}
@@ -206,13 +211,15 @@ func (store VirtualMachineStorage) ConvertToTable(ctx context.Context, object, t
 	return rest.NewDefaultTableConvertor(store.groupResource).ConvertToTable(ctx, object, tableOptions)
 }
 
-func (store VirtualMachineStorage) Delete(ctx context.Context, name string, deleteValidation rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	namespace := genericreq.NamespaceValue(ctx)
+func (store VirtualMachineStorage) Delete(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
 	var opts metav1.DeleteOptions
 	if options != nil {
 		opts = *options
 	}
-	if err := store.virtClient.VirtualMachines(namespace).Delete(ctx, name, opts); err != nil {
+	if err := store.vmClient.VirtualMachines(genericreq.NamespaceValue(ctx)).Delete(ctx, name, opts); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, false, apierrors.NewNotFound(store.groupResource, name)
+		}
 		return nil, false, apierrors.NewInternalError(err)
 	}
 	return nil, true, nil

@@ -30,9 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/proxy"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
@@ -47,7 +47,7 @@ var upgradeableMethods = []string{http.MethodGet, http.MethodPost}
 
 func streamLocation(
 	ctx context.Context,
-	getter cache.GenericLister,
+	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts runtime.Object,
 	streamPath string,
@@ -95,16 +95,9 @@ func streamLocation(
 	return location, transport, nil
 }
 
-func getVM(getter cache.GenericLister, key types.NamespacedName) (*virtv2.VirtualMachine, error) {
-	obj, err := getter.ByNamespace(key.Namespace).Get(key.Name)
-	if err != nil {
-		return nil, err
-	}
-	vm := obj.(*virtv2.VirtualMachine)
-	if vm == nil {
-		return nil, fmt.Errorf("unexpected object type: %#v", vm)
-	}
-	return vm, nil
+func getVM(getter virtlisters.VirtualMachineLister, key types.NamespacedName) (*virtv2.VirtualMachine, error) {
+	vm, err := getter.VirtualMachines(key.Namespace).Get(key.Name)
+	return vm, err
 }
 
 // TODO: This may be useful in the future
