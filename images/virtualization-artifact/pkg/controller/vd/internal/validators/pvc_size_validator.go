@@ -146,6 +146,8 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		if err != nil {
 			return nil, err
 		}
+		// When expanding pvc, the image located in the file system is not enlarged.
+		// This is why resizing disks in volume mode Filesystem is not supported.
 		if mode := pvc.Spec.VolumeMode; mode != nil &&
 			*mode == corev1.PersistentVolumeFilesystem &&
 			!oldSize.Equal(newSize) {
