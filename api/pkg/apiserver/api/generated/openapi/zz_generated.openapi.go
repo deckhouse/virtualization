@@ -2838,7 +2838,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachine(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachine specifies configuration of the virtual machine.",
+				Description: "VirtualMachine describes the configuration and status of a virtual machine (VM). For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly): - `.metadata.labels`. - `.metadata.annotations`. - `.spec.disruptions.restartApprovalMode`. - `.spec.disruptions.runPolicy`.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -4388,7 +4388,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specific points in VM's runtime.",
+							Description: "Detailed state of the virtual machine lifecycle.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4421,7 +4421,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"restartAwaitingChanges": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec. Change operation has these fields: * operation enum(add|remove|replace) * path string * currentValue any (bool|int|string|struct|array of structs) * desiredValue any (bool|int|string|struct|array of structs) Such 'any' type can't be described using the OpenAPI v3 schema. The workaround is to declare a whole change operation structure using 'type: object' and 'x-kubernetes-preserve-fields: true'.",
+							Description: "RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
