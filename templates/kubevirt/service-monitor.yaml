@@ -118,6 +118,10 @@ spec:
           sourceLabels:
           - __name__
           targetLabel: __name__
+        # replace job
+        - action: replace
+          replacement: internal-virtualization-kubevirt-prometheus-metrics
+          targetLabel: job
         # exported_namespace -> namespace
         - action: replace
           sourceLabels:
@@ -125,7 +129,7 @@ spec:
           targetLabel: namespace
         # drop labels
         - action: labeldrop
-          regex: (interface|drive|container|endpoint|job|service|pod|exported_namespace|kubernetes_vmi_(.+))
+          regex: (interface|drive|container|endpoint|service|pod|exported_namespace|kubernetes_vmi_(.+))
   namespaceSelector:
     matchNames:
       - d8-{{ .Chart.Name }}

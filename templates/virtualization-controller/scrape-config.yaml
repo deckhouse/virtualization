@@ -16,7 +16,4 @@ spec:
     insecureSkipVerify: true
   staticConfigs:
     - targets: ['virtualization-controller-metrics.d8-{{ .Chart.Name }}.svc.{{ .Values.global.discovery.clusterDomain }}.:8080']
-  relabelings:
-    - action: labeldrop
-      regex: (job)
   metricsPath: '/metrics'
