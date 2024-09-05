@@ -40,7 +40,7 @@ func (l *iterator) Iter(ctx context.Context, h handler) error {
 		return err
 	}
 	for _, vm := range vms.Items {
-		m := newMetric(&vm)
+		m := newDataMetric(&vm)
 		if stop := h(m); stop {
 			return nil
 		}

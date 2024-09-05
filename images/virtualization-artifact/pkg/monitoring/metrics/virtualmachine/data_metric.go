@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-type metric struct {
+type dataMetric struct {
 	Name                                string
 	Namespace                           string
 	Node                                string
@@ -45,7 +45,7 @@ type metric struct {
 	Pods                                []virtv2.VirtualMachinePod
 }
 
-func newMetric(vm *virtv2.VirtualMachine) *metric {
+func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	if vm == nil {
 		return nil
 	}
@@ -63,7 +63,7 @@ func newMetric(vm *virtv2.VirtualMachine) *metric {
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		configurationApplied = true
 	}
-	return &metric{
+	return &dataMetric{
 		Name:                                vm.Name,
 		Namespace:                           vm.Namespace,
 		Node:                                vm.Status.Node,

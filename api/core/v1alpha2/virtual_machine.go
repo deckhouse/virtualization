@@ -29,18 +29,24 @@ const (
 	VirtualMachineResource = "virtualmachines"
 )
 
-// VirtualMachine specifies configuration of the virtual machine.
+// VirtualMachine describes the configuration and status of a virtual machine (VM).
+// For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
+// - `.metadata.labels`.
+// - `.metadata.annotations`.
+// - `.spec.disruptions.restartApprovalMode`.
+// - `.spec.disruptions.runPolicy`.
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm,vms},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
-// +kubebuilder:printcolumn:name="Cores",type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
-// +kubebuilder:printcolumn:name="CoreFraction",type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction."
-// +kubebuilder:printcolumn:name="Memory",type="string",JSONPath=".spec.memory.size",description="The amount of memory of the virtual machine."
-// +kubebuilder:printcolumn:name="Need restart",type="string",JSONPath=".status.conditions[?(@.type=='AwaitingRestartToApplyConfiguration')].status",description="A restart of the virtual machine is required."
-// +kubebuilder:printcolumn:name="Agent",type="string",JSONPath="..status.conditions[?(@.type=='AgentReady')].status",description="Agent status."
+// +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
+// +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction."
+// +kubebuilder:printcolumn:name="Memory",priority=1,type="string",JSONPath=".spec.memory.size",description="The amount of memory of the virtual machine."
+// +kubebuilder:printcolumn:name="Need restart",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AwaitingRestartToApplyConfiguration')].status",description="A restart of the virtual machine is required."
+// +kubebuilder:printcolumn:name="Agent",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AgentReady')].status",description="Agent status."
+// +kubebuilder:printcolumn:name="Migratable",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='Migratable')].status",description="Is it possible to migrate a virtual machine."
 // +kubebuilder:printcolumn:name="Node",type="string",JSONPath=".status.nodeName",description="The node where the virtual machine is running."
 // +kubebuilder:printcolumn:name="IPAddress",type="string",JSONPath=".status.ipAddress",description="The IP address of the virtual machine."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
@@ -251,15 +257,19 @@ type VirtualMachineStatus struct {
 	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
 	// Generating a resource that was last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	/*
+		Change operation has these fields:
+		* operation enum(add|remove|replace)
+		* path string
+		* currentValue any (bool|int|string|struct|array of structs)
+		* desiredValue any (bool|int|string|struct|array of structs)
+		Such 'any' type can't be described using the OpenAPI v3 schema.
+		The workaround is to declare a whole change operation structure
+		using 'type: object' and 'x-kubernetes-preserve-fields: true'.
+	*/
+
 	// RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.
-	// Change operation has these fields:
-	// * operation enum(add|remove|replace)
-	// * path string
-	// * currentValue any (bool|int|string|struct|array of structs)
-	// * desiredValue any (bool|int|string|struct|array of structs)
-	// Such 'any' type can't be described using the OpenAPI v3 schema.
-	// The workaround is to declare a whole change operation structure
-	// using 'type: object' and 'x-kubernetes-preserve-fields: true'.
 	RestartAwaitingChanges []apiextensionsv1.JSON `json:"restartAwaitingChanges,omitempty"`
 	// List of virtual machine pods.
 	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`

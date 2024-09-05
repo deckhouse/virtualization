@@ -12,7 +12,6 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - all
       - virtualization
     kind: VirtualMachineClass
     listKind: VirtualMachineClassList
