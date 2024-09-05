@@ -105,31 +105,6 @@ func NewDataProcessor(ds datasource.DataSourceInterface, dest DestinationRegistr
 	}, nil
 }
 
-func createImgFromDevice(deviceName, imgName string) error {
-	blockDevice, err := os.Open(deviceName)
-	if err != nil {
-		fmt.Errorf("can not get open device")
-		return err
-	}
-	defer blockDevice.Close()
-
-	imgFile, err := os.Create(imgName)
-	if err != nil {
-		fmt.Errorf("can not get create image")
-		return err
-	}
-	defer imgFile.Close()
-
-	buf := make([]byte, 1024*1024)
-	_, err = io.CopyBuffer(imgFile, blockDevice, buf)
-	if err != nil {
-		fmt.Errorf("can not get copy to image")
-		return err
-	}
-
-	return nil
-}
-
 func (p DataProcessor) Process(ctx context.Context) (ImportRes, error) {
 	sourceImageFilename, err := p.ds.Filename()
 	if err != nil {

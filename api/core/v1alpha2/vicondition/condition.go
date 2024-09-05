@@ -54,5 +54,6 @@ const (
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 
+	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
 )
