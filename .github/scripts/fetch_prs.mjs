@@ -20,7 +20,7 @@ import moment from 'moment';
 const owner = 'deckhouse';
 const repo = 'virtualization';
 const project = ':dvp: DVP';
-const defaultLogin = 'Almighty PM';
+const defaultLogin = '@anton.nikoonov';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
 const approvalsRequired = 1
@@ -71,7 +71,7 @@ async function fetchReviewsForPR(prNumber) {
 }
 
 async function formatPR(pr) {
-  let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
+  let reviewersInfo = `NO REVIEWERS! ${defaultLogin} (opezdulit')`;
   const fetchedReviewers = [];
   
   // Add requested reviewers
