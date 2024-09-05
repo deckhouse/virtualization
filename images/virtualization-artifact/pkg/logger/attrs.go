@@ -25,6 +25,7 @@ const (
 	handlerAttr    = "handler"
 	dataSourceAttr = "ds"
 	controllerAttr = "controller"
+	collectorAttr  = "collector"
 )
 
 func SlogErr(err error) slog.Attr {
@@ -49,4 +50,8 @@ func SlogHandler(handler string) slog.Attr {
 
 func SlogController(controller string) slog.Attr {
 	return slog.String(controllerAttr, controller)
+}
+
+func SlogCollector(collector string) slog.Attr {
+	return slog.String(collectorAttr, collector)
 }

@@ -41,10 +41,10 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	lg *slog.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	log = log.With(logger.SlogController(controllerName))
+	log := lg.With(logger.SlogController(controllerName))
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
@@ -84,7 +84,7 @@ func SetupController(
 		return err
 	}
 
-	vmmetrics.SetupCollector(mgrCache, metrics.Registry)
+	vmmetrics.SetupCollector(mgrCache, metrics.Registry, lg)
 
 	log.Info("Initialized VirtualMachine controller")
 	return nil

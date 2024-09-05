@@ -17,19 +17,22 @@ limitations under the License.
 package virtualmachine
 
 import (
+	"fmt"
+	"log/slog"
+
 	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func newScraper(ch chan<- prometheus.Metric) *scraper {
-	return &scraper{ch: ch}
+func newScraper(ch chan<- prometheus.Metric, log *slog.Logger) *scraper {
+	return &scraper{ch: ch, log: log}
 }
 
 type scraper struct {
-	ch chan<- prometheus.Metric
+	ch  chan<- prometheus.Metric
+	log *slog.Logger
 }
 
 func (s *scraper) Report(m *dataMetric) {
@@ -143,7 +146,7 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 		WithBaseLabelsByMetric(m, labels...)...,
 	)
 	if err != nil {
-		klog.Warningf("Error creating the new const dataMetric for %s: %s", desc, err)
+		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", desc, err))
 		return
 	}
 	s.ch <- metric
