@@ -43,6 +43,8 @@ Add capabilities for deckhouse provisioners to cdi StorageProfile.
 
 Converting images in the file system to qcow2.
 
+CDI can currently upload virtual machine images to persistent volumes (PVCs). Regardless of the target, whether it's a block device or a file, CDI converts the image to raw format. We're changing this behavior, but only for file targets. Conversion will now happen to the qcow2 format.
+
 #### `014-delete-service-monitor.patch`
 
 Removed the creation of a service monitor from the cdi-operator.

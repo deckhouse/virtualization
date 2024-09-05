@@ -25,13 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-)
-
-const (
-	unpackFormatQcow2 = "qcow2"
-	unpackFormatRaw   = "raw"
 )
 
 // DV is a helper to construct DataVolume to import an image from DVCR onto PVC.
@@ -52,7 +46,6 @@ func NewDV(name types.NamespacedName) *DV {
 					Name:      name.Name,
 					Annotations: map[string]string{
 						"cdi.kubevirt.io/storage.deleteAfterCompletion": "false",
-						cc.AnnUnpackFormat: unpackFormatQcow2,
 					},
 				},
 				Spec: cdiv1.DataVolumeSpec{
@@ -68,7 +61,7 @@ func (b *DV) SetPVC(storageClassName *string,
 	accessMode corev1.PersistentVolumeAccessMode,
 	volumeMode corev1.PersistentVolumeMode,
 ) {
-	b.Resource.Spec.PVC = pvc.CreateSpecForDataVolume(storageClassName,
+	b.Resource.Spec.PVC = pvc.CreateSpec(storageClassName,
 		size,
 		accessMode,
 		volumeMode,
@@ -77,22 +70,6 @@ func (b *DV) SetPVC(storageClassName *string,
 
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {
 	b.Resource.Spec.Source = source
-}
-
-func (b *DV) SetUnpackFormat(mode corev1.PersistentVolumeMode) {
-	format := unpackFormatRaw
-	switch mode {
-	case corev1.PersistentVolumeBlock:
-		format = unpackFormatRaw
-	case corev1.PersistentVolumeFilesystem:
-		format = unpackFormatQcow2
-	}
-	annos := b.Resource.ObjectMeta.GetAnnotations()
-	if annos == nil {
-		annos = map[string]string{}
-	}
-	annos[cc.AnnUnpackFormat] = format
-	b.Resource.ObjectMeta.SetAnnotations(annos)
 }
 
 func (b *DV) SetRegistryDataSource(imageName, authSecret, caBundleConfigMap string) {

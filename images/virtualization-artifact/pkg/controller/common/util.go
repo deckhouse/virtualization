@@ -187,9 +187,6 @@ const (
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
 
-	// AnnUnpackFormat  is an annotation on DataVolume. It contains type of image. qcow2,raw,etc..
-	AnnUnpackFormat = AnnAPIGroup + "/unpack.format"
-
 	// LastPropagatedVMAnnotationsAnnotation is a marshalled map of previously applied virtual machine annotations.
 	LastPropagatedVMAnnotationsAnnotation = AnnAPIGroup + "/last-propagated-vm-annotations"
 	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.

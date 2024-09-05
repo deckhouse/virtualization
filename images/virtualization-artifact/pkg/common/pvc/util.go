@@ -17,14 +17,9 @@ limitations under the License.
 package pvc
 
 import (
-	"os"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
-
-// ForceDVReadWriteOnceVar enables accessMode ReadWriteOnce for testing in local environments.
-const ForceDVReadWriteOnceVar = "FORCE_DV_READ_WRITE_ONCE"
 
 func CreateSpec(storageClassName *string,
 	size resource.Quantity,
@@ -41,17 +36,4 @@ func CreateSpec(storageClassName *string,
 		},
 		VolumeMode: &volumeMode,
 	}
-}
-
-// CreateSpecForDataVolume returns pvc spec with accessMode ReadWriteMany or
-// with accessMode ReadWriteOnce, depending on environment variable.
-func CreateSpecForDataVolume(storageClassName *string,
-	size resource.Quantity,
-	accessMode corev1.PersistentVolumeAccessMode,
-	volumeMode corev1.PersistentVolumeMode,
-) *corev1.PersistentVolumeClaimSpec {
-	if os.Getenv(ForceDVReadWriteOnceVar) == "yes" {
-		return CreateSpec(storageClassName, size, corev1.ReadWriteOnce, volumeMode)
-	}
-	return CreateSpec(storageClassName, size, accessMode, volumeMode)
 }
