@@ -32,7 +32,7 @@ function source::settings {
   MODULE="github.com/deckhouse/virtualization/api"
   PREFIX_GROUP="virtualization.deckhouse.io_"
   # TODO: Temporary filter until all CRDs become auto-generated.
-  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass" "ExampleKind1" "ExampleKind2")
+  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass" "VirtualMachine" "ExampleKind1" "ExampleKind2")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 

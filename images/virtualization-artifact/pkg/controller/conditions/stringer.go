@@ -25,5 +25,8 @@ type Stringer interface {
 type DeprecatedWrappedString string
 
 func (s DeprecatedWrappedString) String() string {
+	if s == "" {
+		return "Unknown"
+	}
 	return string(s)
 }

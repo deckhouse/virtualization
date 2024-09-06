@@ -29,7 +29,27 @@ const (
 	VirtualMachineResource = "virtualmachines"
 )
 
-// VirtualMachine specifies configuration of the virtual machine.
+// VirtualMachine describes the configuration and status of a virtual machine (VM).
+// For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
+// - `.metadata.labels`.
+// - `.metadata.annotations`.
+// - `.spec.disruptions.restartApprovalMode`.
+// - `.spec.disruptions.runPolicy`.
+//
+// +kubebuilder:object:root=true
+// +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm,vms},singular=virtualmachine
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
+// +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
+// +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction."
+// +kubebuilder:printcolumn:name="Memory",priority=1,type="string",JSONPath=".spec.memory.size",description="The amount of memory of the virtual machine."
+// +kubebuilder:printcolumn:name="Need restart",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AwaitingRestartToApplyConfiguration')].status",description="A restart of the virtual machine is required."
+// +kubebuilder:printcolumn:name="Agent",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AgentReady')].status",description="Agent status."
+// +kubebuilder:printcolumn:name="Migratable",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='Migratable')].status",description="Is it possible to migrate a virtual machine."
+// +kubebuilder:printcolumn:name="Node",type="string",JSONPath=".status.nodeName",description="The node where the virtual machine is running."
+// +kubebuilder:printcolumn:name="IPAddress",type="string",JSONPath=".status.ipAddress",description="The IP address of the virtual machine."
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachine struct {
@@ -41,48 +61,64 @@ type VirtualMachine struct {
 }
 
 type VirtualMachineSpec struct {
-	// RunPolicy is a power-on behaviour of the VM.
-	RunPolicy RunPolicy `json:"runPolicy"`
+	// +kubebuilder:default:="AlwaysOnUnlessStoppedManually"
+	RunPolicy RunPolicy `json:"runPolicy,omitempty"`
 
-	// VirtualMachineIPAddress specifies a name for the associated
-	// `VirtualMachineIPAddress` resource. Defaults to `{vm name}`.
+	// Name for the associated `virtualMachineIPAddress` resource.
+	// Specified when it is necessary to use a previously created IP address of the VM.
+	// If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
 	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName,omitempty"`
 
-	// TopologySpreadConstraints specifies how to spread matching pods among the given topology.
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
-	// Affinity is a group of affinity scheduling rules.
 	Affinity *VMAffinity `json:"affinity,omitempty"`
 
 	// NodeSelector must match a node's labels for the VM to be scheduled on that node.
-	// +optional
+	// [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes.
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
-	// PriorityClassName
-	PriorityClassName string `json:"priorityClassName"`
+	// PriorityClassName [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes.
+	PriorityClassName string `json:"priorityClassName,omitempty"`
 
 	// Tolerations define rules to tolerate node taints.
+	// The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pods `spec.tolerations` parameter in Kubernetes.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// Disruptions define an approval mode to apply disruptive (dangerous) changes.
-	Disruptions *Disruptions `json:"disruptions"`
+	// +kubebuilder:default:={"restartApprovalMode": "Manual"}
+	Disruptions *Disruptions `json:"disruptions,omitempty"`
 
-	// TerminationGracePeriodSeconds
+	// Grace period observed after signalling a VM to stop after which the VM is force terminated.
+	// +kubebuilder:default:=60
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 
-	// EnableParavirtualization flag disables virtio for virtual machine.
-	// Default value is true, so omitempty is not specified.
-	EnableParavirtualization bool `json:"enableParavirtualization"`
+	// Use the `virtio` bus to connect virtual devices of the VM. Set false to disable `virtio` for this VM.
+	// Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.
+	// +kubebuilder:default:=true
+	EnableParavirtualization bool `json:"enableParavirtualization,omitempty"`
 
-	OsType                  OsType               `json:"osType,omitempty"`
-	Bootloader              BootloaderType       `json:"bootloader,omitempty"`
-	VirtualMachineClassName string               `json:"virtualMachineClassName,omitempty"`
-	CPU                     CPUSpec              `json:"cpu"`
-	Memory                  MemorySpec           `json:"memory"`
-	BlockDeviceRefs         []BlockDeviceSpecRef `json:"blockDeviceRefs"`
-	Provisioning            *Provisioning        `json:"provisioning"`
+	// +kubebuilder:default:="Generic"
+	OsType OsType `json:"osType,omitempty"`
+	// +kubebuilder:default:="BIOS"
+	Bootloader BootloaderType `json:"bootloader,omitempty"`
+	// Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
+	VirtualMachineClassName string     `json:"virtualMachineClassName"`
+	CPU                     CPUSpec    `json:"cpu"`
+	Memory                  MemorySpec `json:"memory"`
+	// List of block devices that can be mounted by disks belonging to the virtual machine.
+	// The order of booting is determined by the order in the list.
+	// +kubebuilder:validation:MinItems:=1
+	// +kubebuilder:validation:MaxItems:=16
+	BlockDeviceRefs []BlockDeviceSpecRef `json:"blockDeviceRefs"`
+	Provisioning    *Provisioning        `json:"provisioning,omitempty"`
 }
 
+// RunPolicy parameter defines the VM startup policy
+// * `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means.
+// * `AlwaysOff` - after creation the VM is always in the off state.
+// * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
+// * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
+//
+// +kubebuilder:validation:Enum={AlwaysOn,AlwaysOff,Manual,AlwaysOnUnlessStoppedManually}
 type RunPolicy string
 
 const (
@@ -92,14 +128,23 @@ const (
 	AlwaysOnUnlessStoppedManually RunPolicy = "AlwaysOnUnlessStoppedManually"
 )
 
+// The OsType parameter allows you to select the type of used OS, for which a VM with an optimal set of required virtual devices and parameters will be created.
+//
+// * Windows - for Microsoft Windows family operating systems.
+// * Generic - for other types of OS.
+// +kubebuilder:validation:Enum={Windows,Generic}
 type OsType string
 
 const (
-	Windows       OsType = "Windows"
-	LegacyWindows OsType = "LegacyWindows"
-	GenericOs     OsType = "Generic"
+	Windows   OsType = "Windows"
+	GenericOs OsType = "Generic"
 )
 
+// The BootloaderType defines bootloader for VM.
+// * BIOS - use legacy BIOS.
+// * EFI - use Unified Extensible Firmware (EFI/UEFI).
+// * EFIWithSecureBoot - use UEFI/EFI with SecureBoot support.
+// +kubebuilder:validation:Enum={BIOS,EFI,EFIWithSecureBoot}
 type BootloaderType string
 
 const (
@@ -108,15 +153,25 @@ const (
 	EFIWithSecureBoot BootloaderType = "EFIWithSecureBoot"
 )
 
+// CPUSpec specifies the CPU settings for the VM.
 type CPUSpec struct {
-	Cores        int    `json:"cores"`
-	CoreFraction string `json:"coreFraction"`
+	// Specifies the number of cores inside the VM. The value must be greater or equal 1.
+	// +kubebuilder:validation:Format:=int32
+	// +kubebuilder:validation:Minimum=1
+	Cores int `json:"cores"`
+	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+	// +kubebuilder:default:="100%"
+	// +kubebuilder:validation:Enum:={"5%", "10%", "25%", "50%", "100%"}
+	CoreFraction string `json:"coreFraction,omitempty"`
 }
 
+// MemorySpec specifies the memory settings for the VM.
 type MemorySpec struct {
 	Size resource.Quantity `json:"size"`
 }
 
+// RestartApprovalMode defines a restart approving mode: Manual or Automatic.
+// +kubebuilder:validation:Enum={Manual,Automatic}
 type RestartApprovalMode string
 
 const (
@@ -124,20 +179,36 @@ const (
 	Manual    RestartApprovalMode = "Manual"
 )
 
+// Disruptions describes the policy for applying changes that require rebooting the VM
+// Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.
 type Disruptions struct {
-	// RestartApprovalMode defines a restart approving mode: Manual or Automatic.
-	RestartApprovalMode RestartApprovalMode `json:"restartApprovalMode"`
+	RestartApprovalMode RestartApprovalMode `json:"restartApprovalMode,omitempty"`
 }
 
+// Provisioning is a block allows you to configure the provisioning script for the VM.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'UserData' ? has(self.userData) && !has(self.userDataRef) && !has(self.sysprepRef) : true",message="UserData cannot have userDataRef or sysprepRef."
+// +kubebuilder:validation:XValidation:rule="self.type == 'UserDataRef' ? has(self.userDataRef) && !has(self.userData) && !has(self.sysprepRef) : true",message="UserDataRef cannot have userData or sysprepRef."
+// +kubebuilder:validation:XValidation:rule="self.type == 'SysprepRef' ? has(self.sysprepRef) && !has(self.userData) && !has(self.userDataRef) : true",message="SysprepRef cannot have userData or userDataRef."
 type Provisioning struct {
-	Type        ProvisioningType `json:"type"`
-	UserData    string           `json:"userData,omitempty"`
-	UserDataRef *UserDataRef     `json:"userDataRef,omitempty"`
-	SysprepRef  *SysprepRef      `json:"sysprepRef,omitempty"`
+	Type ProvisioningType `json:"type"`
+	// Inline cloud-init userdata script.
+	UserData    string       `json:"userData,omitempty"`
+	UserDataRef *UserDataRef `json:"userDataRef,omitempty"`
+	SysprepRef  *SysprepRef  `json:"sysprepRef,omitempty"`
 }
 
+// UserDataRef is reference to an existing resource with a cloud-init script.
+// Resource structure for userDataRef type:
+// * `.data.userData`.
 type UserDataRef struct {
-	Kind UserDataRefKind `json:"kind"`
+	// The kind of existing cloud-init automation resource.
+	// The following options are supported:
+	//   - Secret
+	//
+	// +kubebuilder:validation:Enum:={Secret}
+	// +kubebuilder:default:="Secret"
+	Kind UserDataRefKind `json:"kind,omitempty"`
 	Name string          `json:"name"`
 }
 
@@ -147,8 +218,17 @@ const (
 	UserDataRefKindSecret UserDataRefKind = "Secret"
 )
 
+// SysprepRef is reference to an existing Windows sysprep automation.
+// Resource structure for the SysprepRef type:
+// * `.data.autounattend.xml`.
+// * `.data.unattend.xml`.
 type SysprepRef struct {
-	Kind SysprepRefKind `json:"kind"`
+	// The kind of existing Windows sysprep automation resource.
+	// The following options are supported:
+	//  - Secret
+	// +kubebuilder:validation:Enum:={Secret}
+	// +kubebuilder:default:="Secret"
+	Kind SysprepRefKind `json:"kind,omitempty"`
 	Name string         `json:"name"`
 }
 
@@ -159,58 +239,83 @@ const (
 )
 
 type VirtualMachineStatus struct {
-	Phase                   MachinePhase                             `json:"phase"`
-	Node                    string                                   `json:"nodeName"`
-	VirtualMachineIPAddress string                                   `json:"virtualMachineIPAddressName"`
-	IPAddress               string                                   `json:"ipAddress"`
-	BlockDeviceRefs         []BlockDeviceStatusRef                   `json:"blockDeviceRefs"`
-	GuestOSInfo             virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo"`
-	Conditions              []metav1.Condition                       `json:"conditions,omitempty"`
-	Stats                   *VirtualMachineStats                     `json:"stats,omitempty"`
-	MigrationState          *VirtualMachineMigrationState            `json:"migrationState,omitempty"`
-	ObservedGeneration      int64                                    `json:"observedGeneration,omitempty"`
-	// RestartAwaitingChanges holds operations to be manually approved
-	// before applying to the virtual machine spec.
-	//
-	// Change operation has these fields:
-	//
-	//	operation enum(add|remove|replace)
-	//	path string
-	//	currentValue any (bool|int|string|struct|array of structs)
-	//	desiredValue any (bool|int|string|struct|array of structs)
-	//
-	// Such 'any' type can't be described using the OpenAPI v3 schema.
-	// The workaround is to declare a whole change operation structure
-	// using 'type: object' and 'x-kubernetes-preserve-fields: true'.
+	Phase MachinePhase `json:"phase"`
+	// The name of the node on which the VM is currently running.
+	Node string `json:"nodeName"`
+	// Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
+	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName"`
+	// IP address of VM.
+	IPAddress string `json:"ipAddress"`
+	// The list of attached block device attachments.
+	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
+	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
+	// Detailed state of the virtual machine lifecycle.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// VirtualMachine statistics.
+	Stats *VirtualMachineStats `json:"stats,omitempty"`
+	// Migration info.
+	MigrationState *VirtualMachineMigrationState `json:"migrationState,omitempty"`
+	// Generating a resource that was last processed by the controller.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	/*
+		Change operation has these fields:
+		* operation enum(add|remove|replace)
+		* path string
+		* currentValue any (bool|int|string|struct|array of structs)
+		* desiredValue any (bool|int|string|struct|array of structs)
+		Such 'any' type can't be described using the OpenAPI v3 schema.
+		The workaround is to declare a whole change operation structure
+		using 'type: object' and 'x-kubernetes-preserve-fields: true'.
+	*/
+
+	// RestartAwaitingChanges holds operations to be manually approved before applying to the virtual machine spec.
 	RestartAwaitingChanges []apiextensionsv1.JSON `json:"restartAwaitingChanges,omitempty"`
+	// List of virtual machine pods.
+	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`
+	Resources          ResourcesStatus     `json:"resources,omitempty"`
 }
 
 type VirtualMachineStats struct {
-	PhasesTransitions  []VirtualMachinePhaseTransitionTimestamp `json:"phasesTransitions,omitempty"`
-	LaunchTimeDuration VirtualMachineLaunchTimeDuration         `json:"launchTimeDuration,omitempty"`
+	// The history of phases.
+	PhasesTransitions []VirtualMachinePhaseTransitionTimestamp `json:"phasesTransitions,omitempty"`
+	// Launch information.
+	LaunchTimeDuration VirtualMachineLaunchTimeDuration `json:"launchTimeDuration,omitempty"`
 }
 
 // VirtualMachinePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vm.
 type VirtualMachinePhaseTransitionTimestamp struct {
 	Phase MachinePhase `json:"phase,omitempty"`
 	// PhaseTransitionTimestamp is the timestamp of when the phase change occurred
+	// +kubebuilder:validation:Format:=date-time
+	// +nullable
 	Timestamp metav1.Time `json:"timestamp,omitempty"`
 }
 
 type VirtualMachineLaunchTimeDuration struct {
+	// The waiting time for dependent resources. pending -> starting.
+	// +nullable
 	WaitingForDependencies *metav1.Duration `json:"waitingForDependencies,omitempty"`
+	// The waiting time for the virtual machine to start. starting -> running.
+	// +nullable
 	VirtualMachineStarting *metav1.Duration `json:"virtualMachineStarting,omitempty"`
-	GuestOSAgentStarting   *metav1.Duration `json:"guestOSAgentStarting,omitempty"`
+	// The waiting time for the guestOsAgent to start. running -> running with guestOSAgent.
+	// +nullable
+	GuestOSAgentStarting *metav1.Duration `json:"guestOSAgentStarting,omitempty"`
 }
 
 type VirtualMachineMigrationState struct {
-	StartTimestamp *metav1.Time           `json:"startTimestamp,omitempty"`
-	EndTimestamp   *metav1.Time           `json:"endTimestamp,omitempty"`
-	Target         VirtualMachineLocation `json:"target,omitempty"`
-	Source         VirtualMachineLocation `json:"source,omitempty"`
-	Result         MigrationResult        `json:"result,omitempty"`
+	// Migration start time.
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// Migration end time.
+	EndTimestamp *metav1.Time           `json:"endTimestamp,omitempty"`
+	Target       VirtualMachineLocation `json:"target,omitempty"`
+	Source       VirtualMachineLocation `json:"source,omitempty"`
+	Result       MigrationResult        `json:"result,omitempty"`
 }
 
+// MigrationResult defines a migration result
+// +kubebuilder:validation:Enum:={"Succeeded","Failed",""}
 type MigrationResult string
 
 const (
@@ -219,10 +324,52 @@ const (
 )
 
 type VirtualMachineLocation struct {
+	// The name of the node on which the VM is currently migrating.
 	Node string `json:"node,omitempty"`
-	Pod  string `json:"pod,omitempty"`
+	// The name of the pod where the VM is currently being migrated.
+	Pod string `json:"pod,omitempty"`
 }
 
+type VirtualMachinePod struct {
+	// Name of virtual machine pod.
+	Name string `json:"name"`
+	// Current working pod.
+	Active bool `json:"active"`
+}
+
+// ResourcesStatus defines resource usage statistics.
+type ResourcesStatus struct {
+	CPU    CPUStatus    `json:"cpu,omitempty"`
+	Memory MemoryStatus `json:"memory,omitempty"`
+}
+
+// CPUStatus defines statistics about the CPU resource usage.
+type CPUStatus struct {
+	// Current number of cores inside the VM.
+	Cores int `json:"cores"`
+	// Current CoreFraction.
+	CoreFraction string `json:"coreFraction,omitempty"`
+	// Requested cores.
+	RequestedCores resource.Quantity `json:"requestedCores,omitempty"`
+	// runtime overhead.
+	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
+}
+
+// MemoryStatus defines statistics about the Memory resource usage.
+type MemoryStatus struct {
+	// Current memory size.
+	Size resource.Quantity `json:"size"`
+	// Memory runtime overhead.
+	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
+}
+
+// MachinePhase defines current phase of the virtual machine:
+// * `Pending` - The process of starting the VM is in progress.
+// * `Running` - VM is running.
+// * `Degraded` - An error occurred during the startup process or while the VM is running.
+// * `Terminating` - The VM is currently in the process of shutting down.
+// * `Stopped` - The VM is stopped.
+// +kubebuilder:validation:Enum:={Pending,Running,Terminating,Stopped,Stopping,Starting,Migrating,Pause,Degraded}
 type MachinePhase string
 
 const (
@@ -242,9 +389,18 @@ const (
 type VirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []VirtualMachine `json:"items"`
+
+	// Items provides a list of VirtualMachines
+	Items []VirtualMachine `json:"items"`
 }
 
+// ProvisioningType parameter defines the type of provisioning script:
+//
+// Parameters supported for using the provisioning script:
+// * UserData - use the cloud-init in the .spec.provisioning.UserData section.
+// * UserDataRef - use a cloud-init script that resides in a different resource.
+// * SysprepRef - Use a Windows Automation script that resides in a different resource.
+// More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
 type ProvisioningType string
 
 const (
