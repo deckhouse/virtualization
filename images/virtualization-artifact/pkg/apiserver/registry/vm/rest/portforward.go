@@ -26,14 +26,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type PortForwardREST struct {
-	vmLister         cache.GenericLister
+	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
@@ -43,7 +43,7 @@ var (
 	_ rest.Connecter = &PortForwardREST{}
 )
 
-func NewPortForwardREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *PortForwardREST {
+func NewPortForwardREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *PortForwardREST {
 	return &PortForwardREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -85,7 +85,7 @@ func (r PortForwardREST) ConnectMethods() []string {
 
 func PortForwardLocation(
 	ctx context.Context,
-	getter cache.GenericLister,
+	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachinePortForward,
 	kubevirt KubevirtApiServerConfig,

@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -123,7 +124,34 @@ func setPhaseConditionForFinishedDisk(
 }
 
 type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+}
+
+func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, service.ErrStorageProfileNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
+		return true, nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return true, nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vd.Status.Phase = virtv2.DiskFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return true, nil
+	default:
+		return false, err
+	}
 }
 
 func setPhaseConditionForPVCProvisioningDisk(
@@ -131,10 +159,11 @@ func setPhaseConditionForPVCProvisioningDisk(
 	dv *cdiv1.DataVolume,
 	vd *virtv2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
+	sc *storev1.StorageClass,
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
-	err := checker.CheckImportProcess(ctx, dv, pvc, vd.Spec.PersistentVolumeClaim.StorageClass)
+	err := checker.CheckImportProcess(ctx, dv, pvc)
 	switch {
 	case err == nil:
 		if dv == nil {
@@ -144,12 +173,11 @@ func setPhaseConditionForPVCProvisioningDisk(
 			condition.Message = "Waiting for the pvc importer to be created"
 			return nil
 		}
-
-		isWFFC := vd.Spec.BindingMode != nil && *vd.Spec.BindingMode == virtv2.VirtualDiskBindingModeWaitForFirstConsumer
+		isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
 		if isWFFC && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.WaitForFirstConsumer
+			condition.Reason = vdcondition.WaitingForFirstConsumer
 			condition.Message = "The provisioning has been suspended: a created and scheduled virtual machine is awaited"
 			return nil
 		}
@@ -164,18 +192,6 @@ func setPhaseConditionForPVCProvisioningDisk(
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
-		return nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ProvisioningFailed
-		condition.Message = "Provided StorageClass not found in the cluster."
-		return nil
-	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ProvisioningFailed
-		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
 		return nil
 	default:
 		return err
