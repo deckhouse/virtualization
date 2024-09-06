@@ -76,13 +76,13 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 
 	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viObjetcRef)
+		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef)
 		}
 	}
 
@@ -223,13 +223,13 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 
 	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		viObjetcRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if viObjetcRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viObjetcRef)
+		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef)
 		}
 	}
 
