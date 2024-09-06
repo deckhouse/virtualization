@@ -24,14 +24,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type AddVolumeREST struct {
-	vmLister         cache.GenericLister
+	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
@@ -41,7 +41,7 @@ var (
 	_ rest.Connecter = &AddVolumeREST{}
 )
 
-func NewAddVolumeREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *AddVolumeREST {
+func NewAddVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *AddVolumeREST {
 	return &AddVolumeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -81,7 +81,7 @@ func (r AddVolumeREST) ConnectMethods() []string {
 
 func AddVolumeLocation(
 	ctx context.Context,
-	getter cache.GenericLister,
+	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineAddVolume,
 	kubevirt KubevirtApiServerConfig,

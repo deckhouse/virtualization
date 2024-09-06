@@ -24,11 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/tools/cache"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
+	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
@@ -71,13 +72,20 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 }
 
 func Install(
-	vmLister cache.GenericLister,
+	vmLister virtlisters.VirtualMachineLister,
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
+	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"), vmLister, kubevirt, proxyCertManager, crd)
+	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
+		vmLister,
+		kubevirt,
+		proxyCertManager,
+		crd,
+		vmClient,
+	)
 	info := Build(vmStorage)
 	return server.InstallAPIGroup(&info)
 }
