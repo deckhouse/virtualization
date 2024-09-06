@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	. "github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -40,7 +40,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return no problem when empty value", func() {
-			Expect(HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
+			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
 		})
 	})
 
@@ -71,7 +71,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return no problem with correct values", func() {
-			Expect(HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
+			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
 		})
 	})
 
@@ -102,7 +102,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return problem with incorrect values", func() {
-			Expect(HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeTrue())
+			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeTrue())
 		})
 	})
 })

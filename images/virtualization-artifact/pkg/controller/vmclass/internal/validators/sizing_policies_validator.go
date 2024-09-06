@@ -51,7 +51,7 @@ func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClas
 }
 
 func HasCpuSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
-	usedPairs := make(map[[2]int]bool)
+	usedPairs := make(map[[2]int]struct{})
 
 	for i, policy1 := range vmclass.SizingPolicies {
 		for j, policy2 := range vmclass.SizingPolicies {
@@ -71,8 +71,8 @@ func HasCpuSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 				return true
 			}
 
-			usedPairs[[2]int{i, j}] = true
-			usedPairs[[2]int{j, i}] = true
+			usedPairs[[2]int{i, j}] = struct{}{}
+			usedPairs[[2]int{j, i}] = struct{}{}
 		}
 	}
 
