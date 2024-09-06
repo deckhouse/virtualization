@@ -220,7 +220,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.Start(ctx, diskSize, &sc, source, vi, supgen, false)
+		err = ds.diskService.Start(ctx, diskSize, &sc, source, vi, supgen)
 		if err != nil {
 			return false, err
 		}

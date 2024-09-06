@@ -135,7 +135,7 @@ func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePh
 }
 
 type CheckImportProcess interface {
-	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim, storageClassName *string) error
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 	GetStorageClassNameForClonePVC(ctx context.Context) (string, error)
 }
 
@@ -174,12 +174,7 @@ func setPhaseConditionForPVCProvisioningImage(
 	condition *metav1.Condition,
 	checker CheckImportProcess,
 ) error {
-	sc, err := checker.GetStorageClassNameForClonePVC(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = checker.CheckImportProcess(ctx, dv, pvc, &sc)
+	err := checker.CheckImportProcess(ctx, dv, pvc)
 	switch {
 	case err == nil:
 		if dv == nil {

@@ -127,7 +127,7 @@ func (s DiskService) Start(
 		return err
 	}
 
-	if source.Blank != nil {
+	if source.Blank != nil || source.PVC != nil {
 		return nil
 	}
 
@@ -136,28 +136,6 @@ func (s DiskService) Start(
 
 func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.client.Create(ctx, pvc)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
-
-func (s DiskService) StartClone(
-	ctx context.Context,
-	pvcSize resource.Quantity,
-	storageClass *string,
-	source *cdiv1.DataVolumeSource,
-	obj ObjectKind,
-	sup *supplements.Generator,
-) error {
-	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
-	dvBuilder.SetDataSource(source)
-	dvBuilder.SetPVC(storageClass, pvcSize)
-	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
-	dvBuilder.SetBindingMode(false)
-
-	err := s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
@@ -530,22 +508,6 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
-}
-
-func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
-	var scs storev1.StorageClassList
-	err := s.client.List(ctx, &scs, &client.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, sc := range scs.Items {
-		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
-			return &sc, nil
-		}
-	}
-
-	return nil, ErrDefaultStorageClassNotFound
 }
 
 func (s DiskService) GetStorageClassNameForClonePVC(ctx context.Context) (string, error) {

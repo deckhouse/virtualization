@@ -109,7 +109,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			},
 		}
 
-		err = ds.diskService.StartClone(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -148,8 +148,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, condition, ds.diskService)
-		if err != nil {
+		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
+		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, condition, ds.diskService); err != nil {
 			return false, err
 		}
 
