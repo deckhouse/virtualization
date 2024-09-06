@@ -87,7 +87,7 @@ fi
 IMAGE=$(parse_flag "image" "i")
 
 if [[ -z $IMAGE ]] ; then
-    IMAGE="ttl.sh/$(uuidgen):10m"
+    IMAGE="ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m"
 fi
 
 CMD="${ARGS[0]}"
