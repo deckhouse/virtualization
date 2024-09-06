@@ -90,8 +90,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			return false, err
 		}
 
-		var size resource.Quantity
-		size, err = ds.getPVCSize(vd, viRef.Status.Size)
+		size, err := ds.getPVCSize(vd, viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(condition, &vd.Status.Phase, err)
 

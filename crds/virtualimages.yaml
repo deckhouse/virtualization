@@ -188,12 +188,6 @@ spec:
                     - properties:
                         type:
                           enum: ["Upload"]
-              oneOf:
-                - properties:
-                    storage:
-                      enum:
-                        - "ContainerRegistry"
-                        - "Kubernetes"
             status:
               type: object
               properties:
