@@ -108,7 +108,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			},
 		}
 
-		err = ds.diskService.StartClone(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start2(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
 		if err != nil {
 			return false, err
 		}

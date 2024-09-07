@@ -255,7 +255,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.StartClone(ctx, size, &sc, source, vi, supgen)
+		err = ds.diskService.Start2(ctx, size, &sc, source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
