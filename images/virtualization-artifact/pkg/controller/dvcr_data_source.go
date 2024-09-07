@@ -104,6 +104,10 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 			}
 
 			if vmi != nil {
+				if vmi.Spec.Storage == virtv2.StorageKubernetes {
+					return DVCRDataSource{}, fmt.Errorf("the DVCR not used for virtual images with storage type 'Kubernetes'")
+				}
+
 				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
