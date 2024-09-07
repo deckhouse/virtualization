@@ -153,7 +153,11 @@ func (s DiskService) Start2(
 		return err
 	}
 
-	return nil
+	if source.PVC != nil {
+		return nil
+	}
+
+	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
 func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
