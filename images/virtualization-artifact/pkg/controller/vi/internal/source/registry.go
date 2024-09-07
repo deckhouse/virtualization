@@ -199,7 +199,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.Start2(ctx, diskSize, &sc, source, vi, supgen)
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, &sc, source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
