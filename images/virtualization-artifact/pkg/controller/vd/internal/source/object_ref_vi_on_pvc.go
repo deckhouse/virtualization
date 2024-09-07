@@ -83,13 +83,6 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 		vd.Status.Progress = "0%"
 		vd.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
-		refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
-
-		refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
-		if err != nil {
-			return false, err
-		}
-
 		size, err := ds.getPVCSize(vd, viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(condition, &vd.Status.Phase, err)
@@ -103,8 +96,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 
 		source := &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{
-				Name:      refPvc.Name,
-				Namespace: refPvc.Namespace,
+				Name:      viRef.Status.Target.PersistentVolumeClaim,
+				Namespace: viRef.Namespace,
 			},
 		}
 

@@ -73,13 +73,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		return false, err
 	}
 
-	refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
-
-	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
-	if err != nil {
-		return false, err
-	}
-
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
@@ -106,7 +99,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), refPvc.Name, refPvc.Namespace)
+		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -225,15 +218,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
-		refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
-
-		refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
-		if err != nil {
-			return false, err
-		}
-
-		var size resource.Quantity
-		size, err = ds.getPVCSize(viRef.Status.Size)
+		size, err := ds.getPVCSize(viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 
@@ -246,8 +231,8 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		source := &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{
-				Name:      refPvc.Name,
-				Namespace: refPvc.Namespace,
+				Name:      viRef.Status.Target.PersistentVolumeClaim,
+				Namespace: viRef.Namespace,
 			},
 		}
 		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)

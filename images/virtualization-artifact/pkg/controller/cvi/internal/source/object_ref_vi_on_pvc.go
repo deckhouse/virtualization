@@ -60,13 +60,6 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		return false, err
 	}
 
-	refSupgen := supplements.NewGenerator(common.VIShortName, viRef.Name, viRef.Namespace, viRef.UID)
-
-	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
-	if err != nil {
-		return false, err
-	}
-
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
@@ -93,7 +86,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), refPvc.Name, refPvc.Namespace)
+		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(condition, &cvi.Status.Phase, err)
 		if err != nil {
