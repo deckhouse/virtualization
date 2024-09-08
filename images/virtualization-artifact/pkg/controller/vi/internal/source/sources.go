@@ -211,3 +211,22 @@ func setPhaseConditionForPVCProvisioningImage(
 		return err
 	}
 }
+
+func setPhaseConditionFromPodError(ready *metav1.Condition, vi *virtv2.VirtualImage, err error) error {
+	vi.Status.Phase = virtv2.ImageFailed
+
+	switch {
+	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = vicondition.ProvisioningNotStarted
+		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		return nil
+	case errors.Is(err, service.ErrProvisioningFailed):
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = vicondition.ProvisioningFailed
+		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		return nil
+	default:
+		return err
+	}
+}
