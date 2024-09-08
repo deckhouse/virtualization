@@ -62,15 +62,6 @@ const (
 type Importer struct {
 	PodSettings *PodSettings
 	EnvSettings *Settings
-	pvcName     string
-}
-
-func NewImporterFromPVC(podSettings *PodSettings, envSettings *Settings, pvcName string) *Importer {
-	return &Importer{
-		PodSettings: podSettings,
-		EnvSettings: envSettings,
-		pvcName:     pvcName,
-	}
 }
 
 func NewImporter(podSettings *PodSettings, envSettings *Settings) *Importer {
@@ -91,6 +82,7 @@ type PodSettings struct {
 	ResourceRequirements *corev1.ResourceRequirements
 	ImagePullSecrets     []corev1.LocalObjectReference
 	PriorityClassName    string
+	PVCName              string
 	// workloadNodePlacement   *sdkapi.NodePlacement
 }
 
@@ -171,19 +163,6 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 	cc.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
 	cc.SetRestrictedSecurityContext(&pod.Spec)
 
-	if imp.pvcName != "" {
-		pod.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "volume",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: imp.pvcName,
-					},
-				},
-			},
-		}
-	}
-
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
@@ -210,15 +189,6 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 
 	if imp.PodSettings.ResourceRequirements != nil {
 		container.Resources = *imp.PodSettings.ResourceRequirements
-	}
-
-	if imp.pvcName != "" {
-		container.VolumeDevices = []corev1.VolumeDevice{
-			{
-				Name:       "volume",
-				DevicePath: "/dev/xvda",
-			},
-		}
 	}
 
 	return container
@@ -392,6 +362,25 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.EnvVar{
 				Name:  common.ImporterProxyCertDirVar,
 				Value: common.ImporterProxyCertDir,
+			},
+		)
+	}
+
+	if imp.PodSettings.PVCName != "" {
+		podutil.AddVolumeDevice(
+			pod,
+			container,
+			corev1.Volume{
+				Name: "volume",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: imp.PodSettings.PVCName,
+					},
+				},
+			},
+			corev1.VolumeDevice{
+				Name:       "volume",
+				DevicePath: "/dev/xvda",
 			},
 		)
 	}
