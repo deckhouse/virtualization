@@ -47,10 +47,9 @@ import (
 )
 
 type DiskService struct {
-	client                  client.Client
-	dvcrSettings            *dvcr.Settings
-	protection              *ProtectionService
-	storageClassForClonePVC string
+	client       client.Client
+	dvcrSettings *dvcr.Settings
+	protection   *ProtectionService
 }
 
 func NewDiskService(
@@ -62,20 +61,6 @@ func NewDiskService(
 		client:       client,
 		dvcrSettings: dvcrSettings,
 		protection:   protection,
-	}
-}
-
-func NewDiskServiceWithClonePVC(
-	client client.Client,
-	dvcrSettings *dvcr.Settings,
-	protection *ProtectionService,
-	storageClassForClonePVC string,
-) *DiskService {
-	return &DiskService{
-		client:                  client,
-		dvcrSettings:            dvcrSettings,
-		protection:              protection,
-		storageClassForClonePVC: storageClassForClonePVC,
 	}
 }
 
@@ -137,14 +122,14 @@ func (s DiskService) Start(
 func (s DiskService) StartWithIgnoreWFFC(
 	ctx context.Context,
 	pvcSize resource.Quantity,
-	storageClass *string,
+	storageClass string,
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
 ) error {
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetPVC(storageClass, pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
+	dvBuilder.SetPVC(&storageClass, pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
 	dvBuilder.SetBindingMode(false)
 
@@ -534,19 +519,6 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
-}
-
-func (s DiskService) GetStorageClassNameForClonePVC(ctx context.Context) (string, error) {
-	if s.storageClassForClonePVC == "" {
-		dsc, err := s.getDefaultStorageClass(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		return dsc.Name, nil
-	}
-
-	return s.storageClassForClonePVC, nil
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")

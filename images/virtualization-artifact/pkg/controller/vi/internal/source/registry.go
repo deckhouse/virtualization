@@ -44,11 +44,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService     Stat
-	importerService Importer
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
-	diskService     *service.DiskService
+	statService        Stat
+	importerService    Importer
+	dvcrSettings       *dvcr.Settings
+	client             client.Client
+	diskService        *service.DiskService
+	storageClassForPVC string
 }
 
 func NewRegistryDataSource(
@@ -57,13 +58,15 @@ func NewRegistryDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
+	storageClassForPVC string,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:     statService,
-		importerService: importerService,
-		dvcrSettings:    dvcrSettings,
-		client:          client,
-		diskService:     diskService,
+		statService:        statService,
+		importerService:    importerService,
+		dvcrSettings:       dvcrSettings,
+		client:             client,
+		diskService:        diskService,
+		storageClassForPVC: storageClassForPVC,
 	}
 }
 
@@ -194,12 +197,13 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
+		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, &sc, source, vi, supgen)
+
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}

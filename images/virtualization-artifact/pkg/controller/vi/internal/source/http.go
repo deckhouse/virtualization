@@ -39,10 +39,11 @@ import (
 )
 
 type HTTPDataSource struct {
-	statService     Stat
-	importerService Importer
-	dvcrSettings    *dvcr.Settings
-	diskService     *service.DiskService
+	statService        Stat
+	importerService    Importer
+	dvcrSettings       *dvcr.Settings
+	diskService        *service.DiskService
+	storageClassForPVC string
 }
 
 func NewHTTPDataSource(
@@ -50,12 +51,14 @@ func NewHTTPDataSource(
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
+	storageClassForPVC string,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
-		statService:     statService,
-		importerService: importerService,
-		dvcrSettings:    dvcrSettings,
-		diskService:     diskService,
+		statService:        statService,
+		importerService:    importerService,
+		dvcrSettings:       dvcrSettings,
+		diskService:        diskService,
+		storageClassForPVC: storageClassForPVC,
 	}
 }
 
@@ -305,13 +308,13 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
+		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
 
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, &sc, source, vi, supgen)
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}

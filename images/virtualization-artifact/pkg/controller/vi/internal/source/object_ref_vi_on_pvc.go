@@ -39,11 +39,12 @@ import (
 )
 
 type ObjectRefDataVirtualImageOnPVC struct {
-	statService     Stat
-	importerService Importer
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
-	diskService     *service.DiskService
+	statService        Stat
+	importerService    Importer
+	dvcrSettings       *dvcr.Settings
+	client             client.Client
+	diskService        *service.DiskService
+	storageClassForPVC string
 }
 
 func NewObjectRefDataVirtualImageOnPVC(
@@ -52,13 +53,15 @@ func NewObjectRefDataVirtualImageOnPVC(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
+	storageClassForPVC string,
 ) *ObjectRefDataVirtualImageOnPVC {
 	return &ObjectRefDataVirtualImageOnPVC{
-		statService:     statService,
-		importerService: importerService,
-		dvcrSettings:    dvcrSettings,
-		client:          client,
-		diskService:     diskService,
+		statService:        statService,
+		importerService:    importerService,
+		dvcrSettings:       dvcrSettings,
+		client:             client,
+		diskService:        diskService,
+		storageClassForPVC: storageClassForPVC,
 	}
 }
 
@@ -235,12 +238,14 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 				Namespace: viRef.Namespace,
 			},
 		}
-		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
+
+		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, size, &sc, source, vi, supgen)
+
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, size, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}

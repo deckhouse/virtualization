@@ -41,10 +41,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService     Stat
-	uploaderService Uploader
-	dvcrSettings    *dvcr.Settings
-	diskService     *service.DiskService
+	statService        Stat
+	uploaderService    Uploader
+	dvcrSettings       *dvcr.Settings
+	diskService        *service.DiskService
+	storageClassForPVC string
 }
 
 func NewUploadDataSource(
@@ -52,12 +53,14 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
+	storageClassForPVC string,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:     statService,
-		uploaderService: uploaderService,
-		dvcrSettings:    dvcrSettings,
-		diskService:     diskService,
+		statService:        statService,
+		uploaderService:    uploaderService,
+		dvcrSettings:       dvcrSettings,
+		diskService:        diskService,
+		storageClassForPVC: storageClassForPVC,
 	}
 }
 
@@ -215,12 +218,13 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		sc, err := ds.diskService.GetStorageClassNameForClonePVC(ctx)
+		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, &sc, source, vi, supgen)
+
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
