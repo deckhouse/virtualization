@@ -117,10 +117,10 @@ func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]b
 		return obj, nil
 	}
 
-	returnObj, err := sjson.SetBytes(obj, "kind", rwrKind)
+	obj, err := sjson.SetBytes(obj, "kind", rwrKind)
 	if err != nil {
 		return nil, err
 	}
 
-	return sjson.SetBytes(returnObj, "apiGroup", rwrApiVersion)
+	return sjson.SetBytes(obj, "apiGroup", rwrApiVersion)
 }
