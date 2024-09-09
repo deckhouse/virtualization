@@ -156,19 +156,20 @@ spec:
                     objectRef:
                       type: object
                       description: |
-                        Use an existing `VirtualImage` or `ClusterVirtualImage` to create an image.
+                        Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
                       required: ["kind", "name"]
                       properties:
                         kind:
                           type: string
-                          description: A kind of existing `VirtualImage` or `ClusterVirtualImage`.
+                          description: A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
                           enum:
                             - "ClusterVirtualImage"
                             - "VirtualImage"
+                            - "VirtualDisk"
                         name:
                           type: string
                           description: |
-                            A name of existing `VirtualImage` or `ClusterVirtualImage`.
+                            A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
                   oneOf:
                     - properties:
                         type:
@@ -326,7 +327,7 @@ spec:
                 sourceUID:
                   type: string
                   description: |
-                    The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the virtual image.
+                    The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.
                 observedGeneration:
                   type: integer
                   description: |
