@@ -178,7 +178,9 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 	var opts internalversion.ListOptions
 	if options != nil {
 		opts = *options
-		labelSelector = options.LabelSelector
+	}
+	if !(opts.LabelSelector == nil || opts.LabelSelector.Empty()) {
+		labelSelector = opts.LabelSelector
 	}
 
 	name, err := nameFor(opts.FieldSelector)
