@@ -80,6 +80,10 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
+		if vi == nil {
+			return false, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
+		}
+
 		if vi.Spec.Storage == virtv2.StorageKubernetes {
 			return ds.viOnPvcSyncer.Sync(ctx, cvi, vi, &condition)
 		}

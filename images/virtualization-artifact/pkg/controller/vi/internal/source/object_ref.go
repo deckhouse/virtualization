@@ -232,6 +232,10 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
+		if viRef == nil {
+			return false, fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
+		}
+
 		if viRef.Spec.Storage == virtv2.StorageKubernetes {
 			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef)
 		}
@@ -375,17 +379,17 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 
 	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if vi == nil {
+		if viRef == nil {
 			return fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
-			if vi.Status.Phase != virtv2.ImageReady {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+			if viRef.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
 			return nil
