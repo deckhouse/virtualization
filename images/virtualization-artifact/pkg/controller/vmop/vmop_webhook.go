@@ -59,7 +59,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	if reflect.DeepEqual(oldVmop.Spec, newVmop.Spec) {
 		return nil, nil
 	}
-	err := fmt.Errorf("vmop %q is invalid. vmop.spec is immutable", oldVmop.GetName())
+	err := fmt.Errorf("recreate VirtualMachineOperation/%s to apply changes: .spec modification is not allowed after creation", oldVmop.GetName())
 	return nil, err
 }
 

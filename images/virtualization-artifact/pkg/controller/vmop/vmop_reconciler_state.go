@@ -17,15 +17,7 @@ limitations under the License.
 package vmop
 
 import (
-	"context"
-	"fmt"
-	"log/slog"
-
-	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -38,79 +30,6 @@ type ReconcilerState struct {
 
 	VMOP *helper.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 	VM   *virtv2.VirtualMachine
-
-	operationResult *OperationResult
-}
-
-type OperationResult struct {
-	success bool
-	message string
-}
-
-func (op *OperationResult) WasSuccessful() bool {
-	return op.success
-}
-
-func (op *OperationResult) Message() string {
-	return op.message
-}
-
-func NewReconcilerState(name types.NamespacedName, logger *slog.Logger, client client.Client, cache cache.Cache) *ReconcilerState {
-	state := &ReconcilerState{
-		Client: client,
-		VMOP: helper.NewResource(
-			name, logger, client, cache,
-			func() *virtv2.VirtualMachineOperation { return &virtv2.VirtualMachineOperation{} },
-			func(obj *virtv2.VirtualMachineOperation) virtv2.VirtualMachineOperationStatus { return obj.Status },
-		),
-	}
-	return state
-}
-
-func (state *ReconcilerState) Reload(ctx context.Context, req reconcile.Request, logger *slog.Logger, client client.Client) error {
-	err := state.VMOP.Fetch(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to get %q: %w", req.NamespacedName, err)
-	}
-	if state.VMOP.IsEmpty() {
-		logger.Info("Reconcile observe an absent VMOP: it may be deleted", "vmop.name", req.Name, "vmop.namespace", req.Namespace)
-		return nil
-	}
-
-	vmName := state.VMOP.Current().Spec.VirtualMachine
-	vm, err := helper.FetchObject(ctx,
-		types.NamespacedName{Name: vmName, Namespace: req.Namespace},
-		client,
-		&virtv2.VirtualMachine{})
-	if err != nil {
-		return fmt.Errorf("unable to get VM %q: %w", vmName, err)
-	}
-	state.VM = vm
-
-	return nil
-}
-
-func (state *ReconcilerState) ShouldReconcile(_ *slog.Logger) bool {
-	return !state.VMOP.IsEmpty()
-}
-
-func (state *ReconcilerState) ApplySync(ctx context.Context, _ *slog.Logger) error {
-	if err := state.VMOP.UpdateMeta(ctx); err != nil {
-		return fmt.Errorf("unable to update VMOP %q meta: %w", state.VMOP.Name(), err)
-	}
-	return nil
-}
-
-func (state *ReconcilerState) ApplyUpdateStatus(ctx context.Context, _ *slog.Logger) error {
-	return state.VMOP.UpdateStatus(ctx)
-}
-
-func (state *ReconcilerState) SetReconcilerResult(result *reconcile.Result) {
-	state.Result = result
-}
-
-func (state *ReconcilerState) GetReconcilerResult() *reconcile.Result {
-	return state.Result
 }
 
 func (state *ReconcilerState) IsDeletion() bool {
@@ -121,10 +40,6 @@ func (state *ReconcilerState) IsDeletion() bool {
 		return true
 	}
 	return state.VMOP.Current().DeletionTimestamp != nil && !state.IsInProgress()
-}
-
-func (state *ReconcilerState) IsProtected() bool {
-	return controllerutil.ContainsFinalizer(state.VMOP.Current(), virtv2.FinalizerVMOPCleanup)
 }
 
 func (state *ReconcilerState) IsCompleted() bool {
@@ -150,51 +65,4 @@ func (state *ReconcilerState) IsInProgress() bool {
 
 func (state *ReconcilerState) VmIsEmpty() bool {
 	return state.VM == nil
-}
-
-func (state *ReconcilerState) OtherVMOPInProgress(ctx context.Context) (bool, error) {
-	var vmops virtv2.VirtualMachineOperationList
-	err := state.Client.List(ctx, &vmops, client.InNamespace(state.VMOP.Current().GetNamespace()))
-	if err != nil {
-		return false, err
-	}
-	vmName := state.VMOP.Current().Spec.VirtualMachine
-
-	for _, vmop := range vmops.Items {
-		if vmop.GetName() == state.VMOP.Current().GetName() || vmop.Spec.VirtualMachine != vmName {
-			continue
-		}
-		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (state *ReconcilerState) SetOperationResult(result bool, msg string) {
-	state.operationResult = &OperationResult{message: msg, success: result}
-}
-
-func (state *ReconcilerState) GetOperationResult() *OperationResult {
-	return state.operationResult
-}
-
-func (state *ReconcilerState) GetKVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
-	if state.VmIsEmpty() {
-		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachine)
-	}
-	kvvm := &virtv1.VirtualMachine{}
-	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}
-	err := state.Client.Get(ctx, key, kvvm)
-	return kvvm, err
-}
-
-func (state *ReconcilerState) GetKVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error) {
-	if state.VmIsEmpty() {
-		return nil, fmt.Errorf("VM %s not found", state.VMOP.Current().Spec.VirtualMachine)
-	}
-	kvvmi := &virtv1.VirtualMachineInstance{}
-	key := types.NamespacedName{Name: state.VM.GetName(), Namespace: state.VM.GetNamespace()}
-	err := state.Client.Get(ctx, key, kvvmi)
-	return kvvmi, err
 }

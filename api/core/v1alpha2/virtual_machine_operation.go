@@ -35,15 +35,15 @@ type VirtualMachineOperation struct {
 }
 
 type VirtualMachineOperationSpec struct {
-	Type           VMOPOperation `json:"type"`
-	VirtualMachine string        `json:"virtualMachineName"`
-	Force          bool          `json:"force,omitempty"`
+	Type           VMOPType `json:"type"`
+	VirtualMachine string   `json:"virtualMachineName"`
+	Force          bool     `json:"force,omitempty"`
 }
 
 type VirtualMachineOperationStatus struct {
-	Phase          VMOPPhase `json:"phase"`
-	FailureReason  string    `json:"failureReason,omitempty"`
-	FailureMessage string    `json:"failureMessage,omitempty"`
+	Phase              VMOPPhase          `json:"phase"`
+	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 }
 
 // VirtualMachineOperationList contains a list of VirtualMachineOperation
@@ -57,16 +57,17 @@ type VirtualMachineOperationList struct {
 type VMOPPhase string
 
 const (
-	VMOPPhasePending    VMOPPhase = "Pending"
-	VMOPPhaseInProgress VMOPPhase = "InProgress"
-	VMOPPhaseCompleted  VMOPPhase = "Completed"
-	VMOPPhaseFailed     VMOPPhase = "Failed"
+	VMOPPhasePending     VMOPPhase = "Pending"
+	VMOPPhaseInProgress  VMOPPhase = "InProgress"
+	VMOPPhaseCompleted   VMOPPhase = "Completed"
+	VMOPPhaseFailed      VMOPPhase = "Failed"
+	VMOPPhaseTerminating VMOPPhase = "Terminating"
 )
 
-type VMOPOperation string
+type VMOPType string
 
 const (
-	VMOPOperationTypeRestart VMOPOperation = "Restart"
-	VMOPOperationTypeStart   VMOPOperation = "Start"
-	VMOPOperationTypeStop    VMOPOperation = "Stop"
+	VMOPTypeRestart VMOPType = "Restart"
+	VMOPTypeStart   VMOPType = "Start"
+	VMOPTypeStop    VMOPType = "Stop"
 )

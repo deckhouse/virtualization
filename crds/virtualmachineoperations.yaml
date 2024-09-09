@@ -64,8 +64,41 @@ spec:
                       enum: ["Restart", "Stop"]
                   required: ["virtualMachineName"]
             status:
+              description: |
+                The latest observed state of the VirtualMachineOperation resource.
               type: object
               properties:
+                conditions:
+                  description: |
+                    The latest detailed observations of the VirtualMachineOperation resource.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - status
+                      - type
                 phase:
                   type: string
                   description: |
@@ -80,14 +113,10 @@ spec:
                     - "InProgress"
                     - "Completed"
                     - "Failed"
-                failureReason:
-                  type: string
+                observedGeneration:
+                  type: integer
                   description: |
-                    A brief description of the cause of the error.
-                failureMessage:
-                  type: string
-                  description: |
-                    Detailed description of the error.
+                    The generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string
