@@ -50,3 +50,17 @@ func NewClusterImageNotReadyError(name string) error {
 		name: name,
 	}
 }
+
+type VirtualDiskNotReadyError struct {
+	name string
+}
+
+func (e VirtualDiskNotReadyError) Error() string {
+	return fmt.Sprintf("VirtualDisk %s not ready", e.name)
+}
+
+func NewVirtualDiskNotReadyError(name string) error {
+	return VirtualDiskNotReadyError{
+		name: name,
+	}
+}

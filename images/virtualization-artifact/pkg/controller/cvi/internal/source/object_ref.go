@@ -279,6 +279,8 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 		return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
 		return NewClusterImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+	case virtv2.ClusterVirtualImageObjectRefKindVirtualDisk:
+		return ds.vdSyncer.Validate(ctx, cvi)
 	default:
 		return fmt.Errorf("unexpected object ref kind: %s", cvi.Spec.DataSource.ObjectRef.Kind)
 	}

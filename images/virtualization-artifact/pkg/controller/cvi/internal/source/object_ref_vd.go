@@ -19,6 +19,7 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -214,4 +215,21 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, s
 	)
 
 	return &settings
+}
+
+func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDisk {
+		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
+	}
+
+	vd, err := ds.diskService.GetVirtualDisk(ctx, cvi.Spec.DataSource.ObjectRef.Name, cvi.Spec.DataSource.ObjectRef.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if vd == nil || vd.Status.Phase != virtv2.DiskReady {
+		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+	}
+
+	return nil
 }
