@@ -1153,7 +1153,7 @@ spec:
                     type: object
                   type: array
                 resources:
-                  description: ResourcesStatus defines resource usage statistics.
+                  description: Resource utilization statistics.
                   properties:
                     cpu:
                       description:
