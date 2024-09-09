@@ -1164,7 +1164,7 @@ spec:
                           description: Current CoreFraction.
                           type: string
                         cores:
-                          description: Current number of cores inside the VM.
+                          description: The current number of cores in the virtual machine.
                           type: integer
                         requestedCores:
                           anyOf:
