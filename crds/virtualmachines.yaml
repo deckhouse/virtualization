@@ -1157,7 +1157,7 @@ spec:
                   properties:
                     cpu:
                       description:
-                        CPUStatus defines statistics about the CPU resource
+                        CPU utilization statistics.
                         usage.
                       properties:
                         coreFraction:
