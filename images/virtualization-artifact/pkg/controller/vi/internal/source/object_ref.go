@@ -53,6 +53,7 @@ type ObjectRefDataSource struct {
 	storageClassForPVC string
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
+	vdSyncer         *ObjectRefVirtualDisk
 }
 
 func NewObjectRefDataSource(
@@ -71,6 +72,7 @@ func NewObjectRefDataSource(
 		diskService:        diskService,
 		storageClassForPVC: storageClassForPVC,
 		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
+		vdSyncer:           NewObjectRefVirtualDisk(importerService, diskService, dvcrSettings, statService),
 	}
 }
 
@@ -410,6 +412,8 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
 		return NewClusterImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+	case virtv2.VirtualImageObjectRefKindVirtualDisk:
+		return ds.vdSyncer.Validate(ctx, vi)
 	default:
 		return fmt.Errorf("unexpected object ref kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
 	}
