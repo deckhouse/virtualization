@@ -20,8 +20,8 @@ function usage {
 Usage: $0 COMMAND OPTIONS
 
 Commands:
-  build <controller> Build docker image with dlv.
-  push  <controller> Build and Push docker image with dlv.
+  build <controller/apiserver> Build docker image with dlv.
+  push  <controller/apiserver> Build and Push docker image with dlv.
 
 Global Flags:
  --image,-i  (optional)  The name of the image being built.
@@ -30,7 +30,7 @@ Examples:
   # build"
     $(basename "$0") build controller --image=myimage:latest
   # push"
-    $(basename "$0") push controller
+    $(basename "$0") push apiserver
 EOF
 }
 
@@ -42,33 +42,45 @@ function usage_exit {
 }
 
 function build_controller {
+    build "dlv-controller.Dockerfile"
+}
+
+function build_apiserver {
+    build "dlv-apiserver.Dockerfile"
+}
+
+function build {
+    local dockerfile=$1
     cd "$ROOT"
-    docker build -f ./images/virtualization-artifact/hack/dlv-controller.Dockerfile -t "${IMAGE}" .
+    docker build -f "./images/virtualization-artifact/hack/$dockerfile" -t "${IMAGE}" .
 }
 
 function push {
     docker push "${IMAGE}"
 }
 
+# shellcheck disable=SC2120
 function print_patches_controller {
+    local deployment=$1
+
     cat <<EOF
 
 Run commands:
-kubectl -n d8-virtualization scale deployment virtualization-controller --replicas 1
-kubectl -n d8-virtualization patch deployment virtualization-controller --type='json' -p '[{"op": "replace", "path": "/spec/template/spec/containers/1/image", "value": "${IMAGE}"}]'
-kubectl -n d8-virtualization patch deployment virtualization-controller --type='strategic' -p '{
+kubectl -n d8-virtualization scale deployment ${deployment} --replicas 1
+kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -p '{
     "spec": {
         "template": {
             "spec": {
                 "containers": [{
-                    "name": "virtualization-controller",
+                    "name": "${deployment}",
+                    "image": "${IMAGE}",
                     "ports": [{"containerPort": 2345, "name": "dlv"}]
                 }]
             }
         }
     }
 }'
-kubectl -n d8-virtualization port-forward deployments/virtualization-controller 2345:2345
+kubectl -n d8-virtualization port-forward deployments/${deployment} 2345:2345
 
 EOF
 }
@@ -100,26 +112,35 @@ case "$CMD" in
         case "$NAME" in
             "controller")
                 build_controller
-                echo "Built image ${IMAGE} successfully."
+                ;;
+            "apiserver")
+                build_apiserver
                 ;;
             *)
                 usage_exit 1
                 ;;
         esac
+        echo "Built image ${IMAGE} successfully."
         ;;
     "push")
+        deployment=""
         case "$NAME" in
             "controller")
                 build_controller
-                echo "Built image ${IMAGE} successfully."
-                push
-                echo "Push image ${IMAGE} successfully."
-                print_patches_controller
+                deployment="virtualization-controller"
+                ;;
+            "apiserver")
+                build_apiserver
+                deployment="virtualization-api"
                 ;;
             *)
                 usage_exit 1
                 ;;
         esac
+        echo "Built image ${IMAGE} successfully."
+        push
+        echo "Push image ${IMAGE} successfully."
+        print_patches_controller "${deployment}"
         ;;
     *)
         usage_exit 1

@@ -24,7 +24,7 @@ import (
 )
 
 func nameFor(fs fields.Selector) (string, error) {
-	if fs == nil {
+	if fs == nil || fs.Empty() {
 		fs = fields.Everything()
 	}
 	name, found := fs.RequiresExactMatch("metadata.name")

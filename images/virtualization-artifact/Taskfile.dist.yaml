@@ -681,6 +681,14 @@ tasks:
     desc: "Push image virtualization-controller with dlv"
     cmd: ./hack/dlv.sh push controller --image="$DLV_IMAGE"
 
+  dlv:build:apiserver:
+    desc: "Build image virtualization-api with dlv"
+    cmd: ./hack/dlv.sh build apiserver --image="$DLV_IMAGE"
+
+  dlv:build-push:apiserver:
+    desc: "Push image virtualization-api with dlv"
+    cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
+
   _copy_d8_registry_secret:
     internal: true
     vars:
