@@ -1156,8 +1156,7 @@ spec:
                   description: Resource utilization statistics.
                   properties:
                     cpu:
-                      description:
-                        CPU utilization statistics.
+                      description: CPU utilization statistics.
                         usage.
                       properties:
                         coreFraction:
@@ -1184,8 +1183,7 @@ spec:
                         - cores
                       type: object
                     memory:
-                      description:
-                        Memory utilization statistics.
+                      description: Memory utilization statistics.
                         resource usage.
                       properties:
                         runtimeOverhead:
