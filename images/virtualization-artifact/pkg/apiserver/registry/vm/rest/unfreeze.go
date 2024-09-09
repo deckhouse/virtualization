@@ -24,14 +24,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type UnfreezeREST struct {
-	vmLister         virtlisters.VirtualMachineLister
+	vmLister         cache.GenericLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
@@ -41,7 +41,7 @@ var (
 	_ rest.Connecter = &UnfreezeREST{}
 )
 
-func NewUnfreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *UnfreezeREST {
+func NewUnfreezeREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *UnfreezeREST {
 	return &UnfreezeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -81,7 +81,7 @@ func (r UnfreezeREST) ConnectMethods() []string {
 
 func UnfreezeLocation(
 	ctx context.Context,
-	getter virtlisters.VirtualMachineLister,
+	getter cache.GenericLister,
 	name string,
 	opts *subresources.VirtualMachineUnfreeze,
 	kubevirt KubevirtApiServerConfig,

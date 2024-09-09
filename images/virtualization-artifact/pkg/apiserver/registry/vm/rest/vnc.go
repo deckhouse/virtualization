@@ -24,14 +24,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type VNCREST struct {
-	vmLister         virtlisters.VirtualMachineLister
+	vmLister         cache.GenericLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
@@ -41,7 +41,7 @@ var (
 	_ rest.Connecter = &VNCREST{}
 )
 
-func NewVNCREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *VNCREST {
+func NewVNCREST(vmLister cache.GenericLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *VNCREST {
 	return &VNCREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -83,7 +83,7 @@ func (r VNCREST) ConnectMethods() []string {
 
 func VNCLocation(
 	ctx context.Context,
-	getter virtlisters.VirtualMachineLister,
+	getter cache.GenericLister,
 	name string,
 	opts *subresources.VirtualMachineVNC,
 	kubevirt KubevirtApiServerConfig,
