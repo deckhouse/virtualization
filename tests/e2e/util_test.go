@@ -220,6 +220,27 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
+func CheckPhase(resource, phase string) {
+	GinkgoHelper()
+	resourceType := kc.Resource(resource)
+	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+
+	res := kubectl.List(resourceType, kc.GetOptions{
+		Namespace: conf.Namespace,
+		Output:    "jsonpath='{.items[*].metadata.name}'",
+	})
+	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+
+	resources := strings.Split(res.StdOut(), " ")
+	waitOpts := kc.WaitOptions{
+		Namespace: conf.Namespace,
+		For:       jsonPath,
+		Timeout:   600,
+	}
+	waitResult := kubectl.WaitResources(resourceType, waitOpts, resources...)
+	Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
+}
+
 func CheckDefaultStorageClass() error {
 	storageClass := kc.Resource("sc")
 	res := kubectl.List(storageClass, kc.GetOptions{Output: "json"})

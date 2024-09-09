@@ -81,9 +81,15 @@ func init() {
 		log.Fatal(err)
 	}
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
-	kustomizeFilePath := fmt.Sprintf("%s/%s", conf.VirtualizationResources, "kustomization.yaml")
-	if err = kustomize.SetParams(kustomizeFilePath, conf.Namespace, namePrefix); err != nil {
-		log.Fatal(err)
+	// TODO: get kustomization files from testdata directory when all tests will be refactored
+	kustomizationFiles := []string{
+		fmt.Sprintf("%s/%s", conf.VirtualizationResources, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.Connectivity, "kustomization.yaml"),
+	}
+	for _, filePath := range kustomizationFiles {
+		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
+			log.Fatal(err)
+		}
 	}
 	Cleanup()
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})

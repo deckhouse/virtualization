@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"fmt"
-	"strings"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
@@ -26,26 +25,6 @@ import (
 )
 
 var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
-	checkPhase := func(resource, phase string) {
-		resourceType := kc.Resource(resource)
-		jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
-
-		res := kubectl.List(resourceType, kc.GetOptions{
-			Namespace: conf.Namespace,
-			Output:    "jsonpath='{.items[*].metadata.name}'",
-		})
-		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-
-		resources := strings.Split(res.StdOut(), " ")
-		waitOpts := kc.WaitOptions{
-			Namespace: conf.Namespace,
-			For:       jsonPath,
-			Timeout:   600,
-		}
-		waitResult := kubectl.WaitResources(resourceType, waitOpts, resources...)
-		Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
-	}
-
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -58,7 +37,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtual images", func() {
 		When("VI applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				checkPhase("vi", PhaseReady)
+				CheckPhase("vi", PhaseReady)
 			})
 		})
 	})
@@ -66,7 +45,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Disks", func() {
 		When("VD applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				checkPhase("vd", PhaseReady)
+				CheckPhase("vd", PhaseReady)
 			})
 		})
 	})
@@ -81,7 +60,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 				MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 			})
 			It(fmt.Sprintf("Phase should be %s", PhaseBound), func() {
-				checkPhase("vmip", PhaseBound)
+				CheckPhase("vmip", PhaseBound)
 			})
 		})
 	})
@@ -89,7 +68,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtual machines", func() {
 		When("VM applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
-				checkPhase("vm", PhaseRunning)
+				CheckPhase("vm", PhaseRunning)
 			})
 		})
 	})
@@ -97,7 +76,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtualmachine block device attachments", func() {
 		When("VMBDA applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseAttached), func() {
-				checkPhase("vmbda", PhaseAttached)
+				CheckPhase("vmbda", PhaseAttached)
 			})
 		})
 	})

@@ -117,6 +117,7 @@ type Config struct {
 	HelperImages            HelperImages     `yaml:"helperImages"`
 	Namespace               string           `yaml:"namespaceSuffix"`
 	VirtualizationResources string           `yaml:"virtualizationResources"`
+	Connectivity            string           `yaml:"connectivity"`
 }
 
 type ClusterTransport struct {
@@ -207,6 +208,7 @@ func GetNamePrefix() (string, error) {
 
 	commitHash := res.StdOut()
 	commitHash = commitHash[:len(commitHash)-1]
+	commitHash = fmt.Sprintf("head-%s", commitHash)
 	return commitHash, nil
 }
 

@@ -38,7 +38,7 @@ var CELicenseRe = regexp.MustCompile(`(?s)[/#{!-]*(\s)*Copyright 20[2-9][1-9] Fl
 
 var fileToCheckRe = regexp.MustCompile(`\.go$|/[^/.]+$|\.sh$|\.lua$|\.py$|^\.github/(scripts|workflows|workflow_templates)/.+\.(js|yml|yaml|sh)$`)
 var fileToSkipRe = regexp.MustCompile(`geohash.lua$|\.
-github/CODEOWNERS|Dockerfile$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
+github/CODEOWNERS|Dockerfile$|id_ed$|Makefile$|Taskfile|/docs/|bashrc$|inputrc$|modules_menu_skip$
 |LICENSE$`)
 
 func RunCopyrightValidation(info *DiffInfo) (exitCode int) {
