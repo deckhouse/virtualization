@@ -73,17 +73,17 @@ spec:
                             * xz.
                     objectRef:
                       description: |
-                        Для создания образа использовать существующий `VirtualImage` или `ClusterVirtualImage`.
+                        Для создания образа использовать существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
                       properties:
                         kind:
                           description: |
-                            Ссылка на существующий `VirtualImage` или `ClusterVirtualImage`.
+                            Ссылка на существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
                         name:
                           description: |
-                            Имя существующего `VirtualImage` или `ClusterVirtualImage`.
+                            Имя существующего `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
                         namespace:
                           description: |
-                            Имя namespace'а, гда ресположен `VirtualImage`.
+                            Имя namespace'а, гда ресположен `VirtualImage` или `VirtualDisk`.
                     type:
                       description: |
                         Доступные типы источников для создания образа:
@@ -172,7 +172,7 @@ spec:
                     Команда для загрузки образа для типа 'Upload'.
                 sourceUID:
                   description: |
-                    UID источника (`VirtualImage` или `ClusterVirtualImage`), использовавшегося при создании кластерного виртуального образа.
+                    UID источника (`VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`), использовавшегося при создании кластерного виртуального образа.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.
