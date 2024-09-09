@@ -76,13 +76,36 @@ func (s DiskService) Start(
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
 
+	sc, err := s.GetStorageClass(ctx, storageClass)
+	if err != nil {
+		return err
+	}
+
+	var (
+		accessMode corev1.PersistentVolumeAccessMode
+		volumeMode corev1.PersistentVolumeMode
+	)
+
 	sprofile, err := s.GetStorageProfile(ctx, storageClass)
 	if err != nil {
 		return err
 	}
-	storageCaps := s.parseVolumeMode(sprofile.Status)
+	storageCaps := s.parseStorageCapabilities(sprofile.Status)
+	accessMode = storageCaps.AccessMode
+	volumeMode = storageCaps.VolumeMode
 
-	dvBuilder.SetPVC(ptr.To(sprofile.GetName()), pvcSize, storageCaps.AccessMode, storageCaps.VolumeMode)
+	if m, override := s.parseVolumeMode(sc); override {
+		volumeMode = m
+	}
+	if m, override := s.parseAccessMode(sc); override {
+		accessMode = m
+	}
+
+	dvBuilder.SetPVC(ptr.To(sprofile.GetName()), pvcSize, accessMode, volumeMode)
+
+	if s.parseImmediateBindingMode(sc) {
+		dvBuilder.SetImmediate()
+	}
 
 	err = s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -296,7 +319,42 @@ func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.Persiste
 	return m
 }
 
-func (s DiskService) parseVolumeMode(status cdiv1.StorageProfileStatus) StorageCapabilities {
+func (s DiskService) parseVolumeMode(sc *storev1.StorageClass) (corev1.PersistentVolumeMode, bool) {
+	if sc == nil {
+		return "", false
+	}
+	switch sc.GetAnnotations()[common.AnnVirtualDiskVolumeMode] {
+	case string(corev1.PersistentVolumeBlock):
+		return corev1.PersistentVolumeBlock, true
+	case string(corev1.PersistentVolumeFilesystem):
+		return corev1.PersistentVolumeFilesystem, true
+	default:
+		return "", false
+	}
+}
+
+func (s DiskService) parseAccessMode(sc *storev1.StorageClass) (corev1.PersistentVolumeAccessMode, bool) {
+	if sc == nil {
+		return "", false
+	}
+	switch sc.GetAnnotations()[common.AnnVirtualDiskAccessMode] {
+	case string(corev1.ReadWriteOnce):
+		return corev1.ReadWriteOnce, true
+	case string(corev1.ReadWriteMany):
+		return corev1.ReadWriteMany, true
+	default:
+		return "", false
+	}
+}
+
+func (s DiskService) parseImmediateBindingMode(sc *storev1.StorageClass) bool {
+	if sc == nil {
+		return false
+	}
+	return sc.GetAnnotations()[common.AnnVirtualDiskBindingMode] == string(storev1.VolumeBindingImmediate)
+}
+
+func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus) StorageCapabilities {
 	var storageCapabilities []StorageCapabilities
 	for _, cp := range status.ClaimPropertySets {
 		var mode corev1.PersistentVolumeMode

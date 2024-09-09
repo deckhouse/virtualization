@@ -68,6 +68,10 @@ func (b *DV) SetPVC(storageClassName *string,
 	)
 }
 
+func (b *DV) SetImmediate() {
+	b.AddAnnotation("cdi.kubevirt.io/storage.bind.immediate.requested", "true")
+}
+
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {
 	b.Resource.Spec.Source = source
 }
