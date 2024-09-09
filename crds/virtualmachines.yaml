@@ -1185,7 +1185,7 @@ spec:
                       type: object
                     memory:
                       description:
-                        MemoryStatus defines statistics about the Memory
+                        Memory utilization statistics.
                         resource usage.
                       properties:
                         runtimeOverhead:
