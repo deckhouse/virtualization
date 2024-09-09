@@ -373,27 +373,42 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		return fmt.Errorf("nil object ref: %s", vi.Spec.DataSource.Type)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
-		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if dvcrDataSource.IsReady() {
+		if vi == nil {
+			return fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
+		}
+
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			if vi.Status.Phase != virtv2.ImageReady {
+				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+			}
 			return nil
-		}
-
-		switch vi.Spec.DataSource.ObjectRef.Kind {
-		case virtv2.VirtualImageObjectRefKindVirtualImage:
-			return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
-		case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
-			return NewClusterImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
-		default:
-			return fmt.Errorf("unexpected object ref kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
 		}
 	}
 
-	return nil
+	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+	if err != nil {
+		return err
+	}
+
+	if dvcrDataSource.IsReady() {
+		return nil
+	}
+
+	switch vi.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualImageObjectRefKindVirtualImage:
+		return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
+		return NewClusterImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+	default:
+		return fmt.Errorf("unexpected object ref kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
+	}
 }
 
 func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {

@@ -227,6 +227,25 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 		return fmt.Errorf("nil object ref: %s", cvi.Spec.DataSource.Type)
 	}
 
+	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		if err != nil {
+			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if vi == nil {
+			return fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
+		}
+
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			if vi.Status.Phase != virtv2.ImageReady {
+				return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+			}
+			return nil
+		}
+	}
+
 	dvcrDataSource, err := controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 	if err != nil {
 		return err

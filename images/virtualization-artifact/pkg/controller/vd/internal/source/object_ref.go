@@ -242,6 +242,25 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 		return ds.vdSnapshotSyncer.Validate(ctx, vd)
 	}
 
+	if vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+		viKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		if err != nil {
+			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if vi == nil {
+			return fmt.Errorf("VI object ref source %s is nil", vd.Spec.DataSource.ObjectRef.Name)
+		}
+
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			if vi.Status.Phase != virtv2.ImageReady {
+				return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+			}
+			return nil
+		}
+	}
+
 	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, ds.client)
 	if err != nil {
 		return err
