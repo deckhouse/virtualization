@@ -60,7 +60,7 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 	}
 
 	// Create Secret with auth config to use DVCR as destination.
-	if forceCopyDVCRAuthSecret || ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
+	if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret := supGen.DVCRAuthSecret()
 		authCopier := copier.AuthSecret{
 			Secret: copier.Secret{
