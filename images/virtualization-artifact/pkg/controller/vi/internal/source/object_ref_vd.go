@@ -90,7 +90,10 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
+		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), podSettings)
+
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -231,7 +234,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			return false, err
 		}
 
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, *vdRef.Spec.PersistentVolumeClaim.Size, sc.GetName(), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, *vdRef.Spec.PersistentVolumeClaim.Size, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
