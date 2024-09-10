@@ -18,8 +18,10 @@ package imageformat
 
 import "strings"
 
-const FormatISO = "iso"
-const FormatRAW = "raw"
+const (
+	FormatISO = "iso"
+	FormatRAW = "raw"
+)
 
 func IsISO(format string) bool {
 	return strings.ToLower(format) == FormatISO
