@@ -176,6 +176,17 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
+  virtualImages:
+    type: object
+    description: |
+      Configuring storage class for virtual images. If the this setting is not specified,
+      the default storage class will be used.
+    required: [storageClassName]
+    properties:
+      storageClassName:
+        type: string
+        description: |
+          Specifies the name of the storage class to be used for virtual images.
   logLevel:
     type: string
     description: |

@@ -227,6 +227,8 @@ const (
 	SourceVDDK = "vddk"
 	// SourceDVCR is the source type of dvcr
 	SourceDVCR = "dvcr"
+	// SourceBlockDevice is the source type of block device
+	SourceBlockDevice = "blockDevice"
 	// ClaimLost reason const
 	ClaimLost = "ClaimLost"
 	// NotFound reason const

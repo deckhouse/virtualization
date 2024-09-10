@@ -27,6 +27,7 @@ const (
 	ImageReady             ImagePhase = "Ready"
 	ImageFailed            ImagePhase = "Failed"
 	ImageTerminating       ImagePhase = "Terminating"
+	ImageLost              ImagePhase = "PVCLost"
 )
 
 type ImageStatus struct {

@@ -43,12 +43,15 @@ spec:
               properties:
                 storage:
                   type: string
-                  enum: ["ContainerRegistry"]
+                  enum:
+                    - "ContainerRegistry"
+                    - "Kubernetes"
                   default: ContainerRegistry
                   description: |
                     Storage type to store the image for current virtualization setup.
 
                     * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
+                    * `Kubernetes` - use a Persistent Volume Claim (PVC).
                 dataSource:
                   type: object
                   description: |
@@ -185,10 +188,6 @@ spec:
                     - properties:
                         type:
                           enum: ["Upload"]
-              oneOf:
-                - properties:
-                    storage:
-                      enum: ["ContainerRegistry"]
             status:
               type: object
               properties:
@@ -289,6 +288,10 @@ spec:
                       example: dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest
                       description: |
                         Created image in DVCR.
+                    persistentVolumeClaimName:
+                      type: string
+                      description: |
+                        Created PersistentVolumeClaim name for Kubernetes storage.
                 phase:
                   type: string
                   description: |
@@ -299,6 +302,7 @@ spec:
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource.
+                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                     * Terminating - The process of resource deletion is in progress.
 
                   enum:
@@ -308,6 +312,7 @@ spec:
                       "WaitForUserUpload",
                       "Ready",
                       "Failed",
+                      "PVCLost",
                       "Terminating",
                     ]
                 progress:
@@ -346,6 +351,10 @@ spec:
           priority: 1
         - name: Registry URL
           jsonPath: .status.target.registryURL
+          type: string
+          priority: 1
+        - name: TargetPVC
+          jsonPath: .status.target.persistentVolumeClaimName
           type: string
           priority: 1
         - name: Age

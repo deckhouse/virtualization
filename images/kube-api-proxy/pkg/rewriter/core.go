@@ -18,6 +18,7 @@ package rewriter
 
 import (
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const (
@@ -87,22 +88,39 @@ func RenameServicePatch(rules *RewriteRules, obj []byte) ([]byte, error) {
 }
 
 func RewriteAPIGroupAndKind(rules *RewriteRules, obj []byte, action Action) ([]byte, error) {
-	var err error
+	kind := gjson.GetBytes(obj, "kind").String()
+	apiGroup := gjson.GetBytes(obj, "apiGroup").String()
 
-	obj, err = TransformString(obj, "kind", func(kind string) string {
-		if action == Rename {
-			return rules.RenameKind(kind)
+	rwrApiVersion := ""
+	rwrKind := ""
+	if action == Rename {
+		_, resourceRule := rules.KindRules(apiGroup, kind)
+		if resourceRule != nil {
+			rwrApiVersion = rules.RenameApiVersion(apiGroup)
+			rwrKind = rules.RenameKind(kind)
 		}
-		return rules.RestoreKind(kind)
-	})
+	}
+	if action == Restore {
+		if rules.IsRenamedGroup(apiGroup) {
+			rwrApiVersion = rules.RestoreApiVersion(apiGroup)
+			rwrKind = rules.RestoreKind(kind)
+			// Find resource rule by restored apiGroup and kind
+			_, resourceRule := rules.KindRules(rwrApiVersion, rwrKind)
+			if resourceRule == nil {
+				return obj, nil
+			}
+		}
+	}
+
+	if rwrApiVersion == "" || rwrKind == "" {
+		// No rewrite for OwnerReference without rules.
+		return obj, nil
+	}
+
+	obj, err := sjson.SetBytes(obj, "kind", rwrKind)
 	if err != nil {
 		return nil, err
 	}
 
-	return TransformString(obj, "apiGroup", func(apiGroup string) string {
-		if action == Rename {
-			return rules.RenameApiVersion(apiGroup)
-		}
-		return rules.RestoreApiVersion(apiGroup)
-	})
+	return sjson.SetBytes(obj, "apiGroup", rwrApiVersion)
 }

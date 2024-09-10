@@ -71,3 +71,8 @@ func AddVolume(pod *corev1.Pod, container *corev1.Container, volume corev1.Volum
 	container.VolumeMounts = append(container.VolumeMounts, mount)
 	container.Env = append(container.Env, envVar)
 }
+
+func AddVolumeDevice(pod *corev1.Pod, container *corev1.Container, volume corev1.Volume, volumeDevice corev1.VolumeDevice) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
+	container.VolumeDevices = append(container.VolumeDevices, volumeDevice)
+}

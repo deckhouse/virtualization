@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -122,6 +124,78 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		},
 	); err != nil {
 		return err
+	}
+
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &cdiv1.DataVolume{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualImage{},
+			handler.OnlyControllerOwner(),
+		),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return false },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldDV, ok := e.ObjectOld.(*cdiv1.DataVolume)
+				if !ok {
+					return false
+				}
+				newDV, ok := e.ObjectNew.(*cdiv1.DataVolume)
+				if !ok {
+					return false
+				}
+
+				if oldDV.Status.Progress != newDV.Status.Progress {
+					return true
+				}
+
+				if oldDV.Status.Phase != newDV.Status.Phase && newDV.Status.Phase == cdiv1.Succeeded {
+					return true
+				}
+
+				dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, newDV.Status.Conditions)
+				return dvRunning != nil && dvRunning.Reason == "Error"
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on DV: %w", err)
+	}
+
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualImage{},
+		), predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldPVC, ok := e.ObjectOld.(*corev1.PersistentVolumeClaim)
+				if !ok {
+					return false
+				}
+				newPVC, ok := e.ObjectNew.(*corev1.PersistentVolumeClaim)
+				if !ok {
+					return false
+				}
+
+				if oldPVC.Status.Capacity[corev1.ResourceStorage] != newPVC.Status.Capacity[corev1.ResourceStorage] {
+					return true
+				}
+
+				if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
+					service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
+					return true
+				}
+
+				return oldPVC.Status.Phase != newPVC.Status.Phase && newPVC.Status.Phase == corev1.ClaimBound
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on PVC: %w", err)
 	}
 
 	viFromVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualImageObjectRefKindVirtualImage)

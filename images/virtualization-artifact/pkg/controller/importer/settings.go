@@ -118,3 +118,8 @@ func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
 	podEnvVars.Source = cc.SourceDVCR
 	podEnvVars.Endpoint = dvcrImageName
 }
+
+// ApplyBlockDeviceSourceSettings updates importer Pod settings to use BlockDevice as source.
+func ApplyBlockDeviceSourceSettings(podEnvVars *Settings) {
+	podEnvVars.Source = cc.SourceBlockDevice
+}

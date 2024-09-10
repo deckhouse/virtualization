@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-const uploadDataSource = "registry"
+const uploadDataSource = "upload"
 
 type UploadDataSource struct {
 	statService     *service.StatService
@@ -102,7 +102,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 
 		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 
-		// Protect Ready Disk and underlying PVC and PV.
+		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
 			return false, err

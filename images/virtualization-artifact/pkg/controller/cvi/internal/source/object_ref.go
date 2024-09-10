@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
@@ -32,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -42,11 +44,14 @@ type ObjectRefDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	controllerNamespace string
+
+	viOnPvcSyncer *ObjectRefVirtualImageOnPvc
 }
 
 func NewObjectRefDataSource(
 	statService Stat,
 	importerService Importer,
+	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	controllerNamespace string,
@@ -57,6 +62,8 @@ func NewObjectRefDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		controllerNamespace: controllerNamespace,
+
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -65,6 +72,22 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
+
+	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		if err != nil {
+			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if vi == nil {
+			return false, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
+		}
+
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viOnPvcSyncer.Sync(ctx, cvi, vi, &condition)
+		}
+	}
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -206,6 +229,25 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVi
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
 	if cvi.Spec.DataSource.ObjectRef == nil {
 		return fmt.Errorf("nil object ref: %s", cvi.Spec.DataSource.Type)
+	}
+
+	if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
+		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		if err != nil {
+			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if vi == nil {
+			return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+		}
+
+		if vi.Spec.Storage == virtv2.StorageKubernetes {
+			if vi.Status.Phase != virtv2.ImageReady {
+				return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+			}
+			return nil
+		}
 	}
 
 	dvcrDataSource, err := controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)

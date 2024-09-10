@@ -76,6 +76,18 @@ func (s ImporterService) Start(ctx context.Context, settings *importer.Settings,
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
+func (s ImporterService) StartFromPVC(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName, pvcNamespace string) error {
+	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
+	settings.Verbose = s.verbose
+
+	pod, err := importer.NewImporter(s.getPodSettingsWithPVC(ownerRef, sup, pvcName, pvcNamespace), settings).CreatePod(ctx, s.client)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
+}
+
 func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
@@ -142,5 +154,20 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 		ControllerName:       s.controllerName,
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
+	}
+}
+
+func (s ImporterService) getPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
+	importerPod := sup.ImporterPod()
+	return &importer.PodSettings{
+		Name:                 importerPod.Name,
+		Namespace:            pvcNamespace,
+		Image:                s.image,
+		PullPolicy:           s.pullPolicy,
+		OwnerReference:       *ownerRef,
+		ControllerName:       s.controllerName,
+		InstallerLabels:      map[string]string{},
+		ResourceRequirements: &s.requirements,
+		PVCName:              pvcName,
 	}
 }

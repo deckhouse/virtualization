@@ -21,54 +21,56 @@ import (
 	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type HTTPDataSource struct {
+type ObjectRefDataVirtualImageOnPVC struct {
 	statService        Stat
 	importerService    Importer
 	dvcrSettings       *dvcr.Settings
+	client             client.Client
 	diskService        *service.DiskService
 	storageClassForPVC string
 }
 
-func NewHTTPDataSource(
+func NewObjectRefDataVirtualImageOnPVC(
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
+	client client.Client,
 	diskService *service.DiskService,
 	storageClassForPVC string,
-) *HTTPDataSource {
-	return &HTTPDataSource{
+) *ObjectRefDataVirtualImageOnPVC {
+	return &ObjectRefDataVirtualImageOnPVC{
 		statService:        statService,
 		importerService:    importerService,
 		dvcrSettings:       dvcrSettings,
+		client:             client,
 		diskService:        diskService,
 		storageClassForPVC: storageClassForPVC,
 	}
 }
 
-func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	log, ctx := logger.GetDataSourceContext(ctx, "http")
-
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
+	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -90,16 +92,17 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		}
 
 		return CleanUp(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
 	case pod == nil:
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
@@ -109,7 +112,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -130,12 +133,11 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		condition.Message = ""
 
 		vi.Status.Phase = virtv2.ImageReady
-		vi.Status.Size = ds.statService.GetSize(pod)
-		vi.Status.CDROM = ds.statService.GetCDROM(pod)
-		vi.Status.Format = ds.statService.GetFormat(pod)
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
+		vi.Status.Size = viRef.Status.Size
+		vi.Status.CDROM = viRef.Status.CDROM
+		vi.Status.Format = viRef.Status.Format
+		vi.Status.Progress = "100%"
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
@@ -156,7 +158,6 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
@@ -164,17 +165,12 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 	return true, nil
 }
 
-func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	log, ctx := logger.GetDataSourceContext(ctx, "http")
-
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
+	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
-	pod, err := ds.importerService.GetPod(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -186,18 +182,12 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Info("Image provisioning finished: clean up")
+		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
-		if err != nil {
-			return false, err
-		}
-
-		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
 			return false, err
 		}
@@ -208,65 +198,15 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.AnyTerminating(pod, dv, pvc):
+	case common.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
-	case pod == nil:
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
-
-		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
-		var requeue bool
-		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
-		if err != nil {
-			return false, err
-		}
-
-		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
-
-		return requeue, nil
-	case !cc.IsPodComplete(pod):
-		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
-
-		err = ds.statService.CheckPod(pod)
-		if err != nil {
-			return false, setPhaseConditionFromPodError(&condition, vi, err)
-		}
-
-		err = ds.importerService.Protect(ctx, pod)
-		if err != nil {
-			return false, err
-		}
-
-		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
-
-		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
-		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 	case dv == nil:
 		log.Info("Start import to PVC")
 
-		err = ds.statService.CheckPod(pod)
-		if err != nil {
-			vi.Status.Phase = virtv2.ImageFailed
+		vi.Status.Progress = "0%"
+		vi.Status.SourceUID = util.GetPointer(viRef.GetUID())
 
-			switch {
-			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
-			default:
-				return false, err
-			}
-		}
-
-		vi.Status.Progress = "50.0%"
-		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-
-		var diskSize resource.Quantity
-		diskSize, err = ds.getPVCSize(pod)
+		size, err := ds.getPVCSize(viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 
@@ -277,14 +217,20 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			return false, err
 		}
 
-		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		source := &cdiv1.DataVolumeSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{
+				Name:      viRef.Status.Target.PersistentVolumeClaim,
+				Namespace: viRef.Namespace,
+			},
+		}
+
 		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
 			return false, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, sc.GetName(), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
@@ -308,15 +254,15 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
-
+		vi.Status.Size = viRef.Status.Size
+		vi.Status.CDROM = viRef.Status.CDROM
+		vi.Status.Format = viRef.Status.Format
 		vi.Status.Progress = "100%"
-		vi.Status.Size = ds.statService.GetSize(pod)
-		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
-		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
+		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		err = ds.diskService.Protect(ctx, vi, dv, pvc)
@@ -335,8 +281,8 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 	return true, nil
 }
 
-func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -351,8 +297,21 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+	var settings importer.Settings
+	importer.ApplyBlockDeviceSourceSettings(&settings)
+	importer.ApplyDVCRDestinationSettings(
+		&settings,
+		ds.dvcrSettings,
+		sup,
+		ds.dvcrSettings.RegistryImageForVI(vi),
+	)
+
+	return &settings
+}
+
+func (ds ObjectRefDataVirtualImageOnPVC) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -367,29 +326,10 @@ func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.Virt
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
-	return nil
-}
-
-func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
-	var settings importer.Settings
-
-	importer.ApplyHTTPSourceSettings(&settings, vi.Spec.DataSource.HTTP, supgen)
-	importer.ApplyDVCRDestinationSettings(
-		&settings,
-		ds.dvcrSettings,
-		supgen,
-		ds.dvcrSettings.RegistryImageForVI(vi),
-	)
-
-	return &settings
-}
-
-func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) {
-	// Get size from the importer Pod to detect if specified PVC size is enough.
-	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
+func (ds ObjectRefDataVirtualImageOnPVC) getPVCSize(refSize virtv2.ImageStatusSize) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(refSize.UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", ds.statService.GetSize(pod).UnpackedBytes, err)
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", refSize.UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {
@@ -397,21 +337,4 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 	}
 
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
-}
-
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
-	// The image was preloaded from source into dvcr.
-	// We can't use the same data source a second time, but we can set dvcr as the data source.
-	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-	url := common.DockerRegistrySchemePrefix + dvcrSourceImageName
-	secretName := sup.DVCRAuthSecretForDV().Name
-	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
-
-	return &cdiv1.DataVolumeSource{
-		Registry: &cdiv1.DataVolumeSourceRegistry{
-			URL:           &url,
-			SecretRef:     &secretName,
-			CertConfigMap: &certConfigMapName,
-		},
-	}
 }

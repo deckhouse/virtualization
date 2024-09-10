@@ -18,18 +18,24 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Handler interface {
-	Sync(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	Validate(ctx context.Context, vi *virtv2.VirtualImage) error
 }
@@ -74,11 +80,20 @@ func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, er
 
 type Cleaner interface {
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 }
 
 func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
 	if cc.ShouldCleanupSubResources(vi) {
 		return c.CleanUp(ctx, vi)
+	}
+
+	return false, nil
+}
+
+func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
+	if cc.ShouldCleanupSubResources(vi) {
+		return c.CleanUpSupplements(ctx, vi)
 	}
 
 	return false, nil
@@ -116,5 +131,102 @@ func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePh
 		ready.Reason = cvicondition.ProvisioningFailed
 		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
 		return false, err
+	}
+}
+
+type CheckImportProcess interface {
+	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+}
+
+func setPhaseConditionForFinishedImage(
+	pvc *corev1.PersistentVolumeClaim,
+	condition *metav1.Condition,
+	phase *virtv2.ImagePhase,
+	supgen *supplements.Generator,
+) {
+	switch {
+	case pvc == nil:
+		*phase = virtv2.ImageLost
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Lost
+		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
+	default:
+		*phase = virtv2.ImageReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.Ready
+		condition.Message = ""
+	}
+}
+
+func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) {
+	*phase = virtv2.ImageFailed
+	ready.Status = metav1.ConditionFalse
+	ready.Reason = vicondition.ProvisioningFailed
+	ready.Message = service.CapitalizeFirstLetter(err.Error())
+}
+
+func setPhaseConditionForPVCProvisioningImage(
+	ctx context.Context,
+	dv *cdiv1.DataVolume,
+	vi *virtv2.VirtualImage,
+	pvc *corev1.PersistentVolumeClaim,
+	condition *metav1.Condition,
+	checker CheckImportProcess,
+) error {
+	err := checker.CheckImportProcess(ctx, dv, pvc)
+	switch {
+	case err == nil:
+		if dv == nil {
+			vi.Status.Phase = virtv2.ImageProvisioning
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.Provisioning
+			condition.Message = "Waiting for the pvc importer to be created"
+			return nil
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "Import is in the process of provisioning to PVC."
+		return nil
+	case errors.Is(err, service.ErrDataVolumeNotRunning):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		return nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return nil
+	default:
+		return err
+	}
+}
+
+func setPhaseConditionFromPodError(ready *metav1.Condition, vi *virtv2.VirtualImage, err error) error {
+	vi.Status.Phase = virtv2.ImageFailed
+
+	switch {
+	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = vicondition.ProvisioningNotStarted
+		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		return nil
+	case errors.Is(err, service.ErrProvisioningFailed):
+		ready.Status = metav1.ConditionFalse
+		ready.Reason = vicondition.ProvisioningFailed
+		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		return nil
+	default:
+		return err
 	}
 }

@@ -82,6 +82,7 @@ type PodSettings struct {
 	ResourceRequirements *corev1.ResourceRequirements
 	ImagePullSecrets     []corev1.LocalObjectReference
 	PriorityClassName    string
+	PVCName              string
 	// workloadNodePlacement   *sdkapi.NodePlacement
 }
 
@@ -361,6 +362,25 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.EnvVar{
 				Name:  common.ImporterProxyCertDirVar,
 				Value: common.ImporterProxyCertDir,
+			},
+		)
+	}
+
+	if imp.PodSettings.PVCName != "" {
+		podutil.AddVolumeDevice(
+			pod,
+			container,
+			corev1.Volume{
+				Name: "volume",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: imp.PodSettings.PVCName,
+					},
+				},
+			},
+			corev1.VolumeDevice{
+				Name:       "volume",
+				DevicePath: "/dev/xvda",
 			},
 		)
 	}

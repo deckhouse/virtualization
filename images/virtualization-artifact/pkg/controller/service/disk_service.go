@@ -112,7 +112,33 @@ func (s DiskService) Start(
 		return err
 	}
 
-	if source.Blank != nil {
+	if source.Blank != nil || source.PVC != nil {
+		return nil
+	}
+
+	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+}
+
+func (s DiskService) StartImmediate(
+	ctx context.Context,
+	pvcSize resource.Quantity,
+	storageClass string,
+	source *cdiv1.DataVolumeSource,
+	obj ObjectKind,
+	sup *supplements.Generator,
+) error {
+	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
+	dvBuilder.SetDataSource(source)
+	dvBuilder.SetPVC(&storageClass, pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
+	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetImmediate()
+
+	err := s.client.Create(ctx, dvBuilder.GetResource())
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	if source.PVC != nil {
 		return nil
 	}
 
