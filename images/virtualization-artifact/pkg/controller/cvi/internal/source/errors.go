@@ -71,11 +71,12 @@ type VirtualDiskAttachedToRunningVMError struct {
 }
 
 func (e VirtualDiskAttachedToRunningVMError) Error() string {
-	return fmt.Sprintf("VirtualDisk %s attached to running VirtualMachine %s", e.name, e.vmName)
+	return fmt.Sprintf("VirtualDisk %q attached to running VirtualMachine %q", e.name, e.vmName)
 }
 
 func NewVirtualDiskAttachedToRunningVMError(name, vmName string) error {
 	return VirtualDiskAttachedToRunningVMError{
-		name: name,
+		name:   name,
+		vmName: vmName,
 	}
 }

@@ -86,7 +86,10 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
+		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)
+
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(condition, &cvi.Status.Phase, err)
 		if err != nil {
@@ -162,22 +165,6 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 	}
 
 	return true, nil
-}
-
-func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
-
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	return importerRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {

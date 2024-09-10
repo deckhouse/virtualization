@@ -61,13 +61,6 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 		return false, err
 	}
 
-	refSupgen := supplements.NewGenerator(cc.VDShortName, vdRef.Name, vdRef.Namespace, vdRef.UID)
-
-	refPvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, refSupgen)
-	if err != nil {
-		return false, err
-	}
-
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
@@ -94,7 +87,10 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), refPvc.Name, refPvc.Namespace)
+		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
+		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)
+
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(condition, &cvi.Status.Phase, err)
 		if err != nil {
@@ -172,22 +168,6 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 	return true, nil
 }
 
-func (ds ObjectRefVirtualDisk) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
-
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	return importerRequeue || diskRequeue, nil
-}
-
 func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
@@ -238,7 +218,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 			return err
 		}
 
-		if vm.Status.Phase == virtv2.MachineRunning {
+		if vm.Status.Phase != virtv2.MachineStopped {
 			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
 		}
 	}
