@@ -22,38 +22,42 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefVirtualDisk struct {
-	importerService Importer
-	diskService     *service.DiskService
-	statService     Stat
-	dvcrSettings    *dvcr.Settings
+	importerService    Importer
+	diskService        *service.DiskService
+	statService        Stat
+	dvcrSettings       *dvcr.Settings
+	storageClassForPVC string
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(importerService Importer, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
-		importerService: importerService,
-		diskService:     diskService,
-		statService:     statService,
-		dvcrSettings:    dvcrSettings,
+		importerService:    importerService,
+		diskService:        diskService,
+		statService:        statService,
+		dvcrSettings:       dvcrSettings,
+		storageClassForPVC: storageClassForPVC,
 	}
 }
 
-func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
+func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vdRef.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vdRef.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -75,7 +79,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, vi *virtv2.VirtualImage
 		}
 
 		return CleanUp(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case common.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -95,7 +99,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, vi *virtv2.VirtualImage
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case cc.IsPodComplete(pod):
+	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -163,8 +167,124 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, vi *virtv2.VirtualImage
 	return true, nil
 }
 
+func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
+	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
+
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	switch {
+	case isDiskProvisioningFinished(*condition):
+		log.Info("Disk provisioning finished: clean up")
+
+		setPhaseConditionForFinishedImage(pvc, condition, &vi.Status.Phase, supgen)
+
+		// Protect Ready Disk and underlying PVC.
+		err = ds.diskService.Protect(ctx, vi, nil, pvc)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.diskService.Unprotect(ctx, dv)
+		if err != nil {
+			return false, err
+		}
+
+		return CleanUpSupplements(ctx, vi, ds)
+	case common.AnyTerminating(dv, pvc):
+		log.Info("Waiting for supplements to be terminated")
+	case dv == nil:
+		log.Info("Start import to PVC")
+
+		vi.Status.Progress = "0%"
+		vi.Status.SourceUID = util.GetPointer(vdRef.GetUID())
+
+		if err != nil {
+			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return false, nil
+			}
+
+			return false, err
+		}
+
+		source := &cdiv1.DataVolumeSource{
+			PVC: &cdiv1.DataVolumeSourcePVC{
+				Name:      vdRef.Status.Target.PersistentVolumeClaim,
+				Namespace: vdRef.Namespace,
+			},
+		}
+
+		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
+		if err != nil {
+			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
+			return false, err
+		}
+
+		err = ds.diskService.StartWithIgnoreWFFC(ctx, *vdRef.Spec.PersistentVolumeClaim.Size, sc.GetName(), source, vi, supgen)
+		if err != nil {
+			return false, err
+		}
+
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "PVC Provisioner not found: create the new one."
+
+		return true, nil
+	case pvc == nil:
+		vi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.Provisioning
+		condition.Message = "PVC not found: waiting for creation."
+		return true, nil
+	case ds.diskService.IsImportDone(dv, pvc):
+		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Phase = virtv2.ImageReady
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.Ready
+		condition.Message = ""
+		var imageStatus virtv2.ImageStatusSize
+		imageStatus.Stored = vdRef.Spec.PersistentVolumeClaim.Size.String()
+		vi.Status.Size = imageStatus
+		// vi.Status.CDROM = viRef.Status.CDROM
+		// vi.Status.Format = viRef.Status.Format
+		vi.Status.Progress = "100%"
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+	default:
+		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(0, 100))
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+
+		err = ds.diskService.Protect(ctx, vi, dv, pvc)
+		if err != nil {
+			return false, err
+		}
+
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, condition, ds.diskService)
+		if err != nil {
+			return false, err
+		}
+
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (ds ObjectRefVirtualDisk) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -180,7 +300,7 @@ func (ds ObjectRefVirtualDisk) CleanUpSupplements(ctx context.Context, vi *virtv
 }
 
 func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

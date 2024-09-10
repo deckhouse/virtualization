@@ -72,27 +72,44 @@ func NewObjectRefDataSource(
 		diskService:        diskService,
 		storageClassForPVC: storageClassForPVC,
 		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
-		vdSyncer:           NewObjectRefVirtualDisk(importerService, diskService, dvcrSettings, statService),
+		vdSyncer:           NewObjectRefVirtualDisk(importerService, diskService, dvcrSettings, statService, storageClassForPVC),
 	}
 }
 
 func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+
+	switch vi.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
 		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef)
+		if viRef == nil {
+			return false, fmt.Errorf("VI object ref %s is nil", viKey)
 		}
-	}
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef, &condition)
+		}
+	case virtv2.VirtualDiskKind:
+		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+		vd, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualDisk{})
+		if err != nil {
+			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
+		}
+
+		if vd == nil {
+			return false, fmt.Errorf("VD object ref %s is nil", viKey)
+		}
+
+		return ds.vdSyncer.StoreToPVC(ctx, vi, vd, &condition)
+	}
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
@@ -227,7 +244,11 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+
+	switch vi.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
 		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
@@ -239,12 +260,21 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef)
+			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef, &condition)
 		}
-	}
+	case virtv2.VirtualDiskKind:
+		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+		vd, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualDisk{})
+		if err != nil {
+			return false, fmt.Errorf("unable to get VD %s: %w", viKey, err)
+		}
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+		if vd == nil {
+			return false, fmt.Errorf("VD object ref %s is nil", viKey)
+		}
+
+		return ds.vdSyncer.StoreToDVCR(ctx, vi, vd, &condition)
+	}
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)

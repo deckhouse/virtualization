@@ -65,10 +65,8 @@ func NewObjectRefDataVirtualImageOnPVC(
 	}
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -77,7 +75,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case isDiskProvisioningFinished(*condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
@@ -107,7 +105,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), podSettings)
 
 		var requeue bool
-		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
+		requeue, err = setPhaseConditionForImporterStart(condition, &vi.Status.Phase, err)
 		if err != nil {
 			return false, err
 		}
@@ -146,7 +144,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			return false, setPhaseConditionFromPodError(&condition, vi, err)
+			return false, setPhaseConditionFromPodError(condition, vi, err)
 		}
 
 		err = ds.importerService.Protect(ctx, pod)
@@ -168,10 +166,8 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 	return true, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viRef *virtv2.VirtualImage) (bool, error) {
+func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
 	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
@@ -184,10 +180,10 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case isDiskProvisioningFinished(*condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, condition, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
@@ -211,7 +207,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		size, err := ds.getPVCSize(viRef.Status.Size)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
 				return false, nil
@@ -229,7 +225,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 			return false, err
 		}
 
@@ -273,7 +269,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			return false, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, condition, ds.diskService)
 		if err != nil {
 			return false, err
 		}

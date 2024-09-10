@@ -166,10 +166,10 @@ func (ds ObjectRefVirtualImageOnPvc) CleanUpSupplements(ctx context.Context, vd 
 	return diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) getPVCSize(vd *virtv2.VirtualDisk, is virtv2.ImageStatusSize) (resource.Quantity, error) {
-	unpackedSize, err := resource.ParseQuantity(is.UnpackedBytes)
+func (ds ObjectRefVirtualImageOnPvc) getPVCSize(vd *virtv2.VirtualDisk, imageSize virtv2.ImageStatusSize) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(imageSize.UnpackedBytes)
 	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", is.UnpackedBytes, err)
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", imageSize.UnpackedBytes, err)
 	}
 
 	if unpackedSize.IsZero() {
