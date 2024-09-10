@@ -342,5 +342,17 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
+	if len(vd.Status.AttachedToVirtualMachines) != 0 {
+		vmName := vd.Status.AttachedToVirtualMachines[0]
+		vm, err := ds.diskService.GetVirtualMachine(ctx, vmName.Name, vd.Namespace)
+		if err != nil {
+			return err
+		}
+
+		if vm.Status.Phase == virtv2.MachineRunning {
+			return fmt.Errorf("can not use VirtualDisk %s, because VirtualMachine %s is running", vd.Name, vmName.Name)
+		}
+	}
+
 	return nil
 }
