@@ -32,8 +32,6 @@ type (
 )
 
 const (
-	Unknown CompletedReason = "Unknown"
-
 	// VirtualMachineNotFound is a CompletedReason indicating that the specified virtual machine is absent.
 	VirtualMachineNotFound CompletedReason = "VirtualMachineNotFound"
 
@@ -43,8 +41,11 @@ const (
 	// NotApplicableForVMPhase is a CompletedReason indicating that the specified operation type is not appilicable for the virtual machine phase.
 	NotApplicableForVMPhase CompletedReason = "NotApplicableForVMPhase"
 
-	// WaitForOtherOperations is a CompletedReason indicating that there are other operations in progress.
-	WaitForOtherOperations CompletedReason = "WaitForOtherOperations"
+	// OtherOperationsAreInProgress is a CompletedReason indicating that there are other operations in progress.
+	OtherOperationsAreInProgress CompletedReason = "OtherOperationsAreInProgress"
+
+	// // WaitForOtherOperations is a CompletedReason indicating that there are other operations in progress.
+	// WaitForOtherOperations CompletedReason = "WaitForOtherOperations"
 
 	// RestartInProgress is a CompletedReason indicating that the restart signal has been sent and restart is in progress.
 	RestartInProgress CompletedReason = "RestartInProgress"

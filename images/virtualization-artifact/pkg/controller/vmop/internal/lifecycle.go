@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -85,6 +84,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, nil
 	}
 
+	// Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
 	if changed.Status.Phase == "" {
 		// TODO add label with vm name.
 		changed.Status.Phase = virtv2.VMOPPhasePending
@@ -97,51 +97,50 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		}
 	}
 
-	// Requeue if there is at least one other VirtualMachineOperation in progress.
-	found, err := h.vmopSrv.OtherVMOPIsInProgress(ctx, changed)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if found {
-		// TODO Add the Completed condition with the WaitingReason.
-		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
-			Reason:  vmopcondition.WaitForOtherOperations,
-			Status:  metav1.ConditionFalse,
-			Message: "Wait until other VirtualMachineOperations are completed",
-		}, &changed.Status.Conditions)
-		// TODO can we replace requeue with watcher settings?
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-	} else {
-		// Reset to unknown, to indicate that operation may be performed.
-		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.CompletedType,
-			Status: metav1.ConditionUnknown,
-		}, &changed.Status.Conditions)
+	// Ignore if VMOP is in final state.
+	if IsFinalState(changed) {
+		return reconcile.Result{}, nil
 	}
 
+	// Get VM for Pending and InProgress checks.
 	vm, err := s.VirtualMachine(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("get VirtualMachine for VMOP: %w", err)
 	}
 	if vm == nil {
-		changed.Status.Phase = virtv2.VMOPPhasePending
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
 			Type:    vmopcondition.CompletedType,
 			Reason:  vmopcondition.VirtualMachineNotFound,
 			Status:  metav1.ConditionFalse,
 			Message: "VirtualMachine not found",
 		}, &changed.Status.Conditions)
-		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-	} else {
-		// Reset to unknown, to indicate that operation may be performed.
-		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.CompletedType,
-			Status: metav1.ConditionUnknown,
-		}, &changed.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
-	// Check if VirtualMachineOperation is applicable for run policy.
+	if changed.Status.Phase == virtv2.VMOPPhasePending {
+		return h.checkOperationComplete(changed, vm)
+	}
+
+	// Now VMOP is in Pending phase, do some validation checks.
+
+	// Fail if there is at least one other VirtualMachineOperation in progress.
+	found, err := h.vmopSrv.OtherVMOPIsInProgress(ctx, changed)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if found {
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		service.SetCondition(metav1.Condition{
+			Type:    vmopcondition.CompletedType,
+			Reason:  vmopcondition.OtherOperationsAreInProgress,
+			Status:  metav1.ConditionFalse,
+			Message: "Other VirtualMachineOperations are in progress",
+		}, &changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	// Fail if VirtualMachineOperation is not applicable for run policy.
 	if !h.vmopSrv.IsApplicableForRunPolicy(changed, vm.Spec.RunPolicy) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
@@ -153,7 +152,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, nil
 	}
 
-	// Check if VirtualMachineOperation is applicable for VM phase.
+	// Fail if VirtualMachineOperation is not applicable for VM phase.
 	if !h.vmopSrv.IsApplicableForVMPhase(changed, vm.Status.Phase) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
@@ -165,28 +164,28 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, nil
 	}
 
-	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
-		// Check for complete.
-		if h.vmopSrv.IsComplete(changed, vm) {
-			changed.Status.Phase = virtv2.VMOPPhaseCompleted
-			service.SetCondition(metav1.Condition{
-				Type:   vmopcondition.CompletedType,
-				Status: metav1.ConditionTrue,
-			}, &changed.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
-
-		// Keep InProgress phase, set complete condition to false.
-		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.CompletedType,
-			Status: metav1.ConditionFalse,
-		}, &changed.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
 	return reconcile.Result{}, nil
 }
 
 func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
+}
+
+func (h LifecycleHandler) checkOperationComplete(changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+	// Check for complete.
+	if h.vmopSrv.IsComplete(changed, vm) {
+		changed.Status.Phase = virtv2.VMOPPhaseCompleted
+		service.SetCondition(metav1.Condition{
+			Type:   vmopcondition.CompletedType,
+			Status: metav1.ConditionTrue,
+		}, &changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	// Keep InProgress phase, set complete condition to false.
+	service.SetCondition(metav1.Condition{
+		Type:   vmopcondition.CompletedType,
+		Status: metav1.ConditionFalse,
+	}, &changed.Status.Conditions)
+	return reconcile.Result{}, nil
 }
