@@ -33,17 +33,17 @@ type BlockDeviceDataSource struct {
 func NewBlockDeviceDataSource() (*BlockDeviceDataSource, error) {
 	blockDevicePath := "/dev/xvda"
 
-	readCloser, err := os.Open(blockDevicePath)
+	file, err := os.Open(blockDevicePath)
 	if err != nil {
 		return nil, fmt.Errorf("can not get open device %s: %w", blockDevicePath, err)
 	}
 
-	sourceImageSize, err := readCloser.Seek(0, io.SeekEnd)
+	sourceImageSize, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, fmt.Errorf("error seeking to end: %w", err)
 	}
 
-	_, err = readCloser.Seek(0, io.SeekStart)
+	_, err = file.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, fmt.Errorf("error seeking to start: %w", err)
 	}
@@ -52,7 +52,7 @@ func NewBlockDeviceDataSource() (*BlockDeviceDataSource, error) {
 	sourceImageFilename := uuid.String() + ".raw"
 
 	return &BlockDeviceDataSource{
-		readCloser:          readCloser,
+		readCloser:          file,
 		sourceImageSize:     sourceImageSize,
 		sourceImageFilename: sourceImageFilename,
 	}, nil
