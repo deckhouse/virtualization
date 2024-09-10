@@ -131,7 +131,7 @@ func (s DiskService) StartWithIgnoreWFFC(
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetPVC(&storageClass, pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
-	dvBuilder.SetBindingMode(false)
+	dvBuilder.SetImmediate()
 
 	err := s.client.Create(ctx, dvBuilder.GetResource())
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
