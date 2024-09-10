@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -254,11 +255,13 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.Ready
 		condition.Message = ""
+
 		var imageStatus virtv2.ImageStatusSize
 		imageStatus.Stored = vdRef.Spec.PersistentVolumeClaim.Size.String()
+		imageStatus.Unpacked = vdRef.Spec.PersistentVolumeClaim.Size.String()
 		vi.Status.Size = imageStatus
-		// vi.Status.CDROM = viRef.Status.CDROM
-		// vi.Status.Format = viRef.Status.Format
+
+		vi.Status.Format = imageformat.FormatRAW
 		vi.Status.Progress = "100%"
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:

@@ -19,6 +19,7 @@ package imageformat
 import "strings"
 
 const FormatISO = "iso"
+const FormatRAW = "raw"
 
 func IsISO(format string) bool {
 	return strings.ToLower(format) == FormatISO
