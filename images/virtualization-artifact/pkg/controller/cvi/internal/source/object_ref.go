@@ -299,6 +299,15 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 
 		return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
+		dvcrDataSource, err := controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
+		if err != nil {
+			return err
+		}
+
+		if dvcrDataSource.IsReady() {
+			return nil
+		}
+
 		return NewClusterImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.ClusterVirtualImageObjectRefKindVirtualDisk:
 		return ds.vdSyncer.Validate(ctx, cvi)
