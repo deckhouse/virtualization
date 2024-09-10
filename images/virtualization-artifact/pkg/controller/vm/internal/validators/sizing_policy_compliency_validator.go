@@ -75,7 +75,7 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 	for _, sp := range vmclass.Spec.SizingPolicies {
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
 			isCoreMatched = true
-			sizePolicy = &sp
+			sizePolicy = sp.DeepCopy()
 			break
 		}
 	}
@@ -171,7 +171,7 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 	}
 
 	if sizePolicy.CoreFractions != nil {
-		fractionStr := strings.Replace(vm.Spec.CPU.CoreFraction, "%", "", -1)
+		fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
 		fraction, err := strconv.Atoi(fractionStr)
 		if err != nil {
 			errors = append(errors, "cpu fraction value is invalid")
