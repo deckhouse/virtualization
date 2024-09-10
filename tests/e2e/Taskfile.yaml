@@ -14,6 +14,7 @@ tasks:
         rm -fr /tmp/testdata
         mkdir /tmp/testdata
         cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
+        cp -a testdata/connectivity /tmp/testdata/connectivity
   virtctl:
     cmds:
       - |
@@ -50,7 +51,12 @@ tasks:
     cmds:
       - |
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
-        ginkgo --focus "Virtualization resources" -v
+        ginkgo \
+          --skip-file vm_test.go \
+          --skip-file vm_label_annotation_test.go \
+          --skip-file ipam_test.go \
+          --skip-file disks_test.go \
+          -v
 
   run_one:
     desc: "Run one test or group"

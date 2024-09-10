@@ -2,26 +2,25 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: test-connectivity-vd-vi-2
-  namespace: test-d8-virtualization
+  name: vm2-vd-from-vi
 spec:
   persistentVolumeClaim:
     size: 4Gi
   dataSource:
-    type: "ObjectRef"
+    type: ObjectRef
     objectRef:
-      kind: "VirtualImage"
-      name: test-vm-image
+      kind: VirtualImage
+      name: jammy-server-cloudimg-amd64
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: test-connectivity-vm2
-  namespace: test-d8-virtualization
+  name: vm2
   labels:
     vm: linux
-    service: v2
+    service: vm2
 spec:
+  virtualMachineClassName: generic
   runPolicy: AlwaysOn
   disruptions:
     restartApprovalMode: Automatic
@@ -33,8 +32,7 @@ spec:
     size: 1Gi
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: test-connectivity-vd-vi-2
-  virtualMachineIPAddressClaimName: test-connectivity-ipam-vm2
+      name: vm2-vd-from-vi
   provisioning:
     type: UserData
     userData: |
@@ -57,7 +55,7 @@ spec:
             <title>Welcome to $(hostname)<title>
             </head>
             <body>
-            <h1>Welcome to nginx on server $(hostname) !</h1>
+            <h1>Welcome to nginx on server $(hostname)!</h1>
             </body>
             </html>
             EOF

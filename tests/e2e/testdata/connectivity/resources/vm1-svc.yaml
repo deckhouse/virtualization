@@ -2,13 +2,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: test-connectivity-svc2
-  namespace: test-d8-virtualization
+  name: vm1
   labels:
     vm: linux
 spec:
   selector:
-    service: v2
+    service: vm1
   ports:
     - name: http
       port: 80

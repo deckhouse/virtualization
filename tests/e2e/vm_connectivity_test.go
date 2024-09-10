@@ -18,10 +18,8 @@ package e2e
 
 import (
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,7 +38,26 @@ const (
 	CurlPod = "curl-helper"
 )
 
+func curlSVC(vmName string, serv *corev1.Service, namespace string) *executor.CMDResult {
+	GinkgoHelper()
+	svc := *serv
+
+	subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Name, namespace,
+		svc.Spec.Ports[0].Port)
+	subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
+		namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
+	fmt.Println(subCMD, "<---- subCurlCMD")
+	return kubectl.RawCommand(subCMD, ShortWaitDuration)
+}
+
+func deletePodHelper(vmName, namespace string) *executor.CMDResult {
+	GinkgoHelper()
+	subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, CurlPod, vmName)
+	return kubectl.RawCommand(subCMD, ShortWaitDuration)
+}
+
 func getSVC(manifestPath string) (*corev1.Service, error) {
+	GinkgoHelper()
 	data, err := os.ReadFile(manifestPath)
 	if err != nil {
 		log.Fatalf("Error read file: %v", err)
@@ -55,136 +72,94 @@ func getSVC(manifestPath string) (*corev1.Service, error) {
 	return &service, err
 }
 
+func CheckResultSshCommand(vmName, command, equal, key string) {
+	GinkgoHelper()
+	res := d8Virtualization.SshCommand(vmName, command, d8.SshOptions{
+		Namespace:   conf.Namespace,
+		Username:    "cloud",
+		IdenityFile: key,
+	})
+	Expect(res.Error()).
+		NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+	Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
+}
+
 var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
-	imageManifest := vmPath("image.yaml")
-	vmOneManifest := vmPath("connectivity/vm1_connectivity.yaml")
-	vmTwoManifest := vmPath("connectivity/vm2_connectivity.yaml")
-	vmOneIPClaim := vmPath("connectivity/vm1_ipclaim.yaml")
-	vmTwoIPClaim := vmPath("connectivity/vm2_ipclaim.yaml")
-	vmSvcOne := vmPath("connectivity/vm1_svc.yaml")
-	vmSvcTwo := vmPath("connectivity/vm2_svc.yaml")
-
-	waitVmStatus := func(name, phase string) {
-		GinkgoHelper()
-		WaitResource(kc.ResourceVM, name, "jsonpath={.status.phase}="+phase, LongWaitDuration)
-	}
-
 	BeforeAll(func() {
-		By("Apply image for vms")
-		ApplyFromFile(imageManifest)
-		WaitFromFile(imageManifest, PhaseReady, LongWaitDuration)
-		ChmodFile(vmPath("sshkeys/id_ed"), 0600)
+		sshKeyPath := fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
+		ChmodFile(sshKeyPath, 0600)
 	})
 
-	AfterAll(func() {
-		By("Delete all manifests")
-		files := make([]string, 0)
-		err := filepath.Walk(
-			conf.VM.TestDataDir, func(path string, info fs.FileInfo, err error) error {
-				if err == nil && strings.HasSuffix(info.Name(), "yaml") {
-					files = append(files, path)
-				}
-				return nil
-			},
-		)
-		if err != nil || len(files) == 0 {
-			kubectl.Delete(imageManifest, kc.DeleteOptions{})
-			kubectl.Delete(conf.VM.TestDataDir, kc.DeleteOptions{})
-		} else {
-			for _, f := range files {
-				kubectl.Delete(f, kc.DeleteOptions{})
-			}
-		}
+	Context("Resources", func() {
+		When("Resources applied", func() {
+			It("Result must have no error", func() {
+				res := kubectl.Kustomize(conf.Connectivity, kc.KustomizeOptions{})
+				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			})
+		})
+	})
+
+	Context("Virtual machines", func() {
+		When("VM applied", func() {
+			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
+				CheckPhase("vm", PhaseRunning)
+			})
+		})
 	})
 
 	Context("Connectivity test", func() {
-		CheckResultSshCommand := func(vmName, command, equal string) {
-			GinkgoHelper()
-			res := d8Virtualization.SshCommand(vmName, command, d8.SshOptions{
-				Namespace:   conf.Namespace,
-				Username:    "cloud",
-				IdenityFile: vmPath("sshkeys/id_ed"),
-			})
-			Expect(res.Error()).
-				NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(),
-					vmPath("sshkeys/id_ed"))
-			Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
-		}
+		var (
+			vm1Name = fmt.Sprintf("%s-vm1", namePrefix)
+			vm2Name = fmt.Sprintf("%s-vm2", namePrefix)
 
-		svc1, err := getSVC(vmSvcOne)
+			svc1Path = fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.Connectivity)
+			svc2Path = fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.Connectivity)
+
+			sshKeyPath = fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
+		)
+
+		svc1, err := getSVC(svc1Path)
 		Expect(err).NotTo(HaveOccurred())
-		svc2, err := getSVC(vmSvcTwo)
+		svc2, err := getSVC(svc2Path)
 		Expect(err).NotTo(HaveOccurred())
 
-		curlSVC := func(vmName string, serv *corev1.Service, namespace string) *executor.CMDResult {
-			GinkgoHelper()
-			svc := *serv
+		svc1.Name = fmt.Sprintf("%s-%s", namePrefix, svc1.Name)
+		svc2.Name = fmt.Sprintf("%s-%s", namePrefix, svc2.Name)
 
-			subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Name, svc.Namespace,
-				svc.Spec.Ports[0].Port)
-			subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
-				namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
-			fmt.Println(subCMD, "<---- subCurlCMD")
-			return kubectl.RawCommand(subCMD, ShortWaitDuration)
-		}
-
-		deletePodHelper := func(vmName, namespace string) *executor.CMDResult {
-			GinkgoHelper()
-			subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, CurlPod, vmName)
-			return kubectl.RawCommand(subCMD, ShortWaitDuration)
-		}
-
-		ItApplyFromFile(vmOneIPClaim)
-		ItApplyFromFile(vmOneManifest)
-		ItApplyFromFile(vmSvcOne)
-		ItApplyFromFile(vmTwoIPClaim)
-		ItApplyFromFile(vmTwoManifest)
-		ItApplyFromFile(vmSvcTwo)
-
-		vmOne, err := GetVMFromManifest(vmOneManifest)
-		Expect(err).NotTo(HaveOccurred(), "%s", err)
-		vmTwo, err := GetVMFromManifest(vmTwoManifest)
-		Expect(err).NotTo(HaveOccurred(), "%s", err)
-
-		It(fmt.Sprintf("Wait %s running", vmOne.Name), func() {
-			waitVmStatus(vmOne.Name, VMStatusRunning)
-		})
-		It(fmt.Sprintf("Wait %s running", vmTwo.Name), func() {
-			waitVmStatus(vmTwo.Name, VMStatusRunning)
-		})
 		It("Wait 60 sec for sshd started", func() {
 			time.Sleep(60 * time.Second)
 		})
 
-		It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vmOne.Name), func() {
+		It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vm1Name), func() {
 			command := "hostname"
-			CheckResultSshCommand(vmOne.Name, command, vmOne.Name)
+			CheckResultSshCommand(vm1Name, command, vm1Name, sshKeyPath)
 		})
-		It(fmt.Sprintf("Curl https://flant.com site from %s", vmOne.Name), func() {
+
+		It(fmt.Sprintf("Curl https://flant.com site from %s", vm1Name), func() {
 			command := "curl -o /dev/null -s -w \"%{http_code}\\n\" https://flant.com"
 			httpCode := "200"
-			CheckResultSshCommand(vmOne.Name, command, httpCode)
+			CheckResultSshCommand(vm1Name, command, httpCode, sshKeyPath)
 		})
 
-		It(fmt.Sprintf("Get nginx page from %s through service %s", vmOne.Name, svc1.Name), func() {
-			res := curlSVC(vmOne.Name, svc1, conf.Namespace)
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vm1Name, svc1.Name), func() {
+			res := curlSVC(vm1Name, svc1, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmOne.Name))
+			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm1Name))
 		})
 
-		It(fmt.Sprintf("Delete pod helper for %s", vmOne.Name), func() {
-			res := deletePodHelper(vmOne.Name, conf.Namespace)
+		It(fmt.Sprintf("Delete pod helper for %s", vm1Name), func() {
+			res := deletePodHelper(vm1Name, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
-		It(fmt.Sprintf("Get nginx page from %s through service %s", vmTwo.Name, svc2.Name), func() {
-			res := curlSVC(vmTwo.Name, svc2, conf.Namespace)
+		It(fmt.Sprintf("Get nginx page from %s through service %s", vm2Name, svc2.Name), func() {
+			res := curlSVC(vm2Name, svc2, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmTwo.Name))
+			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
 		})
 
-		It(fmt.Sprintf("Delete pod helper for %s", vmTwo.Name), func() {
-			res := deletePodHelper(vmTwo.Name, conf.Namespace)
+		It(fmt.Sprintf("Delete pod helper for %s", vm2Name), func() {
+			res := deletePodHelper(vm2Name, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
 		})
 
@@ -200,6 +175,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 
 			PatchSvcSelector(svc1.Name, svc2.Spec.Selector["service"])
 		})
+
 		It(fmt.Sprintf("Check selector on %s, must be %s", svc1.Name, svc2.Spec.Selector["service"]), func() {
 			GetSvcLabel := func(name, label string) {
 				GinkgoHelper()
@@ -209,10 +185,10 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			GetSvcLabel(svc1.Name, svc2.Spec.Selector["service"])
 		})
 
-		It(fmt.Sprintf("Get nginx page from %s and expect %s hostname", vmOne.Name, vmTwo.Name), func() {
-			res := curlSVC(vmOne.Name, svc1, conf.Namespace)
+		It(fmt.Sprintf("Get nginx page from %s and expect %s hostname", vm1Name, vm2Name), func() {
+			res := curlSVC(vm1Name, svc1, conf.Namespace)
 			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmTwo.Name))
+			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
 		})
 	})
 })
