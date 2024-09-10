@@ -58,12 +58,14 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	changed := s.VirtualMachineOperation().Changed()
 	// Ignore if vmop in deletion state.
-	if changed.DeletionTimestamp == nil {
+	if changed.DeletionTimestamp != nil {
+		h.logger.Debug("Skip operation, VMOP is in deletion state", "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
 	// Do not perform operation if vmop not in the Pending phase.
 	if changed.Status.Phase != virtv2.VMOPPhasePending {
+		h.logger.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
@@ -71,9 +73,11 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	// Other statuses may indicate waiting state, e.g. non-existent VM or other VMOPs in progress.
 	completeCondition, found := service.GetCondition(vmopcondition.CompletedType, changed.Status.Conditions)
 	if !found {
+		h.logger.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 	if completeCondition.Status != metav1.ConditionUnknown {
+		h.logger.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
@@ -81,7 +85,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	err := h.vmopSrv.Do(ctx, changed)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending powerstate signal %q to VM", changed.Spec.Type)
-		h.logger.Error(failMsg, "err", err, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		h.logger.Debug(failMsg, "err", err, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		failMsg = fmt.Sprintf("%s: %v", failMsg, err)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 
