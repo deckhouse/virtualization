@@ -1,8 +1,6 @@
 module github.com/deckhouse/virtualization-controller
 
-go 1.21
-
-toolchain go1.21.0
+go 1.22.6
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20240321085500-118bb9c256f6
@@ -124,7 +122,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20230726155614-23370e0ffb3e // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
 	google.golang.org/grpc v1.58.3 // indirect
-	google.golang.org/protobuf v1.31.0 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
