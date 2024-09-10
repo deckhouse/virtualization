@@ -278,7 +278,7 @@ func (c *Controller) sync(key string) error {
 	k := types.NamespacedName{Name: name, Namespace: ns}
 	if !exists {
 		if err = c.netlinkMgr.DeleteRoute(k, ""); err != nil {
-			log.Error(err, "Failed to delete route")
+			return fmt.Errorf("failed to delete route: %w", err)
 		}
 		return nil
 	}
@@ -287,9 +287,14 @@ func (c *Controller) sync(key string) error {
 
 	if vm.GetDeletionTimestamp() != nil {
 		if err = c.netlinkMgr.DeleteRoute(k, vm.Status.IPAddress); err != nil {
-			log.Error(err, "Failed to delete toute")
-			return err
+			return fmt.Errorf("failed to delete route: %w", err)
 		}
+		return nil
+	}
+
+	if vm.Status.Node == "" {
+		log.Info("Node is empty, re-enqueuing after 60s.")
+		c.queue.AddAfter(k.String(), 60*time.Second)
 		return nil
 	}
 
@@ -297,16 +302,14 @@ func (c *Controller) sync(key string) error {
 	var ciliumNode *ciliumv2.CiliumNode
 	obj, exists, err = c.cnIndexer.GetByKey(vm.Status.Node)
 	if err != nil {
-		c.log.Error(err, "failed to get cilium node for vm")
-		return err
+		return fmt.Errorf("failed to get cilium node for vm: %w", err)
 	}
 	if exists {
 		ciliumNode = obj.(*ciliumv2.CiliumNode)
 	}
 
 	if err = c.netlinkMgr.UpdateRoute(vm, ciliumNode); err != nil {
-		log.Error(err, "Failed to update route")
-		return err
+		return fmt.Errorf("failed to update route: %w", err)
 	}
 	return nil
 }

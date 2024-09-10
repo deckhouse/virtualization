@@ -3,7 +3,8 @@
 version: "3"
 
 vars:
-  DLV_IMAGE_ENV: "DLV_IMAGE"
+  DLV_IMAGE:
+    sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
 
 tasks:
   lint:
@@ -16,20 +17,33 @@ tasks:
 
   dlv:build:
     desc: "Build image vm-route-forge with dlv"
-    preconditions:
-      - sh: if [ -z ${{ .DLV_IMAGE_ENV }}]; then exit 1 ; fi
-        msg: "export env {{ .DLV_IMAGE_ENV }}"
-    cmd: cd ../../ && docker build -f ./images/vm-route-forge/dlv.Dockerfile -t "${{ .DLV_IMAGE_ENV }}" .
-
-  dlv:push:
-    desc: "Push image vm-route-forge with dlv"
-    preconditions:
-      - sh: if [ -z ${{ .DLV_IMAGE_ENV }}]; then exit 1 ; fi
-        msg: "export env {{ .DLV_IMAGE_ENV }}"
-    cmd: docker push "${{ .DLV_IMAGE_ENV }}"
+    cmd: cd ../../ && docker build -f ./images/vm-route-forge/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .
 
   dlv:build-push:
     desc: "Build and Push image vm-route-forge with dlv"
     cmds:
-      - task: build
-      - task: push
+      - task: dlv:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:print
+
+  dlv:print:
+    desc: "Print subcommands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch ds vm-route-forge --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "vm-route-forge",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward $(kubectl -n d8-virtualization get pod -l app=vm-route-forge -oname | head -1) 2345:2345
+      EOF
