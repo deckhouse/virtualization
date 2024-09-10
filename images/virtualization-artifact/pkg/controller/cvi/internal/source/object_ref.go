@@ -240,6 +240,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 
 		if vi == nil {
 			return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+
 		}
 
 		if vi.Spec.Storage == virtv2.StorageKubernetes {

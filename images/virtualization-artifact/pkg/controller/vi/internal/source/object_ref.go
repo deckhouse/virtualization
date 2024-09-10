@@ -461,9 +461,8 @@ func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSourc
 	if unpackedSize.IsZero() {
 		return resource.Quantity{}, errors.New("got zero unpacked size from data source")
 	}
-	adjustedImageSize := ds.statService.GetAdjustImageSize(unpackedSize)
 
-	return service.GetValidatedPVCSize(&adjustedImageSize, unpackedSize)
+	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
 func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {

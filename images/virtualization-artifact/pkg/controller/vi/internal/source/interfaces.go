@@ -21,7 +21,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
@@ -64,5 +63,4 @@ type Stat interface {
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	CheckPod(pod *corev1.Pod) error
-	GetAdjustImageSize(unpackedSizeBytes resource.Quantity) resource.Quantity
 }
