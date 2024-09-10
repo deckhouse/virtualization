@@ -23,6 +23,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,6 +49,7 @@ func TestStatisticHandler(t *testing.T) {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		virtv2.AddToScheme,
 		virtv1.AddToScheme,
+		corev1.AddToScheme,
 	} {
 		err := f(scheme)
 		if err != nil {
@@ -66,6 +69,7 @@ func TestStatisticHandler(t *testing.T) {
 			name: "test1: virtualmachine running, if nil statistics",
 			getObjects: func() []client.Object {
 				return []client.Object{
+					createPod(namespacedName),
 					createVM(namespacedName, virtv2.MachinePending, nil, virtv1.VirtualMachineInstanceGuestOSInfo{}),
 					createKVVMI(namespacedName, virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}),
 				}
@@ -99,6 +103,7 @@ func TestStatisticHandler(t *testing.T) {
 			getObjects: func() []client.Object {
 				info := virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}
 				return []client.Object{
+					createPod(namespacedName),
 					createVM(namespacedName, virtv2.MachineRunning, createStatisticNoChange(), info),
 					createKVVMI(namespacedName, virtv1.Running, info),
 				}
@@ -119,6 +124,7 @@ func TestStatisticHandler(t *testing.T) {
 			getObjects: func() []client.Object {
 				info := virtv1.VirtualMachineInstanceGuestOSInfo{}
 				return []client.Object{
+					createPod(namespacedName),
 					createVM(namespacedName,
 						virtv2.MachinePending,
 						&virtv2.VirtualMachineStats{
@@ -162,6 +168,28 @@ func TestStatisticHandler(t *testing.T) {
 				require.NotNil(t, wfd)
 				require.Greater(t, wfd.Duration, 10*time.Second)
 
+				return nil
+			},
+		},
+		{
+			name: "test4: check generated .status.resources",
+			getObjects: func() []client.Object {
+				return []client.Object{
+					createPod(namespacedName),
+					createVM(namespacedName, virtv2.MachineRunning, nil, virtv1.VirtualMachineInstanceGuestOSInfo{}),
+					createKVVMI(namespacedName, virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}),
+				}
+			},
+			mutateChanged: func(vm *virtv2.VirtualMachine) {},
+			expect: func(vm *virtv2.VirtualMachine) error {
+				require.NotNil(t, vm)
+				res := vm.Status.Resources
+				require.Equal(t, res.CPU.Cores, 1)
+				require.Equal(t, res.CPU.CoreFraction, "50%")
+				require.Equal(t, res.CPU.RequestedCores.MilliValue(), int64(500))
+				require.Equal(t, res.CPU.RuntimeOverhead.MilliValue(), int64(0))
+				require.Equal(t, res.Memory.Size.Value(), int64(536870912))
+				require.Equal(t, res.Memory.RuntimeOverhead.Value(), int64(254803968))
 				return nil
 			},
 		},
@@ -231,6 +259,39 @@ func createStatisticNoChange() *virtv2.VirtualMachineStats {
 	}
 }
 
+func createPod(vmKey types.NamespacedName) *corev1.Pod {
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("virt-launcher-%s", vmKey.Name),
+			Namespace: vmKey.Namespace,
+			Labels: map[string]string{
+				virtv1.VirtualMachineNameLabel: vmKey.Name,
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "compute",
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("755Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("1"),
+							corev1.ResourceMemory: resource.MustParse("755Mi"),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func createVM(key types.NamespacedName,
 	phase virtv2.MachinePhase,
 	stats *virtv2.VirtualMachineStats,
@@ -244,6 +305,15 @@ func createVM(key types.NamespacedName,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+		},
+		Spec: virtv2.VirtualMachineSpec{
+			CPU: virtv2.CPUSpec{
+				Cores:        1,
+				CoreFraction: "50%",
+			},
+			Memory: virtv2.MemorySpec{
+				Size: resource.MustParse("512Mi"),
+			},
 		},
 		Status: virtv2.VirtualMachineStatus{
 			Phase:       phase,
@@ -265,6 +335,20 @@ func createKVVMI(key types.NamespacedName,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+		},
+		Spec: virtv1.VirtualMachineInstanceSpec{
+			Domain: virtv1.DomainSpec{
+				Resources: virtv1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("500m"),
+						corev1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+				},
+			},
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			Phase:       phase,

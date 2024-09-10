@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -42,10 +41,10 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	lg *slog.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	log = log.With(logger.SlogController(controllerName))
+	log := lg.With(logger.SlogController(controllerName))
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
@@ -85,21 +84,8 @@ func SetupController(
 		return err
 	}
 
-	vmmetrics.SetupCollector(&vmLister{vmCache: mgrCache}, metrics.Registry)
+	vmmetrics.SetupCollector(mgrCache, metrics.Registry, lg)
 
 	log.Info("Initialized VirtualMachine controller")
 	return nil
-}
-
-type vmLister struct {
-	vmCache cache.Cache
-}
-
-func (l vmLister) List() ([]v1alpha2.VirtualMachine, error) {
-	vmList := v1alpha2.VirtualMachineList{}
-	err := l.vmCache.List(context.Background(), &vmList)
-	if err != nil {
-		return nil, err
-	}
-	return vmList.Items, nil
 }

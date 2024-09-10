@@ -1137,42 +1137,119 @@ spec:
                   type: integer
                   description: "Generating a resource that was last processed by the controller"
                   format: int64
+                virtualMachinePods:
+                  description: List of virtual machine pods.
+                  items:
+                    properties:
+                      active:
+                        description: Current working pod.
+                        type: boolean
+                      name:
+                        description: Name of virtual machine pod.
+                        type: string
+                    required:
+                      - active
+                      - name
+                    type: object
+                  type: array
+                resources:
+                  description: Resource utilization statistics.
+                  properties:
+                    cpu:
+                      description: CPU utilization statistics.
+                        usage.
+                      properties:
+                        coreFraction:
+                          description: Current CoreFraction.
+                          type: string
+                        cores:
+                          description: The current number of cores in the virtual machine.
+                          type: integer
+                        requestedCores:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          description: Requested cores.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        runtimeOverhead:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          description: Runtime overhead.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      required:
+                        - cores
+                      type: object
+                    memory:
+                      description: Memory utilization statistics.
+                        resource usage.
+                      properties:
+                        runtimeOverhead:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          description: Memory runtime overhead.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        size:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          description: Current memory size.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      required:
+                        - size
+                      type: object
+                  type: object
       additionalPrinterColumns:
-        - name: Phase
-          type: string
+        - description: The phase of the virtual machine.
           jsonPath: .status.phase
-        - name: Cores
+          name: Phase
           type: string
+        - description: The number of cores of the virtual machine.
           jsonPath: .spec.cpu.cores
+          name: Cores
           priority: 1
-        - name: CoreFraction
           type: string
+        - description: Virtual machine core fraction.
           jsonPath: .spec.cpu.coreFraction
+          name: CoreFraction
           priority: 1
-        - name: Memory
           type: string
+        - description: The amount of memory of the virtual machine.
           jsonPath: .spec.memory.size
+          name: Memory
           priority: 1
-        - name: Need restart
           type: string
-          jsonPath: .status.conditions[?(@.type=="AwaitingRestartToApplyConfiguration")].status
+        - description: A restart of the virtual machine is required.
+          jsonPath: .status.conditions[?(@.type=='AwaitingRestartToApplyConfiguration')].status
+          name: Need restart
           priority: 1
-        - name: Agent
           type: string
-          jsonPath: .status.conditions[?(@.type=="AgentReady")].status
+        - description: Agent status.
+          jsonPath: .status.conditions[?(@.type=='AgentReady')].status
+          name: Agent
           priority: 1
-        - name: Agent
           type: string
-          jsonPath: .status.conditions[?(@.type=="Migratable")].status
+        - description: Is it possible to migrate a virtual machine.
+          jsonPath: .status.conditions[?(@.type=='Migratable')].status
+          name: Migratable
           priority: 1
-        - name: Node
           type: string
+        - description: The node where the virtual machine is running.
           jsonPath: .status.nodeName
-        - name: IPAddress
+          name: Node
           type: string
+        - description: The IP address of the virtual machine.
           jsonPath: .status.ipAddress
-        - name: Age
-          type: date
+          name: IPAddress
+          type: string
+        - description: Time of creation resource.
           jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
       subresources:
         status: {}

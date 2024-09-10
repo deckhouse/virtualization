@@ -15,7 +15,9 @@ tasks:
     deps:
       - _ensure:k8s-codegen-mod
       - _ensure:k8s-kube-openapi
-    cmd: ./scripts/update-codegen.sh all
+    cmds:
+      - ./scripts/update-codegen.sh all
+      - task: format:yaml
 
   generate:core:
     desc: "Regenerate code for core components."
@@ -40,7 +42,17 @@ tasks:
     desc: "Regenerate crds"
     deps:
       - _ensure:k8s-controller-gen
-    cmd: ./scripts/update-codegen.sh crds
+    cmds:
+      - ./scripts/update-codegen.sh crds
+      - task: format:yaml
+
+  format:yaml:
+    desc: "Format non-templated YAML files, e.g. CRDs"
+    cmds:
+      - |
+        cd ../ && docker run --rm \
+          -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
+          sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
 
   _ci:verify-gen:
     desc: "Check generated files are up-to-date."

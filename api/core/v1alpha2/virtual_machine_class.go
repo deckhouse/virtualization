@@ -35,7 +35,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=virtualization,scope=Cluster,shortName={vmc,vmcs,vmclass,vmclasses},singular=virtualmachineclass
+// +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={vmc,vmcs,vmclass,vmclasses},singular=virtualmachineclass
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
 // +genclient
@@ -55,7 +55,7 @@ type VirtualMachineClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items provides a list of CDIs
+	// Items provides a list of VirtualMachineClasses
 	Items []VirtualMachineClass `json:"items"`
 }
 

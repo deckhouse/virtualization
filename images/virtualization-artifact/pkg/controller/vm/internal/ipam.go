@@ -152,11 +152,10 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	err = h.ipam.CheckIpAddressAvailableForBinding(current.GetName(), ipAddress)
 	if err != nil {
 		log.Info("Ip address is not available to be bound", "err", err, "vmipName", current.Spec.VirtualMachineIPAddress)
-		reason := vmcondition.ReasonIPAddressNotAvailable.String()
-		//nolint:staticcheck
-		mgr.Update(cb.Reason(conditions.DeprecatedWrappedString(reason)).Message(err.Error()).Condition())
+		reason := vmcondition.ReasonIPAddressNotAvailable
+		mgr.Update(cb.Reason(reason).Message(err.Error()).Condition())
 		changed.Status.Conditions = mgr.Generate()
-		h.recorder.Event(changed, corev1.EventTypeWarning, reason, err.Error())
+		h.recorder.Event(changed, corev1.EventTypeWarning, reason.String(), err.Error())
 		return reconcile.Result{}, nil
 	}
 
