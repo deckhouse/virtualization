@@ -345,7 +345,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 			return err
 		}
 
-		if vm.Status.Phase == virtv2.MachineRunning {
+		if vm.Status.Phase != virtv2.MachineStopped {
 			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
 		}
 	}
