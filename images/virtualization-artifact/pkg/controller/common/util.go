@@ -177,6 +177,12 @@ const (
 	// AnnImmediateBinding provides a const to indicate whether immediate binding should be performed on the PV (overrides global config)
 	AnnImmediateBinding = AnnAPIGroup + "/storage.bind.immediate.requested"
 
+	AnnAPIGroupV              = "virtualization.deckhouse.io"
+	AnnVirtualDisk            = "virtualdisk." + AnnAPIGroupV
+	AnnVirtualDiskVolumeMode  = AnnVirtualDisk + "/volume-mode"
+	AnnVirtualDiskAccessMode  = AnnVirtualDisk + "/access-mode"
+	AnnVirtualDiskBindingMode = AnnVirtualDisk + "/binding-mode"
+
 	// AnnSelectedNode annotation is added to a PVC that has been triggered by scheduler to
 	// be dynamically provisioned. Its value is the name of the selected node.
 	AnnSelectedNode = "volume.kubernetes.io/selected-node"
