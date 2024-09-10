@@ -350,7 +350,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		}
 
 		if vm.Status.Phase == virtv2.MachineRunning {
-			return fmt.Errorf("can not use VirtualDisk %s, because VirtualMachine %s is running", vd.Name, vmName.Name)
+			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
 		}
 	}
 

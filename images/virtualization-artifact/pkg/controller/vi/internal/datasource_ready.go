@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -89,6 +90,11 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.VirtualDiskNotReady
 		condition.Message = strings.ToTitle(err.Error())
+		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskAttachedToRunningVMError{}):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = cvicondition.VirtualDiskNotReady
+		condition.Message = service.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

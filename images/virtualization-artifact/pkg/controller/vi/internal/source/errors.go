@@ -64,3 +64,18 @@ func NewVirtualDiskNotReadyError(name string) error {
 		name: name,
 	}
 }
+
+type VirtualDiskAttachedToRunningVMError struct {
+	name   string
+	vmName string
+}
+
+func (e VirtualDiskAttachedToRunningVMError) Error() string {
+	return fmt.Sprintf("VirtualDisk %s attached to running VirtualMachine %s", e.name, e.vmName)
+}
+
+func NewVirtualDiskAttachedToRunningVMError(name, vmName string) error {
+	return VirtualDiskAttachedToRunningVMError{
+		name: name,
+	}
+}
