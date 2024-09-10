@@ -122,10 +122,10 @@ jobs:
       - check_label
     runs-on: [self-hosted, ci-testing]
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22.6
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.6"
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -165,10 +165,10 @@ jobs:
       - check_label
     runs-on: [self-hosted, ci-testing]
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22.6
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.6"
 
       - name: Install Task
         uses: arduino/setup-task@v2
