@@ -211,16 +211,6 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = util.GetPointer(vdRef.GetUID())
 
-		if err != nil {
-			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-
-			if errors.Is(err, service.ErrInsufficientPVCSize) {
-				return false, nil
-			}
-
-			return false, err
-		}
-
 		source := &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{
 				Name:      vdRef.Status.Target.PersistentVolumeClaim,
