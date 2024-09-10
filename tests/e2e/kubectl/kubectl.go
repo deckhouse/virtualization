@@ -70,6 +70,7 @@ type DeleteOptions struct {
 }
 
 type GetOptions struct {
+	Label          string
 	Namespace      string
 	Output         string
 	IgnoreNotFound bool
@@ -335,6 +336,7 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
+	cmd = k.addLabel(cmd, opts.Label)
 	return cmd
 }
 

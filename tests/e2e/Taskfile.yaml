@@ -15,6 +15,7 @@ tasks:
         mkdir /tmp/testdata
         cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
         cp -a testdata/connectivity /tmp/testdata/connectivity
+        cp -a testdata/sshkeys /tmp/testdata/sshkeys
   virtctl:
     cmds:
       - |
@@ -61,6 +62,7 @@ tasks:
   run_one:
     desc: "Run one test or group"
     deps:
+      - copy
       - virtctl
       - ginkgo
     cmds:

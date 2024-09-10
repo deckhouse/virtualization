@@ -18,13 +18,15 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -81,4 +83,29 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 		})
 	})
 
+	Context("External connection", func() {
+		When("VMs are running", func() {
+			It("Wait 40 sec for sshd start in all running VMs", func() {
+				time.Sleep(40 * time.Second)
+			})
+			It("All VMs must have to be connected to external network", func() {
+				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.Sshkeys)
+				host := "https://flant.com"
+				httpCode := "200"
+				resourceType := kc.Resource("vm")
+				output := "jsonpath='{.items[*].metadata.name}'"
+				label := fmt.Sprintf("testcase=%s", namePrefix)
+
+				res := kubectl.List(resourceType, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    output,
+					Label:     label,
+				})
+				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+				CheckExternalConnection(sshKeyPath, host, httpCode, vms...)
+			})
+		})
+	})
 })

@@ -50,6 +50,15 @@ func curlSVC(vmName string, serv *corev1.Service, namespace string) *executor.CM
 	return kubectl.RawCommand(subCMD, ShortWaitDuration)
 }
 
+func CheckExternalConnection(sshKeyPath, host, httpCode string, vms ...string) {
+	GinkgoHelper()
+	for _, vm := range vms {
+		By(fmt.Sprintf("Response code from %s should be %s for %s", host, httpCode, vm))
+		command := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+		CheckResultSshCommand(vm, command, httpCode, sshKeyPath)
+	}
+}
+
 func deletePodHelper(vmName, namespace string) *executor.CMDResult {
 	GinkgoHelper()
 	subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, CurlPod, vmName)
@@ -85,11 +94,6 @@ func CheckResultSshCommand(vmName, command, equal, key string) {
 }
 
 var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
-	BeforeAll(func() {
-		sshKeyPath := fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
-		ChmodFile(sshKeyPath, 0600)
-	})
-
 	Context("Resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -115,8 +119,13 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			svc1Path = fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.Connectivity)
 			svc2Path = fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.Connectivity)
 
-			sshKeyPath = fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
+			sshKeyPath = fmt.Sprintf("%s/id_ed", conf.Sshkeys)
+
+			host     = "https://flant.com"
+			httpCode = "200"
 		)
+
+		ChmodFile(sshKeyPath, 0600)
 
 		svc1, err := getSVC(svc1Path)
 		Expect(err).NotTo(HaveOccurred())
@@ -126,8 +135,8 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		svc1.Name = fmt.Sprintf("%s-%s", namePrefix, svc1.Name)
 		svc2.Name = fmt.Sprintf("%s-%s", namePrefix, svc2.Name)
 
-		It("Wait 60 sec for sshd started", func() {
-			time.Sleep(60 * time.Second)
+		It("Wait 40 sec for sshd started", func() {
+			time.Sleep(40 * time.Second)
 		})
 
 		It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vm1Name), func() {
@@ -135,10 +144,8 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 			CheckResultSshCommand(vm1Name, command, vm1Name, sshKeyPath)
 		})
 
-		It(fmt.Sprintf("Curl https://flant.com site from %s", vm1Name), func() {
-			command := "curl -o /dev/null -s -w \"%{http_code}\\n\" https://flant.com"
-			httpCode := "200"
-			CheckResultSshCommand(vm1Name, command, httpCode, sshKeyPath)
+		It("Virtual machine must have to be connected to external network", func() {
+			CheckExternalConnection(sshKeyPath, host, httpCode, vm1Name)
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s through service %s", vm1Name, svc1.Name), func() {

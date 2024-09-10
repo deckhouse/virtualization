@@ -100,13 +100,18 @@ type Storage struct {
 }
 
 type Kustomize struct {
-	ApiVersion     string            `yaml:"apiVersion"`
-	CommonLabels   map[string]string `yaml:"commonLabels"`
-	Configurations []string          `yaml:"configurations"`
-	Kind           string            `yaml:"kind"`
-	Namespace      string            `yaml:"namespace"`
-	NamePrefix     string            `yaml:"namePrefix"`
-	Resources      []string          `yaml:"resources"`
+	ApiVersion     string   `yaml:"apiVersion"`
+	Labels         []Label  `yaml:"labels"`
+	Configurations []string `yaml:"configurations"`
+	Kind           string   `yaml:"kind"`
+	Namespace      string   `yaml:"namespace"`
+	NamePrefix     string   `yaml:"namePrefix"`
+	Resources      []string `yaml:"resources"`
+}
+
+type Label struct {
+	IncludeSelectors bool              `yaml:"includeSelectors"`
+	Pairs            map[string]string `yaml:"pairs"`
 }
 
 type Config struct {
@@ -118,6 +123,7 @@ type Config struct {
 	Namespace               string           `yaml:"namespaceSuffix"`
 	VirtualizationResources string           `yaml:"virtualizationResources"`
 	Connectivity            string           `yaml:"connectivity"`
+	Sshkeys                 string           `yaml:"sshKeys"`
 }
 
 type ClusterTransport struct {
@@ -227,7 +233,7 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 
 	kustomizeFile.Namespace = namespace
 	kustomizeFile.NamePrefix = namePrefix + "-"
-	kustomizeFile.CommonLabels["testcase"] = namePrefix
+	kustomizeFile.Labels[0].Pairs["testcase"] = namePrefix
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr
