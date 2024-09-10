@@ -101,7 +101,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			},
 		}
 
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, size, *vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, *vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
 		if err != nil {
 			return false, err
 		}

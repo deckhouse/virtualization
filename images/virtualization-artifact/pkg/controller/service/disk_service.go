@@ -119,7 +119,7 @@ func (s DiskService) Start(
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
-func (s DiskService) StartWithIgnoreWFFC(
+func (s DiskService) StartImmediate(
 	ctx context.Context,
 	pvcSize resource.Quantity,
 	storageClass string,

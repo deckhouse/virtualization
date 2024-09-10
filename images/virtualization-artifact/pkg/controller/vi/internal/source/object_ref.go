@@ -164,7 +164,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return false, err
 		}
 
-		err = ds.diskService.StartWithIgnoreWFFC(ctx, diskSize, sc.GetName(), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, sc.GetName(), source, vi, supgen)
 		if err != nil {
 			return false, err
 		}
