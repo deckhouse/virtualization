@@ -85,6 +85,11 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 		condition.Reason = vicondition.ClusterImageNotReady
 		condition.Message = strings.ToTitle(err.Error())
 		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskNotReadyError{}):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.VirtualDiskNotReady
+		condition.Message = strings.ToTitle(err.Error())
+		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err
 	}
