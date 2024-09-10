@@ -20,15 +20,12 @@ type ClientMock struct {
 }
 
 func (m *ClientMock) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
-	switch obj.(type) {
-	case *v1alpha2.VirtualMachineClass:
-		val, ok := m.Values[key.Name]
-		if !ok {
-			return fmt.Errorf("Object not found")
-		}
-
-		obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
+	val, ok := m.Values[key.Name]
+	if !ok {
+		return fmt.Errorf("Object not found")
 	}
+
+	obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
 
 	return nil
 }
