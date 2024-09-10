@@ -102,7 +102,10 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.StartFromPVC(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource), podSettings)
+
 		var requeue bool
 		requeue, err = setPhaseConditionForImporterStart(&condition, &vi.Status.Phase, err)
 		if err != nil {
