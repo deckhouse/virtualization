@@ -32,10 +32,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation no-cyrillic
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22.6
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.6"
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -55,10 +55,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation doc-changes
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22.6
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.6"
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -78,10 +78,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation copyright
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go 1.22.6
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.6"
 
       - name: Install Task
         uses: arduino/setup-task@v2
