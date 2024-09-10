@@ -409,7 +409,8 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		return fmt.Errorf("nil object ref: %s", vi.Spec.DataSource.Type)
 	}
 
-	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	switch vi.Spec.DataSource.ObjectRef.Kind {
+	case virtv2.VirtualImageObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
 		viRef, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
@@ -426,21 +427,27 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 			}
 			return nil
 		}
-	}
 
-	dvcrDataSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
-	if err != nil {
-		return err
-	}
+		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return err
+		}
 
-	if dvcrDataSource.IsReady() {
-		return nil
-	}
+		if dvcrDataSource.IsReady() {
+			return nil
+		}
 
-	switch vi.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualImageObjectRefKindVirtualImage:
 		return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
+		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMI(ctx, vi.Spec.DataSource, vi, ds.client)
+		if err != nil {
+			return err
+		}
+
+		if dvcrDataSource.IsReady() {
+			return nil
+		}
+
 		return NewClusterImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	case virtv2.VirtualImageObjectRefKindVirtualDisk:
 		return ds.vdSyncer.Validate(ctx, vi)
