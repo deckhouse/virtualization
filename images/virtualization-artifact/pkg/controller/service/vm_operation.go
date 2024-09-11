@@ -169,21 +169,27 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	return vmopcondition.ReasonUnknown
 }
 
-func (s VMOperationService) IsComplete(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool {
+func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, error) {
 	if vmop == nil || vm == nil {
-		return false
+		return false, nil
 	}
 
 	vmopType := vmop.Spec.Type
 	vmPhase := vm.Status.Phase
 
+	kvvm, err := s.getKVVM(ctx, vmop.GetNamespace(), vmop.GetName())
+
+	if err != nil {
+		return false, err
+	}
+
 	switch vmopType {
 	case virtv2.VMOPTypeRestart, virtv2.VMOPTypeStart:
-		return vmPhase == virtv2.MachineRunning
+		return vmPhase == virtv2.MachineRunning && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusRunning, nil
 	case virtv2.VMOPTypeStop:
-		return vmPhase == virtv2.MachineStopped
+		return vmPhase == virtv2.MachineStopped && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped, nil
 	default:
-		return false
+		return false, nil
 	}
 }
 
