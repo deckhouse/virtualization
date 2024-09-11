@@ -178,7 +178,6 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 	vmPhase := vm.Status.Phase
 
 	kvvm, err := s.getKVVM(ctx, vmop.GetNamespace(), vmop.GetName())
-
 	if err != nil {
 		return false, err
 	}
