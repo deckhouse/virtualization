@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -36,14 +36,12 @@ const operationHandlerName = "OperationHandler"
 
 // OperationHandler performs operation on Virtual Machine.
 type OperationHandler struct {
-	logger   *slog.Logger
 	recorder record.EventRecorder
 	vmopSrv  service.VMOperationService
 }
 
-func NewOperationHandler(logger *slog.Logger, recorder record.EventRecorder, vmopSrv service.VMOperationService) *OperationHandler {
+func NewOperationHandler(recorder record.EventRecorder, vmopSrv service.VMOperationService) *OperationHandler {
 	return &OperationHandler{
-		logger:   logger,
 		recorder: recorder,
 		vmopSrv:  vmopSrv,
 	}
@@ -51,6 +49,8 @@ func NewOperationHandler(logger *slog.Logger, recorder record.EventRecorder, vmo
 
 // Handle triggers operation depending on conditions set by lifecycle handler.
 func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(operationHandlerName))
+
 	vmop := s.VirtualMachineOperation()
 	if vmop == nil {
 		return reconcile.Result{}, nil
@@ -59,25 +59,25 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	changed := s.VirtualMachineOperation().Changed()
 	// Ignore if vmop in deletion state.
 	if changed.DeletionTimestamp != nil {
-		h.logger.Debug("Skip operation, VMOP is in deletion state", "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, VMOP is in deletion state", "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
 	// Do not perform operation if vmop not in the Pending phase.
 	if changed.Status.Phase != virtv2.VMOPPhasePending {
-		h.logger.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
 	// VirtualMachineOperation should contain Complete condition in Unknown state to perform operation.
 	// Other statuses may indicate waiting state, e.g. non-existent VM or other VMOPs in progress.
-	completeCondition, found := service.GetCondition(vmopcondition.CompletedType, changed.Status.Conditions)
+	completeCondition, found := service.GetCondition(vmopcondition.CompletedType.String(), changed.Status.Conditions)
 	if !found {
-		h.logger.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 	if completeCondition.Status != metav1.ConditionUnknown {
-		h.logger.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		return reconcile.Result{}, nil
 	}
 
@@ -85,19 +85,20 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	err := h.vmopSrv.Do(ctx, changed)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending powerstate signal %q to VM", changed.Spec.Type)
-		h.logger.Debug(failMsg, "err", err, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug(failMsg, "err", err, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 		failMsg = fmt.Sprintf("%s: %v", failMsg, err)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.SignalSentType,
+			Type:   vmopcondition.SignalSentType.String(),
 			Status: metav1.ConditionFalse,
+			Reason: vmopcondition.ReasonSignalSentError.String(),
 		}, &changed.Status.Conditions)
 		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
+			Type:    vmopcondition.CompletedType.String(),
 			Status:  metav1.ConditionFalse,
-			Reason:  vmopcondition.OperationFailed,
+			Reason:  vmopcondition.ReasonOperationFailed.String(),
 			Message: failMsg,
 		}, &changed.Status.Conditions)
 
@@ -105,19 +106,20 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	}
 
 	msg := fmt.Sprintf("Sent powerstate signal %q to VM without errors.", changed.Spec.Type)
-	h.logger.Debug(msg, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+	log.Debug(msg, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
 	h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
 
 	changed.Status.Phase = virtv2.VMOPPhaseInProgress
 
 	service.SetCondition(metav1.Condition{
-		Type:   vmopcondition.SignalSentType,
+		Type:   vmopcondition.SignalSentType.String(),
 		Status: metav1.ConditionTrue,
+		Reason: vmopcondition.ReasonSignalSentSuccess.String(),
 	}, &changed.Status.Conditions)
 	service.SetCondition(metav1.Condition{
-		Type:    vmopcondition.CompletedType,
+		Type:    vmopcondition.CompletedType.String(),
 		Status:  metav1.ConditionFalse,
-		Reason:  h.vmopSrv.InProgressReasonForType(changed),
+		Reason:  h.vmopSrv.InProgressReasonForType(changed).String(),
 		Message: "Wait for operation to complete",
 	}, &changed.Status.Conditions)
 

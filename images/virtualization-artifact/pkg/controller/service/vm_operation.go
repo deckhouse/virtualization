@@ -140,17 +140,6 @@ func (s VMOperationService) IsApplicableForVMPhase(vmop *virtv2.VirtualMachineOp
 	}
 }
 
-func (s VMOperationService) IsCompleted(opType virtv2.VMOPType, phase virtv2.MachinePhase) bool {
-	switch opType {
-	case virtv2.VMOPTypeRestart, virtv2.VMOPTypeStart:
-		return phase == virtv2.MachineRunning
-	case virtv2.VMOPTypeStop:
-		return phase == virtv2.MachineStopped
-	default:
-		return false
-	}
-}
-
 // OtherVMOPIsInProgress check if there is at least one VMOP for the same VM in progress phase.
 func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
 	var vmopList virtv2.VirtualMachineOperationList
@@ -176,19 +165,19 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 	return false, nil
 }
 
-func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) string {
+func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) vmopcondition.Reason {
 	if vmop == nil || vmop.Spec.Type == "" {
-		return ""
+		return vmopcondition.ReasonUnknown
 	}
 	switch vmop.Spec.Type {
 	case virtv2.VMOPTypeStart:
-		return vmopcondition.StartInProgress
+		return vmopcondition.ReasonStartInProgress
 	case virtv2.VMOPTypeStop:
-		return vmopcondition.StopInProgress
+		return vmopcondition.ReasonStopInProgress
 	case virtv2.VMOPTypeRestart:
-		return vmopcondition.RestartInProgress
+		return vmopcondition.ReasonRestartInProgress
 	}
-	return ""
+	return vmopcondition.ReasonUnknown
 }
 
 func (s VMOperationService) IsComplete(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool {
@@ -207,4 +196,14 @@ func (s VMOperationService) IsComplete(vmop *virtv2.VirtualMachineOperation, vm 
 	default:
 		return false
 	}
+}
+
+func (s VMOperationService) IsFinalState(vmop *virtv2.VirtualMachineOperation) bool {
+	if vmop == nil {
+		return false
+	}
+
+	return vmop.Status.Phase == virtv2.VMOPPhaseCompleted ||
+		vmop.Status.Phase == virtv2.VMOPPhaseFailed ||
+		vmop.Status.Phase == virtv2.VMOPPhaseTerminating
 }

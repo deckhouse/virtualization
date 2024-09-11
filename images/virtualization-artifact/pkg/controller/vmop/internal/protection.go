@@ -19,13 +19,13 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -33,24 +33,24 @@ const protectionHandlerName = "ProtectionHandler"
 
 // ProtectionHandler manages finalizers on VirtualMachineOperation resource.
 type ProtectionHandler struct {
-	logger *slog.Logger
 	client client.Client
 }
 
-func NewProtectionHandler(logger *slog.Logger, client client.Client) *ProtectionHandler {
+func NewProtectionHandler(client client.Client) *ProtectionHandler {
 	return &ProtectionHandler{
-		logger: logger.With("handler", protectionHandlerName),
 		client: client,
 	}
 }
 
 func (h ProtectionHandler) Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(protectionHandlerName))
+
 	if s.VirtualMachineOperation() == nil {
 		return reconcile.Result{}, nil
 	}
 
 	changed := s.VirtualMachineOperation().Changed()
-	log := h.logger.With("name", changed.GetName(), "namespace", changed.GetNamespace())
+	//log := log.With("name", changed.GetName(), "namespace", changed.GetNamespace())
 
 	vm, _ := s.VirtualMachine(ctx)
 

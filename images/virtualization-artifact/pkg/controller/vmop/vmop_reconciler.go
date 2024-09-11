@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,13 +45,11 @@ type Handler interface {
 type Reconciler struct {
 	handlers []Handler
 	client   client.Client
-	logger   *slog.Logger
 }
 
-func NewReconciler(client client.Client, logger *slog.Logger, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
-		logger:   logger,
 		handlers: handlers,
 	}
 }
@@ -100,6 +98,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+
 	vmop := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vmop.Fetch(ctx)
@@ -111,17 +111,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	r.logger.Info("Start reconcile VMOP", "namespacedName", req.String())
+	log.Info("Start reconcile VMOP", "namespacedName", req.String())
 
 	s := state.New(r.client, vmop)
 	var handlerErrs []error
 
 	var result reconcile.Result
 	for _, h := range r.handlers {
-		r.logger.Debug("Run handler", "name", h.Name())
+		log.Debug("Run handler", "name", h.Name())
 		res, err := h.Handle(ctx, s)
 		if err != nil {
-			r.logger.Error("Failed to handle VirtualMachineOperation", "err", err, "handler", h.Name())
+			log.Error("Failed to handle VirtualMachineOperation", "err", err, "handler", h.Name())
 			handlerErrs = append(handlerErrs, err)
 		}
 

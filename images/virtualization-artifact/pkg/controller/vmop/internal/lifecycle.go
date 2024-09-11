@@ -19,13 +19,13 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -37,15 +37,13 @@ var lifeCycleConditions = []vmopcondition.Type{
 	vmopcondition.SignalSentType,
 }
 
-// LifecycleHandler calculate status of the VirtualMachineOperation resource.
+// LifecycleHandler calculates status of the VirtualMachineOperation resource.
 type LifecycleHandler struct {
-	logger  *slog.Logger
 	vmopSrv service.VMOperationService
 }
 
-func NewLifecycleHandler(logger *slog.Logger, vmopSrv service.VMOperationService) *LifecycleHandler {
+func NewLifecycleHandler(vmopSrv service.VMOperationService) *LifecycleHandler {
 	return &LifecycleHandler{
-		logger:  logger.With("handler", lifecycleHandlerName),
 		vmopSrv: vmopSrv,
 	}
 }
@@ -53,6 +51,8 @@ func NewLifecycleHandler(logger *slog.Logger, vmopSrv service.VMOperationService
 // Handle sets conditions depending on cluster state.
 // It should set Running condition to start operation on VM.
 func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(lifecycleHandlerName))
+
 	vmop := s.VirtualMachineOperation()
 	if vmop == nil {
 		return reconcile.Result{}, nil
@@ -91,14 +91,15 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		// Add all conditions in unknown state.
 		for _, condType := range lifeCycleConditions {
 			service.SetCondition(metav1.Condition{
-				Type:   condType,
+				Type:   condType.String(),
 				Status: metav1.ConditionUnknown,
+				Reason: vmopcondition.ReasonUnknown.String(),
 			}, &changed.Status.Conditions)
 		}
 	}
 
 	// Ignore if VMOP is in final state.
-	if IsFinalState(changed) {
+	if h.vmopSrv.IsFinalState(changed) {
 		return reconcile.Result{}, nil
 	}
 
@@ -110,8 +111,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	if vm == nil {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
-			Reason:  vmopcondition.VirtualMachineNotFound,
+			Type:    vmopcondition.CompletedType.String(),
+			Reason:  vmopcondition.ReasonVirtualMachineNotFound.String(),
 			Status:  metav1.ConditionFalse,
 			Message: "VirtualMachine not found",
 		}, &changed.Status.Conditions)
@@ -119,7 +120,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	}
 
 	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
-		h.logger.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)
+		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)
 		return h.checkOperationComplete(changed, vm)
 	}
 
@@ -133,8 +134,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	if found {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
-			Reason:  vmopcondition.OtherOperationsAreInProgress,
+			Type:    vmopcondition.CompletedType.String(),
+			Reason:  vmopcondition.ReasonOtherOperationsAreInProgress.String(),
 			Status:  metav1.ConditionFalse,
 			Message: "Other VirtualMachineOperations are in progress",
 		}, &changed.Status.Conditions)
@@ -145,10 +146,10 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	if !h.vmopSrv.IsApplicableForRunPolicy(changed, vm.Spec.RunPolicy) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
-			Reason:  vmopcondition.NotApplicableForRunPolicy,
+			Type:    vmopcondition.CompletedType.String(),
+			Reason:  vmopcondition.ReasonNotApplicableForRunPolicy.String(),
 			Status:  metav1.ConditionFalse,
-			Message: fmt.Sprintf("Operation type %s is not applicable for runPolicy %s", changed.Spec.Type, vm.Spec.RunPolicy),
+			Message: fmt.Sprintf("Operation type %s is not applicable for VirtualMachine with runPolicy %s", changed.Spec.Type, vm.Spec.RunPolicy),
 		}, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -157,10 +158,10 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	if !h.vmopSrv.IsApplicableForVMPhase(changed, vm.Status.Phase) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType,
-			Reason:  vmopcondition.NotApplicableForVMPhase,
+			Type:    vmopcondition.CompletedType.String(),
+			Reason:  vmopcondition.ReasonNotApplicableForVMPhase.String(),
 			Status:  metav1.ConditionFalse,
-			Message: fmt.Sprintf("Operation type %s is not applicable for vm phase %s", changed.Spec.Type, vm.Status.Phase),
+			Message: fmt.Sprintf("Operation type %s is not applicable for VirtualMachine in phase %s", changed.Spec.Type, vm.Status.Phase),
 		}, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -172,21 +173,27 @@ func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
+// checkOperationComplete detects if operation is completed and VM has desired phase.
+// TODO detect if VM is stuck to prevent infinite InProgress state.
 func (h LifecycleHandler) checkOperationComplete(changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
 	// Check for complete.
 	if h.vmopSrv.IsComplete(changed, vm) {
 		changed.Status.Phase = virtv2.VMOPPhaseCompleted
 		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.CompletedType,
-			Status: metav1.ConditionTrue,
+			Type:    vmopcondition.CompletedType.String(),
+			Reason:  vmopcondition.ReasonOperationCompleted.String(),
+			Message: "Virtual machine is in desired state",
+			Status:  metav1.ConditionTrue,
 		}, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	// Keep InProgress phase as-is (InProgress), set complete condition to false.
 	service.SetCondition(metav1.Condition{
-		Type:   vmopcondition.CompletedType,
-		Status: metav1.ConditionFalse,
+		Type:    vmopcondition.CompletedType.String(),
+		Reason:  h.vmopSrv.InProgressReasonForType(changed).String(),
+		Message: "Wait until operation completed",
+		Status:  metav1.ConditionFalse,
 	}, &changed.Status.Conditions)
 	return reconcile.Result{}, nil
 }

@@ -49,12 +49,12 @@ func SetupController(
 	vmopSrv := service.NewVMOperationService(mgr.GetClient())
 
 	handlers := []Handler{
-		internal.NewLifecycleHandler(log, vmopSrv),
-		internal.NewOperationHandler(log, recorder, vmopSrv),
-		internal.NewProtectionHandler(log, client),
+		internal.NewLifecycleHandler(vmopSrv),
+		internal.NewOperationHandler(recorder, vmopSrv),
+		internal.NewProtectionHandler(client),
 	}
 
-	reconciler := NewReconciler(client, log, handlers...)
+	reconciler := NewReconciler(client, handlers...)
 
 	vmopController, err := controller.New(controllerName, mgr, controller.Options{
 		Reconciler:     reconciler,

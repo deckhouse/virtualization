@@ -16,7 +16,11 @@ limitations under the License.
 
 package vmopcondition
 
-type Type = string
+type Type string
+
+func (t Type) String() string {
+	return string(t)
+}
 
 const (
 	// CompletedType is a type for condition that indicates operation is complete.
@@ -26,36 +30,46 @@ const (
 	SignalSentType Type = "SignalHasBeenSent"
 )
 
-type (
-	// CompletedReason represents specific reasons for the 'Completed' condition type.
-	CompletedReason = string
-)
+// Reason represents specific reasons for the 'Completed' condition type.
+type Reason string
+
+func (r Reason) String() string {
+	return string(r)
+}
 
 const (
-	// VirtualMachineNotFound is a CompletedReason indicating that the specified virtual machine is absent.
-	VirtualMachineNotFound CompletedReason = "VirtualMachineNotFound"
+	ReasonUnknown Reason = "Unknown"
 
-	// NotApplicableForRunPolicy is a CompletedReason indicating that the specified operation type is not appilicable for the virtual machine runPolicy.
-	NotApplicableForRunPolicy CompletedReason = "NotApplicableForRunPolicy"
+	// ReasonSignalSentError is a Reason indicating an error occurred while sending powerstate signal to the VM.
+	ReasonSignalSentError Reason = "ReasonSignalSentError"
 
-	// NotApplicableForVMPhase is a CompletedReason indicating that the specified operation type is not appilicable for the virtual machine phase.
-	NotApplicableForVMPhase CompletedReason = "NotApplicableForVMPhase"
+	// ReasonSignalSentSuccess is a Reason indicating that signal is sent to the VM.
+	ReasonSignalSentSuccess Reason = "ReasonSignalSentSuccess"
 
-	// OtherOperationsAreInProgress is a CompletedReason indicating that there are other operations in progress.
-	OtherOperationsAreInProgress CompletedReason = "OtherOperationsAreInProgress"
+	// ReasonVirtualMachineNotFound is a Reason indicating that the specified virtual machine is absent.
+	ReasonVirtualMachineNotFound Reason = "ReasonVirtualMachineNotFound"
 
-	// // WaitForOtherOperations is a CompletedReason indicating that there are other operations in progress.
-	// WaitForOtherOperations CompletedReason = "WaitForOtherOperations"
+	// ReasonNotApplicableForRunPolicy is a Reason indicating that the specified operation type is not appilicable for the virtual machine runPolicy.
+	ReasonNotApplicableForRunPolicy Reason = "ReasonNotApplicableForRunPolicy"
 
-	// RestartInProgress is a CompletedReason indicating that the restart signal has been sent and restart is in progress.
-	RestartInProgress CompletedReason = "RestartInProgress"
+	// ReasonNotApplicableForVMPhase is a Reason indicating that the specified operation type is not appilicable for the virtual machine phase.
+	ReasonNotApplicableForVMPhase Reason = "ReasonNotApplicableForVMPhase"
 
-	// StartInProgress is a CompletedReason indicating that the start signal has been sent and start is in progress.
-	StartInProgress CompletedReason = "StartInProgress"
+	// ReasonOtherOperationsAreInProgress is a Reason indicating that there are other operations in progress.
+	ReasonOtherOperationsAreInProgress Reason = "ReasonOtherOperationsAreInProgress"
 
-	// StopInProgress is a CompletedReason indicating that the stop signal has been sent and stop is in progress.
-	StopInProgress CompletedReason = "StopInProgress"
+	// ReasonRestartInProgress is a Reason indicating that the restart signal has been sent and restart is in progress.
+	ReasonRestartInProgress Reason = "ReasonRestartInProgress"
 
-	// OperationFailed is a CompletedReason indicating that operation has failed.
-	OperationFailed CompletedReason = "OperationFailed"
+	// ReasonStartInProgress is a Reason indicating that the start signal has been sent and start is in progress.
+	ReasonStartInProgress Reason = "ReasonStartInProgress"
+
+	// ReasonStopInProgress is a Reason indicating that the stop signal has been sent and stop is in progress.
+	ReasonStopInProgress Reason = "ReasonStopInProgress"
+
+	// ReasonOperationFailed is a Reason indicating that operation has failed.
+	ReasonOperationFailed Reason = "ReasonOperationFailed"
+
+	// ReasonOperationCompleted is a Reason indicating that operation is completed.
+	ReasonOperationCompleted Reason = "ReasonOperationCompleted"
 )

@@ -19,7 +19,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +39,6 @@ func New(c client.Client, vmop *service.Resource[*virtv2.VirtualMachineOperation
 
 type state struct {
 	client client.Client
-	mu     sync.RWMutex
 	vmop   *service.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 	vm     *virtv2.VirtualMachine
 }
