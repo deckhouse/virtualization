@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -89,6 +90,39 @@ func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *impo
 
 func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
+}
+
+func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controllerName string) (bool, error) {
+	labelSelector := client.MatchingLabels{common.AppKubernetesManagedByLabel: controllerName}
+
+	podList := &corev1.PodList{}
+	if err := s.client.List(ctx, podList, labelSelector); err != nil {
+		return false, err
+	}
+
+	for _, pod := range podList.Items {
+		for _, ownerRef := range pod.OwnerReferences {
+			if ownerRef.Kind == obj.GroupVersionKind().Kind && ownerRef.Name == obj.GetName() && ownerRef.UID == obj.GetUID() {
+				err := s.protection.RemoveProtection(ctx, &pod)
+				if err != nil {
+					return false, err
+				}
+
+				err = s.client.Delete(ctx, &pod)
+				if err != nil {
+					if k8serrors.IsNotFound(err) {
+						return false, nil
+					}
+
+					return false, err
+				}
+
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {

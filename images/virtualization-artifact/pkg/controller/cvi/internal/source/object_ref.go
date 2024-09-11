@@ -52,7 +52,6 @@ type ObjectRefDataSource struct {
 func NewObjectRefDataSource(
 	statService Stat,
 	importerService Importer,
-	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	controllerNamespace string,
@@ -64,8 +63,8 @@ func NewObjectRefDataSource(
 		client:              client,
 		controllerNamespace: controllerNamespace,
 
-		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, dvcrSettings, statService),
-		vdSyncer:      NewObjectRefVirtualDisk(importerService, diskService, controllerNamespace, dvcrSettings, statService),
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, dvcrSettings, statService),
+		vdSyncer:      NewObjectRefVirtualDisk(importerService, client, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -231,37 +230,24 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 }
 
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	if cvi.Spec.DataSource.ObjectRef == nil {
-		return false, fmt.Errorf("nil object ref: %s", cvi.Spec.DataSource.Type)
-	}
-
-	switch cvi.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
-		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
-		if err != nil {
-			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
-		}
-
-		if vi == nil {
-			return false, NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
-		}
-
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viOnPvcSyncer.CleanUp(ctx, cvi)
-		}
-	case virtv2.ClusterVirtualImageObjectRefKindVirtualDisk:
-		return ds.vdSyncer.CleanUp(ctx, cvi)
-	}
-
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
-
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
+	viRefRequeue, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
 	if err != nil {
 		return false, err
 	}
 
-	return requeue, nil
+	vdRefRequeue, err := ds.vdSyncer.CleanUp(ctx, cvi)
+	if err != nil {
+		return false, err
+	}
+
+	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+
+	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
+	return objRefRequeue || vdRefRequeue || viRefRequeue, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {

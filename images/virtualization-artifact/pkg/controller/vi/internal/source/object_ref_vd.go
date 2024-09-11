@@ -22,7 +22,9 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -32,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -42,12 +45,14 @@ type ObjectRefVirtualDisk struct {
 	diskService        *service.DiskService
 	statService        Stat
 	dvcrSettings       *dvcr.Settings
+	client             client.Client
 	storageClassForPVC string
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(importerService Importer, client client.Client, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
 		importerService:    importerService,
+		client:             client,
 		diskService:        diskService,
 		statService:        statService,
 		dvcrSettings:       dvcrSettings,
@@ -329,7 +334,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
 	}
 
-	vd, err := ds.diskService.GetVirtualDisk(ctx, vi.Spec.DataSource.ObjectRef.Name, vi.Namespace)
+	vd, err := helper.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, ds.client, &virtv2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
@@ -340,7 +345,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 
 	if len(vd.Status.AttachedToVirtualMachines) > 0 {
 		vmName := vd.Status.AttachedToVirtualMachines[0]
-		vm, err := ds.diskService.GetVirtualMachine(ctx, vmName.Name, vd.Namespace)
+		vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
 		if err != nil {
 			return err
 		}

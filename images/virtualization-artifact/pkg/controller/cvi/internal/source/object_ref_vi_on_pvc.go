@@ -33,21 +33,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
+const controllerName = "cvi-controller"
+
 type ObjectRefVirtualImageOnPvc struct {
-	importerService     Importer
-	diskService         *service.DiskService
-	statService         Stat
-	dvcrSettings        *dvcr.Settings
-	controllerNamespace string
+	importerService Importer
+	statService     Stat
+	dvcrSettings    *dvcr.Settings
 }
 
-func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *service.DiskService, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
+func NewObjectRefVirtualImageOnPvc(importerService Importer, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
 	return &ObjectRefVirtualImageOnPvc{
-		importerService:     importerService,
-		diskService:         diskService,
-		statService:         statService,
-		dvcrSettings:        dvcrSettings,
-		controllerNamespace: controllerNamespace,
+		importerService: importerService,
+		statService:     statService,
+		dvcrSettings:    dvcrSettings,
 	}
 }
 
@@ -168,19 +166,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
-
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.DeletePod(ctx, cvi, controllerName)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue, nil
 }
 
 func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
