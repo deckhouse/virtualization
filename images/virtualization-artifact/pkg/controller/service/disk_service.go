@@ -439,14 +439,6 @@ func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace
 	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
 }
 
-func (s DiskService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDisk{})
-}
-
-func (s DiskService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualMachine{})
-}
-
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if dv == nil {
 		return nil

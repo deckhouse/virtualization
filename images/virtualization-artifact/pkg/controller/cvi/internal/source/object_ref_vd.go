@@ -22,6 +22,8 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -30,24 +32,25 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefVirtualDisk struct {
 	importerService     Importer
-	diskService         *service.DiskService
+	client              client.Client
 	statService         Stat
 	dvcrSettings        *dvcr.Settings
 	controllerNamespace string
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, diskService *service.DiskService, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(importerService Importer, client client.Client, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
 		importerService:     importerService,
-		diskService:         diskService,
 		statService:         statService,
 		dvcrSettings:        dvcrSettings,
+		client:              client,
 		controllerNamespace: controllerNamespace,
 	}
 }
@@ -169,19 +172,12 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 }
 
 func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
-
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.DeletePod(ctx, cvi, controllerName)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
-	if err != nil {
-		return false, err
-	}
-
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue, nil
 }
 
 func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
@@ -202,7 +198,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
 	}
 
-	vd, err := ds.diskService.GetVirtualDisk(ctx, cvi.Spec.DataSource.ObjectRef.Name, cvi.Spec.DataSource.ObjectRef.Namespace)
+	vd, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}, ds.client, &virtv2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
@@ -213,7 +209,8 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 
 	if len(vd.Status.AttachedToVirtualMachines) != 0 {
 		vmName := vd.Status.AttachedToVirtualMachines[0]
-		vm, err := ds.diskService.GetVirtualMachine(ctx, vmName.Name, vd.Namespace)
+
+		vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
 		if err != nil {
 			return err
 		}

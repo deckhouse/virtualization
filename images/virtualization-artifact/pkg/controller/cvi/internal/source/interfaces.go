@@ -40,6 +40,7 @@ type Importer interface {
 	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
+	DeletePod(ctx context.Context, obj service.ObjectKind, controllerName string) (bool, error)
 	Protect(ctx context.Context, pod *corev1.Pod) error
 	Unprotect(ctx context.Context, pod *corev1.Pod) error
 	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings

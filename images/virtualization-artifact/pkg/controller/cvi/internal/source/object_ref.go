@@ -52,7 +52,6 @@ type ObjectRefDataSource struct {
 func NewObjectRefDataSource(
 	statService Stat,
 	importerService Importer,
-	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	controllerNamespace string,
@@ -64,8 +63,8 @@ func NewObjectRefDataSource(
 		client:              client,
 		controllerNamespace: controllerNamespace,
 
-		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, diskService, controllerNamespace, dvcrSettings, statService),
-		vdSyncer:      NewObjectRefVirtualDisk(importerService, diskService, controllerNamespace, dvcrSettings, statService),
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, dvcrSettings, statService),
+		vdSyncer:      NewObjectRefVirtualDisk(importerService, client, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
