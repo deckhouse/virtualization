@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
@@ -67,9 +68,9 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	signalSendCond := conditions.NewConditionBuilder(vmopcondition.SignalSentType).
 		Generation(changed.GetGeneration())
 
-	// Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
+	// Initialize new VMOP resource: set label with vm name, set phase to Pending and all conditions to Unknown.
 	if changed.Status.Phase == "" {
-		// TODO add label with vm name.
+		cc.AddLabel(changed, cc.LabelVirtualMachineName, changed.Spec.VirtualMachine)
 		changed.Status.Phase = virtv2.VMOPPhasePending
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
