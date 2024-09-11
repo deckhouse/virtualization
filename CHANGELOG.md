@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.13.0](https://github.com/deckhouse/virtualization/compare/v0.12.3...v0.13.0) (2024-09-11)
+
+
+### Features
+
+* **api:** adjust image size ([cbb37c1](https://github.com/deckhouse/virtualization/commit/cbb37c15364b5ee439d8f119179a7e8b83bff221))
+* **api:** set tag for dvcr images ([cf71a98](https://github.com/deckhouse/virtualization/commit/cf71a988b99549c5c9d86fe066a2b46c9c1067d3))
+* **cdi:** remove service-monitor ([#328](https://github.com/deckhouse/virtualization/issues/328)) ([621baf2](https://github.com/deckhouse/virtualization/commit/621baf22563c3fbe6076d4ea8e01231a6bed9843))
+* **controllelr:** add gc for resources ([#303](https://github.com/deckhouse/virtualization/issues/303)) ([a14f2e8](https://github.com/deckhouse/virtualization/commit/a14f2e8d57f85e3b800ff75eb3d24ac942391a92))
+* **controller:** add tasks with dlv ([#321](https://github.com/deckhouse/virtualization/issues/321)) ([83fa3c6](https://github.com/deckhouse/virtualization/commit/83fa3c6cfee4b3dcc19f8fb9ac38b137fe5b78f7))
+* **cvi:** create from vd ([#352](https://github.com/deckhouse/virtualization/issues/352)) ([e42e28c](https://github.com/deckhouse/virtualization/commit/e42e28c2f130ad581c02093b1c4b335ef049edf2))
+* **module:** add base control-plane alerts ([#345](https://github.com/deckhouse/virtualization/issues/345)) ([c66c4fd](https://github.com/deckhouse/virtualization/commit/c66c4fdbc8f1e824a07fd540fdffa7713235fa56))
+* **vd:** deny iso source ([77bcad1](https://github.com/deckhouse/virtualization/commit/77bcad1565afcac025d20aa5b3ac91b5e5aceb20))
+* **vd:** override virtualdisk's pvc parameters via StorageClass annotations ([#351](https://github.com/deckhouse/virtualization/issues/351)) ([fa37881](https://github.com/deckhouse/virtualization/commit/fa37881db1014287b384af76919c8107b9532a3b))
+* **vdsnapshot:** add the new controller for the virtual disk snapshot ([e813124](https://github.com/deckhouse/virtualization/commit/e81312465df19382c846ec6003ab10ff318462dc))
+* **vd:** support filesystem mode ([#300](https://github.com/deckhouse/virtualization/issues/300)) ([4b147f7](https://github.com/deckhouse/virtualization/commit/4b147f719dc879de6928c2a7301ce1e5a16b6e6d))
+* **vd:** support filesystem mode ([#327](https://github.com/deckhouse/virtualization/issues/327)) ([754c4a7](https://github.com/deckhouse/virtualization/commit/754c4a744e170059438404e7283b1332324def3f))
+* **vi:** add new storage type - kubernetes ([#298](https://github.com/deckhouse/virtualization/issues/298)) ([51e2a40](https://github.com/deckhouse/virtualization/commit/51e2a40c08d80cd3a4d6e4bd7b4025585d76a77c))
+* **vi:** create from vd ([#354](https://github.com/deckhouse/virtualization/issues/354)) ([f4d4b6d](https://github.com/deckhouse/virtualization/commit/f4d4b6d7f6c24361b94ac76846cefe4f212d0457))
+* **vm-route-forge:** add ebpf route watcher ([#292](https://github.com/deckhouse/virtualization/issues/292)) ([ca67190](https://github.com/deckhouse/virtualization/commit/ca67190b64a7eaea974ba051c3c982fbad9b28be))
+* **vm:** add metrics ([#333](https://github.com/deckhouse/virtualization/issues/333)) ([c28df0a](https://github.com/deckhouse/virtualization/commit/c28df0abeb23274a6bb64bdab8e10a6f60b5dbaa))
+* **vmclass:** size policies vaidation hook ([#344](https://github.com/deckhouse/virtualization/issues/344)) ([5f585c4](https://github.com/deckhouse/virtualization/commit/5f585c426a03a5875ffcdde807febf35050351b3))
+* **vmop:** implement conditions, use new reconciler style ([#258](https://github.com/deckhouse/virtualization/issues/258)) ([13f6a9d](https://github.com/deckhouse/virtualization/commit/13f6a9d425b12b0398341918eabb792f7e15ab8b))
+
+
+### Bug Fixes
+
+* **cvi:** fix cleanup for resources ([#363](https://github.com/deckhouse/virtualization/issues/363)) ([1f13148](https://github.com/deckhouse/virtualization/commit/1f131489ddaeb8c7d3837340293186a6cd6ac0c5))
+* **templates:** add missed symbol ([#318](https://github.com/deckhouse/virtualization/issues/318)) ([f30cd69](https://github.com/deckhouse/virtualization/commit/f30cd69b5106a9dfb928d2f03fd31838e41ebc93))
+* **vd:** ensure last transition time for conditions ([b39487a](https://github.com/deckhouse/virtualization/commit/b39487a88d97163a061cf5830878391bbffe79d0))
+* **vd:** fix panic if pvc not found ([#349](https://github.com/deckhouse/virtualization/issues/349)) ([fd4b0af](https://github.com/deckhouse/virtualization/commit/fd4b0aff0ef60fd8603a82c0813c8f8e3bdc24fa))
+* **vd:** remove pv protection ([aa489c4](https://github.com/deckhouse/virtualization/commit/aa489c4fcf543e26fddd18817c18dd4533d7196e))
+* **vd:** set validator warnings instead of errors ([b173b08](https://github.com/deckhouse/virtualization/commit/b173b089d069016ed2142e1174cc73b69542aa9e))
+* **vm-route-forge:** add check to ensure VM host node is identified ([#356](https://github.com/deckhouse/virtualization/issues/356)) ([4077584](https://github.com/deckhouse/virtualization/commit/407758484505ed9ed192afe2497b2b620e825843))
+* **vmbda:** fix sa rules ([9367162](https://github.com/deckhouse/virtualization/commit/936716285f25824dacb64234b385d87cc9dea8f3))
+* **vmclass:** revert last transition time to condition builder ([db3f272](https://github.com/deckhouse/virtualization/commit/db3f272e54de490a1c28c55fd2014ebae7d3bc48))
+* **vm:** fix panic with nil labelselector ([#355](https://github.com/deckhouse/virtualization/issues/355)) ([8df6c59](https://github.com/deckhouse/virtualization/commit/8df6c59e3406f423a2e7c2403e4578d34087a213))
+* **vm:** impl delete method for subresource virtualmachine on apiserver ([#334](https://github.com/deckhouse/virtualization/issues/334)) ([39c7d65](https://github.com/deckhouse/virtualization/commit/39c7d65ce44e8142fd07f61f7e1067bbf3ba3fa0))
+* **vm:** sync labels and annos with empty value ([#322](https://github.com/deckhouse/virtualization/issues/322)) ([0353618](https://github.com/deckhouse/virtualization/commit/0353618c77815c7248580ba3bc55f475bfb89e5a))
+
 ## [0.12.3](https://github.com/deckhouse/virtualization/compare/v0.12.2...v0.12.3) (2024-08-22)
 
 
