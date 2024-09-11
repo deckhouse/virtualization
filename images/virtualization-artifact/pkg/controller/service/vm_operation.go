@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -41,23 +42,11 @@ func NewVMOperationService(client client.Client) VMOperationService {
 }
 
 func (s VMOperationService) getKVVM(ctx context.Context, vmNamespace, vmName string) (*virtv1.VirtualMachine, error) {
-	kvvm := virtv1.VirtualMachine{}
-	key := types.NamespacedName{Name: vmName, Namespace: vmNamespace}
-	err := s.client.Get(ctx, key, &kvvm)
-	if err != nil {
-		return nil, err
-	}
-	return &kvvm, nil
+	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachine{})
 }
 
 func (s VMOperationService) getKVVMI(ctx context.Context, vmNamespace, vmName string) (*virtv1.VirtualMachineInstance, error) {
-	kvvmi := virtv1.VirtualMachineInstance{}
-	key := types.NamespacedName{Name: vmName, Namespace: vmNamespace}
-	err := s.client.Get(ctx, key, &kvvmi)
-	if err != nil {
-		return nil, err
-	}
-	return &kvvmi, nil
+	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachineInstance{})
 }
 
 func (s VMOperationService) Do(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
