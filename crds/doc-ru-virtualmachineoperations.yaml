@@ -22,7 +22,25 @@ spec:
                   description: |
                     Форсирует выполнение операции. Применяется только для операций Restart и Stop. В этом случае действие над виртуальной машиной выполняется немедленно.
             status:
+              description: |
+                Состояние ресурса `VirtualMachineOperation`.
               properties:
+                conditions:
+                  description: |
+                    Последние детальные наблюдения текущего состояния объекта.
+                  properties:
+                    type:
+                      description: Тип состояния.
+                    status:
+                      description: Статус состояния (одно из True, False, Unknown).
+                    message:
+                      description: Сообщение c деталями последнего перехода состояния.
+                    reason:
+                      description: Краткая причина последнего перехода состояния.
+                    lastProbeTime:
+                      description: Время последней проверки состояния.
+                    lastTransitionTime:
+                      description: Время последнего перехода состояния из одного статуса в другой.
                 phase:
                   description: |
                     Представляет текущую фазу ресурса:
@@ -30,10 +48,8 @@ spec:
                     * Pending - операция поставлена в очередь на выполнение.
                     * InProgress - операция в процессе выполнения.
                     * Completed - операция прошла успешно.
-                    * Failed - операция завершилась неудачно. См. `.status.failureReason`.
-                failureReason:
+                    * Failed - операция завершилась неудачно. Больше информации можно увидеть в поле conditions и в событиях.
+                    * Terminating - операция удаляется.
+                observedGeneration:
                   description: |
-                    Краткое описание причины ошибки.
-                failureMessage:
-                  description: |
-                    Подробное описание ошибки.
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.

@@ -84,7 +84,7 @@ func (s *Modifier) Do(ctx context.Context, vm v1alpha2.VirtualMachine) {
 			Namespace: s.namespace,
 		},
 		Spec: v1alpha2.VirtualMachineOperationSpec{
-			Type:           v1alpha2.VMOPOperationTypeRestart,
+			Type:           v1alpha2.VMOPTypeRestart,
 			VirtualMachine: vm.Name,
 		},
 	}

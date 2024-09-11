@@ -64,8 +64,44 @@ spec:
                       enum: ["Restart", "Stop"]
                   required: ["virtualMachineName"]
             status:
+              description: |
+                The latest observed state of the VirtualMachineOperation resource.
               type: object
               properties:
+                conditions:
+                  description: |
+                    The latest detailed observations of the VirtualMachineOperation resource.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lastProbeTime:
+                        description: Last time the condition was checked.
+                        format: date-time
+                        type: string
+                      lastTransitionTime:
+                        description: Last time the condition transit from one status to another.
+                        format: date-time
+                        type: string
+                      message:
+                        description: Human readable message indicating details about last transition.
+                        type: string
+                      reason:
+                        description: (brief) reason for the condition's last transition.
+                        type: string
+                      status:
+                        description: Status of the condition, one of True, False, Unknown.
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      type:
+                        description: Type of condition.
+                        type: string
+                    required:
+                      - lastTransitionTime
+                      - message
+                      - reason
+                      - status
+                      - type
                 phase:
                   type: string
                   description: |
@@ -74,24 +110,25 @@ spec:
                     * Pending - the operation is queued for execution.
                     * InProgress - operation in progress.
                     * Completed - the operation was successful.
-                    * Failed - the operation failed. See `.status.failureReason`.
+                    * Failed - the operation failed. Check conditions and events for more information.
+                    * Terminating - the operation is deleted.
                   enum:
                     - "Pending"
                     - "InProgress"
                     - "Completed"
                     - "Failed"
-                failureReason:
-                  type: string
+                    - "Terminating"
+                observedGeneration:
+                  type: integer
                   description: |
-                    A brief description of the cause of the error.
-                failureMessage:
-                  type: string
-                  description: |
-                    Detailed description of the error.
+                    The generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string
           jsonPath: .status.phase
+        - name: Type
+          jsonPath: .spec.type
+          type: string
         - name: VM
           jsonPath: .spec.virtualMachineName
           type: string

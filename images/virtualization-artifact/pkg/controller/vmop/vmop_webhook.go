@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -56,10 +55,12 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	v.log.Info("Validate VMOP updating", "name", oldVmop.GetName())
 
-	if reflect.DeepEqual(oldVmop.Spec, newVmop.Spec) {
+	if oldVmop.Generation == newVmop.Generation {
 		return nil, nil
 	}
-	err := fmt.Errorf("vmop %q is invalid. vmop.spec is immutable", oldVmop.GetName())
+
+	// spec changes are not allowed.
+	err := fmt.Errorf("recreate VirtualMachineOperation/%s to apply changes: .spec modification is not allowed after creation", oldVmop.GetName())
 	return nil, err
 }
 

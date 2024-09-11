@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/two_phase_reconciler"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -38,41 +40,44 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	logger *slog.Logger,
+	log *slog.Logger,
 ) error {
-	reconciler := NewReconciler()
+	log = log.With(logger.SlogController(controllerName))
 
-	reconcilerCore := two_phase_reconciler.NewReconcilerCore[*ReconcilerState](
-		reconciler,
-		NewReconcilerState,
-		two_phase_reconciler.ReconcilerOptions{
-			Client:   mgr.GetClient(),
-			Cache:    mgr.GetCache(),
-			Recorder: mgr.GetEventRecorderFor(controllerName),
-			Scheme:   mgr.GetScheme(),
-			Log:      logger.With("controller", controllerName),
-		})
+	recorder := mgr.GetEventRecorderFor(controllerName)
+	client := mgr.GetClient()
+	vmopSrv := service.NewVMOperationService(mgr.GetClient())
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:   reconcilerCore,
-		RateLimiter:  workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
-		RecoverPanic: ptr.To(true),
+	handlers := []Handler{
+		internal.NewLifecycleHandler(vmopSrv),
+		internal.NewOperationHandler(recorder, vmopSrv),
+		internal.NewDeletionHandler(client),
+	}
+
+	reconciler := NewReconciler(client, handlers...)
+
+	vmopController, err := controller.New(controllerName, mgr, controller.Options{
+		Reconciler:     reconciler,
+		RateLimiter:    workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
+		RecoverPanic:   ptr.To(true),
+		LogConstructor: logger.NewConstructor(log),
 	})
 	if err != nil {
 		return err
 	}
 
-	if err := reconciler.SetupController(ctx, mgr, c); err != nil {
+	err = reconciler.SetupController(ctx, mgr, vmopController)
+	if err != nil {
 		return err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewValidator(logger)).
+		For(&virtv2.VirtualMachineOperation{}).
+		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return err
 	}
 
-	logger.Info("Initialized VirtualMachineOperation controller")
+	log.Info("Initialized VirtualMachineOperation controller")
 	return nil
 }
