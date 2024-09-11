@@ -13,6 +13,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sync"
 )
@@ -36,14 +37,17 @@ var _ Importer = &ImporterMock{}
 //			GetPodFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
+//			GetPodSettingsWithPVCFunc: func(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName string, pvcNamespace string) *importer.PodSettings {
+//				panic("mock out the GetPodSettingsWithPVC method")
+//			},
 //			ProtectFunc: func(ctx context.Context, pod *corev1.Pod) error {
 //				panic("mock out the Protect method")
 //			},
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
 //				panic("mock out the Start method")
 //			},
-//			StartFromPVCFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error {
-//				panic("mock out the StartFromPVC method")
+//			StartWithPodSettingFunc: func(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+//				panic("mock out the StartWithPodSetting method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod) error {
 //				panic("mock out the Unprotect method")
@@ -64,14 +68,17 @@ type ImporterMock struct {
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
 
+	// GetPodSettingsWithPVCFunc mocks the GetPodSettingsWithPVC method.
+	GetPodSettingsWithPVCFunc func(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName string, pvcNamespace string) *importer.PodSettings
+
 	// ProtectFunc mocks the Protect method.
 	ProtectFunc func(ctx context.Context, pod *corev1.Pod) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
 
-	// StartFromPVCFunc mocks the StartFromPVC method.
-	StartFromPVCFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error
+	// StartWithPodSettingFunc mocks the StartWithPodSetting method.
+	StartWithPodSettingFunc func(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod) error
@@ -99,6 +106,17 @@ type ImporterMock struct {
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
 		}
+		// GetPodSettingsWithPVC holds details about calls to the GetPodSettingsWithPVC method.
+		GetPodSettingsWithPVC []struct {
+			// OwnerRef is the ownerRef argument value.
+			OwnerRef *metav1.OwnerReference
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+			// PvcName is the pvcName argument value.
+			PvcName string
+			// PvcNamespace is the pvcNamespace argument value.
+			PvcNamespace string
+		}
 		// Protect holds details about calls to the Protect method.
 		Protect []struct {
 			// Ctx is the ctx argument value.
@@ -119,22 +137,18 @@ type ImporterMock struct {
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
 		}
-		// StartFromPVC holds details about calls to the StartFromPVC method.
-		StartFromPVC []struct {
+		// StartWithPodSetting holds details about calls to the StartWithPodSetting method.
+		StartWithPodSetting []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Settings is the settings argument value.
 			Settings *importer.Settings
-			// Obj is the obj argument value.
-			Obj service.ObjectKind
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
-			// PvcName is the pvcName argument value.
-			PvcName string
-			// PvcNamespace is the pvcNamespace argument value.
-			PvcNamespace string
+			// PodSettings is the podSettings argument value.
+			PodSettings *importer.PodSettings
 		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
@@ -144,13 +158,14 @@ type ImporterMock struct {
 			Pod *corev1.Pod
 		}
 	}
-	lockCleanUp            sync.RWMutex
-	lockCleanUpSupplements sync.RWMutex
-	lockGetPod             sync.RWMutex
-	lockProtect            sync.RWMutex
-	lockStart              sync.RWMutex
-	lockStartFromPVC       sync.RWMutex
-	lockUnprotect          sync.RWMutex
+	lockCleanUp               sync.RWMutex
+	lockCleanUpSupplements    sync.RWMutex
+	lockGetPod                sync.RWMutex
+	lockGetPodSettingsWithPVC sync.RWMutex
+	lockProtect               sync.RWMutex
+	lockStart                 sync.RWMutex
+	lockStartWithPodSetting   sync.RWMutex
+	lockUnprotect             sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -261,6 +276,50 @@ func (mock *ImporterMock) GetPodCalls() []struct {
 	return calls
 }
 
+// GetPodSettingsWithPVC calls GetPodSettingsWithPVCFunc.
+func (mock *ImporterMock) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName string, pvcNamespace string) *importer.PodSettings {
+	if mock.GetPodSettingsWithPVCFunc == nil {
+		panic("ImporterMock.GetPodSettingsWithPVCFunc: method is nil but Importer.GetPodSettingsWithPVC was just called")
+	}
+	callInfo := struct {
+		OwnerRef     *metav1.OwnerReference
+		Sup          *supplements.Generator
+		PvcName      string
+		PvcNamespace string
+	}{
+		OwnerRef:     ownerRef,
+		Sup:          sup,
+		PvcName:      pvcName,
+		PvcNamespace: pvcNamespace,
+	}
+	mock.lockGetPodSettingsWithPVC.Lock()
+	mock.calls.GetPodSettingsWithPVC = append(mock.calls.GetPodSettingsWithPVC, callInfo)
+	mock.lockGetPodSettingsWithPVC.Unlock()
+	return mock.GetPodSettingsWithPVCFunc(ownerRef, sup, pvcName, pvcNamespace)
+}
+
+// GetPodSettingsWithPVCCalls gets all the calls that were made to GetPodSettingsWithPVC.
+// Check the length with:
+//
+//	len(mockedImporter.GetPodSettingsWithPVCCalls())
+func (mock *ImporterMock) GetPodSettingsWithPVCCalls() []struct {
+	OwnerRef     *metav1.OwnerReference
+	Sup          *supplements.Generator
+	PvcName      string
+	PvcNamespace string
+} {
+	var calls []struct {
+		OwnerRef     *metav1.OwnerReference
+		Sup          *supplements.Generator
+		PvcName      string
+		PvcNamespace string
+	}
+	mock.lockGetPodSettingsWithPVC.RLock()
+	calls = mock.calls.GetPodSettingsWithPVC
+	mock.lockGetPodSettingsWithPVC.RUnlock()
+	return calls
+}
+
 // Protect calls ProtectFunc.
 func (mock *ImporterMock) Protect(ctx context.Context, pod *corev1.Pod) error {
 	if mock.ProtectFunc == nil {
@@ -345,59 +404,51 @@ func (mock *ImporterMock) StartCalls() []struct {
 	return calls
 }
 
-// StartFromPVC calls StartFromPVCFunc.
-func (mock *ImporterMock) StartFromPVC(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName string, pvcNamespace string) error {
-	if mock.StartFromPVCFunc == nil {
-		panic("ImporterMock.StartFromPVCFunc: method is nil but Importer.StartFromPVC was just called")
+// StartWithPodSetting calls StartWithPodSettingFunc.
+func (mock *ImporterMock) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+	if mock.StartWithPodSettingFunc == nil {
+		panic("ImporterMock.StartWithPodSettingFunc: method is nil but Importer.StartWithPodSetting was just called")
 	}
 	callInfo := struct {
-		Ctx          context.Context
-		Settings     *importer.Settings
-		Obj          service.ObjectKind
-		Sup          *supplements.Generator
-		CaBundle     *datasource.CABundle
-		PvcName      string
-		PvcNamespace string
+		Ctx         context.Context
+		Settings    *importer.Settings
+		Sup         *supplements.Generator
+		CaBundle    *datasource.CABundle
+		PodSettings *importer.PodSettings
 	}{
-		Ctx:          ctx,
-		Settings:     settings,
-		Obj:          obj,
-		Sup:          sup,
-		CaBundle:     caBundle,
-		PvcName:      pvcName,
-		PvcNamespace: pvcNamespace,
+		Ctx:         ctx,
+		Settings:    settings,
+		Sup:         sup,
+		CaBundle:    caBundle,
+		PodSettings: podSettings,
 	}
-	mock.lockStartFromPVC.Lock()
-	mock.calls.StartFromPVC = append(mock.calls.StartFromPVC, callInfo)
-	mock.lockStartFromPVC.Unlock()
-	return mock.StartFromPVCFunc(ctx, settings, obj, sup, caBundle, pvcName, pvcNamespace)
+	mock.lockStartWithPodSetting.Lock()
+	mock.calls.StartWithPodSetting = append(mock.calls.StartWithPodSetting, callInfo)
+	mock.lockStartWithPodSetting.Unlock()
+	return mock.StartWithPodSettingFunc(ctx, settings, sup, caBundle, podSettings)
 }
 
-// StartFromPVCCalls gets all the calls that were made to StartFromPVC.
+// StartWithPodSettingCalls gets all the calls that were made to StartWithPodSetting.
 // Check the length with:
 //
-//	len(mockedImporter.StartFromPVCCalls())
-func (mock *ImporterMock) StartFromPVCCalls() []struct {
-	Ctx          context.Context
-	Settings     *importer.Settings
-	Obj          service.ObjectKind
-	Sup          *supplements.Generator
-	CaBundle     *datasource.CABundle
-	PvcName      string
-	PvcNamespace string
+//	len(mockedImporter.StartWithPodSettingCalls())
+func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
+	Ctx         context.Context
+	Settings    *importer.Settings
+	Sup         *supplements.Generator
+	CaBundle    *datasource.CABundle
+	PodSettings *importer.PodSettings
 } {
 	var calls []struct {
-		Ctx          context.Context
-		Settings     *importer.Settings
-		Obj          service.ObjectKind
-		Sup          *supplements.Generator
-		CaBundle     *datasource.CABundle
-		PvcName      string
-		PvcNamespace string
+		Ctx         context.Context
+		Settings    *importer.Settings
+		Sup         *supplements.Generator
+		CaBundle    *datasource.CABundle
+		PodSettings *importer.PodSettings
 	}
-	mock.lockStartFromPVC.RLock()
-	calls = mock.calls.StartFromPVC
-	mock.lockStartFromPVC.RUnlock()
+	mock.lockStartWithPodSetting.RLock()
+	calls = mock.calls.StartWithPodSetting
+	mock.lockStartWithPodSetting.RUnlock()
 	return calls
 }
 

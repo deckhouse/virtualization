@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
@@ -35,12 +36,13 @@ import (
 
 type Importer interface {
 	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
-	StartFromPVC(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, pvcName, pvcNamespace string) error
+	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
 	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
 	Protect(ctx context.Context, pod *corev1.Pod) error
 	Unprotect(ctx context.Context, pod *corev1.Pod) error
+	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
 }
 
 type Uploader interface {

@@ -19,21 +19,22 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type ObjectRefVirtualImageOnPvc struct {
+type ObjectRefVirtualDisk struct {
 	importerService     Importer
 	diskService         *service.DiskService
 	statService         Stat
@@ -41,8 +42,8 @@ type ObjectRefVirtualImageOnPvc struct {
 	controllerNamespace string
 }
 
-func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *service.DiskService, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
-	return &ObjectRefVirtualImageOnPvc{
+func NewObjectRefVirtualDisk(importerService Importer, diskService *service.DiskService, controllerNamespace string, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualDisk {
+	return &ObjectRefVirtualDisk{
 		importerService:     importerService,
 		diskService:         diskService,
 		statService:         statService,
@@ -51,10 +52,10 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, diskService *servic
 	}
 }
 
-func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
+func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, vdRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return false, err
@@ -65,7 +66,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
@@ -76,7 +77,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.IsTerminating(pod):
+	case cc.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -87,7 +88,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		envSettings := ds.getEnvSettings(cvi, supgen)
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
-		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
+		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)
 
 		var requeue bool
@@ -99,7 +100,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
 		return requeue, nil
-	case common.IsPodComplete(pod):
+	case cc.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
@@ -107,7 +108,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
+				condition.Reason = vicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -116,13 +117,13 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
+		condition.Reason = vicondition.Ready
 		condition.Message = ""
 
 		cvi.Status.Phase = virtv2.ImageReady
-		cvi.Status.Size = viRef.Status.Size
-		cvi.Status.CDROM = viRef.Status.CDROM
-		cvi.Status.Format = viRef.Status.Format
+		cvi.Status.Size = ds.statService.GetSize(pod)
+		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
+		cvi.Status.Format = ds.statService.GetFormat(pod)
 		cvi.Status.Progress = "100%"
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
@@ -135,12 +136,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningNotStarted
+				condition.Reason = vicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
+				condition.Reason = vicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return false, nil
 			default:
@@ -154,7 +155,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
+		condition.Reason = vicondition.Provisioning
 		condition.Message = "Import is in the process of provisioning to DVCR."
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
@@ -167,8 +168,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 	return true, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
+func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+	supgen := supplements.NewGenerator(cc.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -183,7 +184,7 @@ func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.Cl
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
@@ -194,4 +195,33 @@ func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *virtv2.ClusterVirtualIm
 	)
 
 	return &settings
+}
+
+func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDisk {
+		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
+	}
+
+	vd, err := ds.diskService.GetVirtualDisk(ctx, cvi.Spec.DataSource.ObjectRef.Name, cvi.Spec.DataSource.ObjectRef.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if vd == nil || vd.Status.Phase != virtv2.DiskReady {
+		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
+	}
+
+	if len(vd.Status.AttachedToVirtualMachines) != 0 {
+		vmName := vd.Status.AttachedToVirtualMachines[0]
+		vm, err := ds.diskService.GetVirtualMachine(ctx, vmName.Name, vd.Namespace)
+		if err != nil {
+			return err
+		}
+
+		if vm.Status.Phase != virtv2.MachineStopped {
+			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
+		}
+	}
+
+	return nil
 }

@@ -50,3 +50,33 @@ func NewClusterImageNotReadyError(name string) error {
 		name: name,
 	}
 }
+
+type VirtualDiskNotReadyError struct {
+	name string
+}
+
+func (e VirtualDiskNotReadyError) Error() string {
+	return fmt.Sprintf("VirtualDisk %s not ready", e.name)
+}
+
+func NewVirtualDiskNotReadyError(name string) error {
+	return VirtualDiskNotReadyError{
+		name: name,
+	}
+}
+
+type VirtualDiskAttachedToRunningVMError struct {
+	name   string
+	vmName string
+}
+
+func (e VirtualDiskAttachedToRunningVMError) Error() string {
+	return fmt.Sprintf("VirtualDisk %q attached to running VirtualMachine %q", e.name, e.vmName)
+}
+
+func NewVirtualDiskAttachedToRunningVMError(name, vmName string) error {
+	return VirtualDiskAttachedToRunningVMError{
+		name:   name,
+		vmName: vmName,
+	}
+}
