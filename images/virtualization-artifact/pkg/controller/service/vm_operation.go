@@ -154,9 +154,9 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 	return false, nil
 }
 
-func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) vmopcondition.Reason {
+func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) vmopcondition.ReasonCompleted {
 	if vmop == nil || vmop.Spec.Type == "" {
-		return vmopcondition.ReasonUnknown
+		return vmopcondition.ReasonCompletedUnknown
 	}
 	switch vmop.Spec.Type {
 	case virtv2.VMOPTypeStart:
@@ -166,7 +166,7 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	case virtv2.VMOPTypeRestart:
 		return vmopcondition.ReasonRestartInProgress
 	}
-	return vmopcondition.ReasonUnknown
+	return vmopcondition.ReasonCompletedUnknown
 }
 
 func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, error) {

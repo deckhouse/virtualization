@@ -30,46 +30,57 @@ const (
 	SignalSentType Type = "SignalSent"
 )
 
-// Reason represents specific reasons for the 'Completed' condition type.
-type Reason string
+// ReasonCompleted represents specific reasons for the 'Completed' condition type.
+type ReasonCompleted string
 
-func (r Reason) String() string {
+func (r ReasonCompleted) String() string {
 	return string(r)
 }
 
 const (
-	ReasonUnknown Reason = "Unknown"
+	ReasonCompletedUnknown ReasonCompleted = "Unknown"
 
-	// ReasonSignalSentError is a Reason indicating an error occurred while sending powerstate signal to the VM.
-	ReasonSignalSentError Reason = "ReasonSignalSentError"
+	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
+	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
-	// ReasonSignalSentSuccess is a Reason indicating that signal is sent to the VM.
-	ReasonSignalSentSuccess Reason = "ReasonSignalSentSuccess"
+	// ReasonNotApplicableForRunPolicy is a ReasonCompleted indicating that the specified operation type is not appilicable for the virtual machine runPolicy.
+	ReasonNotApplicableForRunPolicy ReasonCompleted = "NotApplicableForVirtualMachineRunPolicy"
 
-	// ReasonVirtualMachineNotFound is a Reason indicating that the specified virtual machine is absent.
-	ReasonVirtualMachineNotFound Reason = "ReasonVirtualMachineNotFound"
+	// ReasonNotApplicableForVMPhase is a ReasonCompleted indicating that the specified operation type is not appilicable for the virtual machine phase.
+	ReasonNotApplicableForVMPhase ReasonCompleted = "NotApplicableForVirtualMachinePhase"
 
-	// ReasonNotApplicableForRunPolicy is a Reason indicating that the specified operation type is not appilicable for the virtual machine runPolicy.
-	ReasonNotApplicableForRunPolicy Reason = "ReasonNotApplicableForRunPolicy"
+	// ReasonOtherOperationsAreInProgress is a ReasonCompleted indicating that there are other operations in progress.
+	ReasonOtherOperationsAreInProgress ReasonCompleted = "OtherOperationsAreInProgress"
 
-	// ReasonNotApplicableForVMPhase is a Reason indicating that the specified operation type is not appilicable for the virtual machine phase.
-	ReasonNotApplicableForVMPhase Reason = "ReasonNotApplicableForVMPhase"
+	// ReasonRestartInProgress is a ReasonCompleted indicating that the restart signal has been sent and restart is in progress.
+	ReasonRestartInProgress ReasonCompleted = "RestartInProgress"
 
-	// ReasonOtherOperationsAreInProgress is a Reason indicating that there are other operations in progress.
-	ReasonOtherOperationsAreInProgress Reason = "ReasonOtherOperationsAreInProgress"
+	// ReasonStartInProgress is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
+	ReasonStartInProgress ReasonCompleted = "StartInProgress"
 
-	// ReasonRestartInProgress is a Reason indicating that the restart signal has been sent and restart is in progress.
-	ReasonRestartInProgress Reason = "ReasonRestartInProgress"
+	// ReasonStopInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
+	ReasonStopInProgress ReasonCompleted = "StopInProgress"
 
-	// ReasonStartInProgress is a Reason indicating that the start signal has been sent and start is in progress.
-	ReasonStartInProgress Reason = "ReasonStartInProgress"
+	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
+	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 
-	// ReasonStopInProgress is a Reason indicating that the stop signal has been sent and stop is in progress.
-	ReasonStopInProgress Reason = "ReasonStopInProgress"
+	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
+	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
+)
 
-	// ReasonOperationFailed is a Reason indicating that operation has failed.
-	ReasonOperationFailed Reason = "ReasonOperationFailed"
+// ReasonCompleted represents specific reasons for the 'SignalSent' condition type.
+type ReasonSignalSent string
 
-	// ReasonOperationCompleted is a Reason indicating that operation is completed.
-	ReasonOperationCompleted Reason = "ReasonOperationCompleted"
+func (r ReasonSignalSent) String() string {
+	return string(r)
+}
+
+const (
+	ReasonSignalSentUnknown ReasonSignalSent = "Unknown"
+
+	// ReasonSignalSentError is a ReasonCompleted indicating an error occurred while sending powerstate signal to the VM.
+	ReasonSignalSentError ReasonSignalSent = "SignalSentError"
+
+	// ReasonSignalSentSuccess is a ReasonCompleted indicating that signal is sent to the VM.
+	ReasonSignalSentSuccess ReasonSignalSent = "SignalSentSuccess"
 )
