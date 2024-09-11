@@ -118,11 +118,12 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, nil
 	}
 
-	if changed.Status.Phase == virtv2.VMOPPhasePending {
+	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
+		h.logger.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)
 		return h.checkOperationComplete(changed, vm)
 	}
 
-	// Now VMOP is in Pending phase, do some validation checks.
+	// At this point VMOP is in Pending phase, do some validation checks.
 
 	// Fail if there is at least one other VirtualMachineOperation in progress.
 	found, err := h.vmopSrv.OtherVMOPIsInProgress(ctx, changed)
@@ -182,7 +183,7 @@ func (h LifecycleHandler) checkOperationComplete(changed *virtv2.VirtualMachineO
 		return reconcile.Result{}, nil
 	}
 
-	// Keep InProgress phase, set complete condition to false.
+	// Keep InProgress phase as-is (InProgress), set complete condition to false.
 	service.SetCondition(metav1.Condition{
 		Type:   vmopcondition.CompletedType,
 		Status: metav1.ConditionFalse,
