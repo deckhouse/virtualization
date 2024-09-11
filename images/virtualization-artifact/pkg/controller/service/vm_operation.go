@@ -147,7 +147,7 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 			continue
 		}
 		// Return true if other VMOP is in progress.
-		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+		if other.Status.Phase == virtv2.VMOPPhaseInProgress {
 			return true, nil
 		}
 	}
@@ -177,7 +177,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 	vmopType := vmop.Spec.Type
 	vmPhase := vm.Status.Phase
 
-	kvvm, err := s.getKVVM(ctx, vmop.GetNamespace(), vmop.GetName())
+	kvvm, err := s.getKVVM(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 	if err != nil {
 		return false, err
 	}
