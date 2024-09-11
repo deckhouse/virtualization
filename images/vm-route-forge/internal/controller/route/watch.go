@@ -40,9 +40,8 @@ type Watcher interface {
 type KindRouteWatcher string
 
 const (
-	NetlinkSubscriberKind KindRouteWatcher = "netlinkSubscriber"
-	NetlinkTickerKind     KindRouteWatcher = "netlinkTicker"
-	EbpfKind              KindRouteWatcher = "ebpf"
+	NetlinkTickerKind KindRouteWatcher = "netlinkTicker"
+	EbpfKind          KindRouteWatcher = "ebpf"
 )
 
 func WatchFactory(ctx context.Context,
@@ -54,8 +53,6 @@ func WatchFactory(ctx context.Context,
 	log logr.Logger,
 ) (Watcher, error) {
 	switch kind {
-	case NetlinkSubscriberKind:
-		return NewNetlinkSubscriberWatcher(ctx, cidrs, cache, nlWrapper, log)
 	case NetlinkTickerKind:
 		return NewNetlinkTickerWatcher(ctx, cidrs, cache, routeTableID, nlWrapper, log), nil
 	case EbpfKind:
