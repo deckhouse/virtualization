@@ -200,7 +200,7 @@ func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Obje
 			continue
 		}
 
-		if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind && cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != obj.GetNamespace() {
+		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != obj.GetNamespace() {
 			continue
 		}
 
