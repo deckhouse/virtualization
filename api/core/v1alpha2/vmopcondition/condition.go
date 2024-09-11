@@ -43,10 +43,10 @@ const (
 	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
 	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
-	// ReasonNotApplicableForRunPolicy is a ReasonCompleted indicating that the specified operation type is not appilicable for the virtual machine runPolicy.
+	// ReasonNotApplicableForRunPolicy is a ReasonCompleted indicating that the specified operation type is not applicable for the virtual machine runPolicy.
 	ReasonNotApplicableForRunPolicy ReasonCompleted = "NotApplicableForVirtualMachineRunPolicy"
 
-	// ReasonNotApplicableForVMPhase is a ReasonCompleted indicating that the specified operation type is not appilicable for the virtual machine phase.
+	// ReasonNotApplicableForVMPhase is a ReasonCompleted indicating that the specified operation type is not applicable for the virtual machine phase.
 	ReasonNotApplicableForVMPhase ReasonCompleted = "NotApplicableForVirtualMachinePhase"
 
 	// ReasonOtherOperationsAreInProgress is a ReasonCompleted indicating that there are other operations in progress.

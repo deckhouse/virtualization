@@ -177,16 +177,27 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 	vmopType := vmop.Spec.Type
 	vmPhase := vm.Status.Phase
 
-	kvvm, err := s.getKVVM(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
-	if err != nil {
-		return false, err
-	}
-
 	switch vmopType {
-	case virtv2.VMOPTypeRestart, virtv2.VMOPTypeStart:
-		return vmPhase == virtv2.MachineRunning && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusRunning, nil
+	case virtv2.VMOPTypeStart:
+		return vmPhase == virtv2.MachineRunning, nil
 	case virtv2.VMOPTypeStop:
-		return vmPhase == virtv2.MachineStopped && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusStopped, nil
+		return vmPhase == virtv2.MachineStopped, nil
+	case virtv2.VMOPTypeRestart:
+		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
+		if err != nil {
+			return false, err
+		}
+
+		// Use vmop creation time or time from SignalSent condition.
+		signalSentTime := vmop.GetCreationTimestamp().Time
+		signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
+		if found && signalSendCond.LastTransitionTime.After(signalSentTime) {
+			signalSentTime = signalSendCond.LastTransitionTime.Time
+		}
+
+		return vmPhase == virtv2.MachineRunning &&
+			kvvmi.GetCreationTimestamp().After(signalSentTime), nil
+
 	default:
 		return false, nil
 	}
