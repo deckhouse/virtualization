@@ -19,10 +19,11 @@ import moment from 'moment';
 
 const owner = 'deckhouse';
 const repo = 'virtualization';
-const project = 'DVP';
-const defaultLogin = 'Almighty PM';
+const project = ':dvp: DVP';
+const defaultLogin = '@anton.nikonov';
 const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
 const recentDays = 2;
+const approvalsRequired = 1
 
 async function fetchPullRequests() {
   try {
@@ -32,7 +33,11 @@ async function fetchPullRequests() {
       per_page: 500,
       state: 'open',
     });
-    return data.filter(pr => !pr.draft);
+    return data.filter(pr => {
+      if (pr.draft) return false;
+      const hasAutoreleaseLabel = pr.labels.some(label => label.name.includes('autorelease'));
+      return !hasAutoreleaseLabel;
+    });
   } catch (error) {
     console.error('Error fetching pull requests:', error);
     throw error;
@@ -51,16 +56,56 @@ async function fetchReviewerDetails(login) {
   }
 }
 
+async function fetchReviewsForPR(prNumber) {
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching reviews for PR ${prNumber}:`, error);
+    return [];
+  }
+}
+
+function formatReviewer(reviewer, details) {
+  if (!details) {
+    return reviewer.login;  
+  }
+  const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'Set name in profile!';
+  return `${details.login} (@${loopName})`;
+}
+
 async function formatPR(pr) {
-  let reviewersInfo = `NO REVIEWERS! ${defaultLogin}, your care is required here.`;
+  let reviewersInfo = `NO REVIEWERS! ${defaultLogin} (opezdulit')`;
+
+  const uniqueLogins = new Set();
+  const fetchedReviewers = [];
+
+  // Add requested reviewers
   if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
-    const reviewers = await Promise.all(
-      pr.requested_reviewers.map(async reviewer => {
-        const details = await fetchReviewerDetails(reviewer.login);
-        return details ? `${details.login} (${details.name})` : reviewer.login;
-      })
-    );
-    reviewersInfo = `Reviewers: ${reviewers.join(', ')}`;
+    for (const reviewer of pr.requested_reviewers) {
+      const details = await fetchReviewerDetails(reviewer.login);
+      uniqueLogins.add(details.login);
+      fetchedReviewers.push(formatReviewer(reviewer, details));
+    }
+  }
+
+  // Add more reviewers from reviews.
+  const reviews = await fetchReviewsForPR(pr.number);
+  for (const review of reviews) {
+    if (uniqueLogins.has(review.user.login)) {
+      continue;
+    }
+    uniqueLogins.add(review.user.login);
+    const details = await fetchReviewerDetails(review.user.login); 
+    fetchedReviewers.push(formatReviewer(review.user, details));
+  }
+
+  if (fetchedReviewers.length > 0) {
+    reviewersInfo = `Reviewers: ${fetchedReviewers.join(', ')}`;
   }
 
   return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (Created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
@@ -68,25 +113,44 @@ async function formatPR(pr) {
 
 async function generateSummary(prs) {
   const now = moment();
-  const reviewRequired = prs;
-  const recent = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') <= recentDays);
-  const lasting = reviewRequired.filter(pr => moment().diff(moment(pr.created_at), 'days') > recentDays);
+  const recent = [];
+  const lasting = [];
+  const readyForMerge = [];
+
+  for (const pr of prs) {
+    const reviews = await fetchReviewsForPR(pr.number);
+    const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
+    const isReadyForMerge = approvals.length >= approvalsRequired;
+
+    if (isReadyForMerge) {
+      readyForMerge.push(pr);
+    } else if (moment().diff(moment(pr.created_at), 'days') <= recentDays) {
+      recent.push(pr);
+    } else {
+      lasting.push(pr);
+    }
+  }
 
   let summary = `## ${project} PRs ${now.format('YYYY-MM-DD')}\n\n`;
 
-  if (reviewRequired.length === 0) {
+  if (prs.length === 0) {
     summary += `:tada: No review required for today\n`;
     return summary;
   }
 
+  if (readyForMerge.length > 0) {
+    const readyForMergePRsInfo = await Promise.all(readyForMerge.map(pr => formatPR(pr)));
+    summary += `### Ready for merge PRs\n\n${readyForMergePRsInfo.join('\n')}\n\n`;
+  }
+
   if (recent.length > 0) {
-    const recentPRsInfo = await Promise.all(recent.map(formatPR));
+    const recentPRsInfo = await Promise.all(recent.map(pr => formatPR(pr)));
     summary += `### Recent PRs requiring review\n\n${recentPRsInfo.join('\n')}\n\n`;
   }
 
   if (lasting.length > 0) {
-    const lastingPRsInfo = await Promise.all(lasting.map(formatPR));
-    summary += `### PRs requiring review\n\n${lastingPRsInfo.join('\n')}\n`;
+    const lastingPRsInfo = await Promise.all(lasting.map(pr => formatPR(pr)));
+    summary += `### Requiring review PRs\n\n${lastingPRsInfo.join('\n')}\n`;
   }
 
   return summary;
