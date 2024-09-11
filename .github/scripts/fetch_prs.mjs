@@ -70,30 +70,38 @@ async function fetchReviewsForPR(prNumber) {
   }
 }
 
+function formatReviewer(reviewer, details) {
+  if (!details) {
+    return reviewer.login;  
+  }
+  const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'Set name in profile!';
+  return `${details.login} (@${loopName})`;
+}
+
 async function formatPR(pr) {
   let reviewersInfo = `NO REVIEWERS! ${defaultLogin} (opezdulit')`;
+
+  const uniqueLogins = new Set();
   const fetchedReviewers = [];
-  
+
   // Add requested reviewers
   if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
     for (const reviewer of pr.requested_reviewers) {
       const details = await fetchReviewerDetails(reviewer.login);
-      const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'No name';
-      fetchedReviewers.push(details ? `${details.login} (@${loopName})` : details.login);
+      uniqueLogins.add(details.login);
+      fetchedReviewers.push(formatReviewer(reviewer, details));
     }
   }
 
-  // Add reviewers from reviews
+  // Add more reviewers from reviews.
   const reviews = await fetchReviewsForPR(pr.number);
-  const uniqueReviewers = new Set(fetchedReviewers); // To avoid duplicates
-  
   for (const review of reviews) {
-    const details = await fetchReviewerDetails(review.user.login);
-    const loopName = details.name ? details.name.replace(/ /g, '.').toLowerCase() : 'No name';
-    if (!uniqueReviewers.has(`${details.login} (@${loopName})`)) {
-      fetchedReviewers.push(details ? `${details.login} (@${loopName})` : details.login);
-      uniqueReviewers.add(`${details.login} (@${loopName})`);
+    if (uniqueLogins.has(review.user.login)) {
+      continue;
     }
+    uniqueLogins.add(review.user.login);
+    const details = await fetchReviewerDetails(review.user.login); 
+    fetchedReviewers.push(formatReviewer(review.user, details));
   }
 
   if (fetchedReviewers.length > 0) {
