@@ -252,7 +252,7 @@ func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Obje
 	}
 
 	for _, vi := range viList.Items {
-		if vi.Spec.DataSource.ObjectRef == nil {
+		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
 			continue
 		}
 
