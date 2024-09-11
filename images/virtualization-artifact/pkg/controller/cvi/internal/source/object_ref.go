@@ -230,24 +230,24 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 }
 
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	viRefCleanUpResult, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
+	viRefRequeue, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
 	if err != nil {
 		return false, err
 	}
 
-	vdRefCleanUpResult, err := ds.vdSyncer.CleanUp(ctx, cvi)
+	vdRefRequeue, err := ds.vdSyncer.CleanUp(ctx, cvi)
 	if err != nil {
 		return false, err
 	}
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	objRefCleanUpResult, err := ds.importerService.CleanUp(ctx, supgen)
+	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return objRefCleanUpResult || vdRefCleanUpResult || viRefCleanUpResult, nil
+	return objRefRequeue || vdRefRequeue || viRefRequeue, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
