@@ -18,15 +18,16 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -69,128 +70,174 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 		return err
 	}
 
-	sizePolicy := &v1alpha2.SizingPolicy{}
-	isCoreMatched := false
-	for _, sp := range vmclass.Spec.SizingPolicies {
-		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			isCoreMatched = true
-			sizePolicy = sp.DeepCopy()
-			break
-		}
-	}
-	if !isCoreMatched {
+	sizePolicy := getVMSizePolicy(vm, vmclass)
+	if sizePolicy == nil {
 		return fmt.Errorf(
 			"virtual machine %s has no valid size policy in vm class %s",
 			vm.Name, vm.Spec.VirtualMachineClassName,
 		)
 	}
 
-	errors := make([]string, 0)
+	errorsArray := make([]error, 0)
 
-	canValidateMemory := true
-	canValidateGlobalMemory := true
-	canValidatePerCoreMemory := true
+	errorsArray = append(errorsArray, validateCoreFraction(vm, sizePolicy)...)
+	errorsArray = append(errorsArray, validateVMMemory(vm, sizePolicy)...)
+	errorsArray = append(errorsArray, validatePerCoreMemory(vm, sizePolicy)...)
 
-	if sizePolicy.Memory != nil {
-		vmMemory, ok := vm.Spec.Memory.Size.AsInt64()
-		if !ok {
-			canValidateMemory = false
-			errors = append(errors, "invalid virtual machine memory value")
-		}
-		spMemoryMin, ok := sizePolicy.Memory.Min.AsInt64()
-		if !ok {
-			canValidateGlobalMemory = false
-			errors = append(errors, "invalid size policy min memory value")
-		}
-		spMemoryMax, ok := sizePolicy.Memory.Max.AsInt64()
-		if !ok {
-			canValidateGlobalMemory = false
-			errors = append(errors, "invalid size policy max memory value")
-		}
-
-		// if exists perCoreMemory then exists Memory field and it is only way I find
-		// to check no requirements for vm memory
-		if spMemoryMax == 0 {
-			canValidateGlobalMemory = false
-		}
-
-		if canValidateMemory && canValidateGlobalMemory {
-			if vmMemory < spMemoryMin {
-				errors = append(errors, fmt.Sprintf(
-					"virtual machine setted memory(%s) lesser than size policy min memory value(%s)",
-					util.HumanizeIBytes(uint64(vmMemory)),
-					util.HumanizeIBytes(uint64(spMemoryMin)),
-				))
-			}
-
-			if vmMemory > spMemoryMax {
-				errors = append(errors, fmt.Sprintf(
-					"virtual machine setted memory(%s) greater than size policy max memory value(%s)",
-					util.HumanizeIBytes(uint64(vmMemory)),
-					util.HumanizeIBytes(uint64(spMemoryMax)),
-				))
-			}
-		}
-
-		spPerCoreMemoryMin, ok := sizePolicy.Memory.PerCore.Min.AsInt64()
-		if !ok {
-			canValidatePerCoreMemory = false
-			errors = append(errors, "invalid size policy min per core memory value")
-		}
-		spPerCoreMemoryMax, ok := sizePolicy.Memory.PerCore.Max.AsInt64()
-		if !ok {
-			canValidatePerCoreMemory = false
-			errors = append(errors, "invalid size policy max per core memory value")
-		}
-
-		// value can't be nil, check rude
-		if spPerCoreMemoryMax == 0 {
-			canValidatePerCoreMemory = false
-		}
-
-		if canValidateMemory && canValidatePerCoreMemory {
-			vmPerCoreMemory := vmMemory / int64(vm.Spec.CPU.Cores)
-
-			if vmPerCoreMemory < spPerCoreMemoryMin {
-				errors = append(errors, fmt.Sprintf(
-					"virtual machine setted per core memory(%s) lesser than size policy min per core memory value(%s)",
-					util.HumanizeIBytes(uint64(vmPerCoreMemory)),
-					util.HumanizeIBytes(uint64(spPerCoreMemoryMin)),
-				))
-			}
-
-			if vmPerCoreMemory > spPerCoreMemoryMax {
-				errors = append(errors, fmt.Sprintf(
-					"virtual machine setted per core memory(%s) greater than size policy max per core memory value(%s)",
-					util.HumanizeIBytes(uint64(vmPerCoreMemory)),
-					util.HumanizeIBytes(uint64(spPerCoreMemoryMax)),
-				))
-			}
-		}
-	}
-
-	if sizePolicy.CoreFractions != nil {
-		fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
-		fraction, err := strconv.Atoi(fractionStr)
-		if err != nil {
-			errors = append(errors, "cpu fraction value is invalid")
-		}
-
-		hasInSizePolicyFractions := false
-		for _, spFraction := range sizePolicy.CoreFractions {
-			if fraction == int(spFraction) {
-				hasInSizePolicyFractions = true
-			}
-		}
-
-		if !hasInSizePolicyFractions {
-			errors = append(errors, "vm core fraction incorrect")
-		}
-	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf("%s", strings.Join(errors, ", "))
+	if len(errorsArray) > 0 {
+		return fmt.Errorf("errors while size policy validate: %s", errors.Join(errorsArray...))
 	}
 
 	return nil
+}
+
+func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmclass v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
+	for _, sp := range vmclass.Spec.SizingPolicies {
+		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
+			return sp.DeepCopy()
+		}
+	}
+
+	return nil
+}
+
+func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+	errorsArray = make([]error, 0)
+
+	if sp.CoreFractions == nil {
+		return
+	}
+
+	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
+	fraction, err := strconv.Atoi(fractionStr)
+	if err != nil {
+		errorsArray = append(errorsArray, fmt.Errorf("cpu fraction value is invalid"))
+		return
+	}
+
+	hasInSizePolicyFractions := false
+	for _, spFraction := range sp.CoreFractions {
+		if fraction == int(spFraction) {
+			hasInSizePolicyFractions = true
+		}
+	}
+
+	if !hasInSizePolicyFractions {
+		errorsArray = append(errorsArray, fmt.Errorf("vm core fraction incorrect"))
+	}
+
+	return
+}
+
+func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+	errorsArray = make([]error, 0)
+
+	if sp.Memory == nil {
+		return
+	}
+
+	if sp.Memory.Max.String() == "0" { // has not nil, must check like this
+		return
+	}
+
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == -1 {
+		errorsArray = append(errorsArray, fmt.Errorf(
+			"requested VM memory (%s) lesser than valid minimum, availible range [%s, %s]",
+			vm.Spec.Memory.Size.String(),
+			sp.Memory.Min.String(),
+			sp.Memory.Max.String(),
+		))
+	} else if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == 1 {
+		errorsArray = append(errorsArray, fmt.Errorf(
+			"requested VM memory (%s) greater than valid maximum, availible range [%s, %s]",
+			vm.Spec.Memory.Size.String(),
+			sp.Memory.Min.String(),
+			sp.Memory.Max.String(),
+		))
+	} else if sp.Memory.Step.String() != "0" {
+		err := checkInGrid(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
+		if err != nil {
+			errorsArray = append(errorsArray, err)
+		}
+	}
+
+	return
+}
+
+func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+	errorsArray = make([]error, 0)
+
+	if sp.Memory == nil {
+		return
+	}
+
+	if sp.Memory.PerCore.Max.String() == "0" { // has not nil, must check like this
+		return
+	}
+
+	// not have a default dividing :(
+	// dirty, I know
+	// wash your hands after read this
+	vmMemoryValueInt64, _ := vm.Spec.Memory.Size.AsInt64()
+	vmPerCore := vmMemoryValueInt64 / int64(vm.Spec.CPU.Cores)
+	perCoreMemory := resource.MustParse(fmt.Sprintf("%dKi", vmPerCore/1024))
+
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == -1 {
+		errorsArray = append(errorsArray, fmt.Errorf(
+			"requested VM per core memory (%s) lesser than valid minimum, availible range [%s, %s]",
+			perCoreMemory.String(),
+			sp.Memory.PerCore.Min.String(),
+			sp.Memory.PerCore.Max.String(),
+		))
+	} else if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == 1 {
+		errorsArray = append(errorsArray, fmt.Errorf(
+			"requested VM per core memory (%s) greater than valid maximum, availible range [%s, %s]",
+			perCoreMemory.String(),
+			sp.Memory.PerCore.Min.String(),
+			sp.Memory.PerCore.Max.String(),
+		))
+	} else if sp.Memory.Step.String() != "0" {
+		err := checkInGrid(perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
+		if err != nil {
+			errorsArray = append(errorsArray, err)
+		}
+	}
+
+	return
+}
+
+func checkInGrid(value, min, max, step resource.Quantity, source string) (err error) {
+	err = nil
+	grid := generateValidGrid(min, max, step)
+
+	for i := 0; i < len(grid)-1; i++ {
+		cmpLeftResult := value.Cmp(grid[i])
+		cmpRightResult := value.Cmp(grid[i+1])
+
+		if cmpLeftResult == 0 || cmpRightResult == 0 {
+			return
+		} else if cmpLeftResult == 1 && cmpRightResult == -1 {
+			err = fmt.Errorf(
+				"requested %s not in availible values grid, nearest valid values [%s, %s]",
+				source,
+				grid[i].String(),
+				grid[i+1].String(),
+			)
+			return
+		}
+	}
+
+	return
+}
+
+func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
+	grid := make([]resource.Quantity, 0)
+
+	for val := min; val.Cmp(max) == -1; val.Add(step) {
+		grid = append(grid, val)
+	}
+
+	grid = append(grid, max)
+
+	return grid
 }
