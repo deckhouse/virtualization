@@ -188,12 +188,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
-		return
-	}
-
 	var cviList virtv2.ClusterVirtualImageList
 	err := r.client.List(ctx, &cviList, &client.ListOptions{})
 	if err != nil {
@@ -202,7 +196,11 @@ func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Obje
 	}
 
 	for _, cvi := range cviList.Items {
-		if cvi.Spec.DataSource.ObjectRef.Name != vd.Name && cvi.Spec.DataSource.ObjectRef.Namespace != vd.Namespace {
+		if cvi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind && cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != obj.GetNamespace() {
 			continue
 		}
 

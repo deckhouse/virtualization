@@ -242,23 +242,21 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
-		return
-	}
-
 	var viList virtv2.VirtualImageList
 	err := r.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list cvi: %s", err))
+		slog.Default().Error(fmt.Sprintf("failed to list vi: %s", err))
 		return
 	}
 
 	for _, vi := range viList.Items {
-		if vi.Spec.DataSource.ObjectRef.Name != vd.Name {
+		if vi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind && vi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
 			continue
 		}
 
