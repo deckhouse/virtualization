@@ -96,34 +96,33 @@ func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controll
 	labelSelector := client.MatchingLabels{common.AppKubernetesManagedByLabel: controllerName}
 
 	podList := &corev1.PodList{}
-	if err := s.client.List(context.Background(), podList, labelSelector); err != nil {
+	if err := s.client.List(ctx, podList, labelSelector); err != nil {
 		return false, err
 	}
 
-	var pod corev1.Pod
+	for _, pod := range podList.Items {
+		for _, ownerRef := range pod.OwnerReferences {
+			if ownerRef.Kind == obj.GroupVersionKind().Kind && ownerRef.Name == obj.GetName() && ownerRef.UID == obj.GetUID() {
+				err := s.protection.RemoveProtection(ctx, &pod)
+				if err != nil {
+					return false, err
+				}
 
-	for _, po := range podList.Items {
-		for _, ownerRef := range po.OwnerReferences {
-			if ownerRef.Name == obj.GetName() &&
-				ownerRef.Kind == obj.GroupVersionKind().Kind &&
-				ownerRef.UID == obj.GetUID() {
-				pod = po
-				continue
+				err = s.client.Delete(ctx, &pod)
+				if err != nil {
+					if k8serrors.IsNotFound(err) {
+						return false, nil
+					}
+
+					return false, err
+				}
+
+				return true, nil
 			}
 		}
 	}
 
-	err := s.protection.RemoveProtection(ctx, &pod)
-	if err != nil {
-		return false, err
-	}
-
-	err = s.client.Delete(ctx, &pod)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return false, err
-	}
-
-	return true, nil
+	return false, nil
 }
 
 func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
