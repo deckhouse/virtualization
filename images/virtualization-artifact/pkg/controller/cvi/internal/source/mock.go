@@ -34,6 +34,9 @@ var _ Importer = &ImporterMock{}
 //			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
+//			DeletePodFunc: func(ctx context.Context, obj service.ObjectKind, controllerName string) (bool, error) {
+//				panic("mock out the DeletePod method")
+//			},
 //			GetPodFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
@@ -64,6 +67,9 @@ type ImporterMock struct {
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
 	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
+	// DeletePodFunc mocks the DeletePod method.
+	DeletePodFunc func(ctx context.Context, obj service.ObjectKind, controllerName string) (bool, error)
 
 	// GetPodFunc mocks the GetPod method.
 	GetPodFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
@@ -98,6 +104,15 @@ type ImporterMock struct {
 			Ctx context.Context
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
+		}
+		// DeletePod holds details about calls to the DeletePod method.
+		DeletePod []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Obj is the obj argument value.
+			Obj service.ObjectKind
+			// ControllerName is the controllerName argument value.
+			ControllerName string
 		}
 		// GetPod holds details about calls to the GetPod method.
 		GetPod []struct {
@@ -160,6 +175,7 @@ type ImporterMock struct {
 	}
 	lockCleanUp               sync.RWMutex
 	lockCleanUpSupplements    sync.RWMutex
+	lockDeletePod             sync.RWMutex
 	lockGetPod                sync.RWMutex
 	lockGetPodSettingsWithPVC sync.RWMutex
 	lockProtect               sync.RWMutex
@@ -237,6 +253,46 @@ func (mock *ImporterMock) CleanUpSupplementsCalls() []struct {
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
 	mock.lockCleanUpSupplements.RUnlock()
+	return calls
+}
+
+// DeletePod calls DeletePodFunc.
+func (mock *ImporterMock) DeletePod(ctx context.Context, obj service.ObjectKind, controllerName string) (bool, error) {
+	if mock.DeletePodFunc == nil {
+		panic("ImporterMock.DeletePodFunc: method is nil but Importer.DeletePod was just called")
+	}
+	callInfo := struct {
+		Ctx            context.Context
+		Obj            service.ObjectKind
+		ControllerName string
+	}{
+		Ctx:            ctx,
+		Obj:            obj,
+		ControllerName: controllerName,
+	}
+	mock.lockDeletePod.Lock()
+	mock.calls.DeletePod = append(mock.calls.DeletePod, callInfo)
+	mock.lockDeletePod.Unlock()
+	return mock.DeletePodFunc(ctx, obj, controllerName)
+}
+
+// DeletePodCalls gets all the calls that were made to DeletePod.
+// Check the length with:
+//
+//	len(mockedImporter.DeletePodCalls())
+func (mock *ImporterMock) DeletePodCalls() []struct {
+	Ctx            context.Context
+	Obj            service.ObjectKind
+	ControllerName string
+} {
+	var calls []struct {
+		Ctx            context.Context
+		Obj            service.ObjectKind
+		ControllerName string
+	}
+	mock.lockDeletePod.RLock()
+	calls = mock.calls.DeletePod
+	mock.lockDeletePod.RUnlock()
 	return calls
 }
 
