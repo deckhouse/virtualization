@@ -65,7 +65,6 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 	err := v.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,
 	}, &vmclass)
-
 	if err != nil {
 		return err
 	}
