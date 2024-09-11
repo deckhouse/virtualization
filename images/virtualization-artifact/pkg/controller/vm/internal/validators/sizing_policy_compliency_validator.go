@@ -22,12 +22,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type IClient interface {
