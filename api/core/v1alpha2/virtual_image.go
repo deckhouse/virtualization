@@ -78,6 +78,7 @@ type VirtualImageObjectRefKind string
 const (
 	VirtualImageObjectRefKindVirtualImage        VirtualImageObjectRefKind = "VirtualImage"
 	VirtualImageObjectRefKindClusterVirtualImage VirtualImageObjectRefKind = "ClusterVirtualImage"
+	VirtualImageObjectRefKindVirtualDisk         VirtualImageObjectRefKind = "VirtualDisk"
 )
 
 type StorageType string

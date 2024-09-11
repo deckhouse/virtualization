@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -145,6 +146,32 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VMs: %w", err)
 	}
 
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
+		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVDs),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
+				if !ok {
+					slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
+					return false
+				}
+
+				newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
+				if !ok {
+					slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
+					return false
+				}
+
+				return oldVD.Status.Phase != newVD.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VDs: %w", err)
+	}
+
 	cviFromVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.ClusterVirtualImageObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), cviFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -158,6 +185,33 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	return nil
+}
+
+func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+	var cviList virtv2.ClusterVirtualImageList
+	err := r.client.List(ctx, &cviList, &client.ListOptions{})
+	if err != nil {
+		slog.Default().Error(fmt.Sprintf("failed to list cvi: %s", err))
+		return
+	}
+
+	for _, cvi := range cviList.Items {
+		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != obj.GetNamespace() {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: cvi.Name,
+			},
+		})
+	}
+
+	return
 }
 
 func (r *Reconciler) factory() *virtv2.ClusterVirtualImage {
