@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -59,69 +60,74 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	changed := s.VirtualMachineOperation().Changed()
 	// Ignore if vmop in deletion state.
 	if changed.DeletionTimestamp != nil {
-		log.Debug("Skip operation, VMOP is in deletion state", "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, VMOP is in deletion state")
 		return reconcile.Result{}, nil
 	}
 
 	// Do not perform operation if vmop not in the Pending phase.
 	if changed.Status.Phase != virtv2.VMOPPhasePending {
-		log.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", changed.Status.Phase)
 		return reconcile.Result{}, nil
 	}
 
 	// VirtualMachineOperation should contain Complete condition in Unknown state to perform operation.
 	// Other statuses may indicate waiting state, e.g. non-existent VM or other VMOPs in progress.
-	completeCondition, found := service.GetCondition(vmopcondition.CompletedType.String(), changed.Status.Conditions)
+	completeCondition, found := service.GetCondition(vmopcondition.TypeCompleted.String(), changed.Status.Conditions)
 	if !found {
-		log.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase)
 		return reconcile.Result{}, nil
 	}
 	if completeCondition.Status != metav1.ConditionUnknown {
-		log.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", changed.Status.Phase, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", changed.Status.Phase)
 		return reconcile.Result{}, nil
 	}
+
+	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+		Generation(changed.GetGeneration())
+	signalSendCond := conditions.NewConditionBuilder(vmopcondition.SignalSentType).
+		Generation(changed.GetGeneration())
 
 	// Send signal to perform operation, set phase to InProgress on success and to Fail on error.
 	err := h.vmopSrv.Do(ctx, changed)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending powerstate signal %q to VM", changed.Spec.Type)
-		log.Debug(failMsg, "err", err, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+		log.Debug(failMsg, logger.SlogErr(err))
 		failMsg = fmt.Sprintf("%s: %v", failMsg, err)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
-		service.SetCondition(metav1.Condition{
-			Type:   vmopcondition.SignalSentType.String(),
-			Status: metav1.ConditionFalse,
-			Reason: vmopcondition.ReasonSignalSentError.String(),
-		}, &changed.Status.Conditions)
-		service.SetCondition(metav1.Condition{
-			Type:    vmopcondition.CompletedType.String(),
-			Status:  metav1.ConditionFalse,
-			Reason:  vmopcondition.ReasonOperationFailed.String(),
-			Message: failMsg,
-		}, &changed.Status.Conditions)
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonOperationFailed).
+				Message(failMsg).
+				Status(metav1.ConditionFalse),
+			&changed.Status.Conditions)
+		conditions.SetCondition(
+			signalSendCond.
+				Reason(vmopcondition.ReasonSignalSentError).
+				Status(metav1.ConditionFalse),
+			&changed.Status.Conditions)
 
 		return reconcile.Result{}, nil
 	}
 
 	msg := fmt.Sprintf("Sent powerstate signal %q to VM without errors.", changed.Spec.Type)
-	log.Debug(msg, "vmop.name", changed.GetName(), "vmop.namespace", changed.GetNamespace())
+	log.Debug(msg)
 	h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
 
 	changed.Status.Phase = virtv2.VMOPPhaseInProgress
 
-	service.SetCondition(metav1.Condition{
-		Type:   vmopcondition.SignalSentType.String(),
-		Status: metav1.ConditionTrue,
-		Reason: vmopcondition.ReasonSignalSentSuccess.String(),
-	}, &changed.Status.Conditions)
-	service.SetCondition(metav1.Condition{
-		Type:    vmopcondition.CompletedType.String(),
-		Status:  metav1.ConditionFalse,
-		Reason:  h.vmopSrv.InProgressReasonForType(changed).String(),
-		Message: "Wait for operation to complete",
-	}, &changed.Status.Conditions)
+	conditions.SetCondition(
+		completedCond.
+			Reason(h.vmopSrv.InProgressReasonForType(changed)).
+			Message("Wait for operation to complete").
+			Status(metav1.ConditionFalse),
+		&changed.Status.Conditions)
+	conditions.SetCondition(
+		signalSendCond.
+			Reason(vmopcondition.ReasonSignalSentSuccess).
+			Status(metav1.ConditionTrue),
+		&changed.Status.Conditions)
 
 	// No requeue, just wait for the VM phase change.
 	return reconcile.Result{}, nil

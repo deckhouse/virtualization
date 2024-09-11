@@ -23,11 +23,11 @@ func (t Type) String() string {
 }
 
 const (
-	// CompletedType is a type for condition that indicates operation is complete.
-	CompletedType Type = "Completed"
+	// TypeCompleted is a type for condition that indicates operation is complete.
+	TypeCompleted Type = "Completed"
 
 	// SignalSentType is a type for condition that indicates operation signal has been sent.
-	SignalSentType Type = "SignalHasBeenSent"
+	SignalSentType Type = "SignalSent"
 )
 
 // Reason represents specific reasons for the 'Completed' condition type.
