@@ -51,7 +51,7 @@ func SetupController(
 	handlers := []Handler{
 		internal.NewLifecycleHandler(vmopSrv),
 		internal.NewOperationHandler(recorder, vmopSrv),
-		internal.NewProtectionHandler(client),
+		internal.NewDeletionHandler(client),
 	}
 
 	reconciler := NewReconciler(client, handlers...)
