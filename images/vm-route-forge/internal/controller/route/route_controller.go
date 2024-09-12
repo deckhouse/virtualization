@@ -226,7 +226,7 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	go func() {
 		wait.UntilWithContext(newCtx, func(_ context.Context) {
 			if err := c.netlinkMgr.AddSubnetsRoutesToBlackHole(); err != nil {
-				c.log.Error(err, "Failed to add routes for subnets in blackhole.")
+				c.log.Error(err, "Failed to add blackhole routes for subnets.")
 			}
 		}, time.Minute)
 	}()
