@@ -1,6 +1,6 @@
 module kube-api-proxy
 
-go 1.22.6
+go 1.22.7
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0
