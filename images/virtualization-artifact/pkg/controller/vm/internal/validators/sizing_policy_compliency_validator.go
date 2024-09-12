@@ -150,7 +150,7 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 		))
 	}
 
-	if sp.Memory.Step.String() != "0" {
+	if sp.Memory.Step.IsZero() {
 		err := checkInGrid(&vm.Spec.Memory.Size, &sp.Memory.Min, &sp.Memory.Max, &sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
