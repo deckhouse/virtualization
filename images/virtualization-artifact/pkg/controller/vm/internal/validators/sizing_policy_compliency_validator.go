@@ -150,8 +150,8 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 		))
 	}
 
-	if sp.Memory.Step.IsZero() {
-		err := checkInGrid(&vm.Spec.Memory.Size, &sp.Memory.Min, &sp.Memory.Max, &sp.Memory.Step, "VM memory")
+	if !sp.Memory.Step.IsZero() {
+		err := checkInGrid(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -190,7 +190,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	}
 
 	if !sp.Memory.Step.IsZero() {
-		err := checkInGrid(perCoreMemory, &sp.Memory.PerCore.Min, &sp.Memory.PerCore.Max, &sp.Memory.Step, "VM per core memory")
+		err := checkInGrid(*perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -199,7 +199,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	return
 }
 
-func checkInGrid(value, min, max, step *resource.Quantity, source string) (err error) {
+func checkInGrid(value, min, max, step resource.Quantity, source string) (err error) {
 	grid := generateValidGrid(min, max, step)
 
 	for i := 0; i < len(grid)-1; i++ {
@@ -222,14 +222,14 @@ func checkInGrid(value, min, max, step *resource.Quantity, source string) (err e
 	return
 }
 
-func generateValidGrid(min, max, step *resource.Quantity) []resource.Quantity {
+func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
 	var grid []resource.Quantity
 
-	for val := min; val.Cmp(*max) == -1; val.Add(*step) {
-		grid = append(grid, *val)
+	for val := min; val.Cmp(max) == -1; val.Add(step) {
+		grid = append(grid, val)
 	}
 
-	grid = append(grid, *max)
+	grid = append(grid, max)
 
 	return grid
 }
