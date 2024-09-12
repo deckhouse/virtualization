@@ -38,11 +38,6 @@ func TestValidators(t *testing.T) {
 var _ = Describe("Spec policy comlience validator", func() {
 	var mock ClientMock
 	var ctx context.Context
-	mem512m := resource.MustParse("512M")
-	mem1g := resource.MustParse("1G")
-	mem2g := resource.MustParse("2G")
-	mem3g := resource.MustParse("3G")
-	mem4g := resource.MustParse("4G")
 
 	BeforeEach(func() {
 		mock = ClientMock{}
@@ -75,8 +70,8 @@ var _ = Describe("Spec policy comlience validator", func() {
 					},
 					Memory: &v1alpha2.SizingPolicyMemory{
 						MemoryMinMax: v1alpha2.MemoryMinMax{
-							Min: mem1g,
-							Max: mem4g,
+							Min: resource.MustParse("1Gi"),
+							Max: resource.MustParse("4Gi"),
 						},
 					},
 				},
@@ -216,7 +211,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem1g,
+					Size: resource.MustParse("1Gi"),
 				},
 			},
 		}
@@ -237,8 +232,8 @@ var _ = Describe("Spec policy comlience validator", func() {
 					},
 					Memory: &v1alpha2.SizingPolicyMemory{
 						MemoryMinMax: v1alpha2.MemoryMinMax{
-							Min: mem512m,
-							Max: mem2g,
+							Min: resource.MustParse("512Mi"),
+							Max: resource.MustParse("2Gi"),
 						},
 					},
 				},
@@ -260,7 +255,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem2g,
+					Size: resource.MustParse("2Gi"),
 				},
 			},
 		}
@@ -281,8 +276,8 @@ var _ = Describe("Spec policy comlience validator", func() {
 					},
 					Memory: &v1alpha2.SizingPolicyMemory{
 						MemoryMinMax: v1alpha2.MemoryMinMax{
-							Min: mem1g,
-							Max: mem3g,
+							Min: resource.MustParse("1Gi"),
+							Max: resource.MustParse("3Gi"),
 						},
 					},
 				},
@@ -304,7 +299,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem2g,
+					Size: resource.MustParse("2Gi"),
 				},
 			},
 		}
@@ -343,7 +338,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem4g,
+					Size: resource.MustParse("4Gi"),
 				},
 			},
 		}
@@ -365,8 +360,8 @@ var _ = Describe("Spec policy comlience validator", func() {
 					Memory: &v1alpha2.SizingPolicyMemory{
 						PerCore: v1alpha2.SizingPolicyMemoryPerCore{
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: mem1g,
-								Max: mem3g,
+								Min: resource.MustParse("1Gi"),
+								Max: resource.MustParse("3Gi"),
 							},
 						},
 					},
@@ -389,7 +384,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem4g,
+					Size: resource.MustParse("4Gi"),
 				},
 			},
 		}
@@ -411,8 +406,8 @@ var _ = Describe("Spec policy comlience validator", func() {
 					Memory: &v1alpha2.SizingPolicyMemory{
 						PerCore: v1alpha2.SizingPolicyMemoryPerCore{
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: mem2g,
-								Max: mem3g,
+								Min: resource.MustParse("2Gi"),
+								Max: resource.MustParse("3Gi"),
 							},
 						},
 					},
@@ -435,7 +430,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "10%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem2g,
+					Size: resource.MustParse("2Gi"),
 				},
 			},
 		}
@@ -476,7 +471,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 					CoreFraction: "11%",
 				},
 				Memory: v1alpha2.MemorySpec{
-					Size: mem2g,
+					Size: resource.MustParse("2Gi"),
 				},
 			},
 		}
@@ -503,6 +498,190 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because incorrect core fraction", func() {
+			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+
+	Context("Vm with correct step requirements", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU: v1alpha2.CPUSpec{
+					Cores:        2,
+					CoreFraction: "10%",
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: resource.MustParse("2Gi"),
+				},
+			},
+		}
+		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+
+		BeforeEach(func() {
+			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
+				},
+			}
+			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+				v1alpha2.SizingPolicy{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					Memory: &v1alpha2.SizingPolicyMemory{
+						Step: resource.MustParse("1Gi"),
+						MemoryMinMax: v1alpha2.MemoryMinMax{
+							Min: resource.MustParse("1Gi"),
+							Max: resource.MustParse("3Gi"),
+						},
+					},
+				},
+			)
+		})
+
+		It("Should correct validate because correct step", func() {
+			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("Vm with incorrect memory by step requirements", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU: v1alpha2.CPUSpec{
+					Cores:        2,
+					CoreFraction: "10%",
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: resource.MustParse("2001Mi"),
+				},
+			},
+		}
+		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+
+		BeforeEach(func() {
+			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
+				},
+			}
+			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+				v1alpha2.SizingPolicy{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					Memory: &v1alpha2.SizingPolicyMemory{
+						Step: resource.MustParse("1Gi"),
+						MemoryMinMax: v1alpha2.MemoryMinMax{
+							Min: resource.MustParse("1Gi"),
+							Max: resource.MustParse("3Gi"),
+						},
+					},
+				},
+			)
+		})
+
+		It("Should fail validate because memory incorrect", func() {
+			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			Expect(err).ShouldNot(BeNil())
+		})
+	})
+
+	Context("Vm with correct per core step requirements", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU: v1alpha2.CPUSpec{
+					Cores:        2,
+					CoreFraction: "10%",
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: resource.MustParse("4Gi"),
+				},
+			},
+		}
+		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+
+		BeforeEach(func() {
+			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
+				},
+			}
+			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+				v1alpha2.SizingPolicy{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					Memory: &v1alpha2.SizingPolicyMemory{
+						Step: resource.MustParse("1Gi"),
+						PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
+								Min: resource.MustParse("1Gi"),
+								Max: resource.MustParse("3Gi"),
+							},
+						},
+					},
+				},
+			)
+		})
+
+		It("Should correct validate because correct per core step", func() {
+			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			Expect(err).Should(BeNil())
+		})
+	})
+
+	Context("Vm with incorrect per core memory by step requirements", func() {
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				VirtualMachineClassName: "vmclasstest",
+				CPU: v1alpha2.CPUSpec{
+					Cores:        2,
+					CoreFraction: "10%",
+				},
+				Memory: v1alpha2.MemorySpec{
+					Size: resource.MustParse("4001Mi"),
+				},
+			},
+		}
+		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+
+		BeforeEach(func() {
+			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
+				},
+			}
+			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+				v1alpha2.SizingPolicy{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					Memory: &v1alpha2.SizingPolicyMemory{
+						Step: resource.MustParse("1Gi"),
+						PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
+								Min: resource.MustParse("1Gi"),
+								Max: resource.MustParse("3Gi"),
+							},
+						},
+					},
+				},
+			)
+		})
+
+		It("Should fail validate because per core memory incorrect", func() {
 			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
