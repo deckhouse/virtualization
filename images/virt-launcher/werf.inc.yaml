@@ -116,7 +116,7 @@ shell:
     acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
     libvirt-client==9.7.0-alt2.p10.2:p10+343223.200.3.1 \
     libvirt-daemon-driver-qemu==9.7.0-alt2.p10.2:p10+343223.200.3.1 \
-    qemu-kvm-core==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
+    qemu-kvm-core==8.2.6-alt0.p10.1:p10+353259.100.4.1 \
     swtpm-tools==0.8.0-alt1:p10+322023.200.2.1 \
     ethtool==1:6.5-alt4:p10+337060.100.1.1 \
     findutils==4.8.0.0.10.1157-alt1:sisyphus+278099.1200.1.1 \
