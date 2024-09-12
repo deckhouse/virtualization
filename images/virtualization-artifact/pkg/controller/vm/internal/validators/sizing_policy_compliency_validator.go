@@ -31,15 +31,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type IClient interface {
-	Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error
-}
-
 type SizingPolicyCompliencyValidator struct {
-	client IClient
+	client client.Reader
 }
 
-func NewSizingPolicyCompliencyValidator(client IClient) *SizingPolicyCompliencyValidator {
+func NewSizingPolicyCompliencyValidator(client client.Reader) *SizingPolicyCompliencyValidator {
 	return &SizingPolicyCompliencyValidator{client: client}
 }
 

@@ -46,6 +46,10 @@ func (m *ClientMock) Get(_ context.Context, key client.ObjectKey, obj client.Obj
 	return nil
 }
 
+func (m *ClientMock) List(_ context.Context, _ client.ObjectList, _ ...client.ListOption) error {
+	return nil
+}
+
 func TestValidators(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Validators Suite")
