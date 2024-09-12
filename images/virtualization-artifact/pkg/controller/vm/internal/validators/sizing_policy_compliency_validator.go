@@ -168,8 +168,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	// not have a default dividing :(
 	// dirty, I know
 	// wash your hands after read this
-	vmMemoryValueInt64, _ := vm.Spec.Memory.Size.AsInt64()
-	vmPerCore := vmMemoryValueInt64 / int64(vm.Spec.CPU.Cores)
+	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
 	perCoreMemory := resource.MustParse(fmt.Sprintf("%dKi", vmPerCore/1024))
 
 	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == -1 {
