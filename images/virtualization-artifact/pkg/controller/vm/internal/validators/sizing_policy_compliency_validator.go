@@ -151,7 +151,7 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 	}
 
 	if sp.Memory.Step.String() != "0" {
-		err := checkInGrid(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
+		err := checkInGrid(&vm.Spec.Memory.Size, &sp.Memory.Min, &sp.Memory.Max, &sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -169,7 +169,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	// dirty, I know
 	// wash your hands after read this
 	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
-	perCoreMemory := resource.MustParse(fmt.Sprintf("%dKi", vmPerCore/1024))
+	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
 	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == -1 {
 		errorsArray = append(errorsArray, fmt.Errorf(
@@ -190,7 +190,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	}
 
 	if !sp.Memory.Step.IsZero() {
-		err := checkInGrid(perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
+		err := checkInGrid(perCoreMemory, &sp.Memory.PerCore.Min, &sp.Memory.PerCore.Max, &sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -199,7 +199,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	return
 }
 
-func checkInGrid(value, min, max, step resource.Quantity, source string) (err error) {
+func checkInGrid(value, min, max, step *resource.Quantity, source string) (err error) {
 	grid := generateValidGrid(min, max, step)
 
 	for i := 0; i < len(grid)-1; i++ {
@@ -222,14 +222,14 @@ func checkInGrid(value, min, max, step resource.Quantity, source string) (err er
 	return
 }
 
-func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
+func generateValidGrid(min, max, step *resource.Quantity) []resource.Quantity {
 	var grid []resource.Quantity
 
-	for val := min; val.Cmp(max) == -1; val.Add(step) {
-		grid = append(grid, val)
+	for val := min; val.Cmp(*max) == -1; val.Add(*step) {
+		grid = append(grid, *val)
 	}
 
-	grid = append(grid, max)
+	grid = append(grid, *max)
 
 	return grid
 }
