@@ -14,7 +14,7 @@ tasks:
         tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
         mv /opt/trivy /usr/local/bin/trivy
         chmod +x /usr/local/bin/trivy
-  
+
   macos:bin:
     cmds:
       - |
@@ -23,12 +23,12 @@ tasks:
         tar -zxvf trivy_{{.TRIVY_VERSION}}_macOS-ARM64.tar.gz -C tools/cve/trivy
         mv tools/cve/trivy/trivy {{.macos_path}}/trivy
         chmod +x {{.macos_path}}/trivy
-  
+
   macos:bin:remove:
     cmds:
       - rm -f {{.macos_path}}/trivy
       - rm -rf tools/cve/trivy
-  
+
   run:scan:
     cmds:
       - task cve:linux:bin
