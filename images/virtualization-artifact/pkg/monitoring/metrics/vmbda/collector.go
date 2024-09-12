@@ -17,40 +17,40 @@ limitations under the License.
 package vmbda
 
 import (
+	"context"
+	"log/slog"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
-const (
-	MetricVMBDAStatusPhase = "virtualmachineblockdeviceattachment_status_phase"
-)
+const collectorName = "vmbda-collector"
 
-var vmbdaMetrics = map[string]*prometheus.Desc{
-	MetricVMBDAStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMBDAStatusPhase),
-		"The virtualmachineblockdeviceattachment current phase.",
-		[]string{"name", "namespace", "uid", "phase"},
-		nil),
-}
-
-func SetupCollector(lister Lister, registerer prometheus.Registerer) *Collector {
+func SetupCollector(reader client.Reader,
+	registerer prometheus.Registerer,
+	log *slog.Logger,
+) *Collector {
 	c := &Collector{
-		lister: lister,
+		iterator: newUnsafeIterator(reader),
+		log:      log.With(logger.SlogCollector(collectorName)),
 	}
 
 	registerer.MustRegister(c)
 	return c
 }
 
-type Lister interface {
-	List() ([]virtv2.VirtualMachineBlockDeviceAttachment, error)
+type handler func(m *dataMetric) (stop bool)
+
+type Iterator interface {
+	Iter(ctx context.Context, h handler) error
 }
 
 type Collector struct {
-	lister Lister
+	iterator Iterator
+	log      *slog.Logger
 }
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {
@@ -60,59 +60,14 @@ func (c Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c Collector) Collect(ch chan<- prometheus.Metric) {
-	vmbdas, err := c.lister.List()
-	if err != nil {
-		klog.Errorf("Failed to get list of VirtualMachineBlockDeviceAttachment: %v", err)
+	s := newScraper(ch, c.log)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	if err := c.iterator.Iter(ctx, func(m *dataMetric) (stop bool) {
+		s.Report(m)
 		return
-	}
-	if len(vmbdas) == 0 {
+	}); err != nil {
+		c.log.Error("Failed to iterate of VMBDAs", logger.SlogErr(err))
 		return
-	}
-	s := newScraper(ch)
-	s.Report(vmbdas)
-}
-
-func newScraper(ch chan<- prometheus.Metric) *scraper {
-	return &scraper{ch: ch}
-}
-
-type scraper struct {
-	ch chan<- prometheus.Metric
-}
-
-func (s *scraper) Report(vmbdas []virtv2.VirtualMachineBlockDeviceAttachment) {
-	for _, vmbda := range vmbdas {
-		s.updateVMBDAStatusPhaseMetrics(vmbda)
-	}
-}
-
-func (s *scraper) updateVMBDAStatusPhaseMetrics(vmbda virtv2.VirtualMachineBlockDeviceAttachment) {
-	phase := vmbda.Status.Phase
-	if phase == "" {
-		phase = virtv2.BlockDeviceAttachmentPhasePending
-	}
-	phases := []struct {
-		value bool
-		name  string
-	}{
-		{phase == virtv2.BlockDeviceAttachmentPhasePending, string(virtv2.BlockDeviceAttachmentPhasePending)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseInProgress, string(virtv2.BlockDeviceAttachmentPhaseInProgress)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseAttached, string(virtv2.BlockDeviceAttachmentPhaseAttached)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseFailed, string(virtv2.BlockDeviceAttachmentPhaseFailed)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseTerminating, string(virtv2.BlockDeviceAttachmentPhaseTerminating)},
-	}
-	desc := vmbdaMetrics[MetricVMBDAStatusPhase]
-	for _, p := range phases {
-		metric, err := prometheus.NewConstMetric(
-			desc,
-			prometheus.GaugeValue,
-			util.BoolFloat64(p.value),
-			vmbda.GetName(), vmbda.GetNamespace(), string(vmbda.GetUID()), p.name,
-		)
-		if err != nil {
-			klog.Warningf("Error creating the new const metric for %s: %s", desc, err)
-			return
-		}
-		s.ch <- metric
 	}
 }

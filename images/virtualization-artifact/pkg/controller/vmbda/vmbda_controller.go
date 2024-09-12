@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -39,10 +38,10 @@ const ControllerName = "vmbda-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	lg *slog.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(ControllerName))
+	log := lg.With(logger.SlogController(ControllerName))
 
 	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
 
@@ -75,22 +74,9 @@ func NewController(
 		return nil, err
 	}
 
-	vmbdametrics.SetupCollector(&lister{cache: mgr.GetCache()}, metrics.Registry)
+	vmbdametrics.SetupCollector(mgr.GetCache(), metrics.Registry, lg)
 
 	log.Info("Initialized VirtualMachineBlockDeviceAttachment controller")
 
 	return vmbdaController, nil
-}
-
-type lister struct {
-	cache cache.Cache
-}
-
-func (l lister) List() ([]virtv2.VirtualMachineBlockDeviceAttachment, error) {
-	vmbdas := virtv2.VirtualMachineBlockDeviceAttachmentList{}
-	err := l.cache.List(context.Background(), &vmbdas)
-	if err != nil {
-		return nil, err
-	}
-	return vmbdas.Items, nil
 }

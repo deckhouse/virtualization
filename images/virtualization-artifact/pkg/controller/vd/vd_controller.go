@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -51,13 +50,13 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	lg *slog.Logger,
 	importerImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(ControllerName))
+	log := lg.With(logger.SlogController(ControllerName))
 
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
@@ -105,22 +104,9 @@ func NewController(
 		return nil, err
 	}
 
-	vdcolelctor.SetupCollector(&lister{cache: mgr.GetCache()}, metrics.Registry)
+	vdcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, lg)
 
 	log.Info("Initialized VirtualDisk controller", "image", importerImage)
 
 	return vdController, nil
-}
-
-type lister struct {
-	cache cache.Cache
-}
-
-func (l lister) List() ([]virtv2.VirtualDisk, error) {
-	disks := virtv2.VirtualDiskList{}
-	err := l.cache.List(context.Background(), &disks)
-	if err != nil {
-		return nil, err
-	}
-	return disks.Items, nil
 }
