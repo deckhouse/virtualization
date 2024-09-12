@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validators_test
+package service_test
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -114,7 +114,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				VirtualMachineClassName: "",
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -125,7 +125,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -136,7 +136,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				VirtualMachineClassName: "notexists",
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -147,7 +147,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -162,7 +162,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -182,7 +182,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because has no valid size policy", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -197,7 +197,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -217,7 +217,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because no memory requirements", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -235,7 +235,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -261,7 +261,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -279,7 +279,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -305,7 +305,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because memory not compliency", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -323,7 +323,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -344,7 +344,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because has no memory requirements", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -362,7 +362,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -390,7 +390,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -408,7 +408,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -436,7 +436,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because not memory compliency", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -454,7 +454,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -477,7 +477,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should not fail validate because correct core fraction", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -495,7 +495,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -518,7 +518,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because incorrect core fraction", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -536,7 +536,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -563,7 +563,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should correct validate because correct step", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -581,7 +581,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -608,7 +608,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because memory incorrect", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -626,7 +626,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -655,7 +655,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should correct validate because correct per core step", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -673,7 +673,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 				},
 			},
 		}
-		validator := validators.NewSizingPolicyCompliencyValidator(&mock)
+		service := service.NewSizePolicyService(&mock)
 
 		BeforeEach(func() {
 			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
@@ -702,7 +702,7 @@ var _ = Describe("Spec policy comlience validator", func() {
 		})
 
 		It("Should fail validate because per core memory incorrect", func() {
-			err := validator.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMCompliedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
