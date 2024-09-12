@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -138,6 +139,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 
 		memoryOverhead := memoryPodRequest.DeepCopy()
 		memoryOverhead.Sub(memoryKVVMIRequest)
+		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/1024))*1024, resource.BinarySI)
 
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
