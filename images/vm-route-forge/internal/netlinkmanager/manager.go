@@ -67,6 +67,22 @@ func New(cache vmipcache.Cache,
 	}
 }
 
+func (m *Manager) AddSubnetsRoutesToBlackHole() error {
+	for _, cidr := range m.cidrs {
+		route := &netlink.Route{
+			Scope: netlink.SCOPE_UNIVERSE,
+			Dst:   cidr,
+			Table: m.routeTableID,
+			Type:  unix.RTN_BLACKHOLE,
+		}
+		if err := m.nlWrapper.RouteReplace(route); err != nil {
+			return fmt.Errorf("failed to update route: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // SyncRules adds rules for configured CIDRS into the Cilium table.
 // Also, it removes existing rules for previously configured CIDRs.
 func (m *Manager) SyncRules() error {
