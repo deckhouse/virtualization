@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
@@ -40,20 +41,15 @@ func NewVirtualMachineReadyHandler(attachment *service.AttachmentService) *Virtu
 }
 
 func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vmbdacondition.VirtualMachineReadyType, vmbda.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vmbdacondition.VirtualMachineReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	cb := conditions.NewConditionBuilder(vmbdacondition.VirtualMachineReadyType)
+	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
+
+	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
+		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.VirtualMachineReadyUnknown)
 	}
 
-	defer func() { service.SetCondition(condition, &vmbda.Status.Conditions) }()
-
 	if vmbda.DeletionTimestamp != nil {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
-		condition.Message = ""
+		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.VirtualMachineReadyUnknown)
 		return reconcile.Result{}, nil
 	}
 
@@ -68,9 +64,10 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 	}
 
 	if vm == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.VirtualMachineNotReady
-		condition.Message = fmt.Sprintf("VirtualMachine %s not found.", vmKey.String())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.VirtualMachineNotReady).
+			Message(fmt.Sprintf("VirtualMachine %q not found.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 
@@ -79,14 +76,16 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 		// OK.
 	case virtv2.MachineStopping, virtv2.MachineStopped, virtv2.MachineStarting:
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = fmt.Sprintf("VirtualMachine %s is %s: waiting for the VirtualMachine to be Running.", vm.Name, vm.Status.Phase)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(fmt.Sprintf("VirtualMachine %q is %s: waiting for the VirtualMachine to be Running.", vm.Name, vm.Status.Phase))
 		return reconcile.Result{}, nil
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.VirtualMachineNotReady
-		condition.Message = fmt.Sprintf("Waiting for the VirtualMachine %s to be Running.", vmKey.String())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.VirtualMachineNotReady).
+			Message(fmt.Sprintf("Waiting for the VirtualMachine %q to be Running.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 
@@ -96,9 +95,10 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 	}
 
 	if kvvm == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.VirtualMachineNotReady
-		condition.Message = fmt.Sprintf("VirtualMachine %s Running, but underlying InternalVirtualizationVirtualMachine not found.", vmKey.String())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.VirtualMachineNotReady).
+			Message(fmt.Sprintf("VirtualMachine %q Running, but underlying InternalVirtualizationVirtualMachine not found.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 
@@ -108,14 +108,14 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 	}
 
 	if kvvmi == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.VirtualMachineNotReady
-		condition.Message = fmt.Sprintf("VirtualMachine %s Running, but underlying InternalVirtualizationVirtualMachineInstance not found.", vmKey.String())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.VirtualMachineNotReady).
+			Message(fmt.Sprintf("VirtualMachine %q Running, but underlying InternalVirtualizationVirtualMachineInstance not found.", vmKey.String()))
 		return reconcile.Result{}, nil
 	}
 
-	condition.Status = metav1.ConditionTrue
-	condition.Reason = vmbdacondition.VirtualMachineReady
-	condition.Message = ""
+	cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.VirtualMachineReady)
+
 	return reconcile.Result{}, nil
 }

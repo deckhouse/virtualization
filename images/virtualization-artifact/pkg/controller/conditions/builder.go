@@ -25,17 +25,37 @@ type Conder interface {
 	Condition() metav1.Condition
 }
 
+func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
+	for _, condition := range conditions {
+		if condition.Type == conditionType.String() {
+			return true
+		}
+	}
+
+	return false
+}
+
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
 	meta.SetStatusCondition(conditions, c.Condition())
 }
 
+func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {
+	for _, condition := range conditions {
+		if condition.Type == condType.String() {
+			return condition, true
+		}
+	}
+
+	return metav1.Condition{}, false
+}
+
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
-	return &ConditionBuilder{conditionType: conditionType.String()}
+	return &ConditionBuilder{conditionType: conditionType}
 }
 
 type ConditionBuilder struct {
 	status        metav1.ConditionStatus
-	conditionType string
+	conditionType Stringer
 	reason        string
 	message       string
 	generation    int64
@@ -43,7 +63,7 @@ type ConditionBuilder struct {
 
 func (c *ConditionBuilder) Condition() metav1.Condition {
 	return metav1.Condition{
-		Type:               c.conditionType,
+		Type:               c.conditionType.String(),
 		Status:             c.status,
 		Reason:             c.reason,
 		LastTransitionTime: metav1.Now(),
@@ -76,4 +96,8 @@ func (c *ConditionBuilder) Clone() *ConditionBuilder {
 	var out *ConditionBuilder
 	*out = *c
 	return out
+}
+
+func (c *ConditionBuilder) GetType() Stringer {
+	return c.conditionType
 }

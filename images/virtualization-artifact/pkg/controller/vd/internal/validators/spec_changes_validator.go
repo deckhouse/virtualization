@@ -55,5 +55,15 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 		}
 	}
 
+	if len(newVD.Status.AttachedToVirtualMachines) > 0 {
+		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
+			return nil, fmt.Errorf("VirtualDisk has already been attached to the virtual machine: data source cannot be changed after disk is attached")
+		}
+
+		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
+			return nil, fmt.Errorf("VirtualDisk has already been attached to the virtual machine: storage class cannot be changed after disk is attached")
+		}
+	}
+
 	return nil, nil
 }

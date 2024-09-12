@@ -25,6 +25,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,15 +47,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	// TODO protect vd.
 
-	condition, ok := service.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vmbdacondition.AttachedType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
+	cb := conditions.NewConditionBuilder(vmbdacondition.AttachedType)
+	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
-	defer func() { service.SetCondition(condition, &vmbda.Status.Conditions) }()
+	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
+		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.AttachedUnknown)
+	}
 
 	vd, err := h.attacher.GetVirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
 	if err != nil {
@@ -88,9 +86,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		}
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
-		condition.Message = ""
+		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.BlockDeviceReadyUnknown)
 
 		return reconcile.Result{}, nil
 	}
@@ -106,13 +102,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		}
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.Conflict
-		condition.Message = fmt.Sprintf(
-			"Another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
-				"with the same block device %q for hot-plugging.",
-			vmbda.Namespace, conflictWithName, vmbda.Spec.BlockDeviceRef.Name,
-		)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.Conflict).
+			Message(fmt.Sprintf(
+				"Another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
+					"with the same block device %q for hot-plugging.",
+				vmbda.Namespace, conflictWithName, vmbda.Spec.BlockDeviceRef.Name,
+			))
 
 		return reconcile.Result{}, nil
 	}
@@ -121,45 +118,50 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
 	}
 
-	blockDeviceReady, ok := service.GetCondition(vmbdacondition.BlockDeviceReadyType, vmbda.Status.Conditions)
-	if !ok || blockDeviceReady.Status != metav1.ConditionTrue {
+	blockDeviceReady, _ := conditions.GetCondition(vmbdacondition.BlockDeviceReadyType, vmbda.Status.Conditions)
+	if blockDeviceReady.Status != metav1.ConditionTrue {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = "Waiting for block device to be ready."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message("Waiting for block device to be ready.")
 		return reconcile.Result{}, nil
 	}
 
-	virtualMachineReady, ok := service.GetCondition(vmbdacondition.VirtualMachineReadyType, vmbda.Status.Conditions)
-	if !ok || virtualMachineReady.Status != metav1.ConditionTrue {
+	virtualMachineReady, _ := conditions.GetCondition(vmbdacondition.VirtualMachineReadyType, vmbda.Status.Conditions)
+	if virtualMachineReady.Status != metav1.ConditionTrue {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = "Waiting for virtual machine to be ready."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message("Waiting for virtual machine to be ready.")
 		return reconcile.Result{}, nil
 	}
 
 	if vd == nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = fmt.Sprintf("VirtualDisk %s not found.", vmbda.Spec.BlockDeviceRef.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(fmt.Sprintf("VirtualDisk %q not found.", vmbda.Spec.BlockDeviceRef.Name))
 		return reconcile.Result{}, nil
 	}
 
 	if vm == nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = fmt.Sprintf("VirtualMachine %s not found.", vmbda.Spec.VirtualMachineName)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(fmt.Sprintf("VirtualMachine %q not found.", vmbda.Spec.VirtualMachineName))
 		return reconcile.Result{}, nil
 	}
 
 	if kvvm == nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = fmt.Sprintf("InternalVirtualizationVirtualMachine %s not found.", vm.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(fmt.Sprintf("InternalVirtualizationVirtualMachine %q not found.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -170,9 +172,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	if kvvmi == nil {
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = fmt.Sprintf("InternalVirtualizationVirtualMachineInstance %s not found.", vm.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(fmt.Sprintf("InternalVirtualizationVirtualMachineInstance %q not found.", vm.Name))
 		return reconcile.Result{}, nil
 	}
 
@@ -183,9 +186,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	if err != nil {
 		if errors.Is(err, service.ErrVolumeStatusNotReady) {
 			vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vmbdacondition.AttachmentRequestSent
-			condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.AttachmentRequestSent).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return reconcile.Result{}, nil
 		}
 
@@ -196,9 +200,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		log.Info("Hot plug is completed and disk is attached")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vmbdacondition.Attached
-		condition.Message = ""
+		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.Attached)
+
+		vmbda.Status.VirtualMachineName = vm.Name
+
 		return reconcile.Result{}, nil
 	}
 
@@ -213,33 +218,37 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		}
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.AttachmentRequestSent
-		condition.Message = "Attachment request has sent: attachment is in progress."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.AttachmentRequestSent).
+			Message("Attachment request has sent: attachment is in progress.")
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrDiskIsSpecAttached):
 		log.Info("VirtualDisk is already attached to the virtual machine spec")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.Conflict
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.Conflict).
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.AttachmentRequestSent
-		condition.Message = "Attachment request sent: attachment is in progress."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.AttachmentRequestSent).
+			Message("Attachment request sent: attachment is in progress.")
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrVirtualMachineWaitsForRestartApproval):
 		log.Info("Virtual machine waits for restart approval")
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vmbdacondition.NotAttached
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err
