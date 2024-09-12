@@ -161,7 +161,8 @@ type CPUSpec struct {
 	Cores int `json:"cores"`
 	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
 	// +kubebuilder:default:="100%"
-	// +kubebuilder:validation:Enum:={"5%", "10%", "25%", "50%", "100%"}
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=100
 	CoreFraction string `json:"coreFraction,omitempty"`
 }
 
