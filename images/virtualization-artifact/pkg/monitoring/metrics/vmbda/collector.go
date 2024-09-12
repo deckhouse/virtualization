@@ -67,7 +67,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		s.Report(m)
 		return
 	}); err != nil {
-		c.log.Error("Failed to iterate of VMBDAs", logger.SlogErr(err))
+		c.log.Error("Failed to iterate over VMBDAs", logger.SlogErr(err))
 		return
 	}
 }
