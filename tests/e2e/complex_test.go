@@ -18,13 +18,14 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -37,7 +38,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtual images", func() {
 		When("VI applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				CheckPhase("vi", PhaseReady)
+				WaitPhase("vi", PhaseReady)
 			})
 		})
 	})
@@ -45,7 +46,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Disks", func() {
 		When("VD applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				CheckPhase("vd", PhaseReady)
+				WaitPhase("vd", PhaseReady)
 			})
 		})
 	})
@@ -60,7 +61,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 				MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 			})
 			It(fmt.Sprintf("Phase should be %s", PhaseBound), func() {
-				CheckPhase("vmip", PhaseBound)
+				WaitPhase("vmip", PhaseBound)
 			})
 		})
 	})
@@ -68,7 +69,7 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtual machines", func() {
 		When("VM applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
-				CheckPhase("vm", PhaseRunning)
+				WaitPhase("vm", PhaseRunning)
 			})
 		})
 	})
@@ -76,9 +77,28 @@ var _ = Describe("Virtualization resources", Ordered, ContinueOnFailure, func() 
 	Context("Virtualmachine block device attachments", func() {
 		When("VMBDA applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseAttached), func() {
-				CheckPhase("vmbda", PhaseAttached)
+				WaitPhase("vmbda", PhaseAttached)
 			})
 		})
 	})
 
+	Context("External connection", func() {
+		When("VMs are running", func() {
+			It("All VMs must have to be connected to external network", func() {
+				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.Sshkeys)
+				resourceType := kc.Resource("vm")
+				output := "jsonpath='{.items[*].metadata.name}'"
+
+				res := kubectl.List(resourceType, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    output,
+					Labels:    map[string]string{"testcase": namePrefix},
+				})
+				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+				CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vms...)
+			})
+		})
+	})
 })

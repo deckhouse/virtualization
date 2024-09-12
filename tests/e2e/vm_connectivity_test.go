@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -35,25 +36,52 @@ import (
 )
 
 const (
-	CurlPod = "curl-helper"
+	CurlPod           = "curl-helper"
+	Timeout           = 40 * time.Second
+	Interval          = 5 * time.Second
+	externalHost      = "https://flant.com"
+	nginxActiveStatus = "active"
 )
 
-func curlSVC(vmName string, serv *corev1.Service, namespace string) *executor.CMDResult {
-	GinkgoHelper()
-	svc := *serv
+var (
+	httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
+)
 
-	subCurlCMD := fmt.Sprintf("%s %s.%s.svc:%d", "curl -o -", svc.Name, namespace,
-		svc.Spec.Ports[0].Port)
-	subCMD := fmt.Sprintf("run -n %s --restart=Never -i --tty %s-%s --image=%s -- %s",
-		namespace, CurlPod, vmName, conf.HelperImages.CurlImage, subCurlCMD)
-	fmt.Println(subCMD, "<---- subCurlCMD")
-	return kubectl.RawCommand(subCMD, ShortWaitDuration)
+type PodEntrypoint struct {
+	Command string
+	Args    []string
 }
 
-func deletePodHelper(vmName, namespace string) *executor.CMDResult {
+func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executor.CMDResult {
 	GinkgoHelper()
-	subCMD := fmt.Sprintf("-n %s delete po %s-%s", namespace, CurlPod, vmName)
-	return kubectl.RawCommand(subCMD, ShortWaitDuration)
+	cmd := fmt.Sprintf("run %s --namespace %s --image=%s", podName, namespace, image)
+	if entrypoint.Command != "" {
+		cmd = fmt.Sprintf("%s --command %s", cmd, entrypoint.Command)
+	}
+	if entrypoint.Command != "" && len(entrypoint.Args) != 0 {
+		rawArgs := strings.Join(entrypoint.Args, " ")
+		cmd = fmt.Sprintf("%s -- %s", cmd, rawArgs)
+	}
+	return kubectl.RawCommand(cmd, ShortWaitDuration)
+}
+
+func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
+	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
+	return service
+}
+
+func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDResult {
+	cmd := fmt.Sprintf("exec --namespace %s %s -- curl -o - %s", namespace, podName, host)
+	return kubectl.RawCommand(cmd, ShortWaitDuration)
+}
+
+func CheckExternalConnection(sshKeyPath, host, httpCode string, vms ...string) {
+	GinkgoHelper()
+	for _, vm := range vms {
+		By(fmt.Sprintf("Response code from %s should be %s for %s", host, httpCode, vm))
+		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+		CheckResultSshCommand(vm, cmd, httpCode, sshKeyPath)
+	}
 }
 
 func getSVC(manifestPath string) (*corev1.Service, error) {
@@ -72,24 +100,20 @@ func getSVC(manifestPath string) (*corev1.Service, error) {
 	return &service, err
 }
 
-func CheckResultSshCommand(vmName, command, equal, key string) {
+func CheckResultSshCommand(vmName, cmd, equal, key string) {
 	GinkgoHelper()
-	res := d8Virtualization.SshCommand(vmName, command, d8.SshOptions{
-		Namespace:   conf.Namespace,
-		Username:    "cloud",
-		IdenityFile: key,
-	})
-	Expect(res.Error()).
-		NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
-	Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
+	Eventually(func(g Gomega) {
+		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+			Namespace:   conf.Namespace,
+			Username:    "cloud",
+			IdenityFile: key,
+		})
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
 var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
-	BeforeAll(func() {
-		sshKeyPath := fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
-		ChmodFile(sshKeyPath, 0600)
-	})
-
 	Context("Resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
@@ -99,68 +123,95 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
+	Context("Virtual disks", func() {
+		When("VD applied", func() {
+			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
+				jsonPath := "jsonpath={.status.phase}"
+				waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseReady)
+				vd1Name := fmt.Sprintf("%s-vm1-vd-from-vi", namePrefix)
+				vd2Name := fmt.Sprintf("%s-vm2-vd-from-vi", namePrefix)
+				WaitResource(kc.ResourceVD, vd1Name, waitFor, LongWaitDuration)
+				WaitResource(kc.ResourceVD, vd2Name, waitFor, LongWaitDuration)
+			})
+		})
+	})
+
 	Context("Virtual machines", func() {
 		When("VM applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
-				CheckPhase("vm", PhaseRunning)
+				jsonPath := "jsonpath={.status.phase}"
+				waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
+				vm1Name := fmt.Sprintf("%s-vm1", namePrefix)
+				vm2Name := fmt.Sprintf("%s-vm2", namePrefix)
+				WaitResource(kc.ResourceVM, vm1Name, waitFor, LongWaitDuration)
+				WaitResource(kc.ResourceVM, vm2Name, waitFor, LongWaitDuration)
 			})
 		})
 	})
 
 	Context("Connectivity test", func() {
-		var (
-			vm1Name = fmt.Sprintf("%s-vm1", namePrefix)
-			vm2Name = fmt.Sprintf("%s-vm2", namePrefix)
+		vm1Name := fmt.Sprintf("%s-vm1", namePrefix)
+		vm2Name := fmt.Sprintf("%s-vm2", namePrefix)
 
-			svc1Path = fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.Connectivity)
-			svc2Path = fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.Connectivity)
+		svc1Path := fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.Connectivity)
+		svc2Path := fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.Connectivity)
 
-			sshKeyPath = fmt.Sprintf("%s/sshkeys/id_ed", conf.Connectivity)
-		)
+		sshKeyPath := fmt.Sprintf("%s/id_ed", conf.Sshkeys)
+		ChmodFile(sshKeyPath, 0600)
 
 		svc1, err := getSVC(svc1Path)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred(), err)
 		svc2, err := getSVC(svc2Path)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred(), err)
 
 		svc1.Name = fmt.Sprintf("%s-%s", namePrefix, svc1.Name)
 		svc2.Name = fmt.Sprintf("%s-%s", namePrefix, svc2.Name)
 
-		It("Wait 60 sec for sshd started", func() {
-			time.Sleep(60 * time.Second)
+		When(fmt.Sprintf("Run %s", CurlPod), func() {
+			It(fmt.Sprintf("Pod status should be in %s phase", PhaseRunning), func() {
+				jsonPath := "jsonpath={.status.phase}"
+				waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
+				res := RunPod(CurlPod, conf.Namespace, conf.HelperImages.CurlImage, PodEntrypoint{
+					Command: "sleep",
+					Args:    []string{"10000"},
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+				WaitResource(kc.ResourcePod, CurlPod, waitFor, ShortWaitDuration)
+			})
 		})
 
-		It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vm1Name), func() {
-			command := "hostname"
-			CheckResultSshCommand(vm1Name, command, vm1Name, sshKeyPath)
-		})
+		When("Virtual machine is running", func() {
+			It("Virtual machine must have to be connected to external network", func() {
+				CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vm1Name)
+			})
 
-		It(fmt.Sprintf("Curl https://flant.com site from %s", vm1Name), func() {
-			command := "curl -o /dev/null -s -w \"%{http_code}\\n\" https://flant.com"
-			httpCode := "200"
-			CheckResultSshCommand(vm1Name, command, httpCode, sshKeyPath)
+			It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vm1Name), func() {
+				cmd := "hostname"
+				CheckResultSshCommand(vm1Name, cmd, vm1Name, sshKeyPath)
+			})
+
+			It(fmt.Sprintf("Check nginx via 'd8 v' on VM %s", vm1Name), func() {
+				cmd := "systemctl is-active nginx.service"
+				CheckResultSshCommand(vm1Name, cmd, nginxActiveStatus, sshKeyPath)
+			})
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s through service %s", vm1Name, svc1.Name), func() {
-			res := curlSVC(vm1Name, svc1, conf.Namespace)
-			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm1Name))
-		})
-
-		It(fmt.Sprintf("Delete pod helper for %s", vm1Name), func() {
-			res := deletePodHelper(vm1Name, conf.Namespace)
-			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
+			service := GenerateServiceUrl(svc1, conf.Namespace)
+			Eventually(func(g Gomega) {
+				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
+				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm1Name))
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s through service %s", vm2Name, svc2.Name), func() {
-			res := curlSVC(vm2Name, svc2, conf.Namespace)
-			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
-		})
-
-		It(fmt.Sprintf("Delete pod helper for %s", vm2Name), func() {
-			res := deletePodHelper(vm2Name, conf.Namespace)
-			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
+			service := GenerateServiceUrl(svc2, conf.Namespace)
+			Eventually(func(g Gomega) {
+				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
+				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 		})
 
 		It(fmt.Sprintf("Change selector on %s", svc1.Name), func() {
@@ -186,9 +237,12 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		})
 
 		It(fmt.Sprintf("Get nginx page from %s and expect %s hostname", vm1Name, vm2Name), func() {
-			res := curlSVC(vm1Name, svc1, conf.Namespace)
-			Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-			Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
+			service := GenerateServiceUrl(svc1, conf.Namespace)
+			Eventually(func(g Gomega) {
+				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
+				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vm2Name))
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 		})
 	})
 })

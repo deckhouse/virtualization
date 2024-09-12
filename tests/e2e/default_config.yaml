@@ -20,3 +20,4 @@ helperImages:
   curlImage: "curlimages/curl"
 virtualizationResources: "/tmp/testdata/virtualization-resources"
 connectivity: "/tmp/testdata/connectivity"
+sshKeys: "/tmp/testdata/sshkeys"

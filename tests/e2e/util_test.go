@@ -220,7 +220,7 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func CheckPhase(resource, phase string) {
+func WaitPhase(resource, phase string) {
 	GinkgoHelper()
 	resourceType := kc.Resource(resource)
 	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)

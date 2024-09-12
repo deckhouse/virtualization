@@ -9,7 +9,7 @@ users:
     lock_passwd: false
     ssh_authorized_keys:
       # testcases
-      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC9bSJ6RpHDB0jc8oSHk4kgEaoNzv3vNqMhNosLpXYVE6R7CHO3OjOK3eXulVcgiMCRH6EGcDOkMXGM2lvSr5t5HfnqZ1bGxGRCUtMeYs8zDSCMMOuyb57LNjwNAD7cjNhTGvGqFSXqoH5P6lHGIT0M82lU8jo0BIurcnjMgiFU8w== testcases
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
 write_files:
   - path: /etc/init.d/ping-service
     permissions: "0755"
