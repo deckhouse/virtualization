@@ -117,8 +117,7 @@ type SizingPolicy struct {
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
 
-// +kubebuilder:validation:Minimum=1
-// +kubebuilder:validation:Maximum=100
+// +kubebuilder:validation:Enum={5,10,20,50,100}
 type CoreFractionValue int
 
 type SizingPolicyMemory struct {
