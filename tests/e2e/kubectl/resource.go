@@ -23,6 +23,7 @@ const (
 	ResourceService     Resource = "service"
 	ResourceKubevirtVM  Resource = "internalvirtualizationvirtualmachines.internal.virtualization.deckhouse.io"
 	ResourceKubevirtVMI Resource = "internalvirtualizationvirtualmachineinstances.internal.virtualization.deckhouse.io"
+	ResourceVD          Resource = "virtualdisks.virtualization.deckhouse.io"
 	ResourceVM          Resource = "virtualmachine.virtualization.deckhouse.io"
 	ResourceVMIP        Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
 	ResourceVMIPLease   Resource = "virtualmachineipaddressleases.virtualization.deckhouse.io"

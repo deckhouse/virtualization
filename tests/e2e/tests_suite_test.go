@@ -108,6 +108,6 @@ func TestTests(t *testing.T) {
 func Cleanup() {
 	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
 	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
-		Label: fmt.Sprintf("testcase=%s", namePrefix),
+		Labels: map[string]string{"testcase": namePrefix},
 	})
 }

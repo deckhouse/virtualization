@@ -100,16 +100,16 @@ type Storage struct {
 }
 
 type Kustomize struct {
-	ApiVersion     string   `yaml:"apiVersion"`
-	Labels         []Label  `yaml:"labels"`
-	Configurations []string `yaml:"configurations"`
-	Kind           string   `yaml:"kind"`
-	Namespace      string   `yaml:"namespace"`
-	NamePrefix     string   `yaml:"namePrefix"`
-	Resources      []string `yaml:"resources"`
+	ApiVersion     string           `yaml:"apiVersion"`
+	Labels         []KustomizeLabel `yaml:"labels"`
+	Configurations []string         `yaml:"configurations"`
+	Kind           string           `yaml:"kind"`
+	Namespace      string           `yaml:"namespace"`
+	NamePrefix     string           `yaml:"namePrefix"`
+	Resources      []string         `yaml:"resources"`
 }
 
-type Label struct {
+type KustomizeLabel struct {
 	IncludeSelectors bool              `yaml:"includeSelectors"`
 	Pairs            map[string]string `yaml:"pairs"`
 }
