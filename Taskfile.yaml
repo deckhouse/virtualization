@@ -87,6 +87,16 @@ tasks:
           go run tools/addlicense/{main,variables,msg,utils}.go -directory ./
         {{end}}
 
+  lint:doc-ru:
+    desc: "Check the correspondence between description fields in the original crd and the Russian language version"
+    cmds:
+    - |
+        docker run \
+          --rm -it -v "$PWD:/src" docker.io/fl64/d8-doc-ru-linter:v0.0.1-dev0 \
+          sh -c \
+            'for crd in /src/crds/*.yaml; do [[ "$(basename "$crd")" =~ ^doc-ru ]] || /d8-doc-ru-linter -s "$crd" -d "/src/crds/doc-ru-$(basename "$crd")" -n /dev/null; done'
+
+
   lint:prettier:yaml:
     desc: "Check if yaml files are prettier-formatted."
     cmds:
