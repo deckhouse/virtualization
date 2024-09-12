@@ -19,6 +19,7 @@ if [[ -z $REPORT_FILE_NAME ]];then echo "file must be define";exit 1;fi
 # report_file_name="$(date +%Y-%m-%d)-report.txt"
 # module_tag=main
 module_tag=pr358
+if [[ -z $module_tag ]]; then module_tag=main; fi
 
 images=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag}  - | tar -Oxf - images_digests.json | jq '. | to_entries[]')
 
