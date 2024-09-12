@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api/client/examples/list-resources
 
-go 1.22.6
+go 1.22.7
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20240322104947-2d492906a8b2
@@ -20,8 +20,6 @@ require (
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
-	//github.com/gogo/protobuf v1.3.2 // indirect
-	//github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
