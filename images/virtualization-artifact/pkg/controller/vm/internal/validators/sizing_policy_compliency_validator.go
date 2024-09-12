@@ -85,7 +85,7 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 	errorsArray = append(errorsArray, validatePerCoreMemory(vm, sizePolicy)...)
 
 	if len(errorsArray) > 0 {
-		return fmt.Errorf("errors while size policy validate: %s", errors.Join(errorsArray...))
+		return fmt.Errorf("errors while size policy validate: %w", errors.Join(errorsArray...))
 	}
 
 	return nil
@@ -142,19 +142,23 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 
 	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == -1 {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM memory (%s) lesser than valid minimum, availible range [%s, %s]",
+			"requested VM memory (%s) lesser than valid minimum, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
 		))
-	} else if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == 1 {
+	}
+
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == 1 {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM memory (%s) greater than valid maximum, availible range [%s, %s]",
+			"requested VM memory (%s) greater than valid maximum, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
 		))
-	} else if sp.Memory.Step.String() != "0" {
+	}
+
+	if sp.Memory.Step.String() != "0" {
 		err := checkInGrid(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
@@ -184,19 +188,23 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 
 	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == -1 {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM per core memory (%s) lesser than valid minimum, availible range [%s, %s]",
+			"requested VM per core memory (%s) lesser than valid minimum, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
 		))
-	} else if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == 1 {
+	}
+
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == 1 {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM per core memory (%s) greater than valid maximum, availible range [%s, %s]",
+			"requested VM per core memory (%s) greater than valid maximum, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
 		))
-	} else if sp.Memory.Step.String() != "0" {
+	}
+
+	if sp.Memory.Step.String() != "0" {
 		err := checkInGrid(perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
@@ -218,7 +226,7 @@ func checkInGrid(value, min, max, step resource.Quantity, source string) (err er
 			return
 		} else if cmpLeftResult == 1 && cmpRightResult == -1 {
 			err = fmt.Errorf(
-				"requested %s not in availible values grid, nearest valid values [%s, %s]",
+				"requested %s not in available values grid, nearest valid values [%s, %s]",
 				source,
 				grid[i].String(),
 				grid[i+1].String(),
