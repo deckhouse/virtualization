@@ -50,12 +50,12 @@ func (m *ClientMock) List(_ context.Context, _ client.ObjectList, _ ...client.Li
 	return nil
 }
 
-func TestValidators(t *testing.T) {
+func TestService(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Validators Suite")
+	RunSpecs(t, "Service Suite")
 }
 
-var _ = Describe("Spec policy comlience validator", func() {
+var _ = Describe("Spec policy comlience service", func() {
 	var mock ClientMock
 	var ctx context.Context
 
