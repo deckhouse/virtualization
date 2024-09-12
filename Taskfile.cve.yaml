@@ -11,7 +11,7 @@ tasks:
     cmds:
       - |
         curl -LO https://github.com/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
-        tar zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/trivy
+        tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
         mv /opt/trivy /usr/local/bin/trivy
         chmod +x /usr/local/bin/trivy
   
@@ -31,5 +31,5 @@ tasks:
   
   run:scan:
     cmds:
-      - task linux:bin
-      - tools/cve/scan-main.sh
+      - task cve:linux:bin
+      - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}}
