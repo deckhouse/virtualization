@@ -25,7 +25,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -57,10 +56,7 @@ func SetupGC(
 			if !ok {
 				return false
 			}
-			if vmopIsFinal(vmop) && helper.GetAge(vmop) > ttl {
-				return true
-			}
-			return false
+			return vmopIsFinal(vmop)
 		},
 	)
 }

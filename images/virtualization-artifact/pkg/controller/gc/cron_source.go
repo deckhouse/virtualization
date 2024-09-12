@@ -17,9 +17,11 @@ limitations under the License.
 package gc
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -71,13 +73,14 @@ type CronSourceOption struct {
 
 func NewDefaultCronSourceOption(objs client.ObjectList, ttl time.Duration, log *slog.Logger) CronSourceOption {
 	return CronSourceOption{
-		GetOlder: DefaultGetOlder(objs, ttl, log),
+		GetOlder: DefaultGetOlder(objs, ttl, 10, log),
 	}
 }
 
-func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
+func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
 	return func(objList client.ObjectList) client.ObjectList {
-		var items []runtime.Object
+		var expiredItems []runtime.Object
+		var notExpiredItems []runtime.Object
 
 		if err := meta.EachListItem(objList, func(o runtime.Object) error {
 			obj, ok := o.(client.Object)
@@ -85,14 +88,27 @@ func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, log *slog.Logger
 				return nil
 			}
 			if helper.GetAge(obj) > ttl {
-				items = append(items, o)
+				expiredItems = append(expiredItems, o)
+			} else {
+				notExpiredItems = append(notExpiredItems, o)
 			}
+
 			return nil
 		}); err != nil {
 			log.Error("failed to populate list", logger.SlogErr(err))
 		}
 
-		if err := meta.SetList(objs, items); err != nil {
+		if maxCount != 0 && len(notExpiredItems) > maxCount {
+			slices.SortFunc(notExpiredItems, func(a, b runtime.Object) int {
+				aObj, _ := a.(client.Object)
+				bObj, _ := b.(client.Object)
+
+				return cmp.Compare(helper.GetAge(aObj), helper.GetAge(bObj))
+			})
+			expiredItems = append(expiredItems, notExpiredItems[maxCount:]...)
+		}
+
+		if err := meta.SetList(objs, expiredItems); err != nil {
 			log.Error("failed to set list", logger.SlogErr(err))
 		}
 		return objs
