@@ -62,10 +62,10 @@ func (v *SizingPolicyCompliencyValidator) ValidateUpdate(ctx context.Context, _,
 }
 
 func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	vmclass := v1alpha2.VirtualMachineClass{}
+	vmclass := &v1alpha2.VirtualMachineClass{}
 	err := v.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,
-	}, &vmclass)
+	}, vmclass)
 	if err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 		)
 	}
 
-	errorsArray := make([]error, 0)
+	var errorsArray []error
 
 	errorsArray = append(errorsArray, validateCoreFraction(vm, sizePolicy)...)
 	errorsArray = append(errorsArray, validateVMMemory(vm, sizePolicy)...)
@@ -91,7 +91,7 @@ func (v *SizingPolicyCompliencyValidator) CheckVMCompliedSizePolicy(ctx context.
 	return nil
 }
 
-func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmclass v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
+func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmclass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
 	for _, sp := range vmclass.Spec.SizingPolicies {
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
 			return sp.DeepCopy()
@@ -102,8 +102,6 @@ func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmclass v1alpha2.VirtualMachin
 }
 
 func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
-	errorsArray = make([]error, 0)
-
 	if sp.CoreFractions == nil {
 		return
 	}
@@ -130,13 +128,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 }
 
 func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
-	errorsArray = make([]error, 0)
-
-	if sp.Memory == nil {
-		return
-	}
-
-	if sp.Memory.Max.String() == "0" { // has not nil, must check like this
+	if sp.Memory == nil || sp.Memory.Max.IsZero() {
 		return
 	}
 
@@ -169,13 +161,7 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 }
 
 func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
-	errorsArray = make([]error, 0)
-
-	if sp.Memory == nil {
-		return
-	}
-
-	if sp.Memory.PerCore.Max.String() == "0" { // has not nil, must check like this
+	if sp.Memory == nil || sp.Memory.PerCore.Max.IsZero() {
 		return
 	}
 
@@ -204,7 +190,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		))
 	}
 
-	if sp.Memory.Step.String() != "0" {
+	if !sp.Memory.Step.IsZero() {
 		err := checkInGrid(perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
@@ -239,7 +225,7 @@ func checkInGrid(value, min, max, step resource.Quantity, source string) (err er
 }
 
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
-	grid := make([]resource.Quantity, 0)
+	var grid []resource.Quantity
 
 	for val := min; val.Cmp(max) == -1; val.Add(step) {
 		grid = append(grid, val)
