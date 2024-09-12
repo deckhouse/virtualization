@@ -38,6 +38,9 @@ spec:
             - spec
           properties:
             spec:
+              x-kubernetes-validations:
+                - rule: "self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100"
+                  message: "Core fraction must be between 1% and 100%"
               type: object
               required:
                 - virtualMachineClassName
@@ -880,7 +883,6 @@ spec:
                     coreFraction:
                       type: string
                       default: "100%"
-                      enum: ["5%", "10%", "25%", "50%", "100%"]
                       description: |
                         Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
 
@@ -1156,8 +1158,7 @@ spec:
                   description: Resource utilization statistics.
                   properties:
                     cpu:
-                      description: CPU utilization statistics.
-                        usage.
+                      description: CPU utilization statistics. usage.
                       properties:
                         coreFraction:
                           description: Current CoreFraction.
@@ -1183,8 +1184,7 @@ spec:
                         - cores
                       type: object
                     memory:
-                      description: Memory utilization statistics.
-                        resource usage.
+                      description: Memory utilization statistics. resource usage.
                       properties:
                         runtimeOverhead:
                           anyOf:

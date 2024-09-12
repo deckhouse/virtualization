@@ -4066,22 +4066,31 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref c
 							Format:  "",
 						},
 					},
-					"failureReason": {
+					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
 						},
 					},
-					"failureMessage": {
+					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 				},
 				Required: []string{"phase"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
