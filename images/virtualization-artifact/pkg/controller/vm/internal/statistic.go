@@ -140,7 +140,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 		memoryOverhead := memoryPodRequest.DeepCopy()
 		memoryOverhead.Sub(memoryKVVMIRequest)
 		mi := int64(1024 * 1024)
-		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value()/mi)))*mi, resource.BinarySI)
+		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/float64(mi)))*mi, resource.BinarySI)
 
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
