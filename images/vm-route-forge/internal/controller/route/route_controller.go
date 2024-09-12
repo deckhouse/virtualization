@@ -224,6 +224,7 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	}
 
 	go func() {
+		// AddSubnetRoutesToBlackHole will be executed every minute until context canceled.
 		wait.UntilWithContext(newCtx, func(_ context.Context) {
 			if err := c.netlinkMgr.AddSubnetsRoutesToBlackHole(); err != nil {
 				c.log.Error(err, "Failed to add blackhole routes for subnets.")
