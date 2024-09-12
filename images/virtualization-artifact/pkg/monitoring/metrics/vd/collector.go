@@ -66,7 +66,7 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		s.Report(m)
 		return
 	}); err != nil {
-		c.log.Error("Failed to iterate of VirtualDisks", logger.SlogErr(err))
+		c.log.Error("Failed to iterate over VirtualDisks", logger.SlogErr(err))
 		return
 	}
 }
