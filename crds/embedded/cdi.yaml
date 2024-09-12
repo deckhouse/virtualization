@@ -1337,5 +1337,6 @@ spec:
           type: object
       served: true
       storage: true
-      subresources:
-        status: {}
+# IMPORTANT! Do not set status as subresource, as it breaks the status update.
+#      subresources:
+#        status: {}
