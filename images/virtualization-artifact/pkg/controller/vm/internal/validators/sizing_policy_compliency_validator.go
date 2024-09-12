@@ -201,7 +201,6 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 }
 
 func checkInGrid(value, min, max, step resource.Quantity, source string) (err error) {
-	err = nil
 	grid := generateValidGrid(min, max, step)
 
 	for i := 0; i < len(grid)-1; i++ {
