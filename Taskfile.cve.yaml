@@ -1,0 +1,35 @@
+version: "3"
+
+silent: true
+
+vars:
+  TRIVY_VERSION: 0.55.0
+  macos_path: /opt/homebrew/bin
+
+tasks:
+  linux:bin:
+    cmds:
+      - |
+        curl -LO https://github.com/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
+        tar zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/trivy
+        mv /opt/trivy /usr/local/bin/trivy
+        chmod +x /usr/local/bin/trivy
+  
+  macos:bin:
+    cmds:
+      - |
+        curl -LO https://github.com/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_macOS-ARM64.tar.gz
+        mkdir -p tools/cve/trivy
+        tar -zxvf trivy_{{.TRIVY_VERSION}}_macOS-ARM64.tar.gz -C tools/cve/trivy
+        mv tools/cve/trivy/trivy {{.macos_path}}/trivy
+        chmod +x {{.macos_path}}/trivy
+  
+  macos:bin:remove:
+    cmds:
+      - rm -f {{.macos_path}}/trivy
+      - rm -rf tools/cve/trivy
+  
+  run:scan:
+    cmds:
+      - task linux:bin
+      - tools/cve/scan-main.sh
