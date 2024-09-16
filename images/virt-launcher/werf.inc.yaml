@@ -201,6 +201,7 @@ shell:
     gcc-c++==10-alt1:sisyphus+263054.200.3.1
 ---
 image: {{ $.ImageName }}-libxcrypt-builder
+final: false
 fromImage: {{ $.ImageName }}-lib-builder
 shell:
   beforeInstall:
@@ -214,6 +215,7 @@ shell:
   - make && make install
 ---
 image: {{ $.ImageName }}-openssl-builder
+final: false
 fromImage: {{ $.ImageName }}-lib-builder
 shell:
   beforeInstall:
@@ -226,6 +228,7 @@ shell:
   - make && make install
 ---
 image: {{ $.ImageName }}-pcre-builder
+final: false
 fromImage: {{ $.ImageName }}-lib-builder
 shell:
   beforeInstall:
@@ -239,6 +242,7 @@ shell:
   - make && make install
 ---
 image: {{ $.ImageName }}-liboverride-builder
+final: false
 fromImage: {{ $.ImageName }}-lib-builder
 git:
   - add: /images/{{ $.ImageName }}/liboverride
@@ -257,6 +261,7 @@ shell:
 ---
 # Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
 image: {{ $.ImageName }}-edk2-builder
+final: false
 from: {{ $.Images.BASE_ALT_P11 }}
 git:
 - add: /images/{{ $.ImageName }}/edk2
