@@ -30,9 +30,11 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const lesser = -1
-const equal = 0
-const greater = 1
+const (
+	lesser  = -1
+	equal   = 0
+	greater = 1
+)
 
 type SizePolicyService struct {
 	client client.Reader
