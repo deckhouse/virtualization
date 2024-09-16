@@ -13,7 +13,7 @@ index 7ada596d87..5be737e557 100644
 @@ -171,6 +172,15 @@ func createSparseRaw(fullPath string, size int64) (err error) {
  	return nil
  }
- 
+
 +func createQcow2(fullPath string, size int64) (err error) {
 +	log.Log.Infof("Create %s with qcow2 format", fullPath)
 +	cmd := exec.Command("qemu-img", "create", "-f", "qcow2", fullPath, fmt.Sprintf("%db", size))
@@ -38,7 +38,7 @@ index 7ada596d87..5be737e557 100644
 @@ -248,7 +258,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
  	return nil
  }
- 
+
 -func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
 +func (hdc *DiskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {
  	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
@@ -57,54 +57,44 @@ index 7ada596d87..5be737e557 100644
  	}
  	return nil
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
-index c64b315d8f..71bbe50037 100644
+index 4a6652872c..3318c1c466 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
 +++ b/pkg/virt-launcher/virtwrap/converter/converter.go
-@@ -590,7 +590,6 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
- }
- 
- func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
--
- 	if source.ContainerDisk != nil {
- 		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
- 	}
-@@ -733,7 +732,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
+@@ -723,7 +723,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
  // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
  func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
  	disk.Type = "file"
 -	disk.Driver.Type = "raw"
 +	disk.Driver.Type = "qcow2"
- 	disk.Driver.ErrorPolicy = "stop"
+ 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
  	disk.Source.File = GetFilesystemVolumePath(volumeName)
  	if !contains(volumesDiscardIgnore, volumeName) {
-@@ -745,7 +744,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
+@@ -735,7 +735,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
  // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
  func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
  	disk.Type = "file"
 -	disk.Driver.Type = "raw"
 +	disk.Driver.Type = "qcow2"
- 	disk.Driver.ErrorPolicy = "stop"
+ 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
  	if !contains(volumesDiscardIgnore, volumeName) {
  		disk.Driver.Discard = "unmap"
-@@ -779,13 +778,37 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
- }
- 
- func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
-+	file := hostdisk.GetMountedHostDiskPath(volumeName, path)
-+	format, err := getFormat(file)
+@@ -773,9 +773,37 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
+ 	disk.Driver.Type = "raw"
+ 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+ 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
++	return overrideDiskTypeForFile(disk)
++}
++
++func overrideDiskTypeForFile(disk *api.Disk) error {
++	diskType, err := getDiskTypeFromPath(disk.Source.File)
 +	if err != nil {
-+		return fmt.Errorf("cannot detect host disk format: %w", err)
++		return err
 +	}
- 	disk.Type = "file"
--	disk.Driver.Type = "raw"
-+	disk.Driver.Type = format
- 	disk.Driver.ErrorPolicy = "stop"
--	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
-+	disk.Source.File = file
++	disk.Driver.Type = diskType
  	return nil
  }
- 
-+func getFormat(path string) (string, error) {
+
++func getDiskTypeFromPath(path string) (string, error) {
 +	const (
 +		formatQcow2 = "qcow2"
 +		formatRaw   = "raw"

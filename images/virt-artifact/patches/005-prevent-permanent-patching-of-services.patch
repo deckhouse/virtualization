@@ -1,8 +1,8 @@
 diff --git a/pkg/virt-operator/resource/apply/core.go b/pkg/virt-operator/resource/apply/core.go
-index 3315598a3..66a5b1dce 100644
+index 4d507f6153..6cc363548f 100644
 --- a/pkg/virt-operator/resource/apply/core.go
 +++ b/pkg/virt-operator/resource/apply/core.go
-@@ -431,6 +431,18 @@ func generateServicePatch(
+@@ -437,6 +437,18 @@ func generateServicePatch(
  	if service.Spec.SessionAffinity == "" {
  		service.Spec.SessionAffinity = cachedService.Spec.SessionAffinity
  	}

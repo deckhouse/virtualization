@@ -82,6 +82,7 @@ import:
   - virt-launcher
   - virt-launcher-monitor
   - virt-probe
+  - virt-tail
 git:
   - add: /images/{{ $.ImageName }}
     to: /

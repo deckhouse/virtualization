@@ -5,30 +5,6 @@
 Internal patch which adds `libguestfs`, `virt-exportserver` and `virt-exportproxy`
 to images bundle target.
 
-#### `002-fix-vcpu-count-issue.patch`
-
-Fixes an bug where a VM was created with one socket even though more sockets were specified in the domain spec.
-
-- https://github.com/kubevirt/kubevirt/pull/10473
-
-
-#### `003-macvtap-binding.patch`
-
-This PR adds macvtap networking mode for binding podNetwork.
-
-- https://github.com/kubevirt/community/pull/186
-- https://github.com/kubevirt/kubevirt/pull/7648
-
-#### `004-backport-10001-from-upstream.patch`
-
-Backport fix for VMI metric kubevirt_vmi_phase_count.
-
-- https://github.com/kubevirt/kubevirt/pull/10001
-
-Fix ton of errors in virt-controller logs:
-{"component":"virt-controller","level":"error","msg":"Failed to create metric for VMIs phase","pos":"collector.go:256","reason":"inconsistent label cardinality: expected 7 label values but got 6
-in []string{\"virtlab-rs-1\", \"running\", \"<none>\", \"<none>\", \"<none>\", \"<none>\"}",...
-
 #### `005-prevent-permanent-patching-of-services.patch`
 
 Fix patching of Services during each reconcile:
