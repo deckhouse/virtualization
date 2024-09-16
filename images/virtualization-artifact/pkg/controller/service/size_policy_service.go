@@ -30,6 +30,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const lesser = -1
+const equal = 0
+const greater = 1
+
 type SizePolicyService struct {
 	client client.Reader
 }
@@ -109,7 +113,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 		return
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == -1 {
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == lesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) lesser than valid minimum, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -118,7 +122,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 		))
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == 1 {
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == greater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) greater than valid maximum, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -148,7 +152,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
 	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == -1 {
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == lesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) lesser than valid minimum, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -157,7 +161,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		))
 	}
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == 1 {
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == greater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) greater than valid maximum, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -177,10 +181,6 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 }
 
 func validateIsQuantized(value, min, max, step resource.Quantity, source string) (err error) {
-	const lesser = -1
-	const equal = 0
-	const greater = 1
-
 	grid := generateValidGrid(min, max, step)
 
 	for i := 0; i < len(grid)-1; i++ {
@@ -204,8 +204,6 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 }
 
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
-	const lesser = -1
-
 	var grid []resource.Quantity
 
 	for val := min; val.Cmp(max) == lesser; val.Add(step) {
