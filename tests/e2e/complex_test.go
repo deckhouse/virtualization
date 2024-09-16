@@ -20,16 +20,17 @@ import (
 	"fmt"
 	"strings"
 
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtualization resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
-				res := kubectl.Kustomize(conf.VirtualizationResources, kc.KustomizeOptions{})
+				res := kubectl.Kustomize(conf.TestData.VirtualizationResources, kc.KustomizeOptions{})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 			})
 		})
@@ -38,7 +39,21 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtual images", func() {
 		When("VI applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				WaitPhase("vi", PhaseReady)
+				WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+			})
+		})
+	})
+
+	Context("Cluster virtual images", func() {
+		When("CVI applied", func() {
+			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
+				WaitPhase(kc.ResourceCVI, PhaseReady, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 		})
 	})
@@ -46,7 +61,10 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Disks", func() {
 		When("VD applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseReady), func() {
-				WaitPhase("vd", PhaseReady)
+				WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 		})
 	})
@@ -61,7 +79,10 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 				MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 			})
 			It(fmt.Sprintf("Phase should be %s", PhaseBound), func() {
-				WaitPhase("vmip", PhaseBound)
+				WaitPhase(kc.ResourceVMIP, PhaseBound, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 		})
 	})
@@ -69,7 +90,10 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtual machines", func() {
 		When("VM applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseRunning), func() {
-				WaitPhase("vm", PhaseRunning)
+				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 		})
 	})
@@ -77,7 +101,10 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("Virtualmachine block device attachments", func() {
 		When("VMBDA applied", func() {
 			It(fmt.Sprintf("Phase should be %s", PhaseAttached), func() {
-				WaitPhase("vmbda", PhaseAttached)
+				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 		})
 	})
@@ -85,14 +112,13 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("External connection", func() {
 		When("VMs are running", func() {
 			It("All VMs must have to be connected to external network", func() {
-				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.Sshkeys)
-				resourceType := kc.Resource("vm")
+				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
 				output := "jsonpath='{.items[*].metadata.name}'"
 
-				res := kubectl.List(resourceType, kc.GetOptions{
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Namespace: conf.Namespace,
 					Output:    output,
-					Labels:    map[string]string{"testcase": namePrefix},
+					Labels:    map[string]string{"id": namePrefix},
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 

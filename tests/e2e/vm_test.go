@@ -193,12 +193,11 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				GetKubevirtRunStrategy(name, KubeVirtRunStrategyAlways)
 			})
 		})
-
 	})
 
 	Context("Provisioning", func() {
 		BeforeAll(func() {
-			ChmodFile(vmPath("provisioning/id_ed"), 0600)
+			ChmodFile(vmPath("provisioning/id_ed"), 0o600)
 		})
 		CheckSsh := func(vmName string) {
 			GinkgoHelper()
@@ -218,7 +217,6 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 				vm, err := GetVMFromManifest(manifest)
 				Expect(err).To(BeNil())
 				name = vm.Name
-
 			})
 			ItApplyFromFile(manifest)
 			It("Wait vm running", func() {
@@ -243,7 +241,6 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Network", func() {
-
 	})
 
 	Context("Resources", func() {
@@ -267,7 +264,7 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			Expect(resKubevirt.Limits.Cpu().String()).To(Equal("1"))
 			Expect(resKubevirt.Limits.Memory().String()).To(Equal("1Gi"))
 		}
-		CompareRequrest := func(resKubevirt *corev1.ResourceRequirements, cpu string, mem string) {
+		CompareRequrest := func(resKubevirt *corev1.ResourceRequirements, cpu, mem string) {
 			GinkgoHelper()
 			Expect(resKubevirt.Requests.Cpu().String()).To(Equal(cpu))
 			Expect(resKubevirt.Requests.Memory().String()).To(Equal(mem))
@@ -312,7 +309,6 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("NodePlacement", func() {
-
 	})
 
 	Context("PriorityClassName", func() {
@@ -396,5 +392,4 @@ var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
 			})
 		})
 	})
-
 })

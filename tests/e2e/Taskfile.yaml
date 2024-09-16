@@ -15,6 +15,7 @@ tasks:
         mkdir /tmp/testdata
         cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
         cp -a testdata/connectivity /tmp/testdata/connectivity
+        cp -a testdata/vm-configuration /tmp/testdata/vm-configuration
         cp -a testdata/sshkeys /tmp/testdata/sshkeys
   virtctl:
     cmds:

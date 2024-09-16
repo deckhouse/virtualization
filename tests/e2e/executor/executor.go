@@ -32,7 +32,7 @@ type Executor interface {
 	ExecContext(ctx context.Context, cmd string) *CMDResult
 	ExecWithSudo(cmd string) *CMDResult
 	ExecWithSudoContext(ctx context.Context, cmd string) *CMDResult
-	ExecuteContext(ctx context.Context, cmd string, stdout io.Writer, stderr io.Writer) error
+	ExecuteContext(ctx context.Context, cmd string, stdout, stderr io.Writer) error
 }
 
 func (e CMDExecutor) Exec(command string) *CMDResult {
@@ -66,11 +66,12 @@ func (e CMDExecutor) ExecWithSudoContext(ctx context.Context, command string) *C
 	return e.ExecContext(ctx, fmt.Sprintf("sudo %s", command))
 }
 
-func (e CMDExecutor) ExecuteContext(ctx context.Context, command string, stdout io.Writer, stderr io.Writer) error {
+func (e CMDExecutor) ExecuteContext(ctx context.Context, command string, stdout, stderr io.Writer) error {
 	cmd := e.makeCMD(ctx, command, stdout, stderr)
 	return cmd.Run()
 }
-func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout io.Writer, stderr io.Writer) *exec.Cmd {
+
+func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout, stderr io.Writer) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = stdout

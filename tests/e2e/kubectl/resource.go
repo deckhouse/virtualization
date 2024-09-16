@@ -28,4 +28,6 @@ const (
 	ResourceVMIP        Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
 	ResourceVMIPLease   Resource = "virtualmachineipaddressleases.virtualization.deckhouse.io"
 	ResourceCVI         Resource = "clustervirtualimages.virtualization.deckhouse.io"
+	ResourceVI          Resource = "virtualimages.virtualization.deckhouse.io"
+	ResourceVMBDA       Resource = "virtualmachineblockdeviceattachments.virtualization.deckhouse.io"
 )

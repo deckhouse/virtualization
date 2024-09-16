@@ -18,6 +18,8 @@ ipam:
   testDataDir: "./testdata/ipam"
 helperImages:
   curlImage: "curlimages/curl"
-virtualizationResources: "/tmp/testdata/virtualization-resources"
-connectivity: "/tmp/testdata/connectivity"
-sshKeys: "/tmp/testdata/sshkeys"
+testData:
+  virtualizationResources: "/tmp/testdata/virtualization-resources"
+  connectivity: "/tmp/testdata/connectivity"
+  vmConfiguration: "/tmp/testdata/vm-configuration"
+  sshKeys: "/tmp/testdata/sshkeys"

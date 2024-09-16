@@ -122,7 +122,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 
 		Describe("Check label on resource", func() {
-
 			It("VM", func() {
 				res := getRecourseLabel(kc.ResourceVM, vm.Name)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
@@ -147,7 +146,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 
 		Describe(fmt.Sprintf("Remove label %s=%s", labelName, labelValue), func() {
-
 			It("Label was removed", func() {
 				subCMD := fmt.Sprintf("-n %s label vm %s %s-", conf.Namespace, vm.Name, labelName)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
@@ -156,7 +154,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 
 		Describe("Label must be removed from resource", func() {
-
 			It("VM", func() {
 				res := getRecourseLabel(kc.ResourceVM, vm.Name)
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
@@ -232,7 +229,6 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 		})
 
 		Describe("Remove annotation test-annotation=true", func() {
-
 			It("Was removed", func() {
 				subCMD := fmt.Sprintf("-n %s annotate vm %s %s-", conf.Namespace, vm.Name, annotationName)
 				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
