@@ -119,7 +119,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -141,7 +141,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -176,7 +176,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because has no valid size policy", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -211,7 +211,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because no memory requirements", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -255,7 +255,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -299,7 +299,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory not compliency", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -338,7 +338,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because has no memory requirements", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -384,7 +384,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -430,7 +430,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because not memory compliency", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -471,7 +471,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because correct core fraction", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -512,7 +512,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because incorrect core fraction", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -557,7 +557,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should correct validate because correct step", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -602,7 +602,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because memory incorrect", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -649,7 +649,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should correct validate because correct per core step", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -696,7 +696,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because per core memory incorrect", func() {
-			err := service.CheckVMCompliedSizePolicy(ctx, vm)
+			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
 	})

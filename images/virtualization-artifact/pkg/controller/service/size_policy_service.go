@@ -44,7 +44,7 @@ func NewSizePolicyService(client client.Reader) *SizePolicyService {
 	return &SizePolicyService{client: client}
 }
 
-func (s *SizePolicyService) CheckVMCompliedSizePolicy(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
+func (s *SizePolicyService) CheckVMMatchedSizePolicy(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	vmclass := &v1alpha2.VirtualMachineClass{}
 	err := s.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,

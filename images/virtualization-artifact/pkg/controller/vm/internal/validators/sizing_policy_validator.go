@@ -39,19 +39,9 @@ func NewSizingPolicyValidator(client client.Reader) *SizingPolicyValidator {
 }
 
 func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	err := v.service.CheckVMCompliedSizePolicy(ctx, vm)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return nil, v.service.CheckVMMatchedSizePolicy(ctx, vm)
 }
 
 func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	err := v.service.CheckVMCompliedSizePolicy(ctx, newVM)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return nil, v.service.CheckVMMatchedSizePolicy(ctx, newVM)
 }
