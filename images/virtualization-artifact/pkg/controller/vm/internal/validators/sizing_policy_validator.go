@@ -26,19 +26,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SizingPolicyCompliencyValidator struct {
+type SizingPolicyValidator struct {
 	client  client.Reader
 	service service.SizePolicyService
 }
 
-func NewSizingPolicyCompliencyValidator(client client.Reader) *SizingPolicyCompliencyValidator {
-	return &SizingPolicyCompliencyValidator{
+func NewSizingPolicyValidator(client client.Reader) *SizingPolicyValidator {
+	return &SizingPolicyValidator{
 		client:  client,
 		service: *service.NewSizePolicyService(client),
 	}
 }
 
-func (v *SizingPolicyCompliencyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	err := v.service.CheckVMCompliedSizePolicy(ctx, vm)
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func (v *SizingPolicyCompliencyValidator) ValidateCreate(ctx context.Context, vm
 	return nil, nil
 }
 
-func (v *SizingPolicyCompliencyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	err := v.service.CheckVMCompliedSizePolicy(ctx, newVM)
 	if err != nil {
 		return nil, err

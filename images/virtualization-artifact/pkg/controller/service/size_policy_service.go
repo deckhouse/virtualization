@@ -50,7 +50,7 @@ func (s *SizePolicyService) CheckVMCompliedSizePolicy(ctx context.Context, vm *v
 	sizePolicy := getVMSizePolicy(vm, vmclass)
 	if sizePolicy == nil {
 		return fmt.Errorf(
-			"virtual machine %s has no valid size policy in vm class %s",
+			"virtual machine %s resources not match any of sizing policies in vm class %s",
 			vm.Name, vm.Spec.VirtualMachineClassName,
 		)
 	}
@@ -58,11 +58,11 @@ func (s *SizePolicyService) CheckVMCompliedSizePolicy(ctx context.Context, vm *v
 	var errorsArray []error
 
 	errorsArray = append(errorsArray, validateCoreFraction(vm, sizePolicy)...)
-	errorsArray = append(errorsArray, validateVMMemory(vm, sizePolicy)...)
+	errorsArray = append(errorsArray, validateMemory(vm, sizePolicy)...)
 	errorsArray = append(errorsArray, validatePerCoreMemory(vm, sizePolicy)...)
 
 	if len(errorsArray) > 0 {
-		return fmt.Errorf("errors while size policy validate: %w", errors.Join(errorsArray...))
+		return fmt.Errorf("sizing policy validate: %w", errors.Join(errorsArray...))
 	}
 
 	return nil
@@ -86,25 +86,25 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
-		errorsArray = append(errorsArray, fmt.Errorf("cpu fraction value is invalid"))
+		errorsArray = append(errorsArray, fmt.Errorf("parse cpu fraction value: %w", err))
 		return
 	}
 
-	hasInSizePolicyFractions := false
+	hasFractionValueInPolicy := false
 	for _, spFraction := range sp.CoreFractions {
 		if fraction == int(spFraction) {
-			hasInSizePolicyFractions = true
+			hasFractionValueInPolicy = true
 		}
 	}
 
-	if !hasInSizePolicyFractions {
-		errorsArray = append(errorsArray, fmt.Errorf("vm core fraction incorrect"))
+	if !hasFractionValueInPolicy {
+		errorsArray = append(errorsArray, fmt.Errorf("vm core fraction value out of size policy %d", fraction))
 	}
 
 	return
 }
 
-func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
 	if sp.Memory == nil || sp.Memory.Max.IsZero() {
 		return
 	}
@@ -128,7 +128,7 @@ func validateVMMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (e
 	}
 
 	if !sp.Memory.Step.IsZero() {
-		err := checkInGrid(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
+		err := validateIsQuantized(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -167,7 +167,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	}
 
 	if !sp.Memory.Step.IsZero() {
-		err := checkInGrid(*perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
+		err := validateIsQuantized(*perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -176,16 +176,20 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	return
 }
 
-func checkInGrid(value, min, max, step resource.Quantity, source string) (err error) {
+func validateIsQuantized(value, min, max, step resource.Quantity, source string) (err error) {
+	const lesser = -1
+	const equal = 0
+	const greater = 1
+
 	grid := generateValidGrid(min, max, step)
 
 	for i := 0; i < len(grid)-1; i++ {
 		cmpLeftResult := value.Cmp(grid[i])
 		cmpRightResult := value.Cmp(grid[i+1])
 
-		if cmpLeftResult == 0 || cmpRightResult == 0 {
+		if cmpLeftResult == equal || cmpRightResult == equal {
 			return
-		} else if cmpLeftResult == 1 && cmpRightResult == -1 {
+		} else if cmpLeftResult == greater && cmpRightResult == lesser {
 			err = fmt.Errorf(
 				"requested %s not in available values grid, nearest valid values [%s, %s]",
 				source,
@@ -200,9 +204,11 @@ func checkInGrid(value, min, max, step resource.Quantity, source string) (err er
 }
 
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
+	const lesser = -1
+
 	var grid []resource.Quantity
 
-	for val := min; val.Cmp(max) == -1; val.Add(step) {
+	for val := min; val.Cmp(max) == lesser; val.Add(step) {
 		grid = append(grid, val)
 	}
 
