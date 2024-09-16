@@ -191,7 +191,7 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 			return
 		} else if cmpLeftResult == greater && cmpRightResult == lesser {
 			err = fmt.Errorf(
-				"requested %s not in available values grid, nearest valid values [%s, %s]",
+				"requested %s not match any of available values, nearest valid values are [%s, %s]",
 				source,
 				grid[i].String(),
 				grid[i+1].String(),
