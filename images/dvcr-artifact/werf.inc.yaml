@@ -24,6 +24,7 @@ shell:
   - go build ./cmd/dvcr_uploader
 ---
 image: {{ $.ImageName }}
+final: false
 fromImage: base-alt-p10
 shell:
   install:
