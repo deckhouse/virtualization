@@ -19,7 +19,6 @@ package service_test
 import (
 	"context"
 	"fmt"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,11 +47,6 @@ func (m *ClientMock) Get(_ context.Context, key client.ObjectKey, obj client.Obj
 
 func (m *ClientMock) List(_ context.Context, _ client.ObjectList, _ ...client.ListOption) error {
 	return nil
-}
-
-func TestService(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Suite")
 }
 
 var _ = Describe("Spec policy comlience service", func() {
