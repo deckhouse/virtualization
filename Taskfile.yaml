@@ -121,5 +121,5 @@ tasks:
 
   cve:scan:
     cmds:
-      - task cve:bin
-      - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}} pr375
+      - task: cve:bin
+      - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}}
