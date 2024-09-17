@@ -98,6 +98,12 @@ spec:
                                   public keys are injected into the VM using metadata
                                   using the configDrive cloud-init provider
                                 type: object
+                              noCloud:
+                                description:
+                                  NoCloudPropagation means that the ssh public
+                                  keys are injected into the VM using metadata using
+                                  the noCloud cloud-init provider
+                                type: object
                               qemuGuestAgent:
                                 description:
                                   QemuGuestAgentAccessCredentailPropagation
@@ -1430,7 +1436,7 @@ spec:
                           type: boolean
                         autoattachSerialConsole:
                           description:
-                            Whether to attach the default serial console
+                            Whether to attach the default virtio-serial console
                             or not. Serial console access will not be available if set
                             to false. Defaults to true.
                           type: boolean
@@ -1549,6 +1555,11 @@ spec:
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
+                              errorPolicy:
+                                description:
+                                  If specified, it can change the default
+                                  error policy (stop) for the disk
+                                type: string
                               io:
                                 description:
                                   "IO specifies which QEMU disk IO mode should
@@ -1594,6 +1605,11 @@ spec:
                               - name
                             type: object
                           type: array
+                        downwardMetrics:
+                          description:
+                            DownwardMetrics creates a virtio serials for
+                            exposing the downward metrics to the vmi.
+                          type: object
                         filesystems:
                           description:
                             Filesystems describes filesystem which is connected
@@ -1719,6 +1735,21 @@ spec:
                                   This value is required to be unique across all devices
                                   and be between 1 and (16*1024-1).
                                 type: integer
+                              binding:
+                                description:
+                                  "Binding specifies the binding plugin that
+                                  will be used to connect the interface to the guest.
+                                  It provides an alternative to InterfaceBindingMethod.
+                                  version: 1alphav1"
+                                properties:
+                                  name:
+                                    description:
+                                      "Name references to the binding name
+                                      as denined in the kubevirt CR. version: 1alphav1"
+                                    type: string
+                                required:
+                                  - name
+                                type: object
                               bootOrder:
                                 description:
                                   BootOrder is an integer value > 0, used
@@ -1786,9 +1817,8 @@ spec:
                                 type: string
                               macvtap:
                                 description:
-                                  InterfaceMacvtap connects to a given network
-                                  by extending the Kubernetes node's L2 networks via
-                                  a macvtap interface.
+                                  Deprecated, please refer to Kubevirt user
+                                  guide for alternatives.
                                 type: object
                               masquerade:
                                 description:
@@ -1809,7 +1839,9 @@ spec:
                                   the Name of a Network.
                                 type: string
                               passt:
-                                description: InterfacePasst connects to a given network.
+                                description:
+                                  Deprecated, please refer to Kubevirt user
+                                  guide for alternatives.
                                 type: object
                               pciAddress:
                                 description:
@@ -1876,6 +1908,14 @@ spec:
                               - name
                             type: object
                           type: array
+                        logSerialConsole:
+                          description:
+                            Whether to log the auto-attached default serial
+                            console or not. Serial console logs will be collect to a
+                            file and then streamed from a named 'guest-console-log'.
+                            Not relevant if autoattachSerialConsole is disabled. Defaults
+                            to cluster wide setting on VirtualMachineOptions.
+                          type: boolean
                         networkInterfaceMultiqueue:
                           description:
                             If specified, virtual network interfaces configured
@@ -2207,6 +2247,17 @@ spec:
                     firmware:
                       description: Firmware.
                       properties:
+                        acpi:
+                          description: Information that can be set in the ACPI table
+                          properties:
+                            slicNameRef:
+                              description:
+                                "SlicNameRef should match the volume name
+                                of a secret object. The data in the secret should be
+                                a binary blob that follows the ACPI SLIC standard, see:
+                                https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)"
+                              type: string
+                          type: object
                         bootloader:
                           description: Settings to control the bootloader that is used.
                           properties:
@@ -2222,6 +2273,11 @@ spec:
                             efi:
                               description: If set, EFI will be used instead of BIOS.
                               properties:
+                                persistent:
+                                  description:
+                                    If set to true, Persistent will persist
+                                    the EFI NVRAM across reboots. Defaults to false
+                                  type: boolean
                                 secureBoot:
                                   description:
                                     If set, SecureBoot will be enabled and
@@ -2294,6 +2350,16 @@ spec:
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
+                            attestation:
+                              description:
+                                If specified, run the attestation process
+                                for a vmi.
+                              type: object
+                            dhCert:
+                              description:
+                                Base64 encoded guest owner's Diffie-Hellman
+                                key.
+                              type: string
                             policy:
                               description:
                                 "Guest policy flags as defined in AMD SEV
@@ -2305,6 +2371,9 @@ spec:
                                   description: SEV-ES is required. Defaults to false.
                                   type: boolean
                               type: object
+                            session:
+                              description: Base64 encoded session blob.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -2342,6 +2411,17 @@ spec:
                                 x86_64 architecture valid values are 1Gi and 2Mi.
                               type: string
                           type: object
+                        maxGuest:
+                          anyOf:
+                            - type: integer
+                            - type: string
+                          description:
+                            MaxGuest allows to specify the maximum amount
+                            of memory which is visible inside the Guest OS. The delta
+                            between MaxGuest and Guest is the amount of memory that
+                            can be hot(un)plugged.
+                          pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                          x-kubernetes-int-or-string: true
                       type: object
                     resources:
                       description:
@@ -2384,8 +2464,19 @@ spec:
                   type: object
                 evictionStrategy:
                   description:
-                    EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance
-                    should be migrated instead of shut-off in case of a node drain.
+                    'EvictionStrategy describes the strategy to follow when
+                    a node drain occurs. The possible options are: - "None": No action
+                    will be taken, according to the specified ''RunStrategy'' the VirtualMachine
+                    will be restarted or shutdown. - "LiveMigrate": the VirtualMachineInstance
+                    will be migrated instead of being shutdown. - "LiveMigrateIfPossible":
+                    the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable,
+                    otherwise it will behave as "None". - "External": the VirtualMachineInstance
+                    will be protected by a PDB and ''vmi.Status.EvacuationNodeName''
+                    will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt
+                    (capk) which needs a way for VMI''s to be blocked from eviction,
+                    yet signal capk that eviction has been called on the VMI so the
+                    capk controller can handle tearing the VMI down. Details can be
+                    found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
                   type: string
                 hostname:
                   description:
@@ -2870,6 +2961,9 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                          session:
+                            description: Base64 encoded session blob.
+                            type: string
                         type: object
                       matchLabelKeys:
                         description:
@@ -3314,6 +3408,9 @@ spec:
                             required:
                               - claimName
                             type: object
+                          session:
+                            description: Base64 encoded session blob.
+                            type: string
                         type: object
                       hostDisk:
                         description:
@@ -3617,6 +3714,26 @@ spec:
                         type: integer
                     type: object
                   type: array
+                kernelBootStatus:
+                  description: KernelBootStatus contains info about the kernelBootContainer
+                  properties:
+                    initrdInfo:
+                      description: InitrdInfo show info about the initrd file
+                      properties:
+                        checksum:
+                          description: Checksum is the checksum of the initrd file
+                          format: int32
+                          type: integer
+                      type: object
+                    kernelInfo:
+                      description: KernelInfo show info about the kernel image
+                      properties:
+                        checksum:
+                          description: Checksum is the checksum of the kernel image
+                          format: int32
+                          type: integer
+                      type: object
+                  type: object
                 launcherContainerImageVersion:
                   description:
                     LauncherContainerImageVersion indicates what container
@@ -3631,6 +3748,39 @@ spec:
                     type:
                       description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
                       type: string
+                  type: object
+                memory:
+                  description:
+                    Memory shows various informations about the VirtualMachine
+                    memory.
+                  properties:
+                    guestAtBoot:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      description:
+                        GuestAtBoot specifies with how much memory the VirtualMachine
+                        intiallly booted with.
+                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      x-kubernetes-int-or-string: true
+                    guestCurrent:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      description:
+                        GuestCurrent specifies how much memory is currently
+                        available for the VirtualMachine.
+                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      x-kubernetes-int-or-string: true
+                    guestRequested:
+                      anyOf:
+                        - type: integer
+                        - type: string
+                      description:
+                        GuestRequested specifies how much memory was requested
+                        (hotplug) for the VirtualMachine.
+                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      x-kubernetes-int-or-string: true
                   type: object
                 migrationMethod:
                   description:
@@ -3661,6 +3811,9 @@ spec:
                     failed:
                       description: Indicates that the migration failed
                       type: boolean
+                    failureReason:
+                      description: Contains the reason why the migration failed
+                      type: string
                     migrationConfiguration:
                       description: Migration configurations to apply
                       properties:
@@ -3774,6 +3927,8 @@ spec:
                       type: string
                     sourceNode:
                       description: The source node that the VMI originated on
+                      type: string
+                    sourcePod:
                       type: string
                     startTimestamp:
                       description: The time the migration action began
@@ -3902,6 +4057,18 @@ spec:
                       VolumeStatus represents information about the status
                       of volumes attached to the VirtualMachineInstance.
                     properties:
+                      containerDiskVolume:
+                        description:
+                          ContainerDiskVolume shows info about the containerdisk,
+                          if the volume is a containerdisk
+                        properties:
+                          checksum:
+                            description:
+                              Checksum is the checksum of the rootdisk or
+                              kernel artifacts inside the containerdisk
+                            format: int32
+                            type: integer
+                        type: object
                       hotplugVolume:
                         description:
                           If the volume is hotplug, this will contain the
