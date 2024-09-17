@@ -118,7 +118,7 @@ tasks:
         tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
         mv /opt/trivy /usr/local/bin/trivy
         chmod +x /usr/local/bin/trivy
-  
+
   cve:scan:
     cmds:
       - task cve:bin
