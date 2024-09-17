@@ -15,6 +15,7 @@
 # limitations under the License.
 
 REPORT_FILE_NAME=$1
+module_tag=$2
 if [[ -z $REPORT_FILE_NAME ]];then echo "file must be define";exit 1;fi
 if [[ -z $module_tag ]]; then module_tag=main; fi
 
