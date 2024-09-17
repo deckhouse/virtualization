@@ -1,29 +1,13 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p10
+fromImage: base-alt-p11
 import:
 - image: cdi-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+  add: /cdi-binaries
   to: /usr/bin
   before: setup
   includePaths:
   - cdi-apiserver
-shell:
-  install:
-  # Update GPG keys and vendor IDs list.
-  - |
-    apt-get update && apt-get install --yes \
-    apt-conf-branch \
-    alt-gpgkeys
-  # Install newer versions from p11 branch.
-  - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/alt-p11.list
-  - |
-    apt-get update && apt-get install --yes \
-    glibc==6:2.38.0.76.e9f05fa1c6-alt1:sisyphus+347163.100.1.1
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-apiserver/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
   USER: 1001
-  WORKDIR: /home/cdi-apiserver
