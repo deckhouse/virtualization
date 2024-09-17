@@ -45,18 +45,18 @@ func NewSizePolicyService(client client.Client) *SizePolicyService {
 }
 
 func (s *SizePolicyService) CheckVMMatchedSizePolicy(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	vmclass := &v1alpha2.VirtualMachineClass{}
+	vmClass := &v1alpha2.VirtualMachineClass{}
 	err := s.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,
-	}, vmclass)
+	}, vmClass)
 	if err != nil {
 		return err
 	}
 
-	sizePolicy := getVMSizePolicy(vm, vmclass)
+	sizePolicy := getVMSizePolicy(vm, vmClass)
 	if sizePolicy == nil {
 		return fmt.Errorf(
-			"virtual machine %s resources not match any of sizing policies in vm class %s",
+			"virtual machine %q resources not match any of sizing policies in vm class %q",
 			vm.Name, vm.Spec.VirtualMachineClassName,
 		)
 	}
@@ -74,8 +74,8 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(ctx context.Context, vm *v1
 	return nil
 }
 
-func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmclass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
-	for _, sp := range vmclass.Spec.SizingPolicies {
+func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
+	for _, sp := range vmClass.Spec.SizingPolicies {
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
 			return sp.DeepCopy()
 		}

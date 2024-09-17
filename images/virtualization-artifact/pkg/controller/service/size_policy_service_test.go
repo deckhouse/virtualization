@@ -41,7 +41,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		mock.GetFunc = func(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 			val, ok := vmClassValues[key.Name]
 			if !ok {
-				return fmt.Errorf("Object not found")
+				return fmt.Errorf("object not found")
 			}
 
 			obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
