@@ -4,18 +4,6 @@
 
 Iternal patch which adds images bundle target with all images to build.
 
-#### `005-override-crds.patch`
-
-Rename group name for all cdi CRDs to override them with deckhouse virtualization CRDs.
-
-Also, remove short names and change categories. Just in case.
-
-#### `006-customizer.patch`
-
-Add `spec.customizeComponents` to the crd cdi to customize resources.
-
-https://github.com/kubevirt/containerized-data-importer/pull/3070
-
 #### `007-content-type-json.patch`
 set ContentTypeJson for kubernetes clients.
 
@@ -33,7 +21,11 @@ Do not manage DataVolume CRD with cdi-operator. Module will install this CRD usi
 
 #### `011-change-storage-class-for-scratch-pvc.patch`
 
-Set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
+Force setting an empty string to Status.ScratchSpaceStorageClass if config field ScratchSpaceStorageClass is empty
+to prevent using the default storage class name for the scratch pvc.
+
+The empty string in Status.ScratchSpaceStorageClass will force the cdi-operator
+to set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
 
 #### `012-add-caps-for-deckhouse-provisioners.patch`
 

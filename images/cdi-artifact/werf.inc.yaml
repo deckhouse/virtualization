@@ -1,7 +1,7 @@
 ---
 # Source https://github.com/kubevirt/containerized-data-importer/blob/main/hack/build/config.sh#L31
-{{- $builderImage := "quay.io/kubevirt/kubevirt-cdi-bazel-builder:2310202104-20cced838" }}
-{{- $version := "1.58.0" }}
+{{- $builderImage := "quay.io/kubevirt/kubevirt-cdi-bazel-builder:2409041205-8c58c938b" }}
+{{- $version := "1.60.3" }}
 
 image: {{ $.ImageName }}
 final: false
