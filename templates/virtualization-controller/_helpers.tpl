@@ -49,13 +49,13 @@
 - name: PROVISIONING_POD_REQUESTS
   value: '{"cpu":"100m","memory":"60M"}'
 - name: GC_VMOP_TTL
-  value: "1h"
+  value: "24h"
 - name: GC_VMOP_SCHEDULE
-  value: "*/30 * * * *"
+  value: "0 * * * *"
 - name: GC_VMI_MIGRATION_TTL
-  value: "1h"
+  value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
-  value: "*/30 * * * *"
+  value: "0 * * * *"
 
 {{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
