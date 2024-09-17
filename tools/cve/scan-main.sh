@@ -26,10 +26,6 @@ images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/module
   while read name digest; do
     image="dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization@${digest}"
 
-    if [[ ${name} =~ Builder|Artifact ]]; then
-      continue
-    fi
-
     echo "⭐ ==============================================================================================================="
     echo "name: ${name}"
     echo "image: ${image}"
