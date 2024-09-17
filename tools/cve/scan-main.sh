@@ -20,7 +20,7 @@ if [[ -z $REPORT_FILE_NAME ]];then echo "file must be define";exit 1;fi
 if [[ -z $module_tag ]]; then module_tag=main; fi
 
 # Prepare images digests in form of "image_name image_sha256_digest".
-images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag}  - | tar -Oxf - images_digests.json | jq -r 'to_entries[] | .name + " " + .value')
+images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag} - | tar -Oxf - images_digests.json | jq -r 'to_entries[] | .key + " " + .value')
 
 {
   while read name digest; do
