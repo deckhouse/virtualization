@@ -223,6 +223,15 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 		return fmt.Errorf("failed to synchronize routing rules at start: %w", err)
 	}
 
+	go func() {
+		// AddSubnetRoutesToBlackHole will be executed every minute until context canceled.
+		wait.UntilWithContext(newCtx, func(_ context.Context) {
+			if err := c.netlinkMgr.AddSubnetsRoutesToBlackHole(); err != nil {
+				c.log.Error(err, "Failed to add blackhole routes for subnets.")
+			}
+		}, time.Minute)
+	}()
+
 	c.log.Info("Starting workers of route controller")
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(newCtx, c.worker, time.Second)

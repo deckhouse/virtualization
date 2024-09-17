@@ -41,6 +41,8 @@ const (
 	DefaultCiliumRouteTable = 1490
 	LocalRouteTable         = 255
 	netlinkManager          = "netlinkManager"
+	routePriority           = 0
+	blackHoleRoutePriority  = 100
 )
 
 type Manager struct {
@@ -65,6 +67,23 @@ func New(cache vmipcache.Cache,
 		nlWrapper:    nlWrapper,
 		cache:        cache,
 	}
+}
+
+func (m *Manager) AddSubnetsRoutesToBlackHole() error {
+	for _, cidr := range m.cidrs {
+		route := &netlink.Route{
+			Scope:    netlink.SCOPE_UNIVERSE,
+			Dst:      cidr,
+			Table:    m.routeTableID,
+			Type:     unix.RTN_BLACKHOLE,
+			Priority: blackHoleRoutePriority,
+		}
+		if err := m.nlWrapper.RouteReplace(route); err != nil {
+			return fmt.Errorf("failed to update route: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // SyncRules adds rules for configured CIDRS into the Cilium table.
@@ -193,6 +212,7 @@ func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine, ciliumNode *ciliumv2.Ci
 	route.Dst = vmRouteDst
 	route.Table = m.routeTableID
 	route.Type = 1
+	route.Priority = routePriority
 
 	if err = m.nlWrapper.RouteReplace(&route); err != nil {
 		m.log.Error(err, fmt.Sprintf("failed to update route %q to %q for VM %s/%s", fmtRoute(origRoute), fmtRoute(route), vm.GetNamespace(), vm.GetName()))
