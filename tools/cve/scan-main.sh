@@ -19,12 +19,12 @@ module_tag=$2
 if [[ -z $REPORT_FILE_NAME ]];then echo "file must be define";exit 1;fi
 if [[ -z $module_tag ]]; then module_tag=main; fi
 
-images=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag}  - | tar -Oxf - images_digests.json | jq '. | to_entries[]')
+# Prepare images digests in form of "image_name image_sha256_digest".
+images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag}  - | tar -Oxf - images_digests.json | jq -r 'to_entries[] | .name + " " + .value')
 
 {
-  while IFS= read -r image_hash; do
-    name=$(echo ${image_hash} | jq .key -cr)
-    image="dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization@$(echo ${image_hash} | jq .value -cr)"
+  while read name digest; do
+    image="dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization@${digest}"
 
     if [[ ${name} =~ Builder|Artifact ]]; then
       continue
@@ -37,5 +37,5 @@ images=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtua
 
     trivy image ${image} -f table
 
-  done <<< $(echo ${images} | jq -c .)
+  done <<< "${images_digests}"
 } > "${REPORT_FILE_NAME}"
