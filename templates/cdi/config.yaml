@@ -79,7 +79,7 @@ spec:
 
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "nowebhook_kubeproxy_patch" (list . "cdi-controller") }}
+        patch: {{ include "nowebhook_kubeproxy_patch" (list . "cdi-deployment") }}
         type: strategic
 
       # Change service in webhook configurations to point to the rewriter proxy.

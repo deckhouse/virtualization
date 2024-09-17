@@ -130,7 +130,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
-			Renamed:          "cdi.internal.virtualization.deckhouse.io",
+			Renamed:          "cdi." + internalPrefix,
 		},
 		ResourceRules: map[string]ResourceRule{
 			// cdiconfigs.cdi.kubevirt.io
@@ -242,6 +242,36 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 				PreferredVersion: "v1beta1",
 				Categories:       []string{},
 				ShortNames:       []string{},
+			},
+		},
+	},
+	"forklift.cdi.kubevirt.io": {
+		GroupRule: GroupRule{
+			Group:            "forklift.cdi.kubevirt.io",
+			Versions:         []string{"v1beta1"},
+			PreferredVersion: "v1beta1",
+			Renamed:          "forklift.cdi." + internalPrefix,
+		},
+		ResourceRules: map[string]ResourceRule{
+			// openstackvolumepopulators.forklift.cdi.kubevirt.io
+			"openstackvolumepopulators": {
+				Kind:             "OpenstackVolumePopulator",
+				ListKind:         "OpenstackVolumePopulatorList",
+				Plural:           "openstackvolumepopulators",
+				Singular:         "openstackvolumepopulator",
+				ShortNames:       []string{"osvp", "osvps"},
+				Versions:         []string{"v1beta1"},
+				PreferredVersion: "v1beta1",
+			},
+			// ovirtvolumepopulators.forklift.cdi.kubevirt.io
+			"ovirtvolumepopulators": {
+				Kind:             "OvirtVolumePopulator",
+				ListKind:         "OvirtVolumePopulatorList",
+				Plural:           "ovirtvolumepopulators",
+				Singular:         "ovirtvolumepopulator",
+				ShortNames:       []string{"ovvp", "ovvps"},
+				Versions:         []string{"v1beta1"},
+				PreferredVersion: "v1beta1",
 			},
 		},
 	},

@@ -1,35 +1,84 @@
 ---
-# Source https://github.com/kubevirt/containerized-data-importer/blob/main/hack/build/config.sh#L31
-{{- $builderImage := "quay.io/kubevirt/kubevirt-cdi-bazel-builder:2310202104-20cced838" }}
-{{- $version := "1.58.0" }}
+{{- $version := "1.60.3" }}
 
 image: {{ $.ImageName }}
 final: false
-from: {{ $builderImage }}
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
 git:
   - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
-      setup:
-      - '**/*'
+      install:
+        - '**/*'
     includePaths:
-    - patches
-    - unpack-bundle.sh
+      - patches
+    excludePaths:
+      - patches/README.md
 shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install --yes libnbd-dev
+    - apt-get clean
+    - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+  install:
+    - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
+    - cd /containerized-data-importer
+    - |
+      for p in /patches/*.patch ; do
+        echo -n "Apply ${p} ... "
+        git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+      done
+
+    - echo Download Go modules.
+    - go mod download
+
   setup:
-  - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
-  - cd /containerized-data-importer
-  - |
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
-  - /entrypoint.sh make bazel-build-images DOCKER=0
-  - /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
-  - tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - mkdir -p /images && cd /images && /unpack-bundle.sh /container-images-bundle/
-  # reduce image size (~17Gb)
-  - rm -rf /root/.cache
-  - rm -rf /container-images-bundle
-  - rm -rf /containerized-data-importer
-  - rm -rf /tmp/*
+    - mkdir /cdi-binaries
+    - cd /containerized-data-importer
+
+    - export GO111MODULE=on
+    - export GOOS=linux
+    - export CGO_ENABLED=0
+    - export GOARCH=amd64
+
+    - echo ============== Build cdi-apiserver ===========
+    - go build -o /cdi-binaries/cdi-apiserver ./cmd/cdi-apiserver
+
+    - echo ============== Build cdi-cloner ===========
+    - go build -o /cdi-binaries/cdi-cloner ./cmd/cdi-cloner
+
+    - echo ============== Build cdi-controller ===========
+    - go build -o /cdi-binaries/cdi-controller ./cmd/cdi-controller
+
+    - echo ============== Build cdi-uploadproxy ===========
+    - go build -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
+
+    - echo ============== Build cdi-uploadserver ===========
+    - CGO_ENABLED=1 go build -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
+
+    - echo ============== Build cdi-importer ===========
+    - CGO_ENABLED=1 go build -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
+
+    - echo ============== Build cdi-containerimage-server ===========
+    - go build -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
+
+    - echo ============== Build cdi-image-size-detection  ===========
+    - go build -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
+
+    - echo ============== Build cdi-source-update-poller  ===========
+    - CGO_ENABLED=1 go build -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
+
+    - echo ============== Build cdi-operator  ===========
+    - go build -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
+
+    - echo ============== Build csv-generator  ===========
+    - go build -o /cdi-binaries/csv-generator ./tools/csv-generator
+
+    - strip /cdi-binaries/*
+    - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
+    - chmod +x /cdi-binaries/*
+    - ls -la /cdi-binaries
