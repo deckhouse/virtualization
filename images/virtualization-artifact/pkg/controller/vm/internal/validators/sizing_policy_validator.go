@@ -30,9 +30,9 @@ type SizingPolicyValidator struct {
 	service *service.SizePolicyService
 }
 
-func NewSizingPolicyValidator(client *client.Reader) *SizingPolicyValidator {
+func NewSizingPolicyValidator(client client.Reader) *SizingPolicyValidator {
 	return &SizingPolicyValidator{
-		service: service.NewSizePolicyService(*client),
+		service: service.NewSizePolicyService(client),
 	}
 }
 
