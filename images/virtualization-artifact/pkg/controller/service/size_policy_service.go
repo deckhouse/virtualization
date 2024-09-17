@@ -37,10 +37,10 @@ const (
 )
 
 type SizePolicyService struct {
-	client client.Reader
+	client client.Client
 }
 
-func NewSizePolicyService(client client.Reader) *SizePolicyService {
+func NewSizePolicyService(client client.Client) *SizePolicyService {
 	return &SizePolicyService{client: client}
 }
 

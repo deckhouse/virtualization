@@ -30,32 +30,25 @@ import (
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type ClientMock struct {
-	Values map[string]client.Object
-}
-
-func (m *ClientMock) Get(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
-	val, ok := m.Values[key.Name]
-	if !ok {
-		return fmt.Errorf("Object not found")
-	}
-
-	obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
-
-	return nil
-}
-
-func (m *ClientMock) List(_ context.Context, _ client.ObjectList, _ ...client.ListOption) error {
-	return nil
-}
+var vmClassValues map[string]client.Object
 
 var _ = Describe("Spec policy comlience service", func() {
-	var mock ClientMock
+	var mock *service.ClientMock
 	var ctx context.Context
 
 	BeforeEach(func() {
-		mock = ClientMock{}
-		mock.Values = make(map[string]client.Object)
+		mock = &service.ClientMock{}
+		mock.GetFunc = func(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
+			val, ok := vmClassValues[key.Name]
+			if !ok {
+				return fmt.Errorf("Object not found")
+			}
+
+			obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
+
+			return nil
+		}
+		vmClassValues = make(map[string]client.Object)
 	})
 
 	Context("testing mock no value", func() {
@@ -70,13 +63,13 @@ var _ = Describe("Spec policy comlience service", func() {
 
 	Context("testing mock value", func() {
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -110,7 +103,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
@@ -118,7 +111,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -132,7 +125,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
@@ -140,7 +133,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because cannot find empty classname", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -158,13 +151,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -175,7 +168,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because has no valid size policy", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -193,13 +186,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -210,7 +203,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because no memory requirements", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -231,13 +224,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -254,7 +247,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -275,13 +268,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -298,7 +291,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory not compliency", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -319,13 +312,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -337,7 +330,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because has no memory requirements", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -358,13 +351,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -383,7 +376,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because memory compliency", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -404,13 +397,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -429,7 +422,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because not memory compliency", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -450,13 +443,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -470,7 +463,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should not fail validate because correct core fraction", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -491,13 +484,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -511,7 +504,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because incorrect core fraction", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -532,13 +525,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -556,7 +549,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should correct validate because correct step", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -577,13 +570,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -601,7 +594,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because memory incorrect", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
@@ -622,13 +615,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -648,7 +641,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should correct validate because correct per core step", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).Should(BeNil())
 		})
@@ -669,13 +662,13 @@ var _ = Describe("Spec policy comlience service", func() {
 		}
 
 		BeforeEach(func() {
-			mock.Values["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: make([]v1alpha2.SizingPolicy, 0),
 				},
 			}
-			mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
-				mock.Values["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
+			vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = append(
+				vmClassValues["vmclasstest"].(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies,
 				v1alpha2.SizingPolicy{
 					Cores: &v1alpha2.SizingPolicyCores{
 						Min: 1,
@@ -695,7 +688,7 @@ var _ = Describe("Spec policy comlience service", func() {
 		})
 
 		It("Should fail validate because per core memory incorrect", func() {
-			service := service.NewSizePolicyService(&mock)
+			service := service.NewSizePolicyService(mock)
 			err := service.CheckVMMatchedSizePolicy(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
 		})
