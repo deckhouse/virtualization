@@ -56,7 +56,7 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(ctx context.Context, vm *v1
 	sizePolicy := getVMSizePolicy(vm, vmClass)
 	if sizePolicy == nil {
 		return fmt.Errorf(
-			"virtual machine %q resources not match any of sizing policies in vm class %q",
+			"virtual machine %q resources do not match any sizing policies in class %q",
 			vm.Name, vm.Spec.VirtualMachineClassName,
 		)
 	}
@@ -92,7 +92,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
-		errorsArray = append(errorsArray, fmt.Errorf("parse cpu fraction value: %w", err))
+		errorsArray = append(errorsArray, fmt.Errorf("unable to parse CPU core fraction: %w", err))
 		return
 	}
 
@@ -104,7 +104,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	}
 
 	if !hasFractionValueInPolicy {
-		errorsArray = append(errorsArray, fmt.Errorf("vm core fraction value out of size policy %d", fraction))
+		errorsArray = append(errorsArray, fmt.Errorf("VM core fraction value %d is not within the allowed values", fraction))
 	}
 
 	return
@@ -117,7 +117,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 
 	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == lesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM memory (%s) lesser than valid minimum, available range [%s, %s]",
+			"requested VM memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
@@ -126,7 +126,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 
 	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == greater {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM memory (%s) greater than valid maximum, available range [%s, %s]",
+			"requested VM memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
@@ -156,7 +156,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 
 	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == lesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM per core memory (%s) lesser than valid minimum, available range [%s, %s]",
+			"requested VM per core memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
@@ -165,7 +165,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 
 	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == greater {
 		errorsArray = append(errorsArray, fmt.Errorf(
-			"requested VM per core memory (%s) greater than valid maximum, available range [%s, %s]",
+			"requested VM per core memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
@@ -193,7 +193,7 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 			return
 		} else if cmpLeftResult == greater && cmpRightResult == lesser {
 			err = fmt.Errorf(
-				"requested %s not match any of available values, nearest valid values are [%s, %s]",
+				"requested %s does not match any available values, nearest valid values are [%s, %s]",
 				source,
 				grid[i].String(),
 				grid[i+1].String(),
