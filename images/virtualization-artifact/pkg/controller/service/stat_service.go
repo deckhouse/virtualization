@@ -270,10 +270,21 @@ func (s StatService) GetDVCRImageName(pod *corev1.Pod) string {
 	}
 
 	for _, container := range pod.Spec.Containers {
-		for _, envVar := range container.Env {
-			if envVar.Name == common.ImporterDestinationEndpoint {
-				return envVar.Value
+		switch container.Name {
+		case common.UploaderContainerName:
+			for _, envVar := range container.Env {
+				if envVar.Name == common.UploaderDestinationEndpoint {
+					return envVar.Value
+				}
 			}
+		case common.ImporterContainerName:
+			for _, envVar := range container.Env {
+				if envVar.Name == common.ImporterDestinationEndpoint {
+					return envVar.Value
+				}
+			}
+		default:
+			continue
 		}
 	}
 
