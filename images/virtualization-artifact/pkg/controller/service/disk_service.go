@@ -291,9 +291,9 @@ func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts
 
 func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc != nil && pvc.Status.Phase == corev1.ClaimBound {
-		return util.GetPointer(pvc.Status.Capacity[corev1.ResourceStorage]).String()
+		quantity := pvc.Status.Capacity[corev1.ResourceStorage]
+		return util.HumanizeIBytes(uint64(quantity.Value()))
 	}
-
 	return ""
 }
 
