@@ -2,10 +2,27 @@
 # Source https://github.com/kubevirt/containerized-data-importer/blob/main/hack/build/config.sh#L31
 {{- $builderImage := "quay.io/kubevirt/kubevirt-cdi-bazel-builder:2409041205-8c58c938b" }}
 {{- $version := "1.60.3" }}
+{{- $goVersion := "1.22.7" }}
 
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-builder
 final: false
 from: {{ $builderImage }}
+shell:
+  install:
+  - export GIMME_GO_VERSION={{ $goVersion }}
+  - |
+    rm -rf /gimme && \
+    mkdir -p /gimme && curl -sL \
+      https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
+    HOME=/gimme bash >> /etc/profile.d/gimme.sh
+  - source /etc/profile.d/gimme.sh && go version
+docker:
+  ENV:
+    GIMME_GO_VERSION: "{{ $goVersion }}"
+---
+image: {{ $.ImageName }}
+final: false
+fromImage: {{ $.ImageName }}-builder
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -15,6 +32,8 @@ git:
     includePaths:
     - patches
     - unpack-bundle.sh
+    excludePaths:
+    - patches/README.md
 shell:
   setup:
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
@@ -24,11 +43,16 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+  - echo "========== Build CDI images ============"
   - /entrypoint.sh make bazel-build-images DOCKER=0
+  - echo "====== Create CDI images bundle ========"
   - /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
+  - echo "======  Unpack CDI images into /  ======"
   - tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - mkdir -p /images && cd /images && /unpack-bundle.sh /container-images-bundle/
   # reduce image size (~17Gb)
+  - echo "Calculate garbage size"
+  - du -sh /root/.cache /container-images-bundle /containerized-data-importer /tmp/*
   - rm -rf /root/.cache
   - rm -rf /container-images-bundle
   - rm -rf /containerized-data-importer
