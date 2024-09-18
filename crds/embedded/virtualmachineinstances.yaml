@@ -2420,7 +2420,7 @@ spec:
                             of memory which is visible inside the Guest OS. The delta
                             between MaxGuest and Guest is the amount of memory that
                             can be hot(un)plugged.
-                          pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       type: object
                     resources:
@@ -3761,7 +3761,7 @@ spec:
                       description:
                         GuestAtBoot specifies with how much memory the VirtualMachine
                         intiallly booted with.
-                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     guestCurrent:
                       anyOf:
@@ -3770,7 +3770,7 @@ spec:
                       description:
                         GuestCurrent specifies how much memory is currently
                         available for the VirtualMachine.
-                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     guestRequested:
                       anyOf:
@@ -3779,7 +3779,7 @@ spec:
                       description:
                         GuestRequested specifies how much memory was requested
                         (hotplug) for the VirtualMachine.
-                      pattern: ^(\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))(([KMGTPE]i)|[numkMGTPE]|([eE](\  |-)?(([0-9]  (\.[0-9]*)?)|(\.[0-9]  ))))?$
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                   type: object
                 migrationMethod:
