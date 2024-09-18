@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -178,7 +179,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 }
 
 func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
-	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
+	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
@@ -224,7 +225,20 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			},
 		}
 
-		err = ds.diskService.StartImmediate(ctx, *vdRef.Spec.PersistentVolumeClaim.Size, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		fmt.Println("")
+		fmt.Println("")
+		fmt.Println("vd", vdRef)
+		fmt.Println("vdSpec", vdRef.Spec)
+		fmt.Println("vdStatus", vdRef.Status)
+		fmt.Println("")
+		fmt.Println("")
+
+		size, err := resource.ParseQuantity(vdRef.Status.Capacity)
+		if err != nil {
+			return false, err
+		}
+
+		err = ds.diskService.StartImmediate(ctx, size, ptr.To(ds.storageClassForPVC), source, vi, supgen)
 		if err != nil {
 			if errors.Is(err, service.ErrStorageClassNotFound) {
 				vi.Status.Phase = virtv2.ImageProvisioning
