@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_vmop_health: "D8VirtualizationVmopHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_vmop_health: "D8VirtualizationVmopHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_vmop_stuck_in_progress_state: "D8VirtualizationVmopStuckInProgressState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vmop_stuck_in_progress_state: "D8VirtualizationVmopStuckInProgressState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: The VMOP with phase InProgress for a long time.
         description: |
           The recommended course of action:
