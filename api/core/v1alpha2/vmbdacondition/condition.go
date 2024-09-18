@@ -17,7 +17,7 @@ limitations under the License.
 package vmbdacondition
 
 // Type represents the various condition types for the `VirtualMachineBlockDeviceAttachment`.
-type Type = string
+type Type string
 
 const (
 	// BlockDeviceReadyType indicates that the block device (for example, a `VirtualDisk`) is ready to be hot-plugged.
@@ -30,24 +30,30 @@ const (
 
 type (
 	// BlockDeviceReadyReason represents the various reasons for the `BlockDeviceReady` condition type.
-	BlockDeviceReadyReason = string
+	BlockDeviceReadyReason string
 	// VirtualMachineReadyReason represents the various reasons for the `VirtualMachineReady` condition type.
-	VirtualMachineReadyReason = string
+	VirtualMachineReadyReason string
 	// AttachedReason represents the various reasons for the `Attached` condition type.
-	AttachedReason = string
+	AttachedReason string
 )
 
 const (
+	// BlockDeviceReadyUnknown represents unknown condition state.
+	BlockDeviceReadyUnknown BlockDeviceReadyReason = "Unknown"
 	// BlockDeviceReady signifies that the block device is ready to be hot-plugged, allowing the hot-plug process to start.
 	BlockDeviceReady BlockDeviceReadyReason = "BlockDeviceReady"
 	// BlockDeviceNotReady signifies that the block device is not ready, preventing the hot-plug process from starting.
 	BlockDeviceNotReady BlockDeviceReadyReason = "BlockDeviceNotReady"
 
+	// VirtualMachineReadyUnknown represents unknown condition state.
+	VirtualMachineReadyUnknown VirtualMachineReadyReason = "Unknown"
 	// VirtualMachineReady signifies that the virtual machine is ready for hot-plugging a disk, allowing the hot-plug process to start.
 	VirtualMachineReady VirtualMachineReadyReason = "VirtualMachineReady"
 	// VirtualMachineNotReady signifies that the virtual machine is not ready, preventing the hot-plug process from starting.
 	VirtualMachineNotReady VirtualMachineReadyReason = "VirtualMachineNotReady"
 
+	// AttachedUnknown represents unknown condition state.
+	AttachedUnknown BlockDeviceReadyReason = "Unknown"
 	// Attached signifies that the virtual disk is successfully hot-plugged into the virtual machine.
 	Attached AttachedReason = "Attached"
 	// NotAttached signifies that the virtual disk is not yet hot-plugged into the virtual machine.
@@ -60,3 +66,19 @@ const (
 	// Only the one that was created or started sooner can be processed.
 	Conflict AttachedReason = "Conflict"
 )
+
+func (t Type) String() string {
+	return string(t)
+}
+
+func (t BlockDeviceReadyReason) String() string {
+	return string(t)
+}
+
+func (t VirtualMachineReadyReason) String() string {
+	return string(t)
+}
+
+func (t AttachedReason) String() string {
+	return string(t)
+}
