@@ -9,31 +9,13 @@ final: false
 from: {{ $builderImage }}
 shell:
   install:
-  - echo "gimme.sh"
-  - cat /etc/profile.d/gimme.sh
-  - echo "gimme.sh end"
-  - export
-  - source /etc/profile.d/gimme.sh && go version
-  - export
-  - echo "Install new Go version"
   - export GIMME_GO_VERSION={{ $goVersion }}
-  - export GOPATH="/go"
-  - export GO111MODULE="on"
-  - export
   - |
     rm -rf /gimme && rm -rf /tmp/gimme && \
     mkdir -p /gimme && curl -sL \
       https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
-    HOME=/gimme bash >> /etc/profile.d/gimme.sh
-  - ls -la /gimme/.gimme/versions
-  - du -shc /gimme/.gimme/versions/*
-  - find / -name go
-  - echo "cat gimme.sh"
-  - cat /etc/profile.d/gimme.sh
-  - echo "cat gimme.sh end"
-  - export
-  - source /etc/profile.d/gimme.sh && go version
-  - export
+    HOME=/gimme bash > /etc/profile.d/gimme.sh
+  - source /etc/profile.d/gimme.sh
 docker:
   ENV:
     GIMME_GO_VERSION: "{{ $goVersion }}"
@@ -59,19 +41,6 @@ git:
     - patches/README.md
 shell:
   setup:
-  - ls -la /gimme/.gimme/versions
-  - du -shc /gimme/.gimme/versions/*
-  - find / -name go
-  - echo "cat gimme.sh"
-  - cat /etc/profile.d/gimme.sh
-  - echo "cat gimme.sh end"
-  - export
-  - source /etc/profile.d/gimme.sh && go version
-  - export
-
-  - which go
-  - echo path=$PATH
-  - source /etc/profile.d/gimme.sh
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
   - cd /containerized-data-importer
   - |
@@ -79,6 +48,7 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+
   - echo "========== Build CDI images ============"
   - /entrypoint.sh make bazel-build-images DOCKER=0
   - |
