@@ -225,15 +225,6 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			},
 		}
 
-		fmt.Println("")
-		fmt.Println("")
-		fmt.Println("vd", vdRef)
-		fmt.Println("vdSpec", vdRef.Spec)
-		fmt.Println("vdStatus", vdRef.Status)
-		fmt.Println("vdStatusCap", vdRef.Status.Capacity)
-		fmt.Println("")
-		fmt.Println("")
-
 		size, err := resource.ParseQuantity(vdRef.Status.Capacity)
 		if err != nil {
 			return false, err
@@ -273,8 +264,8 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		condition.Message = ""
 
 		var imageStatus virtv2.ImageStatusSize
-		imageStatus.Stored = vdRef.Spec.PersistentVolumeClaim.Size.String()
-		imageStatus.Unpacked = vdRef.Spec.PersistentVolumeClaim.Size.String()
+		imageStatus.Stored = vdRef.Status.Capacity
+		imageStatus.Unpacked = vdRef.Status.Capacity
 		vi.Status.Size = imageStatus
 
 		vi.Status.Format = imageformat.FormatRAW
