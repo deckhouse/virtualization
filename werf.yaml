@@ -60,8 +60,10 @@ dockerfile: Dockerfile
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
 
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
-    {{- if $ImageManifest.image }}
-      {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+    {{- if $ImageManifest | dig "final" true }}
+      {{- if $ImageManifest.image }}
+        {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+      {{- end }}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -106,7 +108,7 @@ shell:
 ---
 image: bundle
 from: {{ .Images.BASE_SCRATCH }}
-fromCacheVersion: "2024-02-15.1"
+fromCacheVersion: "2024-09-17.0"
 import:
   - image: images-digests
     add: /images_digests.json

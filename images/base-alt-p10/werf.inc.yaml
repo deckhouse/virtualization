@@ -1,5 +1,6 @@
 ---
 image: {{ $.ImageName }}
+final: false
 from: {{ $.Images.BASE_ALT_P10 }}
 shell:
   setup:

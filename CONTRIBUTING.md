@@ -35,9 +35,15 @@ The first thing we recommend is to check the existing [issues](https://github.co
    - Follow [the commit message convention](#commit-message).
    - Sign off every commit you contributed as an acknowledgment of the [DCO](https://developercertificate.org/).
 
-7. Push commits. 
+7. Push commits.
 
 8. Create a pull request following the [pull request name convention](#pull-request-name).
+
+## Images
+
+The module images are located in the ./images directory.
+
+Images, such as build images or images with binary artifacts, should not be included in the module. To do so, they must be labeled as follows in the `werf.inc.yaml` file: `final: false`.
 
 ## Conventions
 
@@ -112,7 +118,7 @@ Supported scopes are the following:
   # User metrics, alerts, dashboards, and logs that provide insights into system performance and health.
   - observability
 
-  # Maintaining, improving code quality and development workflow. 
+  # Maintaining, improving code quality and development workflow.
   - ci
   - lint
   - format

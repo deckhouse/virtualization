@@ -1,5 +1,6 @@
 ---
 image: {{ $.ImageName }}
+final: false
 from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
 git:
 - add: /api
@@ -33,6 +34,3 @@ shell:
   - export GOARCH=amd64
   - go build -v -a -o virtualization-controller ./cmd/virtualization-controller
   - go build -v -a -o virtualization-api ./cmd/virtualization-api
-
-
-
