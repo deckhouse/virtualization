@@ -11,8 +11,9 @@ from: {{ $builderImage }}
 shell:
   install:
   - export GIMME_GO_VERSION={{ $goVersion }}
+  - du -shc /tmp/*
   - |
-    rm -rf /gimme && rm -rf /tmp/gimme \
+    rm -rf /gimme && rm -rf /tmp/gimme && \
     mkdir -p /gimme && curl -sL \
       https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
     HOME=/gimme bash > /etc/profile.d/gimme.sh

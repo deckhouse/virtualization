@@ -10,6 +10,7 @@ from: {{ $builderImage }}
 shell:
   install:
   - export GIMME_GO_VERSION={{ $goVersion }}
+  - du -shc /tmp/*
   - |
     rm -rf /gimme && rm -rf /tmp/gimme && \
     mkdir -p /gimme && curl -sL \
