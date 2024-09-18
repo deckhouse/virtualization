@@ -61,10 +61,18 @@ dockerfile: Dockerfile
 
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
     {{- if $ImageManifest | dig "final" true }}
+<<<<<<< HEAD
       {{- if $ImageManifest.image }}
         {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
       {{- end }}
+=======
+    
+    {{- if $ImageManifest.image }}
+      {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+>>>>>>> 1ea361b1 (chore(ci): test final:false werf.yaml)
     {{- end }}
+    {{- end }}
+
   {{- end }}
 {{- end }}
 ---
