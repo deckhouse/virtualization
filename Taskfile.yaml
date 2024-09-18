@@ -23,6 +23,7 @@ includes:
 
 vars:
   deckhouse_lib_helm_ver: 1.7.0
+  TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go"
 
@@ -109,3 +110,16 @@ tasks:
     desc: "Check copyright"
     cmds:
       - go run {{ .VALIDATION_FILES }} --type copyright
+
+  cve:bin:
+    cmds:
+      - |
+        curl -LO https://github.com/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
+        tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
+        mv /opt/trivy /usr/local/bin/trivy
+        chmod +x /usr/local/bin/trivy
+
+  cve:scan:
+    cmds:
+      - task: cve:bin
+      - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}}

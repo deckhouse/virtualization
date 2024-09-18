@@ -1985,14 +1985,16 @@ func schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The type of the block device. Options are: * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of block device to attach.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -3040,7 +3042,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineBlockDeviceAttachment is a disk ready to be bound by a VM",
+				Description: "VirtualMachineBlockDeviceAttachment provides a hot plug for connecting a disk to a virtual machine.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3076,7 +3078,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 						},
 					},
 				},
-				Required: []string{"spec", "status"},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
@@ -3088,7 +3090,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineBlockDeviceAttachmentList contains a list of VirtualMachineBlockDeviceAttachment",
+				Description: "VirtualMachineBlockDeviceAttachmentList contains a list of VirtualMachineBlockDeviceAttachment.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -3142,9 +3144,10 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 				Properties: map[string]spec.Schema{
 					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The name of the virtual machine to which the disk or image should be connected.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"blockDeviceRef": {
@@ -3174,9 +3177,17 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 							Format: "",
 						},
 					},
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the virtual machine to which this disk is attached.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Contains details of the current state of this API Resource.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -3189,8 +3200,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "The generation last processed by the controller",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},
