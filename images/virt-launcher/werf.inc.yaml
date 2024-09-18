@@ -287,25 +287,25 @@ shell:
   # Install build dependencies.
   - |
     apt-get update && apt-get install --yes \
-    bc==1:1.07.1-alt1:sisyphus+346065.200.3.1 \
-    su==0.60-alt36:p11+348779.200.1.1 \
-    git==2.42.2-alt1:sisyphus+348068.100.1.1 \
-    rpm-build==4.0.4.201-alt1:p11+352147.300.3.1 \
-    rpm-build-python3==0.1.25-alt1:sisyphus+344685.100.1.1 \
-    gcc-c++==13-alt1:sisyphus+323337.300.1.1 \
-    acpica==20230628-alt1:sisyphus+346029.200.2.1 \
-    nasm==2.16.03-alt1:sisyphus+347261.300.1.1 \
-    python3-dev==3.12.2-alt1:sisyphus+341702.200.1.1 \
-    python3-modules-sqlite3==3.12.2-alt1:sisyphus+341702.200.1.1 \
-    python3-module-virt-firmware==24.4-alt1:sisyphus+347408.100.1.1 \
-    perl-JSON==4.10-alt1:sisyphus+308299.100.1.3 \
-    perl-IPC-Cmd==1.04-alt1:sisyphus+234736.100.1.1 \
-    libuuid-devel==2.39.2-alt1:p11+348780.400.1.1 \
-    xorriso==1.5.6-alt1:p11+348905.100.1.3 \
-    dosfstools==4.2-alt3:sisyphus+344264.100.1.1 \
-    mtools==1:4.0.43-alt1:sisyphus+317197.100.1.1 \
-    qemu-img==9.0.2-alt2:p11+353258.200.3.2 \
-    zlib-devel==1.3.1-alt1:sisyphus+342532.100.1.1
+    bc \
+    su \
+    git \
+    rpm-build \
+    rpm-build-python3 \
+    gcc-c++ \
+    acpica \
+    nasm \
+    python3-dev \
+    python3-modules-sqlite3 \
+    python3-module-virt-firmware \
+    perl-JSON \
+    perl-IPC-Cmd \
+    libuuid-devel \
+    xorriso \
+    dosfstools \
+    mtools \
+    qemu-img \
+    zlib-devel
 
   install:
   # AltLinux requires building packages by non-root users.
