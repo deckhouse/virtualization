@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -27,12 +28,15 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type VMOperationService struct {
-	client client.Client
+	client     client.Client
+	virtClient kubeclient.Client
 }
 
 func NewVMOperationService(client client.Client) VMOperationService {
@@ -57,6 +61,8 @@ func (s VMOperationService) Do(ctx context.Context, vmop *virtv2.VirtualMachineO
 		return s.DoStop(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine, vmop.Spec.Force)
 	case virtv2.VMOPTypeRestart:
 		return s.DoRestart(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine, vmop.Spec.Force)
+	case virtv2.VMOPTypeMigrate:
+		return s.DoMigrate(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 	default:
 		return fmt.Errorf("unexpected operation type %q: %w", vmop.Spec.Type, common.ErrUnknownValue)
 	}
@@ -90,6 +96,14 @@ func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName s
 	return powerstate.RestartVM(ctx, s.client, kvvm, kvvmi, force)
 }
 
+func (s VMOperationService) DoMigrate(ctx context.Context, vmNamespace, vmName string) error {
+	err := s.virtClient.VirtualMachines(vmNamespace).Migrate(ctx, vmName, v1alpha2.VirtualMachineMigrate{})
+	if err != nil {
+		return fmt.Errorf(`failed to migrate virtual machine "%s/%s": %w`, vmNamespace, vmName, err)
+	}
+	return nil
+}
+
 func (s VMOperationService) IsAllowedForVM(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool {
 	if vm == nil {
 		return false
@@ -100,7 +114,7 @@ func (s VMOperationService) IsAllowedForVM(vmop *virtv2.VirtualMachineOperation,
 func (s VMOperationService) IsApplicableForRunPolicy(vmop *virtv2.VirtualMachineOperation, runPolicy virtv2.RunPolicy) bool {
 	switch runPolicy {
 	case virtv2.AlwaysOnPolicy:
-		return vmop.Spec.Type == virtv2.VMOPTypeRestart
+		return vmop.Spec.Type == virtv2.VMOPTypeRestart || vmop.Spec.Type == virtv2.VMOPTypeMigrate
 	case virtv2.AlwaysOffPolicy:
 		return false
 	case virtv2.ManualPolicy, virtv2.AlwaysOnUnlessStoppedManually:
@@ -124,6 +138,8 @@ func (s VMOperationService) IsApplicableForVMPhase(vmop *virtv2.VirtualMachineOp
 			phase == virtv2.MachineDegraded ||
 			phase == virtv2.MachineStarting ||
 			phase == virtv2.MachinePause
+	case virtv2.VMOPTypeMigrate:
+		return phase == virtv2.MachineRunning
 	default:
 		return false
 	}
@@ -165,6 +181,8 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 		return vmopcondition.ReasonStopInProgress
 	case virtv2.VMOPTypeRestart:
 		return vmopcondition.ReasonRestartInProgress
+	case virtv2.VMOPTypeMigrate:
+		return vmopcondition.ReasonMigrateInProgress
 	}
 	return vmopcondition.ReasonCompletedUnknown
 }
@@ -188,19 +206,35 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 			return false, err
 		}
 
-		// Use vmop creation time or time from SignalSent condition.
-		signalSentTime := vmop.GetCreationTimestamp().Time
-		signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
-		if found && signalSendCond.LastTransitionTime.After(signalSentTime) {
-			signalSentTime = signalSendCond.LastTransitionTime.Time
+		return vmPhase == virtv2.MachineRunning &&
+			s.afterSignalSent(kvvmi.GetCreationTimestamp().Time, vmop), nil
+	case virtv2.VMOPTypeMigrate:
+		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
+		if err != nil {
+			return false, err
 		}
 
-		return vmPhase == virtv2.MachineRunning &&
-			kvvmi.GetCreationTimestamp().After(signalSentTime), nil
+		if s.afterSignalSent(kvvmi.GetCreationTimestamp().Time, vmop) {
+			return true, nil
+		}
+		migrationState := kvvmi.Status.MigrationState
+		return migrationState != nil &&
+			migrationState.EndTimestamp != nil &&
+			s.afterSignalSent(migrationState.EndTimestamp.Time, vmop), nil
 
 	default:
 		return false, nil
 	}
+}
+
+func (s VMOperationService) afterSignalSent(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
+	// Use vmop creation time or time from SignalSent condition.
+	signalSentTime := vmop.GetCreationTimestamp().Time
+	signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
+	if found && signalSendCond.LastTransitionTime.After(signalSentTime) {
+		signalSentTime = signalSendCond.LastTransitionTime.Time
+	}
+	return timestamp.After(signalSentTime)
 }
 
 func (s VMOperationService) IsFinalState(vmop *virtv2.VirtualMachineOperation) bool {

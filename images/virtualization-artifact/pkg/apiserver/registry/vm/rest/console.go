@@ -96,5 +96,5 @@ func ConsoleLocation(
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, "console", kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, newKVVMIPather("console"), kubevirt, proxyCertManager)
 }

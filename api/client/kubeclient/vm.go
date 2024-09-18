@@ -112,7 +112,7 @@ func (v vm) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (S
 }
 
 func (v vm) Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error {
-	path := fmt.Sprintf(operationURLTpl, v.namespace, v.resource, name, "freeze")
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "freeze")
 
 	unfreezeTimeout := virtv1.FreezeUnfreezeTimeout{
 		UnfreezeTimeout: &metav1.Duration{},
@@ -127,21 +127,25 @@ func (v vm) Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachin
 		return err
 	}
 
-	err = v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
 }
 
 func (v vm) Unfreeze(ctx context.Context, name string) error {
-	path := fmt.Sprintf(operationURLTpl, v.namespace, v.resource, name, "unfreeze")
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "unfreeze")
 
-	err := v.restClient.Put().AbsPath(path).Do(ctx).Error()
+	return v.restClient.Put().AbsPath(path).Do(ctx).Error()
+}
+
+func (v vm) Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachineMigrate) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "migrate")
+
+	migrateOpts := virtv1.MigrateOptions{
+		DryRun: opts.DryRun,
+	}
+
+	body, err := json.Marshal(&migrateOpts)
 	if err != nil {
 		return err
 	}
-
-	return nil
+	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
 }

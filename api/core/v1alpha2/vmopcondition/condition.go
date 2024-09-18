@@ -61,6 +61,9 @@ const (
 	// ReasonStopInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
 	ReasonStopInProgress ReasonCompleted = "StopInProgress"
 
+	// ReasonMigrateInProgress is a ReasonCompleted indicating that the migrate signal has been sent and stop is in progress.
+	ReasonMigrateInProgress ReasonCompleted = "MigrateInProgress"
+
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 
