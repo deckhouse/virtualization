@@ -9,19 +9,19 @@ final: false
 from: {{ $builderImage }}
 shell:
   install:
-  - ls -la /gimme
-  - ls -la /gimme/.*
-  - ls -la /gimme/.*/*
-  - ls -la /go/*
+  - 'ls -la /go/*'
   - echo "find /gimme"
   - find /gimme -type d
   - echo "find /go"
-  - find /go -type d
+  - find /go
   - export GIMME_GO_VERSION={{ $goVersion }}
+  - cat /etc/profile.d/gimme.sh
   - |
+    rm -rf /gimme && rm -rf /tmp/gimme && \
     mkdir -p /gimme && curl -sL \
       https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
     HOME=/gimme bash >> /etc/profile.d/gimme.sh
+  - cat /etc/profile.d/gimme.sh
   - source /etc/profile.d/gimme.sh && go version
 docker:
   ENV:
