@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /usr/local/go/src/dvcr_importers
@@ -24,6 +24,7 @@ shell:
   - go build ./cmd/dvcr_uploader
 ---
 image: {{ $.ImageName }}
+final: false
 fromImage: base-alt-p10
 shell:
   install:
@@ -32,7 +33,7 @@ shell:
     apt-get update && apt-get install --yes \
     apt-conf-branch \
     alt-gpgkeys \
-    qemu-img==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
+    qemu-img==8.2.6-alt0.p10.1:p10+353259.100.4.1 \
     file==5.44-alt3:p10+320107.300.8.1
   # Install newer versions from p11 branch.
   - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/alt-p11.list

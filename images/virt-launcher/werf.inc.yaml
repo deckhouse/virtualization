@@ -116,14 +116,16 @@ shell:
     acl==2.3.1-alt1:sisyphus+279621.200.1.1 \
     libvirt-client==9.7.0-alt2.p10.2:p10+343223.200.3.1 \
     libvirt-daemon-driver-qemu==9.7.0-alt2.p10.2:p10+343223.200.3.1 \
-    qemu-kvm-core==8.2.4-alt0.p10.1:p10+350268.100.5.1 \
+    qemu-kvm-core==8.2.6-alt0.p10.1:p10+353259.100.4.1 \
     swtpm-tools==0.8.0-alt1:p10+322023.200.2.1 \
     ethtool==1:6.5-alt4:p10+337060.100.1.1 \
     findutils==4.8.0.0.10.1157-alt1:sisyphus+278099.1200.1.1 \
     nftables==1:1.0.9-alt2:p10+343579.100.2.1 \
     xorriso==1.5.4-alt1:sisyphus+279285.100.1.3 \
     selinux-policy-alt==0.0.52-alt1:sisyphus+260794.100.1.1 \
-    libaltselinux==0.1.0-alt1
+    libaltselinux==0.1.0-alt1 \
+    python3-dev==3.9.18-alt1:p10+340781.400.5.1
+    
   # Install newer versions from p11 branch.
   - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/alt-p11.list
   - echo "rpm [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/alt-p11.list
@@ -133,6 +135,12 @@ shell:
     passt==20240624-alt1:p11+352273.100.2.1 \
     seabios==1.16.3-alt3:sisyphus+339925.100.2.1 \
     libffi8==1:3.4.6-alt1:sisyphus+341904.100.1.1
+  - |
+    echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/alt-sisyphus.list
+    echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic" >> /etc/apt/sources.list.d/alt-sisyphus.list
+  - | 
+    apt-get update && apt-get install --yes \
+    python3-module-setuptools==1:70.3.0-alt1:sisyphus+352532.100.2.1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
   install:
