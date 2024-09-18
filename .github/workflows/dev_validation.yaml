@@ -14,6 +14,9 @@
 
 name: Validations
 
+env:
+  GO_VERSION: "1.22.7"
+
 on:
   pull_request:
     types: [opened, edited, synchronize]
@@ -32,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation no-cyrillic
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -55,10 +58,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation doc-changes
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -78,10 +81,10 @@ jobs:
     runs-on: ubuntu-latest
     name: Validation copyright
     steps:
-      - name: Set up Go 1.21
+      - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "${{ env.GO_VERSION }}"
 
       - name: Install Task
         uses: arduino/setup-task@v2
