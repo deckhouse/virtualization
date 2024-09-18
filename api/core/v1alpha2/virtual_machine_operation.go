@@ -42,8 +42,8 @@ type VirtualMachineOperation struct {
 	Status VirtualMachineOperationStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !self.force : true",message="The `Start` operation cannot be performed forcibly."
-// +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// The name of the virtual machine for which the operation is performed.
@@ -90,6 +90,7 @@ const (
 // * Start - start the virtualmachine.
 // * Stop - stop the virtualmachine.
 // * Restart - restart the virtualmachine.
+// * Migrate - migrate the virtualmachine.
 // +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate}
 type VMOPType string
 

@@ -90,7 +90,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	// Send signal to perform operation, set phase to InProgress on success and to Fail on error.
 	err := h.vmopSrv.Do(ctx, changed)
 	if err != nil {
-		failMsg := fmt.Sprintf("Sending powerstate signal %q to VM", changed.Spec.Type)
+		failMsg := fmt.Sprintf("Sending signal %q to VM", changed.Spec.Type)
 		log.Debug(failMsg, logger.SlogErr(err))
 		failMsg = fmt.Sprintf("%s: %v", failMsg, err)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
@@ -111,7 +111,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, nil
 	}
 
-	msg := fmt.Sprintf("Sent powerstate signal %q to VM without errors.", changed.Spec.Type)
+	msg := fmt.Sprintf("Sent signal %q to VM without errors.", changed.Spec.Type)
 	log.Debug(msg)
 	h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
 

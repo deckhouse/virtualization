@@ -261,7 +261,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = vmop.SetupController(ctx, mgr, log); err != nil {
+	if err = vmop.SetupController(ctx, mgr, virtClient, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

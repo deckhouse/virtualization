@@ -78,6 +78,7 @@ spec:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
+                    * Migrate - migrate the virtualmachine.
                   enum:
                     - Restart
                     - Start
@@ -95,9 +96,11 @@ spec:
               type: object
               x-kubernetes-validations:
                 - message: The `Start` operation cannot be performed forcibly.
-                  rule: "self.type == 'Start' ? !self.force : true"
+                  rule: "self.type == 'Start' ? !has(self.force) || !self.force : true"
                 - message: The `Migrate` operation cannot be performed forcibly.
-                  rule: "self.type == 'Migrate' ? !self.force : true"
+                  rule:
+                    "self.type == 'Migrate' ? !has(self.force) || !self.force :
+                    true"
             status:
               properties:
                 conditions:

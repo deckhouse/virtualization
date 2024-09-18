@@ -39,9 +39,10 @@ type VMOperationService struct {
 	virtClient kubeclient.Client
 }
 
-func NewVMOperationService(client client.Client) VMOperationService {
+func NewVMOperationService(client client.Client, virtClient kubeclient.Client) VMOperationService {
 	return VMOperationService{
-		client: client,
+		client:     client,
+		virtClient: virtClient,
 	}
 }
 
