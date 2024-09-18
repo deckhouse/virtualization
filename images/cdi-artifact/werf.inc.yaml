@@ -48,27 +48,33 @@ shell:
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
   - echo "========== Build CDI images ============"
-  - echo "Start time: $(time)"
+  - echo Start time
+  - time
   - /entrypoint.sh make bazel-build-images DOCKER=0
-  - echo "End time: $(time)"
+  - echo End time
+  - time
   - echo find cdi-controller
   - find / -type f -name cdi-controller
   - echo find cdi-operator
   - find / -type f -name cdi-operator
-  - echo find images tars
-  - find / -type f -name '*.tar'
-  - du -shc /containerized-data-importer/* || true
+  #- echo find images tars
+  #- find / -type f -name '*.tar'
+  - du -shc /containerized-data-importer/*
   - echo "Calculate garbage size after first build"
-  - du -shc /root/.cache /containerized-data-importer /tmp/*  || true
+  - du -shc /root/.cache /containerized-data-importer /tmp/*
   - echo "====== Create tar bundle with CDI images ========"
+  - echo Start time
+  - time
   - /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
+  - echo End time
+  - time
   - echo "======  Unpack CDI images into /  ======"
   - tar tf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - du -shc /containerized-data-importer/* || true
+  - du -shc /containerized-data-importer/*
   - mkdir -p /images && cd /images && /unpack-bundle.sh /container-images-bundle/
   - du -shc /images/* || true
-  - du -shc /container-images-bundle/* || true
+  - du -shc /container-images-bundle/*
   # reduce image size (~12Gb)
   - echo "Calculate garbage size"
   - du -sh /root/.cache /container-images-bundle/* /containerized-data-importer/* /tmp/*
