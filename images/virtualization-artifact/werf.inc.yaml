@@ -1,7 +1,11 @@
 ---
 image: {{ $.ImageName }}
+<<<<<<< HEAD
 final: false
 from: {{ .Images.BASE_GOLANG_21_BOOKWORM }}
+=======
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+>>>>>>> cde693eb (chore(module): virtualization-artifact, update image to BASE_GOLANG_22_BOOKWORM)
 git:
 - add: /api
   to: /usr/local/go/api
