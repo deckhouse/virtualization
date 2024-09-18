@@ -9,9 +9,16 @@ final: false
 from: {{ $builderImage }}
 shell:
   install:
+  - ls -la /gimme
+  - ls -la /gimme/.*
+  - ls -la /gimme/.*/*
+  - ls -la /go/*
+  - echo "find /gimme"
+  - find /gimme -type d
+  - echo "find /go"
+  - find /go -type d
   - export GIMME_GO_VERSION={{ $goVersion }}
   - |
-    rm -rf /gimme && \
     mkdir -p /gimme && curl -sL \
       https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
     HOME=/gimme bash >> /etc/profile.d/gimme.sh
@@ -19,6 +26,8 @@ shell:
 docker:
   ENV:
     GIMME_GO_VERSION: "{{ $goVersion }}"
+    GOPATH: "/go"
+    GO111MODULE: "on"
 ---
 image: {{ $.ImageName }}
 final: false
