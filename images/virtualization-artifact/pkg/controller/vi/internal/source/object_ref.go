@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"k8s.io/utils/ptr"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -177,14 +178,16 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return false, err
 		}
 
-		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
-			return false, err
-		}
+			if errors.Is(err, service.ErrStorageClassNotFound) {
+				vi.Status.Phase = virtv2.ImageProvisioning
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vicondition.ProvisioningFailed
+				condition.Message = "Provided StorageClass not found in the cluster."
+				return false, nil
+			}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, sc.GetName(), source, vi, supgen)
-		if err != nil {
 			return false, err
 		}
 
