@@ -230,6 +230,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		fmt.Println("vd", vdRef)
 		fmt.Println("vdSpec", vdRef.Spec)
 		fmt.Println("vdStatus", vdRef.Status)
+		fmt.Println("vdStatusCap", vdRef.Status.Capacity)
 		fmt.Println("")
 		fmt.Println("")
 
