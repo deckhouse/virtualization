@@ -4,14 +4,13 @@
 {{- $version := "1.3.1" }}
 {{- $goVersion := "1.22.7" }}
 
-# Update Go version in builder to prevent CVEs in kubevirt components.
+# Update Go version in builder to prevent CVEs in Kubevirt components.
 image: {{ $.ImageName }}-builder
 final: false
 from: {{ $builderImage }}
 shell:
   install:
   - export GIMME_GO_VERSION={{ $goVersion }}
-  - du -shc /tmp/*
   - |
     rm -rf /gimme && rm -rf /tmp/gimme && \
     mkdir -p /gimme && curl -sL \
@@ -22,6 +21,7 @@ shell:
 docker:
   ENV:
     GIMME_GO_VERSION: "{{ $goVersion }}"
+
 ---
 image: {{ $.ImageName }}
 final: false
@@ -56,6 +56,11 @@ shell:
 
   - echo "========== Build kubevirt images ============"
   - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
+
+  - echo find virt-handler
+  - find / -type f -name virt-handler
+  - echo find virt-operator
+  - find / -type f -name virt-operator
 
   - echo "=============== Build virtctl ==============="
   - /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
