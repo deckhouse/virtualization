@@ -1,6 +1,6 @@
 - name: kubernetes.virtualization.vmop
   rules:
-    - alert: D8VirtualizationVmopInProgressForLongTime
+    - alert: D8VirtualizationVMOPStuckInPorgressState
       expr: d8_virtualization_virtualmachineoperation_status_phase{phase="InProgress"} == 1
       labels:
         severity_level: "9"
