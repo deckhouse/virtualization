@@ -14,4 +14,4 @@
         summary: The VMOP with phase InProgress for a long time.
         description: |
           The recommended course of action:
-          1. Find VMOPs whose phase is "InProgress" and sort by creation time: `kubectl get vmop -A -o jsonpath="{range .items[?(@.status.phase=='InProgress')].metadata}{.namespace}{'\t'}{.name}{'\t'}{.creationTimestamp}{'\n'}{end}" --sort-by=.metadata.creationTimestamp`
+          Find VMOPs whose phase is "InProgress" and sort by creation time: `kubectl get vmop -A -o jsonpath="{range .items[?(@.status.phase=='InProgress')].metadata}{.namespace}{'\t'}{.name}{'\t'}{.creationTimestamp}{'\n'}{end}" --sort-by=.metadata.creationTimestamp`
