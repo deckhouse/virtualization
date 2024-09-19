@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,17 +37,13 @@ import (
 
 const nameProvisioningHandler = "ProvisioningHandler"
 
-func NewProvisioningHandler(client client.Client, validator ProvisioningValidator) *ProvisioningHandler {
-	return &ProvisioningHandler{client: client, validator: validator}
-}
-
-type ProvisioningValidator interface {
-	Validate(ctx context.Context, key types.NamespacedName) error
+func NewProvisioningHandler(client client.Client) *ProvisioningHandler {
+	return &ProvisioningHandler{client: client, validator: newProvisioningValidator(client)}
 }
 
 type ProvisioningHandler struct {
 	client    client.Client
-	validator ProvisioningValidator
+	validator *provisioningValidator
 }
 
 func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -122,8 +120,8 @@ func (h *ProvisioningHandler) Name() string {
 
 func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
 	var (
-		errUnexpectedSecretType service.UnexpectedSecretTypeError
-		errSecretNotFound       service.SecretNotFoundError
+		errUnexpectedSecretType unexpectedSecretTypeError
+		errSecretNotFound       secretNotFoundError
 	)
 	err := h.validator.Validate(ctx, secretKey)
 
@@ -137,7 +135,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
 
-	case errors.Is(err, service.ErrSecretIsNotValid):
+	case errors.Is(err, errSecretIsNotValid):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(fmt.Sprintf("Invalid secret %q: %s", secretKey.String(), err.Error()))
@@ -152,4 +150,74 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	default:
 		return err
 	}
+}
+
+var errSecretIsNotValid = errors.New("secret is not valid")
+
+type secretNotFoundError string
+
+func (e secretNotFoundError) Error() string {
+	return fmt.Sprintf("secret %s not found", string(e))
+}
+
+type unexpectedSecretTypeError string
+
+func (e unexpectedSecretTypeError) Error() string {
+	return fmt.Sprintf("unexpected secret type: %s", string(e))
+}
+
+var cloudInitCheckKeys = []string{
+	"userdata",
+	"userData",
+}
+
+func newProvisioningValidator(reader client.Reader) *provisioningValidator {
+	return &provisioningValidator{
+		reader: reader,
+	}
+}
+
+type provisioningValidator struct {
+	reader client.Reader
+}
+
+func (v provisioningValidator) Validate(ctx context.Context, key types.NamespacedName) error {
+	secret := &corev1.Secret{}
+	err := v.reader.Get(ctx, key, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return secretNotFoundError(key.String())
+		}
+		return err
+	}
+	switch secret.Type {
+	case virtv2.SecretTypeCloudInit:
+		return v.validateCloudInitSecret(secret)
+	case virtv2.SecretTypeSysprep:
+		return v.validateSysprepSecret(secret)
+	default:
+		return unexpectedSecretTypeError(secret.Type)
+	}
+}
+
+func (v provisioningValidator) validateCloudInitSecret(secret *corev1.Secret) error {
+	if !v.keysIsExist(secret, cloudInitCheckKeys...) {
+		return fmt.Errorf("secret should has one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
+	}
+	return nil
+}
+
+func (v provisioningValidator) validateSysprepSecret(_ *corev1.Secret) error {
+	return nil
+}
+
+func (v provisioningValidator) keysIsExist(secret *corev1.Secret, checkKeys ...string) bool {
+	validate := len(checkKeys) == 0
+	for _, key := range checkKeys {
+		if _, ok := secret.Data[key]; ok {
+			validate = true
+			break
+		}
+	}
+	return validate
 }
