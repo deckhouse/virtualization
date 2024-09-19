@@ -48,7 +48,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, agentConditions...); update {
+	if update := addAllUnknown(changed, vmcondition.TypeSizingPolicyMatched); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -56,8 +56,6 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, nil
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeSizingPolicyMatched).
 		Generation(current.GetGeneration())
 
@@ -72,8 +70,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 			Status(metav1.ConditionFalse)
 	}
 
-	mgr.Update(cb.Condition())
-	changed.Status.Conditions = mgr.Generate()
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
 }

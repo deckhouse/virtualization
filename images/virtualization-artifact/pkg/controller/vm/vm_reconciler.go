@@ -253,8 +253,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				indexer.IndexFieldVMByClass: class.GetName(),
 			})
 			if err != nil {
-				log := logger.FromContext(ctx)
-				log.Error(err.Error())
+				logger.SlogErr(fmt.Errorf(
+					"error retrieving virtual machines during the search for virtual machines belongieng changed class, %q: %w",
+					class.Name,
+					err,
+				))
 				return nil
 			}
 
@@ -278,7 +281,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				if !oldOk || !newOk {
 					return false
 				}
-				return !reflect.DeepEqual(oldVMC, newVMC)
+				return !reflect.DeepEqual(oldVMC.Spec.SizingPolicies, newVMC.Spec.SizingPolicies)
 			},
 		},
 	); err != nil {
