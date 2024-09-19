@@ -132,9 +132,8 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 			return nil, err
 		}
 
-		for i, vm := range vms.Items {
-			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name ||
-				vm.Spec.VirtualMachineIPAddress == "" && vm.Name == ipam.GetVirtualMachineName(s.vmip) {
+		for i, vm := range vms.Items { //FIXME
+			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name || vm.Spec.VirtualMachineIPAddress == "" && vm.Name == ipam.GetVirtualMachineName(s.vmip) {
 				s.vm = &vms.Items[i]
 				break
 			}

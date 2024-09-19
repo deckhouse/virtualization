@@ -120,7 +120,6 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 							Reason(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).
 							Condition())
-						h.recorder.Event(changed, corev1.EventTypeWarning, vmcondition.ReasonIPAddressNotAssigned.String(), msg)
 						log.Error(msg)
 					}
 					break
