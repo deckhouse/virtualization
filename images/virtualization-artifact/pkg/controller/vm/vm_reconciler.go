@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -237,6 +238,52 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	); err != nil {
 		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
 	}
+
+	// Subscribe on VirtualMachineClass size policy change.
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineClass{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+			class, ok := object.(*virtv2.VirtualMachineClass)
+			if !ok {
+				return nil
+			}
+
+			c := mgr.GetClient()
+			vms := &virtv2.VirtualMachineList{}
+			err := c.List(ctx, vms, client.MatchingFields{
+				indexer.IndexFieldVMByClass: class.GetName(),
+			})
+			if err != nil {
+				slog.Default().Error("ERROR")
+			}
+
+			requests := make([]reconcile.Request, len(vms.Items))
+			for i, vm := range vms.Items {
+				requests[i] = reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      vm.Name,
+						Namespace: vm.Namespace,
+					},
+				}
+			}
+			return requests
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return false },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldCvi, oldOk := e.ObjectOld.(*virtv2.ClusterVirtualImage)
+				newCvi, newOk := e.ObjectNew.(*virtv2.ClusterVirtualImage)
+				if !oldOk || !newOk {
+					return false
+				}
+				return oldCvi.Status.Phase != newCvi.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
+	}
+
 	return nil
 }
 
