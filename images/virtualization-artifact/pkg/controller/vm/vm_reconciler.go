@@ -272,16 +272,16 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			CreateFunc: func(e event.CreateEvent) bool { return false },
 			DeleteFunc: func(e event.DeleteEvent) bool { return false },
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldCvi, oldOk := e.ObjectOld.(*virtv2.ClusterVirtualImage)
-				newCvi, newOk := e.ObjectNew.(*virtv2.ClusterVirtualImage)
+				oldVMC, oldOk := e.ObjectOld.(*virtv2.VirtualMachineClass)
+				newVMC, newOk := e.ObjectNew.(*virtv2.VirtualMachineClass)
 				if !oldOk || !newOk {
 					return false
 				}
-				return oldCvi.Status.Phase != newCvi.Status.Phase
+				return !reflect.DeepEqual(oldVMC, newVMC)
 			},
 		},
 	); err != nil {
-		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
+		return fmt.Errorf("error setting watch on VirtualMachineClass SizePolicy: %w", err)
 	}
 
 	return nil
