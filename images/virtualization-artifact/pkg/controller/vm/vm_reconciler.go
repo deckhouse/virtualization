@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -254,7 +253,9 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				indexer.IndexFieldVMByClass: class.GetName(),
 			})
 			if err != nil {
-				slog.Default().Error("ERROR")
+				log := logger.FromContext(ctx)
+				log.Error(err.Error())
+				return nil
 			}
 
 			requests := make([]reconcile.Request, len(vms.Items))
