@@ -100,7 +100,6 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 			Reason(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
-		changed.Status.IPAddress = ipAddress.Status.Address
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -111,6 +110,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 					hasClaimedIP := false
 					for _, ip := range iface.IPs {
 						if ip == ipAddress.Status.Address {
+							changed.Status.IPAddress = ipAddress.Status.Address
 							hasClaimedIP = true
 						}
 					}
