@@ -36,6 +36,7 @@ git:
     includePaths:
     - patches
     - unpack-bundle.sh
+    - bazel-build-binaries.sh
     excludePaths:
     - patches/README.md
 shell:
@@ -47,32 +48,42 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+  - echo "========== Build CDI binaries ============"
+  - echo Start time
+  - date
+  - time /entrypoint.sh /bazel-build-binaries.sh
+  - echo End time
+  - date
+  - du -h /containerized-data-importer/bazel*
+  - ls -la .
+  - ls -la bazel-bin
+  - find bazel-bin
   - echo "========== Build CDI images ============"
   - echo Start time
-  - time
-  - /entrypoint.sh make bazel-build-images DOCKER=0
+  - date
+  - time /entrypoint.sh make bazel-build-images DOCKER=0
   - echo End time
-  - time
+  - date
   - echo find cdi-controller
   - find / -type f -name cdi-controller
   - echo find cdi-operator
   - find / -type f -name cdi-operator
-  #- echo find images tars
+
+    #- echo find images tars
   #- find / -type f -name '*.tar'
   - du -shc /containerized-data-importer/*
   - echo "Calculate garbage size after first build"
   - du -shc /root/.cache /containerized-data-importer /tmp/*
   - echo "====== Create tar bundle with CDI images ========"
-  - echo Start time
-  - time
-  - /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
+  - date Start time
+  - time /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
   - echo End time
-  - time
+  - date
   - echo "======  Unpack CDI images into /  ======"
   - tar tf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
+  - time tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - du -shc /containerized-data-importer/*
-  - mkdir -p /images && cd /images && /unpack-bundle.sh /container-images-bundle/
+  - mkdir -p /images && cd /images && time /unpack-bundle.sh /container-images-bundle/
   - du -shc /images/* || true
   - du -shc /container-images-bundle/*
   # reduce image size (~12Gb)

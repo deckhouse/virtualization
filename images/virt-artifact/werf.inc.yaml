@@ -55,7 +55,14 @@ shell:
   - mkdir -p _out
 
   - echo "========== Build kubevirt images ============"
-  - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
+  - date
+  - time make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
+  - echo Stop date
+  - date
+  - du -h /kubevirt/_out
+  - ls -la .
+  - echo bazel dirs
+  - du -h /kubevirt/bazel*
 
   - echo find virt-handler
   - find / -type f -name virt-handler
@@ -63,13 +70,13 @@ shell:
   - find / -type f -name virt-operator
 
   - echo "=============== Build virtctl ==============="
-  - /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
+  - time /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
 
   - echo "======  Unpack kubevirt images into /  ======"
   - tar tf /kubevirt/_out/virt-components-bundle.tar
-  - tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
+  - time tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
   - du -shc /virt-components-bundle/*
-  - mkdir -p /images && cd /images && /unpack-bundle.sh /virt-components-bundle/
+  - mkdir -p /images && cd /images && time /unpack-bundle.sh /virt-components-bundle/
   - du -shc /images/*
   - du -shc /virt-components-bundle/*
   # reduce image size (~17Gb)
