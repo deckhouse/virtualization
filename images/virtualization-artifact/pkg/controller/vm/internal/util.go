@@ -39,18 +39,17 @@ func isDeletion(vm *virtv2.VirtualMachine) bool {
 type updaterProtection func(p *service.ProtectionService) func(ctx context.Context, objs ...client.Object) error
 
 func addAllUnknown(vm *virtv2.VirtualMachine, conds ...vmcondition.Type) (update bool) {
-	//nolint:staticcheck
-	mgr := conditions.NewManager(vm.Status.Conditions)
-	for _, c := range conds {
-		if add := mgr.Add(conditions.NewConditionBuilder(c).
+	for _, cond := range conds {
+		if conditions.HasCondition(cond, vm.Status.Conditions) {
+			continue
+		}
+		cb := conditions.NewConditionBuilder(cond).
 			Generation(vm.GetGeneration()).
 			Reason(vmcondition.ReasonUnknown).
-			Status(metav1.ConditionUnknown).
-			Condition()); add {
-			update = true
-		}
+			Status(metav1.ConditionUnknown)
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		update = true
 	}
-	vm.Status.Conditions = mgr.Generate()
 	return
 }
 

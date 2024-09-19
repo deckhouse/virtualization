@@ -408,3 +408,8 @@ const (
 	ProvisioningTypeUserDataRef ProvisioningType = "UserDataRef"
 	ProvisioningTypeSysprepRef  ProvisioningType = "SysprepRef"
 )
+
+const (
+	SecretTypeCloudInit corev1.SecretType = "provisioning.virtualization.deckhouse.io/cloud-init"
+	SecretTypeSysprep   corev1.SecretType = "provisioning.virtualization.deckhouse.io/sysprep"
+)
