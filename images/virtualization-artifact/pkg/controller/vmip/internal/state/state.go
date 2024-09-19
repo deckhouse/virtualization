@@ -118,7 +118,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 			return nil, fmt.Errorf("unable to get VM %s: %w", vmKey, err)
 		}
 
-		if vm.Status.VirtualMachineIPAddress == s.vmip.Name {
+		if vm.Status.VirtualMachineIPAddress == s.vmip.Name && vm.Status.IPAddress == s.vmip.Status.Address {
 			s.vm = vm
 		}
 	}
