@@ -230,12 +230,8 @@ spec:
                       coreFractions:
                         description: Allowed values of the `coreFraction` parameter.
                         items:
-                          enum:
-                            - 5
-                            - 10
-                            - 20
-                            - 50
-                            - 100
+                          maximum: 100
+                          minimum: 1
                           type: integer
                         type: array
                       cores:
