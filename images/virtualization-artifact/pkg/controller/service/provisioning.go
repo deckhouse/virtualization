@@ -49,7 +49,9 @@ var cloudInitCheckKeys = []string{
 }
 
 func NewProvisioningValidator(reader client.Reader) *ProvisioningValidator {
-	return &ProvisioningValidator{}
+	return &ProvisioningValidator{
+		reader: reader,
+	}
 }
 
 type ProvisioningValidator struct {
