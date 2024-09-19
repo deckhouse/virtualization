@@ -102,15 +102,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 		}
 
 		err = ds.diskService.Start(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-		if err != nil {
-			if errors.Is(err, service.ErrStorageClassNotFound) {
-				vd.Status.Phase = virtv2.DiskProvisioning
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vdcondition.ProvisioningFailed
-				condition.Message = "Provided StorageClass not found in the cluster."
-				return false, nil
-			}
-
+		if updated, err := setPhaseConditionFromStorageError(err, vd, condition); err != nil || updated {
 			return false, err
 		}
 
