@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -31,13 +30,10 @@ import (
 const ProtectionHandlerName = "ProtectionHandler"
 
 type ProtectionHandler struct {
-	client client.Client
 }
 
-func NewProtectionHandler(client client.Client) *ProtectionHandler {
-	return &ProtectionHandler{
-		client: client,
-	}
+func NewProtectionHandler() *ProtectionHandler {
+	return &ProtectionHandler{}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
