@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -75,7 +76,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		cb.Reason(vmcondition.ReasonSizingPolicyMatched).
 			Status(metav1.ConditionTrue)
 	} else {
-		cb.Message(err.Error()).
+		cb.Message(fmt.Sprintf("Size policy matching errors: %s.", err.Error())).
 			Reason(vmcondition.ReasonSizingPolicyNotMatched).
 			Status(metav1.ConditionFalse)
 	}
