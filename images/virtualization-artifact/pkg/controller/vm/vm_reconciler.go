@@ -253,11 +253,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				indexer.IndexFieldVMByClass: class.GetName(),
 			})
 			if err != nil {
-				logger.SlogErr(fmt.Errorf(
-					"error retrieving virtual machines during the search for virtual machines belongieng changed class, %q: %w",
-					class.Name,
-					err,
-				))
+				log := logger.FromContext(ctx)
+				log.Error(
+					"error retrieving virtual machines during the search for virtual machines belongieng changed class: ",
+					logger.SlogErr(err),
+				)
 				return nil
 			}
 
