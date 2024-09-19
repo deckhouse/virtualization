@@ -29,20 +29,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var (
-	ErrSecretIsNotValid = errors.New("secret is not valid")
-)
+var ErrSecretIsNotValid = errors.New("secret is not valid")
 
-type ErrSecretNotFound string
+type SecretNotFoundError string
 
-func (e ErrSecretNotFound) Error() string {
-	return fmt.Sprintf("secret %s not found", e)
+func (e SecretNotFoundError) Error() string {
+	return fmt.Sprintf("secret %s not found", string(e))
 }
 
-type ErrUnexpectedSecretType string
+type UnexpectedSecretTypeError string
 
-func (e ErrUnexpectedSecretType) Error() string {
-	return fmt.Sprintf("unexpected secret type %s", e)
+func (e UnexpectedSecretTypeError) Error() string {
+	return fmt.Sprintf("unexpected secret type: %s", string(e))
 }
 
 var cloudInitCheckKeys = []string{
@@ -63,7 +61,7 @@ func (v ProvisioningValidator) Validate(ctx context.Context, key types.Namespace
 	err := v.reader.Get(ctx, key, secret)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return ErrSecretNotFound(key.String())
+			return SecretNotFoundError(key.String())
 		}
 		return err
 	}
@@ -73,7 +71,7 @@ func (v ProvisioningValidator) Validate(ctx context.Context, key types.Namespace
 	case v1alpha2.SecretTypeSysprep:
 		return v.validateSysprepSecret(secret)
 	default:
-		return ErrUnexpectedSecretType(secret.Type)
+		return UnexpectedSecretTypeError(secret.Type)
 	}
 }
 

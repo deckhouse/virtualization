@@ -122,8 +122,8 @@ func (h *ProvisioningHandler) Name() string {
 
 func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
 	var (
-		errUnexpectedSecretType service.ErrUnexpectedSecretType
-		errSecretNotFound       service.ErrSecretNotFound
+		errUnexpectedSecretType service.UnexpectedSecretTypeError
+		errSecretNotFound       service.SecretNotFoundError
 	)
 	err := h.validator.Validate(ctx, secretKey)
 
