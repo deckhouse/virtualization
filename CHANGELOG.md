@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.13.1](https://github.com/deckhouse/virtualization/compare/v0.13.0...v0.13.1) (2024-09-19)
+
+
+### Features
+
+* **gc:** leave only last 10 resources ([#368](https://github.com/deckhouse/virtualization/issues/368)) ([3d66dc6](https://github.com/deckhouse/virtualization/commit/3d66dc6eec0479d06f4c77edf691957dadf9d0f8))
+* **vm-route-forge:** add routes for subnets in blackhole ([#365](https://github.com/deckhouse/virtualization/issues/365)) ([51cd316](https://github.com/deckhouse/virtualization/commit/51cd31662f93433521126dcb9f15ac4efa855e2b))
+* **vm,vmclass:** sizingPolicy compatibility validation ([#359](https://github.com/deckhouse/virtualization/issues/359)) ([4228efe](https://github.com/deckhouse/virtualization/commit/4228efe65a3785d223b79d3d9f59f4e3f14e51fe))
+* **vm:** round the runtimeOverhead to Mi ([#367](https://github.com/deckhouse/virtualization/issues/367)) ([3f2d886](https://github.com/deckhouse/virtualization/commit/3f2d886a7928467b3cf9c01553d20daf68854782))
+
+
+### Bug Fixes
+
+* **api:** add rbac patch for ingress and fix vd reconciliation ([f98dba8](https://github.com/deckhouse/virtualization/commit/f98dba861142a6c363d50ae4e70a5eb4c944f1a4))
+* **api:** set target for upload data source ([634da84](https://github.com/deckhouse/virtualization/commit/634da844dce64e611b43285efb893fbe3e4765d7))
+* **api:** wait for uploader to be ready to process user's upload ([460246b](https://github.com/deckhouse/virtualization/commit/460246b129cf24c4bef8b31b15aef7214135246e))
+* **vi:** fix panic when creating vi from vd ([#384](https://github.com/deckhouse/virtualization/issues/384)) ([62f8e47](https://github.com/deckhouse/virtualization/commit/62f8e47b88f8a1f4a1a5c53185296b56b59bf30d))
+* **vmbda:** allow wffc hotplugs ([e155f4e](https://github.com/deckhouse/virtualization/commit/e155f4e5e4f5268731028a65cc9d7a423d5c5883))
+
+
+### Miscellaneous Chores
+
+* release 0.14.0 ([#393](https://github.com/deckhouse/virtualization/issues/393)) ([8b3a841](https://github.com/deckhouse/virtualization/commit/8b3a841f18775008273571344a9e20eae531c653))
+
 ## [0.13.0](https://github.com/deckhouse/virtualization/compare/v0.12.3...v0.13.0) (2024-09-11)
 
 
