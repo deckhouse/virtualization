@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
+fromImage: {{ $.Images.BASE_ALT_P11 }}
 import:
 - image: cdi-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
