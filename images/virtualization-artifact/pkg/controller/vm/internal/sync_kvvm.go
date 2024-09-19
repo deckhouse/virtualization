@@ -323,10 +323,9 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	kvvmName := common.NamespacedName(current)
 
 	kvvmOpts := kvbuilder.KVVMOptions{
-		EnableParavirtualization:  current.Spec.EnableParavirtualization,
-		OsType:                    current.Spec.OsType,
-		ForceBridgeNetworkBinding: os.Getenv("FORCE_BRIDGE_NETWORK_BINDING") == "1",
-		DisableHypervSyNIC:        os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
+		EnableParavirtualization: current.Spec.EnableParavirtualization,
+		OsType:                   current.Spec.OsType,
+		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}
 
 	kvvm, err := s.KVVM(ctx)
