@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -182,14 +183,9 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
-		if err != nil {
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
-			return false, err
-		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, sc.GetName(), source, vi, supgen)
-		if err != nil {
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}
 
