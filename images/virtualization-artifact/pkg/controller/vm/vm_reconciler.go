@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -239,52 +240,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	// Subscribe on VirtualMachineClass size policy change.
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineClass{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			class, ok := object.(*virtv2.VirtualMachineClass)
-			if !ok {
-				return nil
-			}
-
-			c := mgr.GetClient()
-			vms := &virtv2.VirtualMachineList{}
-			err := c.List(ctx, vms, client.MatchingFields{
-				indexer.IndexFieldVMByClass: class.GetName(),
-			})
-			if err != nil {
-				log := logger.FromContext(ctx)
-				log.Error(
-					"error retrieving virtual machines during the search for virtual machines belonging changed class",
-					logger.SlogErr(err),
-				)
-				return nil
-			}
-
-			requests := make([]reconcile.Request, len(vms.Items))
-			for i, vm := range vms.Items {
-				requests[i] = reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      vm.Name,
-						Namespace: vm.Namespace,
-					},
-				}
-			}
-			return requests
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMC, oldOk := e.ObjectOld.(*virtv2.VirtualMachineClass)
-				newVMC, newOk := e.ObjectNew.(*virtv2.VirtualMachineClass)
-				if !oldOk || !newOk {
-					return false
-				}
-				return !reflect.DeepEqual(oldVMC.Spec.SizingPolicies, newVMC.Spec.SizingPolicies)
-			},
-		},
-	); err != nil {
+	vmClassWatcher := watcher.NewVirtualMachineClassWatcher()
+	if err := vmClassWatcher.Watch(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineClass SizePolicy: %w", err)
 	}
 
