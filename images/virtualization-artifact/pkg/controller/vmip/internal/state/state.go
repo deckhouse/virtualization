@@ -113,9 +113,13 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 	var err error
 	if s.vmip.Status.VirtualMachine != "" {
 		vmKey := types.NamespacedName{Name: s.vmip.Status.VirtualMachine, Namespace: s.vmip.Namespace}
-		s.vm, err = helper.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
+		vm, err := helper.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VM %s: %w", vmKey, err)
+		}
+
+		if vm.Status.VirtualMachineIPAddress == s.vmip.Name {
+			s.vm = vm
 		}
 	}
 
