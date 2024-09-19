@@ -68,7 +68,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 			Status(metav1.ConditionTrue)
 	} else {
 		cb.Message(err.Error()).
-			Reason(vmcondition.ReasonSizingPolicyMatched).
+			Reason(vmcondition.ReasonSizingPolicyNotMatched).
 			Status(metav1.ConditionFalse)
 	}
 
