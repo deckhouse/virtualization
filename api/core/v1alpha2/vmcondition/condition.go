@@ -89,5 +89,5 @@ const (
 	ReasonFilesystemNotReady Reason = "NotReady"
 
 	ReasonSizingPolicyMatched    Reason = "SizingPolicyMatched"
-	ReasonSizingPolicyNotMatched Reason = "SizingNotPolicyMatched"
+	ReasonSizingPolicyNotMatched Reason = "SizingPolicyNotMatched"
 )
