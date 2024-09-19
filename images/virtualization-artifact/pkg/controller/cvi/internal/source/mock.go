@@ -992,6 +992,9 @@ var _ Stat = &StatMock{}
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
 //				panic("mock out the IsUploadStarted method")
 //			},
+//			IsUploaderReadyFunc: func(pod *corev1.Pod, ing *netv1.Ingress) bool {
+//				panic("mock out the IsUploaderReady method")
+//			},
 //		}
 //
 //		// use mockedStat in code that requires Stat
@@ -1022,6 +1025,9 @@ type StatMock struct {
 
 	// IsUploadStartedFunc mocks the IsUploadStarted method.
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
+
+	// IsUploaderReadyFunc mocks the IsUploaderReady method.
+	IsUploaderReadyFunc func(pod *corev1.Pod, ing *netv1.Ingress) bool
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1075,6 +1081,13 @@ type StatMock struct {
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
 		}
+		// IsUploaderReady holds details about calls to the IsUploaderReady method.
+		IsUploaderReady []struct {
+			// Pod is the pod argument value.
+			Pod *corev1.Pod
+			// Ing is the ing argument value.
+			Ing *netv1.Ingress
+		}
 	}
 	lockCheckPod         sync.RWMutex
 	lockGetCDROM         sync.RWMutex
@@ -1084,6 +1097,7 @@ type StatMock struct {
 	lockGetProgress      sync.RWMutex
 	lockGetSize          sync.RWMutex
 	lockIsUploadStarted  sync.RWMutex
+	lockIsUploaderReady  sync.RWMutex
 }
 
 // CheckPod calls CheckPodFunc.
@@ -1359,5 +1373,41 @@ func (mock *StatMock) IsUploadStartedCalls() []struct {
 	mock.lockIsUploadStarted.RLock()
 	calls = mock.calls.IsUploadStarted
 	mock.lockIsUploadStarted.RUnlock()
+	return calls
+}
+
+// IsUploaderReady calls IsUploaderReadyFunc.
+func (mock *StatMock) IsUploaderReady(pod *corev1.Pod, ing *netv1.Ingress) bool {
+	if mock.IsUploaderReadyFunc == nil {
+		panic("StatMock.IsUploaderReadyFunc: method is nil but Stat.IsUploaderReady was just called")
+	}
+	callInfo := struct {
+		Pod *corev1.Pod
+		Ing *netv1.Ingress
+	}{
+		Pod: pod,
+		Ing: ing,
+	}
+	mock.lockIsUploaderReady.Lock()
+	mock.calls.IsUploaderReady = append(mock.calls.IsUploaderReady, callInfo)
+	mock.lockIsUploaderReady.Unlock()
+	return mock.IsUploaderReadyFunc(pod, ing)
+}
+
+// IsUploaderReadyCalls gets all the calls that were made to IsUploaderReady.
+// Check the length with:
+//
+//	len(mockedStat.IsUploaderReadyCalls())
+func (mock *StatMock) IsUploaderReadyCalls() []struct {
+	Pod *corev1.Pod
+	Ing *netv1.Ingress
+} {
+	var calls []struct {
+		Pod *corev1.Pod
+		Ing *netv1.Ingress
+	}
+	mock.lockIsUploaderReady.RLock()
+	calls = mock.calls.IsUploaderReady
+	mock.lockIsUploaderReady.RUnlock()
 	return calls
 }

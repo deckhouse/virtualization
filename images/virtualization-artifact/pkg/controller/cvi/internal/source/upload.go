@@ -75,12 +75,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		return false, err
 	}
 
-	if cvi.Status.UploadCommand == "" {
-		if ing != nil && ing.Annotations[common.AnnUploadURL] != "" {
-			cvi.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
-		}
-	}
-
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
@@ -179,15 +173,24 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	default:
+	case ds.statService.IsUploaderReady(pod, ing):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.WaitForUserUpload
 		condition.Message = "Waiting for the user upload."
 
 		cvi.Status.Phase = virtv2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
+		cvi.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
 
-		log.Info("WaitForUserUpload...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
+		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
+	default:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = cvicondition.ProvisioningNotStarted
+		condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
+
+		cvi.Status.Phase = virtv2.ImagePending
+
+		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
 
 	return true, nil

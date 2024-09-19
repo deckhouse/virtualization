@@ -90,12 +90,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		return false, err
 	}
 
-	if vd.Status.UploadCommand == "" {
-		if ing != nil && ing.Annotations[common.AnnUploadURL] != "" {
-			vd.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
-		}
-	}
-
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -158,12 +152,23 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		}
 
 		if !ds.statService.IsUploadStarted(vd.GetUID(), pod) {
-			log.Info("Waiting for user upload", "podPhase", pod.Status.Phase)
+			if ds.statService.IsUploaderReady(pod, ing) {
+				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
-			vd.Status.Phase = virtv2.DiskWaitForUserUpload
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdcondition.WaitForUserUpload
-			condition.Message = "Waiting for the user upload."
+				vd.Status.Phase = virtv2.DiskWaitForUserUpload
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vdcondition.WaitForUserUpload
+				condition.Message = "Waiting for the user upload."
+
+				vd.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
+			} else {
+				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
+
+				vd.Status.Phase = virtv2.DiskPending
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vdcondition.ProvisioningNotStarted
+				condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
+			}
 
 			return true, nil
 		}
