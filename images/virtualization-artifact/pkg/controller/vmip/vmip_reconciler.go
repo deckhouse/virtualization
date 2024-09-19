@@ -108,9 +108,7 @@ func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Obje
 		Namespace:     vm.GetNamespace(),
 		LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineName: vm.GetName()}),
 	})
-
 	if err != nil {
-		logger.FromContext(ctx).Error("failed to list VirtualMachineIPAddress: %w", err)
 		return nil
 	}
 

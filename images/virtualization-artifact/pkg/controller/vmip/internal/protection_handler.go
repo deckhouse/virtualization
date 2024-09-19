@@ -29,8 +29,7 @@ import (
 
 const ProtectionHandlerName = "ProtectionHandler"
 
-type ProtectionHandler struct {
-}
+type ProtectionHandler struct{}
 
 func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
