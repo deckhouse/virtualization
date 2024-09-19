@@ -137,8 +137,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 
 		return requeue, nil
 	case !common.IsPodComplete(pod):
-		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
-
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vd.Status.Phase = virtv2.DiskFailed
@@ -167,8 +165,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			condition.Reason = vdcondition.WaitForUserUpload
 			condition.Message = "Waiting for the user upload."
 
-			return false, nil
+			return true, nil
 		}
+
+		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
