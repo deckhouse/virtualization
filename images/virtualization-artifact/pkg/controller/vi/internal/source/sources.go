@@ -230,3 +230,30 @@ func setPhaseConditionFromPodError(ready *metav1.Condition, vi *virtv2.VirtualIm
 		return err
 	}
 }
+
+func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, service.ErrStorageProfileNotFound):
+		vi.Status.Phase = virtv2.ImageFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
+		return true, nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not found in the cluster."
+		return true, nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		vi.Status.Phase = virtv2.ImageFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return true, nil
+	default:
+		return false, err
+	}
+}

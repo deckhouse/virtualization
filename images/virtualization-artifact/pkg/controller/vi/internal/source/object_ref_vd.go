@@ -21,8 +21,10 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -177,7 +179,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 }
 
 func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
-	log, _ := logger.GetDataSourceContext(ctx, objectRefDataSource)
+	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
@@ -223,14 +225,13 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			},
 		}
 
-		sc, err := ds.diskService.GetStorageClass(ctx, &ds.storageClassForPVC)
+		size, err := resource.ParseQuantity(vdRef.Status.Capacity)
 		if err != nil {
-			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 			return false, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, *vdRef.Spec.PersistentVolumeClaim.Size, sc.GetName(), source, vi, supgen)
-		if err != nil {
+		err = ds.diskService.StartImmediate(ctx, size, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
 			return false, err
 		}
 
@@ -255,8 +256,8 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		condition.Message = ""
 
 		var imageStatus virtv2.ImageStatusSize
-		imageStatus.Stored = vdRef.Spec.PersistentVolumeClaim.Size.String()
-		imageStatus.Unpacked = vdRef.Spec.PersistentVolumeClaim.Size.String()
+		imageStatus.Stored = vdRef.Status.Capacity
+		imageStatus.Unpacked = vdRef.Status.Capacity
 		vi.Status.Size = imageStatus
 
 		vi.Status.Format = imageformat.FormatRAW

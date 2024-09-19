@@ -134,20 +134,6 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 
 const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
 
-func isPodStarted(pod *corev1.Pod) bool {
-	if pod == nil || pod.Status.StartTime == nil {
-		return false
-	}
-
-	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Started == nil || !*cs.Started {
-			return false
-		}
-	}
-
-	return true
-}
-
 func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
 	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
 		virtv1.VirtualMachineStatusErrImagePull,
