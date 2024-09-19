@@ -374,6 +374,26 @@ func CreateCloneSourcePodName(obj UIDable) string {
 	return string(obj.GetUID()) + common.ClonerSourcePodNameSuffix
 }
 
+// IsPodRunning returns true if a Pod is in 'Running' phase, false if not.
+func IsPodRunning(pod *corev1.Pod) bool {
+	return pod != nil && pod.Status.Phase == corev1.PodRunning
+}
+
+// IsPodStarted returns true if a Pod is in started state, false if not.
+func IsPodStarted(pod *corev1.Pod) bool {
+	if pod == nil || pod.Status.StartTime == nil {
+		return false
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Started == nil || !*cs.Started {
+			return false
+		}
+	}
+
+	return true
+}
+
 // IsPodComplete returns true if a Pod is in 'Succeeded' phase, false if not.
 func IsPodComplete(pod *corev1.Pod) bool {
 	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
