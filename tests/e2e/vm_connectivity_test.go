@@ -75,7 +75,7 @@ func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDRes
 func CheckExternalConnection(sshKeyPath, host, httpCode string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
-		By(fmt.Sprintf("Response code from %s should be %s for %s", host, httpCode, vm))
+		By(fmt.Sprintf("Response code from %s should be is %s for %s", host, httpCode, vm))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
 		CheckResultSshCommand(vm, cmd, httpCode, sshKeyPath)
 	}
