@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -82,31 +84,44 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}), &handler.EnqueueRequestForObject{})
 }
 
-func (r *Reconciler) enqueueRequestsFromVMs(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Object) []reconcile.Request {
 	vm, ok := obj.(*virtv2.VirtualMachine)
 	if !ok {
 		return nil
 	}
 
+	var requests []reconcile.Request
 	if vm.Spec.VirtualMachineIPAddress == "" {
-		return []reconcile.Request{
-			{
-				NamespacedName: types.NamespacedName{
-					Namespace: vm.Namespace,
-					Name:      vm.Name,
-				},
-			},
-		}
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name:      vm.Name,
+			Namespace: vm.Namespace,
+		}})
+	} else {
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.VirtualMachineIPAddress,
+		}})
 	}
 
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Namespace: vm.Namespace,
-				Name:      vm.Spec.VirtualMachineIPAddress,
-			},
-		},
+	vmipList := &virtv2.VirtualMachineIPAddressList{}
+	err := r.client.List(ctx, vmipList, &client.ListOptions{
+		Namespace:     vm.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineName: vm.GetName()}),
+	})
+
+	if err != nil {
+		logger.FromContext(ctx).Error("failed to list VirtualMachineIPAddress: %w", err)
+		return nil
 	}
+
+	for _, vmip := range vmipList.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Namespace: vmip.Namespace,
+			Name:      vmip.Name,
+		}})
+	}
+
+	return requests
 }
 
 func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Object) []reconcile.Request {
