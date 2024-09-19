@@ -19,6 +19,7 @@ package validators
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -27,19 +28,37 @@ import (
 )
 
 type SizingPolicyValidator struct {
+	client  client.Client
 	service *service.SizePolicyService
 }
 
 func NewSizingPolicyValidator(client client.Client) *SizingPolicyValidator {
 	return &SizingPolicyValidator{
-		service: service.NewSizePolicyService(client),
+		client:  client,
+		service: service.NewSizePolicyService(),
 	}
 }
 
 func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.service.CheckVMMatchedSizePolicy(ctx, vm)
+	vmClass := &v1alpha2.VirtualMachineClass{}
+	err := v.client.Get(ctx, types.NamespacedName{
+		Name: vm.Spec.VirtualMachineClassName,
+	}, vmClass)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, v.service.CheckVMMatchedSizePolicy(vm, vmClass)
 }
 
 func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.service.CheckVMMatchedSizePolicy(ctx, newVM)
+	vmClass := &v1alpha2.VirtualMachineClass{}
+	err := v.client.Get(ctx, types.NamespacedName{
+		Name: newVM.Spec.VirtualMachineClassName,
+	}, vmClass)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, v.service.CheckVMMatchedSizePolicy(newVM, vmClass)
 }
