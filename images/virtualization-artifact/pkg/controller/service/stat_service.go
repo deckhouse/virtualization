@@ -24,10 +24,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
@@ -241,6 +243,14 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	}
 
 	return progress.ProgressRaw() > 0
+}
+
+func (s StatService) IsUploaderReady(pod *corev1.Pod, ing *netv1.Ingress) bool {
+	if pod == nil || ing == nil {
+		return false
+	}
+
+	return cc.IsPodRunning(pod) && cc.IsPodStarted(pod) && ing.Annotations[cc.AnnUploadURL] != ""
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {
