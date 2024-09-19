@@ -22,13 +22,14 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (
@@ -83,8 +84,9 @@ func init() {
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
-		fmt.Sprintf("%s/%s", conf.VirtualizationResources, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.Connectivity, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VirtualizationResources, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 	}
 	for _, filePath := range kustomizationFiles {
 		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
@@ -108,6 +110,6 @@ func TestTests(t *testing.T) {
 func Cleanup() {
 	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
 	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
-		Labels: map[string]string{"testcase": namePrefix},
+		Labels: map[string]string{"id": namePrefix},
 	})
 }

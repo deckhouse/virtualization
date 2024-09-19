@@ -22,10 +22,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 func GetFilesDir(yamlPath string) []string {

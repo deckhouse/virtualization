@@ -22,9 +22,10 @@ import (
 	"os"
 	"strconv"
 
+	yamlv3 "gopkg.in/yaml.v3"
+
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 var (
@@ -115,15 +116,20 @@ type KustomizeLabel struct {
 }
 
 type Config struct {
-	ClusterTransport        ClusterTransport `yaml:"clusterTransport"`
-	Disks                   DisksConf        `yaml:"disks"`
-	VM                      VmConf           `yaml:"vm"`
-	Ipam                    IpamConf         `yaml:"ipam"`
-	HelperImages            HelperImages     `yaml:"helperImages"`
-	Namespace               string           `yaml:"namespaceSuffix"`
-	VirtualizationResources string           `yaml:"virtualizationResources"`
-	Connectivity            string           `yaml:"connectivity"`
-	Sshkeys                 string           `yaml:"sshKeys"`
+	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
+	Disks            DisksConf        `yaml:"disks"`
+	VM               VmConf           `yaml:"vm"`
+	Ipam             IpamConf         `yaml:"ipam"`
+	HelperImages     HelperImages     `yaml:"helperImages"`
+	Namespace        string           `yaml:"namespaceSuffix"`
+	TestData         TestData         `yaml:"testData"`
+}
+
+type TestData struct {
+	VirtualizationResources string `yaml:"virtualizationResources"`
+	Connectivity            string `yaml:"connectivity"`
+	VmConfiguration         string `yaml:"vmConfiguration"`
+	Sshkeys                 string `yaml:"sshKeys"`
 }
 
 type ClusterTransport struct {
@@ -199,7 +205,6 @@ func (c *Config) setEnvs() error {
 		c.Ipam.TestDataDir = e
 	}
 	return nil
-
 }
 
 func GetNamePrefix() (string, error) {
@@ -233,13 +238,13 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 
 	kustomizeFile.Namespace = namespace
 	kustomizeFile.NamePrefix = namePrefix + "-"
-	kustomizeFile.Labels[0].Pairs["testcase"] = namePrefix
+	kustomizeFile.Labels[0].Pairs["id"] = namePrefix
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr
 	}
 
-	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0644)
+	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0o644)
 	if writeErr != nil {
 		return writeErr
 	}

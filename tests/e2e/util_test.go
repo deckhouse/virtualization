@@ -30,13 +30,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 type ApplyWaitGetOptions struct {
@@ -57,7 +56,6 @@ func ItApplyWaitGet(filepath string, options ApplyWaitGetOptions) {
 	ItApplyFromFile(filepath)
 	ItWaitFromFile(filepath, phase, timeout)
 	ItChekStatusPhaseFromFile(filepath, phase)
-
 }
 
 func ItApplyFromFile(filepath string) {
@@ -65,7 +63,6 @@ func ItApplyFromFile(filepath string) {
 	It("Apply resource from file", func() {
 		ApplyFromFile(filepath)
 	})
-
 }
 
 func ApplyFromFile(filepath string) {
@@ -81,6 +78,7 @@ func ItWaitFromFile(filepath, phase string, timeout time.Duration) {
 		WaitFromFile(filepath, phase, timeout)
 	})
 }
+
 func WaitFromFile(filepath, phase string, timeout time.Duration) {
 	GinkgoHelper()
 	For := "jsonpath={.status.phase}=" + phase
@@ -111,7 +109,8 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 			} else {
 				res = kubectl.GetResource(fullName, u.GetName(), kc.GetOptions{
 					Output:    output,
-					Namespace: u.GetNamespace()})
+					Namespace: u.GetNamespace(),
+				})
 			}
 			Expect(res.Error()).NotTo(HaveOccurred(),
 				"get failed resource %s %s/%s.\n%s",
@@ -125,11 +124,11 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 	}
 }
 
-func WaitResource(resource kc.Resource, name, For string, timeout time.Duration) {
+func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Duration) {
 	GinkgoHelper()
 	waitOpts := kc.WaitOptions{
 		Namespace: conf.Namespace,
-		For:       For,
+		For:       waitFor,
 		Timeout:   timeout,
 	}
 	res := kubectl.WaitResources(resource, waitOpts, name)
@@ -146,7 +145,7 @@ func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
 		res.StdErr())
 }
 
-func MergePatchResource(resource kc.Resource, name string, patch string) {
+func MergePatchResource(resource kc.Resource, name, patch string) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace:  conf.Namespace,
@@ -169,10 +168,12 @@ func CheckField(resource kc.Resource, name, output, compareValue string) {
 type VirtualMachine struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              VirtualMachineSpec `json:"spec"`
+	Spec              VirtualMachineSpec   `json:"spec"`
+	Status            VirtualMachineStatus `json:"status"`
 }
 
 type VirtualMachineSpec struct {
+	CPU                              CPUSpec             `json:"cpu"`
 	RunPolicy                        RunPolicy           `json:"runPolicy"`
 	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
 	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
@@ -182,6 +183,20 @@ type VirtualMachineSpec struct {
 	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
 
 	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
+}
+
+type CPUSpec struct {
+	CoreFraction string `json:"coreFraction"`
+	Cores        int    `json:"cores"`
+}
+
+type VirtualMachineStatus struct {
+	RestartAwaitingChanges []RestartAwaitingChange `json:"restartAwaitingChanges,omitempty"`
+}
+
+type RestartAwaitingChange struct {
+	Operation string `json:"operation"`
+	Path      string `json:"path"`
 }
 
 type RunPolicy string
@@ -205,8 +220,21 @@ func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
 	return &vm, nil
 }
 
-func ChmodFile(pathFile string, permission os.FileMode) {
+func GetVirtualMachine(name, namespace string) (*VirtualMachine, error) {
+	GinkgoHelper()
+	getVmCmd := kubectl.GetResource(kc.ResourceVM, name, kc.GetOptions{Namespace: namespace, Output: "json"})
+	if getVmCmd.Error() != nil {
+		return nil, fmt.Errorf(getVmCmd.StdErr())
+	}
+	var vmResource VirtualMachine
+	unmarshalErr := json.Unmarshal(getVmCmd.StdOutBytes(), &vmResource)
+	if unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+	return &vmResource, nil
+}
 
+func ChmodFile(pathFile string, permission os.FileMode) {
 	stats, err := os.Stat(pathFile)
 	if err != nil {
 		log.Fatal(err)
@@ -220,24 +248,20 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitPhase(resource, phase string) {
+func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
 	GinkgoHelper()
-	resourceType := kc.Resource(resource)
 	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
 
-	res := kubectl.List(resourceType, kc.GetOptions{
-		Namespace: conf.Namespace,
-		Output:    "jsonpath='{.items[*].metadata.name}'",
-	})
+	res := kubectl.List(resource, opts)
 	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
 	waitOpts := kc.WaitOptions{
-		Namespace: conf.Namespace,
+		Namespace: opts.Namespace,
 		For:       jsonPath,
 		Timeout:   600,
 	}
-	waitResult := kubectl.WaitResources(resourceType, waitOpts, resources...)
+	waitResult := kubectl.WaitResources(resource, waitOpts, resources...)
 	Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
 }
 

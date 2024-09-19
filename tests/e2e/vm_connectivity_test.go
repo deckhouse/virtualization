@@ -24,28 +24,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"sigs.k8s.io/yaml"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
 	CurlPod           = "curl-helper"
-	Timeout           = 40 * time.Second
+	Timeout           = 90 * time.Second
 	Interval          = 5 * time.Second
 	externalHost      = "https://flant.com"
 	nginxActiveStatus = "active"
 )
 
-var (
-	httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
-)
+var httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
 
 type PodEntrypoint struct {
 	Command string
@@ -117,7 +114,7 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 	Context("Resources", func() {
 		When("Resources applied", func() {
 			It("Result must have no error", func() {
-				res := kubectl.Kustomize(conf.Connectivity, kc.KustomizeOptions{})
+				res := kubectl.Kustomize(conf.TestData.Connectivity, kc.KustomizeOptions{})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 			})
 		})
@@ -153,11 +150,11 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		vm1Name := fmt.Sprintf("%s-vm1", namePrefix)
 		vm2Name := fmt.Sprintf("%s-vm2", namePrefix)
 
-		svc1Path := fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.Connectivity)
-		svc2Path := fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.Connectivity)
+		svc1Path := fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.TestData.Connectivity)
+		svc2Path := fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.TestData.Connectivity)
 
-		sshKeyPath := fmt.Sprintf("%s/id_ed", conf.Sshkeys)
-		ChmodFile(sshKeyPath, 0600)
+		sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
+		ChmodFile(sshKeyPath, 0o600)
 
 		svc1, err := getSVC(svc1Path)
 		Expect(err).NotTo(HaveOccurred(), err)

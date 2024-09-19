@@ -4,9 +4,13 @@ namespace: testcases
 namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
+  - vi
+  - overlays/automatic
+  - overlays/manual
 configurations:
   - transformer.yaml
 labels:
   - includeSelectors: true
     pairs:
       id: pr-number-or-commit-hash
+      testcase: vm-configuration

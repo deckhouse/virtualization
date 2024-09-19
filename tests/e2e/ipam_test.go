@@ -43,7 +43,6 @@ var _ = Describe("Ipam", func() {
 		DeleteVMIP := func(manifest string) {
 			res := kubectl.Delete(manifest, kc.DeleteOptions{})
 			Expect(res.Error()).NotTo(HaveOccurred(), "failed delete vmip from file %s.\n%s", manifest, res.StdErr())
-
 		}
 		When("reclaimPolicy Delete", func() {
 			filepath := ipamPath("vmip-delete.yaml")
@@ -56,7 +55,6 @@ var _ = Describe("Ipam", func() {
 				Expect(res.Error()).To(HaveOccurred())
 				Expect(res.StdErr()).To(ContainSubstring("not found"))
 			})
-
 		})
 		When("reclaimPolicy Retain", func() {
 			filepath := ipamPath("vmip-retain.yaml")
