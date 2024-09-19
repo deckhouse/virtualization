@@ -206,15 +206,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
-		if err != nil {
-			if errors.Is(err, service.ErrStorageClassNotFound) {
-				vi.Status.Phase = virtv2.ImageProvisioning
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = "Provided StorageClass not found in the cluster."
-				return false, nil
-			}
-
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}
 
