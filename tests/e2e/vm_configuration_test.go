@@ -47,7 +47,7 @@ func ExecSshCommand(vmName, cmd, key string) {
 			Username:    "cloud",
 			IdenityFile: key,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
@@ -84,14 +84,14 @@ func CheckCPUCoresNumberFromVirtualMachine(requiredValue, key string, virtualMac
 
 var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, func() {
 	Context("When resources are applied:", func() {
-		It("must has no errors", func() {
+		It("must have no errors", func() {
 			res := kubectl.Kustomize(conf.TestData.VmConfiguration, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
 
 	Context("When virtual disks are applied:", func() {
-		It(fmt.Sprintf("should be is in %s phase", PhaseReady), func() {
+		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
 				Labels:    map[string]string{"testcase": "vm-configuration"},
 				Namespace: conf.Namespace,
@@ -101,7 +101,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 	})
 
 	Context("When virtual machines are applied:", func() {
-		It(fmt.Sprintf("should be is in %s phase", PhaseRunning), func() {
+		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 				Labels:    map[string]string{"testcase": "vm-configuration"},
 				Namespace: conf.Namespace,
@@ -142,7 +142,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 
 		Context("When virtual machine is restarted:", func() {
 			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-			It(fmt.Sprintf("should be is in %s phase", PhaseRunning), func() {
+			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    ManualLabel,
 					Namespace: conf.Namespace,
@@ -211,7 +211,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		})
 
 		Context("When virtual machine is restarted:", func() {
-			It(fmt.Sprintf("should be is in %s phase", PhaseRunning), func() {
+			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 					Labels:    AutomaticLabel,
 					Namespace: conf.Namespace,
