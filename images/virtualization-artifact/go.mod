@@ -1,8 +1,6 @@
 module github.com/deckhouse/virtualization-controller
 
-go 1.22.0
-
-toolchain go1.22.7
+go 1.22.7
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
