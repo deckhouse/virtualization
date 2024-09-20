@@ -100,7 +100,9 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 			Reason(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
-		changed.Status.IPAddress = ipAddress.Status.Address
+		if changed.Status.Phase != virtv2.MachineRunning {
+			changed.Status.IPAddress = ipAddress.Status.Address
+		}
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
