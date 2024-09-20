@@ -66,11 +66,6 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			Reason(vmipcondition.VirtualMachineNotFound).
 			Message("Virtual machine not found").
 			Condition())
-	} else {
-		vmipStatus.VirtualMachine = vm.Name
-		mgr.Update(conditionAttach.Status(metav1.ConditionTrue).
-			Reason(vmipcondition.Attached).
-			Condition())
 	}
 
 	lease, err := state.VirtualMachineIPLease(ctx)
@@ -96,6 +91,15 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
 				Message("VirtualMachineIPAddressLease is not found").
+				Condition())
+		}
+
+	case vm != nil && vm.DeletionTimestamp == nil:
+		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
+			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
+			vmipStatus.VirtualMachine = vm.Name
+			mgr.Update(conditionAttach.Status(metav1.ConditionTrue).
+				Reason(vmipcondition.Attached).
 				Condition())
 		}
 
