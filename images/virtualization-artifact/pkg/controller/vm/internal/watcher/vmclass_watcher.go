@@ -45,15 +45,10 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	return ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineClass{}),
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			class, ok := object.(*virtv2.VirtualMachineClass)
-			if !ok {
-				return nil
-			}
-
 			c := mgr.GetClient()
 			vms := &virtv2.VirtualMachineList{}
 			err := c.List(ctx, vms, client.MatchingFields{
-				indexer.IndexFieldVMByClass: class.GetName(),
+				indexer.IndexFieldVMByClass: object.GetName(),
 			})
 			if err != nil {
 				log := logger.FromContext(ctx)
