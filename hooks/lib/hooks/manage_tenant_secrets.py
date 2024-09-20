@@ -74,15 +74,29 @@ class ManageTenantSecretsHook(Hook):
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
+                # {
+                #     "name": self.NAMESPACE_SNAPSHOT_NAME,
+                #     "apiVersion": "v1",
+                #     "kind": "Secret",
+                #     "includeSnapshotsFrom": [
+                #         self.POD_SNAPSHOT_NAME,
+                #         self.SECRETS_SNAPSHOT_NAME,
+                #         self.NAMESPACE_SNAPSHOT_NAME
+                #     ],
+                #     "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}',
+                #     "queue": self.queue,
+                #     "keepFullObjectsInMemory": False
+                # },
                 {
                     "name": self.NAMESPACE_SNAPSHOT_NAME,
                     "apiVersion": "v1",
-                    "kind": "Secret",
-                    "includeSnapshotsFrom": [
-                        self.POD_SNAPSHOT_NAME,
-                        self.SECRETS_SNAPSHOT_NAME,
-                        self.NAMESPACE_SNAPSHOT_NAME
-                    ],
+                    "kind": "Namespace",
+                    "group": "namespaces",
+                    # "includeSnapshotsFrom": [
+                    #     self.POD_SNAPSHOT_NAME,
+                    #     self.SECRETS_SNAPSHOT_NAME,
+                    #     self.NAMESPACE_SNAPSHOT_NAME
+                    # ],
                     "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
@@ -111,7 +125,9 @@ class ManageTenantSecretsHook(Hook):
             for ns in ctx.snapshots.get(self.NAMESPACE_SNAPSHOT_NAME, []):
                 if ns["filterResult"]["isTerminating"]:
                     pod_namespaces.discard(ns["filterResult"]["name"])
+
             data, secret_type, secrets_by_ns = "", "", {}
+
             for s in secrets:
                 if s["filterResult"]["namespace"] == self.source_namespace:
                     data = s["filterResult"]["data"]
