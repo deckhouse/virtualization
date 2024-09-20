@@ -46,7 +46,7 @@ index 2852d0bdbe..9790076c1a 100644
 -		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
 +		AbsPath(vmiSubresourceVirtualizationURL).
  		Namespace(c.ns).
- 		Resource("virtualmachineinstances").
+ 		Resource("virtualmachines").
  		Name(name).
 @@ -286,7 +289,7 @@ func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string,
  	}
@@ -55,5 +55,5 @@ index 2852d0bdbe..9790076c1a 100644
 -		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
 +		AbsPath(vmiSubresourceVirtualizationURL).
  		Namespace(c.ns).
- 		Resource("virtualmachineinstances").
+ 		Resource("virtualmachines").
  		Name(name).
