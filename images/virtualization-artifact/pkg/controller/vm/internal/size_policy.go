@@ -21,14 +21,12 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -41,7 +39,6 @@ func NewSizePolicyHandler(client client.Client) *SizePolicyHandler {
 }
 
 type SizePolicyHandler struct {
-	client  client.Client
 	service *service.SizePolicyService
 }
 
@@ -60,10 +57,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, nil
 	}
 
-	vmClass := &v1alpha2.VirtualMachineClass{}
-	err := h.client.Get(ctx, types.NamespacedName{
-		Name: changed.Spec.VirtualMachineClassName,
-	}, vmClass)
+	vmClass, err := s.Class(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
