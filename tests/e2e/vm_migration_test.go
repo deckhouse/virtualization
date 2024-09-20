@@ -65,7 +65,7 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string, 
 
 var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func() {
 	Context("When resources are applied:", func() {
-		It("must has no errors", func() {
+		It("must have no errors", func() {
 			res := kubectl.Kustomize(conf.TestData.VmMigration, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -73,7 +73,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be are in %s phases", PhaseReady))
+			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
 				Labels:    MigrationLabel,
 				Namespace: conf.Namespace,
@@ -84,7 +84,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be are in %s phases", PhaseRunning))
+			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 				Labels:    MigrationLabel,
 				Namespace: conf.Namespace,
@@ -108,14 +108,14 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 	})
 
 	Context("When VMs migrations are applied:", func() {
-		It("checks VMs and INTVIRTVMIMs phases", func() {
-			By(fmt.Sprintf("INTVIRTVMIMs should be are in %s phases", PhaseSucceeded))
+		It("checks VMs and KubevirtVMIMs phases", func() {
+			By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
 			WaitPhase(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.GetOptions{
 				Labels:    MigrationLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			By(fmt.Sprintf("Virtual machines should be are in %s phase", PhaseRunning))
+			By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 				Labels:    MigrationLabel,
 				Namespace: conf.Namespace,

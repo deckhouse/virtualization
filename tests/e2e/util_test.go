@@ -229,7 +229,7 @@ func GetVirtualMachineMigrationManifest(manifest string) (*VirtualMachineMigrati
 	}
 
 	var migration *VirtualMachineMigration
-	unmarshalErr := yamlv3.Unmarshal(data, &migration)
+	unmarshalErr := yamlv3.Unmarshal(data, migration)
 	if unmarshalErr != nil {
 		return nil, unmarshalErr
 	}

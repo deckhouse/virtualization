@@ -70,7 +70,7 @@ func FilterVms(vms, excludedVms []string) []string {
 
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("When virtualization resources are applied:", func() {
-		It("must has no error", func() {
+		It("must have no errors", func() {
 			res := kubectl.Kustomize(conf.TestData.VirtualizationResources, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -78,7 +78,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual images are applied:", func() {
 		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be are in %s phases", PhaseReady))
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -88,7 +88,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When cluster virtual images are applied:", func() {
 		It("checks CVIs phases", func() {
-			By(fmt.Sprintf("CVIs should be are in %s phases", PhaseReady))
+			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceCVI, PhaseReady, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -98,7 +98,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be are in %s phases", PhaseReady))
+			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -115,7 +115,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 			MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 		})
 		It("checks VMIPs phases", func() {
-			By(fmt.Sprintf("VMIPs should be are in %s phases", PhaseBound))
+			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseBound))
 			WaitPhase(kc.ResourceVMIP, PhaseBound, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -125,7 +125,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be are in %s phases", PhaseRunning))
+			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -135,7 +135,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual machine block device attachments are applied:", func() {
 		It("checks VMBDAs phases", func() {
-			By(fmt.Sprintf("VMBDAs should be are in %s phases", PhaseAttached))
+			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -178,13 +178,13 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		})
 
 		Context("When VMs migrations are applied:", func() {
-			It("checks VMs and INTVIRTVMIMs phases", func() {
-				By(fmt.Sprintf("INTVIRTVMIMs should be are in %s phases", PhaseSucceeded))
+			It("checks VMs and KubevirtVMIMs phases", func() {
+				By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
 				WaitPhase(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.GetOptions{
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				By(fmt.Sprintf("VMs should be are in %s phase", PhaseRunning))
+				By(fmt.Sprintf("VMs should be in %s phase", PhaseRunning))
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
