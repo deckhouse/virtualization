@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	lesser int = iota - 1
-	equal
-	greater
+	lesser  = -1
+	equal   = 0
+	greater = 1
 )
 
 type SizePolicyService struct{}
