@@ -42,7 +42,7 @@ func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool 
 		return false
 	}
 
-	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
+	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound && vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
 		return false
 	}
 
