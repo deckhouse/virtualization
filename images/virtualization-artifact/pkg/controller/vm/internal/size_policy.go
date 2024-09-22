@@ -74,11 +74,11 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	switch {
 	case vmClass == nil:
-		cb.Message(fmt.Sprintf("Virtual machine class %s is not exists.", changed.Spec.VirtualMachineClassName)).
+		cb.Message(fmt.Sprintf(" VirtualMachineClassName %q not found.", changed.Spec.VirtualMachineClassName)).
 			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
 			Status(metav1.ConditionFalse)
 	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
-		cb.Message(fmt.Sprintf("Virtual machine class %s is terminating.", vmClass.Name)).
+		cb.Message(fmt.Sprintf("Virtual machine class %q is terminating.", vmClass.Name)).
 			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
 			Status(metav1.ConditionFalse)
 	default:

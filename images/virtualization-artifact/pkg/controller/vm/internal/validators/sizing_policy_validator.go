@@ -51,7 +51,7 @@ func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2
 	if err != nil {
 		if errors.IsNotFound(err) {
 			warnings = append(warnings, fmt.Sprintf(
-				"The VM class %s does not exist; it may not have been created yet. Until it is created, the VM will remain in a pending status.",
+				"The VM class %q does not exist; it may not have been created yet. Until it is created, the VM will remain in a pending status.",
 				vm.Spec.VirtualMachineClassName,
 			))
 			return warnings, nil
@@ -77,7 +77,7 @@ func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1
 	if err != nil {
 		if errors.IsNotFound(err) {
 			warnings = append(warnings, fmt.Sprintf(
-				"The VM class %s does not exist; it may not have been created yet. Until it is created, the VM will remain in a pending status.",
+				"The VM class %q does not exist; it may not have been created yet. Until it is created, the VM will remain in a pending status.",
 				newVM.Spec.VirtualMachineClassName,
 			))
 			return warnings, nil
