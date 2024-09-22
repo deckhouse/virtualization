@@ -88,6 +88,8 @@ const (
 	ReasonFilesystemFrozen   Reason = "Frozen"
 	ReasonFilesystemNotReady Reason = "NotReady"
 
-	ReasonSizingPolicyMatched    Reason = "SizingPolicyMatched"
-	ReasonSizingPolicyNotMatched Reason = "SizingPolicyNotMatched"
+	ReasonSizingPolicyMatched            Reason = "SizingPolicyMatched"
+	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
+	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
+	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
 )

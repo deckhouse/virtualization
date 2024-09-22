@@ -71,7 +71,7 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 			return requests
 		}),
 		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
+			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return false },
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVMC, oldOk := e.ObjectOld.(*virtv2.VirtualMachineClass)

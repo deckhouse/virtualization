@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -27,6 +28,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -58,21 +61,36 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	vmClass, err := s.Class(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+	if err != nil && !errors.IsNotFound(err) {
+		log := logger.FromContext(ctx)
+		log.Error(
+			"An unknown error occurred while retrieving the VM class.",
+			logger.SlogErr(err),
+		)
 	}
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeSizingPolicyMatched).
 		Generation(current.GetGeneration())
 
-	err = h.service.CheckVMMatchedSizePolicy(changed, vmClass)
-	if err == nil {
-		cb.Reason(vmcondition.ReasonSizingPolicyMatched).
-			Status(metav1.ConditionTrue)
-	} else {
-		cb.Message(fmt.Sprintf("Size policy matching errors: %s.", err.Error())).
-			Reason(vmcondition.ReasonSizingPolicyNotMatched).
+	switch {
+	case vmClass == nil:
+		cb.Message(fmt.Sprintf("Virtual machine class %s is not exists.", changed.Spec.VirtualMachineClassName)).
+			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
 			Status(metav1.ConditionFalse)
+	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
+		cb.Message(fmt.Sprintf("Virtual machine class %s is terminating.", vmClass.Name)).
+			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
+			Status(metav1.ConditionFalse)
+	default:
+		err = h.service.CheckVMMatchedSizePolicy(changed, vmClass)
+		if err == nil {
+			cb.Reason(vmcondition.ReasonSizingPolicyMatched).
+				Status(metav1.ConditionTrue)
+		} else {
+			cb.Message(fmt.Sprintf("Size policy matching errors: %s.", err.Error())).
+				Reason(vmcondition.ReasonSizingPolicyNotMatched).
+				Status(metav1.ConditionFalse)
+		}
 	}
 
 	conditions.SetCondition(cb, &changed.Status.Conditions)
