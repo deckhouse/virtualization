@@ -19,7 +19,6 @@ package ipam
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,16 +53,17 @@ func (m IPAM) CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.Virt
 		return errors.New("cannot to bind with empty ip address")
 	}
 
-	boundVMName := vmip.Status.VirtualMachine
-	if boundVMName == "" || boundVMName == vmName {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"unable to bind the ip address (%s) to the virtual machine (%s): the ip address has already been linked to another one",
-		vmip.Name,
-		vmName,
-	)
+	return nil
+	//boundVMName := vmip.Status.VirtualMachine
+	//if boundVMName == "" || boundVMName == vmName {
+	//	return nil
+	//}
+	//
+	//return fmt.Errorf(
+	//	"unable to bind the ip address (%s) to the virtual machine (%s): the ip address has already been linked to another one",
+	//	vmip.Name,
+	//	vmName,
+	//)
 }
 
 func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
