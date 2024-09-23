@@ -162,8 +162,8 @@ shell:
     [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-launcher/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/virt-launcher"]
+#docker:
+#  ENTRYPOINT: ["/usr/bin/virt-launcher"]
 ---
 image: {{ $.ImageName }}-lib-builder
 final: false
