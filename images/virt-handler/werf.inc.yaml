@@ -8,10 +8,7 @@ shell:
     apt-get update && apt-get install --yes \
     apt-conf-branch \
     alt-gpgkeys \
-    selinux-policy-alt \
-    libaltselinux \
     acl \
-    findutils \
     nftables \
     qemu-img==9.0.2-alt2 \
     xorriso==1.5.6-alt1 \

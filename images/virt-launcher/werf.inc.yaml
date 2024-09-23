@@ -116,11 +116,8 @@ shell:
     alt-gpgkeys \
     acl \
     ethtool \
-    findutils \
     nftables \
     xorriso \
-    selinux-policy-alt \
-    libaltselinux \
     passt \
     seabios \
     libffi8 \

@@ -23,8 +23,6 @@ shell:
     apt-conf-branch \
     alt-gpgkeys \
     acl \
-    selinux-policy-alt \
-    libaltselinux \
     python3-dev \
     seabios \
     edk2-ovmf \
