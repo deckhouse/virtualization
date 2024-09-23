@@ -18,8 +18,10 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -121,6 +123,12 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
 		if err != nil {
+			if k8serrors.IsForbidden(err) {
+				condition.Status = metav1.ConditionFalse
+				condition.Reason = vdcondition.ResizingNotAvailable
+				condition.Message = fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error())
+				return reconcile.Result{}, nil
+			}
 			return reconcile.Result{}, err
 		}
 
