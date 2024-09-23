@@ -158,7 +158,8 @@ shell:
   # Create links to required for virt-launcher libs.
   - ln -s /lib64/libcrypt.so.2.0.0 /lib64/libcrypt.so.2
   - ln -s /lib64/libpcre.so.1.2.13 /lib64/libpcre.so.1
-  - ln -s /bin/cp /usr/bin/cp
+  - |
+    [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-launcher/BUILD.bazel
 docker:
