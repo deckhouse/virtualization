@@ -236,6 +236,7 @@ metadata:
   name: sysprep-config
 data:
   unattend.xml: XXXx # base64 файла ответов
+type: "provisioning.virtualization.deckhouse.io/sysprep"
 ```
 
 Затем можно создать виртуальную машину, которая в процессе установке будет использовать файл ответов.

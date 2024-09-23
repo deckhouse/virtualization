@@ -196,6 +196,7 @@ metadata:
   name: sysprep-config
 data:
   unattend.xml: XXXx # base64 of answer file
+type: "provisioning.virtualization.deckhouse.io/sysprep"
 ```
 
 Then create a virtual machine with unattended installation:

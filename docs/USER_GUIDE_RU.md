@@ -479,7 +479,7 @@ metadata:
   namespace: vms
 data:
   userData: # Тут cloud-init-конфиг в Base64.
-type: Opaque
+type: "provisioning.virtualization.deckhouse.io/cloud-init"
 ```
 
 Спецификация виртуальной машины будет выглядеть следующим образом:
