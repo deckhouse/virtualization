@@ -64,7 +64,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	if err != nil && !errors.IsNotFound(err) {
 		log := logger.FromContext(ctx)
 		log.Error(
-			"An unknown error occurred while retrieving the VM class.",
+			"An error occurred while retrieving the VM class.",
 			logger.SlogErr(err),
 		)
 	}

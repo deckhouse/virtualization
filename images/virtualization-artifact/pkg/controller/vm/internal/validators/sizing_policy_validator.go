@@ -58,7 +58,7 @@ func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2
 		} else {
 			log := logger.FromContext(ctx)
 			log.Error(
-				"An unknown error occurred while retrieving the VM class.",
+				"An error occurred while retrieving the VM class.",
 				logger.SlogErr(err),
 			)
 			return nil, err
@@ -84,7 +84,7 @@ func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1
 		} else {
 			log := logger.FromContext(ctx)
 			log.Error(
-				"An unknown error occurred while retrieving the VM class.",
+				"An error occurred while retrieving the VM class.",
 				logger.SlogErr(err),
 			)
 			return nil, err
