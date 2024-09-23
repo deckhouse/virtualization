@@ -91,11 +91,8 @@ tasks:
     cmds:
       - task: lint:doc-ru
       - task: lint:prettier:yaml
-      - task: virtualization-controller:dvcr:_ensure:golangci-lint
       - task: virtualization-controller:dvcr:lint
-      - task: virtualization-controller:dvcr:lint:go
       - task: virtualization-controller:lint
-      - task: virtualization-controller:lint:go
 
   lint:doc-ru:
     desc: "Check the correspondence between description fields in the original crd and the Russian language version"
