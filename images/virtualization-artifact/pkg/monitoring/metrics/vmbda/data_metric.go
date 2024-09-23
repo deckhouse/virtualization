@@ -16,13 +16,20 @@ limitations under the License.
 
 package vmbda
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"strings"
+
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Phase     virtv2.BlockDeviceAttachmentPhase
+	Name        string
+	Namespace   string
+	UID         string
+	Phase       virtv2.BlockDeviceAttachmentPhase
+	Labels      map[string]string
+	Annotations map[string]string
 }
 
 // DO NOT mutate VirtualMachineBlockDeviceAttachment!
@@ -36,5 +43,11 @@ func newDataMetric(vmbda *virtv2.VirtualMachineBlockDeviceAttachment) *dataMetri
 		Namespace: vmbda.Namespace,
 		UID:       string(vmbda.UID),
 		Phase:     vmbda.Status.Phase,
+		Labels: util.WrapPrometheusLabels(vmbda.GetLabels(), "label", func(key, value string) bool {
+			return false
+		}),
+		Annotations: util.WrapPrometheusLabels(vmbda.GetAnnotations(), "annotation", func(key, _ string) bool {
+			return strings.HasPrefix(key, "kubectl.kubernetes.io")
+		}),
 	}
 }

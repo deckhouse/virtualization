@@ -22,6 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	metricutil "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -36,10 +37,12 @@ type scraper struct {
 }
 
 func (s *scraper) Report(m *dataMetric) {
-	s.updateDiskStatusPhaseMetrics(m)
+	s.updateMetricDiskStatusPhase(m)
+	s.updateMetricDiskLabels(m)
+	s.updateMetricDiskAnnotations(m)
 }
 
-func (s *scraper) updateDiskStatusPhaseMetrics(m *dataMetric) {
+func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
 		phase = virtv2.DiskPending
@@ -65,16 +68,40 @@ func (s *scraper) updateDiskStatusPhaseMetrics(m *dataMetric) {
 	}
 }
 
+func (s *scraper) updateMetricDiskLabels(m *dataMetric) {
+	s.updateDynamic(MetricDiskLabels, 1, m, nil, m.Labels)
+}
+
+func (s *scraper) updateMetricDiskAnnotations(m *dataMetric) {
+	s.updateDynamic(MetricDiskAnnotations, 1, m, nil, m.Annotations)
+}
+
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
-	desc := diskMetrics[descName]
+	info := diskMetrics[descName]
 	metric, err := prometheus.NewConstMetric(
-		desc,
+		info.Desc,
 		prometheus.GaugeValue,
 		value,
 		WithBaseLabelsByMetric(m, labels...)...,
 	)
 	if err != nil {
-		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", desc, err))
+		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
+		return
+	}
+	s.ch <- metric
+}
+
+func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
+	info := diskMetrics[name]
+	metric, err := metricutil.NewDynamicMetric(
+		info.Desc,
+		info.Type,
+		value,
+		WithBaseLabelsByMetric(m, labelValues...),
+		extraLabels,
+	)
+	if err != nil {
+		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
 	s.ch <- metric
