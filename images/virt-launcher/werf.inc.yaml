@@ -214,7 +214,7 @@ shell:
   install:
   # Build libcrypto.so.3 and libssl.so.3.
   - cd /tmp/openssl
-  - ./Configure
+  - ./config no-docs
   - make && make install
 ---
 image: {{ $.ImageName }}-pcre-builder
