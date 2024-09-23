@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -32,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -104,10 +103,10 @@ func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Obje
 	}
 
 	vmipList := &virtv2.VirtualMachineIPAddressList{}
-	err := r.client.List(ctx, vmipList, &client.ListOptions{
-		Namespace:     vm.GetNamespace(),
-		LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineName: vm.GetName()}),
-	})
+	err := r.client.List(ctx, vmipList, client.InNamespace(vm.Namespace),
+		&client.MatchingFields{
+			indexer.IndexFieldVMIPByVM: vm.Name,
+		})
 	if err != nil {
 		return nil
 	}
