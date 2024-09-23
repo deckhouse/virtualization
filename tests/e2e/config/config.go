@@ -130,6 +130,7 @@ type TestData struct {
 	Connectivity            string `yaml:"connectivity"`
 	VmConfiguration         string `yaml:"vmConfiguration"`
 	VmMigration             string `yaml:"vmMigration"`
+	VmDiskAttachment        string `yaml:"vmDiskAttachment"`
 	Sshkeys                 string `yaml:"sshKeys"`
 }
 

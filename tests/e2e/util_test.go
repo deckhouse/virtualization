@@ -222,19 +222,23 @@ func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
 	return &vm, nil
 }
 
-func GetVirtualMachineMigrationManifest(manifest string) (*VirtualMachineMigration, error) {
+type Resource interface {
+	VirtualMachineMigration | VirtualMachineBlockDeviceAttachment
+}
+
+func GetManifest[T Resource](manifest string) (*T, error) {
 	data, err := os.ReadFile(manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	var migration *VirtualMachineMigration
-	unmarshalErr := yamlv3.Unmarshal(data, migration)
+	var resource T
+	unmarshalErr := yamlv3.Unmarshal(data, &resource)
 	if unmarshalErr != nil {
 		return nil, unmarshalErr
 	}
 
-	return migration, nil
+	return &resource, nil
 }
 
 func GetVirtualMachine(name, namespace string) (*VirtualMachine, error) {

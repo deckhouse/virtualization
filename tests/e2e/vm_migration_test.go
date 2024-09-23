@@ -35,7 +35,7 @@ func MigrateVirtualMachines(virtualMachines ...string) {
 	GinkgoHelper()
 	migrationFilesPath := fmt.Sprintf("%s/migrations", conf.TestData.VmMigration)
 	templatePath := fmt.Sprintf("%s/vm-migration.yaml", migrationFilesPath)
-	template, err := GetVirtualMachineMigrationManifest(templatePath)
+	template, err := GetManifest[VirtualMachineMigration](templatePath)
 	Expect(err).NotTo(HaveOccurred(), err)
 	for _, vm := range virtualMachines {
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)

@@ -17,16 +17,16 @@ limitations under the License.
 package resourses
 
 type VirtualMachineMigration struct {
-	ApiVersion string            `yaml:"apiVersion"`
-	Kind       string            `yaml:"kind"`
-	Metadata   MigrationMetadata `yaml:"metadata"`
-	Spec       MigrationSpec     `yaml:"spec"`
-	Status     MigrationStatus   `yaml:"status,omitempty"`
+	ApiVersion string          `yaml:"apiVersion"`
+	Kind       string          `yaml:"kind"`
+	Metadata   Metadata        `yaml:"metadata"`
+	Spec       MigrationSpec   `yaml:"spec"`
+	Status     MigrationStatus `yaml:"status,omitempty"`
 }
 
-type MigrationMetadata struct {
+type Metadata struct {
 	Name   string            `yaml:"name"`
-	Labels map[string]string `yaml:"labels"`
+	Labels map[string]string `yaml:"labels,omitempty"`
 }
 
 type MigrationSpec struct {
@@ -35,4 +35,21 @@ type MigrationSpec struct {
 
 type MigrationStatus struct {
 	Phase string `yaml:"phase,omitempty"`
+}
+
+type VirtualMachineBlockDeviceAttachment struct {
+	ApiVersion string                                  `yaml:"apiVersion"`
+	Kind       string                                  `yaml:"kind"`
+	Metadata   Metadata                                `yaml:"metadata"`
+	Spec       VirtualMachineBlockDeviceAttachmentSpec `yaml:"spec"`
+}
+
+type VirtualMachineBlockDeviceAttachmentSpec struct {
+	VirtualMachineName string         `yaml:"virtualMachineName"`
+	BlockDeviceRef     BlockDeviceRef `yaml:"blockDeviceRef"`
+}
+
+type BlockDeviceRef struct {
+	Kind string `yaml:"kind"`
+	Name string `yaml:"name"`
 }

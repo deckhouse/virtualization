@@ -88,6 +88,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
 	}
 	for _, filePath := range kustomizationFiles {
 		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
