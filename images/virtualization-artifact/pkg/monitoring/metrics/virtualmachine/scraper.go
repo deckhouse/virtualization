@@ -22,6 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	metricutil "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -36,20 +37,23 @@ type scraper struct {
 }
 
 func (s *scraper) Report(m *dataMetric) {
-	s.updateVMStatusPhaseMetrics(m)
-	s.updateVMCpuCoresMetrics(m)
-	s.updateVMCpuCoreFractionMetrics(m)
-	s.updateVMCpuRequestedCoresMetrics(m)
-	s.updateVMCpuRuntimeOverheadMetrics(m)
-	s.updateVMMemorySizeMetrics(m)
-	s.updateVMMemoryRuntimeOverheadMetrics(m)
-	s.updateVMAwaitingRestartToApplyConfigurationMetrics(m)
-	s.updateVMConfigurationAppliedMetrics(m)
-	s.updateVMConfigurationRunPolicyMetrics(m)
-	s.updateVMPodMetrics(m)
+	s.updateMetricVirtualMachineStatusPhase(m)
+	s.updateMetricVirtualMachineCpuCores(m)
+	s.updateMetricVirtualMachineConfigurationCpuCores(m)
+	s.updateMetricVirtualMachineCpuCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCpuCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m)
+	s.updateMetricVirtualMachineConfigurationMemoryRuntimeOverhead(m)
+	s.updateMetricVirtualMachineConfigurationMemorySizeBytes(m)
+	s.updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m)
+	s.updateMetricVirtualMachineConfigurationApplied(m)
+	s.updateMetricVirtualMachineConfigurationRunPolicy(m)
+	s.updateMetricVirtualMachinePod(m)
+	s.updateMetricVirtualMachineLabels(m)
+	s.updateMetricVirtualMachineAnnotations(m)
 }
 
-func (s *scraper) updateVMStatusPhaseMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
 		phase = virtv2.MachinePending
@@ -74,47 +78,52 @@ func (s *scraper) updateVMStatusPhaseMetrics(m *dataMetric) {
 	}
 }
 
-func (s *scraper) updateVMCpuCoresMetrics(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores,
+func (s *scraper) updateMetricVirtualMachineCpuCores(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineCpuCores,
 		m.CpuCores, m)
 }
 
-func (s *scraper) updateVMCpuCoreFractionMetrics(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction,
+func (s *scraper) updateMetricVirtualMachineConfigurationCpuCores(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores,
+		m.CpuConfigurationCores, m)
+}
+
+func (s *scraper) updateMetricVirtualMachineCpuCoreFraction(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineCpuCoreFraction,
 		m.CpuCoreFraction, m)
 }
 
-func (s *scraper) updateVMCpuRequestedCoresMetrics(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRequestedCores,
-		m.CpuRequestedCores, m)
+func (s *scraper) updateMetricVirtualMachineConfigurationCpuCoreFraction(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction,
+		m.CpuConfigurationCoreFraction, m)
 }
 
-func (s *scraper) updateVMCpuRuntimeOverheadMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
 		m.CpuRuntimeOverhead, m)
 }
 
-func (s *scraper) updateVMMemorySizeMetrics(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationMemorySize,
-		m.MemorySize, m)
-}
-
-func (s *scraper) updateVMMemoryRuntimeOverheadMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationMemoryRuntimeOverhead(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationMemoryRuntimeOverhead,
 		m.MemoryRuntimeOverhead, m)
 }
 
-func (s *scraper) updateVMAwaitingRestartToApplyConfigurationMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationMemorySizeBytes(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationMemorySizeBytes,
+		m.MemoryConfigurationSize, m)
+}
+
+func (s *scraper) updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineAwaitingRestartToApplyConfiguration,
 		util.BoolFloat64(m.AwaitingRestartToApplyConfiguration), m)
 }
 
-func (s *scraper) updateVMConfigurationAppliedMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationApplied(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationApplied,
 		util.BoolFloat64(m.ConfigurationApplied), m)
 }
 
-func (s *scraper) updateVMConfigurationRunPolicyMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric) {
 	policy := m.RunPolicy
 	policies := []struct {
 		value bool
@@ -131,22 +140,46 @@ func (s *scraper) updateVMConfigurationRunPolicyMetrics(m *dataMetric) {
 	}
 }
 
-func (s *scraper) updateVMPodMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachinePod(m *dataMetric) {
 	for _, p := range m.Pods {
 		s.defaultUpdate(MetricVirtualMachinePod, util.BoolFloat64(p.Active), m, p.Name)
 	}
 }
 
-func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
-	desc := virtualMachineMetrics[descName]
+func (s *scraper) updateMetricVirtualMachineLabels(m *dataMetric) {
+	s.updateDynamic(MetricVirtualMachineLabels, 1, m, nil, m.Labels)
+}
+
+func (s *scraper) updateMetricVirtualMachineAnnotations(m *dataMetric) {
+	s.updateDynamic(MetricVirtualMachineAnnotations, 1, m, nil, m.Annotations)
+}
+
+func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {
+	info := virtualMachineMetrics[name]
 	metric, err := prometheus.NewConstMetric(
-		desc,
-		prometheus.GaugeValue,
+		info.Desc,
+		info.Type,
 		value,
-		WithBaseLabelsByMetric(m, labels...)...,
+		WithBaseLabelsByMetric(m, labelValues...)...,
 	)
 	if err != nil {
-		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", desc, err))
+		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
+		return
+	}
+	s.ch <- metric
+}
+
+func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
+	info := virtualMachineMetrics[name]
+	metric, err := metricutil.NewDynamicMetric(
+		info.Desc,
+		info.Type,
+		value,
+		WithBaseLabelsByMetric(m, labelValues...),
+		extraLabels,
+	)
+	if err != nil {
+		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
 	s.ch <- metric

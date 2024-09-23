@@ -32,14 +32,9 @@ const collectorName = "virtualmachine-collector"
 func SetupCollector(reader client.Reader,
 	registerer prometheus.Registerer,
 	log *slog.Logger,
-) *Collector {
-	c := &Collector{
-		iterator: newUnsafeIterator(reader),
-		log:      log.With(logger.SlogCollector(collectorName)),
-	}
-
-	registerer.MustRegister(c)
-	return c
+) {
+	c := NewCollector(reader, log)
+	c.Register(registerer)
 }
 
 type handler func(m *dataMetric) (stop bool)
@@ -48,14 +43,25 @@ type Iterator interface {
 	Iter(ctx context.Context, h handler) error
 }
 
+func NewCollector(reader client.Reader, log *slog.Logger) *Collector {
+	return &Collector{
+		iterator: newUnsafeIterator(reader),
+		log:      log.With(logger.SlogCollector(collectorName)),
+	}
+}
+
 type Collector struct {
 	iterator Iterator
 	log      *slog.Logger
 }
 
+func (c Collector) Register(reg prometheus.Registerer) {
+	reg.MustRegister(c)
+}
+
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {
-	for _, v := range virtualMachineMetrics {
-		ch <- v
+	for _, m := range virtualMachineMetrics {
+		ch <- m.Desc
 	}
 }
 
@@ -68,6 +74,5 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}); err != nil {
 		c.log.Error("Failed to iterate of VirtualMachines", logger.SlogErr(err))
-		return
 	}
 }

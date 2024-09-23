@@ -16,6 +16,25 @@ limitations under the License.
 
 package metrics
 
+import "github.com/prometheus/client_golang/prometheus"
+
 const (
 	MetricNamespace = "d8_virtualization"
 )
+
+type MetricInfo struct {
+	Desc *prometheus.Desc
+	Type prometheus.ValueType
+}
+
+// +nolint: unparam
+func NewMetricInfo(metricName, help string, t prometheus.ValueType, labels []string, constLabels prometheus.Labels) MetricInfo {
+	return MetricInfo{
+		Desc: prometheus.NewDesc(
+			prometheus.BuildFQName(MetricNamespace, "", metricName),
+			help,
+			labels,
+			constLabels),
+		Type: t,
+	}
+}

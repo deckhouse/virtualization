@@ -24,16 +24,19 @@ import (
 
 const (
 	MetricVirtualMachineStatusPhase                         = "virtualmachine_status_phase"
+	MetricVirtualMachineCpuCores                            = "virtualmachine_cpu_cores"
 	MetricVirtualMachineConfigurationCpuCores               = "virtualmachine_configuration_cpu_cores"
+	MetricVirtualMachineCpuCoreFraction                     = "virtualmachine_cpu_core_fraction"
 	MetricVirtualMachineConfigurationCpuCoreFraction        = "virtualmachine_configuration_cpu_core_fraction"
-	MetricVirtualMachineConfigurationCpuRequestedCores      = "virtualmachine_configuration_cpu_requested_cores"
 	MetricVirtualMachineConfigurationCpuRuntimeOverhead     = "virtualmachine_configuration_cpu_runtime_overhead"
-	MetricVirtualMachineConfigurationMemorySize             = "virtualmachine_configuration_memory_size"
+	MetricVirtualMachineConfigurationMemorySizeBytes        = "virtualmachine_configuration_memory_size_bytes"
 	MetricVirtualMachineConfigurationMemoryRuntimeOverhead  = "virtualmachine_configuration_memory_runtime_overhead"
 	MetricVirtualMachineAwaitingRestartToApplyConfiguration = "virtualmachine_awaiting_restart_to_apply_configuration"
 	MetricVirtualMachineConfigurationApplied                = "virtualmachine_configuration_applied"
 	MetricVirtualMachineConfigurationRunPolicy              = "virtualmachine_configuration_run_policy"
 	MetricVirtualMachinePod                                 = "virtualmachine_pod"
+	MetricVirtualMachineLabels                              = "virtualmachine_labels"
+	MetricVirtualMachineAnnotations                         = "virtualmachine_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -55,69 +58,102 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 	return append(base, labels...)
 }
 
-var virtualMachineMetrics = map[string]*prometheus.Desc{
-	MetricVirtualMachineStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineStatusPhase),
+var virtualMachineMetrics = map[string]metrics.MetricInfo{
+	MetricVirtualMachineStatusPhase: metrics.NewMetricInfo(MetricVirtualMachineStatusPhase,
 		"The virtualmachine current phase.",
+		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuCores: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuCores),
+	MetricVirtualMachineCpuCores: metrics.NewMetricInfo(MetricVirtualMachineCpuCores,
 		"The virtualmachine current core count.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuCoreFraction: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuCoreFraction),
+	MetricVirtualMachineConfigurationCpuCores: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuCores,
+		"The virtualmachine desired core count from the spec.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineCpuCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineCpuCoreFraction,
 		"The virtualmachine current coreFraction.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuRequestedCores: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuRequestedCores),
-		"The virtualmachine current requested cores.",
+	MetricVirtualMachineConfigurationCpuCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuCoreFraction,
+		"The virtualmachine desired coreFraction from the spec.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuRuntimeOverhead: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationCpuRuntimeOverhead),
+	MetricVirtualMachineConfigurationCpuRuntimeOverhead: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
 		"The virtualmachine current cpu runtime overhead.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationMemorySize: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationMemorySize),
+	MetricVirtualMachineConfigurationMemorySizeBytes: metrics.NewMetricInfo(MetricVirtualMachineConfigurationMemorySizeBytes,
 		"The virtualmachine current memory size.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationMemoryRuntimeOverhead: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationMemoryRuntimeOverhead),
+	MetricVirtualMachineConfigurationMemoryRuntimeOverhead: metrics.NewMetricInfo(MetricVirtualMachineConfigurationMemoryRuntimeOverhead,
 		"The virtualmachine current memory runtime overhead.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineAwaitingRestartToApplyConfiguration: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineAwaitingRestartToApplyConfiguration),
+	MetricVirtualMachineAwaitingRestartToApplyConfiguration: metrics.NewMetricInfo(MetricVirtualMachineAwaitingRestartToApplyConfiguration,
 		"The virtualmachine awaiting restart to apply configuration.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationApplied: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationApplied),
+	MetricVirtualMachineConfigurationApplied: metrics.NewMetricInfo(MetricVirtualMachineConfigurationApplied,
 		"The virtualmachine configuration applied.",
+		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationRunPolicy: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachineConfigurationRunPolicy),
+	MetricVirtualMachineConfigurationRunPolicy: metrics.NewMetricInfo(MetricVirtualMachineConfigurationRunPolicy,
 		"The virtualmachine current runPolicy.",
+		prometheus.GaugeValue,
 		WithBaseLabels("runPolicy"),
 		nil,
 	),
-	MetricVirtualMachinePod: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVirtualMachinePod),
+
+	MetricVirtualMachinePod: metrics.NewMetricInfo(MetricVirtualMachinePod,
 		"The virtualmachine current active pod.",
+		prometheus.GaugeValue,
 		WithBaseLabels("pod"),
+		nil,
+	),
+
+	MetricVirtualMachineLabels: metrics.NewMetricInfo(MetricVirtualMachineLabels,
+		"Kubernetes labels converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineAnnotations: metrics.NewMetricInfo(MetricVirtualMachineAnnotations,
+		"Kubernetes annotations converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
 		nil,
 	),
 }
