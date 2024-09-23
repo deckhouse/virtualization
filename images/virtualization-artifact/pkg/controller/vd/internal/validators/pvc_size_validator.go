@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -136,23 +135,6 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 
 	if newSize.IsZero() {
 		return nil, fmt.Errorf("virtual disk size must be greater than 0")
-	}
-
-	if pvcName := newVD.Status.Target.PersistentVolumeClaim; pvcName != "" {
-		pvc, err := helper.FetchObject(ctx, types.NamespacedName{
-			Name:      pvcName,
-			Namespace: newVD.GetNamespace(),
-		}, v.client, &corev1.PersistentVolumeClaim{})
-		if err != nil {
-			return nil, err
-		}
-		// When expanding pvc, the image located in the file system is not enlarged.
-		// This is why resizing disks in volume mode Filesystem is not supported.
-		if pvc != nil && pvc.Spec.VolumeMode != nil &&
-			*pvc.Spec.VolumeMode == corev1.PersistentVolumeFilesystem &&
-			!oldSize.Equal(newSize) {
-			return nil, errors.New("resizing disks in volume mode Filesystem is not supported")
-		}
 	}
 
 	if newSize.Cmp(oldSize) == -1 {
