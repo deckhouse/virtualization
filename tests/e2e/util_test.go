@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	yamlv3 "gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	. "github.com/deckhouse/virtualization/tests/e2e/resources"
 )
 
 type ApplyWaitGetOptions struct {
@@ -218,6 +220,21 @@ func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
 		return nil, err
 	}
 	return &vm, nil
+}
+
+func GetVirtualMachineMigrationManifest(manifest string) (*VirtualMachineMigration, error) {
+	data, err := os.ReadFile(manifest)
+	if err != nil {
+		return nil, err
+	}
+
+	var migration *VirtualMachineMigration
+	unmarshalErr := yamlv3.Unmarshal(data, migration)
+	if unmarshalErr != nil {
+		return nil, unmarshalErr
+	}
+
+	return migration, nil
 }
 
 func GetVirtualMachine(name, namespace string) (*VirtualMachine, error) {

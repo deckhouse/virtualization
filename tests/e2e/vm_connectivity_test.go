@@ -105,7 +105,7 @@ func CheckResultSshCommand(vmName, cmd, equal, key string) {
 			Username:    "cloud",
 			IdenityFile: key,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "check ssh failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "result check failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
 		g.Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
