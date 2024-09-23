@@ -81,7 +81,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Message("Provisioning is defined but it is empty.")
 		}
 	case virtv2.ProvisioningTypeUserDataRef:
-		if p.UserDataRef == nil || p.UserDataRef.Kind != "Secret" {
+		if p.UserDataRef == nil || p.UserDataRef.Kind != virtv2.UserDataRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message(`userdataRef must be "Secret"`)
@@ -93,7 +93,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 	case virtv2.ProvisioningTypeSysprepRef:
-		if p.SysprepRef == nil || p.SysprepRef.Kind != "Secret" {
+		if p.SysprepRef == nil || p.SysprepRef.Kind != virtv2.SysprepRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message(`sysprepRef must be "Secret"`)
@@ -129,7 +129,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	case err == nil:
 		builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
 		return nil
-	case errors.Is(err, &errSecretNotFound):
+	case errors.As(err, &errSecretNotFound):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
@@ -201,8 +201,8 @@ func (v provisioningValidator) Validate(ctx context.Context, key types.Namespace
 }
 
 func (v provisioningValidator) validateCloudInitSecret(secret *corev1.Secret) error {
-	if !v.keysIsExist(secret, cloudInitCheckKeys...) {
-		return fmt.Errorf("secret should has one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
+	if !v.hasOneOfKeys(secret, cloudInitCheckKeys...) {
+		return fmt.Errorf("the secret should has one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
 	}
 	return nil
 }
@@ -211,7 +211,7 @@ func (v provisioningValidator) validateSysprepSecret(_ *corev1.Secret) error {
 	return nil
 }
 
-func (v provisioningValidator) keysIsExist(secret *corev1.Secret, checkKeys ...string) bool {
+func (v provisioningValidator) hasOneOfKeys(secret *corev1.Secret, checkKeys ...string) bool {
 	validate := len(checkKeys) == 0
 	for _, key := range checkKeys {
 		if _, ok := secret.Data[key]; ok {
