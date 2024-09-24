@@ -20,25 +20,15 @@ shell:
   # Install main packages, update GPG keys and vendor IDs list.
   - |
     apt-get update && apt-get install --yes \
-    apt-conf-branch \
-    alt-gpgkeys \
     acl \
-    python3-dev \
     seabios \
     edk2-ovmf \
     libvirt-daemon-driver-qemu==10.2.0-alt1 \
     qemu-kvm-core==9.0.2-alt2 \
     libguestfs==1.52.0-alt2 \
     guestfs-tools==1.52.0-alt1
-  - |
-    echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic" > /etc/apt/sources.list.d/alt-sisyphus.list
-    echo "rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic" >> /etc/apt/sources.list.d/alt-sisyphus.list
-  - |
-    apt-get update && apt-get install --yes \
-    python3-module-setuptools==1:70.3.0-alt1:sisyphus+352532.100.2.1
-  # Cleanup
   - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org*
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/libguestfs/BUILD.bazel
 docker:
   ENTRYPOINT: ["/entrypoint.sh"]
