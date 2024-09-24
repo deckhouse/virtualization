@@ -246,7 +246,7 @@ const (
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
-	// LabelVirtualMachineName is a label to link ip address back to virtual machine.
+	// LabelVirtualMachineName is a label to link VirtualMachineOperation to VirtualMachine.
 	LabelVirtualMachineName = LabelsPrefix + "/virtual-machine-name"
 
 	UploaderServiceLabel = "service"
