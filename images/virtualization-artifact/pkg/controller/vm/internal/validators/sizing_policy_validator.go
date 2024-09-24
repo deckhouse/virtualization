@@ -43,6 +43,14 @@ func NewSizingPolicyValidator(client client.Client) *SizingPolicyValidator {
 }
 
 func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	return v.validate(ctx, vm)
+}
+
+func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	return v.validate(ctx, newVM)
+}
+
+func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
 	vmClass := &v1alpha2.VirtualMachineClass{}
 	err := v.client.Get(ctx, types.NamespacedName{
@@ -66,30 +74,4 @@ func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2
 	}
 
 	return nil, v.service.CheckVMMatchedSizePolicy(vm, vmClass)
-}
-
-func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	var warnings admission.Warnings
-	vmClass := &v1alpha2.VirtualMachineClass{}
-	err := v.client.Get(ctx, types.NamespacedName{
-		Name: newVM.Spec.VirtualMachineClassName,
-	}, vmClass)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			warnings = append(warnings, fmt.Sprintf(
-				"The VM class %q does not exist; it may not have been created yet. Until it is created, the virtual machine will remain in a pending status.",
-				newVM.Spec.VirtualMachineClassName,
-			))
-			return warnings, nil
-		} else {
-			log := logger.FromContext(ctx)
-			log.Error(
-				"An error occurred while retrieving the VM class.",
-				logger.SlogErr(err),
-			)
-			return nil, err
-		}
-	}
-
-	return nil, v.service.CheckVMMatchedSizePolicy(newVM, vmClass)
 }
