@@ -48,6 +48,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 	if vm == nil || vm.DeletionTimestamp != nil {
 		log.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+		// TODO: add list all vms with this vmip. And remove finalizer if list == 0. Or add if > 0 (vd -> attache.go)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
 	} else if vmip.GetDeletionTimestamp() == nil {
 		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
