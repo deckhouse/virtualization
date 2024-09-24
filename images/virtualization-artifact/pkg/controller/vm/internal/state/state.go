@@ -304,11 +304,12 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	if vmipName == "" {
 		vmipList := &virtv2.VirtualMachineIPAddressList{}
 
-		err := s.client.List(ctx, vmipList, client.InNamespace(s.vm.Current().GetNamespace()),
+		err := s.client.List(ctx, vmipList,
+			client.InNamespace(s.vm.Current().GetNamespace()),
 			&client.MatchingFields{
 				indexer.IndexFieldVMIPByVM: s.vm.Current().GetName(),
-			})
-
+			},
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list VirtualMachineIPAddress: %w", err)
 		}
