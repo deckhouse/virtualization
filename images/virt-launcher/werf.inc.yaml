@@ -260,8 +260,6 @@ git:
       - '*.bmp'
 shell:
   beforeInstall:
-  # Add SRPM source.
-  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
   # Install build dependencies. No versions required here,
   # because we rebuild SRPM already built by distro authors.
   - |
@@ -287,13 +285,21 @@ shell:
     zlib-devel
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
   install:
   # AltLinux requires building packages by non-root users.
   - useradd builder --shell /bin/bash --create-home --group rpm
+
   # Download and unpack SRPM.
+  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
+  - apt-get update
   - su - builder -c 'apt-get source edk2-ovmf'
+  - apt-get clean
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
   # Add DVP logo into SOURCES.
   - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
+
   # Build RPMs. edk2 package prints a huge log with about 770k lines,
   # we can keep only last 1k lines, it should be enough to get error
   # context and troubleshoot it locally.
