@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -35,7 +34,7 @@ import (
 
 const nameSizePolicyHandler = "SizePolicyHandler"
 
-func NewSizePolicyHandler(client client.Client) *SizePolicyHandler {
+func NewSizePolicyHandler() *SizePolicyHandler {
 	return &SizePolicyHandler{
 		service: service.NewSizePolicyService(),
 	}
@@ -74,7 +73,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	switch {
 	case vmClass == nil:
-		cb.Message(fmt.Sprintf(" VirtualMachineClassName %q not found.", changed.Spec.VirtualMachineClassName)).
+		cb.Message(fmt.Sprintf("VirtualMachineClass %q not found.", changed.Spec.VirtualMachineClassName)).
 			Reason(vmcondition.ReasonVirtualMachineClassNotExists).
 			Status(metav1.ConditionFalse)
 	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
