@@ -51,6 +51,8 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	addAllUnknown(changed, vmcondition.TypeSizingPolicyMatched)
+
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
 	}
