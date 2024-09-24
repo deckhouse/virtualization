@@ -140,6 +140,8 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		if current.Spec.VirtualMachineIPAddress != "" {
 			log.Info(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
 			cb.Message(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
+			mgr.Update(cb.Condition())
+			changed.Status.Conditions = mgr.Generate()
 			return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 		}
 		log.Info("VirtualMachineIPAddress not found: create the new one", slog.String("vmipName", current.GetName()))
