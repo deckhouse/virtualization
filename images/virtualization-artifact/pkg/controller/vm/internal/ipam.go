@@ -162,7 +162,17 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		return reconcile.Result{}, nil
 	}
 
-	// 4. Ip address exists and available for binding with virtual machine: waiting for the ip address.
+	// 4. Ip address exist and attached to another VirtualMachine
+	if ipAddress.Status.VirtualMachine != "" && ipAddress.Status.VirtualMachine != changed.Name {
+		msg := fmt.Sprintf("The requested ip address (%s) attached to VirtualMachine '%s': waiting for the ip address", current.Spec.VirtualMachineIPAddress, ipAddress.Status.VirtualMachine)
+		log.Info(msg)
+		mgr.Update(cb.Reason(vmcondition.ReasonIPAddressNotReady).
+			Message(msg).Condition())
+		changed.Status.Conditions = mgr.Generate()
+		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	// 5. Ip address exists and available for binding with virtual machine: waiting for the ip address.
 	log.Info("Waiting for the ip address to be bound to VM", "vmipName", current.Spec.VirtualMachineIPAddress)
 	mgr.Update(cb.Reason(vmcondition.ReasonIPAddressNotReady).
 		Message("Ip address not bound: waiting for the ip address").Condition())
