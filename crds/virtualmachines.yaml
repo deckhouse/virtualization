@@ -867,6 +867,9 @@ spec:
                     * EFIWithSecureBoot - use UEFI/EFI with SecureBoot support.
                 virtualMachineClassName:
                   type: string
+                  x-kubernetes-validations:
+                    - rule: "size(self) > 0"
+                      message: "The virtualMachineClassName field must not be an empty string."
                   description: |
                     Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
                 cpu:

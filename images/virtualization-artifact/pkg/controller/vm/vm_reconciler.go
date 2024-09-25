@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -237,6 +238,13 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	); err != nil {
 		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
 	}
+
+	// Subscribe on VirtualMachineClass size policy change.
+	vmClassWatcher := watcher.NewVirtualMachineClassWatcher()
+	if err := vmClassWatcher.Watch(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineClass SizePolicy: %w", err)
+	}
+
 	return nil
 }
 

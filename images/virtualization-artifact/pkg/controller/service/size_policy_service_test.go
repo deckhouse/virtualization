@@ -17,119 +17,61 @@ limitations under the License.
 package service_test
 
 import (
-	"context"
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// vmClassValues stores mock values for VirtualMachineClass objects.
-var vmClassValues map[string]client.Object
-
 var _ = Describe("SizePolicyService", func() {
-	var mock *service.ClientMock
-	var ctx context.Context
-
-	BeforeEach(func() {
-		mock = &service.ClientMock{}
-		mock.GetFunc = func(_ context.Context, key client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
-			val, ok := vmClassValues[key.Name]
-			if !ok {
-				return fmt.Errorf("object not found")
-			}
-
-			// Populate the incoming object's SizingPolicies from the mock data.
-			obj.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies = val.(*v1alpha2.VirtualMachineClass).Spec.SizingPolicies
-
-			return nil
-		}
-
-		// Initialize the mock data map.
-		vmClassValues = make(map[string]client.Object)
-	})
-
-	Context("when no value is provided", func() {
-		It("should return an error on Get()", func() {
-			val := v1alpha2.VirtualMachineClass{}
-			err := mock.Get(ctx, types.NamespacedName{Name: "vmclasstest"}, &val)
-			Expect(err).ShouldNot(BeNil())
-		})
-	})
-
-	Context("when value is provided", func() {
-		BeforeEach(func() {
-			// Set mock VM class data.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
-				Spec: v1alpha2.VirtualMachineClassSpec{
-					SizingPolicies: []v1alpha2.SizingPolicy{
-						{
-							Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
-							Memory: &v1alpha2.SizingPolicyMemory{
-								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: resource.MustParse("1Gi"),
-									Max: resource.MustParse("4Gi"),
-								},
-							},
-						},
-					},
-				},
-			}
-		})
-
-		It("should successfully find the value", func() {
-			val := v1alpha2.VirtualMachineClass{}
-			err := mock.Get(ctx, types.NamespacedName{Name: "vmclasstest"}, &val)
-			Expect(err).Should(BeNil())
-			Expect(len(val.Spec.SizingPolicies)).Should(Equal(1))
-		})
-	})
+	var vmClass *v1alpha2.VirtualMachineClass
 
 	Context("when VM has no class", func() {
+		// Define a virtual machine with no class
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{VirtualMachineClassName: ""},
 		}
 
 		BeforeEach(func() {
-			// Set a default mock VM class.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Initialize an empty virtual machine class
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{SizingPolicies: []v1alpha2.SizingPolicy{}},
 			}
 		})
 
 		It("should fail validation due to empty class name", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error due to the empty class name
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM has a non-existent class", func() {
+		// Virtual machine with a non-existent class
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{VirtualMachineClassName: "notexists"},
 		}
 
 		BeforeEach(func() {
-			// Set a default mock VM class.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Initialize a virtual machine class with empty policies
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{SizingPolicies: []v1alpha2.SizingPolicy{}},
 			}
 		})
 
 		It("should fail validation due to non-existent class", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error due to the class not existing
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM's class has no valid size policy", func() {
+		// Virtual machine with non-matching CPU parameters
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -138,8 +80,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with invalid policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Initialize a virtual machine class with policies that do not match the VM's parameters
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -151,13 +93,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should fail validation due to invalid size policy", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error because the policies do not meet the VM's requirements
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM's class has correct policy without memory requirements", func() {
+		// Virtual machine with appropriate CPU parameters and no memory requirements
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -166,8 +110,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid policies for the VM without memory requirements.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with valid policies for the VM without memory requirements
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -179,13 +123,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should pass validation due to lack of memory requirements", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors since there are no memory requirements
 			Expect(err).Should(BeNil())
 		})
 	})
 
-	Context("when VM's memory does not matched with policy", func() {
+	Context("when VM's memory does not match with policy", func() {
+		// Virtual machine with non-matching memory parameters
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -195,8 +141,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid memory policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with policies that match memory requirements for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -213,14 +159,16 @@ var _ = Describe("SizePolicyService", func() {
 			}
 		})
 
-		It("should pass validation due to match memory size", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+		It("should pass validation due to matching memory size", func() {
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the memory size does not match the policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's memory matches the policy", func() {
+		// Virtual machine with matching memory parameters
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -230,8 +178,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid memory policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with valid memory policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -249,13 +197,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should pass validation due to matched memory size", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the memory size matches the policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when class policy has empty memory requirements", func() {
+		// Virtual machine with memory size that matches an empty memory requirement policy
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -265,9 +215,9 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with empty memory requirements.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
+					// No specific memory policies defined
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
 							Cores:  &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
@@ -279,13 +229,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should pass validation due to lack of memory requirements", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because there are no memory requirements
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's memory is correct per core", func() {
+		// Virtual machine with memory size that adheres to per-core memory policies
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -295,9 +247,9 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid per core memory policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
+					// Setting policies with per-core memory requirements
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
 							Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
@@ -315,14 +267,16 @@ var _ = Describe("SizePolicyService", func() {
 			}
 		})
 
-		It("should pass validation due to matched per core memory size", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+		It("should pass validation due to matched per-core memory size", func() {
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the per-core memory size matches the policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's memory is incorrect per core", func() {
+		// Virtual machine with incorrect per-core memory size
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -332,8 +286,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with invalid per core memory policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with invalid per-core memory policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -352,14 +306,16 @@ var _ = Describe("SizePolicyService", func() {
 			}
 		})
 
-		It("should fail validation due to non-matching per core memory size", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+		It("should fail validation due to non-matching per-core memory size", func() {
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error because the per-core memory size does not match the policy
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM's core fraction is correct", func() {
+		// Virtual machine with a correct core fraction
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -369,8 +325,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid core fraction policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with valid core fraction policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -383,13 +339,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should pass validation due to matching core fraction", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the core fraction matches the policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's core fraction is incorrect", func() {
+		// Virtual machine with an incorrect core fraction
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -399,8 +357,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid core fraction policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with valid core fraction policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -413,13 +371,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should fail validation due to non-matching core fraction", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error because the core fraction does not match the policy
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM's memory step is correct", func() {
+		// Virtual machine with a correct memory step
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -429,8 +389,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid memory step policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with valid memory step policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -448,14 +408,16 @@ var _ = Describe("SizePolicyService", func() {
 			}
 		})
 
-		It("should pass validation due to match memory step", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+		It("should pass validation due to matched memory step", func() {
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the memory size matches the step policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's memory step is incorrect", func() {
+		// Virtual machine with an incorrect memory step
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -465,8 +427,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with invalid memory step policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with invalid memory step policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -485,13 +447,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should fail validation due to non-matching memory step", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error because the memory size does not match the step policy
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
 
 	Context("when VM's per core memory step is correct", func() {
+		// Virtual machine with a correct per-core memory step
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -501,8 +465,7 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with valid per core memory step policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -523,13 +486,15 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should pass validation due to match per core memory step", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect no errors because the per-core memory size matches the step policy
 			Expect(err).Should(BeNil())
 		})
 	})
 
 	Context("when VM's per core memory step is incorrect", func() {
+		// Virtual machine with an incorrect per-core memory step
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
@@ -539,8 +504,8 @@ var _ = Describe("SizePolicyService", func() {
 		}
 
 		BeforeEach(func() {
-			// Set mock VM class data with invalid per core memory step policies for the VM.
-			vmClassValues["vmclasstest"] = &v1alpha2.VirtualMachineClass{
+			// Set mock VM class data with invalid per-core memory step policies for the VM
+			vmClass = &v1alpha2.VirtualMachineClass{
 				Spec: v1alpha2.VirtualMachineClassSpec{
 					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
@@ -561,8 +526,9 @@ var _ = Describe("SizePolicyService", func() {
 		})
 
 		It("should fail validation due to non-matching per core memory step", func() {
-			service := service.NewSizePolicyService(mock)
-			err := service.CheckVMMatchedSizePolicy(ctx, vm)
+			service := service.NewSizePolicyService()
+			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
+			// Expect an error because the per-core memory size does not match the step policy
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
