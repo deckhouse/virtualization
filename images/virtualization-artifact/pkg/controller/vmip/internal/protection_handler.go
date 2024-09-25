@@ -50,13 +50,13 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 		return reconcile.Result{}, err
 	}
 
-	attachedVMs, err := h.getAttachedVM(ctx, vmip)
+	configuredVms, err := h.getConfiguredVM(ctx, vmip)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	switch {
-	case len(attachedVMs) == 0:
+	case len(configuredVms) == 0:
 		log.Debug("Allow VirtualMachineIPAddress deletion")
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
 	case vmip.DeletionTimestamp == nil:
@@ -81,7 +81,7 @@ func (h *ProtectionHandler) Name() string {
 	return ProtectionHandlerName
 }
 
-func (h *ProtectionHandler) getAttachedVM(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) ([]virtv2.VirtualMachine, error) {
+func (h *ProtectionHandler) getConfiguredVM(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) ([]virtv2.VirtualMachine, error) {
 	var vms virtv2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vmip.Namespace,
@@ -90,12 +90,12 @@ func (h *ProtectionHandler) getAttachedVM(ctx context.Context, vmip *virtv2.Virt
 		return nil, err
 	}
 
-	var attachedVMs []virtv2.VirtualMachine
+	var configuredVms []virtv2.VirtualMachine
 	for _, vm := range vms.Items {
 		if vm.Spec.VirtualMachineIPAddress == vmip.Name && vm.Status.Phase != virtv2.MachineTerminating {
-			attachedVMs = append(attachedVMs, vm)
+			configuredVms = append(configuredVms, vm)
 		}
 	}
 
-	return attachedVMs, nil
+	return configuredVms, nil
 }
