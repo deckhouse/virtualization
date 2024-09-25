@@ -119,17 +119,13 @@ func (h *ProvisioningHandler) Name() string {
 }
 
 func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
-	var (
-		errUnexpectedSecretType unexpectedSecretTypeError
-		errSecretNotFound       secretNotFoundError
-	)
 	err := h.validator.Validate(ctx, secretKey)
 
 	switch {
 	case err == nil:
 		builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
 		return nil
-	case errors.As(err, &errSecretNotFound):
+	case errors.As(err, new(secretNotFoundError)):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
@@ -141,7 +137,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			Message(fmt.Sprintf("Invalid secret %q: %s", secretKey.String(), err.Error()))
 		return nil
 
-	case errors.As(err, &errUnexpectedSecretType):
+	case errors.As(err, new(unexpectedSecretTypeError)):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
@@ -202,7 +198,7 @@ func (v provisioningValidator) Validate(ctx context.Context, key types.Namespace
 
 func (v provisioningValidator) validateCloudInitSecret(secret *corev1.Secret) error {
 	if !v.hasOneOfKeys(secret, cloudInitCheckKeys...) {
-		return fmt.Errorf("the secret should has one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
+		return fmt.Errorf("the secret should have one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
 	}
 	return nil
 }
