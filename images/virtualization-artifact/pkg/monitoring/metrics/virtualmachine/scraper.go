@@ -43,7 +43,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineCpuCoreFraction(m)
 	s.updateMetricVirtualMachineConfigurationCpuCoreFraction(m)
 	s.updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m)
-	s.updateMetricVirtualMachineConfigurationMemoryRuntimeOverhead(m)
+	s.updateMetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes(m)
 	s.updateMetricVirtualMachineConfigurationMemorySizeBytes(m)
 	s.updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m)
 	s.updateMetricVirtualMachineConfigurationApplied(m)
@@ -103,8 +103,8 @@ func (s *scraper) updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m *d
 		m.CpuRuntimeOverhead, m)
 }
 
-func (s *scraper) updateMetricVirtualMachineConfigurationMemoryRuntimeOverhead(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationMemoryRuntimeOverhead,
+func (s *scraper) updateMetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes,
 		m.MemoryRuntimeOverhead, m)
 }
 

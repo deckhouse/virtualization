@@ -36,10 +36,10 @@ type scraper struct {
 }
 
 func (s *scraper) Report(m *dataMetric) {
-	s.updateDiskStatusPhaseMetrics(m)
+	s.updateMetricVMOPStatusPhase(m)
 }
 
-func (s *scraper) updateDiskStatusPhaseMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
 		phase = virtv2.VMOPPhasePending
@@ -62,15 +62,15 @@ func (s *scraper) updateDiskStatusPhaseMetrics(m *dataMetric) {
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
-	desc := vmopMetrics[descName]
+	info := vmopMetrics[descName]
 	metric, err := prometheus.NewConstMetric(
-		desc,
+		info.Desc,
 		prometheus.GaugeValue,
 		value,
 		WithBaseLabelsByMetric(m, labels...)...,
 	)
 	if err != nil {
-		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", desc, err))
+		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
 		return
 	}
 	s.ch <- metric

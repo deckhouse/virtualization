@@ -23,20 +23,20 @@ import (
 )
 
 const (
-	MetricVirtualMachineStatusPhase                         = "virtualmachine_status_phase"
-	MetricVirtualMachineCpuCores                            = "virtualmachine_cpu_cores"
-	MetricVirtualMachineConfigurationCpuCores               = "virtualmachine_configuration_cpu_cores"
-	MetricVirtualMachineCpuCoreFraction                     = "virtualmachine_cpu_core_fraction"
-	MetricVirtualMachineConfigurationCpuCoreFraction        = "virtualmachine_configuration_cpu_core_fraction"
-	MetricVirtualMachineConfigurationCpuRuntimeOverhead     = "virtualmachine_configuration_cpu_runtime_overhead"
-	MetricVirtualMachineConfigurationMemorySizeBytes        = "virtualmachine_configuration_memory_size_bytes"
-	MetricVirtualMachineConfigurationMemoryRuntimeOverhead  = "virtualmachine_configuration_memory_runtime_overhead"
-	MetricVirtualMachineAwaitingRestartToApplyConfiguration = "virtualmachine_awaiting_restart_to_apply_configuration"
-	MetricVirtualMachineConfigurationApplied                = "virtualmachine_configuration_applied"
-	MetricVirtualMachineConfigurationRunPolicy              = "virtualmachine_configuration_run_policy"
-	MetricVirtualMachinePod                                 = "virtualmachine_pod"
-	MetricVirtualMachineLabels                              = "virtualmachine_labels"
-	MetricVirtualMachineAnnotations                         = "virtualmachine_annotations"
+	MetricVirtualMachineStatusPhase                             = "virtualmachine_status_phase"
+	MetricVirtualMachineCpuCores                                = "virtualmachine_cpu_cores"
+	MetricVirtualMachineConfigurationCpuCores                   = "virtualmachine_configuration_cpu_cores"
+	MetricVirtualMachineCpuCoreFraction                         = "virtualmachine_cpu_core_fraction"
+	MetricVirtualMachineConfigurationCpuCoreFraction            = "virtualmachine_configuration_cpu_core_fraction"
+	MetricVirtualMachineConfigurationCpuRuntimeOverhead         = "virtualmachine_configuration_cpu_runtime_overhead"
+	MetricVirtualMachineConfigurationMemorySizeBytes            = "virtualmachine_configuration_memory_size_bytes"
+	MetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes = "virtualmachine_configuration_memory_runtime_overhead_bytes"
+	MetricVirtualMachineAwaitingRestartToApplyConfiguration     = "virtualmachine_awaiting_restart_to_apply_configuration"
+	MetricVirtualMachineConfigurationApplied                    = "virtualmachine_configuration_applied"
+	MetricVirtualMachineConfigurationRunPolicy                  = "virtualmachine_configuration_run_policy"
+	MetricVirtualMachinePod                                     = "virtualmachine_pod"
+	MetricVirtualMachineLabels                                  = "virtualmachine_labels"
+	MetricVirtualMachineAnnotations                             = "virtualmachine_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -108,7 +108,7 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationMemoryRuntimeOverhead: metrics.NewMetricInfo(MetricVirtualMachineConfigurationMemoryRuntimeOverhead,
+	MetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes: metrics.NewMetricInfo(MetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes,
 		"The virtualmachine current memory runtime overhead.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
