@@ -50,25 +50,26 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 		return reconcile.Result{}, err
 	}
 
-	attachedVMs, err := h.getAttachedVM(ctx, vmip)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	switch {
-	case len(attachedVMs) == 0:
-		log.Debug("Allow VirtualMachineIPAddress deletion")
-		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
-	case vmip.DeletionTimestamp == nil:
-		log.Debug("Protect VirtualMachineIPAddress from deletion")
-		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
-	default:
-		log.Debug("VirtualMachineIPAddress deletion is delayed: it's protected by virtual machines")
-	}
+	//attachedVMs, err := h.getAttachedVM(ctx, vmip)
+	//if err != nil {
+	//	return reconcile.Result{}, err
+	//}
+	//
+	//switch {
+	//case len(attachedVMs) == 0:
+	//	log.Debug("Allow VirtualMachineIPAddress deletion")
+	//	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+	//case vmip.DeletionTimestamp == nil:
+	//	log.Debug("Protect VirtualMachineIPAddress from deletion")
+	//	controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+	//default:
+	//	log.Debug("VirtualMachineIPAddress deletion is delayed: it's protected by virtual machines")
+	//}
 
 	if vm == nil || vm.DeletionTimestamp != nil {
 		log.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
 	} else if vmip.GetDeletionTimestamp() == nil {
 		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 		log.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
