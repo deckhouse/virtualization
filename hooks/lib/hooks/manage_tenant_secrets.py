@@ -74,33 +74,19 @@ class ManageTenantSecretsHook(Hook):
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
-                # {
-                #     "name": self.NAMESPACE_SNAPSHOT_NAME,
-                #     "apiVersion": "v1",
-                #     "kind": "Secret",
-                #     "includeSnapshotsFrom": [
-                #         self.POD_SNAPSHOT_NAME,
-                #         self.SECRETS_SNAPSHOT_NAME,
-                #         self.NAMESPACE_SNAPSHOT_NAME
-                #     ],
-                #     "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}',
-                #     "queue": self.queue,
-                #     "keepFullObjectsInMemory": False
-                # },
                 {
                     "name": self.NAMESPACE_SNAPSHOT_NAME,
                     "apiVersion": "v1",
                     "kind": "Namespace",
-                    "group": "namespaces",
-                    # "includeSnapshotsFrom": [
-                    #     self.POD_SNAPSHOT_NAME,
-                    #     self.SECRETS_SNAPSHOT_NAME,
-                    #     self.NAMESPACE_SNAPSHOT_NAME
-                    # ],
+                    "includeSnapshotsFrom": [
+                        self.POD_SNAPSHOT_NAME,
+                        self.SECRETS_SNAPSHOT_NAME,
+                        self.NAMESPACE_SNAPSHOT_NAME
+                    ],
                     "jqFilter": '{"name": .metadata.name, "isTerminating": any(.metadata; .deletionTimestamp != null)}',
                     "queue": self.queue,
                     "keepFullObjectsInMemory": False
-                }
+                },
             ]
         }
 
