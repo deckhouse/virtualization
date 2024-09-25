@@ -25,7 +25,7 @@ def main():
                                    module_name=common.MODULE_NAME,
                                    pod_labels_to_follow={
                                        "app": "containerized-data-importer",
-                                       "app.kubernetes.io/managed-by": "cdi-controller"
+                                       "app.kubernetes.io/managed-by": "cdi-controller-internal-virtualization"
                                    },
                                    destination_secret_labels={
                                        "heritage": "deckhouse",
