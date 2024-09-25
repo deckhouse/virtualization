@@ -1,6 +1,0 @@
-apiVersion: internal.virtualization.deckhouse.io/v1
-kind: InternalVirtualizationVirtualMachineInstanceMigration
-metadata:
-  name: migration-job
-spec:
-  vmiName: vm

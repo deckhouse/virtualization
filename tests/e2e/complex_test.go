@@ -68,7 +68,7 @@ func FilterVms(vms, excludedVms []string) []string {
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("When virtualization resources are applied:", func() {
 		It("must have no errors", func() {
-			res := kubectl.Kustomize(conf.TestData.VirtualizationResources, kc.KustomizeOptions{})
+			res := kubectl.Kustomize(conf.TestData.ComplexTest, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})

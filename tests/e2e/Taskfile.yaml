@@ -13,7 +13,7 @@ tasks:
       - |
         rm -fr /tmp/testdata
         mkdir /tmp/testdata
-        cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
+        cp -a testdata/complex-test /tmp/testdata/complex-test
         cp -a testdata/connectivity /tmp/testdata/connectivity
         cp -a testdata/vm-configuration /tmp/testdata/vm-configuration
         cp -a testdata/vm-migration /tmp/testdata/vm-migration

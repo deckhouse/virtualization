@@ -19,16 +19,18 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	yamlv3 "gopkg.in/yaml.v3"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	. "github.com/deckhouse/virtualization/tests/e2e/resources"
 )
+
+const APIVersion = "virtualization.deckhouse.io/v1alpha2"
 
 type Disks struct {
 	BlockDevices []BlockDevice `json:"blockdevices"`
@@ -45,33 +47,41 @@ var (
 )
 
 func AttachVirtualDisk(virtualMachine, virtualDisk string) {
-	templatePath := fmt.Sprintf("%s/vmbda/vmbda.yaml", conf.TestData.VmDiskAttachment)
-	template, err := GetManifest[VirtualMachineBlockDeviceAttachment](templatePath)
+	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", conf.TestData.VmDiskAttachment, virtualMachine)
+	fmt.Println(vmbdaFilePath)
+	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, automaticHotplugStandaloneLabel)
 	Expect(err).NotTo(HaveOccurred(), err)
 
-	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", conf.TestData.VmDiskAttachment, virtualMachine)
-	createErr := CreateVMBDAManifest(virtualMachine, virtualDisk, vmbdaFilePath, automaticHotplugStandaloneLabel, template)
-	Expect(createErr).NotTo(HaveOccurred(), createErr)
-
-	applyRes := kubectl.Apply(vmbdaFilePath, kc.ApplyOptions{
+	res := kubectl.Apply(vmbdaFilePath, kc.ApplyOptions{
 		Namespace: conf.Namespace,
 	})
-	Expect(applyRes.Error()).NotTo(HaveOccurred(), applyRes.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
 
-func CreateVMBDAManifest(vmName, vdName, filePath string, labels map[string]string, template *VirtualMachineBlockDeviceAttachment) error {
-	template.Metadata.Name = vmName
-	template.Spec.VirtualMachineName = vmName
-	template.Spec.BlockDeviceRef.Name = vdName
-	template.Metadata.Labels = labels
-	data, marshalErr := yamlv3.Marshal(template)
-	if marshalErr != nil {
-		return marshalErr
+func CreateVMBDAManifest(filePath, vmName, vdName string, labels map[string]string) error {
+	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: APIVersion,
+			Kind:       virtv2.VMBDAKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   vmName,
+			Labels: labels,
+		},
+		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+			VirtualMachineName: vmName,
+			BlockDeviceRef: virtv2.VMBDAObjectRef{
+				Kind: virtv2.VMBDAObjectRefKindVirtualDisk,
+				Name: vdName,
+			},
+		},
 	}
-	writeErr := os.WriteFile(filePath, data, 0o644)
-	if writeErr != nil {
-		return writeErr
+
+	err := WriteYamlObject(filePath, vmbda)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 

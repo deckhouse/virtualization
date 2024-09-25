@@ -27,17 +27,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	yamlv3 "gopkg.in/yaml.v3"
-	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	. "github.com/deckhouse/virtualization/tests/e2e/resources"
 )
 
 type ApplyWaitGetOptions struct {
@@ -167,43 +164,7 @@ func CheckField(resource kc.Resource, name, output, compareValue string) {
 	Expect(res.StdOut()).To(Equal(compareValue))
 }
 
-type VirtualMachine struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              VirtualMachineSpec   `json:"spec"`
-	Status            VirtualMachineStatus `json:"status"`
-}
-
-type VirtualMachineSpec struct {
-	CPU                              CPUSpec             `json:"cpu"`
-	RunPolicy                        RunPolicy           `json:"runPolicy"`
-	VirtualMachineIPAddressClaimName string              `json:"virtualMachineIPAddressClaimName,omitempty"`
-	NodeSelector                     map[string]string   `json:"nodeSelector,omitempty"`
-	PriorityClassName                string              `json:"priorityClassName"`
-	Tolerations                      []corev1.Toleration `json:"tolerations,omitempty"`
-	TerminationGracePeriodSeconds    *int64              `json:"terminationGracePeriodSeconds,omitempty"`
-	EnableParavirtualization         bool                `json:"enableParavirtualization,omitempty"`
-
-	ApprovedChangeID string `json:"approvedChangeID,omitempty"`
-}
-
-type CPUSpec struct {
-	CoreFraction string `json:"coreFraction"`
-	Cores        int    `json:"cores"`
-}
-
-type VirtualMachineStatus struct {
-	RestartAwaitingChanges []RestartAwaitingChange `json:"restartAwaitingChanges,omitempty"`
-}
-
-type RestartAwaitingChange struct {
-	Operation string `json:"operation"`
-	Path      string `json:"path"`
-}
-
-type RunPolicy string
-
-func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
+func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	unstructs, err := helper.ParseYaml(manifest)
 	if err != nil {
 		return nil, err
@@ -215,39 +176,20 @@ func GetVMFromManifest(manifest string) (*VirtualMachine, error) {
 			break
 		}
 	}
-	var vm VirtualMachine
+	var vm virtv2.VirtualMachine
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
 		return nil, err
 	}
 	return &vm, nil
 }
 
-type Resource interface {
-	VirtualMachineMigration | VirtualMachineBlockDeviceAttachment
-}
-
-func GetManifest[T Resource](manifest string) (*T, error) {
-	data, err := os.ReadFile(manifest)
-	if err != nil {
-		return nil, err
-	}
-
-	var resource T
-	unmarshalErr := yamlv3.Unmarshal(data, &resource)
-	if unmarshalErr != nil {
-		return nil, unmarshalErr
-	}
-
-	return &resource, nil
-}
-
-func GetVirtualMachine(name, namespace string) (*VirtualMachine, error) {
+func GetVirtualMachine(name, namespace string) (*virtv2.VirtualMachine, error) {
 	GinkgoHelper()
 	getVmCmd := kubectl.GetResource(kc.ResourceVM, name, kc.GetOptions{Namespace: namespace, Output: "json"})
 	if getVmCmd.Error() != nil {
 		return nil, fmt.Errorf(getVmCmd.StdErr())
 	}
-	var vmResource VirtualMachine
+	var vmResource virtv2.VirtualMachine
 	unmarshalErr := json.Unmarshal(getVmCmd.StdOutBytes(), &vmResource)
 	if unmarshalErr != nil {
 		return nil, unmarshalErr
