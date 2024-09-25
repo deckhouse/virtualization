@@ -19,13 +19,11 @@ package ipam
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -42,7 +40,7 @@ func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool 
 		return false
 	}
 
-	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
+	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound && vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
 		return false
 	}
 
@@ -54,25 +52,13 @@ func (m IPAM) CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.Virt
 		return errors.New("cannot to bind with empty ip address")
 	}
 
-	boundVMName := vmip.Status.VirtualMachine
-	if boundVMName == "" || boundVMName == vmName {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"unable to bind the ip address (%s) to the virtual machine (%s): the ip address has already been linked to another one",
-		vmip.Name,
-		vmName,
-	)
+	return nil
 }
 
 func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
 	return client.Create(ctx, &virtv2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				common.LabelVirtualMachineName: vm.Name,
-			},
 			GenerateName:    GenerateName(vm),
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerRef},
@@ -99,9 +85,7 @@ func GetVirtualMachineName(vmip *virtv2.VirtualMachineIPAddress) string {
 	if gn := vmip.GenerateName; gn != "" {
 		return strings.TrimSuffix(vmip.GenerateName, generateNameSuffix)
 	}
-	if name := vmip.GetLabels()[common.LabelVirtualMachineName]; name != "" {
-		return name
-	}
+
 	name := vmip.GetName()
 	for _, ow := range vmip.GetOwnerReferences() {
 		if ow.Kind == virtv2.VirtualMachineKind {

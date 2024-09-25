@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,7 +99,9 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 			Reason(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
-		changed.Status.IPAddress = ipAddress.Status.Address
+		if changed.Status.Phase != virtv2.MachineRunning && changed.Status.Phase != virtv2.MachineStopping {
+			changed.Status.IPAddress = ipAddress.Status.Address
+		}
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -120,7 +121,6 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 							Reason(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).
 							Condition())
-						h.recorder.Event(changed, corev1.EventTypeWarning, vmcondition.ReasonIPAddressNotAssigned.String(), msg)
 						log.Error(msg)
 					}
 					break
@@ -139,13 +139,15 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		if current.Spec.VirtualMachineIPAddress != "" {
 			log.Info(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
 			cb.Message(fmt.Sprintf("The requested ip address (%s) for the virtual machine not found: waiting for the ip address", current.Spec.VirtualMachineIPAddress))
-			return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+			mgr.Update(cb.Condition())
+			changed.Status.Conditions = mgr.Generate()
+			return reconcile.Result{}, nil
 		}
 		log.Info("VirtualMachineIPAddress not found: create the new one", slog.String("vmipName", current.GetName()))
 		cb.Message(fmt.Sprintf("VirtualMachineIPAddress %q not found: it may be in the process of being created", current.GetName()))
 		mgr.Update(cb.Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, h.ipam.CreateIPAddress(ctx, changed, h.client)
+		return reconcile.Result{}, h.ipam.CreateIPAddress(ctx, changed, h.client)
 	}
 
 	// 3. Check if possible to bind virtual machine with the found ip address.
@@ -159,13 +161,23 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		return reconcile.Result{}, nil
 	}
 
-	// 4. Ip address exists and available for binding with virtual machine: waiting for the ip address.
+	// 4. Ip address exist and attached to another VirtualMachine
+	if ipAddress.Status.VirtualMachine != "" && ipAddress.Status.VirtualMachine != changed.Name {
+		msg := fmt.Sprintf("The requested ip address (%s) attached to VirtualMachine '%s': waiting for the ip address", current.Spec.VirtualMachineIPAddress, ipAddress.Status.VirtualMachine)
+		log.Info(msg)
+		mgr.Update(cb.Reason(vmcondition.ReasonIPAddressNotReady).
+			Message(msg).Condition())
+		changed.Status.Conditions = mgr.Generate()
+		return reconcile.Result{}, nil
+	}
+
+	// 5. Ip address exists and available for binding with virtual machine: waiting for the ip address.
 	log.Info("Waiting for the ip address to be bound to VM", "vmipName", current.Spec.VirtualMachineIPAddress)
 	mgr.Update(cb.Reason(vmcondition.ReasonIPAddressNotReady).
 		Message("Ip address not bound: waiting for the ip address").Condition())
 	changed.Status.Conditions = mgr.Generate()
 
-	return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+	return reconcile.Result{}, nil
 }
 
 func (h *IPAMHandler) Name() string {

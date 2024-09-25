@@ -113,9 +113,17 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 	var err error
 	if s.vmip.Status.VirtualMachine != "" {
 		vmKey := types.NamespacedName{Name: s.vmip.Status.VirtualMachine, Namespace: s.vmip.Namespace}
-		s.vm, err = helper.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
+		vm, err := helper.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VM %s: %w", vmKey, err)
+		}
+
+		if vm == nil {
+			return s.vm, nil
+		}
+
+		if vm.Status.VirtualMachineIPAddress == s.vmip.Name && vm.Status.IPAddress == s.vmip.Status.Address {
+			s.vm = vm
 		}
 	}
 
@@ -129,8 +137,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 		}
 
 		for i, vm := range vms.Items {
-			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name ||
-				vm.Spec.VirtualMachineIPAddress == "" && vm.Name == ipam.GetVirtualMachineName(s.vmip) {
+			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name || vm.Spec.VirtualMachineIPAddress == "" && vm.Name == ipam.GetVirtualMachineName(s.vmip) {
 				s.vm = &vms.Items[i]
 				break
 			}

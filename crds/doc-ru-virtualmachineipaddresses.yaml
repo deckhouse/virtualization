@@ -46,6 +46,7 @@ spec:
 
                     * Pending - создание ресурса находится в процессе выполнения.
                     * Bound - ресурс `VirtualMachineIPAddress` привязан к ресурсу `VirtualMachineIPAddressLease`.
+                    * Attached - ресурс `VirtualMachineIPAddress` подключен к ресурсу `VirtualMachine`.
                 virtualMachineName:
                   description: |
                     Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.

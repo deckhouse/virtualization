@@ -96,11 +96,13 @@ spec:
                   enum:
                     - "Pending"
                     - "Bound"
+                    - "Attached"
                   description: |
                     Represents the current state of IP address.
 
                     * Pending - the process of creating is in progress.
                     * Bound - the IP address is bound to IP address lease.
+                    * Attached - the IP address is attached to VirtualMachine.
                 observedGeneration:
                   type: integer
                   description: |

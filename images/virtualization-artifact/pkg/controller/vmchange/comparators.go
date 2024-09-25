@@ -58,7 +58,7 @@ func compareVirtualMachineIPAddress(current, desired *v1alpha2.VirtualMachineSpe
 		current.VirtualMachineIPAddress,
 		desired.VirtualMachineIPAddress,
 		"",
-		ActionNone,
+		ActionRestart,
 	)
 }
 
