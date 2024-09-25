@@ -17,14 +17,17 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"sync"
 	"time"
 
-	"kube-api-proxy/pkg/server"
+	"kube-api-proxy/pkg/debug/runnablegroup"
+	logutil "kube-api-proxy/pkg/log"
 )
 
 const (
@@ -34,7 +37,7 @@ const (
 )
 
 type Server struct {
-	runnableGroup           *server.RunnableGroup
+	runnableGroup           *runnablegroup.RunnableGroup
 	gracefulShutdownTimeout time.Duration
 	healthProbeListener     net.Listener
 	pprofListener           net.Listener
@@ -43,21 +46,39 @@ type Server struct {
 	readinessEndpointRoute  string
 	livenessEndpointRoute   string
 
-	log *slog.Logger
+	log    *slog.Logger
+	mu     sync.Mutex
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func (s *Server) Start() {
+	s.mu.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctx = ctx
+	s.cancel = cancel
+	s.mu.Unlock()
+
 	if s.healthProbeListener != nil {
 		s.addHealthProbeServer()
 	}
 	if s.pprofListener != nil {
 		s.addPprofServer()
 	}
-	s.runnableGroup.Start()
+
+	if err := s.runnableGroup.Run(ctx); err != nil {
+		s.log.Error("error starting server", logutil.SlogErr(err))
+	}
 }
 
 func (s *Server) Stop() {
-	s.runnableGroup.Start()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	select {
+	case <-s.ctx.Done():
+	default:
+		s.cancel()
+	}
 }
 
 func (s *Server) addHealthProbeServer() {
@@ -96,7 +117,7 @@ func (s *Server) addPprofServer() {
 	})
 }
 
-func (s *Server) Add(r server.Runnable) {
+func (s *Server) Add(r runnablegroup.Runnable) {
 	s.runnableGroup.Add(r)
 }
 
@@ -144,7 +165,7 @@ func NewServer(options Options, log *slog.Logger) (*Server, error) {
 		gracefulShutdownTimeout: *options.GracefulShutdownTimeout,
 		readinessEndpointRoute:  options.ReadinessEndpointRoute,
 		livenessEndpointRoute:   options.LivenessEndpointRoute,
-		runnableGroup:           server.NewRunnableGroup(),
+		runnableGroup:           runnablegroup.NewRunnableGroup(),
 		readyzHandler:           options.ReadyzHandler,
 		healthzHandler:          options.HealthzHandler,
 		log:                     log,
