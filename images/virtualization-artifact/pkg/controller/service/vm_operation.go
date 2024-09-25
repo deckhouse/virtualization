@@ -183,7 +183,7 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	case virtv2.VMOPTypeRestart:
 		return vmopcondition.ReasonRestartInProgress
 	case virtv2.VMOPTypeMigrate:
-		return vmopcondition.ReasonMigrateInProgress
+		return vmopcondition.ReasonMigrationInProgress
 	}
 	return vmopcondition.ReasonCompletedUnknown
 }
@@ -207,28 +207,30 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 			return false, err
 		}
 
-		return vmPhase == virtv2.MachineRunning &&
-			s.afterSignalSent(kvvmi.GetCreationTimestamp().Time, vmop), nil
+		return kvvmi != nil && vmPhase == virtv2.MachineRunning &&
+			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), nil
 	case virtv2.VMOPTypeMigrate:
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
 			return false, err
 		}
-
-		if s.afterSignalSent(kvvmi.GetCreationTimestamp().Time, vmop) {
+		if kvvmi == nil {
+			return false, nil
+		}
+		if s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop) {
 			return true, nil
 		}
 		migrationState := kvvmi.Status.MigrationState
 		return migrationState != nil &&
 			migrationState.EndTimestamp != nil &&
-			s.afterSignalSent(migrationState.EndTimestamp.Time, vmop), nil
+			s.isAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop), nil
 
 	default:
 		return false, nil
 	}
 }
 
-func (s VMOperationService) afterSignalSent(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
+func (s VMOperationService) isAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
 	signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
