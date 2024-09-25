@@ -45,7 +45,7 @@ index 323f43edfb..124acbefeb 100644
 -				if wpid == cmd.Process.Pid {
 -					exitStatus <- wstatus.ExitStatus()
 +				if len(wpids) > 0 {
-+					log.Log.Infof("Reaped %d processes on %d signal", len(wpids), sig.String())
++					log.Log.Infof("Reaped %d processes on %s signal", len(wpids), sig.String())
  				}
 
  			default:
