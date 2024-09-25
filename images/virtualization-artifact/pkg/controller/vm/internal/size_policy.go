@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -58,7 +57,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	vmClass, err := s.Class(ctx)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
 		log := logger.FromContext(ctx)
 		log.Error(
 			"An error occurred while retrieving the VM class.",
