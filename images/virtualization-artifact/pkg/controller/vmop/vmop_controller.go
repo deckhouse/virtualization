@@ -26,10 +26,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	vmopcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -40,9 +42,9 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	lg *slog.Logger,
 ) error {
-	log = log.With(logger.SlogController(controllerName))
+	log := lg.With(logger.SlogController(controllerName))
 
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	client := mgr.GetClient()
@@ -77,6 +79,8 @@ func SetupController(
 		Complete(); err != nil {
 		return err
 	}
+
+	vmopcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, lg)
 
 	log.Info("Initialized VirtualMachineOperation controller")
 	return nil
