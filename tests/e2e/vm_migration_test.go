@@ -18,15 +18,20 @@ package e2e
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	yamlv3 "gopkg.in/yaml.v3"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
+	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	. "github.com/deckhouse/virtualization/tests/e2e/resources"
+)
+
+const (
+	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
+	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
 )
 
 var MigrationLabel = map[string]string{"testcase": "vm-migration"}
@@ -34,32 +39,37 @@ var MigrationLabel = map[string]string{"testcase": "vm-migration"}
 func MigrateVirtualMachines(virtualMachines ...string) {
 	GinkgoHelper()
 	migrationFilesPath := fmt.Sprintf("%s/migrations", conf.TestData.VmMigration)
-	templatePath := fmt.Sprintf("%s/vm-migration.yaml", migrationFilesPath)
-	template, err := GetVirtualMachineMigrationManifest(templatePath)
-	Expect(err).NotTo(HaveOccurred(), err)
 	for _, vm := range virtualMachines {
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		createErr := CreateMigrationManifest(vm, migrationFilePath, MigrationLabel, template)
-		Expect(createErr).NotTo(HaveOccurred(), createErr)
-		applyRes := kubectl.Apply(migrationFilePath, kc.ApplyOptions{
+		err := CreateMigrationManifest(vm, migrationFilePath, MigrationLabel)
+		Expect(err).NotTo(HaveOccurred(), err)
+		res := kubectl.Apply(migrationFilePath, kc.ApplyOptions{
 			Namespace: conf.Namespace,
 		})
-		Expect(applyRes.Error()).NotTo(HaveOccurred(), applyRes.StdErr())
+		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 	}
 }
 
-func CreateMigrationManifest(vmName, filePath string, labels map[string]string, template *VirtualMachineMigration) error {
-	template.Metadata.Name = vmName
-	template.Spec.VmiName = vmName
-	template.Metadata.Labels = labels
-	data, marshalErr := yamlv3.Marshal(template)
-	if marshalErr != nil {
-		return marshalErr
+func CreateMigrationManifest(vmName, filePath string, labels map[string]string) error {
+	vmim := &virtv1.VirtualMachineInstanceMigration{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: InternalApiVersion,
+			Kind:       KubevirtVMIMKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   vmName,
+			Labels: labels,
+		},
+		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmName,
+		},
 	}
-	writeErr := os.WriteFile(filePath, data, 0o644)
-	if writeErr != nil {
-		return writeErr
+
+	err := WriteYamlObject(filePath, vmim)
+	if err != nil {
+		return err
 	}
+
 	return nil
 }
 

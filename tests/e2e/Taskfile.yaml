@@ -13,10 +13,11 @@ tasks:
       - |
         rm -fr /tmp/testdata
         mkdir /tmp/testdata
-        cp -a testdata/virtualization-resources /tmp/testdata/virtualization-resources
+        cp -a testdata/complex-test /tmp/testdata/complex-test
         cp -a testdata/connectivity /tmp/testdata/connectivity
         cp -a testdata/vm-configuration /tmp/testdata/vm-configuration
         cp -a testdata/vm-migration /tmp/testdata/vm-migration
+        cp -a testdata/vm-disk-attachment /tmp/testdata/vm-disk-attachment
         cp -a testdata/sshkeys /tmp/testdata/sshkeys
   virtctl:
     cmds:

@@ -28,33 +28,30 @@ import (
 )
 
 var (
-	hotplugLabel          = map[string]string{"vm": "hotplug"}
-	automaticHotplugLabel = map[string]string{"vm": "automatic-with-hotplug"}
+	hotplugLabel                    = map[string]string{"vm": "hotplug"}
+	automaticHotplugLabel           = map[string]string{"vm": "automatic-with-hotplug"}
+	automaticHotplugStandaloneLabel = map[string]string{"vm": "automatic-with-hotplug-standalone"}
 )
 
 // TODO: Remove this flow when migration problem for virtual machines with hotplug disk will be fixed.
 func GetHotplugVirtualMachines() ([]string, error) {
 	vms := make([]string, 0)
-	hotplugRes := kubectl.List(kc.ResourceVM, kc.GetOptions{
-		Labels:    hotplugLabel,
-		Namespace: conf.Namespace,
-		Output:    "jsonpath='{.items[*].metadata.name}'",
-	})
-	if hotplugRes.Error() != nil {
-		return nil, fmt.Errorf(hotplugRes.StdErr())
+	labels := []map[string]string{
+		hotplugLabel,
+		automaticHotplugLabel,
+		automaticHotplugStandaloneLabel,
 	}
-	vms = append(vms, strings.Split(hotplugRes.StdOut(), " ")...)
-
-	automaticHotplugRes := kubectl.List(kc.ResourceVM, kc.GetOptions{
-		Labels:    automaticHotplugLabel,
-		Namespace: conf.Namespace,
-		Output:    "jsonpath='{.items[*].metadata.name}'",
-	})
-	if automaticHotplugRes.Error() != nil {
-		return nil, fmt.Errorf(automaticHotplugRes.StdErr())
+	for _, label := range labels {
+		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+			Labels:    label,
+			Namespace: conf.Namespace,
+			Output:    "jsonpath='{.items[*].metadata.name}'",
+		})
+		if res.Error() != nil {
+			return nil, fmt.Errorf(res.StdErr())
+		}
+		vms = append(vms, strings.Split(res.StdOut(), " ")...)
 	}
-	vms = append(vms, strings.Split(automaticHotplugRes.StdOut(), " ")...)
-
 	return vms, nil
 }
 
@@ -71,7 +68,7 @@ func FilterVms(vms, excludedVms []string) []string {
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("When virtualization resources are applied:", func() {
 		It("must have no errors", func() {
-			res := kubectl.Kustomize(conf.TestData.VirtualizationResources, kc.KustomizeOptions{})
+			res := kubectl.Kustomize(conf.TestData.ComplexTest, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})

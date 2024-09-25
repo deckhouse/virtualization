@@ -84,10 +84,11 @@ func init() {
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
-		fmt.Sprintf("%s/%s", conf.TestData.VirtualizationResources, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
 	}
 	for _, filePath := range kustomizationFiles {
 		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
