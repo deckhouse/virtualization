@@ -50,6 +50,11 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	cb := conditions.NewConditionBuilder(vmcondition.TypeSizingPolicyMatched).
+		Generation(current.GetGeneration())
+
+	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
+
 	addAllUnknown(changed, vmcondition.TypeSizingPolicyMatched)
 
 	if isDeletion(current) {
@@ -64,9 +69,6 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 			logger.SlogErr(err),
 		)
 	}
-
-	cb := conditions.NewConditionBuilder(vmcondition.TypeSizingPolicyMatched).
-		Generation(current.GetGeneration())
 
 	switch {
 	case vmClass == nil:
@@ -88,8 +90,6 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 				Status(metav1.ConditionFalse)
 		}
 	}
-
-	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
 }
