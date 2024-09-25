@@ -20,6 +20,7 @@ import (
 	log "log/slog"
 	"os"
 
+	debugserver "kube-api-proxy/pkg/debug/server"
 	"kube-api-proxy/pkg/kubevirt"
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/proxy"
@@ -59,6 +60,11 @@ const (
 	logLevelEnv  = "LOG_LEVEL"
 	logFormatEnv = "LOG_FORMAT"
 	logOutputEnv = "LOG_OUTPUT"
+)
+
+const (
+	HealthProbeBindAddressEnv = "HEALTH_PROBE_BIND_ADDRESS"
+	PprofBindAddressEnv       = "PPROF_BIND_ADDRESS"
 )
 
 func main() {
@@ -153,6 +159,20 @@ func main() {
 	proxyGroup := server.NewRunnableGroup()
 	for i := range proxies {
 		proxyGroup.Add(proxies[i])
+	}
+	healthAddr := os.Getenv(HealthProbeBindAddressEnv)
+	pprofAddr := os.Getenv(PprofBindAddressEnv)
+
+	if healthAddr != "" || pprofAddr != "" {
+		debugSrv, err := debugserver.NewServer(debugserver.Options{
+			HealthProbeBindAddress: healthAddr,
+			PprofBindAddress:       pprofAddr,
+		}, log.Default())
+		if err != nil {
+			log.Error("Failed to create debug server", logutil.SlogErr(err))
+			os.Exit(1)
+		}
+		proxyGroup.Add(debugSrv)
 	}
 	// Block while proxies are running.
 	proxyGroup.Start()
