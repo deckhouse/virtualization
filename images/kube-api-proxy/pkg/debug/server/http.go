@@ -22,7 +22,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	logutil "kube-api-proxy/pkg/log"
@@ -38,14 +37,11 @@ func NewHTTPServer(handler http.Handler) *http.Server {
 }
 
 type httpServer struct {
-	mu                      sync.Mutex
 	name                    string
 	gracefulShutdownTimeout time.Duration
 	server                  *http.Server
 	listener                net.Listener
 	log                     *slog.Logger
-	ctx                     context.Context
-	cancel                  context.CancelFunc
 }
 
 func (s *httpServer) Run(ctx context.Context) error {
@@ -70,26 +66,4 @@ func (s *httpServer) Run(ctx context.Context) error {
 
 	<-serverShutdown
 	return nil
-}
-
-func (s *httpServer) Start() {
-	s.mu.Lock()
-	ctx, cancel := context.WithCancel(context.Background())
-	s.ctx = ctx
-	s.cancel = cancel
-	s.mu.Unlock()
-
-	if err := s.Run(ctx); err != nil {
-		s.log.Error("error starting server", slog.String("httpServerName", s.name), logutil.SlogErr(err))
-	}
-}
-
-func (s *httpServer) Stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	select {
-	case <-s.ctx.Done():
-	default:
-		s.cancel()
-	}
 }
