@@ -69,7 +69,7 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 	}
 
 	if newVM.Spec.VirtualMachineIPAddress == "" {
-		return nil, fmt.Errorf("spec.virtualMachineIPAddress cannot be changed to an empty value once set")
+		return nil, nil
 	}
 
 	vmipKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddress, Namespace: newVM.Namespace}

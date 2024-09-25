@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -29,10 +30,14 @@ import (
 
 const ProtectionHandlerName = "ProtectionHandler"
 
-type ProtectionHandler struct{}
+type ProtectionHandler struct {
+	client client.Client
+}
 
-func NewProtectionHandler() *ProtectionHandler {
-	return &ProtectionHandler{}
+func NewProtectionHandler(client client.Client) *ProtectionHandler {
+	return &ProtectionHandler{
+		client: client,
+	}
 }
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
@@ -43,6 +48,22 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 	vm, err := state.VirtualMachine(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	attachedVMs, err := h.getAttachedVM(ctx, vmip)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	switch {
+	case len(attachedVMs) == 0:
+		log.Debug("Allow VirtualMachineIPAddress deletion")
+		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+	case vmip.DeletionTimestamp == nil:
+		log.Debug("Protect VirtualMachineIPAddress from deletion")
+		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+	default:
+		log.Debug("VirtualMachineIPAddress deletion is delayed: it's protected by virtual machines")
 	}
 
 	if vm == nil || vm.DeletionTimestamp != nil {
@@ -58,4 +79,23 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 
 func (h *ProtectionHandler) Name() string {
 	return ProtectionHandlerName
+}
+
+func (h *ProtectionHandler) getAttachedVM(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) ([]virtv2.VirtualMachine, error) {
+	var vms virtv2.VirtualMachineList
+	err := h.client.List(ctx, &vms, &client.ListOptions{
+		Namespace: vmip.Namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var attachedVMs []virtv2.VirtualMachine
+	for _, vm := range vms.Items {
+		if vm.Spec.VirtualMachineIPAddress == vmip.Name || vm.Status.VirtualMachineIPAddress == vmip.Name {
+			attachedVMs = append(attachedVMs, vm)
+		}
+	}
+
+	return attachedVMs, nil
 }

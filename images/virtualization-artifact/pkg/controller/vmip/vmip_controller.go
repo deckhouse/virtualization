@@ -47,7 +47,7 @@ func NewController(
 	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
 
 	handlers := []Handler{
-		internal.NewProtectionHandler(),
+		internal.NewProtectionHandler(mgr.GetClient()),
 		internal.NewIPLeaseHandler(mgr.GetClient(), ipService, recorder),
 		internal.NewLifecycleHandler(),
 	}

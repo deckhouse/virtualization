@@ -80,6 +80,7 @@ type VirtualMachineIPAddressStatus struct {
 type VirtualMachineIPAddressPhase string
 
 const (
-	VirtualMachineIPAddressPhasePending VirtualMachineIPAddressPhase = "Pending"
-	VirtualMachineIPAddressPhaseBound   VirtualMachineIPAddressPhase = "Bound"
+	VirtualMachineIPAddressPhasePending  VirtualMachineIPAddressPhase = "Pending"
+	VirtualMachineIPAddressPhaseBound    VirtualMachineIPAddressPhase = "Bound"
+	VirtualMachineIPAddressPhaseAttached VirtualMachineIPAddressPhase = "Attached"
 )
