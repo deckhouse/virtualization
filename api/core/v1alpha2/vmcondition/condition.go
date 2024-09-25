@@ -36,6 +36,7 @@ const (
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	TypeFilesystemReady                     Type = "FilesystemReady"
+	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 )
 
 type Reason string
@@ -86,4 +87,9 @@ const (
 	ReasonFilesystemReady    Reason = "Ready"
 	ReasonFilesystemFrozen   Reason = "Frozen"
 	ReasonFilesystemNotReady Reason = "NotReady"
+
+	ReasonSizingPolicyMatched            Reason = "SizingPolicyMatched"
+	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
+	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
+	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
 )

@@ -17,15 +17,12 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -36,23 +33,13 @@ const (
 	greater = 1
 )
 
-type SizePolicyService struct {
-	client client.Client
+type SizePolicyService struct{}
+
+func NewSizePolicyService() *SizePolicyService {
+	return &SizePolicyService{}
 }
 
-func NewSizePolicyService(client client.Client) *SizePolicyService {
-	return &SizePolicyService{client: client}
-}
-
-func (s *SizePolicyService) CheckVMMatchedSizePolicy(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
-	vmClass := &v1alpha2.VirtualMachineClass{}
-	err := s.client.Get(ctx, types.NamespacedName{
-		Name: vm.Spec.VirtualMachineClassName,
-	}, vmClass)
-	if err != nil {
-		return err
-	}
-
+func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) error {
 	sizePolicy := getVMSizePolicy(vm, vmClass)
 	if sizePolicy == nil {
 		return fmt.Errorf(
