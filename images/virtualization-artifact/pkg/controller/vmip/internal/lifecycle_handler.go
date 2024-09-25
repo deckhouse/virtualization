@@ -94,7 +94,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 				Condition())
 		}
 
-	case vm != nil && vm.DeletionTimestamp == nil:
+	case vm != nil && vm.GetDeletionTimestamp().IsZero():
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
 			vmipStatus.VirtualMachine = vm.Name
