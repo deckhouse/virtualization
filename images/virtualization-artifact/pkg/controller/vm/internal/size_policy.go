@@ -63,11 +63,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	vmClass, err := s.Class(ctx)
 	if err != nil {
-		log := logger.FromContext(ctx)
-		log.Error(
-			"An error occurred while retrieving the VM class.",
-			logger.SlogErr(err),
-		)
+		return reconcile.Result{}, err
 	}
 
 	switch {
