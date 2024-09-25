@@ -126,11 +126,12 @@ type Config struct {
 }
 
 type TestData struct {
-	VirtualizationResources string `yaml:"virtualizationResources"`
-	Connectivity            string `yaml:"connectivity"`
-	VmConfiguration         string `yaml:"vmConfiguration"`
-	VmMigration             string `yaml:"vmMigration"`
-	Sshkeys                 string `yaml:"sshKeys"`
+	ComplexTest      string `yaml:"complexTest"`
+	Connectivity     string `yaml:"connectivity"`
+	VmConfiguration  string `yaml:"vmConfiguration"`
+	VmMigration      string `yaml:"vmMigration"`
+	VmDiskAttachment string `yaml:"vmDiskAttachment"`
+	Sshkeys          string `yaml:"sshKeys"`
 }
 
 type ClusterTransport struct {

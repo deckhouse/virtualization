@@ -19,8 +19,9 @@ ipam:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
-  virtualizationResources: "/tmp/testdata/virtualization-resources"
+  complexTest: "/tmp/testdata/complex-test"
   connectivity: "/tmp/testdata/connectivity"
   vmConfiguration: "/tmp/testdata/vm-configuration"
   vmMigration: "/tmp/testdata/vm-migration"
+  vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   sshKeys: "/tmp/testdata/sshkeys"

@@ -24,7 +24,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -62,4 +63,18 @@ func ParseYaml(filepath string) ([]*unstructured.Unstructured, error) {
 
 func GetFullApiResourceName(u *unstructured.Unstructured) kubectl.Resource {
 	return kubectl.Resource(strings.ToLower(u.GetKind() + "." + strings.Split(u.GetAPIVersion(), "/")[0]))
+}
+
+func WriteYamlObject(filePath string, obj client.Object) error {
+	data, err := yaml.Marshal(obj)
+	if err != nil {
+		return err
+	}
+
+	writeErr := os.WriteFile(filePath, data, 0o644)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return nil
 }

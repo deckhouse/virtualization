@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -97,7 +98,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Label", func() {
-		var vm *VirtualMachine
+		var vm *virtv2.VirtualMachine
 		var err error
 
 		BeforeAll(func() {
@@ -179,7 +180,7 @@ var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
 	})
 
 	Context("Annotation", func() {
-		var vm *VirtualMachine
+		var vm *virtv2.VirtualMachine
 
 		BeforeAll(func() {
 			By("Apply manifest")
