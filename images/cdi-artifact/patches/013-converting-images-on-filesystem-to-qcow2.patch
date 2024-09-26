@@ -11,7 +11,7 @@ index 07eaf0327..f0086e5fb 100644
  	Info(url *url.URL) (*ImgInfo, error)
  	Validate(*url.URL, int64) error
 @@ -288,13 +289,18 @@ func CreateBlankImage(dest string, size resource.Quantity, preallocate bool) err
-
+ 
  // CreateBlankImage creates a raw image with a given size
  func (o *qemuOperations) CreateBlankImage(dest string, size resource.Quantity, preallocate bool) error {
 +	format, err := util.GetFormat(dest)
@@ -36,7 +36,7 @@ new file mode 100644
 index 000000000..e775386ba
 --- /dev/null
 +++ b/pkg/image/qemu_format_stream.go
-@@ -0,0 +0,49 @@
+@@ -0,0 +1,49 @@
 +package image
 +
 +import (
@@ -108,7 +108,7 @@ index 4fdb03991..d74b9253c 100644
 +		return ProcessingPhaseError, errors.Wrapf(err, "Conversion to %s failed", format)
  	}
  	dp.preallocationApplied = dp.preallocation
-
+ 
 diff --git a/pkg/util/file_format.go b/pkg/util/file_format.go
 new file mode 100644
 index 000000000..bede0753d
