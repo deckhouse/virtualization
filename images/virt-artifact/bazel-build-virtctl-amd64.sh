@@ -31,10 +31,6 @@ echo "=== END VARIABLES   ======="
 rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 
-#bazel build \
-#    --config=${ARCHITECTURE} \
-#    //cmd/virtctl:virtctl-amd64
-
-# linux
+# Build only for linux on AMD64 for now.
 bazel run \
     :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-linux-amd64

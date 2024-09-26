@@ -1,5 +1,3 @@
-version: "2.1"
-
 services:
   alloy:
     image: grafana/alloy:v1.1.0

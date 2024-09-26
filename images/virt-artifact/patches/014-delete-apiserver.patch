@@ -41,7 +41,7 @@ index 9152959b4..aff0b023a 100644
 @@ -318,21 +316,6 @@ func NewKubeVirtController(
  		return nil, err
  	}
- 
+
 -	_, err = c.informers.APIService.AddEventHandler(cache.ResourceEventHandlerFuncs{
 -		AddFunc: func(obj interface{}) {
 -			c.genericAddHandler(obj, c.kubeVirtExpectations.APIService)
@@ -70,7 +70,7 @@ index e42648749..dbd20d23c 100644
  	k.stores.MutatingWebhookCache = k.informers.MutatingWebhook.GetStore()
 -	k.informers.APIService, k.apiserviceSource = testutils.NewFakeInformerFor(&apiregv1.APIService{})
 -	k.stores.APIServiceCache = k.informers.APIService.GetStore()
- 
+
  	k.informers.SCC, k.sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
  	k.stores.SCCCache = k.informers.SCC.GetStore()
 @@ -506,8 +504,6 @@ func (k *KubeVirtTestData) deleteResource(resource string, key string) {
@@ -85,7 +85,7 @@ index e42648749..dbd20d23c 100644
 @@ -621,14 +617,6 @@ func (k *KubeVirtTestData) deleteMutatingWebhook(key string) {
  	k.mockQueue.Wait()
  }
- 
+
 -func (k *KubeVirtTestData) deleteAPIService(key string) {
 -	k.mockQueue.ExpectAdds(1)
 -	if obj, exists, _ := k.informers.APIService.GetStore().GetByKey(key); exists {
@@ -100,7 +100,7 @@ index e42648749..dbd20d23c 100644
 @@ -1312,12 +1300,6 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
  	}
  	all = append(all, mutatingWebhook)
- 
+
 -	apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
 -	for _, apiService := range apiServices {
 -		apiService.Spec.CABundle = caBundle
@@ -231,7 +231,7 @@ index 4d507f615..3315598a3 100644
 @@ -363,12 +363,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ra
  		return err
  	}
- 
+
 -	// create/update APIServices
 -	err = r.createOrUpdateAPIServices(caBundle)
 -	if err != nil {
@@ -250,13 +250,13 @@ index d2c8b96f5..ecea83a7b 100644
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/types"
 -	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
- 
+
  	v1 "kubevirt.io/api/core/v1"
  	"kubevirt.io/client-go/kubecli"
 @@ -215,25 +214,6 @@ func DeleteAll(kv *v1.KubeVirt,
  		}
  	}
- 
+
 -	// delete apiservices
 -	objects = stores.APIServiceCache.List()
 -	for _, obj := range objects {
@@ -295,23 +295,21 @@ index 2bd0c313d..e9cd7d820 100644
  	if err != nil {
  		return err
 diff --git a/pkg/virt-operator/resource/apply/reconcile.go b/pkg/virt-operator/resource/apply/reconcile.go
-index 5408aa41d..4e437d757 100644
+index 61c04595ea..2b31e9f5e8 100644
 --- a/pkg/virt-operator/resource/apply/reconcile.go
 +++ b/pkg/virt-operator/resource/apply/reconcile.go
-@@ -39,8 +39,6 @@ import (
- 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+@@ -39,7 +39,6 @@ import (
+ 	"k8s.io/apimachinery/pkg/labels"
  	"k8s.io/client-go/tools/record"
  	"k8s.io/client-go/util/workqueue"
 -	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
--
+
  	v1 "kubevirt.io/api/core/v1"
  	"kubevirt.io/client-go/kubecli"
- 	"kubevirt.io/client-go/log"
-@@ -800,39 +798,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
- 			}
+@@ -886,31 +885,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
  		}
  	}
--
+
 -	// remove unused APIServices
 -	objects = r.stores.APIServiceCache.List()
 -	for _, obj := range objects {
@@ -322,13 +320,6 @@ index 5408aa41d..4e437d757 100644
 -					found = true
 -					break
 -				}
--			}
--			// This is for backward compatibility where virt-api managed the entity itself.
--			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
--			// which was not explicitly created by an operator, but is still visible to it.
--			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
--			if _, ok := apiService.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
--				found = true
 -			}
 -			if !found {
 -				if key, err := controller.KeyFunc(apiService); err == nil {
@@ -423,21 +414,29 @@ index 8cef02889..000000000
 -	})
 -})
 diff --git a/pkg/virt-operator/resource/generate/install/strategy.go b/pkg/virt-operator/resource/generate/install/strategy.go
-index 65cf88913..2f7c0c51b 100644
+index f40ae821ef..9768c7d720 100644
 --- a/pkg/virt-operator/resource/generate/install/strategy.go
 +++ b/pkg/virt-operator/resource/generate/install/strategy.go
-@@ -87,7 +87,6 @@ type Strategy struct {
- 	daemonSets                      []*appsv1.DaemonSet
- 	validatingWebhookConfigurations []*admissionregistrationv1.ValidatingWebhookConfiguration
- 	mutatingWebhookConfigurations   []*admissionregistrationv1.MutatingWebhookConfiguration
--	apiServices                     []*apiregv1.APIService
- 	certificateSecrets              []*corev1.Secret
- 	sccs                            []*secv1.SecurityContextConstraints
- 	serviceMonitors                 []*promv1.ServiceMonitor
-@@ -177,10 +176,6 @@ func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1.
+@@ -86,7 +86,6 @@ type StrategyInterface interface {
+ 	DaemonSets() []*appsv1.DaemonSet
+ 	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
+ 	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
+-	APIServices() []*apiregv1.APIService
+ 	CertificateSecrets() []*corev1.Secret
+ 	SCCs() []*secv1.SecurityContextConstraints
+ 	ServiceMonitors() []*promv1.ServiceMonitor
+@@ -116,7 +115,6 @@ type Strategy struct {
+ 	daemonSets                        []*appsv1.DaemonSet
+ 	validatingWebhookConfigurations   []*admissionregistrationv1.ValidatingWebhookConfiguration
+ 	mutatingWebhookConfigurations     []*admissionregistrationv1.MutatingWebhookConfiguration
+-	apiServices                       []*apiregv1.APIService
+ 	certificateSecrets                []*corev1.Secret
+ 	sccs                              []*secv1.SecurityContextConstraints
+ 	serviceMonitors                   []*promv1.ServiceMonitor
+@@ -210,10 +208,6 @@ func (ins *Strategy) MutatingWebhookConfigurations() []*admissionregistrationv1.
  	return ins.mutatingWebhookConfigurations
  }
- 
+
 -func (ins *Strategy) APIServices() []*apiregv1.APIService {
 -	return ins.apiServices
 -}
@@ -445,8 +444,8 @@ index 65cf88913..2f7c0c51b 100644
  func (ins *Strategy) CertificateSecrets() []*corev1.Secret {
  	return ins.certificateSecrets
  }
-@@ -362,9 +357,6 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
- 	for _, entry := range strategy.mutatingWebhookConfigurations {
+@@ -417,9 +411,6 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
+ 	for _, entry := range strategy.validatingAdmissionPolicies {
  		marshalutil.MarshallObject(entry, writer)
  	}
 -	for _, entry := range strategy.apiServices {
@@ -455,18 +454,18 @@ index 65cf88913..2f7c0c51b 100644
  	for _, entry := range strategy.deployments {
  		marshalutil.MarshallObject(entry, writer)
  	}
-@@ -520,7 +512,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
- 
+@@ -590,7 +581,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
+
  	strategy.daemonSets = append(strategy.daemonSets, handler)
  	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
 -	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
  	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
  	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
  	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
-@@ -636,12 +627,6 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
+@@ -741,12 +731,6 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
  			}
- 			webhook.TypeMeta = obj
- 			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
+ 			validatingAdmissionPolicy.TypeMeta = obj
+ 			strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, validatingAdmissionPolicy)
 -		case "APIService":
 -			apiService := &apiregv1.APIService{}
 -			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
