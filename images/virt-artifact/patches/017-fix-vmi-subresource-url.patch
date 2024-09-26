@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-operator/resource/generate/rbac/controller.go b/pkg/virt-operator/resource/generate/rbac/controller.go
-index 8b8313112..2b9061aef 100644
+index 0acce8541a..2119b211ee 100644
 --- a/pkg/virt-operator/resource/generate/rbac/controller.go
 +++ b/pkg/virt-operator/resource/generate/rbac/controller.go
 @@ -363,6 +363,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
@@ -21,37 +21,43 @@ index 8b8313112..2b9061aef 100644
  			{
  				APIGroups: []string{
  					"subresources.kubevirt.io",
-diff --git a/staging/src/kubevirt.io/client-go/kubecli/vmi.go b/staging/src/kubevirt.io/client-go/kubecli/vmi.go
-index a9e071350..59c17b0f8 100644
---- a/staging/src/kubevirt.io/client-go/kubecli/vmi.go
-+++ b/staging/src/kubevirt.io/client-go/kubecli/vmi.go
-@@ -47,7 +47,10 @@ import (
- 	"kubevirt.io/client-go/subresources"
+diff --git a/staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/virtualmachineinstance_expansion.go b/staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/virtualmachineinstance_expansion.go
+index 2852d0bdbe..a5384279b3 100644
+--- a/staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/virtualmachineinstance_expansion.go
++++ b/staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/virtualmachineinstance_expansion.go
+@@ -31,7 +31,10 @@ import (
+ 	"kubevirt.io/client-go/log"
  )
  
--const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
+-const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s"
 +const (
-+	vmiSubresourceURL               = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
-+	vmiSubresourceVirtualizationURL = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s/%s"
++	vmiSubresourceURL               = "/apis/subresources.kubevirt.io/%s"
++	vmiSubresourceVirtualizationURL = "/apis/subresources.virtualization.deckhouse.io/v1alpha2" // v1alpha2/namespaces/%s/virtualmachines/%s/%s
 +)
  
- func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
- 	return &vmis{
-@@ -470,7 +473,7 @@ func (v *vmis) Screenshot(ctx context.Context, name string, screenshotOptions *v
- }
+ type SerialConsoleOptions struct {
+ 	ConnectionTimeout time.Duration
+@@ -269,9 +272,9 @@ func (c *virtualMachineInstances) AddVolume(ctx context.Context, name string, ad
+ 	}
  
- func (v *vmis) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
--	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "addvolume")
-+	uri := fmt.Sprintf(vmiSubresourceVirtualizationURL, v.namespace, name, "addvolume")
+ 	return c.client.Put().
+-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
++		AbsPath(vmiSubresourceVirtualizationURL).
+ 		Namespace(c.ns).
+-		Resource("virtualmachineinstances").
++		Resource("virtualmachines").
+ 		Name(name).
+ 		SubResource("addvolume").
+ 		Body(body).
+@@ -286,9 +289,9 @@ func (c *virtualMachineInstances) RemoveVolume(ctx context.Context, name string,
+ 	}
  
- 	JSON, err := json.Marshal(addVolumeOptions)
- 
-@@ -482,7 +485,7 @@ func (v *vmis) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.
- }
- 
- func (v *vmis) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
--	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
-+	uri := fmt.Sprintf(vmiSubresourceVirtualizationURL, v.namespace, name, "removevolume")
- 
- 	JSON, err := json.Marshal(removeVolumeOptions)
- 
+ 	return c.client.Put().
+-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
++		AbsPath(vmiSubresourceVirtualizationURL).
+ 		Namespace(c.ns).
+-		Resource("virtualmachineinstances").
++		Resource("virtualmachines").
+ 		Name(name).
+ 		SubResource("removevolume").
+ 		Body(body).
