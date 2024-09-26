@@ -21,7 +21,6 @@ shell:
 docker:
   ENV:
     GIMME_GO_VERSION: "{{ $goVersion }}"
-
 ---
 image: {{ $.ImageName }}
 final: false
@@ -53,34 +52,14 @@ shell:
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
   - mkdir -p _out
-
   - echo "========== Build kubevirt images ============"
-  - date
-  - time make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
-  - echo Stop date
-  - date
-  - du -h /kubevirt/_out
-  - ls -la .
-  - echo bazel dirs
-  - du -h /kubevirt/bazel*
-
-  - echo find virt-handler
-  - find / -type f -name virt-handler
-  - echo find virt-operator
-  - find / -type f -name virt-operator
-
+  - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
   - echo "=============== Build virtctl ==============="
-  - time /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
-
+  - /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
   - echo "======  Unpack kubevirt images into /  ======"
-  - tar tf /kubevirt/_out/virt-components-bundle.tar
-  - time tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
-  - du -shc /virt-components-bundle/*
-  - mkdir -p /images && cd /images && time /unpack-bundle.sh /virt-components-bundle/
-  - du -shc /images/*
-  - du -shc /virt-components-bundle/*
+  - tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
+  - mkdir -p /images && cd /images && /unpack-bundle.sh /virt-components-bundle/
   # reduce image size (~17Gb)
-  - du -sh /root/.cache/* /virt-components-bundle/* /kubevirt/* /tmp/*
   - rm -rf /root/.cache
   - rm -rf /virt-components-bundle
   - rm -rf /kubevirt

@@ -12,30 +12,6 @@ index 9d2ce692bb..a0287460fa 100644
      },
  )
 
-diff --git a/cmd/libguestfs/BUILD.bazel b/cmd/libguestfs/BUILD.bazel
-index c7ccf540a3..643962d6a8 100644
---- a/cmd/libguestfs/BUILD.bazel
-+++ b/cmd/libguestfs/BUILD.bazel
-@@ -41,7 +41,6 @@ container_image(
-     ],
-     tars = [
-         "//:passwd-tar",
--        "//rpm:libguestfs-tools",
-         ":appliance_layer",
-         ":entrypoint",
-     ],
-diff --git a/cmd/virt-exportserver/BUILD.bazel b/cmd/virt-exportserver/BUILD.bazel
-index 5e8e91906e..6f7dc2d917 100644
---- a/cmd/virt-exportserver/BUILD.bazel
-+++ b/cmd/virt-exportserver/BUILD.bazel
-@@ -67,7 +67,6 @@ container_image(
-         ],
-         "//conditions:default": [
-             ":passwd-tar",
--            "//rpm:exportserverbase_x86_64",
-         ],
-     }),
- )
 diff --git a/cmd/virt-handler/BUILD.bazel b/cmd/virt-handler/BUILD.bazel
 index 303dedd992..4e10e585dc 100644
 --- a/cmd/virt-handler/BUILD.bazel
