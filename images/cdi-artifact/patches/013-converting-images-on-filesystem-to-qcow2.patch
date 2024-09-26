@@ -1,3 +1,15 @@
+diff --git a/pkg/image/BUILD.bazel b/pkg/image/BUILD.bazel
+index 05cd4711a..a15afc6b4 100644
+--- a/pkg/image/BUILD.bazel
++++ b/pkg/image/BUILD.bazel
+@@ -7,6 +7,7 @@ go_library(
+         "filefmt.go",
+         "nbdkit.go",
+         "qemu.go",
++        "qemu_format_stream.go",
+         "validate.go",
+     ],
+     importpath = "kubevirt.io/containerized-data-importer/pkg/image",
 diff --git a/pkg/image/qemu.go b/pkg/image/qemu.go
 index 07eaf0327..f0086e5fb 100644
 --- a/pkg/image/qemu.go
@@ -109,6 +121,18 @@ index 4fdb03991..d74b9253c 100644
  	}
  	dp.preallocationApplied = dp.preallocation
  
+diff --git a/pkg/util/BUILD.bazel b/pkg/util/BUILD.bazel
+index 3b68448a2..3c9d6e2be 100644
+--- a/pkg/util/BUILD.bazel
++++ b/pkg/util/BUILD.bazel
+@@ -4,6 +4,7 @@ go_library(
+     name = "go_default_library",
+     srcs = [
+         "file.go",
++        "file_format.go",
+         "util.go",
+     ],
+     importpath = "kubevirt.io/containerized-data-importer/pkg/util",
 diff --git a/pkg/util/file_format.go b/pkg/util/file_format.go
 new file mode 100644
 index 000000000..bede0753d
