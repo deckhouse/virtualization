@@ -53,7 +53,10 @@ function run() {
     if [[ -z $NAMESPACE ]] || [[ -z $SERVICE ]] || [[ -z $PORT ]]; then
         usage_exit 1
     fi
-    exec -a "${PROCESS_NAME}" kubectl port-forward "services/${SERVICE}" "${PYROSCOPE_PORT}:${PORT}" &
+
+    echo "exec process name: ${PROCESS_NAME}"
+    echo "exec command: kubectl -n ${NAMESPACE} port-forward services/${SERVICE} ${PYROSCOPE_PORT}:${PORT}"
+    exec -a "${PROCESS_NAME}" kubectl -n "${NAMESPACE}" port-forward "services/${SERVICE}" "${PYROSCOPE_PORT}:${PORT}" &
     docker compose -f "${DOCKER_COMPOSE_FILE}" up -d
 }
 
