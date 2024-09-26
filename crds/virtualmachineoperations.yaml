@@ -78,7 +78,7 @@ spec:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
-                    * Migrate - migrate the virtualmachine.
+                    * Migrate - migrate the virtual machine to another host available to run this VM.
                   enum:
                     - Restart
                     - Start
