@@ -1,10 +1,22 @@
+diff --git a/cmd/cdi-apiserver/BUILD.bazel b/cmd/cdi-apiserver/BUILD.bazel
+index a94a251aa..1c8209be9 100644
+--- a/cmd/cdi-apiserver/BUILD.bazel
++++ b/cmd/cdi-apiserver/BUILD.bazel
+@@ -19,6 +19,7 @@ go_library(
+         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v6/clientset/versioned:go_default_library",
+         "//vendor/github.com/pkg/errors:go_default_library",
+         "//vendor/k8s.io/api/core/v1:go_default_library",
++        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+         "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
 diff --git a/cmd/cdi-apiserver/apiserver.go b/cmd/cdi-apiserver/apiserver.go
-index 4a57ac143..49d9e233c 100644
+index 4a57ac143..72839039d 100644
 --- a/cmd/cdi-apiserver/apiserver.go
 +++ b/cmd/cdi-apiserver/apiserver.go
 @@ -30,6 +30,7 @@ import (
  	"github.com/pkg/errors"
-
+ 
  	corev1 "k8s.io/api/core/v1"
 +	apiruntime "k8s.io/apimachinery/pkg/runtime"
  	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -15,11 +27,11 @@ index 4a57ac143..49d9e233c 100644
  		klog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
  	}
 +	cfg.ContentType = apiruntime.ContentTypeJSON
-
+ 
  	client, err := kubernetes.NewForConfig(cfg)
  	if err != nil {
 diff --git a/cmd/cdi-controller/controller.go b/cmd/cdi-controller/controller.go
-index b835b06e3..184ce5d13 100644
+index b835b06e3..a8fdfb6b5 100644
 --- a/cmd/cdi-controller/controller.go
 +++ b/cmd/cdi-controller/controller.go
 @@ -166,6 +166,7 @@ func start() {
@@ -27,13 +39,13 @@ index b835b06e3..184ce5d13 100644
  		klog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
  	}
 +	cfg.ContentType = apiruntime.ContentTypeJSON
-
+ 
  	k8sClient, err := kubernetes.NewForConfig(cfg)
  	if err != nil {
-@@ -200,7 +202,9 @@ func start() {
+@@ -200,7 +201,9 @@ func start() {
  		Scheme:                     scheme,
  	}
-
+ 
 -	mgr, err := manager.New(config.GetConfigOrDie(), opts)
 +	cfg = config.GetConfigOrDie()
 +	cfg.ContentType = apiruntime.ContentTypeJSON
@@ -41,26 +53,50 @@ index b835b06e3..184ce5d13 100644
  	if err != nil {
  		klog.Errorf("Unable to setup controller manager: %v", err)
  		os.Exit(1)
+diff --git a/cmd/cdi-operator/BUILD.bazel b/cmd/cdi-operator/BUILD.bazel
+index bd2fb8696..237c588d3 100644
+--- a/cmd/cdi-operator/BUILD.bazel
++++ b/cmd/cdi-operator/BUILD.bazel
+@@ -15,6 +15,7 @@ go_library(
+         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+         "//vendor/go.uber.org/zap/zapcore:go_default_library",
+         "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
++        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+         "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1:go_default_library",
+         "//vendor/sigs.k8s.io/controller-runtime/pkg/cache:go_default_library",
+         "//vendor/sigs.k8s.io/controller-runtime/pkg/client/config:go_default_library",
 diff --git a/cmd/cdi-operator/operator.go b/cmd/cdi-operator/operator.go
-index dfbc71f87..5a9236df9 100644
+index dfbc71f87..0ec912f79 100644
 --- a/cmd/cdi-operator/operator.go
 +++ b/cmd/cdi-operator/operator.go
 @@ -30,6 +30,7 @@ import (
  	"go.uber.org/zap/zapcore"
-
+ 
  	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 +	apiruntime "k8s.io/apimachinery/pkg/runtime"
  	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-
+ 
  	"sigs.k8s.io/controller-runtime/pkg/cache"
 @@ -85,6 +86,7 @@ func main() {
  		log.Error(err, "")
  		os.Exit(1)
  	}
 +	cfg.ContentType = apiruntime.ContentTypeJSON
-
+ 
  	managerOpts := manager.Options{
  		Cache: cache.Options{
+diff --git a/cmd/cdi-uploadproxy/BUILD.bazel b/cmd/cdi-uploadproxy/BUILD.bazel
+index 859dcc5b8..b82e88bea 100644
+--- a/cmd/cdi-uploadproxy/BUILD.bazel
++++ b/cmd/cdi-uploadproxy/BUILD.bazel
+@@ -14,6 +14,7 @@ go_library(
+         "//pkg/util/tls-crypto-watch:go_default_library",
+         "//vendor/github.com/kelseyhightower/envconfig:go_default_library",
+         "//vendor/github.com/pkg/errors:go_default_library",
++        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+         "//vendor/k8s.io/klog/v2:go_default_library",
 diff --git a/cmd/cdi-uploadproxy/uploadproxy.go b/cmd/cdi-uploadproxy/uploadproxy.go
 index bf63d0e30..be024f889 100644
 --- a/cmd/cdi-uploadproxy/uploadproxy.go
@@ -68,7 +104,7 @@ index bf63d0e30..be024f889 100644
 @@ -8,6 +8,7 @@ import (
  	"github.com/kelseyhightower/envconfig"
  	"github.com/pkg/errors"
-
+ 
 +	apiruntime "k8s.io/apimachinery/pkg/runtime"
  	"k8s.io/client-go/kubernetes"
  	"k8s.io/client-go/tools/clientcmd"
