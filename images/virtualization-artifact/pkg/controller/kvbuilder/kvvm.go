@@ -47,8 +47,7 @@ type KVVMOptions struct {
 	OsType                   virtv2.OsType
 
 	// These options are for local development mode
-	ForceBridgeNetworkBinding bool
-	DisableHypervSyNIC        bool
+	DisableHypervSyNIC bool
 }
 
 type KVVM struct {
@@ -494,11 +493,7 @@ func (b *KVVM) SetNetworkInterface(name string) {
 		Name:  name,
 		Model: devPreset.InterfaceModel,
 	}
-	if b.opts.ForceBridgeNetworkBinding {
-		iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
-	} else {
-		iface.InterfaceBindingMethod.Macvtap = &virtv1.InterfaceMacvtap{}
-	}
+	iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = util.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
 		func(v1, v2 virtv1.Interface) bool {
