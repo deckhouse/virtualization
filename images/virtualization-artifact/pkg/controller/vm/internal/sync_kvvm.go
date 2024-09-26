@@ -123,12 +123,9 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
 				return true
 			}
-		case vmcondition.TypeIPAddressReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonIPAddressNotAssigned.String() {
-				return true
-			}
 
-		case vmcondition.TypeProvisioningReady,
+		case vmcondition.TypeIPAddressReady,
+			vmcondition.TypeProvisioningReady,
 			vmcondition.TypeClassReady:
 			if c.Status != metav1.ConditionTrue {
 				return true
