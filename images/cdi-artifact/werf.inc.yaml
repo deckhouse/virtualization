@@ -41,6 +41,8 @@ git:
     - patches/README.md
 shell:
   setup:
+  - df -h
+
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
   - cd /containerized-data-importer
   - |
@@ -50,6 +52,7 @@ shell:
     done
 
   - echo "========== Build CDI binaries ============"
+  - df -h
 
   - echo Start time
   - date
@@ -57,17 +60,21 @@ shell:
   - echo End time
   - date
 
-  - echo "Find rpms"
-  - find bazel-out -type f -name "*.rpm"
-
-  - echo Find executables in bazel-bin
-  - find bazel-bin -type f -executable
-
   - echo find cdi-controller
-  - find bazel-out -type f -name cdi-controller
+  - find /root/.cache -type f -name cdi-controller
 
   - echo find cdi-operator
-  - find bazel-out -type f -name cdi-operator
+  - find /root/.cache -type f -name cdi-operator
+
+  - echo find cdi-image-size-detection
+  - find /root/.cache -type f -name cdi-image-size-detection
+
+  - echo "Find rpms"
+  - find /root/.cache -type f -name "*.rpm"
+
+  - echo Find executables in /root/.cache
+  - find /root/.cache -type f -executable
+
 
   - df -h
 
@@ -142,13 +149,65 @@ shell:
   - echo End time
   - date
 
-  - echo "Find tar files"
-  - find bazel-out -type f -name "*.tar"
+  - echo "Find rpms"
+  - find /root/.cache -type f -name "*.rpm"
 
-  - du -shc /containerized-data-importer/*
+  - echo Find executables in bazel-bin
+  - find /root/.cache -type f -executable
+
+  - echo find cdi-controller
+  - find /root/.cache -type f -name cdi-controller
+
+  - echo find cdi-operator
+  - find /root/.cache -type f -name cdi-operator
+
+  - echo find cdi-image-size-detection
+  - find /root/.cache -type f -name cdi-image-size-detection
+
+  - echo "Find tar files"
+  - find /root/.cache -type f -name "*.tar"
+
+  #- du -shc /containerized-data-importer/*
+    # 12K	/containerized-data-importer/BUILD.bazel
+    # 8.0K	/containerized-data-importer/CONTRIBUTING.md
+    # 12K	/containerized-data-importer/LICENSE
+    # 12K	/containerized-data-importer/Makefile
+    # 4.0K	/containerized-data-importer/OWNERS
+    # 4.0K	/containerized-data-importer/OWNERS_ALIASES
+    # 12K	/containerized-data-importer/README.md
+    # 4.0K	/containerized-data-importer/SECURITY.md
+    # 152K	/containerized-data-importer/WORKSPACE
+    # 12K	/containerized-data-importer/_out
+    # 200K	/containerized-data-importer/api
+    # 16K	/containerized-data-importer/assets
+    # 64K	/containerized-data-importer/automation
+    # 40K	/containerized-data-importer/bazel
+    # 4.0K	/containerized-data-importer/bazel-bin
+    # 4.0K	/containerized-data-importer/bazel-containerized-data-importer
+    # 4.0K	/containerized-data-importer/bazel-out
+    # 4.0K	/containerized-data-importer/bazel-testlogs
+    # 84K	/containerized-data-importer/cluster-sync
+    # 424K	/containerized-data-importer/cluster-up
+    # 188K	/containerized-data-importer/cmd
+    # 348K	/containerized-data-importer/doc
+    # 12K	/containerized-data-importer/go.mod
+    # 252K	/containerized-data-importer/go.sum
+    # 296K	/containerized-data-importer/hack
+    # 160K	/containerized-data-importer/manifests
+    # 8.0K	/containerized-data-importer/manual-release-notes
+    # 7.9M	/containerized-data-importer/pkg
+    # 4.0K	/containerized-data-importer/repo.yaml
+    # 56K	/containerized-data-importer/rpm
+    # 424K	/containerized-data-importer/staging
+    # 209M	/containerized-data-importer/tests
+    # 20K	/containerized-data-importer/third_party
+    # 328K	/containerized-data-importer/tools
+    # 4.0K	/containerized-data-importer/tools.go
+    # 128M	/containerized-data-importer/vendor
+    # 348M	total
 
   - echo "Calculate garbage size after building images"
-  - du -shc /root/.cache /containerized-data-importer /tmp/*
+  - du -shc /root/.cache /containerized-data-importer /tmp
 
   - df -h
 
@@ -161,24 +220,73 @@ shell:
 
   - df -h
 
+
+  - echo "Find rpms"
+  - find /root/.cache -type f -name "*.rpm"
+
+  - echo Find executables in bazel-bin
+  - find /root/.cache -type f -executable
+
+  - echo find cdi-controller
+  - find /root/.cache -type f -name cdi-controller
+
+  - echo find cdi-operator
+  - find /root/.cache -type f -name cdi-operator
+
+  - echo find cdi-image-size-detection
+  - find /root/.cache -type f -name cdi-image-size-detection
+
+  - echo "Find tar files"
+  - find /root/.cache -type f -name "*.tar"
+
+
   - echo "======  Unpack CDI images into /  ======"
   - echo Start time
   - date
+  - du -sh /containerized-data-importer/bazel-bin/container-images-bundle.tar
+  - echo Content of /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - tar tf /containerized-data-importer/bazel-bin/container-images-bundle.tar
+  - echo Unpack container-images-bundle.tar into /images
   - time tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - mkdir -p /images && cd /images && time /unpack-bundle.sh /container-images-bundle/
   - echo End time
   - date
-  - du -shc /containerized-data-importer/* || true
-  - du -shc /images/* || true
-  - du -shc /container-images-bundle/* || true
 
-  - df -h
+  - echo '/images/kubevirt' content
+  - du -shc /images/kubevirt/* || true
+
+  # - du -shc /images/* || true
+  # 1.2G	/images/kubevirt
+  # - du -shc /container-images-bundle/* || true
+    # 93M	/container-images-bundle/1c9556ad825ac7507205e7c8347e8905dda4c5f4d82263894971d198422de877
+    # 4.0K	/container-images-bundle/28324925c340995f0a9e44ea2b7fa2f935d88d05867d24f652e8672cacf9156d.json
+    # 142M	/container-images-bundle/3fc7eb745463724d257199359d37cdaf45dba9c00eea964b4594b96f258c6853
+    # 94M	/container-images-bundle/43a4cf82f8f8611b2c702dcb737295ad7b9200cec517d07dd44b4ac657e943ee
+    # 43M	/container-images-bundle/4f31cbaa0df27d4d1e090c1f821b724c498435f3e93fd7e01e8d5fc1ba8b74e7
+    # 244M	/container-images-bundle/75abebbb80606d8ba1af6643934acce33fbf83fccd2631e2e413f07c85834a06
+    # 47M	/container-images-bundle/7788964d82fb204fde6daa1965ec1a738d871bfc109957ac6fccfd931986e49f
+    # 4.0K	/container-images-bundle/90e6c47a786e2f130d638d7e51c89e0784e651ecdb491e6995826e45d59b07b1.json
+    # 4.0K	/container-images-bundle/9240e295e3a69ae5c00e6b7c80f830abbd56af42f614534fe3b1b6833f9c94ba.json
+    # 18M	/container-images-bundle/956b2a2e38e967207c65db1d7a5b43b566138db6c4e36d1fffc603d243bc65aa
+    # 4.0K	/container-images-bundle/a69f1280f7b4305abcec6241410e0c5eac97824eca0ba34a361e20a86fc10ea7.json
+    # 4.0K	/container-images-bundle/bd20753a681693fe88e3d927e78df5877720ca6bc780f3e0442fe61edf947fb2.json
+    # 44M	/container-images-bundle/d123ea74b87b56adfde8c63e64584665cc280a8732f2b829d4e25a98ff7662e6
+    # 55M	/container-images-bundle/d55b490cbd392ee2088fcb5ef3bf7d4957d8fc1f094620efea13a83d65642e99
+    # 59M	/container-images-bundle/d6a4d46d2654a319854ee091049a23d80776eb9ed3b5c8b64593c5094e0bad3e
+    # 4.0K	/container-images-bundle/e1275106dc69d5f18fa395bdca37b62f3b5829d76ce512b4b0ec27a58f3ecc8c.json
+    # 4.0K	/container-images-bundle/fe7e9420c99ad9c3f4aa1c1fb365cb85cf60f12ad8a961ce2dd61b1f1305f5e9.json
+    # 4.0K	/container-images-bundle/manifest.json
+    # 4.0K	/container-images-bundle/repositories
+    # 835M	total
+
+  - df -h /
 
     # reduce image size (~12Gb)
   - echo "Calculate garbage size"
-  - du -sh /root/.cache /container-images-bundle/* /containerized-data-importer/* /tmp/*
+  - du -sch /root/.cache /images /container-images-bundle /containerized-data-importer /tmp
+  - echo "Cleanup"
   - rm -rf /root/.cache
+  - rm -rf /images
   - rm -rf /container-images-bundle
   - rm -rf /containerized-data-importer
   - rm -rf /tmp/*
