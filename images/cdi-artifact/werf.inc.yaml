@@ -48,30 +48,102 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+
   - echo "========== Build CDI binaries ============"
+
   - echo Start time
   - date
   - time /entrypoint.sh /bazel-build-binaries.sh
   - echo End time
   - date
-  - du -h /containerized-data-importer/bazel*
-  - ls -la .
-  - ls -la bazel-bin
-  - echo Find executables in the bazel-bin
-  - find bazel-bin -type f -perm +a=x
+
+  - echo "Find rpms"
+  - find bazel-out -type f -name "*.rpm"
+
+  - echo Find executables in bazel-bin
+  - find bazel-bin -type f -executable
+
   - echo find cdi-controller
-  - find / -type f -name cdi-controller
+  - find bazel-out -type f -name cdi-controller
+
   - echo find cdi-operator
-  - find / -type f -name cdi-operator
+  - find bazel-out -type f -name cdi-operator
 
   - df -h
 
+    #- du -h /containerized-data-importer/bazel*
+    # 8.0K	/containerized-data-importer/bazel/platforms
+    # 8.0K	/containerized-data-importer/bazel/toolchain/aarch64-none-linux-gnu/wrappers
+    # 20K	/containerized-data-importer/bazel/toolchain/aarch64-none-linux-gnu
+    # 28K	/containerized-data-importer/bazel/toolchain
+    # 40K	/containerized-data-importer/bazel
+    # 4.0K	/containerized-data-importer/bazel-bin
+    # 4.0K	/containerized-data-importer/bazel-containerized-data-importer
+    # 4.0K	/containerized-data-importer/bazel-out
+    # 4.0K	/containerized-data-importer/bazel-testlogs
+
+
+  #- ls -la .
+    # drwxr-xr-x 21 root root   4096 Sep 26 19:03 .
+    # drwxr-xr-x  1 root root   4096 Sep 26 19:02 ..
+    # -rw-r--r--  1 root root   2365 Sep 26 19:02 .bazelrc
+    # -rw-r--r--  1 root root    362 Sep 26 19:02 .fossa.yml
+    # drwxr-xr-x  8 root root   4096 Sep 26 19:03 .git
+    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 .github
+    # -rw-r--r--  1 root root    248 Sep 26 19:02 .gitignore
+    # -rw-r--r--  1 root root   1242 Sep 26 19:02 .golangci.yml
+    # -rw-r--r--  1 root root     72 Sep 26 19:02 .snyk
+    # -rw-r--r--  1 root root   9889 Sep 26 19:02 BUILD.bazel
+    # -rw-r--r--  1 root root   5551 Sep 26 19:02 CONTRIBUTING.md
+    # -rw-r--r--  1 root root  11351 Sep 26 19:02 LICENSE
+    # -rw-r--r--  1 root root  12271 Sep 26 19:02 Makefile
+    # -rw-r--r--  1 root root    140 Sep 26 19:02 OWNERS
+    # -rw-r--r--  1 root root    291 Sep 26 19:02 OWNERS_ALIASES
+    # -rw-r--r--  1 root root   8518 Sep 26 19:02 README.md
+    # -rw-r--r--  1 root root   1646 Sep 26 19:02 SECURITY.md
+    # -rw-r--r--  1 root root 152713 Sep 26 19:02 WORKSPACE
+    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 api
+    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 assets
+    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 automation
+    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 bazel
+    # lrwxrwxrwx  1 root root    108 Sep 26 19:03 bazel-bin -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/bin
+    # lrwxrwxrwx  1 root root     81 Sep 26 19:03 bazel-containerized-data-importer -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__
+    # lrwxrwxrwx  1 root root     91 Sep 26 19:03 bazel-out -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out
+    # lrwxrwxrwx  1 root root    113 Sep 26 19:03 bazel-testlogs -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/testlogs
+    # drwxr-xr-x  5 root root   4096 Sep 26 19:02 cluster-sync
+    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 cluster-up
+    # drwxr-xr-x 11 root root   4096 Sep 26 19:02 cmd
+    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 doc
+    # -rw-r--r--  1 root root  10554 Sep 26 19:02 go.mod
+    # -rw-r--r--  1 root root 255355 Sep 26 19:02 go.sum
+    # drwxr-xr-x  5 root root   4096 Sep 26 19:02 hack
+    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 manifests
+    # -rw-r--r--  1 root root   4285 Sep 26 19:02 manual-release-notes
+    # drwxr-xr-x 20 root root   4096 Sep 26 19:02 pkg
+    # -rw-r--r--  1 root root   2158 Sep 26 19:02 repo.yaml
+    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 rpm
+    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 staging
+    # drwxr-xr-x  7 root root   4096 Sep 26 19:02 tests
+    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 third_party
+    # drwxr-xr-x 23 root root   4096 Sep 26 19:02 tools
+    # -rw-r--r--  1 root root    266 Sep 26 19:02 tools.go
+    # drwxr-xr-x 15 root root   4096 Sep 26 19:02 vendor
+
+  #- ls -la bazel-bin
+  # lrwxrwxrwx 1 root root 108 Sep 26 19:03 bazel-bin -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/bin
+
+
+
   - echo "========== Build CDI images ============"
+
   - echo Start time
   - date
   - time /entrypoint.sh make bazel-build-images DOCKER=0
   - echo End time
   - date
+
+  - echo "Find tar files"
+  - find bazel-out -type f -name "*.tar"
 
   - du -shc /containerized-data-importer/*
 
@@ -86,17 +158,20 @@ shell:
   - time /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
   - echo End time
   - date
+
+  - df -h
+
   - echo "======  Unpack CDI images into /  ======"
   - echo Start time
   - date
   - tar tf /containerized-data-importer/bazel-bin/container-images-bundle.tar
   - time tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - du -shc /containerized-data-importer/*
   - mkdir -p /images && cd /images && time /unpack-bundle.sh /container-images-bundle/
   - echo End time
   - date
+  - du -shc /containerized-data-importer/* || true
   - du -shc /images/* || true
-  - du -shc /container-images-bundle/*
+  - du -shc /container-images-bundle/* || true
 
   - df -h
 
