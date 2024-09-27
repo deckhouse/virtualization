@@ -99,41 +99,44 @@ shell:
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
-    - mkdir /go-out
+    - mkdir /cdi-binaries
     - echo Start building binaries ...
     - date
     - echo ============== Build cdi-apiserver ===========
-    - go build -v -a -o /go-out/cdi-apiserver ./cmd/cdi-apiserver
+    - go build -v -a -o /cdi-binaries/cdi-apiserver ./cmd/cdi-apiserver
     - df -h /
     - echo ============== Build cdi-cloner ===========
-    - go build -v -a -o /go-out/cdi-cloner ./cmd/cdi-cloner
+    - go build -v -a -o /cdi-binaries/cdi-cloner ./cmd/cdi-cloner
     - df -h /
     - echo ============== Build cdi-controller ===========
-    - go build -v -a -o /go-out/cdi-controller ./cmd/cdi-controller
+    - go build -v -a -o /cdi-binaries/cdi-controller ./cmd/cdi-controller
     - df -h /
     - echo ============== Build cdi-uploadproxy ===========
-    - go build -v -a -o /go-out/cdi-uploadproxy ./cmd/cdi-uploadproxy
+    - go build -v -a -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
     - df -h /
     - echo ============== Build cdi-uploadserver ===========
-    - go build -v -a -o /go-out/cdi-uploadserver ./cmd/cdi-uploadserver
+    - go build -v -a -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
     - df -h /
     - echo ============== Build cdi-importer ===========
-    - go build -v -a -o /go-out/cdi-importer ./cmd/cdi-importer
+    - go build -v -a -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
     - df -h /
     - echo ============== Build cdi-containerimage-server ===========
-    - go build -v -a -o /go-out/cdi-containerimage-server ./tools/cdi-containerimage-server
+    - go build -v -a -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
     - df -h /
     - echo ============== Build cdi-image-size-detection  ===========
-    - go build -v -a -o /go-out/cdi-image-size-detection ./tools/cdi-image-size-detection
+    - go build -v -a -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
     - df -h /
     - echo ============== Build cdi-source-update-poller  ===========
-    - go build -v -a -o /go-out/cdi-source-update-poller ./tools/cdi-source-update-poller
+    - go build -v -a -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
     - df -h /
     - echo ============== Build cdi-operator  ===========
-    - go build -v -a -o /go-out/cdi-operator ./cmd/cdi-operator
+    - go build -v -a -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
     - df -h /
     - echo ============== Build csv-generator  ===========
-    - go build -v -a -o /go-out/csv-generator ./tools/csv-generator
+    - go build -v -a -o /cdi-binaries/csv-generator ./tools/csv-generator
     - df -h /
     - echo End building binaries ...
     - date
+    - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
+    - chmod +x /cdi-binaries/*
+    - ls -la /cdi-binaries
