@@ -112,49 +112,54 @@ shell:
         echo -n "Apply ${p} ... "
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
       done
+
     - echo Start downloading modules ...
     - date
+
     - go mod download
+
     - export GO111MODULE=on
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
     - mkdir /cdi-binaries
+
     - echo Start building binaries ...
     - date
+
     - echo ============== Build cdi-apiserver ===========
     - time go build -o /cdi-binaries/cdi-apiserver ./cmd/cdi-apiserver
-    - df -h /
+
     - echo ============== Build cdi-cloner ===========
     - time go build -o /cdi-binaries/cdi-cloner ./cmd/cdi-cloner
-    - df -h /
+
     - echo ============== Build cdi-controller ===========
     - time go build -o /cdi-binaries/cdi-controller ./cmd/cdi-controller
-    - df -h /
+
     - echo ============== Build cdi-uploadproxy ===========
     - time go build -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
-    - df -h /
+
     - echo ============== Build cdi-uploadserver ===========
-    - time go build -v -a -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
-    - df -h /
+    - time CGO_ENABLED=1 go build -v -a -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
+
     - echo ============== Build cdi-importer ===========
-    - time go build -v -a -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
-    - df -h /
+    - time CGO_ENABLED=1 go build -v -a -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
+
     - echo ============== Build cdi-containerimage-server ===========
     - time go build -v -a -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
-    - df -h /
+
     - echo ============== Build cdi-image-size-detection  ===========
     - time go build -v -a -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
-    - df -h /
+
     - echo ============== Build cdi-source-update-poller  ===========
     - time go build -v -a -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
-    - df -h /
+
     - echo ============== Build cdi-operator  ===========
     - time go build -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
-    - df -h /
+
     - echo ============== Build csv-generator  ===========
     - time go build -o /cdi-binaries/csv-generator ./tools/csv-generator
-    - df -h /
+
     - echo End building binaries ...
     - date
     - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
