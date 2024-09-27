@@ -35,8 +35,6 @@ git:
       - '**/*'
     includePaths:
     - patches
-    - unpack-bundle.sh
-    - bazel-build-binaries.sh
     - custom-build
     excludePaths:
     - patches/README.md
@@ -53,8 +51,9 @@ shell:
     done
   - cp -r /custom-build .
 
-  - echo "========== Build CDI binaries ============"
   - df -h
+
+  - echo "========== Build CDI binaries ============"
 
   - echo Start time
   - date
@@ -62,192 +61,24 @@ shell:
   - echo End time
   - date
 
-  - ls -la bazel-bin/custom-build
-  - tar tf bazel-bin/custom-build/cdi-binaries.tar
-
-  - df -h
-
-    #- du -h /containerized-data-importer/bazel*
-    # 8.0K	/containerized-data-importer/bazel/platforms
-    # 8.0K	/containerized-data-importer/bazel/toolchain/aarch64-none-linux-gnu/wrappers
-    # 20K	/containerized-data-importer/bazel/toolchain/aarch64-none-linux-gnu
-    # 28K	/containerized-data-importer/bazel/toolchain
-    # 40K	/containerized-data-importer/bazel
-    # 4.0K	/containerized-data-importer/bazel-bin
-    # 4.0K	/containerized-data-importer/bazel-containerized-data-importer
-    # 4.0K	/containerized-data-importer/bazel-out
-    # 4.0K	/containerized-data-importer/bazel-testlogs
-
-
-  #- ls -la .
-    # drwxr-xr-x 21 root root   4096 Sep 26 19:03 .
-    # drwxr-xr-x  1 root root   4096 Sep 26 19:02 ..
-    # -rw-r--r--  1 root root   2365 Sep 26 19:02 .bazelrc
-    # -rw-r--r--  1 root root    362 Sep 26 19:02 .fossa.yml
-    # drwxr-xr-x  8 root root   4096 Sep 26 19:03 .git
-    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 .github
-    # -rw-r--r--  1 root root    248 Sep 26 19:02 .gitignore
-    # -rw-r--r--  1 root root   1242 Sep 26 19:02 .golangci.yml
-    # -rw-r--r--  1 root root     72 Sep 26 19:02 .snyk
-    # -rw-r--r--  1 root root   9889 Sep 26 19:02 BUILD.bazel
-    # -rw-r--r--  1 root root   5551 Sep 26 19:02 CONTRIBUTING.md
-    # -rw-r--r--  1 root root  11351 Sep 26 19:02 LICENSE
-    # -rw-r--r--  1 root root  12271 Sep 26 19:02 Makefile
-    # -rw-r--r--  1 root root    140 Sep 26 19:02 OWNERS
-    # -rw-r--r--  1 root root    291 Sep 26 19:02 OWNERS_ALIASES
-    # -rw-r--r--  1 root root   8518 Sep 26 19:02 README.md
-    # -rw-r--r--  1 root root   1646 Sep 26 19:02 SECURITY.md
-    # -rw-r--r--  1 root root 152713 Sep 26 19:02 WORKSPACE
-    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 api
-    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 assets
-    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 automation
-    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 bazel
-    # lrwxrwxrwx  1 root root    108 Sep 26 19:03 bazel-bin -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/bin
-    # lrwxrwxrwx  1 root root     81 Sep 26 19:03 bazel-containerized-data-importer -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__
-    # lrwxrwxrwx  1 root root     91 Sep 26 19:03 bazel-out -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out
-    # lrwxrwxrwx  1 root root    113 Sep 26 19:03 bazel-testlogs -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/testlogs
-    # drwxr-xr-x  5 root root   4096 Sep 26 19:02 cluster-sync
-    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 cluster-up
-    # drwxr-xr-x 11 root root   4096 Sep 26 19:02 cmd
-    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 doc
-    # -rw-r--r--  1 root root  10554 Sep 26 19:02 go.mod
-    # -rw-r--r--  1 root root 255355 Sep 26 19:02 go.sum
-    # drwxr-xr-x  5 root root   4096 Sep 26 19:02 hack
-    # drwxr-xr-x  4 root root   4096 Sep 26 19:02 manifests
-    # -rw-r--r--  1 root root   4285 Sep 26 19:02 manual-release-notes
-    # drwxr-xr-x 20 root root   4096 Sep 26 19:02 pkg
-    # -rw-r--r--  1 root root   2158 Sep 26 19:02 repo.yaml
-    # drwxr-xr-x  2 root root   4096 Sep 26 19:02 rpm
-    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 staging
-    # drwxr-xr-x  7 root root   4096 Sep 26 19:02 tests
-    # drwxr-xr-x  3 root root   4096 Sep 26 19:02 third_party
-    # drwxr-xr-x 23 root root   4096 Sep 26 19:02 tools
-    # -rw-r--r--  1 root root    266 Sep 26 19:02 tools.go
-    # drwxr-xr-x 15 root root   4096 Sep 26 19:02 vendor
-
-  #- ls -la bazel-bin
-  # lrwxrwxrwx 1 root root 108 Sep 26 19:03 bazel-bin -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/bin
-
-
-  - echo "========== Build CDI images ============"
-
-  - echo Start time
-  - date
-  - time /entrypoint.sh make bazel-build-images DOCKER=0
-  - echo End time
-  - date
-
-  #- du -shc /containerized-data-importer/*
-    # 12K	/containerized-data-importer/BUILD.bazel
-    # 8.0K	/containerized-data-importer/CONTRIBUTING.md
-    # 12K	/containerized-data-importer/LICENSE
-    # 12K	/containerized-data-importer/Makefile
-    # 4.0K	/containerized-data-importer/OWNERS
-    # 4.0K	/containerized-data-importer/OWNERS_ALIASES
-    # 12K	/containerized-data-importer/README.md
-    # 4.0K	/containerized-data-importer/SECURITY.md
-    # 152K	/containerized-data-importer/WORKSPACE
-    # 12K	/containerized-data-importer/_out
-    # 200K	/containerized-data-importer/api
-    # 16K	/containerized-data-importer/assets
-    # 64K	/containerized-data-importer/automation
-    # 40K	/containerized-data-importer/bazel
-    # 4.0K	/containerized-data-importer/bazel-bin
-    # 4.0K	/containerized-data-importer/bazel-containerized-data-importer
-    # 4.0K	/containerized-data-importer/bazel-out
-    # 4.0K	/containerized-data-importer/bazel-testlogs
-    # 84K	/containerized-data-importer/cluster-sync
-    # 424K	/containerized-data-importer/cluster-up
-    # 188K	/containerized-data-importer/cmd
-    # 348K	/containerized-data-importer/doc
-    # 12K	/containerized-data-importer/go.mod
-    # 252K	/containerized-data-importer/go.sum
-    # 296K	/containerized-data-importer/hack
-    # 160K	/containerized-data-importer/manifests
-    # 8.0K	/containerized-data-importer/manual-release-notes
-    # 7.9M	/containerized-data-importer/pkg
-    # 4.0K	/containerized-data-importer/repo.yaml
-    # 56K	/containerized-data-importer/rpm
-    # 424K	/containerized-data-importer/staging
-    # 209M	/containerized-data-importer/tests
-    # 20K	/containerized-data-importer/third_party
-    # 328K	/containerized-data-importer/tools
-    # 4.0K	/containerized-data-importer/tools.go
-    # 128M	/containerized-data-importer/vendor
-    # 348M	total
-
-  - echo "Calculate garbage size after building images"
-  - du -shc /root/.cache /containerized-data-importer /tmp
-
-  - df -h
-
-  - echo "====== Create tar bundle with CDI images ========"
-  - echo Start time
-  - date
-  - time /entrypoint.sh bazel build --config=x86_64 --define container_prefix=kubevirt --define image_prefix= --define container_tag=latest //:container-images-bundle.tar
-  - echo End time
-  - date
-
-  - df -h
-
-  - echo "======  Unpack CDI images into /  ======"
-  - echo Start time
-  - date
-  - du -sh /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - echo Content of /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - tar tf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - echo Unpack container-images-bundle.tar into /images
-  - time tar -C / --one-top-level -xf /containerized-data-importer/bazel-bin/container-images-bundle.tar
-  - mkdir -p /images && cd /images && time /unpack-bundle.sh /container-images-bundle/
-  - echo End time
-  - date
-
-  #- du -shc /images/kubevirt/* || true
-    # /images/kubevirt content
-    # 116M	/images/kubevirt/cdi-apiserver:latest
-    # 86M	/images/kubevirt/cdi-cloner:latest
-    # 112M	/images/kubevirt/cdi-controller:latest
-    # 399M	/images/kubevirt/cdi-importer:latest
-    # 161M	/images/kubevirt/cdi-operator:latest
-    # 112M	/images/kubevirt/cdi-uploadproxy:latest
-    # 160M	/images/kubevirt/cdi-uploadserver:latest
-    # 1.2G	total
-
-  # - du -shc /container-images-bundle/* || true
-    # 93M	/container-images-bundle/1c9556ad825ac7507205e7c8347e8905dda4c5f4d82263894971d198422de877
-    # 4.0K	/container-images-bundle/28324925c340995f0a9e44ea2b7fa2f935d88d05867d24f652e8672cacf9156d.json
-    # 142M	/container-images-bundle/3fc7eb745463724d257199359d37cdaf45dba9c00eea964b4594b96f258c6853
-    # 94M	/container-images-bundle/43a4cf82f8f8611b2c702dcb737295ad7b9200cec517d07dd44b4ac657e943ee
-    # 43M	/container-images-bundle/4f31cbaa0df27d4d1e090c1f821b724c498435f3e93fd7e01e8d5fc1ba8b74e7
-    # 244M	/container-images-bundle/75abebbb80606d8ba1af6643934acce33fbf83fccd2631e2e413f07c85834a06
-    # 47M	/container-images-bundle/7788964d82fb204fde6daa1965ec1a738d871bfc109957ac6fccfd931986e49f
-    # 4.0K	/container-images-bundle/90e6c47a786e2f130d638d7e51c89e0784e651ecdb491e6995826e45d59b07b1.json
-    # 4.0K	/container-images-bundle/9240e295e3a69ae5c00e6b7c80f830abbd56af42f614534fe3b1b6833f9c94ba.json
-    # 18M	/container-images-bundle/956b2a2e38e967207c65db1d7a5b43b566138db6c4e36d1fffc603d243bc65aa
-    # 4.0K	/container-images-bundle/a69f1280f7b4305abcec6241410e0c5eac97824eca0ba34a361e20a86fc10ea7.json
-    # 4.0K	/container-images-bundle/bd20753a681693fe88e3d927e78df5877720ca6bc780f3e0442fe61edf947fb2.json
-    # 44M	/container-images-bundle/d123ea74b87b56adfde8c63e64584665cc280a8732f2b829d4e25a98ff7662e6
-    # 55M	/container-images-bundle/d55b490cbd392ee2088fcb5ef3bf7d4957d8fc1f094620efea13a83d65642e99
-    # 59M	/container-images-bundle/d6a4d46d2654a319854ee091049a23d80776eb9ed3b5c8b64593c5094e0bad3e
-    # 4.0K	/container-images-bundle/e1275106dc69d5f18fa395bdca37b62f3b5829d76ce512b4b0ec27a58f3ecc8c.json
-    # 4.0K	/container-images-bundle/fe7e9420c99ad9c3f4aa1c1fb365cb85cf60f12ad8a961ce2dd61b1f1305f5e9.json
-    # 4.0K	/container-images-bundle/manifest.json
-    # 4.0K	/container-images-bundle/repositories
-    # 835M	total
+  - mkdir /cdi-binaries
+  - tar xf bazel-bin/custom-build/cdi-binaries.tar -C /cdi-binaries
+  # Additional script for cdi-cloner image.
+  - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
+  - chmod +x /cdi-binaries/*
+  - ls -la /cdi-binaries
 
   - df -h /
 
-    # reduce image size (~12Gb)
+  # Reduce stored image size (~7Gb)
   - echo "Calculate garbage size"
-  - du -sch /root/.cache /images /container-images-bundle /containerized-data-importer /tmp
+  - du -sch /root/.cache /containerized-data-importer /tmp
   - echo "Cleanup"
   - rm -rf /root/.cache
-  - rm -rf /images
-  - rm -rf /container-images-bundle
   - rm -rf /containerized-data-importer
   - rm -rf /tmp/*
 
-  - df -h
+  - df -h /
 
 ---
 image: {{ $.ImageName }}-go-builder
