@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
@@ -304,12 +304,10 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	if vmipName == "" {
 		vmipList := &virtv2.VirtualMachineIPAddressList{}
 
-		err := s.client.List(ctx, vmipList,
-			client.InNamespace(s.vm.Current().GetNamespace()),
-			&client.MatchingFields{
-				indexer.IndexFieldVMIPByVM: s.vm.Current().GetName(),
-			},
-		)
+		err := s.client.List(ctx, vmipList, &client.ListOptions{
+			Namespace:     s.vm.Current().GetNamespace(),
+			LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list VirtualMachineIPAddress: %w", err)
 		}
