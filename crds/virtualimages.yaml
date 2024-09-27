@@ -34,6 +34,9 @@ spec:
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
           required:
             - spec
+          x-kubernetes-validations:
+            - rule: "self.metadata.name.size() <= 128"
+              message: "The name must be no longer than 128 characters."
           properties:
             spec:
               type: object
