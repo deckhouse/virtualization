@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
+fromImage: {{ .Images.BASE_SCRATCH }}
 import:
 - image: cdi-artifact
   add: /cdi-binaries
@@ -8,11 +8,7 @@ import:
   includePaths:
   - cdi-controller
   before: setup
-shell:
-  setup:
-  - ls -la /usr/bin/cdi*
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-controller/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 1001
-  WORKDIR: /home/cdi-controller
+
