@@ -70,13 +70,14 @@ shell:
 
   - df -h /
 
-  # Reduce stored image size (~7Gb)
+  # Reduce stored image size (~6.5Gb)
   - echo "Calculate garbage size"
   - du -sch /root/.cache /containerized-data-importer /tmp
   - echo "Cleanup"
   - rm -rf /root/.cache
   - rm -rf /containerized-data-importer
   - rm -rf /tmp/*
+  - mount
 
   - df -h /
 

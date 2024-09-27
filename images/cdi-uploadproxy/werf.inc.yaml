@@ -9,7 +9,7 @@ import:
   - cdi-uploadproxy
   before: setup
 shell:
-  install:
+  setup:
   # Update GPG keys and vendor IDs list.
   - ls -la /usr/bin/cdi*
 # Source https://github.com/kubevirt/containerized-data-importer/blob/main/cmd/cdi-uploadproxy/BUILD.bazel
