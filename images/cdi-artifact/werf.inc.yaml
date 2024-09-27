@@ -140,19 +140,19 @@ shell:
     - time go build -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
 
     - echo ============== Build cdi-uploadserver ===========
-    - time CGO_ENABLED=1 go build -v -a -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
+    - time CGO_ENABLED=1 go build -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
 
     - echo ============== Build cdi-importer ===========
-    - time CGO_ENABLED=1 go build -v -a -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
+    - time CGO_ENABLED=1 go build -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
 
     - echo ============== Build cdi-containerimage-server ===========
-    - time go build -v -a -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
+    - time go build -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
 
     - echo ============== Build cdi-image-size-detection  ===========
-    - time go build -v -a -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
+    - time go build -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
 
     - echo ============== Build cdi-source-update-poller  ===========
-    - time go build -v -a -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
+    - time CGO_ENABLED=1 go build -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
 
     - echo ============== Build cdi-operator  ===========
     - time go build -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
