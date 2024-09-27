@@ -37,6 +37,7 @@ git:
     - patches
     - unpack-bundle.sh
     - bazel-build-binaries.sh
+    - custom-build
     excludePaths:
     - patches/README.md
 shell:
@@ -50,6 +51,7 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+  - cp -r /custom-build .
 
   - echo "========== Build CDI binaries ============"
   - df -h
