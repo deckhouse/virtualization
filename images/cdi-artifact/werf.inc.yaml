@@ -56,25 +56,12 @@ shell:
 
   - echo Start time
   - date
-  - time /entrypoint.sh /bazel-build-binaries.sh
+  - time /entrypoint.sh /custom-build/build.sh
   - echo End time
   - date
 
-  - echo find cdi-controller
-  - find /root/.cache -type f -name cdi-controller
-
-  - echo find cdi-operator
-  - find /root/.cache -type f -name cdi-operator
-
-  - echo find cdi-image-size-detection
-  - find /root/.cache -type f -name cdi-image-size-detection
-
-  - echo "Find rpms"
-  - find /root/.cache -type f -name "*.rpm"
-
-  - echo Find executables in /root/.cache
-  - find /root/.cache -type f -executable
-
+  - ls -la bazel-bin/custom-build
+  - tar tf bazel-bin/custom-build/cdi-binaries.tar
 
   - df -h
 
@@ -140,7 +127,6 @@ shell:
   # lrwxrwxrwx 1 root root 108 Sep 26 19:03 bazel-bin -> /root/.cache/bazel/_bazel_root/956820439e927dbd0274199afbe5fe60/execroot/__main__/bazel-out/k8-fastbuild/bin
 
 
-
   - echo "========== Build CDI images ============"
 
   - echo Start time
@@ -148,24 +134,6 @@ shell:
   - time /entrypoint.sh make bazel-build-images DOCKER=0
   - echo End time
   - date
-
-  - echo "Find rpms"
-  - find /root/.cache -type f -name "*.rpm"
-
-  - echo Find executables in bazel-bin
-  - find /root/.cache -type f -executable
-
-  - echo find cdi-controller
-  - find /root/.cache -type f -name cdi-controller
-
-  - echo find cdi-operator
-  - find /root/.cache -type f -name cdi-operator
-
-  - echo find cdi-image-size-detection
-  - find /root/.cache -type f -name cdi-image-size-detection
-
-  - echo "Find tar files"
-  - find /root/.cache -type f -name "*.tar"
 
   #- du -shc /containerized-data-importer/*
     # 12K	/containerized-data-importer/BUILD.bazel
@@ -220,26 +188,6 @@ shell:
 
   - df -h
 
-
-  - echo "Find rpms"
-  - find /root/.cache -type f -name "*.rpm"
-
-  - echo Find executables in bazel-bin
-  - find /root/.cache -type f -executable
-
-  - echo find cdi-controller
-  - find /root/.cache -type f -name cdi-controller
-
-  - echo find cdi-operator
-  - find /root/.cache -type f -name cdi-operator
-
-  - echo find cdi-image-size-detection
-  - find /root/.cache -type f -name cdi-image-size-detection
-
-  - echo "Find tar files"
-  - find /root/.cache -type f -name "*.tar"
-
-
   - echo "======  Unpack CDI images into /  ======"
   - echo Start time
   - date
@@ -252,11 +200,17 @@ shell:
   - echo End time
   - date
 
-  - echo '/images/kubevirt' content
-  - du -shc /images/kubevirt/* || true
+  #- du -shc /images/kubevirt/* || true
+    # /images/kubevirt content
+    # 116M	/images/kubevirt/cdi-apiserver:latest
+    # 86M	/images/kubevirt/cdi-cloner:latest
+    # 112M	/images/kubevirt/cdi-controller:latest
+    # 399M	/images/kubevirt/cdi-importer:latest
+    # 161M	/images/kubevirt/cdi-operator:latest
+    # 112M	/images/kubevirt/cdi-uploadproxy:latest
+    # 160M	/images/kubevirt/cdi-uploadserver:latest
+    # 1.2G	total
 
-  # - du -shc /images/* || true
-  # 1.2G	/images/kubevirt
   # - du -shc /container-images-bundle/* || true
     # 93M	/container-images-bundle/1c9556ad825ac7507205e7c8347e8905dda4c5f4d82263894971d198422de877
     # 4.0K	/container-images-bundle/28324925c340995f0a9e44ea2b7fa2f935d88d05867d24f652e8672cacf9156d.json
@@ -292,3 +246,60 @@ shell:
   - rm -rf /tmp/*
 
   - df -h
+
+---
+image: {{ $.ImageName }}-go-builder
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/containerized-data-importer.git /containerized-data-importer
+    - cd /containerized-data-importer
+    - echo Start downloading modules ...
+    - date
+    - go mod download
+    - export GO111MODULE=on
+    - export GOOS=linux
+    - export CGO_ENABLED=0
+    - export GOARCH=amd64
+    - mkdir /go-out
+    - echo Start building binaries ...
+    - date
+    - echo ============== Build cdi-apiserver ===========
+    - go build -v -a -o /go-out/cdi-apiserver ./cmd/cdi-apiserver
+    - df -h /
+    - echo ============== Build cdi-cloner ===========
+    - go build -v -a -o /go-out/cdi-cloner ./cmd/cdi-cloner
+    - df -h /
+    - echo ============== Build cdi-controller ===========
+    - go build -v -a -o /go-out/cdi-controller ./cmd/cdi-controller
+    - df -h /
+    - echo ============== Build cdi-uploadproxy ===========
+    - go build -v -a -o /go-out/cdi-uploadproxy ./cmd/cdi-uploadproxy
+    - df -h /
+    - echo ============== Build cdi-uploadserver ===========
+    - go build -v -a -o /go-out/cdi-uploadserver ./cmd/cdi-uploadserver
+    - df -h /
+    - echo ============== Build cdi-importer ===========
+    - go build -v -a -o /go-out/cdi-importer ./cmd/cdi-importer
+    - df -h /
+    - echo ============== Build cdi-containerimage-server ===========
+    - go build -v -a -o /go-out/cdi-containerimage-server ./tools/cdi-containerimage-server
+    - df -h /
+    - echo ============== Build cdi-image-size-detection  ===========
+    - go build -v -a -o /go-out/cdi-image-size-detection ./tools/cdi-image-size-detection
+    - df -h /
+    - echo ============== Build cdi-source-update-poller  ===========
+    - go build -v -a -o /go-out/cdi-source-update-poller ./tools/cdi-source-update-poller
+    - df -h /
+    - echo ============== Build cdi-operator  ===========
+    - go build -v -a -o /go-out/cdi-operator ./cmd/cdi-operator
+    - df -h /
+    - echo ============== Build csv-generator  ===========
+    - go build -v -a -o /go-out/csv-generator ./tools/csv-generator
+    - df -h /
+    - echo End building binaries ...
+    - date
