@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
-- image: cdi-artifact
+- image: cdi-artifact-go-builder
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
@@ -13,7 +13,6 @@ import:
   before: setup
 shell:
   install:
-  # Install main packages, update GPG keys and vendor IDs list.
   - |
     apt-get update && apt-get install --yes \
     qemu-img==9.0.2-alt2 \
