@@ -1,6 +1,6 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
-{{- $builderImage := "quay.io/kubevirt/builder:2408161422-1f8c489011" }}
+{{- $builderImage := "quay.io/kubevirt/builder:2408151859-735f25dde" }}
 {{- $version := "1.3.1" }}
 {{- $goVersion := "1.22.7" }}
 
@@ -15,7 +15,8 @@ shell:
     rm -rf /gimme && \
     mkdir -p /gimme && curl -sL \
       https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
-    HOME=/gimme bash >> /etc/profile.d/gimme.sh
+    HOME=/gimme bash > /etc/profile.d/gimme.sh
+  - export PATH=`echo $PATH | tr ":" "\n" | grep -v "go" | tr "\n" ":"`
   - source /etc/profile.d/gimme.sh && go version
 docker:
   ENV:
@@ -40,6 +41,11 @@ shell:
   setup:
   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
   - cd /kubevirt
+  - sed -i -e 's/go_version = ".*"/go_version = "{{ $goVersion }}"/' WORKSPACE
+  - |
+    source /etc/profile.d/gimme.sh
+    go mod edit -go={{ $goVersion }}
+    go mod tidy
   - |
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
