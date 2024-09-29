@@ -23,6 +23,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -31,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type PVCSizeValidator struct {
@@ -124,25 +126,26 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		oldSize resource.Quantity
 		newSize resource.Quantity
 	)
+
 	if s := oldVD.Spec.PersistentVolumeClaim.Size; s != nil {
 		oldSize = *s
 	}
+
+	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if s := newVD.Spec.PersistentVolumeClaim.Size; s != nil {
 		newSize = *s
-	} else {
+	} else if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
 		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
 	}
 
-	if newSize.IsZero() {
-		return nil, fmt.Errorf("virtual disk size must be greater than 0")
-	}
-
-	if newSize.Cmp(oldSize) == -1 {
-		return nil, fmt.Errorf(
-			"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
-			newSize.String(),
-			oldSize.String(),
-		)
+	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
+		if newSize.Cmp(oldSize) == -1 {
+			return nil, fmt.Errorf(
+				"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
+				newSize.String(),
+				oldSize.String(),
+			)
+		}
 	}
 
 	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
