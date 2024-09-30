@@ -88,6 +88,7 @@ spec:
                         kind:
                           description: |
                             The kind of an existing cloud-init automation resource.
+                            Need to use a custom secret type - "provisioning.virtualization.deckhouse.io/cloud-init"
                           default: "Secret"
                           type: string
                           enum:
@@ -110,6 +111,7 @@ spec:
                         kind:
                           description: |
                             The kind of an existing Windows sysprep automation resource.
+                            Need to use a custom secret type - "provisioning.virtualization.deckhouse.io/sysprep"
                           default: "Secret"
                           type: string
                           enum:
