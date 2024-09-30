@@ -59,6 +59,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                              schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement":                           schema_virtualization_api_core_v1alpha2_NameReplacement(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom":                       schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                              schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus":                           schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref),
@@ -122,6 +124,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod":                         schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestore":                     schema_virtualization_api_core_v1alpha2_VirtualMachineRestore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreList":                 schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreSpec":                 schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreStatus":               schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot":                    schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshot(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotList":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref),
@@ -1590,6 +1596,66 @@ func schema_virtualization_api_core_v1alpha2_MemoryStatus(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_NameReplacement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NameReplacement represents rule to redefine the virtual machine resource names.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"from": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The selector to choose resources for name replacement.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom"),
+						},
+					},
+					"to": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The new resource name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"from", "to"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NameReplacementFrom represents the selector to choose resources for name replacement.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The kind of resource to rename.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The current name of resource to rename.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 
@@ -4170,6 +4236,183 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref common.Refere
 				Required: []string{"name", "active"},
 			},
 		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestore provides a resource that allows to restore a snapshot of the virtual machine and all its resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreList contains a list of `VirtualMachineRestore`",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestore"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestore", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of virtual machine snapshot to restore the virtual machine.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nameReplacements": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Redefining the virtual machine resource names.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"virtualMachineSnapshotName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Contains details of the current state of this API Resource.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"phase"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

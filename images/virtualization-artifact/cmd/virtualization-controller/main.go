@@ -48,6 +48,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -263,6 +264,11 @@ func main() {
 	}
 
 	if err = vmsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = vmrestore.NewController(ctx, mgr, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

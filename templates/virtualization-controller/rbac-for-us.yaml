@@ -183,6 +183,7 @@ rules:
   - virtualmachineclasses
   - virtualdisksnapshots
   - virtualmachinesnapshots
+  - virtualmachinerestores
   verbs:
   - create
   - delete
@@ -205,6 +206,7 @@ rules:
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
+  - virtualmachinerestores/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualdisks/status
@@ -216,6 +218,7 @@ rules:
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
+  - virtualmachinerestores/status
   verbs:
   - patch
   - update

@@ -97,6 +97,7 @@ Supported scopes are the following:
       - vmipl
       - vdsnapshot
       - vmsnapshot
+      - vmrestore
     - disks
       - vd
     - images

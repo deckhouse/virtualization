@@ -56,6 +56,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVDByVDSnapshot,
 		IndexVMSnapshotByVM,
 		IndexVMSnapshotByVDSnapshot,
+		IndexVMRestoreByVMSnapshot,
 		IndexVMIPByVM,
 		IndexVMIPByAddress,
 	} {

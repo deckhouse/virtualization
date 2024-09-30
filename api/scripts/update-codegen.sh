@@ -35,6 +35,7 @@ function source::settings {
   ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass"
                             "VirtualMachineBlockDeviceAttachment"
                             "VirtualMachineSnapshot"
+                            "VirtualMachineRestore"
                             "VirtualMachineOperation")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }

@@ -242,6 +242,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if kvvm != nil && isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
+		// TODO: not internal for VirtualMachineStatusUnschedulable.
 		msg := fmt.Sprintf("Internal virtual machine error: %s", kvvm.Status.PrintableStatus)
 		if kvvmi != nil {
 			msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
