@@ -64,11 +64,18 @@ func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common
 	}
 
 	for _, cidr := range s.parsedCIDRs {
-		if cidr.Contains(ip) {
-			// available
-			return nil
+		isFirstLast, err := isFirstLastIP(ip, cidr)
+		if err != nil {
+			return err
+		}
+		if !isFirstLast {
+			if cidr.Contains(ip) {
+				// available
+				return nil
+			}
 		}
 	}
+
 	// out of range
 	return ErrIPAddressOutOfRange
 }
