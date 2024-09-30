@@ -19,6 +19,7 @@ package vmbda
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -54,9 +55,10 @@ func NewController(
 	)
 
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler:     reconciler,
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       reconciler,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return nil, err

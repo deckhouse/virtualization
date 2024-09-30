@@ -60,7 +60,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	switch {
 	case isDiskProvisioningFinished(*condition):
-		log.Info("Disk provisioning finished: clean up")
+		log.Debug("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedDisk(pvc, condition, &vd.Status.Phase, supgen)
 
@@ -80,6 +80,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		namespacedName := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
 
 		storageClassName := vs.Annotations["storageClass"]
+		volumeMode := vs.Annotations["volumeMode"]
 		accessModesStr := strings.Split(vs.Annotations["accessModes"], ",")
 		accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
 		for _, accessModeStr := range accessModesStr {
@@ -89,7 +90,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		spec := corev1.PersistentVolumeClaimSpec{
 			AccessModes: accessModes,
 			DataSource: &corev1.TypedLocalObjectReference{
-				APIGroup: ptr.To(vs.GroupVersionKind().GroupVersion().String()),
+				APIGroup: ptr.To(vs.GroupVersionKind().Group),
 				Kind:     vs.Kind,
 				Name:     vd.Spec.DataSource.ObjectRef.Name,
 			},
@@ -97,6 +98,10 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		if storageClassName != "" {
 			spec.StorageClassName = &storageClassName
+		}
+
+		if volumeMode != "" {
+			spec.VolumeMode = ptr.To(corev1.PersistentVolumeMode(volumeMode))
 		}
 
 		if vs.Status != nil && vs.Status.RestoreSize != nil {

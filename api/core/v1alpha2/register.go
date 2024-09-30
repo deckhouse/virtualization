@@ -82,6 +82,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineOperationList{},
 		&VirtualDiskSnapshot{},
 		&VirtualDiskSnapshotList{},
+		&VirtualMachineSnapshot{},
+		&VirtualMachineSnapshotList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

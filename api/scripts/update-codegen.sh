@@ -34,6 +34,7 @@ function source::settings {
   # TODO: Temporary filter until all CRDs become auto-generated.
   ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass"
                             "VirtualMachineBlockDeviceAttachment"
+                            "VirtualMachineSnapshot"
                             "VirtualMachineOperation")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }

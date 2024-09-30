@@ -122,9 +122,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod":                         schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot":                    schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshot(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotList":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotStatus":              schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName":                   schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
@@ -4168,6 +4173,225 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref common.Refere
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshot(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSnapshot provides a resource for creating snapshots of virtual machines.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSnapshotList contains a list of `VirtualMachineSnapshot`",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of virtual machine to take snapshot.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requiredConsistency": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Create a snapshot of a virtual machine only if it is possible to freeze the machine through the agent.\n\nIf value is true, the snapshot of the virtual machine will be taken only in the following scenarios: - the virtual machine is powered off. - the virtual machine with an agent, and the freeze operation was successful.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"keepIPAddress": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"volumeSnapshotClasses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"virtualMachineName", "requiredConsistency", "keepIPAddress"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"consistent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The virtual machine snapshot is consistent.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"virtualMachineSnapshotSecretName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of underlying `Secret`, created for virtual machine snapshotting.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualDiskSnapshotNames": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The list of `VirtualDiskSnapshot` names for the snapshots taken from the virtual disks of the associated virtual machine.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"phase"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4485,6 +4709,36 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeSnapshotClassName defines `StorageClass` and `VolumeSnapshotClass` binding.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The `StorageClass` name associated with `VolumeSnapshotClass`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumeSnapshotClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of `VolumeSnapshotClass` to use for virtual disk snapshotting.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"storageClassName", "volumeSnapshotClassName"},
+			},
+		},
 	}
 }
 

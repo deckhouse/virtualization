@@ -24,6 +24,7 @@ const (
 	FinalizerIPAddressProtection  = "virtualization.deckhouse.io/vmip-protection"
 	FinalizerPodProtection        = "virtualization.deckhouse.io/pod-protection"
 	FinalizerVDSnapshotProtection = "virtualization.deckhouse.io/vdsnapshot-protection"
+	FinalizerVMSnapshotProtection = "virtualization.deckhouse.io/vmsnapshot-protection"
 
 	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"
@@ -32,6 +33,7 @@ const (
 	FinalizerIPAddressCleanup      = "virtualization.deckhouse.io/vmip-cleanup"
 	FinalizerIPAddressLeaseCleanup = "virtualization.deckhouse.io/vmipl-cleanup"
 	FinalizerVDSnapshotCleanup     = "virtualization.deckhouse.io/vdsnapshot-cleanup"
+	FinalizerVMSnapshotCleanup     = "virtualization.deckhouse.io/vmsnapshot-cleanup"
 	FinalizerVMOPCleanup           = "virtualization.deckhouse.io/vmop-cleanup"
 	FinalizerVMClassCleanup        = "virtualization.deckhouse.io/vmclass-cleanup"
 	FinalizerVMBDACleanup          = "virtualization.deckhouse.io/vmbda-cleanup"

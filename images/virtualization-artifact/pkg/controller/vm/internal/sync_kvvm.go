@@ -124,6 +124,11 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 				return true
 			}
 
+		case vmcondition.TypeSnapshotting:
+			if c.Status == metav1.ConditionTrue && c.Reason == vmcondition.ReasonSnapshottingInProgress.String() {
+				return true
+			}
+
 		case vmcondition.TypeIPAddressReady:
 			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonIPAddressNotAssigned.String() {
 				return true

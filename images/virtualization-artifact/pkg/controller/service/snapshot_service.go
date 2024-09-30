@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -85,7 +84,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind == virtv2.DiskDevice {
 			vdByName[bdr.Name] = struct{}{}
 		}
 	}
@@ -109,6 +108,20 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 		}
 	}
 
+	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vmSnapshot := range vmSnapshots.Items {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name {
+			return false, nil
+		}
+	}
+
 	return true, nil
 }
 
@@ -121,46 +134,18 @@ func (s *SnapshotService) Unfreeze(ctx context.Context, name, namespace string) 
 	return nil
 }
 
-func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error) {
-	anno := make(map[string]string)
-	if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-		anno["storageClass"] = *pvc.Spec.StorageClassName
-		accessModes := make([]string, 0, len(pvc.Status.AccessModes))
-		for _, accessMode := range pvc.Status.AccessModes {
-			accessModes = append(accessModes, string(accessMode))
-		}
-
-		anno["accessModes"] = strings.Join(accessModes, ",")
-	}
-
-	volumeSnapshot := vsv1.VolumeSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: anno,
-			Name:        vdSnapshot.Name,
-			Namespace:   vdSnapshot.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				MakeOwnerReference(vdSnapshot),
-			},
-		},
-		Spec: vsv1.VolumeSnapshotSpec{
-			Source: vsv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: &pvc.Name,
-			},
-			VolumeSnapshotClassName: &vdSnapshot.Spec.VolumeSnapshotClassName,
-		},
-	}
-
-	err := s.client.Create(ctx, &volumeSnapshot)
+func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+	err := s.client.Create(ctx, vs)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
-	err = s.protection.AddProtection(ctx, &volumeSnapshot)
+	err = s.protection.AddProtection(ctx, vs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &volumeSnapshot, nil
+	return vs, nil
 }
 
 func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
@@ -177,12 +162,16 @@ func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.Vol
 	return nil
 }
 
+func (s *SnapshotService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+}
+
 func (s *SnapshotService) GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error) {
 	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
-func (s *SnapshotService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+func (s *SnapshotService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDiskSnapshot{})
 }
 
 func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
@@ -191,4 +180,26 @@ func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace
 
 func (s *SnapshotService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
 	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &vsv1.VolumeSnapshot{})
+}
+
+func (s *SnapshotService) GetSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.Secret{})
+}
+
+func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
+	err := s.client.Create(ctx, vdSnapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return vdSnapshot, nil
+}
+
+func (s *SnapshotService) CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
+	err := s.client.Create(ctx, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	return secret, nil
 }

@@ -19,6 +19,7 @@ package vi
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -78,9 +79,10 @@ func NewController(
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler:     reconciler,
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       reconciler,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return nil, err
