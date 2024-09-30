@@ -68,8 +68,7 @@ type VirtualMachineOperationList struct {
 	Items           []VirtualMachineOperation `json:"items"`
 }
 
-// VMOPPhase represents the current phase of resource:
-//
+// Represents the current phase of resource:
 // * Pending - the operation is queued for execution.
 // * InProgress - operation in progress.
 // * Completed - the operation was successful.
@@ -86,7 +85,7 @@ const (
 	VMOPPhaseTerminating VMOPPhase = "Terminating"
 )
 
-// VMOPType is operation over the virtualmachine:
+// Type is operation over the virtualmachine:
 // * Start - start the virtualmachine.
 // * Stop - stop the virtualmachine.
 // * Restart - restart the virtualmachine.

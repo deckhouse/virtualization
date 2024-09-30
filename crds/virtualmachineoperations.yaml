@@ -74,11 +74,11 @@ spec:
                   type: boolean
                 type:
                   description: |-
-                    VMOPType is operation over the virtualmachine:
+                    Type is operation over the virtualmachine:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
-                    * Migrate - migrate the virtual machine to another host available to run this VM.
+                    * Migrate - migrate the virtualmachine.
                   enum:
                     - Restart
                     - Start
@@ -182,9 +182,7 @@ spec:
                   type: integer
                 phase:
                   description: |-
-                    VMOPPhase represents the current phase of resource:
-
-
+                    Represents the current phase of resource:
                     * Pending - the operation is queued for execution.
                     * InProgress - operation in progress.
                     * Completed - the operation was successful.
