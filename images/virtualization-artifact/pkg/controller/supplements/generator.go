@@ -86,13 +86,13 @@ func (g *Generator) UploaderPod() types.NamespacedName {
 
 // UploaderService generates name for uploader Service.
 func (g *Generator) UploaderService() types.NamespacedName {
-	name := fmt.Sprintf("%s-uploader-svc-%s", g.Prefix, g.Name)
+	name := fmt.Sprintf("%s-uploader-svc-%s", g.Prefix, g.UID)
 	return g.shortenNamespaced(name)
 }
 
 // UploaderIngress generates name for uploader Ingress.
 func (g *Generator) UploaderIngress() types.NamespacedName {
-	name := fmt.Sprintf("%s-uploader-ingress-%s", g.Prefix, g.Name)
+	name := fmt.Sprintf("%s-uploader-ingress-%s", g.Prefix, g.UID)
 	return g.shortenNamespaced(name)
 }
 
