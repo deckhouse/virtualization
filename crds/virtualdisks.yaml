@@ -32,6 +32,9 @@ spec:
             Once `VirtualDisk` is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
           required:
             - spec
+          x-kubernetes-validations:
+            - rule: "self.metadata.name.size() <= 128"
+              message: "The name must be no longer than 128 characters."
           properties:
             spec:
               type: object
