@@ -134,11 +134,11 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if s := newVD.Spec.PersistentVolumeClaim.Size; s != nil {
 		newSize = *s
-	} else if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
+	} else if ready.Status == metav1.ConditionTrue || newVD.Status.Phase != virtv2.DiskPending && newVD.Status.Phase != virtv2.DiskProvisioning {
 		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
 	}
 
-	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
+	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase != virtv2.DiskPending && newVD.Status.Phase != virtv2.DiskProvisioning {
 		if newSize.Cmp(oldSize) == -1 {
 			return nil, fmt.Errorf(
 				"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
