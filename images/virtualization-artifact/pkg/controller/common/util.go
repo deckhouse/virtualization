@@ -249,6 +249,9 @@ const (
 	// LabelVirtualMachineName is a label to link VirtualMachineOperation to VirtualMachine.
 	LabelVirtualMachineName = LabelsPrefix + "/virtual-machine-name"
 
+	// LabelVirtualMachineUID is a label to link VirtualMachineIPAddress to VirtualMachine.
+	LabelVirtualMachineUID = LabelsPrefix + "/virtual-machine-uid"
+
 	UploaderServiceLabel = "service"
 	// ProgressDone this means we are DONE
 	ProgressDone = "100.0%"
