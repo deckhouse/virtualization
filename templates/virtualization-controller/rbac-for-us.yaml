@@ -157,6 +157,7 @@ rules:
   resources:
     - virtualmachines/freeze
     - virtualmachines/unfreeze
+    - virtualmachines/migrate
   verbs:
     - update
 - apiGroups:

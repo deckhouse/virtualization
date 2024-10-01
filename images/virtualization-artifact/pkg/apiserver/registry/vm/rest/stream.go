@@ -38,10 +38,34 @@ import (
 )
 
 const (
-	userHeader       = "X-Remote-User"
-	groupHeader      = "X-Remote-Group"
-	kubevirtPathTmpl = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachineinstances/%s/%s"
+	userHeader    = "X-Remote-User"
+	groupHeader   = "X-Remote-Group"
+	kvvmiPathTmpl = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachineinstances/%s/%s"
+	kvvmPathTmpl  = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/%s"
 )
+
+func newKVVMIPather(subresource string) pather {
+	return pather{
+		template:    kvvmiPathTmpl,
+		subresource: subresource,
+	}
+}
+
+func newKVVMPather(subresource string) pather {
+	return pather{
+		template:    kvvmPathTmpl,
+		subresource: subresource,
+	}
+}
+
+type pather struct {
+	template    string
+	subresource string
+}
+
+func (p pather) Path(namespace, name string) string {
+	return fmt.Sprintf(p.template, namespace, name, p.subresource)
+}
 
 var upgradeableMethods = []string{http.MethodGet, http.MethodPost}
 
@@ -50,7 +74,7 @@ func streamLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts runtime.Object,
-	streamPath string,
+	pather pather,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
@@ -72,7 +96,7 @@ func streamLocation(
 	location := &url.URL{
 		Scheme:   "https",
 		Host:     kubevirt.Endpoint,
-		Path:     fmt.Sprintf(kubevirtPathTmpl, vm.Namespace, name, streamPath),
+		Path:     pather.Path(vm.Namespace, name),
 		RawQuery: params.Encode(),
 	}
 	ca, err := os.ReadFile(kubevirt.CaBundlePath)
@@ -111,6 +135,8 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 	case *subresources.VirtualMachineFreeze:
 		return nil
 	case *subresources.VirtualMachineUnfreeze:
+		return nil
+	case *subresources.VirtualMachineMigrate:
 		return nil
 	default:
 		return fmt.Errorf("unknown object for streaming: %v", opts)

@@ -82,6 +82,7 @@ type VirtualMachineInterface interface {
 	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
+	Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachineMigrate) error
 }
 
 type client struct {
