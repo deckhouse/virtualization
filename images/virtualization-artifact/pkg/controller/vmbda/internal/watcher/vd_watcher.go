@@ -97,6 +97,10 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
+	if oldVD.Status.Phase != newVD.Status.Phase {
+		return true
+	}
+
 	oldReadyCondition, _ := service.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
 	newReadyCondition, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 
