@@ -84,7 +84,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		if p.UserDataRef == nil || p.UserDataRef.Kind != virtv2.UserDataRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(`userdataRef must be "Secret"`)
+				Message(fmt.Sprintf("userdataRef must be %q", virtv2.UserDataRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
@@ -96,7 +96,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		if p.SysprepRef == nil || p.SysprepRef.Kind != virtv2.SysprepRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(`sysprepRef must be "Secret"`)
+				Message(fmt.Sprintf("sysprepRef must be %q", virtv2.SysprepRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
