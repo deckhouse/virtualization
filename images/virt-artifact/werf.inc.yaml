@@ -25,6 +25,11 @@ docker:
 image: {{ $.ImageName }}
 final: false
 fromImage: {{ $.ImageName }}-builder
+import:
+- image: {{ $.ImageName }}-classic-go
+  add: /kubevirt-binaries
+  to: /kubevirt-binaries
+  after: setup
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -64,3 +69,86 @@ shell:
   - rm -rf /virt-components-bundle
   - rm -rf /kubevirt
   - rm -rf /tmp/*
+---
+image: {{ $.ImageName }}-classic-go
+final: false
+fromImage: base-alt-p10
+# fromImage: {{ $.ImageName }}-builder
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+      - '**/*'
+    includePaths:
+    - patches
+    - unpack-bundle.sh
+    - bazel-build-virtctl-amd64.sh
+    excludePaths:
+    - patches/README.md
+shell:
+  beforeInstall:
+    - apt-get update
+    - |
+      apt-get install -y \
+      git curl pkg-config \
+      libvirt-libs libtool libvirt-devel libncurses-devel \
+      libvirt-client libvirt-daemon libvirt \
+      gcc gcc-c++ \
+      glibc \
+      golang
+    - apt-get clean
+    - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+  install:
+    - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
+    - cd /kubevirt
+    - |
+      for p in /patches/*.patch ; do
+        echo -n "Apply ${p} ... "
+        git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+      done
+    - go mod edit -go={{ $goVersion }}
+    - go mod download
+
+  setup:
+    - mkdir /kubevirt-binaries
+    - cd /kubevirt
+
+    - export GO111MODULE=on
+    - export GOOS=linux
+    - export CGO_ENABLED=0
+    - export GOARCH=amd64
+
+    - echo ============== Build virt-launcher ===========
+    - CGO_ENABLED=1 go build -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/
+    
+    - echo ============== Build virt-handler ============
+    - CGO_ENABLED=1 go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+    
+    - echo ============== Build virt-launcher-monitor ============
+    - go build -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
+    
+    - echo ============== Build virt-freezer =====================
+    - go build -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/
+    
+    - echo ============== Build virt-api =========================
+    - go build -o /kubevirt-binaries/virt-api ./cmd/virt-api/
+    
+    - echo ============== Build virt-chroot ======================
+    - go build -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
+    
+    - echo ============== Build virt-exportserver ================
+    - go build -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/
+   
+    - echo ============== Build virt-operator ====================
+    - go build -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
+    
+    - echo ============== Build sidecars ====================
+    - go build -o /kubevirt-binaries/sidecars ./cmd/sidecars/
+    
+    - echo ============== Build virtctl ==========================
+    - go build -o /kubevirt-binaries/virtctl ./cmd/virtctl/
