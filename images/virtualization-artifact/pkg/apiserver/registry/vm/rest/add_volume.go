@@ -87,5 +87,5 @@ func AddVolumeLocation(
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, "addvolume", kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, newKVVMIPather("addvolume"), kubevirt, proxyCertManager)
 }

@@ -23,7 +23,6 @@ import (
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/registry/rest"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
@@ -31,70 +30,62 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
-type ConsoleREST struct {
+type MigrateREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
 	kubevirt         KubevirtApiServerConfig
 }
 
-type KubevirtApiServerConfig struct {
-	Endpoint       string
-	CaBundlePath   string
-	ServiceAccount types.NamespacedName
-}
-
 var (
-	_ rest.Storage   = &ConsoleREST{}
-	_ rest.Connecter = &ConsoleREST{}
+	_ rest.Storage   = &MigrateREST{}
+	_ rest.Connecter = &MigrateREST{}
 )
 
-func NewConsoleREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
-	return &ConsoleREST{
+func NewMigrateREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *MigrateREST {
+	return &MigrateREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
 		proxyCertManager: proxyCertManager,
 	}
 }
 
-// New implements rest.Storage interface
-func (r ConsoleREST) New() runtime.Object {
-	return &subresources.VirtualMachineConsole{}
+func (r MigrateREST) New() runtime.Object {
+	return &subresources.VirtualMachineMigrate{}
 }
 
-// Destroy implements rest.Storage interface
-func (r ConsoleREST) Destroy() {
+func (r MigrateREST) Destroy() {
 }
 
-func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	consoleOpts, ok := opts.(*subresources.VirtualMachineConsole)
+func (r MigrateREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
+	migrateOpts, ok := opts.(*subresources.VirtualMachineMigrate)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, consoleOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := MigrateLocation(ctx, r.vmLister, name, migrateOpts, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 
 // NewConnectOptions implements rest.Connecter interface
-func (r ConsoleREST) NewConnectOptions() (runtime.Object, bool, string) {
-	return &subresources.VirtualMachineConsole{}, false, ""
+func (r MigrateREST) NewConnectOptions() (runtime.Object, bool, string) {
+	return &subresources.VirtualMachineMigrate{}, false, ""
 }
 
 // ConnectMethods implements rest.Connecter interface
-func (r ConsoleREST) ConnectMethods() []string {
-	return upgradeableMethods
+func (r MigrateREST) ConnectMethods() []string {
+	return []string{http.MethodPut}
 }
 
-func ConsoleLocation(
+func MigrateLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineConsole,
+	opts *subresources.VirtualMachineMigrate,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, newKVVMIPather("console"), kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, newKVVMPather("migrate"), kubevirt, proxyCertManager)
 }

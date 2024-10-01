@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const operationURLTpl = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/%s/%s/%s"
+const subresourceURLTpl = "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/%s/%s/%s"
 
 func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string,
 	queryParams url.Values) (*http.Request, error) {
@@ -48,7 +48,7 @@ func RequestFromConfig(config *rest.Config, resource, name, namespace, subresour
 
 	u.Path = path.Join(
 		u.Path,
-		fmt.Sprintf(operationURLTpl, namespace, resource, name, subresource),
+		fmt.Sprintf(subresourceURLTpl, namespace, resource, name, subresource),
 	)
 	if len(queryParams) > 0 {
 		u.RawQuery = queryParams.Encode()
