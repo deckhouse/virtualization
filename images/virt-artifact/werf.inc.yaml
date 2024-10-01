@@ -72,8 +72,8 @@ shell:
 ---
 image: {{ $.ImageName }}-classic-go
 final: false
-fromImage: base-alt-p11
-# fromImage: base-alt-p10
+# fromImage: base-alt-p11
+fromImage: base-alt-p10
 # fromImage: {{ $.ImageName }}-builder
 mount:
   - fromPath: ~/go-pkg-cache
@@ -86,8 +86,8 @@ git:
       - '**/*'
     includePaths:
     - patches
-    - unpack-bundle.sh
-    - bazel-build-virtctl-amd64.sh
+    # - unpack-bundle.sh
+    # - bazel-build-virtctl-amd64.sh
     excludePaths:
     - patches/README.md
 shell:

@@ -78,9 +78,9 @@ import:
   - virt-probe
   - virt-tail
 - image: virt-artifact-classic-go
-  add: /kubevirt-binaries
+  add: /kubevirt-binaries/
   to: /kubevirt-binaries
-  after: setup
+  after: install
 git:
   - add: /images/{{ $.ImageName }}
     to: /
