@@ -122,17 +122,34 @@ shell:
     - export CGO_ENABLED=0
     - export GOARCH=amd64
 
-    - echo ============== Build container-disk ====================
+    - echo ============== Build container-disk ===================
     - gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk
 
     - echo ============== Build virt-launcher ====================
     - CGO_ENABLED=1 go build -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/
     
+    - echo "Create group file"
+    - |
+      GROUP_FILE=./cmd/virt-launcher/group
+      echo "qemu:x:107:" > $GROUP_FILE
+      echo "root:x:0:" >> $GROUP_FILE
+      chmod 0644 $GROUP_FILE
+    
+    - echo "Create passwd file"
+    - |
+      PASSWD_FILE=./cmd/virt-launcher/passwd
+      echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
+      echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
+      chmod 0644 $PASSWD_FILE
+
     - echo ============== Build virt-handler =====================
     - CGO_ENABLED=1 go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
     
     - echo ============== Build virt-launcher-monitor ============
     - go build -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
+    
+    - echo ============== Build virt-tail ========================
+    - go build -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/
     
     - echo ============== Build virt-freezer =====================
     - go build -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/
@@ -152,7 +169,7 @@ shell:
     - echo ============== Build virt-operator ====================
     - go build -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
     
-    - echo ============== Build sidecars ====================
+    - echo ============== Build sidecars =========================
     - go build -o /kubevirt-binaries/sidecars ./cmd/sidecars/
     
     - echo ============== Build virtctl ==========================

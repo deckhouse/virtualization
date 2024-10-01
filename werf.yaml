@@ -26,6 +26,19 @@ configVersion: 1
     {{- end }}
 
   {{- end }}
+
+# Distroless altlinux Images
+{{- $AltDistroVirtImagesPath := "base-images/alt_image_versions.yml" }}
+{{ $baseImages := (.Files.Get $AltDistroVirtImagesPath | fromYaml) }}
+
+  {{- range $k, $v := $baseImages }}
+    {{ $altDistroVirtImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
+
+    {{- if ne $k "REGISTRY_PATH" }}
+      {{- $_ := set $.Images $k $altDistroVirtImagePath }}
+    {{- end }}
+
+  {{- end }}
 # Modules_images
 {{- define "module_image_template" }}
   {{- if eq .ImageInstructionType "Dockerfile" }}

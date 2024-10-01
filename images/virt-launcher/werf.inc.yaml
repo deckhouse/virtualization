@@ -52,35 +52,48 @@ import:
   after: install
   includePaths:
   - .version
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc/libvirt
+- image: virt-artifact-classic-go
+  add: /kubevirt/cmd/{{ $.ImageName }}
   to: /etc/libvirt
   after: install
   includePaths:
   - qemu.conf
   - virtqemud.conf
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/etc/libvirt
+#   to: /etc/libvirt
+#   after: install
+#   includePaths:
+#   - qemu.conf
+#   - virtqemud.conf
 - image: virt-artifact
   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+# - image: virt-artifact
+  # add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+- image: virt-artifact-classic-go
+  add: /kubevirt-binaries/
   to: /usr/bin
   before: setup
   includePaths:
   - container-disk
-  - node-labeller.sh
   - virt-freezer
   - virt-launcher
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
+  # - kubevirt/cmd/virt-launcher/node-labeller
 - image: virt-artifact-classic-go
-  add: /kubevirt-binaries/
-  to: /kubevirt-binaries
-  after: install
+  add: /kubevirt/cmd/virt-launcher/node-labeller/
+  to: /usr/bin
+  before: setup
+# - image: virt-artifact-classic-go
+#   add: /kubevirt-binaries/
+#   to: /kubevirt-binaries
+#   after: install
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -312,3 +325,7 @@ shell:
     echo "Build RPMs from:" /home/builder/*.rpm
     echo "Note: time consuming operation, be patient ..."
     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
+# ---
+# image: {{ $.ImageName }}-dir-sctruct
+# final: false
+# from: {{ .Images.DISTROLESS_ALT_P11 }}
