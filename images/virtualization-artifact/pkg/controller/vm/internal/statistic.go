@@ -201,6 +201,7 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 		return
 	}
 	var stats virtv2.VirtualMachineStats
+
 	if current.Status.Stats != nil {
 		stats = *current.Status.Stats.DeepCopy()
 	}
@@ -209,8 +210,6 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 	stats.PhasesTransitions = pts.Items
 
 	launchTimeDuration := stats.LaunchTimeDuration
-
-	var emptyOSInfo virtv1.VirtualMachineInstanceGuestOSInfo
 
 	switch changed.Status.Phase {
 	case virtv2.MachinePending:
@@ -221,7 +220,7 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
 	case virtv2.MachineRunning:
-		if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo {
+		if kvvmi != nil && osInfoIsEmpty(kvvmi.Status.GuestOSInfo) {
 			launchTimeDuration.GuestOSAgentStarting = nil
 		}
 	}
@@ -236,7 +235,7 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] {
 				launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
 			}
-			if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo && emptyOSInfo != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
+			if kvvmi != nil && osInfoIsEmpty(current.Status.GuestOSInfo) && !osInfoIsEmpty(kvvmi.Status.GuestOSInfo) && !pt.Timestamp.IsZero() {
 				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
 			}
 		}
@@ -244,6 +243,11 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 
 	stats.LaunchTimeDuration = launchTimeDuration
 	changed.Status.Stats = &stats
+}
+
+func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
+	var emptyOSInfo virtv1.VirtualMachineInstanceGuestOSInfo
+	return emptyOSInfo == info
 }
 
 var phasePreviousPhase = map[virtv2.MachinePhase]virtv2.MachinePhase{
@@ -276,12 +280,29 @@ func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransition
 	// Add the missing phases.
 	for {
 		if previousPhase, found := phasePreviousPhase[p]; found {
-			if _, found = phasesTransitionsMap[previousPhase]; !found {
+			// if p > .... > previousPhase || not found
+			if previousPt, found := phasesTransitionsMap[previousPhase]; !found {
 				phasesTransitionsMap[previousPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
 					Phase:     previousPhase,
 					Timestamp: metav1.NewTime(t),
 				}
 				t = t.Add(-1 * time.Second)
+			} else {
+				// if p > .... > previousPhase ; then do p > previousPhase > ...
+				currentPt := phasesTransitionsMap[p]
+				for _, pt := range phasesTransitionsMap {
+					if pt.Phase == currentPt.Phase || pt.Phase == previousPt.Phase {
+						continue
+					}
+					if pt.Timestamp.After(previousPt.Timestamp.Time) && currentPt.Timestamp.After(pt.Timestamp.Time) {
+						phasesTransitionsMap[previousPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
+							Phase:     previousPhase,
+							Timestamp: metav1.NewTime(t),
+						}
+						t = t.Add(-1 * time.Second)
+						break
+					}
+				}
 			}
 			p = previousPhase
 			continue
