@@ -77,6 +77,10 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
+- image: virt-artifact-classic-go
+  add: /kubevirt-binaries
+  to: /kubevirt-binaries
+  after: setup
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -114,6 +118,7 @@ shell:
     seabios \
     libffi8 \
     swtpm-tools \
+    glibc \
     libvirt-client==10.2.0-alt1 \
     libvirt-daemon-driver-qemu==10.2.0-alt1 \
     qemu-kvm-core==9.0.2-alt2
