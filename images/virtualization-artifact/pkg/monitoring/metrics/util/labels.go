@@ -19,6 +19,7 @@ package util
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -30,32 +31,60 @@ var (
 type SkipLabel func(key, value string) bool
 
 func WrapPrometheusLabels(labels map[string]string, prefix string, skip SkipLabel) map[string]string {
-	wrapLabels := make(map[string]string, len(labels))
-	conflicts := make(map[string]int, len(labels))
-
-	for k, v := range labels {
-		if skip != nil && skip(k, v) {
-			continue
-		}
-		labelKey := labelName(prefix, k)
-		if conflictCount, ok := conflicts[labelKey]; ok {
-			if conflictCount == 1 {
-				// this is the first conflict for the label,
-				// so we have to go back and rename the initial label that we've already added
-
-				value := wrapLabels[labelKey]
-				delete(wrapLabels, labelKey)
-				wrapLabels[labelConflictSuffix(labelKey, conflictCount)] = value
-			}
-			conflicts[labelKey]++
-			labelKey = labelConflictSuffix(labelKey, conflicts[labelKey])
-		} else {
-			conflicts[labelKey] = 1
-		}
-
-		wrapLabels[labelKey] = v
+	keys, values := mapToPrometheusLabels(labels, prefix, skip)
+	wrapLabels := make(map[string]string, len(keys))
+	for i, k := range keys {
+		wrapLabels[k] = values[i]
 	}
 	return wrapLabels
+}
+
+func mapToPrometheusLabels(labels map[string]string, prefix string, skip SkipLabel) ([]string, []string) {
+	labelKeys := make([]string, 0, len(labels))
+	labelValues := make([]string, 0, len(labels))
+
+	sortedKeys := make([]string, 0)
+	for key, value := range labels {
+		if skip != nil && skip(key, value) {
+			continue
+		}
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+
+	// conflictDesc holds some metadata for resolving potential label conflicts
+	type conflictDesc struct {
+		// the number of conflicting label keys we saw so far
+		count int
+
+		// the offset of the initial conflicting label key, so we could
+		// later go back and rename "label_foo" to "label_foo_conflict1"
+		initial int
+	}
+
+	conflicts := make(map[string]*conflictDesc)
+	for _, k := range sortedKeys {
+		labelKey := labelName(prefix, k)
+		if conflict, ok := conflicts[labelKey]; ok {
+			if conflict.count == 1 {
+				// this is the first conflict for the label,
+				// so we have to go back and rename the initial label that we've already added
+				labelKeys[conflict.initial] = labelConflictSuffix(labelKeys[conflict.initial], conflict.count)
+			}
+
+			conflict.count++
+			labelKey = labelConflictSuffix(labelKey, conflict.count)
+		} else {
+			// we'll need this info later in case there are conflicts
+			conflicts[labelKey] = &conflictDesc{
+				count:   1,
+				initial: len(labelKeys),
+			}
+		}
+		labelKeys = append(labelKeys, labelKey)
+		labelValues = append(labelValues, labels[k])
+	}
+	return labelKeys, labelValues
 }
 
 func labelName(prefix, labelName string) string {
