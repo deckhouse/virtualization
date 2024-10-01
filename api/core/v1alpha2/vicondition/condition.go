@@ -24,6 +24,8 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// StorageclassReadyType indicates whether the storageclass ready
+	StorageclassReadyType Type = "StorageclassReady"
 )
 
 type (
@@ -31,6 +33,8 @@ type (
 	DatasourceReadyReason = string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason = string
+	// placeholder
+	StorageclassReadyReason = string
 )
 
 const (
@@ -58,4 +62,11 @@ const (
 
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+
+	// placeholder
+	StorageclassReady StorageclassReadyReason = "StorageclassReady"
+	// placeholder
+	StorageclassNotReady StorageclassReadyReason = "StorageclassNotReady"
+	// placeholder
+	DVCRTypeUsed StorageclassReadyReason = "DVCRTypeUsed"
 )
