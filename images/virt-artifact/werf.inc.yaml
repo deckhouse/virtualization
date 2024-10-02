@@ -116,6 +116,7 @@ shell:
   setup:
     - mkdir /kubevirt-binaries
     - cd /kubevirt
+    - echo "v{{ $version }}-dirty" > .version
 
     - export GO111MODULE=on
     - export GOOS=linux

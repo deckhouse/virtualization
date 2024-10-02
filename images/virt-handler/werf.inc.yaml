@@ -16,27 +16,55 @@ shell:
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 import:
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+- image: virt-artifact-classic-go
+  add: /kubevirt-binaries/
   to: /usr/bin
   after: install
   includePaths:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+#   to: /usr/bin
+#   after: install
+#   includePaths:
+#   - virt-chroot
+#   - virt-handler
+#   - container-disk
+- image: virt-artifact-classic-go
+  add: /kubevirt/cmd/{{ $.ImageName }}/
+  to: /
+  after: install
+  includePaths:
+  # - .version
+  - virt_launcher.cil
+- image: virt-artifact-classic-go
+  add: /kubevirt/
   to: /
   after: install
   includePaths:
   - .version
-  - virt_launcher.cil
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+  # - virt_launcher.cil
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest
+#   to: /
+#   after: install
+#   includePaths:
+#   - .version
+#   - virt_launcher.cil
+- image: virt-artifact-classic-go
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+#   to: /etc
+#   after: install
+#   includePaths:
+#   - nsswitch.conf
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-handler/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-handler"]

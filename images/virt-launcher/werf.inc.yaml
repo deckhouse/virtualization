@@ -46,14 +46,20 @@ import:
   - liboverride.so
 
 # Add kubeivrt files from virt-artifact.
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/
+- image: virt-artifact-classic-go
+  add: /images/kubevirt/
   to: /
   after: install
   includePaths:
   - .version
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/
+#   to: /
+#   after: install
+#   includePaths:
+#   - .version
 - image: virt-artifact-classic-go
-  add: /kubevirt/cmd/{{ $.ImageName }}
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc/libvirt
   after: install
   includePaths:
@@ -66,12 +72,20 @@ import:
 #   includePaths:
 #   - qemu.conf
 #   - virtqemud.conf
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+- image: virt-artifact-classic-go
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
+  - group
+  - passwd
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+#   to: /etc
+#   after: install
+#   includePaths:
+#   - nsswitch.conf
 # - image: virt-artifact
   # add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
 - image: virt-artifact-classic-go
@@ -87,7 +101,7 @@ import:
   - virt-tail
   # - kubevirt/cmd/virt-launcher/node-labeller
 - image: virt-artifact-classic-go
-  add: /kubevirt/cmd/virt-launcher/node-labeller/
+  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
   to: /usr/bin
   before: setup
 # - image: virt-artifact-classic-go
