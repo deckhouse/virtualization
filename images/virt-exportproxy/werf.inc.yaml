@@ -1,21 +1,50 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+from: {{  .Images.DISTROLESS_ALT_P11 }}
+# from: {{ .Images.BASE_SCRATCH }}
 import:
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+- image: virt-artifact-classic-go
+  add: /kubevirt-binaries/
+  to: /usr/bin
   includePaths:
   - virt-exportproxy
-  to: /usr/bin
   before: setup
-- image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/
+- image: virt-artifact-classic-go
+  add: /kubevirt/cmd/virt-launcher/
+  to: /etc
+  includePaths:
+  - passwd
+  - group
+  before: setup
+- image: virt-artifact-classic-go
+  add: /kubevirt/
+  to: /
   includePaths:
   - .version
-  to: /
-  before: setup
+  after: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-exportproxy/BUILD.bazel
 docker:
   WORKDIR: /usr/bin/
   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
   USER: 1001
+# ==============
+# image: {{ $.ImageName }}
+# from: {{ .Images.BASE_SCRATCH }}
+# import:
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+#   includePaths:
+#   - virt-exportproxy
+#   to: /usr/bin
+#   before: setup
+# - image: virt-artifact
+#   add: /images/kubevirt/{{ $.ImageName }}:latest/
+#   includePaths:
+#   - .version
+#   to: /
+#   before: setup
+# # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-exportproxy/BUILD.bazel
+# docker:
+#   WORKDIR: /usr/bin/
+#   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
+#   USER: 1001

@@ -4,12 +4,6 @@ from: {{  .Images.DISTROLESS_ALT_P11 }}
 # from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: virt-artifact-classic-go
-  add: /images/kubevirt/{{ $.ImageName }}:latest
-  excludePaths:
-  - 'sys'
-  to: /
-  before: setup
-- image: virt-artifact-classic-go
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
