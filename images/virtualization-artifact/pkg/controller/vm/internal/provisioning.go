@@ -18,17 +18,19 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -36,11 +38,12 @@ import (
 const nameProvisioningHandler = "ProvisioningHandler"
 
 func NewProvisioningHandler(client client.Client) *ProvisioningHandler {
-	return &ProvisioningHandler{client: client}
+	return &ProvisioningHandler{client: client, validator: newProvisioningValidator(client)}
 }
 
 type ProvisioningHandler struct {
-	client client.Client
+	client    client.Client
+	validator *provisioningValidator
 }
 
 func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -59,16 +62,12 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 		return reconcile.Result{}, nil
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeProvisioningReady).
 		Generation(current.GetGeneration())
 
 	if current.Spec.Provisioning == nil {
-		mgr.Update(cb.Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonProvisioningReady).
-			Condition())
-		changed.Status.Conditions = mgr.Generate()
+		conditions.SetCondition(cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonProvisioningReady), &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 	p := current.Spec.Provisioning
@@ -82,22 +81,22 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Message("Provisioning is defined but it is empty.")
 		}
 	case virtv2.ProvisioningTypeUserDataRef:
-		if p.UserDataRef == nil || p.UserDataRef.Kind != "Secret" {
+		if p.UserDataRef == nil || p.UserDataRef.Kind != virtv2.UserDataRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message("userdataRef must be \"Secret\"")
+				Message(fmt.Sprintf("userdataRef must be %q", virtv2.UserDataRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
-		err := h.genConditionFromSecret(ctx, cb, key, "userdata", "userData")
+		err := h.genConditionFromSecret(ctx, cb, key)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 	case virtv2.ProvisioningTypeSysprepRef:
-		if p.SysprepRef == nil || p.SysprepRef.Kind != "Secret" {
+		if p.SysprepRef == nil || p.SysprepRef.Kind != virtv2.SysprepRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message("sysprepRef must be \"Secret\"")
+				Message(fmt.Sprintf("sysprepRef must be %q", virtv2.SysprepRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
@@ -110,8 +109,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 			Message("Unexpected provisioning type.")
 	}
 
-	mgr.Update(cb.Condition())
-	changed.Status.Conditions = mgr.Generate()
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	return reconcile.Result{}, nil
 }
@@ -120,17 +118,96 @@ func (h *ProvisioningHandler) Name() string {
 	return nameProvisioningHandler
 }
 
-func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName, checkKeys ...string) error {
-	secret, err := helper.FetchObject(ctx, secretKey, h.client, &corev1.Secret{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch secret: %w", err)
-	}
-	if secret == nil {
+func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
+	err := h.validator.Validate(ctx, secretKey)
+
+	switch {
+	case err == nil:
+		builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
+		return nil
+	case errors.As(err, new(secretNotFoundError)):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
-			Message(fmt.Sprintf("Secret %q not found.", secretKey.String()))
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
+
+	case errors.Is(err, errSecretIsNotValid):
+		builder.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonProvisioningNotReady).
+			Message(fmt.Sprintf("Invalid secret %q: %s", secretKey.String(), err.Error()))
+		return nil
+
+	case errors.As(err, new(unexpectedSecretTypeError)):
+		builder.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonProvisioningNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error()))
+		return nil
+
+	default:
+		return err
 	}
+}
+
+var errSecretIsNotValid = errors.New("secret is not valid")
+
+type secretNotFoundError string
+
+func (e secretNotFoundError) Error() string {
+	return fmt.Sprintf("secret %s not found", string(e))
+}
+
+type unexpectedSecretTypeError string
+
+func (e unexpectedSecretTypeError) Error() string {
+	return fmt.Sprintf("unexpected secret type: %s", string(e))
+}
+
+var cloudInitCheckKeys = []string{
+	"userdata",
+	"userData",
+}
+
+func newProvisioningValidator(reader client.Reader) *provisioningValidator {
+	return &provisioningValidator{
+		reader: reader,
+	}
+}
+
+type provisioningValidator struct {
+	reader client.Reader
+}
+
+func (v provisioningValidator) Validate(ctx context.Context, key types.NamespacedName) error {
+	secret := &corev1.Secret{}
+	err := v.reader.Get(ctx, key, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return secretNotFoundError(key.String())
+		}
+		return err
+	}
+	switch secret.Type {
+	case virtv2.SecretTypeCloudInit:
+		return v.validateCloudInitSecret(secret)
+	case virtv2.SecretTypeSysprep:
+		return v.validateSysprepSecret(secret)
+	default:
+		return unexpectedSecretTypeError(secret.Type)
+	}
+}
+
+func (v provisioningValidator) validateCloudInitSecret(secret *corev1.Secret) error {
+	if !v.hasOneOfKeys(secret, cloudInitCheckKeys...) {
+		return fmt.Errorf("the secret should have one of data fields %v: %w", cloudInitCheckKeys, errSecretIsNotValid)
+	}
+	return nil
+}
+
+func (v provisioningValidator) validateSysprepSecret(_ *corev1.Secret) error {
+	return nil
+}
+
+func (v provisioningValidator) hasOneOfKeys(secret *corev1.Secret, checkKeys ...string) bool {
 	validate := len(checkKeys) == 0
 	for _, key := range checkKeys {
 		if _, ok := secret.Data[key]; ok {
@@ -138,12 +215,5 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 			break
 		}
 	}
-	if !validate {
-		builder.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonProvisioningNotReady).
-			Message(fmt.Sprintf("Secret %q should has one of data fields %v.", checkKeys, secretKey.String()))
-		return nil
-	}
-	builder.Reason(vmcondition.ReasonProvisioningReady).Status(metav1.ConditionTrue)
-	return nil
+	return validate
 }

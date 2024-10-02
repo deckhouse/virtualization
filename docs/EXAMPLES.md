@@ -484,7 +484,7 @@ spec:
       name: ubuntu-2204-root
 ```
 
-If there is some private data, the initial initial initialization script of the virtual machine can be created in secret.
+If there is some private data, the initial initialization script of the virtual machine can be created in secret.
 
 Example of a secret:
 
@@ -496,7 +496,7 @@ metadata:
   namespace: vms
 data:
   userData: # Here's the cloud-init-config in Base64.
-type: Opaque
+type: "provisioning.virtualization.deckhouse.io/cloud-init"
 ```
 
 What it would look like in a virtual machine specification:

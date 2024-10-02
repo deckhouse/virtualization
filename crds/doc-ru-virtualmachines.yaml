@@ -437,6 +437,7 @@ spec:
                         kind:
                           description: |
                             Тип ресурса.
+                            Необходимо использовать секрет с типом - "provisioning.virtualization.deckhouse.io/sysprep".
                         name:
                           description: |
                             Имя ресурса со сценарием автоматизации.
@@ -463,6 +464,7 @@ spec:
                         kind:
                           description: |
                             Тип ресурса.
+                            Необходимо использовать секрет с типом - "provisioning.virtualization.deckhouse.io/cloud-init".
                         name:
                           description: |
                             Имя ресурса со сценарием cloud-init.
