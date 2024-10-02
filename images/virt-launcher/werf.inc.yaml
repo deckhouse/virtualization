@@ -47,7 +47,7 @@ import:
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact-classic-go
-  add: /images/kubevirt/
+  add: /kubevirt/
   to: /
   after: install
   includePaths:
