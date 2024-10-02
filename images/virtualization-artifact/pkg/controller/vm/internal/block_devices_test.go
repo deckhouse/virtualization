@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 func TestBlockDeviceHandler(t *testing.T) {
@@ -68,6 +69,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ReadyType,
+						Reason: vdcondition.Ready,
+						Status: metav1.ConditionTrue,
+					},
+				},
 			},
 		}
 		vdBar = &virtv2.VirtualDisk{
@@ -75,6 +83,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ReadyType,
+						Reason: vdcondition.Ready,
+						Status: metav1.ConditionTrue,
+					},
+				},
 			},
 		}
 		vm = &virtv2.VirtualMachine{
@@ -166,6 +181,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 		It("VirtualDisk's target pvc is created", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
+			vdFoo.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vdcondition.ReadyType,
+					Reason: vdcondition.Provisioning,
+					Status: metav1.ConditionFalse,
+				},
+			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
 			Expect(ready).To(Equal(3))
