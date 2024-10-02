@@ -78,8 +78,9 @@ import:
   after: install
   includePaths:
   - nsswitch.conf
-  - group
-  - passwd
+  # - group
+  # - passwd
+#============
 # - image: virt-artifact
 #   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
 #   to: /etc
@@ -104,10 +105,6 @@ import:
   add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
   to: /usr/bin
   before: setup
-# - image: virt-artifact-classic-go
-#   add: /kubevirt-binaries/
-#   to: /kubevirt-binaries
-#   after: install
 git:
   - add: /images/{{ $.ImageName }}
     to: /

@@ -59,6 +59,14 @@ import:
   after: install
   includePaths:
   - nsswitch.conf
+# - image: virt-artifact-classic-go
+#   add: /kubevirt/cmd/virt-launcher/
+#   to: /etc
+#   after: install
+#   includePaths:
+#   # - group
+#   # - passwd
+#-----------
 # - image: virt-artifact
 #   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
 #   to: /etc
