@@ -52,6 +52,39 @@ func (w VirtualDiskRequestEnqueuer) GetEnqueueFrom() client.Object {
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+	// Enqueue CVI or VI specified by the object ref.
+	if w.enqueueFromKind == virtv2.VirtualDiskObjectRefKindVirtualImage {
+		vi, ok := obj.(*virtv2.VirtualImage)
+		if !ok {
+			w.logger.Error(fmt.Sprintf("expected a VirtualImage but got a %T", obj))
+			return
+		}
+
+		if vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      vi.Spec.DataSource.ObjectRef.Name,
+					Namespace: vi.Namespace,
+				},
+			})
+		}
+	} else if w.enqueueFromKind == virtv2.VirtualDiskObjectRefKindClusterVirtualImage {
+		cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+		if !ok {
+			w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
+			return
+		}
+
+		if cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cvi.Spec.DataSource.ObjectRef.Name,
+					Namespace: cvi.Spec.DataSource.ObjectRef.Namespace,
+				},
+			})
+		}
+	}
+
 	var vds virtv2.VirtualDiskList
 	err := w.client.List(ctx, &vds)
 	if err != nil {

@@ -38,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type Handler interface {
@@ -165,7 +166,14 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				return oldVD.Status.Phase != newVD.Status.Phase
+				oldInUseCondition, _ := service.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
+				newInUseCondition, _ := service.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
+
+				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition.Status != newInUseCondition.Status {
+					return true
+				}
+
+				return false
 			},
 		},
 	); err != nil {

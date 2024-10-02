@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -317,8 +318,8 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				canStartKVVM = false
 				continue
 			}
-
-			if vd.Status.Phase == virtv2.DiskReady {
+			readyCondition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+			if readyCondition.Status == metav1.ConditionTrue {
 				ready++
 			} else {
 				msg := fmt.Sprintf("virtual disk %s is waiting for the it's pvc to be bound", vd.Name)

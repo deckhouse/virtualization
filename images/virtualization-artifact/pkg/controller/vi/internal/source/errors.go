@@ -65,18 +65,16 @@ func NewVirtualDiskNotReadyError(name string) error {
 	}
 }
 
-type VirtualDiskAttachedToRunningVMError struct {
-	name   string
-	vmName string
+type VirtualDiskInUseError struct {
+	name string
 }
 
-func (e VirtualDiskAttachedToRunningVMError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q attached to running VirtualMachine %q", e.name, e.vmName)
+func (e VirtualDiskInUseError) Error() string {
+	return fmt.Sprintf("reading from the VirtualDisk is not possible while it is in use by the running VirtualMachine/%s", e.name)
 }
 
-func NewVirtualDiskAttachedToRunningVMError(name, vmName string) error {
-	return VirtualDiskAttachedToRunningVMError{
-		name:   name,
-		vmName: vmName,
+func NewVirtualDiskInUseError(name string) error {
+	return VirtualDiskInUseError{
+		name: name,
 	}
 }
