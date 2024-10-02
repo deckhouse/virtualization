@@ -176,6 +176,9 @@ shell:
     - echo ============== Build virt-operator ====================
     - go build -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
     
+    - echo "Build csv-generator"
+    - go build -o /kubevirt-binaries/csv-generator ./tools/csv-generator
+    
     - echo ============== Build sidecars =========================
     - go build -o /kubevirt-binaries/sidecars ./cmd/sidecars/
     
