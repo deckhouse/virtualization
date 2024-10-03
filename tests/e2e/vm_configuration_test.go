@@ -48,7 +48,7 @@ func ExecSshCommand(vmName, cmd string) {
 			Username:    conf.TestData.SshUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
