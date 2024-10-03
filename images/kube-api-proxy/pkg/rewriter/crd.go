@@ -231,37 +231,23 @@ func RenameCRDPatch(rules *RewriteRules, resourceRule *ResourceRule, obj []byte)
 		return nil, fmt.Errorf("rename metadata patches for CRD: %w", err)
 	}
 
-	patches := gjson.ParseBytes(obj).Array()
-	if len(patches) == 0 {
-		return obj, nil
-	}
-
-	newPatches := []byte(`[]`)
 	isRenamed := false
-	for _, patch := range patches {
-		newPatch := []byte(patch.Raw)
-
-		op := gjson.GetBytes(newPatch, "op").String()
-		path := gjson.GetBytes(newPatch, "path").String()
+	newPatches, err := RewriteArray(obj, Root, func(singlePatch []byte) ([]byte, error) {
+		op := gjson.GetBytes(singlePatch, "op").String()
+		path := gjson.GetBytes(singlePatch, "path").String()
 
 		if (op == "replace" || op == "add") && path == "/spec" {
 			isRenamed = true
-			value := []byte(gjson.GetBytes(newPatch, "value").Raw)
+			value := []byte(gjson.GetBytes(singlePatch, "value").Raw)
 			newValue, err := renameCRDSpec(rules, resourceRule, value)
 			if err != nil {
 				return nil, err
 			}
-			newPatch, err = sjson.SetRawBytes(newPatch, "value", newValue)
-			if err != nil {
-				return nil, err
-			}
+			return sjson.SetRawBytes(singlePatch, "value", newValue)
 		}
 
-		newPatches, err = sjson.SetRawBytes(newPatches, "-1", newPatch)
-		if err != nil {
-			return nil, err
-		}
-	}
+		return nil, nil
+	})
 
 	if !isRenamed {
 		return obj, nil

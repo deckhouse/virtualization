@@ -14,16 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package profiler
 
-import "net/http"
+import (
+	"net/http"
+	"net/http/pprof"
+)
 
-func (s *Server) getHealthzHandler() http.Handler {
-	if s.healthzHandler != nil {
-		return s.healthzHandler
-	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
+// NewPprofHandler returns http.ServeMux with pprof endpoints.
+func NewPprofHandler() http.Handler {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	return mux
 }
