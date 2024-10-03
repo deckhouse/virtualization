@@ -33,7 +33,7 @@ type (
 	DatasourceReadyReason = string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason = string
-	// placeholder
+	// StorageclassReadyReason represents the various reasons for the StorageclassReady condition type.
 	StorageclassReadyReason = string
 )
 
@@ -63,10 +63,10 @@ const (
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
 
-	// placeholder
+	// StorageclassReady indicates that the chosen Storageclass exists.
 	StorageclassReady StorageclassReadyReason = "StorageclassReady"
-	// placeholder
+	// StorageclassNotReady indicates that the chosen Storageclass not exists.
 	StorageclassNotReady StorageclassReadyReason = "StorageclassNotReady"
-	// placeholder
+	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageclassReadyReason = "DVCRTypeUsed"
 )
