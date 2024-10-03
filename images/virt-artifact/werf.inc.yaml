@@ -21,54 +21,49 @@ shell:
 docker:
   ENV:
     GIMME_GO_VERSION: "{{ $goVersion }}"
----
-image: {{ $.ImageName }}
-final: false
-fromImage: {{ $.ImageName }}-builder
-import:
-- image: {{ $.ImageName }}-classic-go
-  add: /kubevirt-binaries
-  to: /kubevirt-binaries
-  after: setup
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - patches
-    - unpack-bundle.sh
-    - bazel-build-virtctl-amd64.sh
-    excludePaths:
-    - patches/README.md
-shell:
-  setup:
-  - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
-  - cd /kubevirt
-  - sed -i -e 's/go_version = ".*"/go_version = "{{ $goVersion }}"/' WORKSPACE
-  - |
-    source /etc/profile.d/gimme.sh
-    go mod edit -go={{ $goVersion }}
-    go mod tidy
-  - |
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
-  - mkdir -p _out
-  - echo "========== Build kubevirt images ============"
-  - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
-  - echo "=============== Build virtctl ==============="
-  - /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
-  - echo "======  Unpack kubevirt images into /  ======"
-  - tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
-  - mkdir -p /images && cd /images && /unpack-bundle.sh /virt-components-bundle/
-  # reduce image size (~17Gb)
-  - rm -rf /root/.cache
-  - rm -rf /virt-components-bundle
-  - rm -rf /kubevirt
-  - rm -rf /tmp/*
+# ---
+# image: {{ $.ImageName }}
+# final: false
+# fromImage: {{ $.ImageName }}-builder
+# git:
+#   - add: /images/{{ $.ImageName }}
+#     to: /
+#     stageDependencies:
+#       setup:
+#       - '**/*'
+#     includePaths:
+#     - patches
+#     - unpack-bundle.sh
+#     - bazel-build-virtctl-amd64.sh
+#     excludePaths:
+#     - patches/README.md
+# shell:
+#   setup:
+#   - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
+#   - cd /kubevirt
+#   - sed -i -e 's/go_version = ".*"/go_version = "{{ $goVersion }}"/' WORKSPACE
+#   - |
+#     source /etc/profile.d/gimme.sh
+#     go mod edit -go={{ $goVersion }}
+#     go mod tidy
+#   - |
+#     for p in /patches/*.patch ; do
+#       echo -n "Apply ${p} ... "
+#       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+#     done
+#   - mkdir -p _out
+#   - echo "========== Build kubevirt images ============"
+#   - make bazel-build-image-bundle KUBEVIRT_RUN_UNNESTED=true
+#   - echo "=============== Build virtctl ==============="
+#   - /bazel-build-virtctl-amd64.sh && mv /kubevirt/_out/cmd/virtctl/virtctl-linux-amd64 /virtctl
+#   - echo "======  Unpack kubevirt images into /  ======"
+#   - tar -C / --one-top-level -xf /kubevirt/_out/virt-components-bundle.tar
+#   - mkdir -p /images && cd /images && /unpack-bundle.sh /virt-components-bundle/
+#   # reduce image size (~17Gb)
+#   - rm -rf /root/.cache
+#   - rm -rf /virt-components-bundle
+#   - rm -rf /kubevirt
+#   - rm -rf /tmp/*
 ---
 image: {{ $.ImageName }}-classic-go
 final: false
