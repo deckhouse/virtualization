@@ -2,13 +2,13 @@
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
   - virt-exportserver
   before: setup
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/
   to: /
   includePaths:

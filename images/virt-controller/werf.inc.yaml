@@ -2,20 +2,20 @@
 image: {{ $.ImageName }}
 from: {{ .Images.DISTROLESS_ALT_P11 }}
 import:
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
   - virt-controller
   before: setup
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/cmd/virt-launcher/
   to: /etc
   includePaths:
   - passwd
   - group
   before: setup
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/
   to: /
   includePaths:

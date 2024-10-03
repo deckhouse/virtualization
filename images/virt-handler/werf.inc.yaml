@@ -16,7 +16,7 @@ shell:
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 import:
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   after: install
@@ -24,19 +24,19 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /
   after: install
   includePaths:
   - virt_launcher.cil
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/
   to: /
   after: install
   includePaths:
   - .version
-- image: virt-artifact-classic-go
+- image: virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
