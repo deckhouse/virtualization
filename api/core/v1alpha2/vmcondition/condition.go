@@ -78,11 +78,12 @@ const (
 	ReasonMigratable    Reason = "VirtualMachineMigratable"
 	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
 
-	ReasonVmIsMigrating               Reason = "VirtualMachineMigrating"
-	ReasonVmIsNotMigrating            Reason = "VirtualMachineNotMigrating"
-	ReasonVmIsNotRunning              Reason = "VirtualMachineNotRunning"
-	ReasonVmIsRunning                 Reason = "VirtualMachineRunning"
-	ReasonInternalVirtualMachineError Reason = "InternalVirtualMachineError"
+	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
+	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
+	ReasonLastMigrationFinishedWithError Reason = "LastMigratingFinishedWithError"
+	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
+	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
+	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
 
 	ReasonFilesystemReady    Reason = "Ready"
 	ReasonFilesystemFrozen   Reason = "Frozen"

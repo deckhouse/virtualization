@@ -159,3 +159,9 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 func podFinal(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
+
+func newSetCondition(vm *virtv2.VirtualMachine) func(c conditions.Conder) {
+	return func(c conditions.Conder) {
+		conditions.SetCondition(c, &vm.Status.Conditions)
+	}
+}
