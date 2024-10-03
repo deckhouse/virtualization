@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -92,10 +92,10 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		ConfigurationApplied:                configurationApplied,
 		RunPolicy:                           vm.Spec.RunPolicy,
 		Pods:                                pods,
-		Labels: util.WrapPrometheusLabels(vm.GetLabels(), "label", func(key, value string) bool {
+		Labels: promutil.WrapPrometheusLabels(vm.GetLabels(), "label", func(key, value string) bool {
 			return false
 		}),
-		Annotations: util.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
+		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
 	}
