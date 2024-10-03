@@ -31,7 +31,7 @@ import:
   includePaths:
   - virt_launcher.cil
 - image: virt-artifact
-  add: /kubevirt/
+  add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:

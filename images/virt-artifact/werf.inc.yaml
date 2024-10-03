@@ -36,8 +36,6 @@ git:
       - '**/*'
     includePaths:
     - patches
-    # - unpack-bundle.sh
-    # - bazel-build-virtctl-amd64.sh
     excludePaths:
     - patches/README.md
 shell:
@@ -67,8 +65,9 @@ shell:
 
   setup:
     - mkdir /kubevirt-binaries
+    - mkdir /kubevirt-config-files
     - cd /kubevirt
-    - echo "v{{ $version }}-dirty" > .version
+    - echo "v{{ $version }}-dirty" > /kubevirt-config-files/.version
 
     - export GO111MODULE=on
     - export GOOS=linux
@@ -83,14 +82,14 @@ shell:
     
     - echo "Create group file"
     - |
-      GROUP_FILE=./cmd/virt-launcher/group
+      GROUP_FILE=/kubevirt-config-files/group
       echo "qemu:x:107:" > $GROUP_FILE
       echo "root:x:0:" >> $GROUP_FILE
       chmod 0644 $GROUP_FILE
     
     - echo "Create passwd file"
     - |
-      PASSWD_FILE=./cmd/virt-launcher/passwd
+      PASSWD_FILE=/kubevirt-config-files/passwd
       echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
       echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
       chmod 0644 $PASSWD_FILE

@@ -12,7 +12,7 @@ import:
   - entrypoint.sh
   before: setup
 - image: virt-artifact
-  add: /kubevirt/
+  add: /kubevirt-config-files/
   to: /
   includePaths:
   - .version

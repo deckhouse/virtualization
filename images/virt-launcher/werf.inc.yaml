@@ -47,7 +47,7 @@ import:
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact
-  add: /kubevirt/
+  add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:
@@ -76,7 +76,6 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-  # - kubevirt/cmd/virt-launcher/node-labeller
 - image: virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
   to: /usr/bin
