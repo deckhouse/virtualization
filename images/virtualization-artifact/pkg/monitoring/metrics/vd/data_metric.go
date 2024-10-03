@@ -19,7 +19,7 @@ package vd
 import (
 	"strings"
 
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -43,10 +43,10 @@ func newDataMetric(vd *virtv2.VirtualDisk) *dataMetric {
 		Namespace: vd.Namespace,
 		UID:       string(vd.UID),
 		Phase:     vd.Status.Phase,
-		Labels: util.WrapPrometheusLabels(vd.GetLabels(), "label", func(key, value string) bool {
+		Labels: promutil.WrapPrometheusLabels(vd.GetLabels(), "label", func(key, value string) bool {
 			return false
 		}),
-		Annotations: util.WrapPrometheusLabels(vd.GetAnnotations(), "annotation", func(key, _ string) bool {
+		Annotations: promutil.WrapPrometheusLabels(vd.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
 	}

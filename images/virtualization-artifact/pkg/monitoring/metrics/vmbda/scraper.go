@@ -22,7 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	metricutil "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/util"
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -89,7 +89,7 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 
 func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
 	info := vmbdaMetrics[name]
-	metric, err := metricutil.NewDynamicMetric(
+	metric, err := promutil.NewDynamicMetric(
 		info.Desc,
 		info.Type,
 		value,
