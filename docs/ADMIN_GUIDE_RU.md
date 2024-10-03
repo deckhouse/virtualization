@@ -9,145 +9,189 @@ weight: 40
 С детальным описанием параметров настройки ресурсов приведенных в данном документе вы можете ознакомится в разделе [Custom Resources](cr.html)
 {{< /alert >}}
 
-## Кластерные образы
+# Образы
 
-`ClusterVirtualImage` используются для хранения образов виртуальных машин.
+Ресурсы `ClusterVirtualImage` используются для хранения образов виртуальных машин, они доступны в рамках всего кластера для всех неймспейсов или проектов.
 
-Образы могут быть следующих видов:
+Образы бывают следующих видов:
 
-- Образ диска виртуальной машины, который предназначен для тиражирования идентичных дисков виртуальных машин.
-- ISO-образ, содержащий файлы для установки ОС. Этот тип образа подключается к виртуальной машине как cdrom.
+- ISO-образ — это установочный образ, который обычно используется для установки операционной системы с нуля. Такие образы обычно распространяются производителями операционных систем и применяются для установки ОС на физические и виртуальные серверы.
+- Образ диска виртуальной машины с предустановленной системой — это диск с уже установленной и настроенной операционной системой, готовой к использованию сразу после создания виртуальной машины. Некоторые производители предоставляют такие образы, и они могут быть в различных форматах, таких как qcow2, raw, vmdk и других.
 
-`ClusterVirtualImage` доступен для всех пространств имен внутри кластера.
+Примеры ресурсов, где можно получить образ диска виртуальной машины:
+
+- Ubuntu: https://cloud-images.ubuntu.com
+- Alt Linux: https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64
+- Astra Linux: https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit
+
+После создания ресурсов тип и размер образа определяется автоматически, данная информация будет отражена в статусе ресурса.
 
 Образы могут быть получены из различных источников, таких как HTTP-серверы, на которых расположены файлы образов, или контейнерные реестры (container registries), где образы сохраняются и становятся доступны для скачивания. Также существует возможность загрузить образы напрямую из командной строки, используя утилиту `curl`.
 
-### Создание и использование образа c HTTP-ресурса
+С полным описанием параметров конфигурации образов можно ознакомиться по следующим [ссылкам](cr.html#clustervirtualimage)
 
-1. Создайте `ClusterVirtualImage`:
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: ClusterVirtualImage
-   metadata:
-     name: ubuntu-img
-   spec:
-     dataSource:
-       type: HTTP
-       http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img"
-   ```
+## Создание образа с HTTP-сервера
 
-2. Проверьте статус `ClusterVirtualImage` с помощью команды:
+Рассмотрим вариант создания кластерного образа
 
-   ```bash
-   kubectl get clustervirtualimage -o wide
+Выполните следующую команду для создания `ClusterVirtualImage`:
 
-   # NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
-   # ubuntu-img    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-img    52s
-   ```
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: ubuntu-22.04
+spec:
+  # Источник для создания образа.
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+EOF
+```
 
-### Создание и использование образа из container registry
+Проверить результат создания `ClusterVirtualImage`:
 
-Cформируйте образ для хранения в `container registry`.
+```bash
+d8 k get clustervirtualimage ubuntu-22.04
+# или более короткий вариант
+d8 k get cvi ubuntu-22.04
 
-Ниже представлен пример создания образа c диском Ubuntu 22.04.
+# NAME           PHASE   CDROM   PROGRESS   AGE
+# ubuntu-22.04   Ready   false   100%       23h
+```
 
-- Загрузите образ локально:
+После создания ресурс `ClusterVirtualImage` может находиться в следующих состояниях (фазах):
 
-  ```bash
-  curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
-  ```
+- `Pending` - ожидание готовности всех зависимых ресурсов, требующихся для создания образа.
+- `Provisioning` - идет процесс создания образа.
+- `Ready` - образ создан и готов для использования.
+- `Failed` - произошла ошибка в процессе создания образа.
+- `Terminating` - идет процесс удаления Образа. Образа может "зависнуть" в данном состоянии если он еще подключен к виртуальной машине.
 
-- Создайте Dockerfile со следующим содержимым:
+До тех пор пока образ не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново. После перехода в фазу `Ready` содержимое блока `.spec` менять нельзя!
 
-  ```Dockerfile
-  FROM scratch
-  COPY ubuntu2204.img /disk/ubuntu2204.img
-  ```
+Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
-- Соберите образ и загрузите его в `container registry`. В качестве `container registry` в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
+```bash
+d8 k get cvi ubuntu-22.04 -w
 
-  ```bash
-  docker build -t docker.io/username/ubuntu2204:latest
-  ```
+# NAME           PHASE          CDROM   PROGRESS   AGE
+# ubuntu-22.04   Provisioning   false              4s
+# ubuntu-22.04   Provisioning   false   0.0%       4s
+# ubuntu-22.04   Provisioning   false   28.2%      6s
+# ubuntu-22.04   Provisioning   false   66.5%      8s
+# ubuntu-22.04   Provisioning   false   100.0%     10s
+# ubuntu-22.04   Provisioning   false   100.0%     16s
+# ubuntu-22.04   Ready          false   100%       18s
+```
 
-  где `username` — имя пользователя, указанное при регистрации в docker.io.
+В описание ресурса `ClusterVirtualImage` можно получить дополнительную информацию о скачанном образе:
 
-- Загрузите созданный образ в `container registry` с помощью команды:
+```bash
+d8 k describe cvi ubuntu-22.04
+```
+## Создание образа из Container Registry
 
-  ```bash
-  docker push docker.io/username/ubuntu2204:latest
-  ```
+Образ, хранящийся в Container Registry имеет определенный формат. Рассмотрим на примере:
 
-- Чтобы использовать этот образ, создайте в качестве примера ресурс `ClusterVirtualImage`:
+Для начала загрузите образ локально:
 
-  ```yaml
-  apiVersion: virtualization.deckhouse.io/v1alpha2
-  kind: ClusterVirtualImage
-  metadata:
-    name: ubuntu-2204
-  spec:
-    dataSource:
-      type: ContainerImage
-      containerImage:
-        image: docker.io/username/ubuntu2204:latest
-  ```
+```bash
+curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+```
 
-- Чтобы посмотреть ресурс и его статус, выполните команду:
+Далее создайте `Dockerfile` со следующим содержимым:
 
-  ```bash
-  kubectl get clustervirtualimage
-  ```
+```Dockerfile
+FROM scratch
+COPY ubuntu2204.img /disk/ubuntu2204.img
+```
 
-### Загрузка образа из командной строки
+Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
 
-1. Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `ClusterVirtualImage`:
+```bash
+docker build -t docker.io/<username>/ubuntu2204:latest
+```
 
-   ```yaml
-   apiVersion: virtualization.deckhouse.io/v1alpha2
-   kind: ClusterVirtualImage
-   metadata:
-     name: some-image
-   spec:
-     dataSource:
-       type: Upload
-   ```
+где `username` — имя пользователя, указанное при регистрации в docker.io.
 
-2. После того как ресурс будет создан, проверьте его статус с помощью команды:
+Загрузите созданной образ в container registry:
 
-   ```bash
-   kubectl get clustervirtualimages some-image -o json | jq .status.uploadCommand -r
+```bash
+docker push docker.io/<username>/ubuntu2204:latest
+```
 
-   > uploadCommand: curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T example.iso
-   ```
+Чтобы использовать этот образ, создайте в качестве примера ресурс:
 
-   > ClusterVirtualImage с типом **Upload** ожидает начала загрузки образа 15 минут после создания. По истечении этого срока ресурс перейдет в состояние **Failed**.
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: ubuntu-2204
+spec:
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: docker.io/<username>/ubuntu2204:latest
+EOF
+```
 
-3. Загрузите образ Cirros (представлено в качестве примера):
+## Загрузка образа из командной строки
 
-   ```bash
-   curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
-   ```
+Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `ClusterVirtualImage`:
 
-4. Выполните загрузку образа:
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: some-image
+spec:
+  # Настройки источника образа.
+  dataSource:
+    type: Upload
+EOF
+```
 
-   ```bash
-   curl https://virtualization.example.com/upload/dSJSQW0fSOerjH5ziJo4PEWbnZ4q6ffc -T cirros.img
-   ```
+После создания, ресурс перейдет в фазу `WaitForUserUpload` (`d8 k get vi some-image`), а это значит, что он готов для загрузки образа.
 
-   После завершения работы команды `curl` образ должен быть создан.
+Доступно два варианта загрузки с узла кластера и с произвольного узла за пределами кластера:
 
-5. Проверьте, что статус созданного образа `Ready`:
+```bash
+d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
-   ```bash
-   kubectl get clustervirtualimages -o wide
+# {
+#   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
+#   "inCluster":"http://10.222.165.239"
+# }
+```
 
-   # NAME          PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                 AGE
-   # some-image    Ready   false   100%       285.9Mi      2.2Gi          dvcr.d8-virtualization.svc/cvi/some-image    2m21s
-   ```
+В качестве примера загрузите образ Cirros
 
-## Классы виртуальных машин
+```bash
+curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img
+```
+
+Выполните загрузку образа с использование следующей команды
+
+```bash
+curl https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm --progress-bar -T cirros.img | cat
+```
+
+После завершения загрузки образ должен быть создан и перейти в фазу `Ready`
+
+```bash
+d8 k get cvi some-image
+# NAME         PHASE   CDROM   PROGRESS   AGE
+# some-image   Ready   false   100%       1m
+```
+
+
+# Классы виртуальных машин
 
 Ресурс `VirtualMachineClass` предназначен для централизованной конфигурации предпочтительных параметров виртуальных машин. Он позволяет определять инструкции CPU и политики конфигурации ресурсов CPU и памяти для виртуальных машин, а также определять соотношения этих ресурсов. Помимо этого, `VirtualMachineClass` обеспечивает управление размещением виртуальных машин по узлам платформы. Это позволяет администраторам эффективно управлять ресурсами платформы виртуализации и оптимально размещать виртуальные машины на узлах платформы.
 
@@ -165,7 +209,7 @@ generic            Ready   6d1h
 - `host-passthrough` - используется физический CPU узла платформы напрямую без каких-либо изменений. При использовании данного класса, гостевая ВМ может быть мигрирована только на целевой узел, у которого CPU точно соответствует CPU исходного узла.
 - `generic` - универсальная модель CPU, использующая достаточно старую, но поддерживаемую большинством современных процессоров модель Nehalem. Это позволяет запускать ВМ на любых узлах кластера с возможностью живой миграции.
 
-`VirtualMachineClass` является обязательным для узказания в конфигурации виртуальной машины, пример того как указывать класс в спецификации ВМ:
+`VirtualMachineClass` является обязательным для указания в конфигурации виртуальной машины, пример того как указывать класс в спецификации ВМ:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -177,9 +221,11 @@ spec:
   ...
 ```
 
-Администраторы платформы могут создавать требуемые классы виртуальных машин по своим потребностям, но рекомендуется создавать необходимый миниум. Рассмотрим на следующем примере:
+Внимание! Рекомендуется создать как минимум один ресурс `VirtualMachineClass` в кластере с типом Discovery сразу после того как все узлы будут настроены и добавлены в кластер. Это позволит использовать в виртуальных машинах универсальный процессор с максимально возможными характеристиками с учетом ЦП на узлах кластера, что позволит виртуальным машинам использовать максимум возможностей ЦП и при необходимости беспрепятственно осуществлять миграцию между узлами кластера.
 
-### Пример конфигурации VirtualMachineClass
+Администраторы платформы могут создавать требуемые классы виртуальных машин по своим потребностям, но рекомендуется создавать необходимый минимум. Рассмотрим на следующем примере:
+
+## Пример конфигурации VirtualMachineClass
 
 ![](./images/vmclass-examples.ru.png)
 
@@ -365,3 +411,100 @@ spec:
     model: IvyBridge
     type: Model
 ```
+
+# Механизмы обеспечения надежности
+
+## Миграция / Режим обслуживания
+
+Миграция виртуальных машин является важной функцией в управлении виртуализованной инфраструктурой. Она позволяет перемещать работающие виртуальные машины с одного физического узла на другой без их отключения. Миграция виртуальных машин необходима для ряда задач и сценариев:
+
+- Балансировка нагрузки: Перемещение виртуальных машин между узлами позволяет равномерно распределять нагрузку на серверы, обеспечивая использование ресурсов наилучшим образом.
+- Перевод узла в режим обслуживания: Виртуальные машины могут быть перемещены с узлов, которые нужно вывести из эксплуатации для выполнения планового обслуживания или обновления программного обеспечения.
+- Обновление "прошивки" виртуальных машин: Миграция позволяет обновить "прошивку" виртуальных машины не прерывая их работу.
+
+### Запуск миграции произвольной машины
+
+Далее будет рассмотрен пример миграции выбранной виртуальной машины:
+
+Перед запуском миграции посмотрите текущий статус виртуальной машины:
+
+```bash
+kubectl get vm
+# NAME                                   PHASE     NODE           IPADDRESS     AGE
+# ubuntu-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+```
+
+Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
+
+Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом migrate.
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: migrate-linux-vm-$(date +%s)
+spec:
+  # имя виртуальной машины
+  virtualMachineName: ubuntu-vm
+  # операция для миграции
+  type: Migrate
+EOF
+```
+
+Сразу после создания ресурса `vmip`, выполните команду:
+
+```bash
+kubectl get vm -w
+# NAME                                   PHASE       NODE           IPADDRESS     AGE
+# ubuntu-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# ubuntu-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+```
+
+### Режим обслуживания
+
+При выполнении работ на узлах с запущенными виртуальными машинами существует риск нарушения их работоспособности. Чтобы этого избежать, узел можно перевести в режим обслуживания и мигрировать виртуальные машины на другие свободные узлы.
+
+Для этого необходимо выполнить следующую команду:
+
+```bash
+kubectl drain <nodename> --ignore-daemonsets --delete-emptydir-dat
+```
+
+где `<nodename>` - узел, на котором предполагается выполнить работы и который должен быть освобожден от всех ресурсов (в том числе и от системных).
+
+Если есть необходимость вытеснить с узла только виртуальные машины, выполните следующую команду:
+
+```bash
+kubectl drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
+```
+
+После выполнения конмад `kubectl drain` - узле перейдет в режим обслуживания и виртуальные машины на нем запускаться не смогут. Чтобы вывести его из режима обслуживания выполните следующую команду:
+
+```bash
+kubectl uncordon <nodename>
+```
+
+![](./images/drain.ru.png)
+
+## Coldstandby
+
+ColdStandby обеспечивает механизм восстановления работы виртуальной машины после сбоя на узле, на котором она была запущена.
+
+Для работы данного механизма необходимо выполнит следующие требования:
+
+- Политика запуска виртуальной машины (`.spec.runPolicy`) должна быть одна из: `AlwaysOnUnlessStoppedManually`, `AlwaysOn`.
+- На узлах, где запущены виртуальные машины, должен быть включен механизм [fencing](https://deckhouse.ru/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode).
+
+Рассмотрим как это работает на примере:
+
+- Кластер состоит из трех узлов master, workerA и workerB. На worker-узлах включен механизм Fencing.
+- Виртуальная машина `ubuntu-vm` запущена на узле workerA.
+- На узле workerA возникает проблема (выключилось питание, пропала сеть, итд)
+- Контроллер проверяет доступность узлов и обнаруживает, что workerA недоступен.
+- Контроллер удаляет узел `workerA` из кластер.
+- Виртуальная машина `ubuntu-vm` запускается на другом подходящем узле (workerB).
+
+![](./images/coldstandby.ru.png)
