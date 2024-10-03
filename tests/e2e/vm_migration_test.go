@@ -134,8 +134,6 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 		})
 
 		It("checks VMs external connection after migrations", func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    MigrationLabel,
 				Namespace: conf.Namespace,
@@ -144,7 +142,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vms...)
+			CheckExternalConnection(externalHost, httpStatusOk, vms...)
 		})
 	})
 })
