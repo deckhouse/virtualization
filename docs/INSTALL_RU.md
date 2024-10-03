@@ -3,27 +3,48 @@ title: "Установка"
 weight: 15
 ---
 
-Для установки Deckhouse Virtualization Platform выполните следующие шаги:
+# Требования к DVP
+
+## Требования к ресурсам:
+
+Рекомендуются следующие минимальные ресурсы для инфраструктурных узлов в зависимости от их роли в кластере:
+
+Мастер-узел — 4 CPU, 8 ГБ RAM, 60 ГБ дискового пространства на быстром диске (400+ IOPS);
+Worker-узел — требования аналогичны требованиям к master-узлу, но во многом зависят от характера запускаемой на узле (узлах) нагрузки.
+
+## Требования к узлам платформы:
+
+- ОС на базе Linux:
+  - РЕД ОС 7.3, 8.0
+  - РОСА Сервер 7.9, 12.4, 12.5.1
+  - ALT Linux p10, 10.0, 10.1, 10.2, 11
+  - Astra Linux Special Edition 1.7.2, 1.7.3, 1.7.4, 1.7.5
+  - CentOS 7, 8, 9
+  - Debian 10, 11, 12
+  - Rocky Linux 8, 9
+  - Ubuntu 18.04, 20.04, 22.04, 24.04
+- Версия ядра Linux >= 5.7
+- ЦП с архитектурой x86_64 c с поддержкой инструкций Intel-VT (vmx) или AMD-V (svm)
+
+# Порядок установки
 
 1. Разверните кластер Deckhouse Kubernetes Platform по [инструкции](https://deckhouse.ru/gs/#%D0%B4%D1%80%D1%83%D0%B3%D0%B8%D0%B5-%D0%B2%D0%B0%D1%80%D0%B8%D0%B0%D0%BD%D1%82%D1%8B).
 
-   Требования к процессору на узлах кластера, где планируется запускать виртуальные машины, включают:
-
-   - архитектуру x86_64 и поддержку инструкций Intel-VT или AMD-V;
-   - на узлах кластера поддерживается любая [совместимая](https://deckhouse.ru/documentation/v1/supported_versions.html#linux) ОС на базе Linux;
-   - ядро Linux на узлах кластера должно быть версии 5.7 или более новой;
-   - прочие требования к узлам кластера описаны в документе: [Подготовка к production](https://deckhouse.ru/guides/production.html).
-
 2. Включите необходимые модули.
 
-   Для хранения данных виртуальных машин необходимо включить один из следующих модулей согласно инструкции по их установке:
+   Для хранения данных виртуальных машин необходимо включить один или несколько из следующих модулей согласно инструкции по их установке:
 
    - [SDS-Replicated-volume](https://deckhouse.ru/modules/sds-replicated-volume/stable/)
+   - [SDS-Local-volume](https://deckhouse.ru/modules/sds-local-volume/stable/)
+   - [CSI-nfs](https://deckhouse.ru/modules/csi-nfs/stable/)
    - [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/)
 
-   Также возможно использовать другие варианты хранилищ, поддерживающие создание блочных устройств с режимом доступа `RWX` (`ReadWriteMany`).
+3. Установить StorageClass по умолчанию.
+4. Включите модуль `virtualization`.
+5. Включите модуль [console](https://deckhouse.ru/modules/console/stable/), который позволит управлять компонентами виртуализации через графический интерфейс (Данная возможность доступна только пользователям EE-редакции).
 
-3. Создайте манифест mc.yaml со следующим содержимым:
+Для включения возможности создания ВМ необходимо создать ресурс ModuleConfig virtualization.
+Рассмотрим на примере:
 
 ```yaml
 apiVersion: deckhouse.io/v1alpha1
@@ -31,31 +52,40 @@ kind: ModuleConfig
 metadata:
   name: virtualization
 spec:
-# Включаем модуль.
-enabled: true
-version: 1
-settings:
-  # Перечень подсетей для виртуальных машин.
-  virtualMachineCIDRs:
-    - 10.10.10.0/24
-    - 10.20.10.0/24
-    - 10.30.10.0/24
-    - 11.11.22.33/32
-  # Настройки параметров хранилища образов виртуальных машин.
-  dvcr:
-    storage:
-      persistentVolumeClaim:
-        size: 50G
-      type: PersistentVolumeClaim
+  enabled: true # включить модуль
+  settings:
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G
+        type: PersistentVolumeClaim
+    virtualMachineCIDRs:
+      - 10.66.10.0/24
+  version: 1
 ```
 
-Примените созданный манифест с использованием команды `d8 k apply -f mc.yaml`.
+Блок `.spec.settings.dvcr` описывает настройки для репозитория для хранения образов виртуальных машин, в данном блоке указывается размер хранилища предоставляемого для хранения образов `.spec.settings.dvcr.storage.persistentVolumeClaim.size`.
+
+в блоке `.spec.settings.virtualMachineCIDRs` задается список подсетей. Адреса виртуальных машин будут выделятся автоматически или по по запросу из заданных диапазонов подсетей по порядку.
 
 {{< alert level="info" >}}
 Полный перечень параметров конфигурации приведен в разделе ["Настройки"](./configuration.html)
 {{< /alert >}}
 
-## Обновление платформы
+Применим данный манифест `d8 k create -f ...` и дождемся когда появится `namespace` d8-virtualization со всеми его компонентами:
+
+Как понять, что модуль включился:
+
+```bash
+d8 k get modules virtualization
+# NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
+# virtualization   900      Enabled   Embedded           Ready
+```
+
+Статус модуля должен быть `Ready`.
+
+
+# Обновление платформы
 
 Deckhouse Virtualization Platform использует пять каналов обновлений предназначенных для использования в разных окружениях, к которым с точки зрения надежности применяются разные требования:
 
