@@ -18,15 +18,16 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type StorageclassReadyHandler struct {
@@ -68,7 +69,7 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 		condition.Message = "Used dvcr storage"
 	case v1alpha2.StorageKubernetes:
 		sc, err := h.service.GetStorageClass(ctx, vi.Spec.PersistentVolumeClaim.StorageClass)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 			return reconcile.Result{}, err
 		}
 

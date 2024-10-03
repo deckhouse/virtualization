@@ -22,12 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type StorageclassReadyHandler struct {
@@ -59,7 +60,7 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	}
 
 	sc, err := h.service.GetStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
-	if err != nil && !errors.Is(err, errors.New("storage class not found")) {
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 		return reconcile.Result{}, err
 	}
 
