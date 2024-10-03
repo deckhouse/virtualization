@@ -8,6 +8,131 @@ weight: 50
 С детальным описанием параметров настройки ресурсов приведенных в данном документе вы можете ознакомится в разделе [Custom Resources](cr.html)
 {{< /alert >}}
 
+# Быстрый старт по созданию ВМ
+
+Пример создания виртуальной машины с Ubuntu 22.04.
+
+1. Создайте образ виртуальной машины из внешнего источника:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: ubuntu
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+EOF
+```
+
+2. Создайте диск виртуальной машины из образа, созданного на предыдущем шаге (Внимание: перед созданием убедитесь, что в системе присутствует StorageClass по умолчанию):
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: linux-disk
+spec:
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: ubuntu
+EOF
+```
+
+3. Создание виртуальной машины
+
+В примере используется cloud-init-сценарий для создания пользователя cloud с паролем cloud, сгенерированный следующим образом:
+
+```bash
+mkpasswd --method=SHA-512 --rounds=4096
+```
+
+изменить имя пользователя и пароль можно в этой секции:
+
+```yaml
+users:
+- name: cloud
+  passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
+```
+
+
+Создайте виртуальную машину из следующей спецификации:
+
+```yaml
+d8 k apply -f - <<"EOF"
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  virtualMachineClassName: host
+  cpu:
+    cores: 1
+  memory:
+    size: 1Gi
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      ssh_pwauth: True
+      users:
+      - name: cloud
+        passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: False
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: linux-disk
+EOF
+```
+
+Полезные ссылки:
+- [Документация по cloud-init](https://cloudinit.readthedocs.io/)
+- [Парамерты ресурсов](https://deckhouse.ru/products/kubernetes-platform/modules/virtualization/stable/cr.html)
+
+4. Проверьте с помощью команды, что образ и диск созданы, а виртуальная машина - запущена. Ресурсы создаются не мгновенно, поэтому прежде чем они придут в готовое состояние потребуется подождать какое-то время.
+
+```bash
+kubectl get vi,vd,vm
+NAME                                                 PHASE   CDROM   PROGRESS   AGE
+virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+
+NAME                                                 PHASE   CAPACITY   AGE
+virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+
+NAME                                                 PHASE     NODE           IPADDRESS     AGE
+virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+```
+
+5. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
+
+```bash
+d8 v console linux-vm
+
+# Successfully connected to linux-vm console. The escape sequence is ^]
+#
+# linux-vm login: cloud
+# Password: cloud
+# ...
+# cloud@linux-vm:~$
+```
+
+6. Для удаления созданных ранее ресурсов используйте следующие команды:
+
+```bash
+d8 k delete vm linux-vm
+d8 k delete vd linux-disk
+d8 k delete vi ubuntu
+```
+
 # Образы
 
 Ресурс `VirtualImage` (`vi`) используются для хранения образов виртуальных машин, он доступен только в том неймспейсе или проекте, в котором был создан.
@@ -824,8 +949,6 @@ spec:
 
 Блочные устройства можно разделить на два типа по способу их подключения: статические и динамические (hotplug).
 
-TODO: надо сказать что VD может быть подключен к ВМ только 1 раз.
-
 ### Статические блочные устройства
 
 Статические блочные устройства указываются в спецификации виртуальной машины в блоке `.spec.blockDeviceRefs`. Этот блок представляет собой список, в который могут быть включены следующие блочные устройства:
@@ -1097,7 +1220,7 @@ spec:
 
 Даже если ресурс `vmip` будет удален. Он остаётся арендованным для текущего проекта/неймспейса еще 10 минут. Поэтому существует возможность вновь его занять по запросу:
 
-```bash
+```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddress
