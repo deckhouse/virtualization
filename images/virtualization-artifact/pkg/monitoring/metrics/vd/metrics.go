@@ -24,6 +24,8 @@ import (
 
 const (
 	MetricDiskStatusPhase = "virtualdisk_status_phase"
+	MetricDiskLabels      = "virtualdisk_labels"
+	MetricDiskAnnotations = "virtualdisk_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -44,9 +46,26 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 	return append(base, labels...)
 }
 
-var diskMetrics = map[string]*prometheus.Desc{
-	MetricDiskStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricDiskStatusPhase),
+var diskMetrics = map[string]metrics.MetricInfo{
+	MetricDiskStatusPhase: metrics.NewMetricInfo(
+		MetricDiskStatusPhase,
 		"The virtualdisk current phase.",
+		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
-		nil),
+		nil,
+	),
+
+	MetricDiskLabels: metrics.NewMetricInfo(MetricDiskLabels,
+		"Kubernetes labels converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricDiskAnnotations: metrics.NewMetricInfo(MetricDiskAnnotations,
+		"Kubernetes annotations converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
 }

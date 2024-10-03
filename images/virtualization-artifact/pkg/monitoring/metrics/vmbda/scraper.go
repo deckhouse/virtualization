@@ -22,6 +22,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -36,10 +37,12 @@ type scraper struct {
 }
 
 func (s *scraper) Report(m *dataMetric) {
-	s.updateVMBDAStatusPhaseMetrics(m)
+	s.updateMetricVMBDAStatusPhase(m)
+	s.updateMetricVMBDALabels(m)
+	s.updateMetricVMBDAAnnotations(m)
 }
 
-func (s *scraper) updateVMBDAStatusPhaseMetrics(m *dataMetric) {
+func (s *scraper) updateMetricVMBDAStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
 		phase = virtv2.BlockDeviceAttachmentPhasePending
@@ -61,16 +64,40 @@ func (s *scraper) updateVMBDAStatusPhaseMetrics(m *dataMetric) {
 	}
 }
 
+func (s *scraper) updateMetricVMBDALabels(m *dataMetric) {
+	s.updateDynamic(MetricVMBDALabels, 1, m, nil, m.Labels)
+}
+
+func (s *scraper) updateMetricVMBDAAnnotations(m *dataMetric) {
+	s.updateDynamic(MetricVMBDAAnnotations, 1, m, nil, m.Annotations)
+}
+
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
-	desc := vmbdaMetrics[descName]
+	info := vmbdaMetrics[descName]
 	metric, err := prometheus.NewConstMetric(
-		desc,
+		info.Desc,
 		prometheus.GaugeValue,
 		value,
 		WithBaseLabelsByMetric(m, labels...)...,
 	)
 	if err != nil {
-		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", desc, err))
+		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
+		return
+	}
+	s.ch <- metric
+}
+
+func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
+	info := vmbdaMetrics[name]
+	metric, err := promutil.NewDynamicMetric(
+		info.Desc,
+		info.Type,
+		value,
+		WithBaseLabelsByMetric(m, labelValues...),
+		extraLabels,
+	)
+	if err != nil {
+		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
 	s.ch <- metric

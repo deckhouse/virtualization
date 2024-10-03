@@ -44,9 +44,10 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 	return append(base, labels...)
 }
 
-var vmopMetrics = map[string]*prometheus.Desc{
-	MetricVMOPStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMOPStatusPhase),
+var vmopMetrics = map[string]metrics.MetricInfo{
+	MetricVMOPStatusPhase: metrics.NewMetricInfo(MetricVMOPStatusPhase,
 		"The virtualmachineoperation current phase.",
+		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
 		nil),
 }
