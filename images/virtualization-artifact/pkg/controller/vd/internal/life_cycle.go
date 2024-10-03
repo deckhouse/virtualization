@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,7 +110,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 		}
 		return reconcile.Result{Requeue: requeue}, nil
-	} else {
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
+
+	return reconcile.Result{}, nil
 }
