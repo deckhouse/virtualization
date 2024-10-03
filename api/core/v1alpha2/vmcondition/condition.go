@@ -80,7 +80,7 @@ const (
 
 	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
 	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
-	ReasonLastMigrationFinishedWithError Reason = "LastMigratingFinishedWithError"
+	ReasonLastMigrationFinishedWithError Reason = "LastMigrationFinishedWithError"
 	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
