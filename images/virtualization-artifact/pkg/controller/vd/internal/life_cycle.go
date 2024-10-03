@@ -19,10 +19,10 @@ package internal
 import (
 	"context"
 	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
@@ -103,10 +103,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		}
 	}
 
-	requeue, err := ds.Sync(ctx, vd)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	storageclassReadyCondition, ok := service.GetCondition(vdcondition.StorageclassReadyType, vd.Status.Conditions)
+	if ok && storageclassReadyCondition.Status == metav1.ConditionTrue {
+		requeue, err := ds.Sync(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+		}
+		return reconcile.Result{Requeue: requeue}, nil
+	} else {
+		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
-
-	return reconcile.Result{Requeue: requeue}, nil
 }
