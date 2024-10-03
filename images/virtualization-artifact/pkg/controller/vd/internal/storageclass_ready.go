@@ -30,21 +30,21 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type StorageclassReadyHandler struct {
+type StorageClassReadyHandler struct {
 	service *service.DiskService
 }
 
-func NewStorageclassReadyHandler(client client.Client) *StorageclassReadyHandler {
-	return &StorageclassReadyHandler{
+func NewStorageClassReadyHandler(client client.Client) *StorageClassReadyHandler {
+	return &StorageClassReadyHandler{
 		service: service.NewDiskService(client, nil, nil),
 	}
 }
 
-func (h StorageclassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.StorageclassReadyType, vd.Status.Conditions)
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	condition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
-			Type:   vdcondition.StorageclassReadyType,
+			Type:   vdcondition.StorageClassReadyType,
 			Status: metav1.ConditionUnknown,
 		}
 	}
@@ -65,11 +65,11 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 
 	if sc != nil {
 		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.StorageclassReady
+		condition.Reason = vdcondition.StorageClassReady
 		condition.Message = "Storage class ready."
 	} else {
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageclassNotReady
+		condition.Reason = vdcondition.StorageClassNotReady
 		condition.Message = fmt.Sprintf("Storage class %q not ready", *vd.Spec.PersistentVolumeClaim.StorageClass)
 	}
 

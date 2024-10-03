@@ -24,8 +24,8 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// StorageclassReadyType indicates whether the storageclass ready
-	StorageclassReadyType Type = "StorageclassReady"
+	// StorageClassReadyType indicates whether the storageClass ready
+	StorageClassReadyType Type = "StorageClassReady"
 )
 
 type (
@@ -33,8 +33,8 @@ type (
 	DatasourceReadyReason = string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason = string
-	// StorageclassReadyReason represents the various reasons for the StorageclassReady condition type.
-	StorageclassReadyReason = string
+	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
+	StorageClassReadyReason = string
 )
 
 const (
@@ -63,10 +63,10 @@ const (
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
 
-	// StorageclassReady indicates that the chosen Storageclass exists.
-	StorageclassReady StorageclassReadyReason = "StorageclassReady"
-	// StorageclassNotReady indicates that the chosen Storageclass not exists.
-	StorageclassNotReady StorageclassReadyReason = "StorageclassNotReady"
+	// StorageClassReady indicates that the chosen StorageClass exists.
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotReady indicates that the chosen StorageClass not exists.
+	StorageClassNotReady StorageClassReadyReason = "StorageClassNotReady"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
-	DVCRTypeUsed StorageclassReadyReason = "DVCRTypeUsed"
+	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
 )

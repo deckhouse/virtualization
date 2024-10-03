@@ -44,10 +44,10 @@ func NewStorageClassReadyHandler(client service.Client) *StorageclassReadyHandle
 }
 
 func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vicondition.StorageclassReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
-			Type:   vicondition.StorageclassReadyType,
+			Type:   vicondition.StorageClassReadyType,
 			Status: metav1.ConditionUnknown,
 		}
 	}
@@ -74,11 +74,11 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 
 		if sc != nil {
 			condition.Status = metav1.ConditionTrue
-			condition.Reason = vicondition.StorageclassReady
+			condition.Reason = vicondition.StorageClassReady
 			condition.Message = "Storageclass ready"
 		} else {
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.StorageclassNotReady
+			condition.Reason = vicondition.StorageClassNotReady
 			condition.Message = fmt.Sprintf("Storageclass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)
 		}
 	}
