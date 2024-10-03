@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -33,16 +34,19 @@ type dataMetric struct {
 	Node                                string
 	UID                                 string
 	Phase                               virtv2.MachinePhase
+	CpuConfigurationCores               float64
+	CpuConfigurationCoreFraction        float64
 	CpuCores                            float64
 	CpuCoreFraction                     float64
-	CpuRequestedCores                   float64
 	CpuRuntimeOverhead                  float64
-	MemorySize                          float64
+	MemoryConfigurationSize             float64
 	MemoryRuntimeOverhead               float64
 	AwaitingRestartToApplyConfiguration bool
 	ConfigurationApplied                bool
 	RunPolicy                           virtv2.RunPolicy
 	Pods                                []virtv2.VirtualMachinePod
+	Labels                              map[string]string
+	Annotations                         map[string]string
 }
 
 // DO NOT mutate VirtualMachine!
@@ -51,7 +55,9 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		return nil
 	}
 	res := vm.Status.Resources
-	cf := intstr.FromString(strings.TrimSuffix(res.CPU.CoreFraction, "%"))
+	cf := getPercent(res.CPU.CoreFraction)
+	cfSpec := getPercent(vm.Spec.CPU.CoreFraction)
+
 	var (
 		awaitingRestartToApplyConfiguration bool
 		configurationApplied                bool
@@ -68,21 +74,33 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	for i, pod := range vm.Status.VirtualMachinePods {
 		pods[i] = *pod.DeepCopy()
 	}
+
 	return &dataMetric{
 		Name:                                vm.Name,
 		Namespace:                           vm.Namespace,
 		Node:                                vm.Status.Node,
 		UID:                                 string(vm.UID),
 		Phase:                               vm.Status.Phase,
+		CpuConfigurationCores:               float64(vm.Spec.CPU.Cores),
+		CpuConfigurationCoreFraction:        float64(cfSpec.IntValue()),
 		CpuCores:                            float64(res.CPU.Cores),
 		CpuCoreFraction:                     float64(cf.IntValue()),
-		CpuRequestedCores:                   float64(res.CPU.RequestedCores.MilliValue()),
 		CpuRuntimeOverhead:                  float64(res.CPU.RuntimeOverhead.MilliValue()),
-		MemorySize:                          float64(res.Memory.Size.Value()),
+		MemoryConfigurationSize:             float64(vm.Spec.Memory.Size.Value()),
 		MemoryRuntimeOverhead:               float64(res.Memory.RuntimeOverhead.Value()),
 		AwaitingRestartToApplyConfiguration: awaitingRestartToApplyConfiguration,
 		ConfigurationApplied:                configurationApplied,
 		RunPolicy:                           vm.Spec.RunPolicy,
 		Pods:                                pods,
+		Labels: promutil.WrapPrometheusLabels(vm.GetLabels(), "label", func(key, value string) bool {
+			return false
+		}),
+		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
+			return strings.HasPrefix(key, "kubectl.kubernetes.io")
+		}),
 	}
+}
+
+func getPercent(s string) intstr.IntOrString {
+	return intstr.FromString(strings.TrimSuffix(s, "%"))
 }
