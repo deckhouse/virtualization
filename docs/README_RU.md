@@ -11,10 +11,13 @@ Deckhouse Virtualization Platform позволяет декларативно с
 
 - Запуск виртуальных машин с x86_64 совместимой ОС.
 - Запуска виртуальных машин и контейнеризованных приложений в одном окружении.
+- Запуск кластера DKP на виртуальных машинах.
 
   ![](./images/cases-vms.ru.png)
 
   ![](./images/cases-pods-and-vms.ru.png)
+
+  ![](./images/cases.dkp.ru.png)
 
 {{< alert level="warning" >}}
 Если вы планируете использовать Deckhouse Virtualization Platform в production-среде, рекомендуется разворачивать его на физических серверах. Развертывание Deckhouse Virtualization Platform на виртуальных машинах также возможно, но в этом случае необходимо включить nested-виртуализацию.

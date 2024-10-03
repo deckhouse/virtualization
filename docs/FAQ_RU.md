@@ -3,7 +3,7 @@ title: "FAQ"
 weight: 70
 ---
 
-## Как установить ОС в виртуальной машине из ISO-образа?
+# Как установить ОС в виртуальной машине из ISO-образа?
 
 **Установка ОС в виртуальной машине из ISO-образа на примере установки ОС Windows**
 
@@ -108,85 +108,6 @@ spec:
    d8 v vnc -n default win-vm
    ```
 
-## Как создать образ виртуальной машины для container registry
-
-Образ диска виртуальной машины, хранящийся в container registry, должен быть сформирован специальным образом.
-
-Пример Dockerfile для создания образа:
-
-```Dockerfile
-FROM scratch
-COPY image-name.img /disk/image-name.img
-```
-
-Соберите образ и отправьте его в `container registry`:
-
-```bash
-docker build -t docker.io/username/image:latest
-
-docker push docker.io/username/image:latest
-```
-
-## Как перенаправить трафик на виртуальную машину
-
-Так как виртуальная машина функционирует в кластере Kubernetes, направление сетевого трафика осуществляется аналогично направлению трафика на поды.
-
-1. Для этого создайте сервис с требуемыми настройками.
-
-   В качестве примера приведена виртуальная машина с HTTP-сервисом, опубликованным на порте 80, и следующим набором меток:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: web
-  labels:
-    vm: web
-spec: ...
-```
-
-2. Чтобы направить сетевой трафик на 80-й порт виртуальной машины, создайте сервис:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: svc-1
-spec:
-  ports:
-    - name: http
-      port: 8080
-      protocol: TCP
-      targetPort: 80
-  selector:
-    app: old
-```
-
-   Можно изменять метки виртуальной машины без необходимости перезапуска, что позволяет настраивать перенаправление сетевого трафика между различными сервисами в реальном времени.
-   Предположим, что был создан новый сервис и требуется перенаправить трафик на виртуальную машину от этого сервиса:
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: svc-2
-spec:
-  ports:
-    - name: http
-      port: 8080
-      protocol: TCP
-      targetPort: 80
-  selector:
-    app: new
-```
-
-   При изменении метки на виртуальной машине, трафик с сервиса `svc-2` будет перенаправлен на виртуальную машину:
-
-```yaml
-metadata:
-  labels:
-    app: old
-```
 
 # Как увеличить размер DVCR
 
