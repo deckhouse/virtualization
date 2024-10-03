@@ -40,13 +40,13 @@ var (
 	ManualLabel    = map[string]string{"vm": "manual-conf"}
 )
 
-func ExecSshCommand(vmName, cmd, user, key string) {
+func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
-			Username:    user,
-			IdenityFile: key,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
 		})
 		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
@@ -154,7 +154,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 				vms := strings.Split(res.StdOut(), " ")
 				for _, vm := range vms {
 					cmd := "sudo reboot"
-					ExecSshCommand(vm, cmd, conf.TestData.SshUser, conf.TestData.Sshkey)
+					ExecSshCommand(vm, cmd)
 				}
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 					Labels:    ManualLabel,
