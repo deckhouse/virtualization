@@ -8,13 +8,6 @@ import:
   includePaths:
   - virt-exportserver
   before: setup
-# - image: virt-artifact-classic-go
-#   add: /kubevirt/cmd/virt-launcher/
-#   to: /etc
-#   includePaths:
-#   - passwd
-#   - group
-#   before: setup
 - image: virt-artifact-classic-go
   add: /kubevirt/
   to: /
@@ -28,24 +21,3 @@ shell:
 docker:
   ENTRYPOINT: ["/usr/bin/virt-exportserver"]
   USER: 1001
-
-# ============
-# image: {{ $.ImageName }}
-# fromImage: base-alt-p11
-# import:
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
-#   includePaths:
-#   - virt-exportserver
-#   to: /usr/bin
-#   before: setup
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/
-#   includePaths:
-#   - .version
-#   to: /
-#   before: setup
-# # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-exportserver/BUILD.bazel
-# docker:
-#   ENTRYPOINT: ["/usr/bin/virt-exportserver"]
-#   USER: 1001

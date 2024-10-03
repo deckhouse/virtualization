@@ -1,7 +1,6 @@
 ---
 image: {{ $.ImageName }}
 from: {{  .Images.DISTROLESS_ALT_P11 }}
-# from: {{ .Images.BASE_SCRATCH }}
 import:
 - image: virt-artifact-classic-go
   add: /kubevirt-binaries/
@@ -27,24 +26,3 @@ docker:
   WORKDIR: /usr/bin/
   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
   USER: 1001
-# ==============
-# image: {{ $.ImageName }}
-# from: {{ .Images.BASE_SCRATCH }}
-# import:
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
-#   includePaths:
-#   - virt-exportproxy
-#   to: /usr/bin
-#   before: setup
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/
-#   includePaths:
-#   - .version
-#   to: /
-#   before: setup
-# # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-exportproxy/BUILD.bazel
-# docker:
-#   WORKDIR: /usr/bin/
-#   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
-#   USER: 1001

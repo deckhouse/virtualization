@@ -24,20 +24,11 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
-#   to: /usr/bin
-#   after: install
-#   includePaths:
-#   - virt-chroot
-#   - virt-handler
-#   - container-disk
 - image: virt-artifact-classic-go
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /
   after: install
   includePaths:
-  # - .version
   - virt_launcher.cil
 - image: virt-artifact-classic-go
   add: /kubevirt/
@@ -45,34 +36,12 @@ import:
   after: install
   includePaths:
   - .version
-  # - virt_launcher.cil
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest
-#   to: /
-#   after: install
-#   includePaths:
-#   - .version
-#   - virt_launcher.cil
 - image: virt-artifact-classic-go
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
-# - image: virt-artifact-classic-go
-#   add: /kubevirt/cmd/virt-launcher/
-#   to: /etc
-#   after: install
-#   includePaths:
-#   # - group
-#   # - passwd
-# ==============
-# - image: virt-artifact
-#   add: /images/kubevirt/{{ $.ImageName }}:latest/etc
-#   to: /etc
-#   after: install
-#   includePaths:
-#   - nsswitch.conf
 # Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-handler/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-handler"]
