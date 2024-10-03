@@ -24,6 +24,8 @@ import (
 
 const (
 	MetricVMBDAStatusPhase = "virtualmachineblockdeviceattachment_status_phase"
+	MetricVMBDALabels      = "virtualmachineblockdeviceattachment_labels"
+	MetricVMBDAAnnotations = "virtualmachineblockdeviceattachment_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -44,9 +46,26 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 	return append(base, labels...)
 }
 
-var vmbdaMetrics = map[string]*prometheus.Desc{
-	MetricVMBDAStatusPhase: prometheus.NewDesc(prometheus.BuildFQName(metrics.MetricNamespace, "", MetricVMBDAStatusPhase),
+var vmbdaMetrics = map[string]metrics.MetricInfo{
+	MetricVMBDAStatusPhase: metrics.NewMetricInfo(
+		MetricVMBDAStatusPhase,
 		"The virtualmachineblockdeviceattachment current phase.",
+		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
-		nil),
+		nil,
+	),
+
+	MetricVMBDALabels: metrics.NewMetricInfo(MetricVMBDALabels,
+		"Kubernetes labels converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVMBDAAnnotations: metrics.NewMetricInfo(MetricVMBDAAnnotations,
+		"Kubernetes annotations converted to Prometheus labels.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
 }

@@ -53,8 +53,8 @@ type Collector struct {
 }
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {
-	for _, v := range diskMetrics {
-		ch <- v
+	for _, m := range diskMetrics {
+		ch <- m.Desc
 	}
 }
 
