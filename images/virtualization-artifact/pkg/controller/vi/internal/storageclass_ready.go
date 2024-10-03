@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -81,7 +79,6 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vicondition.StorageclassNotReady
 			condition.Message = fmt.Sprintf("Storageclass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)
-			return reconcile.Result{RequeueAfter: 2 * time.Second}, err
 		}
 	}
 
