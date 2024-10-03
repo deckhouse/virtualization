@@ -18,12 +18,6 @@ import:
   - group
   - .version
   before: setup
-# - image: virt-artifact
-#   add: /kubevirt-config-files/
-#   to: /
-#   includePaths:
-#   - .version
-#   after: setup
 # Source https://github.com/kubevirt/kubevirt/blob/main/cmd/virt-operator/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-operator"]
