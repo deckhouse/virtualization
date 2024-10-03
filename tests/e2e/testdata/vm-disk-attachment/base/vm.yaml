@@ -19,5 +19,4 @@ spec:
   blockDeviceRefs:
     - kind: VirtualDisk
       name: vd-root
-    - kind: VirtualDisk
-      name: vd-blank
+ 
