@@ -74,6 +74,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewStorageClassReadyHandler(mgr.GetClient()),
 		internal.NewDatasourceReadyHandler(blank, sources),
 		internal.NewLifeCycleHandler(blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
@@ -81,7 +82,6 @@ func NewController(
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
-		internal.NewStorageClassReadyHandler(mgr.GetClient()),
 	)
 
 	vdController, err := controller.New(ControllerName, mgr, controller.Options{

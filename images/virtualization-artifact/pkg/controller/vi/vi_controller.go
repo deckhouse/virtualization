@@ -71,11 +71,11 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewStorageClassReadyHandler(mgr.GetClient()),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
-		internal.NewStorageClassReadyHandler(mgr.GetClient()),
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{
