@@ -120,6 +120,7 @@ shell:
 
     - echo Download Go modules.
     - go mod download
+    - go mod vendor
 
   setup:
     - mkdir /cdi-binaries
