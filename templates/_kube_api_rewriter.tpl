@@ -31,7 +31,7 @@ spec:
         configMap:
           defaultMode: 0644
           name: kube-api-proxy-kubeconfig
-{{- if eq .Values.virtualization.logLevel "debug" }}
+{{- if eq $ctx.Values.virtualization.logLevel "debug" }}
       ports:
       - containerPort: 8129
         name: pprof
