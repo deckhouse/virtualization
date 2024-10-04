@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -85,7 +84,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind == virtv2.DiskDevice {
 			vdByName[bdr.Name] = struct{}{}
 		}
 	}
@@ -121,46 +120,18 @@ func (s *SnapshotService) Unfreeze(ctx context.Context, name, namespace string) 
 	return nil
 }
 
-func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error) {
-	anno := make(map[string]string)
-	if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-		anno["storageClass"] = *pvc.Spec.StorageClassName
-		accessModes := make([]string, 0, len(pvc.Status.AccessModes))
-		for _, accessMode := range pvc.Status.AccessModes {
-			accessModes = append(accessModes, string(accessMode))
-		}
-
-		anno["accessModes"] = strings.Join(accessModes, ",")
-	}
-
-	volumeSnapshot := vsv1.VolumeSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: anno,
-			Name:        vdSnapshot.Name,
-			Namespace:   vdSnapshot.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				MakeOwnerReference(vdSnapshot),
-			},
-		},
-		Spec: vsv1.VolumeSnapshotSpec{
-			Source: vsv1.VolumeSnapshotSource{
-				PersistentVolumeClaimName: &pvc.Name,
-			},
-			VolumeSnapshotClassName: &vdSnapshot.Spec.VolumeSnapshotClassName,
-		},
-	}
-
-	err := s.client.Create(ctx, &volumeSnapshot)
+func (s *SnapshotService) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
+	err := s.client.Create(ctx, vs)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
-	err = s.protection.AddProtection(ctx, &volumeSnapshot)
+	err = s.protection.AddProtection(ctx, vs)
 	if err != nil {
 		return nil, err
 	}
 
-	return &volumeSnapshot, nil
+	return vs, nil
 }
 
 func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) error {
