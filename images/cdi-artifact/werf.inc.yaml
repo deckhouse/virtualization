@@ -114,6 +114,10 @@ shell:
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
       done
 
+    - echo "Downgrade evanphx/json-patch to v5.6.0"
+    - go mod edit -replace github.com/evanphx/json-patch/v5=github.com/evanphx/json-patch/v5@v5.6.0
+    - go mod tidy
+
     - echo Download Go modules.
     - go mod download
 
