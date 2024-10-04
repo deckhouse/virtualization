@@ -80,7 +80,6 @@ kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -
         }
     }
 }'
-sleep 5
 kubectl -n d8-virtualization port-forward deployments/${deployment} 2345:2345
 
 EOF
