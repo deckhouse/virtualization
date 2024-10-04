@@ -15,21 +15,11 @@ tasks:
         mkdir /tmp/testdata
         cp -a testdata/complex-test /tmp/testdata/complex-test
         cp -a testdata/connectivity /tmp/testdata/connectivity
+        cp -a testdata/disk-resizing /tmp/testdata/disk-resizing
         cp -a testdata/vm-configuration /tmp/testdata/vm-configuration
         cp -a testdata/vm-migration /tmp/testdata/vm-migration
         cp -a testdata/vm-disk-attachment /tmp/testdata/vm-disk-attachment
         cp -a testdata/sshkeys /tmp/testdata/sshkeys
-  virtctl:
-    cmds:
-      - |
-        case {{OS}} in
-          darwin*)      CMD_PATH="/opt/homebrew/bin/virtctl" ;;
-          linux*)       CMD_PATH="/usr/local/bin/virtctl"    ;;
-          *)            echo "unknown: {{OS}}"; exit 1       ;;
-        esac
-
-        URL="https://github.com/kubevirt/kubevirt/releases/download/{{ .VERSION }}/virtctl-{{ .VERSION }}-{{OS}}-{{ARCH}}"
-        test -f $CMD_PATH || ( sudo curl -L $URL -o $CMD_PATH && sudo chmod +x $CMD_PATH )
   ginkgo:
     cmds:
       - |
@@ -40,7 +30,6 @@ tasks:
   run:
     desc: "Run e2e tests"
     deps:
-      - virtctl
       - ginkgo
     cmds:
       - export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
@@ -50,7 +39,6 @@ tasks:
     desc: "Run locally e2e tests"
     deps:
       - copy
-      - virtctl
       - ginkgo
     cmds:
       - |
@@ -66,7 +54,6 @@ tasks:
     desc: "Run one test or group"
     deps:
       - copy
-      - virtctl
       - ginkgo
     cmds:
       - |

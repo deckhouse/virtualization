@@ -72,12 +72,12 @@ func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDRes
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
-func CheckExternalConnection(sshKeyPath, host, httpCode string, vms ...string) {
+func CheckExternalConnection(host, httpCode string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
 		By(fmt.Sprintf("Response code from %s should be %s for %s", host, httpCode, vm))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSshCommand(vm, cmd, httpCode, sshKeyPath)
+		CheckResultSshCommand(vm, cmd, httpCode)
 	}
 }
 
@@ -97,15 +97,15 @@ func getSVC(manifestPath string) (*corev1.Service, error) {
 	return &service, err
 }
 
-func CheckResultSshCommand(vmName, cmd, equal, key string) {
+func CheckResultSshCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
-			Username:    "cloud",
-			IdenityFile: key,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "result check failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "result check failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
 		g.Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
@@ -153,9 +153,6 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 		svc1Path := fmt.Sprintf("%s/resources/vm1-svc.yaml", conf.TestData.Connectivity)
 		svc2Path := fmt.Sprintf("%s/resources/vm2-svc.yaml", conf.TestData.Connectivity)
 
-		sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-		ChmodFile(sshKeyPath, 0o600)
-
 		svc1, err := getSVC(svc1Path)
 		Expect(err).NotTo(HaveOccurred(), err)
 		svc2, err := getSVC(svc2Path)
@@ -179,17 +176,17 @@ var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
 
 		When("Virtual machine is running", func() {
 			It("Virtual machine must have to be connected to external network", func() {
-				CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vm1Name)
+				CheckExternalConnection(externalHost, httpStatusOk, vm1Name)
 			})
 
 			It(fmt.Sprintf("Check ssh via 'd8 v' on VM %s", vm1Name), func() {
 				cmd := "hostname"
-				CheckResultSshCommand(vm1Name, cmd, vm1Name, sshKeyPath)
+				CheckResultSshCommand(vm1Name, cmd, vm1Name)
 			})
 
 			It(fmt.Sprintf("Check nginx via 'd8 v' on VM %s", vm1Name), func() {
 				cmd := "systemctl is-active nginx.service"
-				CheckResultSshCommand(vm1Name, cmd, nginxActiveStatus, sshKeyPath)
+				CheckResultSshCommand(vm1Name, cmd, nginxActiveStatus)
 			})
 		})
 

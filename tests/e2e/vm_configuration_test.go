@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -39,15 +40,15 @@ var (
 	ManualLabel    = map[string]string{"vm": "manual-conf"}
 )
 
-func ExecSshCommand(vmName, cmd, key string) {
+func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
-			Username:    "cloud",
-			IdenityFile: key,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), key)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
@@ -62,7 +63,8 @@ func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...st
 func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualMachines ...string) {
 	for _, vm := range virtualMachines {
 		By(fmt.Sprintf("Checking the number of processor cores %s changing", stage))
-		vmResource, err := GetVirtualMachine(vm, conf.Namespace)
+		vmResource := virtv2.VirtualMachine{}
+		err := GetObject(kc.ResourceVM, vm, conf.Namespace, &vmResource)
 		Expect(err).NotTo(HaveOccurred(), err)
 		Expect(vmResource.Spec.CPU.Cores).To(Equal(requiredValue))
 		switch {
@@ -74,11 +76,11 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualM
 	}
 }
 
-func CheckCPUCoresNumberFromVirtualMachine(requiredValue, key string, virtualMachines ...string) {
+func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines ...string) {
 	By("Checking the number of processor cores after changing from virtual machine")
 	for _, vm := range virtualMachines {
 		cmd := "nproc --all"
-		CheckResultSshCommand(vm, cmd, requiredValue, key)
+		CheckResultSshCommand(vm, cmd, requiredValue)
 	}
 }
 
@@ -141,7 +143,6 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		})
 
 		Context("When virtual machine is restarted:", func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    ManualLabel,
@@ -153,7 +154,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 				vms := strings.Split(res.StdOut(), " ")
 				for _, vm := range vms {
 					cmd := "sudo reboot"
-					ExecSshCommand(vm, cmd, sshKeyPath)
+					ExecSshCommand(vm, cmd)
 				}
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
 					Labels:    ManualLabel,
@@ -164,8 +165,6 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		})
 
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    ManualLabel,
@@ -175,7 +174,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine("2", sshKeyPath, vms...)
+				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
 			})
 		})
 	})
@@ -221,8 +220,6 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		})
 
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    AutomaticLabel,
@@ -232,7 +229,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine("2", sshKeyPath, vms...)
+				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
 			})
 		})
 	})

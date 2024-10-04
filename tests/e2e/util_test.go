@@ -30,6 +30,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
@@ -183,18 +184,20 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	return &vm, nil
 }
 
-func GetVirtualMachine(name, namespace string) (*virtv2.VirtualMachine, error) {
+func GetObject(resource kc.Resource, name, namespace string, object client.Object) error {
 	GinkgoHelper()
-	getVmCmd := kubectl.GetResource(kc.ResourceVM, name, kc.GetOptions{Namespace: namespace, Output: "json"})
-	if getVmCmd.Error() != nil {
-		return nil, fmt.Errorf(getVmCmd.StdErr())
+	cmd := kubectl.GetResource(resource, name, kc.GetOptions{
+		Namespace: namespace,
+		Output:    "json",
+	})
+	if cmd.Error() != nil {
+		return fmt.Errorf(cmd.StdErr())
 	}
-	var vmResource virtv2.VirtualMachine
-	unmarshalErr := json.Unmarshal(getVmCmd.StdOutBytes(), &vmResource)
-	if unmarshalErr != nil {
-		return nil, unmarshalErr
+	err := json.Unmarshal(cmd.StdOutBytes(), object)
+	if err != nil {
+		return err
 	}
-	return &vmResource, nil
+	return nil
 }
 
 func ChmodFile(pathFile string, permission os.FileMode) {
@@ -228,33 +231,26 @@ func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
 	Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
 }
 
-func CheckDefaultStorageClass() error {
-	storageClass := kc.Resource("sc")
-	res := kubectl.List(storageClass, kc.GetOptions{Output: "json"})
+func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
+	var scList storagev1.StorageClassList
+	res := kubectl.List(kc.ResourceStorageClass, kc.GetOptions{Output: "json"})
 	if !res.WasSuccess() {
-		return fmt.Errorf(res.StdErr())
+		return nil, fmt.Errorf(res.StdErr())
 	}
 
-	defaultStorageClassFlag := false
-	var scList storagev1.StorageClassList
 	err := json.Unmarshal([]byte(res.StdOut()), &scList)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, sc := range scList.Items {
 		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
 		if ok && isDefault == "true" {
-			defaultStorageClassFlag = true
-			break
+			return &sc, nil
 		}
 	}
-	if !defaultStorageClassFlag {
-		return fmt.Errorf(
-			"Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.",
-		)
-	}
-	return nil
+
+	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
 }
 
 func FindUnassignedIP(subnets []string) (string, error) {

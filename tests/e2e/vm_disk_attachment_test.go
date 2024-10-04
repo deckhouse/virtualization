@@ -32,24 +32,26 @@ import (
 
 const APIVersion = "virtualization.deckhouse.io/v1alpha2"
 
+// lsblk JSON output
 type Disks struct {
 	BlockDevices []BlockDevice `json:"blockdevices"`
 }
 
 type BlockDevice struct {
 	Name string `json:"name"`
+	Size string `json:"size"`
 }
 
 var (
-	DisksBefore         Disks
-	DisksAfter          Disks
-	DiskAttachmentLabel = map[string]string{"testcase": "vm-disk-attachment"}
+	DisksBefore                     Disks
+	DisksAfter                      Disks
+	AutomaticHotplugStandaloneLabel = map[string]string{"vm": "automatic-with-hotplug-standalone"}
 )
 
 func AttachVirtualDisk(virtualMachine, virtualDisk string) {
 	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", conf.TestData.VmDiskAttachment, virtualMachine)
 	fmt.Println(vmbdaFilePath)
-	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, automaticHotplugStandaloneLabel)
+	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, AutomaticHotplugStandaloneLabel)
 	Expect(err).NotTo(HaveOccurred(), err)
 
 	res := kubectl.Apply(vmbdaFilePath, kc.ApplyOptions{
@@ -85,22 +87,45 @@ func CreateVMBDAManifest(filePath, vmName, vdName string, labels map[string]stri
 	return nil
 }
 
-func GetDiskCount(sshKeyPath, vmName string, disks *Disks) {
+func GetDisksMetadata(vmName string, disks *Disks) {
 	GinkgoHelper()
-	cmd := "lsblk --nodeps --noheadings --output name --json"
+	cmd := "lsblk --nodeps --json"
 	Eventually(func(g Gomega) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
-			Username:    "cloud",
-			IdenityFile: sshKeyPath,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "getting disk count failed for %s/%s.\n%s\n%s", conf.Namespace, vmName, res.StdErr(), sshKeyPath)
+		g.Expect(res.Error()).NotTo(HaveOccurred(), "getting disk count failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
 		err := json.Unmarshal(res.StdOutBytes(), disks)
 		g.Expect(err).NotTo(HaveOccurred())
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
 var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
+	var (
+		vdRoot                   string
+		vdAttach                 string
+		vmName                   string
+		vmbdaName                string
+		phaseByVolumeBindingMode string
+	)
+
+	Context("Environment preparing", func() {
+		vdRoot = fmt.Sprintf("%s-vd-root-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
+		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
+		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
+		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
+		switch conf.StorageClass.VolumeBindingMode {
+		case "Immediate":
+			phaseByVolumeBindingMode = PhaseReady
+		case "WaitForFirstConsumer":
+			phaseByVolumeBindingMode = PhaseWaitForFirstConsumer
+		default:
+			phaseByVolumeBindingMode = PhaseReady
+		}
+	})
+
 	Context("When resources are applied:", func() {
 		It("must have no errors", func() {
 			res := kubectl.Kustomize(conf.TestData.VmDiskAttachment, kc.KustomizeOptions{})
@@ -110,12 +135,12 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				Labels:    DiskAttachmentLabel,
-				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
-			})
+			By(fmt.Sprintf("%s should be in %s phases", vdRoot, PhaseReady))
+			waitReady := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseReady)
+			WaitResource(kc.ResourceVD, vdRoot, waitReady, LongWaitDuration)
+			By(fmt.Sprintf("%s should be in %s phases", vdAttach, phaseByVolumeBindingMode))
+			waitByVolumeBindingMode := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phaseByVolumeBindingMode)
+			WaitResource(kc.ResourceVD, vdAttach, waitByVolumeBindingMode, LongWaitDuration)
 		})
 	})
 
@@ -123,7 +148,7 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    DiskAttachmentLabel,
+				Labels:    AutomaticHotplugStandaloneLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -132,24 +157,20 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 
 	Describe("Attachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, automaticHotplugStandaloneLabel["vm"])
-			vdName := fmt.Sprintf("%s-vd-attach-%s", namePrefix, automaticHotplugStandaloneLabel["vm"])
 			It("get disk count before attachment", func() {
-				GetDiskCount(sshKeyPath, vmName, &DisksBefore)
+				GetDisksMetadata(vmName, &DisksBefore)
 			})
 			It("attaches virtual disk", func() {
-				AttachVirtualDisk(vmName, vdName)
+				AttachVirtualDisk(vmName, vdAttach)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
-				vmbdaName := fmt.Sprintf("%s-vm-%s", namePrefix, automaticHotplugStandaloneLabel["vm"])
 				WaitResource(kc.ResourceVMBDA, vmbdaName, "'jsonpath={.status.phase}=Attached'", ShortWaitDuration)
 				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
 				WaitResource(kc.ResourceVM, vmName, "'jsonpath={.status.phase}=Running'", ShortWaitDuration)
 			})
 			It("compares disk count before and after attachment", func() {
-				GetDiskCount(sshKeyPath, vmName, &DisksAfter)
+				GetDisksMetadata(vmName, &DisksAfter)
 				diskCountBefore := len(DisksBefore.BlockDevices)
 				diskCountAfter := len(DisksAfter.BlockDevices)
 				Expect(diskCountBefore).To(Equal(diskCountAfter-1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
@@ -159,11 +180,8 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 
 	Describe("Detachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
-			sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, automaticHotplugStandaloneLabel["vm"])
-			vmbdaName := fmt.Sprintf("%s-vm-%s", namePrefix, automaticHotplugStandaloneLabel["vm"])
 			It("get disk count before detachment", func() {
-				GetDiskCount(sshKeyPath, vmName, &DisksBefore)
+				GetDisksMetadata(vmName, &DisksBefore)
 			})
 			It("detaches virtual disk", func() {
 				res := kubectl.DeleteResource(kc.ResourceVMBDA, vmbdaName, kc.DeleteOptions{
@@ -178,7 +196,7 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 			It("compares disk count before and after detachment", func() {
 				diskCountBefore := len(DisksBefore.BlockDevices)
 				Eventually(func(g Gomega) {
-					GetDiskCount(sshKeyPath, vmName, &DisksAfter)
+					GetDisksMetadata(vmName, &DisksAfter)
 					diskCountAfter := len(DisksAfter.BlockDevices)
 					Expect(diskCountBefore).To(Equal(diskCountAfter+1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
 				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())

@@ -21,7 +21,9 @@ helperImages:
 testData:
   complexTest: "/tmp/testdata/complex-test"
   connectivity: "/tmp/testdata/connectivity"
+  diskResizing: "/tmp/testdata/disk-resizing"
   vmConfiguration: "/tmp/testdata/vm-configuration"
   vmMigration: "/tmp/testdata/vm-migration"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
-  sshKeys: "/tmp/testdata/sshkeys"
+  sshKey: "/tmp/testdata/sshkeys/id_ed"
+  sshUser: "cloud"
