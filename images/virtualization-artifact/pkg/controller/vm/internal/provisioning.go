@@ -87,7 +87,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Message(fmt.Sprintf("userdataRef must be %q", virtv2.UserDataRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
-		err := h.genConditionFromSecret(ctx, cb, key)
+		err := h.genConditionFromSecret(ctx, cb, key, true)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -99,7 +99,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Message(fmt.Sprintf("sysprepRef must be %q", virtv2.SysprepRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
-		err := h.genConditionFromSecret(ctx, cb, key)
+		err := h.genConditionFromSecret(ctx, cb, key, false)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -118,8 +118,8 @@ func (h *ProvisioningHandler) Name() string {
 	return nameProvisioningHandler
 }
 
-func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName) error {
-	err := h.validator.Validate(ctx, secretKey)
+func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builder *conditions.ConditionBuilder, secretKey types.NamespacedName, isCloudInit bool) error {
+	err := h.validator.Validate(ctx, secretKey, isCloudInit)
 
 	switch {
 	case err == nil:
@@ -177,7 +177,7 @@ type provisioningValidator struct {
 	reader client.Reader
 }
 
-func (v provisioningValidator) Validate(ctx context.Context, key types.NamespacedName) error {
+func (v provisioningValidator) Validate(ctx context.Context, key types.NamespacedName, isCloudInit bool) error {
 	secret := &corev1.Secret{}
 	err := v.reader.Get(ctx, key, secret)
 	if err != nil {
@@ -190,6 +190,11 @@ func (v provisioningValidator) Validate(ctx context.Context, key types.Namespace
 	case virtv2.SecretTypeCloudInit:
 		return v.validateCloudInitSecret(secret)
 	case virtv2.SecretTypeSysprep:
+		return v.validateSysprepSecret(secret)
+	case corev1.SecretTypeOpaque:
+		if isCloudInit {
+			return v.validateCloudInitSecret(secret)
+		}
 		return v.validateSysprepSecret(secret)
 	default:
 		return unexpectedSecretTypeError(secret.Type)
