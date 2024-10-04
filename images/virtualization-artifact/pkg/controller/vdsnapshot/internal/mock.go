@@ -105,7 +105,7 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			CanUnfreezeFunc: func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
 //				panic("mock out the CanUnfreeze method")
 //			},
-//			CreateVolumeSnapshotFunc: func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error) {
+//			CreateVolumeSnapshotFunc: func(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
 //				panic("mock out the CreateVolumeSnapshot method")
 //			},
 //			FreezeFunc: func(ctx context.Context, name string, namespace string) error {
@@ -143,7 +143,7 @@ type LifeCycleSnapshotterMock struct {
 	CanUnfreezeFunc func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
 
 	// CreateVolumeSnapshotFunc mocks the CreateVolumeSnapshot method.
-	CreateVolumeSnapshotFunc func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error)
+	CreateVolumeSnapshotFunc func(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error)
 
 	// FreezeFunc mocks the Freeze method.
 	FreezeFunc func(ctx context.Context, name string, namespace string) error
@@ -186,10 +186,8 @@ type LifeCycleSnapshotterMock struct {
 		CreateVolumeSnapshot []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// VdSnapshot is the vdSnapshot argument value.
-			VdSnapshot *virtv2.VirtualDiskSnapshot
-			// Pvc is the pvc argument value.
-			Pvc *corev1.PersistentVolumeClaim
+			// Vs is the vs argument value.
+			Vs *vsv1.VolumeSnapshot
 		}
 		// Freeze holds details about calls to the Freeze method.
 		Freeze []struct {
@@ -336,23 +334,21 @@ func (mock *LifeCycleSnapshotterMock) CanUnfreezeCalls() []struct {
 }
 
 // CreateVolumeSnapshot calls CreateVolumeSnapshotFunc.
-func (mock *LifeCycleSnapshotterMock) CreateVolumeSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error) {
+func (mock *LifeCycleSnapshotterMock) CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
 	if mock.CreateVolumeSnapshotFunc == nil {
 		panic("LifeCycleSnapshotterMock.CreateVolumeSnapshotFunc: method is nil but LifeCycleSnapshotter.CreateVolumeSnapshot was just called")
 	}
 	callInfo := struct {
-		Ctx        context.Context
-		VdSnapshot *virtv2.VirtualDiskSnapshot
-		Pvc        *corev1.PersistentVolumeClaim
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
 	}{
-		Ctx:        ctx,
-		VdSnapshot: vdSnapshot,
-		Pvc:        pvc,
+		Ctx: ctx,
+		Vs:  vs,
 	}
 	mock.lockCreateVolumeSnapshot.Lock()
 	mock.calls.CreateVolumeSnapshot = append(mock.calls.CreateVolumeSnapshot, callInfo)
 	mock.lockCreateVolumeSnapshot.Unlock()
-	return mock.CreateVolumeSnapshotFunc(ctx, vdSnapshot, pvc)
+	return mock.CreateVolumeSnapshotFunc(ctx, vs)
 }
 
 // CreateVolumeSnapshotCalls gets all the calls that were made to CreateVolumeSnapshot.
@@ -360,14 +356,12 @@ func (mock *LifeCycleSnapshotterMock) CreateVolumeSnapshot(ctx context.Context, 
 //
 //	len(mockedLifeCycleSnapshotter.CreateVolumeSnapshotCalls())
 func (mock *LifeCycleSnapshotterMock) CreateVolumeSnapshotCalls() []struct {
-	Ctx        context.Context
-	VdSnapshot *virtv2.VirtualDiskSnapshot
-	Pvc        *corev1.PersistentVolumeClaim
+	Ctx context.Context
+	Vs  *vsv1.VolumeSnapshot
 } {
 	var calls []struct {
-		Ctx        context.Context
-		VdSnapshot *virtv2.VirtualDiskSnapshot
-		Pvc        *corev1.PersistentVolumeClaim
+		Ctx context.Context
+		Vs  *vsv1.VolumeSnapshot
 	}
 	mock.lockCreateVolumeSnapshot.RLock()
 	calls = mock.calls.CreateVolumeSnapshot
