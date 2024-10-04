@@ -9,5 +9,5 @@ import:
   - cdi-operator
   - csv-generator
   before: setup
-
-
+docker:
+  ENTRYPOINT: ["/usr/bin/cdi-operator"]
