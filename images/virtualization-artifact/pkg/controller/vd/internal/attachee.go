@@ -20,12 +20,15 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type AttacheeHandler struct {
@@ -41,6 +44,9 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
+	lockedCondition, _ := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
+	var isLocked bool
+
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -52,7 +58,22 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		vd.Status.AttachedToVirtualMachines = append(vd.Status.AttachedToVirtualMachines, virtv2.AttachedVirtualMachine{
 			Name: vm.GetName(),
 		})
+
+		if vm.Status.Phase == virtv2.MachineRunning {
+			isLocked = true
+		}
 	}
+
+	if isLocked {
+		lockedCondition.Status = metav1.ConditionTrue
+		lockedCondition.Reason = vdcondition.Locked
+		lockedCondition.Message = "VirtualDisk attached to running VirtualMachine"
+	} else {
+		lockedCondition.Status = metav1.ConditionFalse
+		lockedCondition.Reason = ""
+		lockedCondition.Message = ""
+	}
+	service.SetCondition(lockedCondition, &vd.Status.Conditions)
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {
 		log.Error("virtual disk connected to multiple virtual machines", "vms", len(attachedVMs))

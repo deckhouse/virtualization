@@ -28,6 +28,8 @@ const (
 	ResizedType Type = "Resized"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"
+	// LockedType indicates whether the disk attached to running `VirtualMachine`
+	LockedType Type = "Locked"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ResizedReason = string
 	// SnapshottingReason represents the various reasons for the Snapshotting condition type.
 	SnapshottingReason = string
+	// LockedReason represents the various reasons for the Locked condition type.
+	LockedReason = string
 )
 
 const (
@@ -83,4 +87,7 @@ const (
 	Snapshotting SnapshottingReason = "Snapshotting"
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
 	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
+
+	// Locked indicates that this `VirtualDisk` attached to running `VirtualMachine`
+	Locked LockedReason = "Locked"
 )
