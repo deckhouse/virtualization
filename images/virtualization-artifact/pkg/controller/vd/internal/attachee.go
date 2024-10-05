@@ -44,7 +44,16 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
-	lockedCondition, _ := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
+	lockedCondition, ok := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
+	if !ok {
+		lockedCondition = metav1.Condition{
+			Type:   vdcondition.LockedType,
+			Status: metav1.ConditionUnknown,
+		}
+
+		service.SetCondition(lockedCondition, &vd.Status.Conditions)
+	}
+
 	var isLocked bool
 
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
