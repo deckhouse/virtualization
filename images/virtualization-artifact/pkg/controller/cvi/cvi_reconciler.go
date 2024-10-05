@@ -165,7 +165,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				return oldVD.Status.Phase != newVD.Status.Phase
+				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) {
+					return true
+				}
+
+				return false
 			},
 		},
 	); err != nil {
