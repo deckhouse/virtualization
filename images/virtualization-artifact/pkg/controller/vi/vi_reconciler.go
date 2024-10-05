@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type Handler interface {
@@ -223,7 +224,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return true
 				}
 
-				return false
+				oldLockedCondition, _ := service.GetCondition(vdcondition.LockedType, oldVD.Status.Conditions)
+				newLockedCondition, _ := service.GetCondition(vdcondition.LockedType, newVD.Status.Conditions)
+
+				return oldLockedCondition.Status != newLockedCondition.Status
 			},
 		},
 	); err != nil {
