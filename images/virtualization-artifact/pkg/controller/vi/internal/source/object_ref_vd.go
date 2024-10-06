@@ -332,7 +332,6 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(vi *virtv2.VirtualImage, sup *supp
 }
 
 func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
-	fmt.Println("execute Validate")
 	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
 		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
 	}
@@ -347,7 +346,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	lockedCondition, _ := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
-	if lockedCondition.Status != metav1.ConditionTrue {
+	if lockedCondition.Status == metav1.ConditionTrue {
 		return NewVirtualDiskLockedError(vd.Name)
 	}
 
