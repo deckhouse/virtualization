@@ -331,6 +331,7 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(vi *virtv2.VirtualImage, sup *supp
 }
 
 func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+	fmt.Println("execute Validate")
 	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
 		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
 	}
@@ -352,9 +353,12 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		}
 
 		if vm.Status.Phase != virtv2.MachineStopped {
+			fmt.Println("return VM Running ERROR")
+			fmt.Println("real phase", vm.Status.Phase)
 			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
 		}
 	}
 
+	fmt.Println("return  NIL")
 	return nil
 }
