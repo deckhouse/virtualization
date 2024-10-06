@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -345,26 +346,10 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("conditions on VD", vd.Status.Conditions)
-	fmt.Println("")
-	fmt.Println("")
-
-	if len(vd.Status.AttachedToVirtualMachines) > 0 {
-		vmName := vd.Status.AttachedToVirtualMachines[0]
-		vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
-		if err != nil {
-			return err
-		}
-
-		if vm.Status.Phase != virtv2.MachineStopped {
-			fmt.Println("return VM Running ERROR")
-			fmt.Println("real phase", vm.Status.Phase)
-			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
-		}
+	lockedCondition, _ := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
+	if lockedCondition.Status != metav1.ConditionTrue {
+		return NewVirtualDiskLockedError(vd.Name)
 	}
 
-	fmt.Println("return  NIL")
 	return nil
 }
