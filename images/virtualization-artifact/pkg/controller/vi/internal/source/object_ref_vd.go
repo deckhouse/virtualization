@@ -345,6 +345,12 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("conditions on VD", vd.Status.Conditions)
+	fmt.Println("")
+	fmt.Println("")
+
 	if len(vd.Status.AttachedToVirtualMachines) > 0 {
 		vmName := vd.Status.AttachedToVirtualMachines[0]
 		vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
