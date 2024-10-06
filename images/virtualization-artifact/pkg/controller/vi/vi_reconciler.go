@@ -228,9 +228,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				fmt.Println(newLockedCondition)
 
 				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldLockedCondition.Status != newLockedCondition.Status {
+					fmt.Println("RETURN TRUE")
 					return true
 				}
 
+				fmt.Println("RETURN FALSE")
 				return false
 			},
 		},
