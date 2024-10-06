@@ -89,7 +89,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 		condition.Reason = cvicondition.VirtualDiskNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
-	case errors.As(err, &source.VirtualDiskAttachedToRunningVMError{}):
+	case errors.As(err, &source.VirtualDiskLockedError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.VirtualDiskNotReady
 		condition.Message = service.CapitalizeFirstLetter(err.Error())
