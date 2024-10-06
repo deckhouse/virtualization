@@ -65,18 +65,16 @@ func NewVirtualDiskNotReadyError(name string) error {
 	}
 }
 
-type VirtualDiskAttachedToRunningVMError struct {
-	name   string
-	vmName string
+type VirtualDiskLockedError struct {
+	name string
 }
 
-func (e VirtualDiskAttachedToRunningVMError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q attached to running VirtualMachine %q", e.name, e.vmName)
+func (e VirtualDiskLockedError) Error() string {
+	return fmt.Sprintf("VirtualDisk %q locked for use", e.name)
 }
 
-func NewVirtualDiskAttachedToRunningVMError(name, vmName string) error {
-	return VirtualDiskAttachedToRunningVMError{
-		name:   name,
-		vmName: vmName,
+func NewVirtualDiskLockedError(name string) error {
+	return VirtualDiskLockedError{
+		name: name,
 	}
 }
