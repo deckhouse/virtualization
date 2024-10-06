@@ -60,12 +60,6 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println("reque", req.NamespacedName)
-	fmt.Println("")
-	fmt.Println("")
-
 	log := logger.FromContext(ctx)
 
 	vi := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
