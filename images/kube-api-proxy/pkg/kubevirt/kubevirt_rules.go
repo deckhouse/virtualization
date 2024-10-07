@@ -250,7 +250,7 @@ var KubevirtAPIGroupsRules = map[string]APIGroupRule{
 			Group:            "forklift.cdi.kubevirt.io",
 			Versions:         []string{"v1beta1"},
 			PreferredVersion: "v1beta1",
-			Renamed:          "forkflift.cdi." + internalPrefix,
+			Renamed:          "forklift.cdi." + internalPrefix,
 		},
 		ResourceRules: map[string]ResourceRule{
 			// openstackvolumepopulators.forklift.cdi.kubevirt.io
