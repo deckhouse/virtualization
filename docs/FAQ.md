@@ -215,7 +215,7 @@ metadata:
     app: old
 ```
 
-# How to increase the DVCR size
+## How to increase the DVCR size
 
 To increase the disk size for DVCR, you must set a larger size in the `virtualization` module configuration than the current size.
 
