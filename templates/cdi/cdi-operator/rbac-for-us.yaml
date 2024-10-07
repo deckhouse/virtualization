@@ -73,6 +73,7 @@ rules:
     - admissionregistration.k8s.io
   resourceNames:
     - cdi-internal-virtualization-api-datavolume-mutate
+    - cdi-internal-virtualization-api-pvc-mutate
   resources:
     - mutatingwebhookconfigurations
   verbs:
