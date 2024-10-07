@@ -22,19 +22,3 @@ const (
 	virtualMachineIPAddressKey             = "vmip"
 	provisionerKey                         = "provisioner"
 )
-
-func getVirtualMachineKey() string {
-	return virtualMachineKey
-}
-
-func getVirtualMachineBlockDeviceAttachmentKey() string {
-	return virtualMachineBlockDeviceAttachmentKey
-}
-
-func getVirtualMachineIPAddressKey() string {
-	return virtualMachineIPAddressKey
-}
-
-func getProvisionerKey() string {
-	return provisionerKey
-}

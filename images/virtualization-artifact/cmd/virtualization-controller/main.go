@@ -262,7 +262,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+	if err = vmsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

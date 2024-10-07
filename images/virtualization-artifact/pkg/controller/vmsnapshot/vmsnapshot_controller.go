@@ -41,7 +41,7 @@ func NewController(
 	mgr manager.Manager,
 	log *slog.Logger,
 	virtClient kubeclient.Client,
-) (controller.Controller, error) {
+) error {
 	log = log.With(logger.SlogController(ControllerName))
 
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVMSnapshotProtection)
@@ -51,7 +51,6 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewVirtualMachineReadyHandler(snapshotter),
 		internal.NewLifeCycleHandler(snapshotter, restorer.NewSecretRestorer(mgr.GetClient())),
-		internal.NewDeletionHandler(),
 	)
 
 	vmSnapshotController, err := controller.New(ControllerName, mgr, controller.Options{
@@ -61,22 +60,22 @@ func NewController(
 		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = reconciler.SetupController(ctx, mgr, vmSnapshotController)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineSnapshot{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator()).
 		Complete(); err != nil {
-		return nil, err
+		return err
 	}
 
 	log.Info("Initialized VirtualMachineSnapshot controller")
 
-	return vmSnapshotController, nil
+	return nil
 }

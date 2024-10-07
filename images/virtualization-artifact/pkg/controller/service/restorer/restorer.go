@@ -50,7 +50,7 @@ func (r SecretRestorer) Store(ctx context.Context, vm *virtv2.VirtualMachine, vm
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmSnapshot.Status.VirtualMachineSnapshotSecretName,
+			Name:      vmSnapshot.Name,
 			Namespace: vmSnapshot.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vmSnapshot),
@@ -80,23 +80,28 @@ func (r SecretRestorer) Store(ctx context.Context, vm *virtv2.VirtualMachine, vm
 		return nil, err
 	}
 
+	err = r.client.Create(ctx, &secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create restorer secret: %w", err)
+	}
+
 	return &secret, nil
 }
 
 func (r SecretRestorer) RestoreVirtualMachine(_ context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error) {
-	return get[*virtv2.VirtualMachine](secret, getVirtualMachineKey())
+	return get[*virtv2.VirtualMachine](secret, virtualMachineKey)
 }
 
 func (r SecretRestorer) RestoreProvisioner(_ context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	return get[*corev1.Secret](secret, getProvisionerKey())
+	return get[*corev1.Secret](secret, provisionerKey)
 }
 
 func (r SecretRestorer) RestoreVirtualMachineIPAddress(_ context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
-	return get[*virtv2.VirtualMachineIPAddress](secret, getVirtualMachineIPAddressKey())
+	return get[*virtv2.VirtualMachineIPAddress](secret, virtualMachineIPAddressKey)
 }
 
 func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
-	return get[[]*virtv2.VirtualMachineBlockDeviceAttachment](secret, getVirtualMachineBlockDeviceAttachmentKey())
+	return get[[]*virtv2.VirtualMachineBlockDeviceAttachment](secret, virtualMachineBlockDeviceAttachmentKey)
 }
 
 func (r SecretRestorer) setVirtualMachine(secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
@@ -105,7 +110,7 @@ func (r SecretRestorer) setVirtualMachine(secret *corev1.Secret, vm *virtv2.Virt
 		return err
 	}
 
-	secret.Data[getVirtualMachineKey()] = []byte(base64.StdEncoding.EncodeToString(JSON))
+	secret.Data[virtualMachineKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
 	return nil
 }
@@ -142,7 +147,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 		return err
 	}
 
-	secret.Data[getVirtualMachineBlockDeviceAttachmentKey()] = []byte(base64.StdEncoding.EncodeToString(JSON))
+	secret.Data[virtualMachineBlockDeviceAttachmentKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
 	return nil
 }
@@ -215,7 +220,7 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 		return err
 	}
 
-	secret.Data[getVirtualMachineIPAddressKey()] = []byte(base64.StdEncoding.EncodeToString(JSON))
+	secret.Data[virtualMachineIPAddressKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
 	return nil
 }
@@ -265,7 +270,7 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 		return err
 	}
 
-	secret.Data[getProvisionerKey()] = []byte(base64.StdEncoding.EncodeToString(JSON))
+	secret.Data[provisionerKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
 	return nil
 }

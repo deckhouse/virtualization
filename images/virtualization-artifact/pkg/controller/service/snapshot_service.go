@@ -194,12 +194,3 @@ func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnaps
 
 	return vdSnapshot, nil
 }
-
-func (s *SnapshotService) CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	err := s.client.Create(ctx, secret)
-	if err != nil {
-		return nil, err
-	}
-
-	return secret, nil
-}

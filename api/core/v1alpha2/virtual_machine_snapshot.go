@@ -32,7 +32,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=virtualization,scope=Namespaced,shortName={vmsnapshot,vmsnapshots},singular=virtualmachinesnapshot
+// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vmsnapshot,vmsnapshots},singular=virtualmachinesnapshot
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineSnapshot phase."
 // +kubebuilder:printcolumn:name="Consistent",type="boolean",JSONPath=".status.consistent",description="VirtualMachineSnapshot consistency."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="VirtualMachineSnapshot age."
@@ -68,9 +68,8 @@ type VirtualMachineSnapshotSpec struct {
 	// +kubebuilder:default:=true
 	RequiredConsistency bool `json:"requiredConsistency"`
 	// +kubebuilder:default:="Always"
-	KeepIPAddress KeepIPAddress `json:"keepIPAddress"`
-	// +optional
-	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses"`
+	KeepIPAddress         KeepIPAddress             `json:"keepIPAddress"`
+	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses,omitempty"`
 }
 
 type VirtualMachineSnapshotStatus struct {

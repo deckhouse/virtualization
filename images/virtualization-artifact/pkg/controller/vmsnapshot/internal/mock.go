@@ -104,9 +104,6 @@ var _ Snapshotter = &SnapshotterMock{}
 //			CanUnfreezeFunc: func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
 //				panic("mock out the CanUnfreeze method")
 //			},
-//			CreateSecretFunc: func(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-//				panic("mock out the CreateSecret method")
-//			},
 //			CreateVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
 //				panic("mock out the CreateVirtualDiskSnapshot method")
 //			},
@@ -146,9 +143,6 @@ type SnapshotterMock struct {
 
 	// CanUnfreezeFunc mocks the CanUnfreeze method.
 	CanUnfreezeFunc func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
-
-	// CreateSecretFunc mocks the CreateSecret method.
-	CreateSecretFunc func(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 
 	// CreateVirtualDiskSnapshotFunc mocks the CreateVirtualDiskSnapshot method.
 	CreateVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error)
@@ -192,13 +186,6 @@ type SnapshotterMock struct {
 			VdSnapshotName string
 			// VM is the vm argument value.
 			VM *virtv2.VirtualMachine
-		}
-		// CreateSecret holds details about calls to the CreateSecret method.
-		CreateSecret []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Secret is the secret argument value.
-			Secret *corev1.Secret
 		}
 		// CreateVirtualDiskSnapshot holds details about calls to the CreateVirtualDiskSnapshot method.
 		CreateVirtualDiskSnapshot []struct {
@@ -278,7 +265,6 @@ type SnapshotterMock struct {
 	}
 	lockCanFreeze                 sync.RWMutex
 	lockCanUnfreeze               sync.RWMutex
-	lockCreateSecret              sync.RWMutex
 	lockCreateVirtualDiskSnapshot sync.RWMutex
 	lockFreeze                    sync.RWMutex
 	lockGetPersistentVolumeClaim  sync.RWMutex
@@ -359,42 +345,6 @@ func (mock *SnapshotterMock) CanUnfreezeCalls() []struct {
 	mock.lockCanUnfreeze.RLock()
 	calls = mock.calls.CanUnfreeze
 	mock.lockCanUnfreeze.RUnlock()
-	return calls
-}
-
-// CreateSecret calls CreateSecretFunc.
-func (mock *SnapshotterMock) CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
-	if mock.CreateSecretFunc == nil {
-		panic("SnapshotterMock.CreateSecretFunc: method is nil but Snapshotter.CreateSecret was just called")
-	}
-	callInfo := struct {
-		Ctx    context.Context
-		Secret *corev1.Secret
-	}{
-		Ctx:    ctx,
-		Secret: secret,
-	}
-	mock.lockCreateSecret.Lock()
-	mock.calls.CreateSecret = append(mock.calls.CreateSecret, callInfo)
-	mock.lockCreateSecret.Unlock()
-	return mock.CreateSecretFunc(ctx, secret)
-}
-
-// CreateSecretCalls gets all the calls that were made to CreateSecret.
-// Check the length with:
-//
-//	len(mockedSnapshotter.CreateSecretCalls())
-func (mock *SnapshotterMock) CreateSecretCalls() []struct {
-	Ctx    context.Context
-	Secret *corev1.Secret
-} {
-	var calls []struct {
-		Ctx    context.Context
-		Secret *corev1.Secret
-	}
-	mock.lockCreateSecret.RLock()
-	calls = mock.calls.CreateSecret
-	mock.lockCreateSecret.RUnlock()
 	return calls
 }
 

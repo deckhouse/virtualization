@@ -100,6 +100,7 @@ var _ = Describe("LifeCycle handler", func() {
 				RequiredConsistency: true,
 			},
 			Status: virtv2.VirtualMachineSnapshotStatus{
+				VirtualMachineSnapshotSecretName: "vm-snapshot",
 				Conditions: []metav1.Condition{
 					{
 						Type:   vmscondition.VirtualMachineReadyType.String(),

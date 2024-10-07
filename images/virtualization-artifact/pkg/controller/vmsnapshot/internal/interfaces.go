@@ -32,7 +32,6 @@ type Storer interface {
 
 type Snapshotter interface {
 	GetSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error)
-	CreateSecret(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 	GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error)
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error)
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)

@@ -466,13 +466,14 @@ func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *
 }
 
 func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) error {
-	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		vmSnapshot.Status.VirtualMachineSnapshotSecretName = vmSnapshot.Name
-	}
+	var secret *corev1.Secret
+	var err error
 
-	secret, err := h.snapshotter.GetSecret(ctx, vmSnapshot.Status.VirtualMachineSnapshotSecretName, vmSnapshot.Namespace)
-	if err != nil {
-		return err
+	if vmSnapshot.Status.VirtualMachineSnapshotSecretName != "" {
+		secret, err = h.snapshotter.GetSecret(ctx, vmSnapshot.Status.VirtualMachineSnapshotSecretName, vmSnapshot.Namespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	if secret == nil {
@@ -480,11 +481,10 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMa
 		if err != nil {
 			return err
 		}
+	}
 
-		_, err = h.snapshotter.CreateSecret(ctx, secret)
-		if err != nil {
-			return err
-		}
+	if secret != nil {
+		vmSnapshot.Status.VirtualMachineSnapshotSecretName = secret.Name
 	}
 
 	return nil
