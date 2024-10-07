@@ -44,14 +44,14 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
-	lockedCondition, ok := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
+	employedCondition, ok := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
 	if !ok {
-		lockedCondition = metav1.Condition{
-			Type:   vdcondition.LockedType,
+		employedCondition = metav1.Condition{
+			Type:   vdcondition.EmployedType,
 			Status: metav1.ConditionUnknown,
 		}
 
-		service.SetCondition(lockedCondition, &vd.Status.Conditions)
+		service.SetCondition(employedCondition, &vd.Status.Conditions)
 	}
 
 	var isLocked bool
@@ -74,15 +74,15 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	if isLocked {
-		lockedCondition.Status = metav1.ConditionTrue
-		lockedCondition.Reason = vdcondition.Locked
-		lockedCondition.Message = "VirtualDisk attached to running VirtualMachine"
+		employedCondition.Status = metav1.ConditionTrue
+		employedCondition.Reason = vdcondition.Employed
+		employedCondition.Message = "VirtualDisk attached to running VirtualMachine"
 	} else {
-		lockedCondition.Status = metav1.ConditionFalse
-		lockedCondition.Reason = ""
-		lockedCondition.Message = ""
+		employedCondition.Status = metav1.ConditionFalse
+		employedCondition.Reason = vdcondition.NotEmployed
+		employedCondition.Message = ""
 	}
-	service.SetCondition(lockedCondition, &vd.Status.Conditions)
+	service.SetCondition(employedCondition, &vd.Status.Conditions)
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {
 		log.Error("virtual disk connected to multiple virtual machines", "vms", len(attachedVMs))

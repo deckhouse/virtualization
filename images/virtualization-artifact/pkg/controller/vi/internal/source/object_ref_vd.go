@@ -345,9 +345,9 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	lockedCondition, _ := service.GetCondition(vdcondition.LockedType, vd.Status.Conditions)
-	if lockedCondition.Status == metav1.ConditionTrue {
-		return NewVirtualDiskLockedError(vd.Name)
+	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
+	if employedCondition.Status == metav1.ConditionTrue {
+		return NewVirtualDiskEmployedError(vd.Name)
 	}
 
 	return nil

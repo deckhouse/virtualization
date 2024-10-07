@@ -166,10 +166,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				oldLockedCondition, _ := service.GetCondition(vdcondition.LockedType, oldVD.Status.Conditions)
-				newLockedCondition, _ := service.GetCondition(vdcondition.LockedType, newVD.Status.Conditions)
+				oldEmployedCondition, _ := service.GetCondition(vdcondition.EmployedType, oldVD.Status.Conditions)
+				newEmployedCondition, _ := service.GetCondition(vdcondition.EmployedType, newVD.Status.Conditions)
 
-				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldLockedCondition.Status != newLockedCondition.Status {
+				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldEmployedCondition.Status != newEmployedCondition.Status {
 					return true
 				}
 

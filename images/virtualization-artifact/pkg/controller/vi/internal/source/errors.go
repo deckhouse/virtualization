@@ -65,16 +65,16 @@ func NewVirtualDiskNotReadyError(name string) error {
 	}
 }
 
-type VirtualDiskLockedError struct {
+type VirtualDiskEmployedError struct {
 	name string
 }
 
-func (e VirtualDiskLockedError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q locked for use", e.name)
+func (e VirtualDiskEmployedError) Error() string {
+	return fmt.Sprintf("VirtualDisk %q employed", e.name)
 }
 
-func NewVirtualDiskLockedError(name string) error {
-	return VirtualDiskLockedError{
+func NewVirtualDiskEmployedError(name string) error {
+	return VirtualDiskEmployedError{
 		name: name,
 	}
 }
