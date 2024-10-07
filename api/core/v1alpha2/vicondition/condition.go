@@ -65,8 +65,10 @@ const (
 
 	// StorageClassReady indicates that the chosen StorageClass exists.
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
-	// StorageClassNotReady indicates that the chosen StorageClass not exists.
-	StorageClassNotReady StorageClassReadyReason = "StorageClassNotReady"
+	// StorageClassNotFound indicates that the chosen StorageClass not found.
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+	// StorageClassNameNotProvided indicates that the storage class name is not provided by spec.
+	StorageClassNameNotProvided StorageClassReadyReason = "StorageClassNameNotProvided"
 )

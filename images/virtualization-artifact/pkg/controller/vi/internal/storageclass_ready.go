@@ -29,21 +29,21 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type StorageclassReadyHandler struct {
-	service *service.DiskService
+type StorageClassReadyHandler struct {
+	service DiskService
 }
 
-func (h StorageclassReadyHandler) Name() string {
-	return "StorageclassReadyHandler"
+func (h StorageClassReadyHandler) Name() string {
+	return "StorageClassReadyHandler"
 }
 
-func NewStorageClassReadyHandler(client service.Client) *StorageclassReadyHandler {
-	return &StorageclassReadyHandler{
-		service: service.NewDiskService(client, nil, nil),
+func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+	return &StorageClassReadyHandler{
+		service: diskService,
 	}
 }
 
-func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	condition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
@@ -67,6 +67,13 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 		condition.Reason = vicondition.DVCRTypeUsed
 		condition.Message = "Used dvcr storage"
 	case v1alpha2.StorageKubernetes:
+		if vi.Spec.PersistentVolumeClaim.StorageClass == nil {
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.StorageClassNameNotProvided
+			condition.Message = "PersistentVolumeClaim of VirtualImage does not have StorageClass"
+			return reconcile.Result{}, nil
+		}
+
 		sc, err := h.service.GetStorageClass(ctx, vi.Spec.PersistentVolumeClaim.StorageClass)
 		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 			return reconcile.Result{}, err
@@ -75,11 +82,11 @@ func (h StorageclassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 		if sc != nil {
 			condition.Status = metav1.ConditionTrue
 			condition.Reason = vicondition.StorageClassReady
-			condition.Message = "Storageclass ready"
+			condition.Message = ""
 		} else {
 			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.StorageClassNotReady
-			condition.Message = fmt.Sprintf("Storageclass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)
+			condition.Reason = vicondition.StorageClassNotFound
+			condition.Message = fmt.Sprintf("StorageClass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)
 		}
 	}
 

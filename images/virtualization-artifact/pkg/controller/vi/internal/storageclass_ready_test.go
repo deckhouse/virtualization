@@ -19,7 +19,7 @@ package internal
 import (
 	"context"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storev1 "k8s.io/api/storage/v1"
@@ -29,18 +29,18 @@ import (
 var storageClasses []storev1.StorageClass
 
 var _ = Describe("Storage class ready handler Run", func() {
-	var vd *virtv2.VirtualDisk
+	var vi *virtv2.VirtualImage
 	var diskService *DiskServiceMock
 	var handler *StorageClassReadyHandler
 
-	vd = &virtv2.VirtualDisk{
-		Spec: virtv2.VirtualDiskSpec{
-			PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{},
+	vi = &virtv2.VirtualImage{
+		Spec: virtv2.VirtualImageSpec{
+			PersistentVolumeClaim: virtv2.VirtualImagePersistentVolumeClaim{},
 		},
-		Status: virtv2.VirtualDiskStatus{
+		Status: virtv2.VirtualImageStatus{
 			Conditions: []metav1.Condition{
 				{
-					Type:   vdcondition.StorageClassReadyType,
+					Type:   vicondition.StorageClassReadyType,
 					Status: metav1.ConditionUnknown,
 				},
 			},
@@ -62,16 +62,28 @@ var _ = Describe("Storage class ready handler Run", func() {
 	handler = NewStorageClassReadyHandler(diskService)
 
 	AfterEach(func() {
-		vd.Status.Conditions[0].Status = metav1.ConditionUnknown
-		vd.Spec.PersistentVolumeClaim.StorageClass = nil
+		vi.Status.Conditions[0].Status = metav1.ConditionUnknown
+		vi.Spec.PersistentVolumeClaim.StorageClass = nil
+		vi.Spec.Storage = ""
 		storageClasses = []storev1.StorageClass{}
 	})
 
 	It("Should false condition because storage class name is not provided", func() {
-		_, err := handler.Handle(context.TODO(), vd)
+		vi.Spec.Storage = virtv2.StorageKubernetes
+
+		_, err := handler.Handle(context.TODO(), vi)
 		Expect(err).Should(BeNil())
-		Expect(vd.Status.Conditions[0].Status).Should(Equal(metav1.ConditionFalse))
-		Expect(vd.Status.Conditions[0].Reason).Should(Equal(vdcondition.StorageClassNameNotProvided))
+		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionFalse))
+		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.StorageClassNameNotProvided))
+	})
+
+	It("Should true condition because dvcr storage type used", func() {
+		vi.Spec.Storage = virtv2.StorageContainerRegistry
+
+		_, err := handler.Handle(context.TODO(), vi)
+		Expect(err).Should(BeNil())
+		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionTrue))
+		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.DVCRTypeUsed))
 	})
 
 	It("Should true condition with correct data", func() {
@@ -80,22 +92,24 @@ var _ = Describe("Storage class ready handler Run", func() {
 				Name: "test",
 			},
 		})
-		vd.Spec.PersistentVolumeClaim.StorageClass = new(string)
-		*vd.Spec.PersistentVolumeClaim.StorageClass = "test"
+		vi.Spec.Storage = virtv2.StorageKubernetes
+		vi.Spec.PersistentVolumeClaim.StorageClass = new(string)
+		*vi.Spec.PersistentVolumeClaim.StorageClass = "test"
 
-		_, err := handler.Handle(context.TODO(), vd)
+		_, err := handler.Handle(context.TODO(), vi)
 		Expect(err).Should(BeNil())
-		Expect(vd.Status.Conditions[0].Status).Should(Equal(metav1.ConditionTrue))
-		Expect(vd.Status.Conditions[0].Reason).Should(Equal(vdcondition.StorageClassReady))
+		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionTrue))
+		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.StorageClassReady))
 	})
 
 	It("Should false condition because storage class not found", func() {
-		vd.Spec.PersistentVolumeClaim.StorageClass = new(string)
-		*vd.Spec.PersistentVolumeClaim.StorageClass = "test"
+		vi.Spec.Storage = virtv2.StorageKubernetes
+		vi.Spec.PersistentVolumeClaim.StorageClass = new(string)
+		*vi.Spec.PersistentVolumeClaim.StorageClass = "test"
 
-		_, err := handler.Handle(context.TODO(), vd)
+		_, err := handler.Handle(context.TODO(), vi)
 		Expect(err).Should(BeNil())
-		Expect(vd.Status.Conditions[0].Status).Should(Equal(metav1.ConditionFalse))
-		Expect(vd.Status.Conditions[0].Reason).Should(Equal(vdcondition.StorageClassNotFound))
+		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionFalse))
+		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.StorageClassNotFound))
 	})
 })
