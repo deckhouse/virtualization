@@ -10,3 +10,4 @@ import:
   - cdi-apiserver
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
+  USER: 1001
