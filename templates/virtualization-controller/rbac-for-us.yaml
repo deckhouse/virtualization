@@ -173,7 +173,6 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualdisks
-  - virtualmachinedisksnapshots
   - virtualimages
   - virtualmachineipaddressleases
   - virtualmachineipaddresses
@@ -183,6 +182,7 @@ rules:
   - virtualmachineoperations
   - virtualmachineclasses
   - virtualdisksnapshots
+  - virtualmachinesnapshots
   verbs:
   - create
   - delete
@@ -195,7 +195,6 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualdisks/finalizers
-  - virtualmachinedisksnapshots/finalizers
   - virtualimages/finalizers
   - virtualmachineblockdeviceattachments/finalizers
   - virtualmachines/finalizers
@@ -205,10 +204,10 @@ rules:
   - virtualmachineoperations/finalizers
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
+  - virtualmachinesnapshots/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
   - virtualdisks/status
-  - virtualmachinedisksnapshots/status
   - virtualimages/status
   - virtualmachineblockdeviceattachments/status
   - virtualmachines/status
@@ -216,6 +215,7 @@ rules:
   - virtualmachineoperations/status
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
+  - virtualmachinesnapshots/status
   verbs:
   - patch
   - update

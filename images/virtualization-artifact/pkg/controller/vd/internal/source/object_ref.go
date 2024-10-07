@@ -102,7 +102,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Info("Disk provisioning finished: clean up")
+		log.Debug("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 

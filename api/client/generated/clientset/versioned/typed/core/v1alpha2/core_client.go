@@ -38,6 +38,7 @@ type VirtualizationV1alpha2Interface interface {
 	VirtualMachineIPAddressesGetter
 	VirtualMachineIPAddressLeasesGetter
 	VirtualMachineOperationsGetter
+	VirtualMachineSnapshotsGetter
 }
 
 // VirtualizationV1alpha2Client is used to interact with features provided by the virtualization.deckhouse.io group.
@@ -83,6 +84,10 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases() VirtualMa
 
 func (c *VirtualizationV1alpha2Client) VirtualMachineOperations(namespace string) VirtualMachineOperationInterface {
 	return newVirtualMachineOperations(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualMachineSnapshots(namespace string) VirtualMachineSnapshotInterface {
+	return newVirtualMachineSnapshots(c, namespace)
 }
 
 // NewForConfig creates a new VirtualizationV1alpha2Client for the given config.

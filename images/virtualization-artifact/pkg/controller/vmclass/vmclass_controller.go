@@ -19,6 +19,7 @@ package vmclass
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -51,9 +52,10 @@ func NewController(
 	r := NewReconciler(client, handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:     r,
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       r,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return nil, err

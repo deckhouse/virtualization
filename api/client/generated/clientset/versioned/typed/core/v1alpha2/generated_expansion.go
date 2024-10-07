@@ -37,3 +37,5 @@ type VirtualMachineIPAddressExpansion interface{}
 type VirtualMachineIPAddressLeaseExpansion interface{}
 
 type VirtualMachineOperationExpansion interface{}
+
+type VirtualMachineSnapshotExpansion interface{}

@@ -73,7 +73,7 @@ var _ = Describe("LifeCycle handler", func() {
 		}
 
 		snapshotter = &LifeCycleSnapshotterMock{
-			CreateVolumeSnapshotFunc: func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot, pvc *corev1.PersistentVolumeClaim) (*vsv1.VolumeSnapshot, error) {
+			CreateVolumeSnapshotFunc: func(_ context.Context, _ *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
 				return vs, nil
 			},
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _, _ string) (*corev1.PersistentVolumeClaim, error) {

@@ -53,7 +53,7 @@ spec:
                   description: |
                     Create a snapshot of a connected virtual machine's disk only if it is possible to freeze the machine through the agent.
 
-                    If value is true, the snapshot of the virtual disk will be taken only in the following scenarios:
+                    If the value is set to true, a virtual disk snapshot will be created if at least one of the following rules is met:
                     - the virtual disk is not attached to any virtual machine.
                     - the virtual disk is attached to a virtual machine that is powered off.
                     - the virtual disk is attached to a virtual machine with an agent, and the freeze operation was successful.

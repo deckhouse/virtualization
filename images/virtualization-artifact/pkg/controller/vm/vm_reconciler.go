@@ -47,6 +47,10 @@ type Handler interface {
 	Name() string
 }
 
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
+
 func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
 		client:   client,
@@ -239,10 +243,14 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
 	}
 
-	// Subscribe on VirtualMachineClass size policy change.
-	vmClassWatcher := watcher.NewVirtualMachineClassWatcher()
-	if err := vmClassWatcher.Watch(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachineClass SizePolicy: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachineClassWatcher(),
+		watcher.NewVirtualMachineSnapshotWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
 	return nil

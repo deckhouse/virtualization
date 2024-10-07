@@ -19,7 +19,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -164,7 +166,40 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 		log.Debug("The corresponding volume snapshot not found: create the new one")
 
-		vs, err = h.snapshotter.CreateVolumeSnapshot(ctx, vdSnapshot, pvc)
+		anno := make(map[string]string)
+		if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+			anno["storageClass"] = *pvc.Spec.StorageClassName
+		}
+
+		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode != "" {
+			anno["volumeMode"] = string(*pvc.Spec.VolumeMode)
+		}
+
+		accessModes := make([]string, 0, len(pvc.Status.AccessModes))
+		for _, accessMode := range pvc.Status.AccessModes {
+			accessModes = append(accessModes, string(accessMode))
+		}
+
+		anno["accessModes"] = strings.Join(accessModes, ",")
+
+		vs = &vsv1.VolumeSnapshot{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: anno,
+				Name:        vdSnapshot.Name,
+				Namespace:   vdSnapshot.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					service.MakeOwnerReference(vdSnapshot),
+				},
+			},
+			Spec: vsv1.VolumeSnapshotSpec{
+				Source: vsv1.VolumeSnapshotSource{
+					PersistentVolumeClaimName: &pvc.Name,
+				},
+				VolumeSnapshotClassName: &vdSnapshot.Spec.VolumeSnapshotClassName,
+			},
+		}
+
+		vs, err = h.snapshotter.CreateVolumeSnapshot(ctx, vs)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vdSnapshot.Status.Phase, err)
 			return reconcile.Result{}, err

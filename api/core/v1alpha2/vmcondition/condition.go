@@ -37,6 +37,7 @@ const (
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
+	TypeSnapshotting                        Type = "Snapshotting"
 )
 
 type Reason string
@@ -87,6 +88,9 @@ const (
 	ReasonFilesystemReady    Reason = "Ready"
 	ReasonFilesystemFrozen   Reason = "Frozen"
 	ReasonFilesystemNotReady Reason = "NotReady"
+
+	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
+	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"
 
 	ReasonSizingPolicyMatched            Reason = "SizingPolicyMatched"
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"

@@ -19,6 +19,7 @@ package vm
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -56,6 +57,7 @@ func SetupController(
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
+		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncMetadataHandler(client),
@@ -66,9 +68,10 @@ func SetupController(
 	r := NewReconciler(client, handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:     r,
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       r,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return err
