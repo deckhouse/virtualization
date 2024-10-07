@@ -18,9 +18,9 @@ package internal
 
 import (
 	"context"
-	storev1 "k8s.io/api/storage/v1"
 
 	corev1 "k8s.io/api/core/v1"
+	storev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
