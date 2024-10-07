@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -31,12 +30,12 @@ import (
 )
 
 type StorageClassReadyHandler struct {
-	service *service.DiskService
+	service DiskService
 }
 
-func NewStorageClassReadyHandler(client client.Client) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service: service.NewDiskService(client, nil, nil),
+		service: diskService,
 	}
 }
 
@@ -58,6 +57,13 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
+	if vd.Spec.PersistentVolumeClaim.StorageClass == nil {
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.StorageClassNameNotProvided
+		condition.Message = "PersistentVolumeClaim of VirtualDisk does not have StorageClass"
+		return reconcile.Result{}, nil
+	}
+
 	sc, err := h.service.GetStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 		return reconcile.Result{}, err
@@ -66,11 +72,11 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	if sc != nil {
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.StorageClassReady
-		condition.Message = "Storage class ready."
+		condition.Message = ""
 	} else {
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageClassNotReady
-		condition.Message = fmt.Sprintf("Storage class %q not ready", *vd.Spec.PersistentVolumeClaim.StorageClass)
+		condition.Reason = vdcondition.StorageClassNotFound
+		condition.Message = fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass)
 	}
 
 	return reconcile.Result{}, nil

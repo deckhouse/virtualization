@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	storev1 "k8s.io/api/storage/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,4 +39,5 @@ type Sources interface {
 type DiskService interface {
 	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
 }

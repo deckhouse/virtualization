@@ -90,6 +90,8 @@ const (
 
 	// StorageClassReady indicates that the storage class is ready
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
-	// StorageClassNotReady indicates that the storage class is not ready
-	StorageClassNotReady StorageClassReadyReason = "StorageClassNotReady"
+	// StorageClassNotFound indicates that the storage class is not ready
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+	// StorageClassNameNotProvided indicates that the storage class name is not provided by spec
+	StorageClassNameNotProvided StorageClassReadyReason = "StorageClassNameNotProvided"
 )
