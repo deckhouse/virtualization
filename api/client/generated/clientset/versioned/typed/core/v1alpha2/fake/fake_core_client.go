@@ -68,6 +68,10 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineOperations(namespace string) 
 	return &FakeVirtualMachineOperations{c, namespace}
 }
 
+func (c *FakeVirtualizationV1alpha2) VirtualMachineRestores(namespace string) v1alpha2.VirtualMachineRestoreInterface {
+	return &FakeVirtualMachineRestores{c, namespace}
+}
+
 func (c *FakeVirtualizationV1alpha2) VirtualMachineSnapshots(namespace string) v1alpha2.VirtualMachineSnapshotInterface {
 	return &FakeVirtualMachineSnapshots{c, namespace}
 }

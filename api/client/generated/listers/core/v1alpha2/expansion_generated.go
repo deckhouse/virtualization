@@ -86,6 +86,14 @@ type VirtualMachineOperationListerExpansion interface{}
 // VirtualMachineOperationNamespaceLister.
 type VirtualMachineOperationNamespaceListerExpansion interface{}
 
+// VirtualMachineRestoreListerExpansion allows custom methods to be added to
+// VirtualMachineRestoreLister.
+type VirtualMachineRestoreListerExpansion interface{}
+
+// VirtualMachineRestoreNamespaceListerExpansion allows custom methods to be added to
+// VirtualMachineRestoreNamespaceLister.
+type VirtualMachineRestoreNamespaceListerExpansion interface{}
+
 // VirtualMachineSnapshotListerExpansion allows custom methods to be added to
 // VirtualMachineSnapshotLister.
 type VirtualMachineSnapshotListerExpansion interface{}

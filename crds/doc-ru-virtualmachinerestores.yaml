@@ -1,0 +1,55 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |-
+            `VirtualMachineRestore` предоставляет ресурс для восстановления виртуальных машин из снимков.
+          properties:
+            spec:
+              properties:
+                nameReplacements:
+                  description: Правила для переименования ресурсов виртуальной машины.
+                  items:
+                    properties:
+                      from:
+                        description: Селектор для выбора ресурсов для переименования.
+                        properties:
+                          kind:
+                            description: Kind ресурса.
+                          name:
+                            description: Имя ресурса, которое нужно переименовать.
+                      to:
+                        description: Новое имя ресурса.
+                virtualMachineSnapshotName:
+                  description: Имя снимка для воссоздания виртуальной машины.
+            status:
+              properties:
+                conditions:
+                  description: |
+                    Последнее подтвержденное состояние данного ресурса.
+                  items:
+                    properties:
+                      lastProbeTime:
+                        description: Время проверки условия.
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                      type:
+                        description: Тип условия.
+                observedGeneration:
+                  description: Поколение ресурса, которое в последний раз обрабатывалось контроллером.
+                phase:
+                  description: |-
+                    Текущее состояние ресурса `VirtualMachineRestore`:
+                    * `Pending` — ресурс был создан и находится в очереди ожидания.
+                    * `InProgress` — идет процесс восстановления виртуальной машины из снимка.
+                    * `Ready` — виртуальная машина успешно создана из снимка.
+                    * `Failed` — произошла ошибка во время процесса воссоздания виртуальной машины из снимка.
+                    * `Terminating` — ресурс находится в процессе удаления.

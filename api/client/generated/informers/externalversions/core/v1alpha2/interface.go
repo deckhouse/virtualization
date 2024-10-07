@@ -44,6 +44,8 @@ type Interface interface {
 	VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer
 	// VirtualMachineOperations returns a VirtualMachineOperationInformer.
 	VirtualMachineOperations() VirtualMachineOperationInformer
+	// VirtualMachineRestores returns a VirtualMachineRestoreInformer.
+	VirtualMachineRestores() VirtualMachineRestoreInformer
 	// VirtualMachineSnapshots returns a VirtualMachineSnapshotInformer.
 	VirtualMachineSnapshots() VirtualMachineSnapshotInformer
 }
@@ -107,6 +109,11 @@ func (v *version) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseIn
 // VirtualMachineOperations returns a VirtualMachineOperationInformer.
 func (v *version) VirtualMachineOperations() VirtualMachineOperationInformer {
 	return &virtualMachineOperationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualMachineRestores returns a VirtualMachineRestoreInformer.
+func (v *version) VirtualMachineRestores() VirtualMachineRestoreInformer {
+	return &virtualMachineRestoreInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineSnapshots returns a VirtualMachineSnapshotInformer.
