@@ -436,10 +436,17 @@ rules:
     - config.openshift.io
   resources:
     - proxies
+    - infrastructures
   verbs:
     - get
     - list
     - watch
+- apiGroups:
+    - config.openshift.io
+  resources:
+    - clusterversions
+  verbs:
+    - get
 - apiGroups:
     - monitoring.coreos.com
   resources:
