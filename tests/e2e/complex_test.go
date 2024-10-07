@@ -18,7 +18,6 @@ package e2e
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,44 +25,6 @@ import (
 
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
-
-var (
-	hotplugLabel                    = map[string]string{"vm": "hotplug"}
-	automaticHotplugLabel           = map[string]string{"vm": "automatic-with-hotplug"}
-	automaticHotplugStandaloneLabel = map[string]string{"vm": "automatic-with-hotplug-standalone"}
-)
-
-// TODO: Remove this flow when migration problem for virtual machines with hotplug disk will be fixed.
-func GetHotplugVirtualMachines() ([]string, error) {
-	vms := make([]string, 0)
-	labels := []map[string]string{
-		hotplugLabel,
-		automaticHotplugLabel,
-		automaticHotplugStandaloneLabel,
-	}
-	for _, label := range labels {
-		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-			Labels:    label,
-			Namespace: conf.Namespace,
-			Output:    "jsonpath='{.items[*].metadata.name}'",
-		})
-		if res.Error() != nil {
-			return nil, fmt.Errorf(res.StdErr())
-		}
-		vms = append(vms, strings.Split(res.StdOut(), " ")...)
-	}
-	return vms, nil
-}
-
-func FilterVms(vms, excludedVms []string) []string {
-	filteredVms := make([]string, 0, len(vms)-len(excludedVms))
-	for _, vm := range vms {
-		if !slices.Contains(excludedVms, vm) {
-			filteredVms = append(filteredVms, vm)
-		}
-	}
-	return filteredVms
-}
 
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Context("When virtualization resources are applied:", func() {
@@ -112,8 +73,8 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 			MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 		})
 		It("checks VMIPs phases", func() {
-			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseBound))
-			WaitPhase(kc.ResourceVMIP, PhaseBound, kc.GetOptions{
+			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
+			WaitPhase(kc.ResourceVMIP, PhaseAttached, kc.GetOptions{
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -143,8 +104,6 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	Describe("External connection", func() {
 		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
 			It("checks VMs external connectivity", func() {
-				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -152,7 +111,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vms...)
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
 	})
@@ -167,10 +126,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				hotplugVms, err := GetHotplugVirtualMachines()
-				Expect(err).NotTo(HaveOccurred(), err)
-				filteredVms := FilterVms(vms, hotplugVms)
-				MigrateVirtualMachines(filteredVms...)
+				MigrateVirtualMachines(vms...)
 			})
 		})
 
@@ -189,8 +145,6 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 			})
 
 			It("checks VMs external connection after migrations", func() {
-				sshKeyPath := fmt.Sprintf("%s/id_ed", conf.TestData.Sshkeys)
-
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
@@ -198,7 +152,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckExternalConnection(sshKeyPath, externalHost, httpStatusOk, vms...)
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
 	})

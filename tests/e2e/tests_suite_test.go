@@ -24,35 +24,36 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	virt "github.com/deckhouse/virtualization/tests/e2e/virtctl"
 )
 
 const (
-	ShortWaitDuration      = 60 * time.Second
-	LongWaitDuration       = 300 * time.Second
-	PhaseAttached          = "Attached"
-	PhaseReady             = "Ready"
-	PhaseBound             = "Bound"
-	PhaseReleased          = "Released"
-	PhaseSucceeded         = "Succeeded"
-	PhaseRunning           = "Running"
-	PhaseWaitForUserUpload = "WaitForUserUpload"
+	ShortWaitDuration         = 60 * time.Second
+	LongWaitDuration          = 300 * time.Second
+	PhaseAttached             = "Attached"
+	PhaseReady                = "Ready"
+	PhaseBound                = "Bound"
+	PhaseReleased             = "Released"
+	PhaseSucceeded            = "Succeeded"
+	PhaseRunning              = "Running"
+	PhaseWaitForUserUpload    = "WaitForUserUpload"
+	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
 )
 
 var (
-	conf             *config.Config
-	mc               *config.ModuleConfig
-	kustomize        *config.Kustomize
-	kubectl          kc.Kubectl
-	virtctl          virt.Virtctl
-	d8Virtualization d8.D8Virtualization
-	git              gt.Git
-	namePrefix       string
+	conf                *config.Config
+	mc                  *config.ModuleConfig
+	kustomize           *config.Kustomize
+	kubectl             kc.Kubectl
+	d8Virtualization    d8.D8Virtualization
+	git                 gt.Git
+	namePrefix          string
+	defaultStorageClass *storagev1.StorageClass
 )
 
 func init() {
@@ -66,26 +67,26 @@ func init() {
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
 		log.Fatal(err)
 	}
-	if virtctl, err = virt.NewVirtctl(virt.VirtctlConf(conf.ClusterTransport)); err != nil {
-		log.Fatal(err)
-	}
 	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
 		log.Fatal(err)
 	}
 	if git, err = gt.NewGit(); err != nil {
 		log.Fatal(err)
 	}
-	if err = CheckDefaultStorageClass(); err != nil {
+	if defaultStorageClass, err = GetDefaultStorageClass(); err != nil {
 		log.Fatal(err)
 	}
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
 		log.Fatal(err)
 	}
+	ChmodFile(conf.TestData.Sshkey, 0o600)
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
+	conf.StorageClass.VolumeBindingMode = *defaultStorageClass.VolumeBindingMode
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),

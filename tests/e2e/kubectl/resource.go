@@ -21,8 +21,11 @@ const (
 	ResourceNamespace    Resource = "namespace"
 	ResourcePod          Resource = "pod"
 	ResourceService      Resource = "service"
+	ResourceStorageClass Resource = "storageclasses.storage.k8s.io"
 	ResourceKubevirtVM   Resource = "internalvirtualizationvirtualmachines.internal.virtualization.deckhouse.io"
 	ResourceKubevirtVMI  Resource = "internalvirtualizationvirtualmachineinstances.internal.virtualization.deckhouse.io"
+	ResourceKubevirtVMIM Resource = "internalvirtualizationvirtualmachineinstancemigrations.internal.virtualization.deckhouse.io"
+	ResourceModuleConfig Resource = "moduleconfigs.deckhouse.io"
 	ResourceVD           Resource = "virtualdisks.virtualization.deckhouse.io"
 	ResourceVM           Resource = "virtualmachine.virtualization.deckhouse.io"
 	ResourceVMIP         Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
@@ -30,5 +33,4 @@ const (
 	ResourceCVI          Resource = "clustervirtualimages.virtualization.deckhouse.io"
 	ResourceVI           Resource = "virtualimages.virtualization.deckhouse.io"
 	ResourceVMBDA        Resource = "virtualmachineblockdeviceattachments.virtualization.deckhouse.io"
-	ResourceKubevirtVMIM Resource = "internalvirtualizationvirtualmachineinstancemigrations.internal.virtualization.deckhouse.io"
 )

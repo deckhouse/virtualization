@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	yamlv3 "gopkg.in/yaml.v3"
+	storagev1 "k8s.io/api/storage/v1"
 
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -123,15 +124,22 @@ type Config struct {
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
+	StorageClass     StorageClass
 }
 
 type TestData struct {
 	ComplexTest      string `yaml:"complexTest"`
 	Connectivity     string `yaml:"connectivity"`
+	DiskResizing     string `yaml:"diskResizing"`
 	VmConfiguration  string `yaml:"vmConfiguration"`
 	VmMigration      string `yaml:"vmMigration"`
 	VmDiskAttachment string `yaml:"vmDiskAttachment"`
-	Sshkeys          string `yaml:"sshKeys"`
+	Sshkey           string `yaml:"sshKey"`
+	SshUser          string `yaml:"sshUser"`
+}
+
+type StorageClass struct {
+	VolumeBindingMode storagev1.VolumeBindingMode
 }
 
 type ClusterTransport struct {
@@ -255,8 +263,7 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 }
 
 func GetModuleConfig() (*ModuleConfig, error) {
-	moduleConfig := kc.Resource("mc")
-	res := kubectl.GetResource(moduleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
+	res := kubectl.GetResource(kc.ResourceModuleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
 	if !res.WasSuccess() {
 		return nil, fmt.Errorf(res.StdErr())
 	}
