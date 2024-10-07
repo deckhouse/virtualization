@@ -1315,7 +1315,7 @@ d8 k patch vmip ubuntu-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferen
 
 После удаления виртуальной машины, ресурс `vmip` сохранится и его можно будет переиспользовать снова во вновь созданной виртуальной машине:
 
-```
+```yaml
 spec:
   virtualMachineIPAdressName: ubuntu-vm-7prpx
 ```

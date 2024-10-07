@@ -108,42 +108,6 @@ spec:
    d8 v vnc -n default win-vm
    ```
 
-
-# Как увеличить размер DVCR
-
-Чтобы увеличить размер диска для DVCR, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
-
-1. Проверьте текущий размер dvcr:
-
-```shell
-kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
-#Output
-{"size":"58G","storageClass":"linstor-thick-data-r1"}
-```
-
-1. Задайте размер:
-
-```shell
-kubectl patch mc virtualization \
-  --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
-
-#Output
-moduleconfig.deckhouse.io/virtualization patched
-```
-
-1. Проверьте изменение размера:
-
-```shell
-kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
-#Output
-{"size":"59G","storageClass":"linstor-thick-data-r1"}
-
-kubectl get pvc dvcr -n d8-virtualization
-#Output
-NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
-dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO            linstor-thick-data-r1   7d
-```
-
 ## Как предоставить файл ответов windows(Sysprep)
 
 Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepRef.
@@ -195,4 +159,100 @@ spec:
       name: win-virtio-iso
     - kind: VirtualDisk
       name: win-disk
+```
+
+## Как перенаправить трафик на виртуальную машину
+
+Так как виртуальная машина функционирует в кластере Kubernetes, направление сетевого трафика осуществляется аналогично направлению трафика на поды.
+
+1. Для этого создайте сервис с требуемыми настройками.
+
+   В качестве примера приведена виртуальная машина с HTTP-сервисом, опубликованным на порте 80, и следующим набором меток:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: web
+  labels:
+    vm: web
+spec: ...
+```
+
+2. Чтобы направить сетевой трафик на 80-й порт виртуальной машины, создайте сервис:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-1
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: old
+```
+
+   Можно изменять метки виртуальной машины без необходимости перезапуска, что позволяет настраивать перенаправление сетевого трафика между различными сервисами в реальном времени.
+   Предположим, что был создан новый сервис и требуется перенаправить трафик на виртуальную машину от этого сервиса:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-2
+spec:
+  ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: new
+```
+
+   При изменении метки на виртуальной машине, трафик с сервиса `svc-2` будет перенаправлен на виртуальную машину:
+
+```yaml
+metadata:
+  labels:
+    app: old
+```
+
+# Как увеличить размер DVCR
+
+Чтобы увеличить размер диска для DVCR, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
+
+1. Проверьте текущий размер dvcr:
+
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+#Output
+{"size":"58G","storageClass":"linstor-thick-data-r1"}
+```
+
+1. Задайте размер:
+
+```shell
+kubectl patch mc virtualization \
+  --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
+
+#Output
+moduleconfig.deckhouse.io/virtualization patched
+```
+
+1. Проверьте изменение размера:
+
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+#Output
+{"size":"59G","storageClass":"linstor-thick-data-r1"}
+
+kubectl get pvc dvcr -n d8-virtualization
+#Output
+NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
+dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO            linstor-thick-data-r1   7d
 ```
