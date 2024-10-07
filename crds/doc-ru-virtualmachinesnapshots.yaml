@@ -1,0 +1,69 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |-
+            `VirtualMachineSnapshot` предоставляет ресурс для создания снимков виртуальных машин.
+          properties:
+            spec:
+              properties:
+                keepIPAddress:
+                  description: |-
+                    Сохранить ip адрес виртуальной машины или нет:
+
+                    * Always - при создании снимка адреса виртуальный машины будет конвертирован из `Auto` в `Static` и сохранен.
+                    * Never - при создании снимка адрес виртуальной машины не будет конвертирован.
+                requiredConsistency:
+                  description: |-
+                    Создавать снимок виртуальной машины только в том случае, если возможно заморозить её через агента.
+
+                    Если значение установлено в true, снимок виртуальной машины будет создан только в следующих случаях:
+                    - виртуальная машина выключена;
+                    - виртуальная машина с агентом, операция заморозки прошла успешно.
+                virtualMachineName:
+                  description: Имя виртуальной машины для создания снимка.
+                volumeSnapshotClasses:
+                  items:
+                    description: Устанавливает соответствие между `StorageClass` и `VolumeSnapshotClass`.
+                    properties:
+                      storageClassName:
+                        description: Имя ресурса `StorageClass`, соответствующее указанному ресурсу `VolumeSnapshotClass`.
+                      volumeSnapshotClassName:
+                        description: Имя ресурса `VolumeSnapshotClass`, который будет использован для создания снимков виртуальных дисков с соответствующим классом хранения.
+            status:
+              properties:
+                conditions:
+                  description: |
+                    Последнее подтвержденное состояние данного ресурса.
+                  items:
+                    properties:
+                      lastProbeTime:
+                        description: Время проверки условия.
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                      type:
+                        description: Тип условия.
+                consistent:
+                  description: Снимок виртуальной машины консистентен.
+                observedGeneration:
+                  description: Поколение ресурса, которое в последний раз обрабатывалось контроллером.
+                phase:
+                  description: |-
+                    Текущее состояние ресурса `VirtualMachineSnapshot`:
+                    * `Pending` — ресурс был создан и находится в очереди ожидания.
+                    * `InProgress` — идет процесс создания снимка виртуальной машины.
+                    * `Ready` — создание снимка успешно завершено, и снимок виртуальной машины доступен для использования.
+                    * `Failed` — произошла ошибка во время процесса создания снимка виртуальной машины.
+                    * `Terminating` — ресурс находится в процессе удаления.
+                virtualDiskSnapshotNames:
+                  description: Имена созданных снимков виртуальных дисков.
+                virtualMachineSnapshotSecretName:
+                  description: Имя созданного секрета с информацией о снимке виртуальной машины.

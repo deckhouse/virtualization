@@ -143,7 +143,7 @@ webhooks:
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
-        operations:  ["CREATE", "UPDATE"]
+        operations:  ["UPDATE"]
         resources:   ["virtualdisksnapshots"]
         scope:       "Namespaced"
     clientConfig:
@@ -151,6 +151,40 @@ webhooks:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller
         path: /validate-virtualization-deckhouse-io-v1alpha2-virtualdisksnapshot
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+  - name: "vmsnapshot.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["UPDATE"]
+        resources:   ["virtualmachinesnapshots"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinesnapshot
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+  - name: "vmrestore.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["UPDATE"]
+        resources:   ["virtualmachinerestores"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachinerestore
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.controller.cert.ca }}

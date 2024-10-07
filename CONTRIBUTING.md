@@ -62,7 +62,7 @@ Each commit message consists of a **header** and a [**body**](#body). The header
   - _feat(api): bump resource version to v1beta1_
   - _feat(images): implement ImageLost phase_
   - _feat(images, vi): add PVC as a storage_
-  - _fix(vm, vmmodel): fix unsupported type of model_
+  - _fix(vm, vmclass): fix unsupported type of class_
   - _refactor(core): rename 3rd party resources_
   - _docs(module): describe how to install module_
   - _chore(core): use alt linux as base image_
@@ -92,11 +92,12 @@ Supported scopes are the following:
     - vm
       - vmop
       - vmbda
-      - vmcpu
-      - vmcpureq
-      - vmmodel
+      - vmclass
       - vmip
       - vmipl
+      - vdsnapshot
+      - vmsnapshot
+      - vmrestore
     - disks
       - vd
     - images

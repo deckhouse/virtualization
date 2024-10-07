@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -56,7 +57,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
 	}
 
-	v.logger.Info("Validating virtual disk", "spec.pvc.size", vd.Spec.PersistentVolumeClaim.Size)
+	log := logger.FromContext(ctx)
+	log.Info("[AAAAAAAAAAA] Validating virtual disk", "spec.pvc.size", vd.Spec.PersistentVolumeClaim.Size)
 
 	var warnings admission.Warnings
 

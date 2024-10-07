@@ -44,6 +44,14 @@ const (
 
 	IndexFieldVDByStorageClass = "VD.spec.PersistentVolumeClaim.StorageClass"
 	IndexFieldVIByStorageClass = "VI.spec.PersistentVolumeClaim.StorageClass"
+
+	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
+	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
+
+	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
+
+	IndexFieldVMIPByVM      = "status.virtualMachine"
+	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 )
 
 type indexFunc func(ctx context.Context, mgr manager.Manager) error
@@ -56,9 +64,13 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMByCVI,
 		IndexVMIPLeaseByVMIP,
 		IndexVDByVDSnapshot,
+		IndexVMSnapshotByVM,
+		IndexVMSnapshotByVDSnapshot,
+		IndexVMRestoreByVMSnapshot,
 		IndexVMIPByVM,
 		IndexVDByStorageClass,
 		IndexVIByStorageClass,
+		IndexVMIPByAddress,
 	} {
 		if err := fn(ctx, mgr); err != nil {
 			return err

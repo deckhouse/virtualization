@@ -61,10 +61,11 @@ func SetupController(
 	reconciler := NewReconciler(client, handlers...)
 
 	vmopController, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:     reconciler,
-		RateLimiter:    workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       reconciler,
+		RateLimiter:      workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return err

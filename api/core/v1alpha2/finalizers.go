@@ -24,6 +24,7 @@ const (
 	FinalizerIPAddressProtection  = "virtualization.deckhouse.io/vmip-protection"
 	FinalizerPodProtection        = "virtualization.deckhouse.io/pod-protection"
 	FinalizerVDSnapshotProtection = "virtualization.deckhouse.io/vdsnapshot-protection"
+	FinalizerVMSnapshotProtection = "virtualization.deckhouse.io/vmsnapshot-protection"
 
 	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"

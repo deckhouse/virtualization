@@ -57,9 +57,10 @@ func NewController(
 	r := NewReconciler(mgr.GetClient(), handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
-		Reconciler:     r,
-		RecoverPanic:   ptr.To(true),
-		LogConstructor: logger.NewConstructor(log),
+		Reconciler:       r,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
 		return nil, err

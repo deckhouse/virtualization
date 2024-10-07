@@ -19,8 +19,8 @@ package v1alpha2
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 const (
-	VMBDAKind     = "VirtualMachineBlockDeviceAttachment"
-	VMBDAResource = "virtualmachineblockdeviceattachments"
+	VirtualMachineBlockDeviceAttachmentKind     = "VirtualMachineBlockDeviceAttachment"
+	VirtualMachineBlockDeviceAttachmentResource = "virtualmachineblockdeviceattachments"
 )
 
 // VirtualMachineBlockDeviceAttachment provides a hot plug for connecting a disk to a virtual machine.

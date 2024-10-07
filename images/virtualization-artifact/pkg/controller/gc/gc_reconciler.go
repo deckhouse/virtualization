@@ -19,6 +19,7 @@ package gc
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
@@ -91,8 +92,9 @@ func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, l
 			},
 		})).
 		WithOptions(controller.Options{
-			RecoverPanic:   ptr.To(true),
-			LogConstructor: logger.NewConstructor(log),
+			RecoverPanic:     ptr.To(true),
+			LogConstructor:   logger.NewConstructor(log),
+			CacheSyncTimeout: 10 * time.Minute,
 		}).
 		WatchesRawSource(r.watchSource, nil).
 		Complete(r)

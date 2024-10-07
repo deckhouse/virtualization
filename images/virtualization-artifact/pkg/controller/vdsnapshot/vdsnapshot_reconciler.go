@@ -34,7 +34,7 @@ import (
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vdsnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error)
+	Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -56,14 +56,14 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	vdsnapshot := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vdSnapshot := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
-	err := vdsnapshot.Fetch(ctx)
+	err := vdSnapshot.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if vdsnapshot.IsEmpty() {
+	if vdSnapshot.IsEmpty() {
 		return reconcile.Result{}, nil
 	}
 
@@ -72,18 +72,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	for _, h := range r.handlers {
 		var res reconcile.Result
-		res, err = h.Handle(ctx, vdsnapshot.Changed())
+		res, err = h.Handle(ctx, vdSnapshot.Changed())
 		if err != nil {
-			log.Error("Failed to handle vdsnapshot", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
+			log.Error("Failed to handle vdSnapshot", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
 		result = service.MergeResults(result, res)
 	}
 
-	vdsnapshot.Changed().Status.ObservedGeneration = vdsnapshot.Changed().Generation
+	vdSnapshot.Changed().Status.ObservedGeneration = vdSnapshot.Changed().Generation
 
-	err = vdsnapshot.Update(ctx)
+	err = vdSnapshot.Update(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

@@ -37,20 +37,9 @@ func NewValidator(logger *slog.Logger) *Validator {
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vds, ok := obj.(*virtv2.VirtualDiskSnapshot)
-	if !ok {
-		return nil, fmt.Errorf("expected a VirtualDiskSnapshot but got a %T", obj)
-	}
-
-	if vds.Spec.VirtualDiskName == "" {
-		return nil, fmt.Errorf("virtual disk name cannot be empty")
-	}
-
-	if vds.Spec.VolumeSnapshotClassName == "" {
-		return nil, fmt.Errorf("volume snapshot class name cannot be empty")
-	}
-
+func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
+	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }
 
