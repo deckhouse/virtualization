@@ -1,5 +1,27 @@
+diff --git a/pkg/operator/controller/callbacks.go b/pkg/operator/controller/callbacks.go
+index a2d054fcc..06ea5d13e 100644
+--- a/pkg/operator/controller/callbacks.go
++++ b/pkg/operator/controller/callbacks.go
+@@ -388,7 +388,7 @@ func reconcilePvcMutatingWebhook(args *callbacks.ReconcileCallbackArgs) error {
+ 	}
+ 
+ 	whc := &admissionregistrationv1.MutatingWebhookConfiguration{}
+-	key := client.ObjectKey{Name: "cdi-api-pvc-mutate"}
++	key := client.ObjectKey{Name: "cdi-internal-virtualization-api-pvc-mutate"}
+ 	err = args.Client.Get(context.TODO(), key, whc)
+ 	if err != nil && !errors.IsNotFound(err) {
+ 		return err
+@@ -432,7 +432,7 @@ func initPvcMutatingWebhook(whc *admissionregistrationv1.MutatingWebhookConfigur
+ 	sideEffect := admissionregistrationv1.SideEffectClassNone
+ 	bundle := cluster.GetAPIServerCABundle(args.Namespace, args.Client, args.Logger)
+ 
+-	whc.Name = "cdi-api-pvc-mutate"
++	whc.Name = "cdi-internal-virtualization-api-pvc-mutate"
+ 	whc.Labels = map[string]string{utils.CDILabel: cluster.APIServerServiceName}
+ 	whc.Webhooks = []admissionregistrationv1.MutatingWebhook{
+ 		{
 diff --git a/pkg/operator/resources/cluster/apiserver.go b/pkg/operator/resources/cluster/apiserver.go
-index fb0a22f08..70d67d296 100644
+index fb0a22f08..209b0ca1f 100644
 --- a/pkg/operator/resources/cluster/apiserver.go
 +++ b/pkg/operator/resources/cluster/apiserver.go
 @@ -294,7 +294,7 @@ func createDataImportCronValidatingWebhook(namespace string, c client.Client, l
@@ -11,7 +33,7 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -361,7 +362,7 @@ func createPopulatorsValidatingWebhook(namespace string, c client.Client, l logr
+@@ -361,7 +361,7 @@ func createPopulatorsValidatingWebhook(namespace string, c client.Client, l logr
  			Kind:       "ValidatingWebhookConfiguration",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -20,7 +42,7 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -428,7 +429,7 @@ func createDataVolumeValidatingWebhook(namespace string, c client.Client, l logr
+@@ -428,7 +428,7 @@ func createDataVolumeValidatingWebhook(namespace string, c client.Client, l logr
  			Kind:       "ValidatingWebhookConfiguration",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -29,7 +51,7 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -495,7 +496,7 @@ func createCDIValidatingWebhook(namespace string, c client.Client, l logr.Logger
+@@ -495,7 +495,7 @@ func createCDIValidatingWebhook(namespace string, c client.Client, l logr.Logger
  			Kind:       "ValidatingWebhookConfiguration",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -38,7 +60,7 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -564,7 +565,7 @@ func createObjectTransferValidatingWebhook(namespace string, c client.Client, l
+@@ -564,7 +564,7 @@ func createObjectTransferValidatingWebhook(namespace string, c client.Client, l
  			Kind:       "ValidatingWebhookConfiguration",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -47,7 +69,7 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -637,7 +638,7 @@ func createDataVolumeMutatingWebhook(namespace string, c client.Client, l logr.L
+@@ -637,7 +637,7 @@ func createDataVolumeMutatingWebhook(namespace string, c client.Client, l logr.L
  			Kind:       "MutatingWebhookConfiguration",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -56,17 +78,17 @@ index fb0a22f08..70d67d296 100644
  			Labels: map[string]string{
  				utils.CDILabel: APIServerServiceName,
  			},
-@@ -706,10 +707,12 @@ func GetAPIServerCABundle(namespace string, c client.Client, l logr.Logger) []by
+@@ -706,10 +706,12 @@ func GetAPIServerCABundle(namespace string, c client.Client, l logr.Logger) []by
  	return nil
  }
-
+ 
 +const apiServerWrapName = "cdi-internal-virtualization-apiserver"
 +
  func createAPIServerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 -	return utils.ResourceBuilder.CreateClusterRoleBinding(common.CDIApiServerResourceName, common.CDIApiServerResourceName, common.CDIApiServerResourceName, namespace)
 +	return utils.ResourceBuilder.CreateClusterRoleBinding(apiServerWrapName, apiServerWrapName, common.CDIApiServerResourceName, namespace)
  }
-
+ 
  func createAPIServerClusterRole() *rbacv1.ClusterRole {
 -	return utils.ResourceBuilder.CreateClusterRole(common.CDIApiServerResourceName, getAPIServerClusterPolicyRules())
 +	return utils.ResourceBuilder.CreateClusterRole(apiServerWrapName, getAPIServerClusterPolicyRules())
@@ -83,20 +105,20 @@ index 2760dd201..8682a4b60 100644
 +	wrapServiceAccountName = "cdi-internal-virtualization-sa"
 +	wrapClusterRoleName    = "cdi-internal-virtualization"
  )
-
+ 
  func createControllerResources(args *FactoryArgs) []client.Object {
 @@ -37,7 +40,7 @@ func createControllerResources(args *FactoryArgs) []client.Object {
  }
-
+ 
  func createControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 -	return utils.ResourceBuilder.CreateClusterRoleBinding(controllerServiceAccountName, controlerClusterRoleName, controllerServiceAccountName, namespace)
 +	return utils.ResourceBuilder.CreateClusterRoleBinding(wrapServiceAccountName, wrapClusterRoleName, controllerServiceAccountName, namespace)
  }
-
+ 
  func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
 @@ -284,5 +287,5 @@ func getControllerClusterPolicyRules() []rbacv1.PolicyRule {
  }
-
+ 
  func createControllerClusterRole() *rbacv1.ClusterRole {
 -	return utils.ResourceBuilder.CreateClusterRole(controlerClusterRoleName, getControllerClusterPolicyRules())
 +	return utils.ResourceBuilder.CreateClusterRole(wrapClusterRoleName, getControllerClusterPolicyRules())
@@ -108,14 +130,14 @@ index 57bf15e27..659faa8a2 100644
 @@ -50,10 +50,12 @@ func getCronJobClusterPolicyRules() []rbacv1.PolicyRule {
  	}
  }
-
+ 
 +const cronJobWrapName = "cdi-internal-virtualization-cronjob"
 +
  func createCronJobClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 -	return utils.ResourceBuilder.CreateClusterRoleBinding(common.CDICronJobResourceName, common.CDICronJobResourceName, common.CDICronJobResourceName, namespace)
 +	return utils.ResourceBuilder.CreateClusterRoleBinding(cronJobWrapName, cronJobWrapName, common.CDICronJobResourceName, namespace)
  }
-
+ 
  func createCronJobClusterRole() *rbacv1.ClusterRole {
 -	return utils.ResourceBuilder.CreateClusterRole(common.CDICronJobResourceName, getCronJobClusterPolicyRules())
 +	return utils.ResourceBuilder.CreateClusterRole(cronJobWrapName, getCronJobClusterPolicyRules())
@@ -125,7 +147,7 @@ index 59a9899ea..595152b52 100644
 --- a/pkg/operator/resources/cluster/rbac.go
 +++ b/pkg/operator/resources/cluster/rbac.go
 @@ -27,11 +27,11 @@ import (
-
+ 
  func createAggregateClusterRoles(_ *FactoryArgs) []client.Object {
  	return []client.Object{
 -		utils.ResourceBuilder.CreateAggregateClusterRole("cdi.kubevirt.io:admin", "admin", getAdminPolicyRules()),
@@ -140,7 +162,7 @@ index 59a9899ea..595152b52 100644
 +		createConfigReaderClusterRoleBinding("cdi.internal.virtualization.deckhouse.io:config-reader"),
  	}
  }
-
+ 
 diff --git a/pkg/operator/resources/cluster/uploadproxy.go b/pkg/operator/resources/cluster/uploadproxy.go
 index 6a5a95c11..f4b90bca0 100644
 --- a/pkg/operator/resources/cluster/uploadproxy.go
@@ -148,14 +170,14 @@ index 6a5a95c11..f4b90bca0 100644
 @@ -48,10 +48,12 @@ func getUploadProxyClusterPolicyRules() []rbacv1.PolicyRule {
  	}
  }
-
+ 
 +const uploadProxyWrapName = "cdi-internal-virtualization-uploadproxy"
 +
  func createUploadProxyClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 -	return utils.ResourceBuilder.CreateClusterRoleBinding(common.CDIUploadProxyResourceName, common.CDIUploadProxyResourceName, common.CDIUploadProxyResourceName, namespace)
 +	return utils.ResourceBuilder.CreateClusterRoleBinding(uploadProxyWrapName, uploadProxyWrapName, common.CDIUploadProxyResourceName, namespace)
  }
-
+ 
  func createUploadProxyClusterRole() *rbacv1.ClusterRole {
 -	return utils.ResourceBuilder.CreateClusterRole(common.CDIUploadProxyResourceName, getUploadProxyClusterPolicyRules())
 +	return utils.ResourceBuilder.CreateClusterRole(uploadProxyWrapName, getUploadProxyClusterPolicyRules())
