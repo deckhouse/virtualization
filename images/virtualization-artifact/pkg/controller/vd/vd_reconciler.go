@@ -24,7 +24,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -221,20 +220,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VMs: %w", err)
 	}
 
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &storagev1.StorageClass{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return false },
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on storage classes: %w", err)
-	}
-
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualDiskObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -250,6 +235,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	w := watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient())
 	if err := w.Watch(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
+	}
+
+	storageClassReadyWatcher := watcher.NewStorageClassWatcher(mgr.GetClient())
+	if err := storageClassReadyWatcher.Watch(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on StorageClass: %w", err)
 	}
 
 	return nil

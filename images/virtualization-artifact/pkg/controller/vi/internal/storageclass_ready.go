@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -43,7 +43,7 @@ func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHand
 	}
 }
 
-func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	condition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
@@ -62,11 +62,11 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.Virtu
 	}
 
 	switch vi.Spec.Storage {
-	case v1alpha2.StorageContainerRegistry:
+	case virtv2.StorageContainerRegistry:
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.DVCRTypeUsed
 		condition.Message = "Used dvcr storage"
-	case v1alpha2.StorageKubernetes:
+	case virtv2.StorageKubernetes:
 		if vi.Spec.PersistentVolumeClaim.StorageClass == nil {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vicondition.StorageClassNameNotProvided
