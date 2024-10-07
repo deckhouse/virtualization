@@ -28,7 +28,7 @@ weight: 15
 
 # Порядок установки
 
-1. Разверните кластер Deckhouse Kubernetes Platform по [инструкции](https://deckhouse.ru/gs/#%D0%B4%D1%80%D1%83%D0%B3%D0%B8%D0%B5-%D0%B2%D0%B0%D1%80%D0%B8%D0%B0%D0%BD%D1%82%D1%8B).
+1. Разверните кластер Deckhouse Kubernetes Platform по [инструкции](https://deckhouse.ru/gs/).
 
 2. Включите необходимые модули.
 
@@ -45,7 +45,7 @@ weight: 15
 5. Включите модуль `virtualization`:
 
 {{< alert level="warning" >}}
-Внимание! Включение модуля `virtualization` предполагает рестарт kubelet / containerd на всех узлах, где предполагается запуск виртуальных машин. Это необходимо для настройки связности containerd и DVCR.
+Внимание! Включение модуля `virtualization` предполагает рестарт kubelet\containerd на всех узлах, где предполагается запуск виртуальных машин. Это необходимо для настройки связности containerd и DVCR.
 {{< /alert >}}
 
 Для включения модуля `virtualization`, необходимо создать ресурс `ModuleConfig`, содержащий настройки модуля.
