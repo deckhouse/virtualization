@@ -77,7 +77,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 		vi.Status.Phase = virtv2.ImageFailed
 		err = fmt.Errorf("VirtualDisk employed") // FIXME
 		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-		return false, err
+		return CleanUp(ctx, vi, ds)
 	}
 
 	switch {
@@ -206,7 +206,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		vi.Status.Phase = virtv2.ImageFailed
 		err = fmt.Errorf("VirtualDisk employed") // FIXME
 		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-		return false, err
+		return CleanUp(ctx, vi, ds)
 	}
 
 	switch {
