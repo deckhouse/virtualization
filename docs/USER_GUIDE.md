@@ -1376,9 +1376,9 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+# NAME                     DRIVER                                DELETIONPOLICY   AGE
+# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 An example manifest for creating a disk snapshot:
@@ -1462,9 +1462,9 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+# NAME                     DRIVER                                DELETIONPOLICY   AGE
+# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:

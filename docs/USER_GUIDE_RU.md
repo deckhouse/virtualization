@@ -1380,9 +1380,9 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+# NAME                     DRIVER                                DELETIONPOLICY   AGE
+# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Пример манифеста для создания снимка диска:
@@ -1466,9 +1466,9 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+# NAME                     DRIVER                                DELETIONPOLICY   AGE
+# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Создание снимка виртуальной машины будет неудачным, если выполнится хотя бы одно из следующих условий:
