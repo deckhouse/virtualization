@@ -369,14 +369,14 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-root
+  name: linux-vm-root
 spec:
   storage: ContainerRegistry
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualDisk
-      name: ubuntu-root
+      name: linux-vm-root
 EOF
 ```
 
@@ -482,7 +482,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: ubuntu-root
+  name: linux-vm-root
 spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
@@ -506,7 +506,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: ubuntu-root-2
+  name: linux-vm-root-2
 spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
@@ -527,8 +527,8 @@ EOF
 d8 k get vd
 
 # NAME           PHASE   CAPACITY   AGE
-# ubuntu-root    Ready   10Gi       7m52s
-# ubuntu-root-2  Ready   2590Mi     7m15s
+# linux-vm-root    Ready   10Gi       7m52s
+# linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
 ### Изменение размера диска
@@ -538,25 +538,25 @@ d8 k get vd
 Проверим размер до изменения:
 
 ```bash
-d8 k get vd ubuntu-root
+d8 k get vd linux-vm-root
 
 # NAME          PHASE   CAPACITY   AGE
-# ubuntu-root   Ready   10Gi       10m
+# linux-vm-root   Ready   10Gi       10m
 ```
 
 Применим изменения:
 
 ```bash
-kubectl patch vd ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+kubectl patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
 Проверим размер после изменения:
 
 ```bash
-d8 k get vd ubuntu-root
+d8 k get vd linux-vm-root
 
 # NAME          PHASE   CAPACITY   AGE
-# ubuntu-root   Ready   11Gi       12m
+# linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Виртуальные машины
@@ -625,7 +625,7 @@ spec:
   blockDeviceRefs:
     # Порядок дисков и образов в данном блоке определяет приоритет загрузки.
     - kind: VirtualDisk
-      name: ubuntu-root
+      name: linux-vm-root
 EOF
 ```
 
@@ -1046,7 +1046,7 @@ d8 k get vmbda attach-vd-blank
 d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 
 # NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-# sda       8:0    0   10G  0 disk <--- статично подключенный диск ubuntu-root
+# sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
 # |-sda1    8:1    0  9.9G  0 part /
 # |-sda14   8:14   0    4M  0 part
 # `-sda15   8:15   0  106M  0 part /boot/efi
@@ -1373,10 +1373,10 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDiskSnapshot
 metadata:
-  name: ubuntu-root-$(date +%s)
+  name: linux-vm-root-$(date +%s)
 spec:
   requiredConsistency: true
-  virtualDiskName: ubuntu-root
+  virtualDiskName: linux-vm-root
   volumeSnapshotClassName: sds-replicated-volume
 EOF
 ```
@@ -1386,7 +1386,7 @@ EOF
 ```bash
 d k get vdsnapshot
 # NAME                     PHASE     CONSISTENT   AGE
-# ubuntu-root-1728027905   Ready                  3m2s
+# linux-vm-root-1728027905   Ready                  3m2s
 ```
 
 После создания `VirtualDiskSnapshot` может находиться в следующих состояниях (фазах):
@@ -1408,7 +1408,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: ubuntu-root
+  name: linux-vm-root
 spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
@@ -1421,7 +1421,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualDiskSnapshot
-      name: ubuntu-root-1728027905
+      name: linux-vm-root-1728027905
 EOF
 ```
 
