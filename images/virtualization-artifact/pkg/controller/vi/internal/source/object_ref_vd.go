@@ -74,6 +74,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
 	if employedCondition.Status == metav1.ConditionTrue {
+		vi.Status.Phase = virtv2.ImageFailed
 		err = fmt.Errorf("VirtualDisk employed") // FIXME
 		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 		return false, err
@@ -202,6 +203,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 
 	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
 	if employedCondition.Status == metav1.ConditionTrue {
+		vi.Status.Phase = virtv2.ImageFailed
 		err = fmt.Errorf("VirtualDisk employed") // FIXME
 		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 		return false, err
