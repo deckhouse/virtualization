@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type AttacheeHandler struct {
@@ -54,7 +55,7 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		service.SetCondition(employedCondition, &vd.Status.Conditions)
 	}
 
-	var isLocked bool
+	var isEmployed bool
 
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
 	if err != nil {
@@ -68,12 +69,13 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Name: vm.GetName(),
 		})
 
-		if vm.Status.Phase == virtv2.MachineRunning {
-			isLocked = true
+		runningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), vm.Status.Conditions)
+		if runningCondition.Status != metav1.ConditionFalse {
+			isEmployed = true
 		}
 	}
 
-	if isLocked {
+	if isEmployed {
 		employedCondition.Status = metav1.ConditionTrue
 		employedCondition.Reason = vdcondition.Employed
 		employedCondition.Message = "VirtualDisk attached to running VirtualMachine"

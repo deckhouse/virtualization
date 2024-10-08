@@ -70,7 +70,7 @@ type VirtualDiskEmployedError struct {
 }
 
 func (e VirtualDiskEmployedError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q employed", e.name)
+	return fmt.Sprintf("VirtualDisk %q is currently employed by a running VirtualMachine", e.name)
 }
 
 func NewVirtualDiskEmployedError(name string) error {

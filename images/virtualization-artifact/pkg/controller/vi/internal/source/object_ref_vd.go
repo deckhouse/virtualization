@@ -142,7 +142,8 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 	default:
 		employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
 		if employedCondition.Status == metav1.ConditionTrue {
-			employedErr := fmt.Errorf("VirtualDisk is currently employed by a VirtualMachine in the 'Running' phase")
+			employedErr := fmt.Errorf("VirtualDisk is currently employed by a running VirtualMachine")
+
 			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 			err = ds.importerService.Unprotect(ctx, pod)
 			if err != nil {
@@ -362,7 +363,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
-	if employedCondition.Status == metav1.ConditionTrue {
+	if employedCondition.Status != metav1.ConditionFalse {
 		return NewVirtualDiskEmployedError(vd.Name)
 	}
 
