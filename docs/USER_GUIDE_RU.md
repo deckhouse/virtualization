@@ -1215,7 +1215,7 @@ EOF
 
 ```bash
 kubectl get vm -w
-# NAME                                   PHASE       NODE           IPADDRESS     AGE
+# NAME                                  PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1238,7 +1238,7 @@ d8 v migrate <vm-name>
 
 ```bash
 d8 k get vmipl
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
@@ -1248,7 +1248,7 @@ d8 k get vmipl
 
 ```bash
 d8 k get vmipl
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
@@ -1256,7 +1256,7 @@ d8 k get vmipl
 
 ```bash
 k get vmip
-# NAME              ADDRESS       STATUS     VM          AGE
+# NAME             ADDRESS       STATUS     VM         AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
@@ -1360,7 +1360,7 @@ spec:
   requiredConsistency: false
 ```
 
-При создании снимка требуется указанть названия класса снимка томов `VolumeSnapshotClasses`, который будет использоватья для создания снимка.
+При создании снимка требуется указать названия класса снимка томов `VolumeSnapshotClasses`, который будет использоваться для создания снимка.
 
 Для получения списка поддерживаемых ресурсов `VolumeSnapshotClasses` выполните команду:
 
@@ -1378,7 +1378,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDiskSnapshot
 metadata:
-  name: linux-vm-root-$(date +%s)
+  name: linux-vm-root-snapshot
 spec:
   requiredConsistency: true
   virtualDiskName: linux-vm-root
@@ -1390,8 +1390,8 @@ EOF
 
 ```bash
 d k get vdsnapshot
-# NAME                     PHASE     CONSISTENT   AGE
-# linux-vm-root-1728027905   Ready                  3m2s
+# NAME                   PHASE     CONSISTENT   AGE
+# linux-vm-root-snapshot Ready     true         3m2s
 ```
 
 После создания `VirtualDiskSnapshot` может находиться в следующих состояниях (фазах):
@@ -1426,12 +1426,108 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualDiskSnapshot
-      name: linux-vm-root-1728027905
+      name: linux-vm-root-snapshot
 EOF
 ```
 
 ### Создание снимков виртуальных машин
 
-Для создания снимков дисков используется ресурс `VirtualMachineSnapshot`.
+Для создания снимков виртуальных машин используется ресурс `VirtualMachineSnapshot`.
+
+Чтобы гарантировать целостность и консистентность данных, снимок виртуальной машины будет создан, если выполняется хотя бы одно из следующих условий:
+
+- виртуальная машина выключена;
+- в операционной системе виртуальной машины установлен агент (qemu-guest-agent), и операция по "заморозке" файловой системы прошла успешно.
+
+Если целостность и консистентность неважны, снимок можно создать на работающей виртуальной машине и без "заморозки" файловой системы. Для этого в спецификации ресурса `VirtualMachineSnapshot` укажите:
+
+```yaml
+spec:
+  requiredConsistency: false
+```
+
+При создании снимка необходимо указать названия классов снимков томов `VolumeSnapshotClass`, которые будут использованы для создания снимков дисков, подключенных к виртуальной машине.
+
+Чтобы получить список поддерживаемых ресурсов `VolumeSnapshotClasses`, выполните команду:
+
+```bash
+d8 k get volumesnapshotclasses
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+```
+
+Создание снимка виртуальной машины будет неудачным, если выполнится хотя бы одно из следующих условий:
+
+- не все зависимые устройства виртуальной машины готовы;
+- есть изменения, ожидающие перезапуска виртуальной машины;
+- среди зависимых устройств есть диск, находящийся в процессе изменения размера.
+
+При создании снимка виртуальной машины IP-адрес будет преобразован в статичный и будет использован позже при восстановлении виртуальной машины из снимка.
+
+Если не требуется преобразование и использование старого IP-адреса виртуальной машины, можно установить соответствующую политику в значение `Never`. В этом случае будет использован тип адреса без преобразования (`Auto` или `Static`).
+
+```yaml
+spec:
+  keepIPAddress: Never
+```
+
+Пример манифеста для создания снимка виртуальной машины:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshot
+metadata:
+  name: linux-vm-snapshot
+spec:
+  virtualMachineName: linux-vm
+  volumeSnapshotClasses:
+    - storageClassName: i-linstor-thin-r2 # Подставьте ваше название StorageClass.
+      volumeSnapshotClassName: sds-replicated-volume # Подставьте ваше название VolumeSnapshotClass.
+  requiredConsistency: true
+  keepIPAddress: Never
+EOF
+```
 
 ### Восстановление снимков из виртуальных машин
+
+Для восстановления виртуальных машин из снимков используется ресурс `VirtualMachineRestore`.
+
+В процессе восстановления будет создана новая виртуальная машина, а также все её зависимые ресурсы (диски, IP-адрес, ресурс со сценарием автоматизации (`Secret`) и ресурсы для горячего подключения (`VirtualMachineBlockDeviceAttachment`).
+
+Если возникает конфликт имен между существующими и восстанавливаемыми ресурсами для `VirtualMachine`, `VirtualDisk` или `VirtualMachineBlockDeviceAttachment`, восстановление не будет успешно. Чтобы избежать этого, используйте параметр `nameReplacements`.
+
+Если восстанавливаемый ресурс `VirtualMachineIPAddress` уже присутствует в кластере, важно, чтобы на момент восстановления он не был присоединен к другой виртуальной машине и, если ресурс типа `Static`, имел такой же IP-адрес. В противном случае восстановление завершится неудачей.
+
+Если восстанавливаемый секрет со сценарием автоматизации уже существует, важно, чтобы он полностью совпадал по содержанию с восстанавливаемым. В противном случае восстановление также не будет успешным.
+
+Пример манифеста для восстановления виртуальной машины из снимка:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineRestore
+metadata:
+  name: ubuntu-vm-restore
+spec:
+  virtualMachineSnapshotName: linux-vm-snapshot
+  nameReplacements:
+    - from:
+        kind: VirtualMachine
+        name: linux-vm
+      to: linux-vm-2 # воссоздать существующую виртуальную машину `linux-vm` с новым именем `linux-vm-2`.
+    - from:
+        kind: VirtualDisk
+        name: ubuntu-root
+      to: ubuntu-root-2 # воссоздать существующий виртуальный диск `ubuntu-root` с новым именем `ubuntu-root-2`.
+    - from:
+        kind: VirtualDisk
+        name: vd-blank
+      to: vd-blank-2 # воссоздать существующий виртуальный диск `vd-blank` с новым именем `vd-blank-2`.
+    - from:
+        kind: VirtualMachineBlockDeviceAttachment
+        name: attach-vd-blank
+      to: attach-vd-blank-2 # воссоздать существующий виртуальный диск `attach-vd-blank` с новым именем `attach-vd-blank-2`.
+EOF
+```
