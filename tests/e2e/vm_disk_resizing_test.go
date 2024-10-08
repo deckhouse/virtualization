@@ -49,7 +49,7 @@ func WaitBlockDeviceRefsStatus(namespace string, vms ...string) {
 	Eventually(func(g Gomega) {
 		for _, vmName := range vms {
 			vm := virtv2.VirtualMachine{}
-			err := GetObject(kc.ResourceKubevirtVM, vmName, namespace, &vm)
+			err := GetObject(kc.ResourceKubevirtVM, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			Expect(err).NotTo(HaveOccurred(), err)
 			for _, disk := range vm.Status.BlockDeviceRefs {
 				Expect(disk.Attached).To(BeTrue(), "attached status check failed: %#v", vm.Status.BlockDeviceRefs)
@@ -62,7 +62,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 	GinkgoHelper()
 	for _, vd := range virtualDisks {
 		diskObject := virtv2.VirtualDisk{}
-		err := GetObject(kc.ResourceVD, vd, config.Namespace, &diskObject)
+		err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
 		Expect(err).NotTo(HaveOccurred(), err)
 		newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
 		mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
@@ -73,7 +73,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
 	GinkgoHelper()
 	vd := virtv2.VirtualDisk{}
-	err := GetObject(kc.ResourceVD, vdName, namespace, &vd)
+	err := GetObject(kc.ResourceVD, vdName, &vd, kc.GetOptions{Namespace: namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 	GinkgoHelper()
 	var vmObject virtv2.VirtualMachine
 	disks := make(map[string]DiskMetaData, 0)
-	err := GetObject(kc.ResourceKubevirtVM, vmName, config.Namespace, &vmObject)
+	err := GetObject(kc.ResourceKubevirtVM, vmName, &vmObject, kc.GetOptions{Namespace: config.Namespace})
 	if err != nil {
 		return disks, err
 	}

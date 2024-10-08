@@ -64,7 +64,7 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualM
 	for _, vm := range virtualMachines {
 		By(fmt.Sprintf("Checking the number of processor cores %s changing", stage))
 		vmResource := virtv2.VirtualMachine{}
-		err := GetObject(kc.ResourceVM, vm, conf.Namespace, &vmResource)
+		err := GetObject(kc.ResourceVM, vm, &vmResource, kc.GetOptions{Namespace: conf.Namespace})
 		Expect(err).NotTo(HaveOccurred(), err)
 		Expect(vmResource.Spec.CPU.Cores).To(Equal(requiredValue))
 		switch {
