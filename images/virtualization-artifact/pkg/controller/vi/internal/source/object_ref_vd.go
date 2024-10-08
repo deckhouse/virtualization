@@ -72,6 +72,13 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 		return false, err
 	}
 
+	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
+	if employedCondition.Status == metav1.ConditionTrue {
+		err = fmt.Errorf("VirtualDisk employed") // FIXME
+		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
+		return false, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Virtual image provisioning finished: clean up")
@@ -190,6 +197,13 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		return false, err
+	}
+
+	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
+	if employedCondition.Status == metav1.ConditionTrue {
+		err = fmt.Errorf("VirtualDisk employed") // FIXME
+		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
 		return false, err
 	}
 
