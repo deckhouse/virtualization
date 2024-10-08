@@ -1105,6 +1105,8 @@ spec:
 EOF
 ```
 
+![](images/lb-nodeport.png)
+
 In this example, a service with the type `NodePort` will be created that opens external port 31880 on all nodes in your cluster. This port will forward incoming traffic to internal port 80 on the virtual machine where the Nginx application is running.
 
 #### Publishing virtual machine services using a service with the LoadBalancer service type
@@ -1129,6 +1131,8 @@ spec:
 EOF
 ```
 
+![](images/lb-loadbalancer.png)
+
 #### Publish virtual machine services using Ingress
 
 `Ingress` allows you to manage incoming HTTP/HTTPS requests and route them to different servers within your cluster. This is the most appropriate method if you want to use domain names and SSL termination to access your virtual machines.
@@ -1136,7 +1140,6 @@ EOF
 To publish a virtual machine service through `Ingress`, you must create the following resources:
 
 An internal service to bind to `Ingress`. Example:
-
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1178,6 +1181,8 @@ spec:
 EOF
 ```
 
+![](images/lb-ingress.png)
+
 ### Live Virtual Machine Migration
 
 Virtual machine migration is an important feature in managing virtualized infrastructure. It allows you to move running virtual machines from one physical host to another without shutting them down.
@@ -1201,7 +1206,6 @@ kubectl get vm
 We can see that it is currently running on the `virtlab-pt-1` node.
 
 To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the migrate type is used.
-
 
 ```yaml
 d8 k apply -f - <<EOF
