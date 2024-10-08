@@ -31,6 +31,8 @@ The platform includes the following components:
 - Deckhouse Virtualization Container Registry (DVCR) - repository for storing and caching virtual machine images.
 - Virtualization API (API) - A controller that implements a user API for creating and managing virtual machine resources.
 
+![](images/arch.png)
+
 List of controllers and operators deployed in the `d8-virtualization` namespace after the module is enabled:
 
 | Name                          | Component | Comment                                                                                                                              |
@@ -47,6 +49,10 @@ List of controllers and operators deployed in the `d8-virtualization` namespace 
 | `virtualization-api-*`        | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                             |
 | `virtualization-controller-*` | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                             |
 | `vm-route-forge-*`            | CORE      | Router for configuring routes to VMs. Must be present on all cluster nodes where VMs will be started.                                |
+
+The virtual machine runs inside the pod, which allows you to manage virtual machines as regular Kubernetes resources and utilize all the platform features, including load balancers, network policies, automation tools, etc.
+
+![](images/vm.png)
 
 The API provides the ability to declaratively create, modify, and delete the following underlying resources:
 

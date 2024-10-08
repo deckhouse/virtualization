@@ -853,7 +853,7 @@ spec:
       ...
 ```
 
-For longer scenarios and\or the presence of private data, the script for initial initial initialization of the virtual machine can be created in Secret. An example of Secret with a CloudInit script is shown below:
+For longer scenarios and/or the presence of private data, the script for initial initial initialization of the virtual machine can be created in Secret. An example of Secret with a CloudInit script is shown below:
 
 ```yaml
 apiVersion: v1
@@ -923,6 +923,8 @@ spec:
     disktype: ssd
 ```
 
+![](images/placement-nodeselector.png)
+
 In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
 
 #### Preferred Binding (Affinity)
@@ -946,6 +948,8 @@ spec:
                   - ssd
 ```
 
+![](images/placement-node-affinity.png)
+
 In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
 
 `virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to set a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
@@ -956,7 +960,7 @@ Example:
 spec:
   affinity:
     virtualMachineAndPodAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
+      requiredDuringSchedulingIgnoredDuringExecution:
         - weight: 1
           podAffinityTerm:
             labelSelector:
@@ -964,6 +968,8 @@ spec:
                 server: database
             topologyKey: "kubernetes.io/hostname"
 ```
+
+![](images/placement-vm-affinity.png)
 
 In this example, the virtual machine will be placed, if possible (since preffered is used) only on hosts that have a virtual machine with the server label and database value.
 
@@ -986,7 +992,9 @@ spec:
           topologyKey: "kubernetes.io/hostname"
 ```
 
-In this example, virtual machines labeled server: database will not be hosted on the same host.
+![](images/placement-vm-antiaffinity.png)
+
+In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
 
 ### Static and dynamic block devices
 
