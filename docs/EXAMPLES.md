@@ -308,7 +308,7 @@ kubectl get storageclass
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-blank
+  name: blank-disk
   namespace: vms
 spec:
   persistentVolumeClaim:
@@ -324,7 +324,7 @@ The created disk can be used to connect to the virtual machine.
 kubectl -n vms  get virtualdisk -o wide
 
 #NAME         PHASE   CAPACITY   PROGRESS   STORAGECLASS        TARGETPVC                                            AGE
-#vd-blank     Ready   97657Ki    100%       linstor-thin-r1     vd-vd-blank-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
+#blank-disk     Ready   97657Ki    100%       linstor-thin-r1     vd-blank-disk-f2284d86-a3fc-40e4-b319-cfebfefea778     46s
 ```
 
 ### Creating a disk from an image
@@ -388,13 +388,13 @@ Disks can be attached in a running virtual machine using the `VirtualMachineBloc
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
-  name: vd-blank-attachment
+  name: blank-disk-attachment
   namespace: vms
 spec:
   virtualMachineName: linux-vm # The name of the virtual machine to which the disk will be attached.
   blockDeviceRef:
     kind: VirtualDisk
-    name: vd-blank # The name of the disk to be attached.
+    name: blank-disk # The name of the disk to be attached.
 ```
 
 If you delete the `VirtualMachineBlockDeviceAttachment` resource, the disk will be disconnected from the virtual machine.
@@ -405,7 +405,7 @@ To see the list of attached disks in a running virtual machine, run the command:
 kubectl -n vms get virtualmachineblockdeviceattachments
 
 # NAME                       PHASE
-# vd-blank-attachment       Attached
+# blank-disk-attachment       Attached
 ```
 
 ## Virtual Machines

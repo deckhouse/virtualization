@@ -428,7 +428,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vd-blank
+  name: blank-disk
 spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
@@ -453,9 +453,9 @@ EOF
 Проверьте состояние диска после создание командой:
 
 ```bash
-d8 k get vd vd-blank
+d8 k get vd blank-disk
 # NAME       PHASE   CAPACITY   AGE
-# vd-blank   Ready   100Mi      1m2s
+# blank-disk   Ready   100Mi      1m2s
 ```
 
 ### Создание диска из образа
@@ -1009,18 +1009,18 @@ spec:
 
 Для подключения динамических блочных устройств используется ресурс `VirtualMachineBlockDeviceAttachment` (`vmbda`). На данный момент для подключения в качестве динамического блочного устройства поддерживается только `VirtualDisk`.
 
-Создайте следующий ресурс, который подключит пустой диск vd-blank к виртуальной машине linux-vm:
+Создайте следующий ресурс, который подключит пустой диск blank-disk к виртуальной машине linux-vm:
 
 ```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
-  name: attach-vd-blank
+  name: attach-blank-disk
 spec:
   blockDeviceRef:
     kind: VirtualDisk
-    name: vd-blank
+    name: blank-disk
   virtualMachineName: linux-vm
 EOF
 ```
@@ -1034,10 +1034,10 @@ EOF
 Проверьте состояние вашего ресурса:
 
 ```bash
-d8 k get vmbda attach-vd-blank
+d8 k get vmbda attach-blank-disk
 
 # NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-vd-blank   Attached   linux-vm              3m7s
+# attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
@@ -1051,13 +1051,13 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 # |-sda14   8:14   0    4M  0 part
 # `-sda15   8:15   0  106M  0 part /boot/efi
 # sdb       8:16   0    1M  0 disk <--- cloudinit
-# sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск vd-blank
+# sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск blank-disk
 ```
 
 Для отключения диска от виртуальной машины удалите ранее созданный ресурс:
 
 ```bash
-d8 k delete vmbda attach-vd-blank
+d8 k delete vmbda attach-blank-disk
 ```
 
 ### Публикация виртуальных машин с использованием сервисов
