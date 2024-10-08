@@ -339,7 +339,7 @@ As an example, the previously created `ClusterVirtualImage` with the name `ubunt
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: ubuntu-root
+  name: linux-vm-root
   namespace: vms
 spec:
   persistentVolumeClaim:
@@ -359,25 +359,25 @@ Disks can only be resized upwards, even if they are attached to a virtual machin
 Check the size before the change:
 
 ```bash
-kubectl -n vms  get virtualdisk ubuntu-root -o wide
+kubectl -n vms  get virtualdisk linux-vm-root -o wide
 
 # NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
-# ubuntu-root   Ready   10Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   2m25s
+# linux-vm-root   Ready   10Gi       100%       linstor-thin-r2   vd-linux-vm-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   2m25s
 ```
 
 Let's apply the changes:
 
 ```bash
-kubectl -n vms patch virtualdisk ubuntu-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+kubectl -n vms patch virtualdisk linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
 Let's check the size after the change:
 
 ```bash
-kubectl -n vms get virtualdisk ubuntu-root -o wide
+kubectl -n vms get virtualdisk linux-vm-root -o wide
 
 # NAME          PHASE   CAPACITY   PROGRESS   STORAGECLASS      TARGETPVC                                             AGE
-# ubuntu-root   Ready   11Gi       100%       linstor-thin-r2   vd-ubuntu-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   4m13s
+# linux-vm-root   Ready   11Gi       100%       linstor-thin-r2   vd-linux-vm-root-bef82abc-469d-4b31-b6c4-0a9b2850b956   4m13s
 ```
 
 ### Connecting disks to running virtual machines
