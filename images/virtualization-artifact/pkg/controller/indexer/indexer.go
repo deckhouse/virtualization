@@ -40,8 +40,6 @@ const (
 
 	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 
-	IndexFieldVMIPByVM = "status.virtualMachine"
-
 	IndexFieldVDByStorageClass = "VD.spec.PersistentVolumeClaim.StorageClass"
 	IndexFieldVIByStorageClass = "VI.spec.PersistentVolumeClaim.StorageClass"
 
@@ -50,6 +48,7 @@ const (
 
 	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
 
+	IndexFieldVMIPByVM      = "status.virtualMachine"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 )
 
