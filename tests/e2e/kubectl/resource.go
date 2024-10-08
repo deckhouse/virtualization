@@ -28,6 +28,7 @@ const (
 	ResourceModuleConfig Resource = "moduleconfigs.deckhouse.io"
 	ResourceVD           Resource = "virtualdisks.virtualization.deckhouse.io"
 	ResourceVM           Resource = "virtualmachine.virtualization.deckhouse.io"
+	ResourceVMClass      Resource = "virtualmachineclasses.virtualization.deckhouse.io"
 	ResourceVMIP         Resource = "virtualmachineipaddresses.virtualization.deckhouse.io"
 	ResourceVMIPLease    Resource = "virtualmachineipaddressleases.virtualization.deckhouse.io"
 	ResourceCVI          Resource = "clustervirtualimages.virtualization.deckhouse.io"

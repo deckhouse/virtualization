@@ -131,6 +131,7 @@ type TestData struct {
 	ComplexTest      string `yaml:"complexTest"`
 	Connectivity     string `yaml:"connectivity"`
 	DiskResizing     string `yaml:"diskResizing"`
+	SizingPolicy     string `yaml:"sizingPolicy"`
 	VmConfiguration  string `yaml:"vmConfiguration"`
 	VmMigration      string `yaml:"vmMigration"`
 	VmDiskAttachment string `yaml:"vmDiskAttachment"`

@@ -38,6 +38,7 @@ const (
 	PhaseAttached             = "Attached"
 	PhaseReady                = "Ready"
 	PhaseBound                = "Bound"
+	PhasePending              = "Pending"
 	PhaseReleased             = "Released"
 	PhaseSucceeded            = "Succeeded"
 	PhaseRunning              = "Running"
@@ -87,6 +88,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
