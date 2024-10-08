@@ -586,7 +586,7 @@ d8 k apply -f - <<"EOF"
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: ubuntu-vm
+  name: linux-vm
 spec:
   # Название класса ВМ.
   virtualMachineClassName: host
@@ -642,10 +642,10 @@ EOF
 Проверьте состояние виртуальной машины после создания:
 
 ```bash
-d8 k get vm ubuntu-vm
+d8 k get vm linux-vm
 
 # NAME        PHASE     NODE           IPADDRESS     AGE
-# ubuntu-vm   Running   virtlab-pt-2   10.66.10.12   11m
+# linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 После создания виртуальная машина автоматически получит IP-адрес из диапазона, указанного в настройках модуля (блок `virtualMachineCIDRs`).
@@ -661,11 +661,11 @@ d8 k get vm ubuntu-vm
 Пример подключения к виртуальной машине с использованием серийной консоли:
 
 ```bash
-d8 v console ubuntu-vm
+d8 v console linux-vm
 
-# Successfully connected to ubuntu-vm console. The escape sequence is ^]
+# Successfully connected to linux-vm console. The escape sequence is ^]
 
-ubuntu-vm login: cloud
+linux-vm login: cloud
 Password: cloud
 ```
 
@@ -674,13 +674,13 @@ Password: cloud
 Пример команды для подключения по VNC:
 
 ```bash
-d8 v vnc ubuntu-vm
+d8 v vnc linux-vm
 ```
 
 Пример команды для подключения по SSH.
 
 ```bash
-d8 v ssh cloud@ubuntu-vm --local-ssh
+d8 v ssh cloud@linux-vm --local-ssh
 ```
 
 ### Политика запуска и управление состоянием виртуальной машины
@@ -699,7 +699,7 @@ d8 v ssh cloud@ubuntu-vm --local-ssh
 
 Ресурс `VirtualMachineOperation` декларативно определяет императивное действие, которое должно быть выполнено на виртуальной машине. Это действие применяется к виртуальной машине сразу после её создания соответствующего `vmop`. Действие применяется к виртуальной машине один раз.
 
-Пример операции для выполнения перезагрузки виртуальной машины с именем `ubuntu-vm`:
+Пример операции для выполнения перезагрузки виртуальной машины с именем `linux-vm`:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -708,7 +708,7 @@ kind: VirtualMachineOperation
 metadata:
   name: restart-linux-vm-$(date +%s)
 spec:
-  virtualMachineName: ubuntu-vm
+  virtualMachineName: linux-vm
   # Тип применяемой операции = применяемая операция.
   type: Restart
 EOF
@@ -725,7 +725,7 @@ d8 k get vmop
 Аналогичное действие можно выполнить с использованием утилиты `d8`:
 
 ```bash
-d8 v restart  ubuntu-vm
+d8 v restart  linux-vm
 ```
 
 Перечень возможных операций приведен в таблице ниже:
@@ -744,7 +744,7 @@ d8 v restart  ubuntu-vm
 Изменения в конфигурацию виртуальной машины можно внести с использованием следующей команды:
 
 ```bash
-d8 k edit vm ubuntu-vm
+d8 k edit vm linux-vm
 ```
 
 Если виртуальная машина находится в выключенном состоянии (`.status.phase: Stopped`), внесённые изменения вступят в силу сразу после её запуска.
@@ -764,28 +764,28 @@ d8 k edit vm ubuntu-vm
 Предположим, мы хотим изменить количество ядер процессора. В данный момент виртуальная машина запущена и использует одно ядро, что можно подтвердить, подключившись к ней через серийную консоль и выполнив команду `nproc`.
 
 ```bash
-d8 v ssh cloud@ubuntu-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 # 1
 ```
 
 Примените следующий патч к виртуальной машине, чтобы изменить количество ядер с 1 на 2.
 
 ```bash
-d8 k patch vm ubuntu-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
-# virtualmachine.virtualization.deckhouse.io/ubuntu-vm patched
+d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+# virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
 Изменения в конфигурации внесены, но ещё не применены к виртуальной машине. Проверьте это, повторно выполнив:
 
 ```bash
-d8 v ssh cloud@ubuntu-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 # 1
 ```
 
 Для применения этого изменения необходим перезапуск виртуальной машины. Выполните следующую команду, чтобы увидеть изменения, ожидающие применения (требующие перезапуска):
 
 ```bash
-d8 k get vm ubuntu-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
+d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 # [
 #   {
@@ -800,10 +800,10 @@ d8 k get vm ubuntu-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 Выполните команду:
 
 ```bash
-d8 k get vm ubuntu-vm -o wide
+d8 k get vm linux-vm -o wide
 
 # NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-# ubuntu-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+# linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 В колонке `NEED RESTART` мы видим значение `True`, а это значит что для применения изменений требуется перезагрузка.
@@ -811,7 +811,7 @@ d8 k get vm ubuntu-vm -o wide
 Выполним перезагрузку виртуальной машины:
 
 ```bash
-d8 v restart ubuntu-vm
+d8 v restart linux-vm
 ```
 
 После перезагрузки изменения будут применены и блок `.status.restartAwaitingChanges` будет пустой.
@@ -819,7 +819,7 @@ d8 v restart ubuntu-vm
 Выполните команду для проверки:
 
 ```bash
-d8 v ssh cloud@ubuntu-vm --local-ssh --command "nproc"
+d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 # 2
 ```
 
@@ -1009,7 +1009,7 @@ spec:
 
 Для подключения динамических блочных устройств используется ресурс `VirtualMachineBlockDeviceAttachment` (`vmbda`). На данный момент для подключения в качестве динамического блочного устройства поддерживается только `VirtualDisk`.
 
-Создайте следующий ресурс, который подключит пустой диск vd-blank к виртуальной машине ubuntu-vm:
+Создайте следующий ресурс, который подключит пустой диск vd-blank к виртуальной машине linux-vm:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1021,7 +1021,7 @@ spec:
   blockDeviceRef:
     kind: VirtualDisk
     name: vd-blank
-  virtualMachineName: ubuntu-vm
+  virtualMachineName: linux-vm
 EOF
 ```
 
@@ -1037,13 +1037,13 @@ EOF
 d8 k get vmbda attach-vd-blank
 
 # NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-vd-blank   Attached   ubuntu-vm              3m7s
+# attach-vd-blank   Attached   linux-vm              3m7s
 ```
 
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
 
 ```bash
-d8 v ssh cloud@ubuntu-vm --local-ssh --command "lsblk"
+d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 
 # NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 # sda       8:0    0   10G  0 disk <--- статично подключенный диск ubuntu-root
@@ -1067,8 +1067,8 @@ d8 k delete vmbda attach-vd-blank
 Предварительно, проставьте на ранее созданной вм следующие лейблы:
 
 ```bash
-d8 k label vm ubuntu-vm app=nginx
-# virtualmachine.virtualization.deckhouse.io/ubuntu-vm labeled
+d8 k label vm linux-vm app=nginx
+# virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
 #### Публикация сервисов виртуальной машины с использованием сервиса с типом NodePort
@@ -1082,7 +1082,7 @@ d8 k apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: ubuntu-vm-nginx-nodeport
+  name: linux-vm-nginx-nodeport
 spec:
   type: NodePort
   selector:
@@ -1107,7 +1107,7 @@ d8 k apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: ubuntu-vm-nginx-lb
+  name: linux-vm-nginx-lb
 spec:
   type: LoadBalancer
   selector:
@@ -1133,7 +1133,7 @@ d8 k apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: ubuntu-vm-nginx
+  name: linux-vm-nginx
 spec:
   selector:
     # лейбл по которому сервис определяет на какую виртуальную машину направлять трафик
@@ -1152,17 +1152,17 @@ d8 k apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ubuntu-vm
+  name: linux-vm
 spec:
   rules:
-    - host: ubuntu-vm.example.com
+    - host: linux-vm.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: ubuntu-vm-nginx
+                name: linux-vm-nginx
                 port:
                   number: 80
 EOF
@@ -1185,7 +1185,7 @@ EOF
 ```bash
 kubectl get vm
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
-# ubuntu-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
@@ -1200,7 +1200,7 @@ metadata:
   name: migrate-linux-vm-$(date +%s)
 spec:
   # имя виртуальной машины
-  virtualMachineName: ubuntu-vm
+  virtualMachineName: linux-vm
   # операция для миграции
   type: Migrate
 EOF
@@ -1211,10 +1211,10 @@ EOF
 ```bash
 kubectl get vm -w
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
-# ubuntu-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
 Также для выполнения миграции можно использовать команду:
@@ -1234,7 +1234,7 @@ d8 v migrate <vm-name>
 ```bash
 d8 k get vmipl
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"ubuntu-vm-7prpx","namespace":"default"}     Bound    12h
+# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 Ресурс `VirtualMachineIPAddress` (`vmip`): Проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
@@ -1244,7 +1244,7 @@ d8 k get vmipl
 ```bash
 d8 k get vmipl
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"ubuntu-vm-7prpx","namespace":"default"}     Bound    12h
+# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 По умолчанию ip-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный ip-адрес можно с помощью команды:
@@ -1252,7 +1252,7 @@ d8 k get vmipl
 ```bash
 k get vmip
 # NAME              ADDRESS       STATUS     VM          AGE
-# ubuntu-vm-7prpx   10.66.10.14   Attached   ubuntu-vm   12h
+# linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
 Алгоритм автоматического присвоения ip-адреса виртуальной машине выглядит следующим образом:
@@ -1280,7 +1280,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddress
 metadata:
-  name: ubuntu-vm-custom-ip
+  name: linux-vm-custom-ip
 spec:
   staticIP: 10.66.20.77
   type: Static
@@ -1291,7 +1291,7 @@ EOF
 
 ```yaml
 spec:
-  virtualMachineIPAdressName: ubuntu-vm-custom-ip
+  virtualMachineIPAdressName: linux-vm-custom-ip
 ```
 
 ### Как сохранить присвоенный виртуальной машине ip-адрес?
@@ -1303,21 +1303,21 @@ spec:
 Получите название ресурса `vmip` для заданной виртуальной машины:
 
 ```bash
-d8 k get vm ubuntu-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
-# ubuntu-vm-7prpx
+d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+# linux-vm-7prpx
 ```
 
 Удалите блоки `.metadata.ownerReferences` из найденного ресурса:
 
 ```bash
-d8 k patch vmip ubuntu-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
 ```
 
 После удаления виртуальной машины, ресурс `vmip` сохранится и его можно будет переиспользовать снова во вновь созданной виртуальной машине:
 
 ```yaml
 spec:
-  virtualMachineIPAdressName: ubuntu-vm-7prpx
+  virtualMachineIPAdressName: linux-vm-7prpx
 ```
 
 Даже если ресурс `vmip` будет удален. Он остаётся арендованным для текущего проекта/неймспейса еще 10 минут. Поэтому существует возможность вновь его занять по запросу:
@@ -1327,7 +1327,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineIPAddress
 metadata:
-  name: ubuntu-vm-custom-ip
+  name: linux-vm-custom-ip
 spec:
   staticIP: 10.66.20.77
   type: Static
