@@ -1428,8 +1428,102 @@ spec:
 EOF
 ```
 
-### Create virtual machine snapshots
+### Создание снимков виртуальных машин
 
-The `VirtualMachineSnapshot` resource is used to create disk snapshots.
+The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
+
+To ensure data integrity and consistency, a virtual machine snapshot will be created if at least one of the following conditions is met:
+
+- the virtual machine is powered off;
+- an agent (qemu-guest-agent) is installed in the virtual machine's operating system, and the operation to freeze the file system was successful.
+
+If integrity and consistency are not important, a snapshot can be created on a running virtual machine without “freezing” the file system. To do this, specify in the `VirtualMachineSnapshot` resource specification:
+
+```yaml
+spec:
+  requiredConsistency: false
+```
+
+When creating a snapshot, you must specify the names of the `VolumeSnapshotClasses` volume snapshot classes that will be used to create snapshots of the disks attached to the virtual machine.
+
+To get a list of supported `VolumeSnapshotClasses` resources, run the command:
+
+```bash
+d8 k get volumesnapshotclasses
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+```
+
+Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
+
+- not all dependencies of the virtual machine are ready;
+- there are changes pending restart of the virtual machine;
+- there is a disk in the process of resizing among the dependent devices.
+
+When you create a snapshot of the virtual machine, the IP address will be converted to a static IP address and will be used later when restoring the virtual machine from the snapshot.
+
+If you do not want to convert and use the old IP address of the virtual machine, you can set the corresponding policy to `Never`. In this case, the address type without conversion (`Auto` or `Static`) will be used.
+
+```yaml
+spec:
+  keepIPAddress: Never
+```
+
+An example manifest to create a snapshot of a virtual machine:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshot
+metadata:
+  name: linux-vm-snapshot
+spec:
+  virtualMachineName: linux-vm
+  volumeSnapshotClasses:
+    - storageClassName: i-linstor-thin-r2 # Substitute your StorageClass name.
+      volumeSnapshotClassName: sds-replicated-volume # Substitute your VolumeSnapshotClass name.
+  requiredConsistency: true
+  keepIPAddress: Never
+EOF
+```
 
 ### Restore snapshots from virtual machines
+
+The `VirtualMachineRestore` resource is used to restore virtual machines from snapshots.
+
+The restore process will create a new virtual machine and all its dependent resources (disks, IP address, resource with automation script (`Secret`) and resources for dynamic disk attachment (`VirtualMachineBlockDeviceAttachment`)).
+
+If there is a name conflict between existing and restored resources for `VirtualMachine`, `VirtualDisk`, or `VirtualMachineBlockDeviceAttachment`, the restore will fail. To avoid this, use the `nameReplacements` parameter.
+
+If the `VirtualMachineIPAddress` resource to be recovered is already present in the cluster, it must not be attached to another virtual machine, and if it is a resource of type Static, its IP address must match. The recovered secret with automation must also fully match the recovered secret. Failure to meet these conditions will cause the recovery to fail.
+
+Example manifest for restoring a virtual machine from a snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineRestore
+metadata:
+  name: linux-vm-restore
+spec:
+  virtualMachineSnapshotName: linux-vm-snapshot
+  nameReplacements:
+    - from:
+        kind: VirtualMachine
+        name: linux-vm
+      to: linux-vm-2 # recreate an existing `linux-vm` virtual machine with the new name `linux-vm-2`.
+    - from:
+        kind: VirtualDisk
+        name: linux-vm-root
+      to: linux-vm-root-2 # recreate the existing `linux-vm-root` virtual disk with the new name `linux-vm-root-2`.
+    - from:
+        kind: VirtualDisk
+        name: blank-disk
+      to: blank-disk-2 # recreate the existing `blank-disk` virtual disk with the new name `blank-disk-2`.
+    - from:
+        kind: VirtualMachineBlockDeviceAttachment
+        name: attach-blank-disk
+      to: attach-blank-disk-2 # recreate the existing `attach-blank-disk` virtual disk with the new name `attach-blank-disk-2`.
+EOF
+```
