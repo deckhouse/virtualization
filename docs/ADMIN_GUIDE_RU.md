@@ -437,7 +437,7 @@ spec:
 ```bash
 kubectl get vm
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
-# ubuntu-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
@@ -452,7 +452,7 @@ metadata:
   name: migrate-linux-vm-$(date +%s)
 spec:
   # имя виртуальной машины
-  virtualMachineName: ubuntu-vm
+  virtualMachineName: linux-vm
   # операция для миграции
   type: Migrate
 EOF
@@ -463,10 +463,10 @@ EOF
 ```bash
 kubectl get vm -w
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
-# ubuntu-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# ubuntu-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
 #### Режим обслуживания
@@ -507,10 +507,10 @@ ColdStandby обеспечивает механизм восстановлени
 Рассмотрим как это работает на примере:
 
 - Кластер состоит из трех узлов master, workerA и workerB. На worker-узлах включен механизм Fencing.
-- Виртуальная машина `ubuntu-vm` запущена на узле workerA.
+- Виртуальная машина `linux-vm` запущена на узле workerA.
 - На узле workerA возникает проблема (выключилось питание, пропала сеть, итд)
 - Контроллер проверяет доступность узлов и обнаруживает, что workerA недоступен.
 - Контроллер удаляет узел `workerA` из кластер.
-- Виртуальная машина `ubuntu-vm` запускается на другом подходящем узле (workerB).
+- Виртуальная машина `linux-vm` запускается на другом подходящем узле (workerB).
 
 ![](./images/coldstandby.ru.png)

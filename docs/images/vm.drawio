@@ -1,22 +1,22 @@
 <mxfile host="65bd71144e">
     <diagram id="EZxaQw9ckF1vR2Bi5WWT" name="vm-v2">
-        <mxGraphModel dx="450" dy="711" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="690" pageHeight="980" math="0" shadow="0">
+        <mxGraphModel dx="1229" dy="438" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="690" pageHeight="980" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
                 <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;fontColor=#0066ff;strokeColor=none;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
-                    <mxGeometry x="80" y="120" width="320" height="380" as="geometry"/>
+                    <mxGeometry x="60" y="100" width="360" height="420" as="geometry"/>
                 </mxCell>
-                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;dashed=1;fontColor=#0066ff;strokeColor=#0066ff;arcSize=6;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
+                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;fontColor=#0066ff;strokeColor=#A0A0A0;arcSize=6;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
                     <mxGeometry x="100" y="140" width="280" height="280" as="geometry"/>
                 </mxCell>
-                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-3" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=#0066ff;strokeColor=#0066ff;arcSize=24;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
+                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;fontColor=#0066ff;strokeColor=#0066ff;arcSize=24;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
                     <mxGeometry x="120" y="345" width="240" height="50" as="geometry"/>
                 </mxCell>
                 <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-4" value="Node" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#0066ff;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=0" parent="1" vertex="1">
                     <mxGeometry x="110" y="120" width="60" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-5" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;arcSize=7;fontColor=#0066ff;strokeColor=#0066FF;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
+                <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;arcSize=7;fontColor=#0066ff;strokeColor=#0066FF;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
                     <mxGeometry x="120" y="160" width="240" height="160" as="geometry"/>
                 </mxCell>
                 <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-6" value="Pod" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#0066ff;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=0" parent="1" vertex="1">
@@ -64,6 +64,9 @@
                 </mxCell>
                 <mxCell id="CsHc_jXI1Mu5Qs9rJTMG-22" value="qemu-kvm" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0066ff;fontColor=#FFFFFF;strokeColor=#0066ff;strokeWidth=2;fillStyle=auto;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;" parent="1" vertex="1">
                     <mxGeometry x="160" y="240" width="160" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="" style="rounded=1;whiteSpace=wrap;html=1;arcSize=6;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=none;strokeColor=#000000;dashed=1;" vertex="1" parent="1">
+                    <mxGeometry x="80" y="120" width="320" height="380" as="geometry"/>
                 </mxCell>
             </root>
         </mxGraphModel>
