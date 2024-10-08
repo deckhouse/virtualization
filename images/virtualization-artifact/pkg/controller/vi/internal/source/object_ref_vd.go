@@ -72,14 +72,6 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 		return false, err
 	}
 
-	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
-	if employedCondition.Status == metav1.ConditionTrue {
-		vi.Status.Phase = virtv2.ImageFailed
-		err = fmt.Errorf("VirtualDisk employed") // FIXME
-		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-		return CleanUp(ctx, vi, ds)
-	}
-
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Virtual image provisioning finished: clean up")
@@ -148,6 +140,22 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
+		employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
+		if employedCondition.Status == metav1.ConditionTrue {
+			employedErr := fmt.Errorf("VirtualDisk is currently employed by a VirtualMachine in the 'Running' phase")
+			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
+			err = ds.importerService.Unprotect(ctx, pod)
+			if err != nil {
+				return false, err
+			}
+			_, err = ds.CleanUp(ctx, vi)
+			if err != nil {
+				return false, err
+			}
+
+			return false, employedErr
+		}
+
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -199,14 +207,6 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return false, err
-	}
-
-	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
-	if employedCondition.Status == metav1.ConditionTrue {
-		vi.Status.Phase = virtv2.ImageFailed
-		err = fmt.Errorf("VirtualDisk employed") // FIXME
-		setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-		return CleanUp(ctx, vi, ds)
 	}
 
 	switch {
