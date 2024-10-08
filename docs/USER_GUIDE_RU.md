@@ -1215,7 +1215,7 @@ EOF
 
 ```bash
 kubectl get vm -w
-# NAME                                   PHASE       NODE           IPADDRESS     AGE
+# NAME                                  PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1238,7 +1238,7 @@ d8 v migrate <vm-name>
 
 ```bash
 d8 k get vmipl
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
@@ -1248,7 +1248,7 @@ d8 k get vmipl
 
 ```bash
 d8 k get vmipl
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
@@ -1256,7 +1256,7 @@ d8 k get vmipl
 
 ```bash
 k get vmip
-# NAME              ADDRESS       STATUS     VM          AGE
+# NAME             ADDRESS       STATUS     VM         AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
@@ -1360,7 +1360,7 @@ spec:
   requiredConsistency: false
 ```
 
-При создании снимка требуется указать названия класса снимка томов `VolumeSnapshotClasses`, который будет использоватья для создания снимка.
+При создании снимка требуется указать названия класса снимка томов `VolumeSnapshotClasses`, который будет использоваться для создания снимка.
 
 Для получения списка поддерживаемых ресурсов `VolumeSnapshotClasses` выполните команду:
 
@@ -1378,7 +1378,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDiskSnapshot
 metadata:
-  name: linux-vm-root-$(date +%s)
+  name: linux-vm-root-snapshot
 spec:
   requiredConsistency: true
   virtualDiskName: linux-vm-root
@@ -1390,8 +1390,8 @@ EOF
 
 ```bash
 d k get vdsnapshot
-# NAME                     PHASE     CONSISTENT   AGE
-# linux-vm-root-1728027905   Ready                  3m2s
+# NAME                   PHASE     CONSISTENT   AGE
+# linux-vm-root-snapshot Ready     true         3m2s
 ```
 
 После создания `VirtualDiskSnapshot` может находиться в следующих состояниях (фазах):
@@ -1426,7 +1426,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualDiskSnapshot
-      name: linux-vm-root-1728027905
+      name: linux-vm-root-snapshot
 EOF
 ```
 
@@ -1448,7 +1448,7 @@ spec:
 
 При создании снимка необходимо указать названия классов снимков томов `VolumeSnapshotClass`, которые будут использованы для создания снимков дисков, подключенных к виртуальной машине.
 
-Чтобы получить список поддерживаемых ресурсов `VolumeSnapshotClass`, выполните команду:
+Чтобы получить список поддерживаемых ресурсов `VolumeSnapshotClasses`, выполните команду:
 
 ```bash
 d8 k get volumesnapshotclasses
@@ -1479,9 +1479,9 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineSnapshot
 metadata:
-  name: ubuntu-vm-snapshot-$(date +%s)
+  name: linux-vm-snapshot
 spec:
-  virtualMachineName: ubuntu-vm
+  virtualMachineName: linux-vm
   volumeSnapshotClasses:
     - storageClassName: i-linstor-thin-r2 # Подставьте ваше название StorageClass.
       volumeSnapshotClassName: sds-replicated-volume # Подставьте ваше название VolumeSnapshotClass.
@@ -1507,27 +1507,27 @@ EOF
 ```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineSnapshot
+kind: VirtualMachineRestore
 metadata:
-  name: ubuntu-vm-snapshot-$(date +%s)
+  name: ubuntu-vm-restore
 spec:
-  virtualMachineSnapshotName: ubuntu-vm-snapshot-1728027905
+  virtualMachineSnapshotName: linux-vm-snapshot
   nameReplacements:
     - from:
         kind: VirtualMachine
-        name: ubuntu-vm
-      to: ubuntu-vm-$(date +%s) # воссоздать существующую виртуальную машину `ubuntu-vm` с новым именем `ubuntu-vm-$(date +%s)`.
+        name: linux-vm
+      to: linux-vm-2 # воссоздать существующую виртуальную машину `linux-vm` с новым именем `linux-vm-2`.
     - from:
         kind: VirtualDisk
         name: ubuntu-root
-      to: ubuntu-root-$(date +%s) # воссоздать существующий виртуальный диск `ubuntu-root` с новым именем `ubuntu-root-1728027905`.
+      to: ubuntu-root-2 # воссоздать существующий виртуальный диск `ubuntu-root` с новым именем `ubuntu-root-2`.
     - from:
         kind: VirtualDisk
         name: vd-blank
-      to: vd-blank-$(date +%s) # воссоздать существующий виртуальный диск `vd-blank` с новым именем `vd-blank-1728027905`.
+      to: vd-blank-2 # воссоздать существующий виртуальный диск `vd-blank` с новым именем `vd-blank-2`.
     - from:
         kind: VirtualMachineBlockDeviceAttachment
         name: attach-vd-blank
-      to: attach-vd-blank-$(date +%s) # воссоздать существующий виртуальный диск `attach-vd-blank` с новым именем `attach-vd-blank-1728027905`.
+      to: attach-vd-blank-2 # воссоздать существующий виртуальный диск `attach-vd-blank` с новым именем `attach-vd-blank-2`.
 EOF
 ```
