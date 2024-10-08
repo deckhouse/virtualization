@@ -7,7 +7,7 @@ This section provides information on creating and managing resources that are av
 
 ## Images
 
-The `ClusterVirtualImage` resource is used to load virtual machine images into the intra-cluster storage, after which it can be used to create virtual machine disks. It is available in all cluster namespaces\projects.
+The `ClusterVirtualImage` resource is used to load virtual machine images into the intra-cluster storage, after which it can be used to create virtual machine disks. It is available in all cluster namespaces/projects.
 
 The image creation process includes the following steps:
 
