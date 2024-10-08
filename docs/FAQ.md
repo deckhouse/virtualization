@@ -1,6 +1,6 @@
 ---
 title: "FAQ"
-weight: 50
+weight: 70
 ---
 
 ## How to install an operating system in a virtual machine from an iso-image?
