@@ -50,7 +50,6 @@ const (
 
 	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
 
-	IndexFieldVMIPByVM      = "status.virtualMachine"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 )
 
@@ -129,16 +128,6 @@ func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
 			return nil
 		}
 		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
-	})
-}
-
-func IndexVMIPByVM(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByVM, func(object client.Object) []string {
-		vmip, ok := object.(*virtv2.VirtualMachineIPAddress)
-		if !ok || vmip == nil {
-			return nil
-		}
-		return []string{vmip.Status.VirtualMachine}
 	})
 }
 
