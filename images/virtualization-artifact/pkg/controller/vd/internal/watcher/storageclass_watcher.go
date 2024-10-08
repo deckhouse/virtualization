@@ -51,12 +51,30 @@ func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 
 func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
+		source.Kind(mgr.GetCache(), &storagev1.StorageClass{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(event event.CreateEvent) bool { return true },
 			DeleteFunc: func(event event.DeleteEvent) bool { return true },
-			UpdateFunc: func(event event.UpdateEvent) bool { return false },
+			UpdateFunc: func(event event.UpdateEvent) bool {
+				oldSC, oldOk := event.ObjectOld.(*storagev1.StorageClass)
+				newSC, newOk := event.ObjectNew.(*storagev1.StorageClass)
+				if !oldOk || !newOk {
+					return false
+				}
+				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[indexer.DefaultStorageClassAnnotation]
+				newIsDefault, newIsDefaultOk := newSC.Annotations[indexer.DefaultStorageClassAnnotation]
+				switch {
+				case oldIsDefaultOk && newIsDefaultOk:
+					return oldIsDefault != newIsDefault
+				case oldIsDefaultOk && !newIsDefaultOk:
+					return oldIsDefault == "true"
+				case !oldIsDefaultOk && newIsDefaultOk:
+					return newIsDefault == "true"
+				default:
+					return false
+				}
+			},
 		},
 	)
 }
@@ -64,7 +82,7 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.Object) []reconcile.Request {
 	sc, ok := object.(*storagev1.StorageClass)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a Storage but got %T", object))
+		w.logger.Error(fmt.Sprintf("expected a StorageClass but got %T", object))
 	}
 
 	var vds virtv2.VirtualDiskList
@@ -83,8 +101,8 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 
 	vds.Items = []virtv2.VirtualDisk{}
 
-	_, isDefault := sc.Annotations[indexer.DefaultStorageClassAnnotation]
-	if isDefault {
+	isDefault, ok := sc.Annotations[indexer.DefaultStorageClassAnnotation]
+	if ok && isDefault == "true" {
 		err := w.client.List(ctx, &vds, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, indexer.DefaultStorageClass),
 		})
