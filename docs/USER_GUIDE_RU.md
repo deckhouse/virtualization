@@ -1494,13 +1494,11 @@ EOF
 
 Для восстановления виртуальных машин из снимков используется ресурс `VirtualMachineRestore`.
 
-В процессе восстановления будет создана новая виртуальная машина, а также все её зависимые ресурсы (диски, IP-адрес, ресурс со сценарием автоматизации (`Secret`) и ресурсы для горячего подключения (`VirtualMachineBlockDeviceAttachment`).
+В процессе восстановления будет создана новая виртуальная машина, а также все её зависимые ресурсы (диски, IP-адрес, ресурс со сценарием автоматизации (`Secret`) и ресурсы для динамического подключения дисков (`VirtualMachineBlockDeviceAttachment`)).
 
 Если возникает конфликт имен между существующими и восстанавливаемыми ресурсами для `VirtualMachine`, `VirtualDisk` или `VirtualMachineBlockDeviceAttachment`, восстановление не будет успешно. Чтобы избежать этого, используйте параметр `nameReplacements`.
 
-Если восстанавливаемый ресурс `VirtualMachineIPAddress` уже присутствует в кластере, важно, чтобы на момент восстановления он не был присоединен к другой виртуальной машине и, если ресурс типа `Static`, имел такой же IP-адрес. В противном случае восстановление завершится неудачей.
-
-Если восстанавливаемый секрет со сценарием автоматизации уже существует, важно, чтобы он полностью совпадал по содержанию с восстанавливаемым. В противном случае восстановление также не будет успешным.
+Если восстанавливаемый ресурс `VirtualMachineIPAddress` уже присутствует в кластере, он не должен быть присоединен к другой виртуальной машине, а если это ресурс типа Static, его IP-адрес должен совпадать. Восстанавливаемый секрет с автоматизацией также должен полностью соответствовать восстановленному. Несоблюдение этих условий приведет к неудаче восстановления.
 
 Пример манифеста для восстановления виртуальной машины из снимка:
 
@@ -1509,7 +1507,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineRestore
 metadata:
-  name: ubuntu-vm-restore
+  name: linux-vm-restore
 spec:
   virtualMachineSnapshotName: linux-vm-snapshot
   nameReplacements:
@@ -1519,15 +1517,15 @@ spec:
       to: linux-vm-2 # воссоздать существующую виртуальную машину `linux-vm` с новым именем `linux-vm-2`.
     - from:
         kind: VirtualDisk
-        name: ubuntu-root
-      to: ubuntu-root-2 # воссоздать существующий виртуальный диск `ubuntu-root` с новым именем `ubuntu-root-2`.
+        name: linux-vm-root
+      to: linux-vm-root-2 # воссоздать существующий виртуальный диск `linux-vm-root` с новым именем `linux-vm-root-2`.
     - from:
         kind: VirtualDisk
-        name: vd-blank
-      to: vd-blank-2 # воссоздать существующий виртуальный диск `vd-blank` с новым именем `vd-blank-2`.
+        name: blank-disk
+      to: blank-disk-2 # воссоздать существующий виртуальный диск `blank-disk` с новым именем `blank-disk-2`.
     - from:
         kind: VirtualMachineBlockDeviceAttachment
-        name: attach-vd-blank
-      to: attach-vd-blank-2 # воссоздать существующий виртуальный диск `attach-vd-blank` с новым именем `attach-vd-blank-2`.
+        name: attach-blank-disk
+      to: attach-blank-disk-2 # воссоздать существующий виртуальный диск `attach-blank-disk` с новым именем `attach-blank-disk-2`.
 EOF
 ```
