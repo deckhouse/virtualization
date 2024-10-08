@@ -24,6 +24,7 @@ import (
 	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -51,8 +52,18 @@ var _ = Describe("Storage class ready handler Run", func() {
 
 	diskService = &DiskServiceMock{
 		GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
+			if storageClassName != nil {
+				for _, storageClass := range storageClasses {
+					if storageClass.Name == *storageClassName {
+						return &storageClass, nil
+					}
+				}
+			}
+
 			for _, storageClass := range storageClasses {
-				if storageClass.Name == *storageClassName {
+				isDefault, ok := storageClass.Annotations[common.AnnDefaultStorageClass]
+
+				if ok && isDefault == "true" {
 					return &storageClass, nil
 				}
 			}
@@ -113,5 +124,23 @@ var _ = Describe("Storage class ready handler Run", func() {
 		Expect(err).Should(BeNil())
 		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionFalse))
 		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.StorageClassNotFound))
+	})
+
+	It("Should true condition because default storage class found", func() {
+		vi.Spec.Storage = virtv2.StorageKubernetes
+
+		storageClasses = append(storageClasses, storev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default",
+				Annotations: map[string]string{
+					common.AnnDefaultStorageClass: "true",
+				},
+			},
+		})
+
+		_, err := handler.Handle(context.TODO(), vi)
+		Expect(err).Should(BeNil())
+		Expect(vi.Status.Conditions[0].Status).Should(Equal(metav1.ConditionTrue))
+		Expect(vi.Status.Conditions[0].Reason).Should(Equal(vicondition.StorageClassReady))
 	})
 })

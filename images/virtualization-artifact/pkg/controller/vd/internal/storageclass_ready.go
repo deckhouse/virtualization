@@ -57,23 +57,21 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	if vd.Spec.PersistentVolumeClaim.StorageClass == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageClassNameNotProvided
-		condition.Message = "PersistentVolumeClaim of VirtualDisk does not have StorageClass"
-		return reconcile.Result{}, nil
-	}
-
 	sc, err := h.service.GetStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 		return reconcile.Result{}, err
 	}
 
-	if sc != nil {
+	switch {
+	case sc != nil:
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.StorageClassReady
 		condition.Message = ""
-	} else {
+	case vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "":
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.StorageClassNameNotProvided
+		condition.Message = "Storage class not provided and default storage class not found."
+	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.StorageClassNotFound
 		condition.Message = fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass)

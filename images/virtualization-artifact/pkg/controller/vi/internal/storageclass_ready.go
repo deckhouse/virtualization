@@ -67,23 +67,21 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		condition.Reason = vicondition.DVCRTypeUsed
 		condition.Message = "Used dvcr storage"
 	case virtv2.StorageKubernetes:
-		if vi.Spec.PersistentVolumeClaim.StorageClass == nil {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.StorageClassNameNotProvided
-			condition.Message = "PersistentVolumeClaim of VirtualImage does not have StorageClass"
-			return reconcile.Result{}, nil
-		}
-
 		sc, err := h.service.GetStorageClass(ctx, vi.Spec.PersistentVolumeClaim.StorageClass)
 		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 			return reconcile.Result{}, err
 		}
 
-		if sc != nil {
+		switch {
+		case sc != nil:
 			condition.Status = metav1.ConditionTrue
 			condition.Reason = vicondition.StorageClassReady
 			condition.Message = ""
-		} else {
+		case vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "":
+			condition.Status = metav1.ConditionFalse
+			condition.Reason = vicondition.StorageClassNameNotProvided
+			condition.Message = "Storage class not provided and default storage class not found."
+		default:
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vicondition.StorageClassNotFound
 			condition.Message = fmt.Sprintf("StorageClass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)

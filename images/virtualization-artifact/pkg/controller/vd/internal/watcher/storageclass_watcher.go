@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"log/slog"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -34,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
