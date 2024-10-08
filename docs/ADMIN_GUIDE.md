@@ -511,3 +511,24 @@ Let's see how it works on the example:
 - The `linux-vm` virtual machine is started on another suitable node (workerB).
 
 ![](./images/coldstandby.png)
+
+# Storage settings
+
+Storages are used by the `VirtualDisk` disk creation platform. The `VirtualDisk` resource is based on the `PersistentVolumeClaim` resource. When creating a disk, the controller will automatically select the most optimal parameters supported by the storage based on the data known to it.
+
+Priorities for setting `PersistentVolumeClaim` parameters when creating a disk through automatic storage characterization:
+
+- RWX + Block
+- RWX + FileSystem
+- RWO + Block
+- RWO + FileSystem
+
+If the storage is unknown and it is not possible to automatically characterize it, then RWO + FileSystem is used.
+
+The following annotations can be used to modify the standard `PersistentVolumeClaim` parameter determination process for `StorageClass`:
+
+| Annotation                                           | Valid values                     |
+| ---------------------------------------------------- | -------------------------------- |
+| virtualdisk.virtualization.deckhouse.io/volume-mode  | `Block`, `Filesystem`            |
+| virtualdisk.virtualization.deckhouse.io/access-mode  | `ReadWriteOnce`, `ReadWriteMany` |
+| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate`                      |
