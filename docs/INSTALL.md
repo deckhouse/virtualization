@@ -1,5 +1,5 @@
 ---
-title: "Установка"
+title: "Installation"
 weight: 15
 ---
 
@@ -44,7 +44,7 @@ The following minimum resources are recommended for infrastructure nodes, depend
 Attention! Enabling the `virtualization` module involves restarting kubelet\containerd on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
 {{< /alert >}}
 
-To enable the `virtualization' module, you need to create a `ModuleConfig` resource containing the module settings.
+To enable the `virtualization` module, you need to create a `ModuleConfig` resource containing the module settings.
 
 {{< alert level="info" >}}
 For a complete list of configuration options, see ["Settings"](./configuration.html)

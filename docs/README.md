@@ -46,7 +46,7 @@ List of controllers and operators deployed in the `d8-virtualization` namespace 
 | `virt-operator-*`             | CORE      | Virtualization core component for disk and image management.                                                                         |
 | `virtualization-api-*`        | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                             |
 | `virtualization-controller-*` | API       | API for creating and managing module resources (images, disks, VMs, ...)                                                             |
-| `vm-route-forge-*`            | CORE      | Маршрутизатор для настройки маршрутов до ВМ. Должен присутствовать на всех узлах кластера, где будут запускаться ВМ.                 |
+| `vm-route-forge-*`            | CORE      | Router for configuring routes to VMs. Must be present on all cluster nodes where VMs will be started.                                |
 
 The API provides the ability to declaratively create, modify, and delete the following underlying resources:
 
@@ -54,7 +54,7 @@ The API provides the ability to declaratively create, modify, and delete the fol
 - virtual machine disks;
 - virtual machines;
 
-## Ролевая модель
+## Role model
 
 The following user roles are provided for resource management:
 

@@ -514,3 +514,24 @@ ColdStandby обеспечивает механизм восстановлени
 - Виртуальная машина `linux-vm` запускается на другом подходящем узле (workerB).
 
 ![](./images/coldstandby.ru.png)
+
+# Настройки Хранилищ
+
+Хранилища применяются платформой для создания дисков `VirtualDisk`. В основе ресурсов `VirtualDisk` лежит ресурс `PersistentVolumeClaim`. При создании диска контроллер автоматически выберет наиболее оптимальные параметры, поддерживаемые хранилищем, на основании известных ему данных.
+
+Приоритеты настройки параметров `PersistentVolumeClaim` при создании диска посредством автоматического определения характеристик хранилища:
+
+- RWX + Block
+- RWX + FileSystem
+- RWO + Block
+- RWO + FileSystem
+
+Если хранилище неизвестно и определить его параметры автоматически - невозможно, используется режим: RWO + FileSystem
+
+Для изменения стандартного процесса определения параметров `PersistentVolumeClaim` для `StorageClass` можно применять следующие аннотации:
+
+| Аннотация                                            | Допустимые значения              |
+| ---------------------------------------------------- | -------------------------------- |
+| virtualdisk.virtualization.deckhouse.io/volume-mode  | `Block`, `Filesystem`            |
+| virtualdisk.virtualization.deckhouse.io/access-mode  | `ReadWriteOnce`, `ReadWriteMany` |
+| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate`                      |
