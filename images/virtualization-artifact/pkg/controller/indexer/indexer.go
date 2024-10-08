@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	DefaultStorageClass           = ""
-	DefaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
+	DefaultStorageClass = ""
 )
 
 const (

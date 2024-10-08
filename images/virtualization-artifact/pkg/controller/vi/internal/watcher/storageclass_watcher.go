@@ -19,6 +19,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"log/slog"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -62,8 +63,8 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 				if !oldOk || !newOk {
 					return false
 				}
-				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[indexer.DefaultStorageClassAnnotation]
-				newIsDefault, newIsDefaultOk := newSC.Annotations[indexer.DefaultStorageClassAnnotation]
+				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[common.AnnDefaultStorageClass]
+				newIsDefault, newIsDefaultOk := newSC.Annotations[common.AnnDefaultStorageClass]
 				switch {
 				case oldIsDefaultOk && newIsDefaultOk:
 					return oldIsDefault != newIsDefault
@@ -101,7 +102,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 
 	vis.Items = []virtv2.VirtualImage{}
 
-	isDefault, ok := sc.Annotations[indexer.DefaultStorageClassAnnotation]
+	isDefault, ok := sc.Annotations[common.AnnDefaultStorageClass]
 	if ok && isDefault == "true" {
 		err := w.client.List(ctx, &vis, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByStorageClass, indexer.DefaultStorageClass),
