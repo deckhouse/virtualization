@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: base-alt-p11
 import:
 - image: cdi-artifact
   add: /cdi-binaries
