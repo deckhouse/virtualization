@@ -208,9 +208,9 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
-	if employedCondition.Status != metav1.ConditionFalse {
-		return NewVirtualDiskEmployedError(vd.Name)
+	inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUseCondition.Status != metav1.ConditionFalse {
+		return NewVirtualDiskInUseError(vd.Name)
 	}
 
 	return nil

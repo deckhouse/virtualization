@@ -45,17 +45,17 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
-	employedCondition, ok := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
+	inUseCondition, ok := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if !ok {
-		employedCondition = metav1.Condition{
-			Type:   vdcondition.EmployedType,
+		inUseCondition = metav1.Condition{
+			Type:   vdcondition.InUseType,
 			Status: metav1.ConditionUnknown,
 		}
 
-		service.SetCondition(employedCondition, &vd.Status.Conditions)
+		service.SetCondition(inUseCondition, &vd.Status.Conditions)
 	}
 
-	var isEmployed bool
+	var inUsed bool
 
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
 	if err != nil {
@@ -71,20 +71,20 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		runningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), vm.Status.Conditions)
 		if runningCondition.Status != metav1.ConditionFalse {
-			isEmployed = true
+			inUsed = true
 		}
 	}
 
-	if isEmployed {
-		employedCondition.Status = metav1.ConditionTrue
-		employedCondition.Reason = vdcondition.Employed
-		employedCondition.Message = "VirtualDisk attached to running VirtualMachine"
+	if inUsed {
+		inUseCondition.Status = metav1.ConditionTrue
+		inUseCondition.Reason = vdcondition.InUse
+		inUseCondition.Message = ""
 	} else {
-		employedCondition.Status = metav1.ConditionFalse
-		employedCondition.Reason = vdcondition.NotEmployed
-		employedCondition.Message = ""
+		inUseCondition.Status = metav1.ConditionFalse
+		inUseCondition.Reason = vdcondition.NotUse
+		inUseCondition.Message = ""
 	}
-	service.SetCondition(employedCondition, &vd.Status.Conditions)
+	service.SetCondition(inUseCondition, &vd.Status.Conditions)
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {
 		log.Error("virtual disk connected to multiple virtual machines", "vms", len(attachedVMs))
