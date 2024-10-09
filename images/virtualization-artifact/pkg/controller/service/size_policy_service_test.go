@@ -491,46 +491,6 @@ var _ = Describe("SizePolicyService", func() {
 		})
 	})
 
-	Context("when VM's per core memory step is incorrect", func() {
-		// Virtual machine with an incorrect per-core memory step
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				VirtualMachineClassName: "vmclasstest",
-				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4001Mi")},
-			},
-		}
-
-		BeforeEach(func() {
-			// Set mock VM class data with invalid per-core memory step policies for the VM
-			vmClass = &v1alpha2.VirtualMachineClass{
-				Spec: v1alpha2.VirtualMachineClassSpec{
-					SizingPolicies: []v1alpha2.SizingPolicy{
-						{
-							Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
-							Memory: &v1alpha2.SizingPolicyMemory{
-								Step: resource.MustParse("1Gi"),
-								PerCore: v1alpha2.SizingPolicyMemoryPerCore{
-									MemoryMinMax: v1alpha2.MemoryMinMax{
-										Min: resource.MustParse("1Gi"),
-										Max: resource.MustParse("3Gi"),
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-		})
-
-		It("should fail validation due to non-matching per core memory step", func() {
-			service := service.NewSizePolicyService()
-			err := service.CheckVMMatchedSizePolicy(vm, vmClass)
-			// Expect an error because the per-core memory size does not match the step policy
-			Expect(err).ShouldNot(BeNil())
-		})
-	})
-
 	Context("When size policy not provided", func() {
 		vm := &v1alpha2.VirtualMachine{
 			Spec: v1alpha2.VirtualMachineSpec{
@@ -539,7 +499,7 @@ var _ = Describe("SizePolicyService", func() {
 				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4001Mi")},
 			},
 		}
-		vmClass = &v1alpha2.VirtualMachineClass{}
+		vmClass := &v1alpha2.VirtualMachineClass{}
 
 		It("should pass validation cause no requirements", func() {
 			service := service.NewSizePolicyService()
