@@ -17,7 +17,7 @@ shell:
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 import:
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+  add: /kubevirt-binaries/
   to: /usr/bin
   after: install
   includePaths:
@@ -25,18 +25,23 @@ import:
   - virt-handler
   - container-disk
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest
+  add: /kubevirt/cmd/{{ $.ImageName }}/
+  to: /
+  after: install
+  includePaths:
+  - virt_launcher.cil
+- image: virt-artifact
+  add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:
   - .version
-  - virt_launcher.cil
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
-# Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-handler/BUILD.bazel
+# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-handler/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-handler"]

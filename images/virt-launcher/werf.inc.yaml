@@ -47,36 +47,39 @@ import:
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/
+  add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:
   - .version
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc/libvirt
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc/libvirt
   after: install
   includePaths:
   - qemu.conf
   - virtqemud.conf
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/etc
+  add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/bin
+  add: /kubevirt-binaries/
   to: /usr/bin
   before: setup
   includePaths:
   - container-disk
-  - node-labeller.sh
   - virt-freezer
   - virt-launcher
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
+- image: virt-artifact
+  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+  to: /usr/bin
+  before: setup
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -161,7 +164,7 @@ shell:
   - |
     [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
-# Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/virt-launcher/BUILD.bazel
+# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
 ---
