@@ -40,7 +40,7 @@ func NewSizePolicyService() *SizePolicyService {
 }
 
 func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineClass) error {
-	// check if no sizing policy requirements set
+	// check if no sizing policy requirements are set.
 	if len(vmClass.Spec.SizingPolicies) == 0 {
 		return nil
 	}
