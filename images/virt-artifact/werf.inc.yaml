@@ -76,6 +76,7 @@ shell:
       GROUP_FILE=/kubevirt-config-files/group
       echo "qemu:x:107:" > $GROUP_FILE
       echo "root:x:0:" >> $GROUP_FILE
+      echo "nonroot-user:x:1001:" >> $GROUP_FILE
       chmod 0644 $GROUP_FILE
     
     - echo "Create passwd file"
@@ -83,6 +84,7 @@ shell:
       PASSWD_FILE=/kubevirt-config-files/passwd
       echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
       echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
+      echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
       chmod 0644 $PASSWD_FILE
 
     - export GO111MODULE=on
@@ -129,7 +131,7 @@ shell:
     - echo ============== Build virt-operator ====================
     - go build -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
     
-    - echo "Build csv-generator"
+    - echo ============== Build csv-generator ====================
     - go build -o /kubevirt-binaries/csv-generator ./tools/csv-generator
     
     - echo ============== Build sidecars =========================
