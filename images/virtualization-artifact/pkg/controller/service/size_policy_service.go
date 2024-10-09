@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -39,7 +39,12 @@ func NewSizePolicyService() *SizePolicyService {
 	return &SizePolicyService{}
 }
 
-func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) error {
+func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineClass) error {
+	// check if no sizing policy requirements are set
+	if len(vmClass.Spec.SizingPolicies) == 0 {
+		return nil
+	}
+
 	sizePolicy := getVMSizePolicy(vm, vmClass)
 	if sizePolicy == nil {
 		return fmt.Errorf(
@@ -61,7 +66,7 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine
 	return nil
 }
 
-func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) *v1alpha2.SizingPolicy {
+func getVMSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineClass) *virtv2.SizingPolicy {
 	for _, sp := range vmClass.Spec.SizingPolicies {
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
 			return sp.DeepCopy()
@@ -71,7 +76,7 @@ func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachi
 	return nil
 }
 
-func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+func validateCoreFraction(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if sp.CoreFractions == nil {
 		return
 	}
@@ -97,7 +102,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	return
 }
 
-func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+func validateMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if sp.Memory == nil || sp.Memory.Max.IsZero() {
 		return
 	}
@@ -130,7 +135,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 	return
 }
 
-func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
+func validatePerCoreMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
 	if sp.Memory == nil || sp.Memory.PerCore.Max.IsZero() {
 		return
 	}
