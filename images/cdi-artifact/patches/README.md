@@ -49,3 +49,7 @@ That version ignores non-existent path and it actually a v4 from main branch.
 CDI 1.60.3 uses evanphx-json-patch /v5 version, which has options to change
 the behaviour for add and remove operations, but there is no option
 to change behaviour for the replace operation.
+
+#### `016-scratch-filesystem-overhead-formula.patch`
+
+Manage the filesystem overhead of the scratch PVC using a formula derived from empirical estimates, adjusted for the target PVC size.
