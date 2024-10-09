@@ -140,23 +140,6 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 		log.Info("Ready", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	default:
-		employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vdRef.Status.Conditions)
-		if employedCondition.Status == metav1.ConditionTrue {
-			employedErr := fmt.Errorf("VirtualDisk is currently employed by a running VirtualMachine")
-
-			setPhaseConditionToFailed(condition, &vi.Status.Phase, err)
-			err = ds.importerService.Unprotect(ctx, pod)
-			if err != nil {
-				return false, err
-			}
-			_, err = ds.CleanUp(ctx, vi)
-			if err != nil {
-				return false, err
-			}
-
-			return false, employedErr
-		}
-
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -362,9 +345,9 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	employedCondition, _ := service.GetCondition(vdcondition.EmployedType, vd.Status.Conditions)
-	if employedCondition.Status != metav1.ConditionFalse {
-		return NewVirtualDiskEmployedError(vd.Name)
+	inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUseCondition.Status != metav1.ConditionFalse {
+		return NewVirtualDiskInUseError(vd.Name)
 	}
 
 	return nil

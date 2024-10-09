@@ -65,16 +65,16 @@ func NewVirtualDiskNotReadyError(name string) error {
 	}
 }
 
-type VirtualDiskEmployedError struct {
+type VirtualDiskInUseError struct {
 	name string
 }
 
-func (e VirtualDiskEmployedError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q is currently employed by a running VirtualMachine", e.name)
+func (e VirtualDiskInUseError) Error() string {
+	return fmt.Sprintf("VirtualDisk %q attached to running `VirtualMachine` or running a process to create a `VirtualImage` from this `VirtualDisk`", e.name)
 }
 
-func NewVirtualDiskEmployedError(name string) error {
-	return VirtualDiskEmployedError{
+func NewVirtualDiskInUseError(name string) error {
+	return VirtualDiskInUseError{
 		name: name,
 	}
 }
