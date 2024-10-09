@@ -20,7 +20,7 @@ import "io"
 
 const (
 	// containerDiskImageDir - Expected disk image location in container image as described in
-	// https://github.com/kubevirt/kubevirt/blob/main/docs/container-register-disks.md
+	// https://github.com/kubevirt/kubevirt/blob/v1.3.1/docs/container-register-disks.md
 	containerDiskImageDir = "disk"
 )
 

@@ -1,21 +1,26 @@
 ---
+# libguestfs-appliance from kubevirt/WORKSPACE
+{{- $libguestfsApplianceTar := "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.48.4-qcow2-linux-5.14.0-183-centos9.tar.xz" }}
+
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest/usr/local/lib/guestfs/appliance
+  add: /kubevirt/cmd/{{ $.ImageName }}/
+  to: /
   includePaths:
-  - '*'
-  to: /usr/local/lib/guestfs/appliance
+  - entrypoint.sh
   before: setup
 - image: virt-artifact
-  add: /images/kubevirt/{{ $.ImageName }}:latest
+  add: /kubevirt-config-files/
+  to: /
   includePaths:
   - .version
-  - entrypoint.sh
-  to: /
   before: setup
 shell:
+  beforeInstall:
+  - mkdir -p /usr/local/lib/guestfs/
+  - /.werf/stapel/embedded/bin/curl -L {{ $libguestfsApplianceTar }} | tar -xJ -C /usr/local/lib/guestfs/
   install:
   # Install main packages, update GPG keys and vendor IDs list.
   - |
@@ -29,7 +34,7 @@ shell:
     guestfs-tools==1.52.0-alt1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-# Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/libguestfs/BUILD.bazel
+# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/libguestfs/BUILD.bazel
 docker:
   ENTRYPOINT: ["/entrypoint.sh"]
   USER: 1001
