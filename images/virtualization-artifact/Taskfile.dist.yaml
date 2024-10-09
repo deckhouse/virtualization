@@ -18,44 +18,44 @@ includes:
 
 vars:
   BaseNamespace: d8-virtualization
-  PyroscopeNamespace: "pyroscope"
-  CDIVersion: "v1.57.0-alpha1"
-  KubeVirtVersion: "v1.0.0"
-  CaddyVersion: "2.4.5"
-  LocalRegistry: "k3d-registry.virtualization-controller.test:5000"
-  DevRegistry: "dev-registry.deckhouse.io/virt/dev"
-  ControllerImageName: "virtualization-controller:latest"
-  ControllerBuilderImageName: "virtualization-controller-builder:latest"
-  ImporterImageName: "virtualization-importer:latest"
-  UploaderImageName: "virtualization-uploader:latest"
-  ClusterType:
-    sh: |
-      # Cluster type may be overriden with CLUSTER_TYPE env var.
-      [ -n "${CLUSTER_TYPE}" ] && echo -n ${CLUSTER_TYPE} && exit
-      # Cluster type detection is a heavy operation. Run kubectl only for particular tasks.
-      ForTasks="build:controller build:importer build:uploader dev:up dev:run caddy:up dvcr:up cluster:info _ensure:cluster-type _ensure:image-prefix"
-      for task in $ForTasks ; do
-        if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
-          if nodes=$(kubectl get no -o wide --show-labels) ; then
-            echo "${nodes}" | grep node.kubernetes.io/instance-type=k3s 2>&1 >/dev/null \
-              && echo "local" || echo "remote"
-            break
-          fi
-        fi
-      done
+  # PyroscopeNamespace: "pyroscope"
+  # CDIVersion: "v1.57.0-alpha1"
+  # KubeVirtVersion: "v1.0.0"
+  # CaddyVersion: "2.4.5"
+  # LocalRegistry: "k3d-registry.virtualization-controller.test:5000"
+  # DevRegistry: "dev-registry.deckhouse.io/virt/dev"
+  # ControllerImageName: "virtualization-controller:latest"
+  # ControllerBuilderImageName: "virtualization-controller-builder:latest"
+  # ImporterImageName: "virtualization-importer:latest"
+  # UploaderImageName: "virtualization-uploader:latest"
+  # ClusterType:
+  #   sh: |
+  #     # Cluster type may be overriden with CLUSTER_TYPE env var.
+  #     [ -n "${CLUSTER_TYPE}" ] && echo -n ${CLUSTER_TYPE} && exit
+  #     # Cluster type detection is a heavy operation. Run kubectl only for particular tasks.
+  #     ForTasks="build:controller build:importer build:uploader dev:up dev:run caddy:up dvcr:up cluster:info _ensure:cluster-type _ensure:image-prefix"
+  #     for task in $ForTasks ; do
+  #       if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
+  #         if nodes=$(kubectl get no -o wide --show-labels) ; then
+  #           echo "${nodes}" | grep node.kubernetes.io/instance-type=k3s 2>&1 >/dev/null \
+  #             && echo "local" || echo "remote"
+  #           break
+  #         fi
+  #       fi
+  #     done
 
-  ImagePrefix:
-    sh: |
-      # Image prefix may be overriden with IMAGE_PREFIX env var.
-      [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
-      # Image prefix detection is a heavy operation. Run it only for particular tasks.
-      ForTasks="build:controller build:importer build:uploader dev:run cluster:info _ensure:image-prefix"
-      for task in $ForTasks ; do
-        if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
-          kubectl get no -o jsonpath='{.items[0].metadata.name}' -l node-role.kubernetes.io/master= 2>/dev/null || echo ""
-          break
-        fi
-      done
+  # ImagePrefix:
+  #   sh: |
+  #     # Image prefix may be overriden with IMAGE_PREFIX env var.
+  #     [ -n "${IMAGE_PREFIX}" ] && echo -n ${IMAGE_PREFIX} && exit
+  #     # Image prefix detection is a heavy operation. Run it only for particular tasks.
+  #     ForTasks="build:controller build:importer build:uploader dev:run cluster:info _ensure:image-prefix"
+  #     for task in $ForTasks ; do
+  #       if [[ "{{.TASK}}" == "${task}" || "{{.TASK}}" == *":${task}" ]] ; then
+  #         kubectl get no -o jsonpath='{.items[0].metadata.name}' -l node-role.kubernetes.io/master= 2>/dev/null || echo ""
+  #         break
+  #       fi
+  #     done
 env:
   K8S_CODEGEN:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
@@ -66,249 +66,244 @@ env:
   CONTROLLER_TEST_OS_IMAGES:
     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
 tasks:
-  dev:converge:
-    desc: "Rebuild and deploy all components into detected cluster"
-    cmds:
-      - task: build
-      - task: dev:run
+  # dev:converge:
+  #   desc: "Rebuild and deploy all components into detected cluster"
+  #   cmds:
+  #     - task: build
+  #     - task: dev:run
 
-  dev:reset:
-    desc: "Reset local kubernetes cluster"
-    cmds:
-      - task: dev:down
-      - task: dev:up
+  # dev:reset:
+  #   desc: "Reset local kubernetes cluster"
+  #   cmds:
+  #     - task: dev:down
+  #     - task: dev:up
 
-  dev:up:
-    desc: "Setup required components in local k3d cluster"
-    deps:
-      - _ensure:k3d
-      - _ensure:crane
-      - _ensure:kubectl
-      - _ensure:virtctl
-      - _ensure:k3d-registry-domain
-      - _ensure:k3d-registry-insecure-allowed
-    vars:
-      ClusterType: "local"
-    env:
-      CLUSTER_TYPE: "local"
-    cmds:
-      - task: cluster:up
+  # dev:up:
+  #   desc: "Setup required components in local k3d cluster"
+  #   deps:
+  #     - _ensure:k3d
+  #     - _ensure:crane
+  #     - _ensure:kubectl
+  #     # - _ensure:virtctl
+  #     - _ensure:k3d-registry-domain
+  #     - _ensure:k3d-registry-insecure-allowed
+  #   vars:
+  #     ClusterType: "local"
+  #   env:
+  #     CLUSTER_TYPE: "local"
+  #   cmds:
+  #     - task: cluster:up
+  #     - task: dev:preload-images
+  #     - task: kubevirt:up
+  #     - task: cdi:up
+  #     - task: caddy:up
+  #     - task: caddy:preload-os-images
+  #     - task: dvcr:up
 
-      - task: dev:preload-images
+  # dev:down:
+  #   desc: "Delete local k3d cluster"
+  #   deps:
+  #     - _ensure:k3d
+  #     - _ensure:kubectl
+  #     - _ensure:k3d-registry-domain
+  #     - _ensure:k3d-registry-insecure-allowed
+  #     - _ensure:image-prefix
+  #   cmds:
+  #     - task: cluster:down
+  #     - task: build:cache:reset
 
-      - task: kubevirt:up
+  # dev:up:remote:
+  #   desc: "Setup components in a remote deckhouse cluster"
+  #   vars:
+  #     ClusterType: "remote"
+  #   cmds:
+  #     - task: _ensure:cluster-available
+  #     - task: caddy:up
+  #     - task: dvcr:up
 
-      - task: cdi:up
+  # dev:preload-images:
+  #   desc: "Preload images for all components"
+  #   cmds:
+  #     - task: cdi:preload-images
+  #     - task: kubevirt:preload-images
+  #     - task: caddy:preload-images
+  #     - task: dvcr:preload-images
 
-      - task: caddy:up
-      - task: caddy:preload-os-images
+  # dev:rmns:
+  #   desc: "Remove namespace with finalizer"
+  #   cmds:
+  #     - |
+  #       ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
 
-      - task: dvcr:up
+  # cluster:up:
+  #   desc: "Create local k3d cluster"
+  #   cmds:
+  #     - ( cd $HOME/.virtualization-controller-k3d ; mkdir -p mounts storage )
+  #     - k3d registry create registry.virtualization-controller.test --port 5000
+  #     - |
+  #       kubevirt_mounts=()
+  #       if [[ "{{OS}}" == "linux" ]] ; then
+  #         kubevirt_mounts=(
+  #           --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt:/var/run/kubevirt"
+  #           --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt-private:/var/run/kubevirt-private"
+  #         )
+  #       fi
+  #       k3d cluster create \
+  #           --api-port 6550 -p "80:80@loadbalancer" \
+  #           --registry-use k3d-registry.virtualization-controller.test:5000 \
+  #           --volume $HOME/.virtualization-controller-k3d/storage:/var/lib/rancher/k3s/storage@all \
+  #           "${kubevirt_mounts[@]}"
 
-  dev:down:
-    desc: "Delete local k3d cluster"
-    deps:
-      - _ensure:k3d
-      - _ensure:kubectl
-      - _ensure:k3d-registry-domain
-      - _ensure:k3d-registry-insecure-allowed
-      - _ensure:image-prefix
-    cmds:
-      - task: cluster:down
-      - task: build:cache:reset
+  # cluster:info:
+  #   desc: "Show cluster type and installed components"
+  #   cmds:
+  #     - |
+  #       echo "Will use context '$(kubectl config current-context)' for kubectl and helm"
+  #     - task: _ensure:image-prefix
+  #     - |
+  #       echo 'Detected cluster type is {{.ClusterType}}'
+  #       if [ "{{.ClusterType}}" == "remote" ] ; then
+  #         echo 'Detected image prefix is {{.ImagePrefix}}'
+  #         echo Dev images:
+  #         echo '  Controller: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}'
+  #         echo '  Importer: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}'
+  #         echo '  Uploader: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}'
+  #       fi
 
-  dev:up:remote:
-    desc: "Setup components in a remote deckhouse cluster"
-    vars:
-      ClusterType: "remote"
-    cmds:
-      - task: _ensure:cluster-available
-      - task: caddy:up
-      - task: dvcr:up
+  # cluster:down:
+  #   desc: ""
+  #   cmds:
+  #     - k3d registry delete --all || true
+  #     - k3d cluster delete || true
 
-  dev:preload-images:
-    desc: "Preload images for all components"
-    cmds:
-      - task: cdi:preload-images
-      - task: kubevirt:preload-images
-      - task: caddy:preload-images
-      - task: dvcr:preload-images
+  # kubevirt:preload-images:
+  #   desc: "Preload images for Kubevirt components"
+  #   cmds:
+  #     - |
+  #       # Preload kubevirt images.
+  #       docker pull quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+  #       k3d image import quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
+  #       docker pull quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+  #       k3d image import quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
+  #       docker pull quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+  #       k3d image import quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
+  #       docker pull quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+  #       k3d image import quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
+  #       docker pull quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+  #       k3d image import quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
 
-  dev:rmns:
-    desc: "Remove namespace with finalizer"
-    cmds:
-      - |
-        ns=virtualization-controller ; kubectl get namespace $ns -o json | jq '.spec.finalizers= []' | kubectl replace --raw "/api/v1/namespaces/$ns/finalize" -f -
+  # kubevirt:up:
+  #   desc: "Insall kubevirt into local cluster"
+  #   cmds:
+  #     - |
+  #       # Install KubeVirt
+  #       export RELEASE={{.KubeVirtVersion}}
+  #       kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+  #       kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
 
-  cluster:up:
-    desc: "Create local k3d cluster"
-    cmds:
-      - ( cd $HOME/.virtualization-controller-k3d ; mkdir -p mounts storage )
-      - k3d registry create registry.virtualization-controller.test --port 5000
-      - |
-        kubevirt_mounts=()
-        if [[ "{{OS}}" == "linux" ]] ; then
-          kubevirt_mounts=(
-            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt:/var/run/kubevirt"
-            --volume "$HOME/.virtualization-controller-k3d/mounts/var/run/kubevirt-private:/var/run/kubevirt-private"
-          )
-        fi
-        k3d cluster create \
-            --api-port 6550 -p "80:80@loadbalancer" \
-            --registry-use k3d-registry.virtualization-controller.test:5000 \
-            --volume $HOME/.virtualization-controller-k3d/storage:/var/lib/rancher/k3s/storage@all \
-            "${kubevirt_mounts[@]}"
+  #       if [[ "{{OS}}" == "darwin" ]] ; then
+  #         # Enable emulation mode for MacOS.
+  #         echo "Enable Software emulation ..."
+  #         kubectl -n kubevirt patch kubevirt kubevirt  --type=merge --patch '{"spec": {"configuration": {"developerConfiguration": {"useEmulation": true}}}}'
+  #       else
+  #         # Do not wait for kubevirt on MacOS, it is always stuck in the CreateContainerError phase.
+  #         echo "Wait until kubevirt is ready ..."
+  #         kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
+  #       fi
 
-  cluster:info:
-    desc: "Show cluster type and installed components"
-    cmds:
-      - |
-        echo "Will use context '$(kubectl config current-context)' for kubectl and helm"
-      - task: _ensure:image-prefix
-      - |
-        echo 'Detected cluster type is {{.ClusterType}}'
-        if [ "{{.ClusterType}}" == "remote" ] ; then
-          echo 'Detected image prefix is {{.ImagePrefix}}'
-          echo Dev images:
-          echo '  Controller: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}'
-          echo '  Importer: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}'
-          echo '  Uploader: {{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}'
-        fi
+  # cdi:preload-images:
+  #   desc: "Preload images for cdi-importer components"
+  #   cmds:
+  #     - |
+  #       # Preload images for faster start of cdi-importer.
+  #       docker pull       quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+  #       k3d image import  quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
+  #       docker pull       quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+  #       k3d image import  quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
+  #       docker pull       quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+  #       k3d image import  quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
+  #       docker pull       quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+  #       k3d image import  quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
 
-  cluster:down:
-    desc: ""
-    cmds:
-      - k3d registry delete --all || true
-      - k3d cluster delete || true
+  # cdi:up:
+  #   desc: "Install CDI into local cluster"
+  #   cmds:
+  #     - |
+  #       # Install CDI
+  #       export TAG=$(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest)
+  #       export VERSION=$(echo ${TAG##*/})
+  #       kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
+  #       kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
 
-  kubevirt:preload-images:
-    desc: "Preload images for Kubevirt components"
-    cmds:
-      - |
-        # Preload kubevirt images.
-        docker pull quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-api:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-controller:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-handler:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-launcher:{{.KubeVirtVersion}}
-        docker pull quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
-        k3d image import quay.io/kubevirt/virt-operator:{{.KubeVirtVersion}}
+  #     - |
+  #       kubectl patch cdi cdi \
+  #           --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
+  #           --type merge
 
-  kubevirt:up:
-    desc: "Insall kubevirt into local cluster"
-    cmds:
-      - |
-        # Install KubeVirt
-        export RELEASE={{.KubeVirtVersion}}
-        kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
-        kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-cr.yaml
+  # caddy:up:
+  #   desc: "Start caddy file server"
+  #   cmds:
+  #     - |
+  #       echo "Install caddy server into '{{.ClusterType}}' cluster ..."
 
-        if [[ "{{OS}}" == "darwin" ]] ; then
-          # Enable emulation mode for MacOS.
-          echo "Enable Software emulation ..."
-          kubectl -n kubevirt patch kubevirt kubevirt  --type=merge --patch '{"spec": {"configuration": {"developerConfiguration": {"useEmulation": true}}}}'
-        else
-          # Do not wait for kubevirt on MacOS, it is always stuck in the CreateContainerError phase.
-          echo "Wait until kubevirt is ready ..."
-          kubectl -n kubevirt wait kv kubevirt --for condition=Available --timeout=5m
-        fi
+  #       helm upgrade --install \
+  #         --namespace caddy \
+  #         --create-namespace \
+  #         --set clusterType={{.ClusterType}} \
+  #         caddy ./local/caddy
+  #     - task: _copy_d8_registry_secret
+  #       vars:
+  #         NAMESPACE: caddy
 
-  cdi:preload-images:
-    desc: "Preload images for cdi-importer components"
-    cmds:
-      - |
-        # Preload images for faster start of cdi-importer.
-        docker pull       quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-importer:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-operator:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-apiserver:{{.CDIVersion}}
-        docker pull       quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
-        k3d image import  quay.io/kubevirt/cdi-uploadproxy:{{.CDIVersion}}
+  # caddy:down:
+  #   desc: "Uninstall caddy"
+  #   cmds:
+  #     - |
+  #       helm uninstall --namespace caddy caddy
 
-  cdi:up:
-    desc: "Install CDI into local cluster"
-    cmds:
-      - |
-        # Install CDI
-        export TAG=$(curl -s -w %{redirect_url} https://github.com/kubevirt/containerized-data-importer/releases/latest)
-        export VERSION=$(echo ${TAG##*/})
-        kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-operator.yaml
-        kubectl create -f https://github.com/kubevirt/containerized-data-importer/releases/download/$VERSION/cdi-cr.yaml
+  # caddy:preload-os-images:force:
+  #   desc: "Force download and extract OS images for local HTTP server"
+  #   cmds:
+  #     - |
+  #       echo "Cleanup caddy-images storage ..."
+  #       rm -rf $HOME/.virtualization-controller-k3d/storage/caddy-images/*
+  #     - task: caddy:preload-os-images
 
-      - |
-        kubectl patch cdi cdi \
-            --patch '{"spec": {"config": {"insecureRegistries": ["k3d-registry.virtualization-controller.test:5000"]}}}' \
-            --type merge
+  # caddy:preload-os-images:
+  #   desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
+  #   deps:
+  #     - task: _ensure:crane
+  #   cmds:
+  #     - |
+  #       CADDY_DIR="$HOME/.virtualization-controller-k3d/storage/caddy-images"
+  #       if [ "$(ls -A $CADDY_DIR)" ] ; then
+  #         echo "Images already exist, skip downloading. Use 'task caddy:preload-os-images:force' to force downloading."
+  #         exit 0
+  #       fi
+  #       echo "Download and extract test OS images (be patient) ..."
+  #       # Extract *.img and *.iso files from archive in dev-registry.
+  #       # $HOME/.virtualization-controller-k3d/storage/caddy-images is mounted as caddy Pod volume
+  #       crane export ${CONTROLLER_TEST_OS_IMAGES} - | tar -C $HOME/.virtualization-controller-k3d/storage/caddy-images --strip-components=4 -xvf - usr/share/caddy/images
 
-  caddy:up:
-    desc: "Start caddy file server"
-    cmds:
-      - |
-        echo "Install caddy server into '{{.ClusterType}}' cluster ..."
+  # caddy:push-os-images:
+  #   desc: "Archive and push cloud images that will be http-served in the local kubernetes cluster"
+  #   cmds:
+  #     - |
+  #       [ -f local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img ] || wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -O local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img
+  #     - |
+  #       docker build ./local/caddy/ \
+  #         -f ./local/caddy/Dockerfile \
+  #         -t ${CONTROLLER_TEST_OS_IMAGES} \
+  #         --platform linux/amd64
+  #        docker push ${CONTROLLER_TEST_OS_IMAGES}
 
-        helm upgrade --install \
-          --namespace caddy \
-          --create-namespace \
-          --set clusterType={{.ClusterType}} \
-          caddy ./local/caddy
-      - task: _copy_d8_registry_secret
-        vars:
-          NAMESPACE: caddy
-
-  caddy:down:
-    desc: "Uninstall caddy"
-    cmds:
-      - |
-        helm uninstall --namespace caddy caddy
-
-  caddy:preload-os-images:force:
-    desc: "Force download and extract OS images for local HTTP server"
-    cmds:
-      - |
-        echo "Cleanup caddy-images storage ..."
-        rm -rf $HOME/.virtualization-controller-k3d/storage/caddy-images/*
-      - task: caddy:preload-os-images
-
-  caddy:preload-os-images:
-    desc: "Preload cloud images that will be http-served in the local kubernetes cluster"
-    deps:
-      - task: _ensure:crane
-    cmds:
-      - |
-        CADDY_DIR="$HOME/.virtualization-controller-k3d/storage/caddy-images"
-        if [ "$(ls -A $CADDY_DIR)" ] ; then
-          echo "Images already exist, skip downloading. Use 'task caddy:preload-os-images:force' to force downloading."
-          exit 0
-        fi
-        echo "Download and extract test OS images (be patient) ..."
-        # Extract *.img and *.iso files from archive in dev-registry.
-        # $HOME/.virtualization-controller-k3d/storage/caddy-images is mounted as caddy Pod volume
-        crane export ${CONTROLLER_TEST_OS_IMAGES} - | tar -C $HOME/.virtualization-controller-k3d/storage/caddy-images --strip-components=4 -xvf - usr/share/caddy/images
-
-  caddy:push-os-images:
-    desc: "Archive and push cloud images that will be http-served in the local kubernetes cluster"
-    cmds:
-      - |
-        [ -f local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img ] || wget https://cloud-images.ubuntu.com/minimal/releases/jammy/release-20230615/ubuntu-22.04-minimal-cloudimg-amd64.img -O local/caddy/images/ubuntu-22.04-minimal-cloudimg-amd64.img
-      - |
-        docker build ./local/caddy/ \
-          -f ./local/caddy/Dockerfile \
-          -t ${CONTROLLER_TEST_OS_IMAGES} \
-          --platform linux/amd64
-         docker push ${CONTROLLER_TEST_OS_IMAGES}
-
-  caddy:preload-images:
-    desc: "Preload images for Caddy components."
-    cmds:
-      - |
-        # Preload images for Caddy components.
-        docker pull "caddy:{{.CaddyVersion}}"
-        k3d image import "caddy:{{.CaddyVersion}}"
+  # caddy:preload-images:
+  #   desc: "Preload images for Caddy components."
+  #   cmds:
+  #     - |
+  #       # Preload images for Caddy components.
+  #       docker pull "caddy:{{.CaddyVersion}}"
+  #       k3d image import "caddy:{{.CaddyVersion}}"
 
   dvcr:preload-images:
     desc: "Preload images for DVCR components."
@@ -805,15 +800,15 @@ tasks:
       - |
         [ -f ./golangci-lint ] || which golangci-lint
 
-  _ensure:virtctl:
-    desc: "Ensure virtctl tool is installed"
-    internal: true
-    cmds:
-      - echo -e >&2 "Install virtctl from the release page of the KubeVirt github page:\n" \
-        "https://github.com/kubevirt/kubevirt/releases\n"
-      - exit 1
-    status:
-      - which virtctl >/dev/null
+  # _ensure:virtctl:
+  #   desc: "Ensure virtctl tool is installed"
+  #   internal: true
+  #   cmds:
+  #     - echo -e >&2 "Install virtctl from the release page of the KubeVirt github page:\n" \
+  #       "https://github.com/kubevirt/kubevirt/releases\n"
+  #     - exit 1
+  #   status:
+  #     - which virtctl >/dev/null
   _ensure:mirrord:
     desc: "Ensure mirrord tool is installed"
     internal: true
