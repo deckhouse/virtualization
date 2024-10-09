@@ -36,7 +36,7 @@ shell:
     guestfs-tools==1.52.0-alt1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-# Source https://github.com/kubevirt/kubevirt/blob/v1.0.0/cmd/libguestfs/BUILD.bazel
+# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/libguestfs/BUILD.bazel
 docker:
   ENTRYPOINT: ["/entrypoint.sh"]
   USER: 1001
