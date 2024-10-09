@@ -23,10 +23,12 @@ shell:
   - mkdir -p /usr/local/lib/guestfs/
   - curl -L {{ $libguestfsApplianceTar }} | tar -xJ -C /usr/local/lib/guestfs/
   - apt-get remove curl --yes
+  - apt-get clean
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   # Install main packages, update GPG keys and vendor IDs list.
   - |
-    apt-get install --yes \
+    apt-get update && apt-get install --yes \
     acl \
     seabios \
     edk2-ovmf \
