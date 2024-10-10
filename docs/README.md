@@ -76,7 +76,10 @@ The table below shows the access matrix for these roles:
 | Resource                             | User | PrivilegedUser | Editor | Admin | ClusterEditor | ClusterAdmin |
 | ------------------------------------ | ---- | -------------- | ------ | ----- | ------------- | ------------ |
 | virtualmachines                      | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachinesnapshots              | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualmachinerestores               | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualdisks                         | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
+| virtualdisksnapshot                  | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
 | virtualimages                        | R    | R              | R      | CRUD  | CRUD          | CRUD         |
 | clustervirtualimages                 | R    | R              | R      | R     | CRUD          | CRUD         |
 | virtualmachineblockdeviceattachments | R    | R              | CRUD   | CRUD  | CRUD          | CRUD         |
