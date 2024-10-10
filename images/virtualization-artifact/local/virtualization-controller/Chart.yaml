@@ -1,4 +1,0 @@
-apiVersion: v1
-name: vmi-controller
-version: 1.0.0
-description: Test vmi-controller

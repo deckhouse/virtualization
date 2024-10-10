@@ -4,17 +4,6 @@ silent: true
 
 includes:
   init: Taskfile.init.yaml
-  cvmi: Taskfile.cvmi.yaml
-  vmi: Taskfile.vmi.yaml
-  api:
-    taskfile: ../../api/Taskfile.dist.yaml
-    dir: ../../api
-  my:
-    taskfile: Taskfile.my.yaml
-    optional: true
-  dvcr:
-    taskfile: ../dvcr-artifact/Taskfile.dist.yaml
-    dir: ../dvcr-artifact/
 
 vars:
   BaseNamespace: d8-virtualization
@@ -56,15 +45,15 @@ vars:
   #         break
   #       fi
   #     done
-env:
-  K8S_CODEGEN:
-    sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
-  CONTROLLER_IMAGE:
-    sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
-  CONTROLLER_BUILDER_IMAGE:
-    sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
-  CONTROLLER_TEST_OS_IMAGES:
-    sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
+# env:
+#   K8S_CODEGEN:
+#     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
+#   CONTROLLER_IMAGE:
+#     sh: echo ${CONTROLLER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerImageName}}}
+#   CONTROLLER_BUILDER_IMAGE:
+#     sh: echo ${CONTROLLER_BUILDER_IMAGE:-k3d-registry.virtualization-controller.test:5000/{{.ControllerBuilderImageName}}}
+#   CONTROLLER_TEST_OS_IMAGES:
+#     sh: echo ${CONTROLLER_TEST_OS_IMAGES:-dev-registry.deckhouse.io/virt/test-os-images:latest}
 tasks:
   # dev:converge:
   #   desc: "Rebuild and deploy all components into detected cluster"
@@ -305,271 +294,271 @@ tasks:
   #       docker pull "caddy:{{.CaddyVersion}}"
   #       k3d image import "caddy:{{.CaddyVersion}}"
 
-  dvcr:preload-images:
-    desc: "Preload images for DVCR components."
-    cmds:
-      - |
-        echo "Import images for DVCR ..."
-        docker pull nginx:stable-alpine
-        k3d image import nginx:stable-alpine
-        docker pull registry:2
-        k3d image import registry:2
+  # dvcr:preload-images:
+  #   desc: "Preload images for DVCR components."
+  #   cmds:
+  #     - |
+  #       echo "Import images for DVCR ..."
+  #       docker pull nginx:stable-alpine
+  #       k3d image import nginx:stable-alpine
+  #       docker pull registry:2
+  #       k3d image import registry:2
 
-  dvcr:up:
-    desc: "Install dvcr registry into the cluster using helm"
-    deps:
-      - _ensure:helm
-      - _ensure:kubectl
-      - _ensure:cluster-type
-    cmds:
-      - |
-        # Gen certs.
-        if [[ ! -f ./local/dvcr/certs/ca.csr ]] ; then
-          echo "Generate TLS certificates for DVCR ..."
-          cd ./local/dvcr
-          ./gen-certs.sh
-        fi
-      - |
-        helm upgrade --install \
-          --namespace dvcr \
-          --create-namespace \
-          --set clusterType={{.ClusterType}} \
-          dvcr ./local/dvcr
+  # dvcr:up:
+  #   desc: "Install dvcr registry into the cluster using helm"
+  #   deps:
+  #     - _ensure:helm
+  #     - _ensure:kubectl
+  #     - _ensure:cluster-type
+  #   cmds:
+  #     - |
+  #       # Gen certs.
+  #       if [[ ! -f ./local/dvcr/certs/ca.csr ]] ; then
+  #         echo "Generate TLS certificates for DVCR ..."
+  #         cd ./local/dvcr
+  #         ./gen-certs.sh
+  #       fi
+  #     - |
+  #       helm upgrade --install \
+  #         --namespace dvcr \
+  #         --create-namespace \
+  #         --set clusterType={{.ClusterType}} \
+  #         dvcr ./local/dvcr
 
-  dvcr:down:
-    desc: "Remove DVCR from cluster"
-    cmds:
-      - |
-        helm uninstall --namespace dvcr dvcr
-      - |
-        kubectl delete ns/dvcr
+  # dvcr:down:
+  #   desc: "Remove DVCR from cluster"
+  #   cmds:
+  #     - |
+  #       helm uninstall --namespace dvcr dvcr
+  #     - |
+  #       kubectl delete ns/dvcr
 
-  build:cache:reset:
-    desc: "Reset go build cache"
-    cmds:
-      - |
-        # Bootstrap builder image (only needed for build with BUILDER_CACHE_IMAGE)
-        docker rmi -f $CONTROLLER_BUILDER_IMAGE || true
+  # build:cache:reset:
+  #   desc: "Reset go build cache"
+  #   cmds:
+  #     - |
+  #       # Bootstrap builder image (only needed for build with BUILDER_CACHE_IMAGE)
+  #       docker rmi -f $CONTROLLER_BUILDER_IMAGE || true
 
-  build:
-    cmds:
-      - task: build:controller
-      - task: build:importer
-      - task: build:uploader
-      - task: build:cleanup
+  # build:
+  #   cmds:
+  #     - task: build:controller
+  #     - task: build:importer
+  #     - task: build:uploader
+  #     - task: build:cleanup
 
-  build:controller:nocache:
-    desc: "Build virtualization-controller image"
-    cmds:
-      # Simple build without BUILDER_CACHE_IMAGE build-arg (slower, but simple).
-      - |
-        docker build . \
-            -f ./local/virtualization-controller/Dockerfile \
-            -t ${CONTROLLER_IMAGE} \
-            --platform linux/amd64
-        docker push ${CONTROLLER_IMAGE}
+  # build:controller:nocache:
+  #   desc: "Build virtualization-controller image"
+  #   cmds:
+  #     # Simple build without BUILDER_CACHE_IMAGE build-arg (slower, but simple).
+  #     - |
+  #       docker build . \
+  #           -f ./local/virtualization-controller/Dockerfile \
+  #           -t ${CONTROLLER_IMAGE} \
+  #           --platform linux/amd64
+  #       docker push ${CONTROLLER_IMAGE}
 
-  build:controller:
-    desc: "Build virtualization-controller image for local development"
-    cmds:
-      - task: _ensure:image-prefix
-      - task: _build:controller
-        vars:
-          RemoteImage:
-            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}/{{.ControllerImageName}}" || true'
+  # build:controller:
+  #   desc: "Build virtualization-controller image for local development"
+  #   cmds:
+  #     - task: _ensure:image-prefix
+  #     - task: _build:controller
+  #       vars:
+  #         RemoteImage:
+  #           sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}/{{.ControllerImageName}}" || true'
 
-  _build:controller:
-    internal: true
-    vars:
-      ControllerImage: '{{.RemoteImage | default "${CONTROLLER_IMAGE}" }}'
-    deps:
-      - task: _build:controller:cache
-    cmds:
-      # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
-      - |
-        IMAGE="{{.ControllerImage}}"
-        echo "Build virtualization-controller image $IMAGE ..."
-        docker build . \
-            -f ./local/virtualization-controller/Dockerfile \
-            --build-arg BUILDER_CACHE_IMAGE=${CONTROLLER_BUILDER_IMAGE} \
-            -t ${IMAGE} \
-            --platform linux/amd64
-        docker push ${IMAGE}
+  # _build:controller:
+  #   internal: true
+  #   vars:
+  #     ControllerImage: '{{.RemoteImage | default "${CONTROLLER_IMAGE}" }}'
+  #   deps:
+  #     - task: _build:controller:cache
+  #   cmds:
+  #     # Build with BUILDER_CACHE_IMAGE build-arg (faster, but needs more space)
+  #     - |
+  #       IMAGE="{{.ControllerImage}}"
+  #       echo "Build virtualization-controller image $IMAGE ..."
+  #       docker build . \
+  #           -f ./local/virtualization-controller/Dockerfile \
+  #           --build-arg BUILDER_CACHE_IMAGE=${CONTROLLER_BUILDER_IMAGE} \
+  #           -t ${IMAGE} \
+  #           --platform linux/amd64
+  #       docker push ${IMAGE}
 
-  _build:controller:cache:
-    internal: true
-    desc: "Download Go modules and prebuild them to speedup next builds of the controller."
-    cmds:
-      - |
-        BUILDER_IMAGE="{{.BuilderImage}}"
-        docker build . \
-            -f ./local/virtualization-controller/Dockerfile \
-            --target builder \
-            -t ${CONTROLLER_BUILDER_IMAGE} \
-            --platform linux/amd64
-    status:
-      - |
-        docker image inspect ${CONTROLLER_BUILDER_IMAGE} -f '{{ .Created }}'
+  # _build:controller:cache:
+  #   internal: true
+  #   desc: "Download Go modules and prebuild them to speedup next builds of the controller."
+  #   cmds:
+  #     - |
+  #       BUILDER_IMAGE="{{.BuilderImage}}"
+  #       docker build . \
+  #           -f ./local/virtualization-controller/Dockerfile \
+  #           --target builder \
+  #           -t ${CONTROLLER_BUILDER_IMAGE} \
+  #           --platform linux/amd64
+  #   status:
+  #     - |
+  #       docker image inspect ${CONTROLLER_BUILDER_IMAGE} -f '{{ .Created }}'
 
-  build:importer:
-    desc: "Build dvcr-importer image for local development"
-    cmds:
-      - task: _ensure:image-prefix
-      - task: dvcr:importer:push
-        vars:
-          IMAGE_NAME: "{{.ImporterImageName}}"
-          REGISTRY:
-            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
+  # build:importer:
+  #   desc: "Build dvcr-importer image for local development"
+  #   cmds:
+  #     - task: _ensure:image-prefix
+  #     - task: dvcr:importer:push
+  #       vars:
+  #         IMAGE_NAME: "{{.ImporterImageName}}"
+  #         REGISTRY:
+  #           sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
-  build:uploader:
-    desc: "Build dvcr-uploader image for local development"
-    cmds:
-      - task: _ensure:image-prefix
-      - task: dvcr:uploader:push
-        vars:
-          IMAGE_NAME: "{{.UploaderImageName}}"
-          REGISTRY:
-            sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
+  # build:uploader:
+  #   desc: "Build dvcr-uploader image for local development"
+  #   cmds:
+  #     - task: _ensure:image-prefix
+  #     - task: dvcr:uploader:push
+  #       vars:
+  #         IMAGE_NAME: "{{.UploaderImageName}}"
+  #         REGISTRY:
+  #           sh: '[ "{{.ClusterType }}" == "remote" ] && echo "{{.DevRegistry}}/{{.ImagePrefix}}" || true'
 
-  build:cleanup:
-    cmds:
-      - |
-        echo "Remove dangling images"
-        docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
-        docker rmi -f $(docker image ls | grep {{ .DevRegistry }}/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
+  # build:cleanup:
+  #   cmds:
+  #     - |
+  #       echo "Remove dangling images"
+  #       docker rmi -f $(docker image ls | grep k3d-registry.virtualization-controller.test:5000/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
+  #       docker rmi -f $(docker image ls | grep {{ .DevRegistry }}/ | grep '<none>' | cut -w -f 3) 2>/dev/null || true
 
-  build:go:apiserver:
-    env:
-      PKG: "k8s.io/client-go/pkg"
-      BINARY_NAME: "virtualization-api"
-      CGO_ENABLED: "0"
-      GOOS: "linux"
-      GOARCH: "amd64"
-      GIT_COMMIT:
-        sh: git rev-parse "HEAD^{commit}" 2>/dev/null
-      GIT_TAG:
-        sh: git describe --abbrev=0 --tags 2>/dev/null
-      BUILD_DATE:
-        sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
-    cmds:
-      - |
-        go build -mod=readonly -trimpath \
-        -ldflags "-w -X $PKG/version.gitVersion=$GIT_TAG -X $PKG/version.gitCommit=$GIT_COMMIT -X $PKG/version.buildDate=$BUILD_DATE" \
-        -o "$PWD/bin/$BINARY_NAME" $PWD/cmd/virtualization-api
+  # build:go:apiserver:
+  #   env:
+  #     PKG: "k8s.io/client-go/pkg"
+  #     BINARY_NAME: "virtualization-api"
+  #     CGO_ENABLED: "0"
+  #     GOOS: "linux"
+  #     GOARCH: "amd64"
+  #     GIT_COMMIT:
+  #       sh: git rev-parse "HEAD^{commit}" 2>/dev/null
+  #     GIT_TAG:
+  #       sh: git describe --abbrev=0 --tags 2>/dev/null
+  #     BUILD_DATE:
+  #       sh: date -u +'%Y-%m-%dT%H:%M:%SZ'
+  #   cmds:
+  #     - |
+  #       go build -mod=readonly -trimpath \
+  #       -ldflags "-w -X $PKG/version.gitVersion=$GIT_TAG -X $PKG/version.gitCommit=$GIT_COMMIT -X $PKG/version.buildDate=$BUILD_DATE" \
+  #       -o "$PWD/bin/$BINARY_NAME" $PWD/cmd/virtualization-api
 
-  dev:run:
-    desc: "Install virtualization-controller into the cluster using helm"
-    deps:
-      - _ensure:helm
-      - _ensure:kubectl
-      - _ensure:cluster-available
-      - _ensure:image-prefix
-    preconditions:
-      - sh: |
-          docker images | grep 'virtualization-controller.*latest'
-        msg: "Image for virtualization-controller should be built"
-    cmds:
-      - |
-        mkdir -p local/virtualization-controller/crds
-        cp api/crds/*.yaml local/virtualization-controller/crds
-      - (cd local/virtualization-controller && bash gen-certs.sh -y)
-      - |
-        images=()
-        if [ "{{.ClusterType}}" == "remote" ] ; then
-          images=(
-            --set images.controller={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}
-            --set images.importer={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}
-            --set images.uploader={{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}
-          )
-        fi
-        helm upgrade --install \
-          --namespace virtualization-controller \
-          --create-namespace \
-          "${images[@]}" \
-          virtualization-controller ./local/virtualization-controller
-      - task: _copy_d8_registry_secret
-        vars:
-          NAMESPACE: virtualization-controller
+  # dev:run:
+  #   desc: "Install virtualization-controller into the cluster using helm"
+  #   deps:
+  #     - _ensure:helm
+  #     - _ensure:kubectl
+  #     - _ensure:cluster-available
+  #     - _ensure:image-prefix
+  #   preconditions:
+  #     - sh: |
+  #         docker images | grep 'virtualization-controller.*latest'
+  #       msg: "Image for virtualization-controller should be built"
+  #   cmds:
+  #     - |
+  #       mkdir -p local/virtualization-controller/crds
+  #       cp api/crds/*.yaml local/virtualization-controller/crds
+  #     - (cd local/virtualization-controller && bash gen-certs.sh -y)
+  #     - |
+  #       images=()
+  #       if [ "{{.ClusterType}}" == "remote" ] ; then
+  #         images=(
+  #           --set images.controller={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ControllerImageName }}
+  #           --set images.importer={{.DevRegistry}}/{{.ImagePrefix}}/{{ .ImporterImageName }}
+  #           --set images.uploader={{.DevRegistry}}/{{.ImagePrefix}}/{{ .UploaderImageName }}
+  #         )
+  #       fi
+  #       helm upgrade --install \
+  #         --namespace virtualization-controller \
+  #         --create-namespace \
+  #         "${images[@]}" \
+  #         virtualization-controller ./local/virtualization-controller
+  #     - task: _copy_d8_registry_secret
+  #       vars:
+  #         NAMESPACE: virtualization-controller
 
-  dev:logs:
-    desc: "Watch current virtualization-controller logs"
-    cmds:
-      - kubectl -n virtualization-controller logs deploy/virtualization-controller -f
+  # dev:logs:
+  #   desc: "Watch current virtualization-controller logs"
+  #   cmds:
+  #     - kubectl -n virtualization-controller logs deploy/virtualization-controller -f
 
-  dev:delete:
-    desc: "Delete virtualization-controller from the cluster using helm"
-    deps:
-      - _ensure:helm
-      - _ensure:kubectl
-      - _ensure:cluster-available
-    cmds:
-      - |
-        helm delete \
-          --namespace virtualization-controller \
-          virtualization-controller
-      - |
-        kubectl delete ns/virtualization-controller
+  # dev:delete:
+  #   desc: "Delete virtualization-controller from the cluster using helm"
+  #   deps:
+  #     - _ensure:helm
+  #     - _ensure:kubectl
+  #     - _ensure:cluster-available
+  #   cmds:
+  #     - |
+  #       helm delete \
+  #         --namespace virtualization-controller \
+  #         virtualization-controller
+  #     - |
+  #       kubectl delete ns/virtualization-controller
 
-  dev:update:crds:
-    desc: "Apply CRD manifests from api directory"
-    cmds:
-      - task: dev:update:cvmi
-      - task: dev:update:vmi
-      - task: dev:update:vmd
-      - task: dev:update:vmds
-      - task: dev:update:vm
-      - task: dev:update:vmbda
-      - task: dev:update:vmip
-      - task: dev:update:vmipl
+  # dev:update:crds:
+  #   desc: "Apply CRD manifests from api directory"
+  #   cmds:
+  #     - task: dev:update:cvmi
+  #     - task: dev:update:vmi
+  #     - task: dev:update:vmd
+  #     - task: dev:update:vmds
+  #     - task: dev:update:vm
+  #     - task: dev:update:vmbda
+  #     - task: dev:update:vmip
+  #     - task: dev:update:vmipl
 
-  dev:update:cvmi:
-    desc: "Update ClusterVirtualImage CRD"
-    cmds:
-      - kubectl apply -f api/crds/clustervirtualimage.yaml
+  # dev:update:cvmi:
+  #   desc: "Update ClusterVirtualImage CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/clustervirtualimage.yaml
 
-  dev:update:vmi:
-    desc: "Update VirtualImage CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualimage.yaml
+  # dev:update:vmi:
+  #   desc: "Update VirtualImage CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualimage.yaml
 
-  dev:update:vmd:
-    desc: "Update VirtualDisk CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualdisk.yaml
+  # dev:update:vmd:
+  #   desc: "Update VirtualDisk CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualdisk.yaml
 
-  dev:update:vmds:
-    desc: "Update VirtualDiskSnapshot CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachinedisksnapshot.yaml
+  # dev:update:vmds:
+  #   desc: "Update VirtualDiskSnapshot CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachinedisksnapshot.yaml
 
-  dev:update:vm:
-    desc: "Update VirtualMachine CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachine.yaml
+  # dev:update:vm:
+  #   desc: "Update VirtualMachine CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachine.yaml
 
-  dev:update:vmbda:
-    desc: "Update VirtualMachineBlockDeviceAttachment CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachineblockdeviceattachment.yaml
+  # dev:update:vmbda:
+  #   desc: "Update VirtualMachineBlockDeviceAttachment CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachineblockdeviceattachment.yaml
 
-  dev:update:vmip:
-    desc: "Update VirtualMachineIPAddressClaim CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachineipaddressclaim.yaml
+  # dev:update:vmip:
+  #   desc: "Update VirtualMachineIPAddressClaim CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachineipaddressclaim.yaml
 
-  dev:update:vmipl:
-    desc: "Update VirtualMachineIPAddressLease CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachineipaddresslease.yaml
+  # dev:update:vmipl:
+  #   desc: "Update VirtualMachineIPAddressLease CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachineipaddresslease.yaml
 
-  dev:update:vmop:
-    desc: "Update VirtualMachineOperation CRD"
-    cmds:
-      - kubectl apply -f api/crds/virtualmachineoperations.yaml
+  # dev:update:vmop:
+  #   desc: "Update VirtualMachineOperation CRD"
+  #   cmds:
+  #     - kubectl apply -f api/crds/virtualmachineoperations.yaml
 
-  kctl:
-    cmds:
-      - kubectl -n virtualization-controller {{.CLI_ARGS}}
+  # kctl:
+  #   cmds:
+  #     - kubectl -n virtualization-controller {{.CLI_ARGS}}
 
   fmt:
     desc: "Run formatters locally"
@@ -684,35 +673,35 @@ tasks:
     desc: "Push image virtualization-api with dlv"
     cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
 
-  _copy_d8_registry_secret:
-    internal: true
-    vars:
-      NAMESPACE: "{{.NAMESPACE}}"
-    cmds:
-      - |
-        [ "{{.NAMESPACE}}" == "" ] && echo "No NS specified for copy deckhouse-registry Secret." && exit 0
-        # Copy d8 registry secret
-        if kubectl get -n kube-system secret deckhouse-registry ; then
-        kubectl get -n kube-system secret deckhouse-registry -o json \
-        | jq 'del(.metadata["namespace","creationTimestamp","resourceVersion","selfLink","uid"])' \
-        | kubectl apply -n "{{.NAMESPACE}}" -f -
-        fi
+  # _copy_d8_registry_secret:
+  #   internal: true
+  #   vars:
+  #     NAMESPACE: "{{.NAMESPACE}}"
+  #   cmds:
+  #     - |
+  #       [ "{{.NAMESPACE}}" == "" ] && echo "No NS specified for copy deckhouse-registry Secret." && exit 0
+  #       # Copy d8 registry secret
+  #       if kubectl get -n kube-system secret deckhouse-registry ; then
+  #       kubectl get -n kube-system secret deckhouse-registry -o json \
+  #       | jq 'del(.metadata["namespace","creationTimestamp","resourceVersion","selfLink","uid"])' \
+  #       | kubectl apply -n "{{.NAMESPACE}}" -f -
+  #       fi
 
-  _ensure:helm:
-    desc: "Ensure helm is installed"
-    internal: true
-    cmds:
-      - echo "Install helm" && exit 1
-    status:
-      - which helm >/dev/null
+  # _ensure:helm:
+  #   desc: "Ensure helm is installed"
+  #   internal: true
+  #   cmds:
+  #     - echo "Install helm" && exit 1
+  #   status:
+  #     - which helm >/dev/null
 
-  _ensure:kind:
-    desc: "Ensure kind is installed"
-    internal: true
-    cmds:
-      - echo "Install kind" && exit 1
-    status:
-      - which kind >/dev/null
+  # _ensure:kind:
+  #   desc: "Ensure kind is installed"
+  #   internal: true
+  #   cmds:
+  #     - echo "Install kind" && exit 1
+  #   status:
+  #     - which kind >/dev/null
 
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
@@ -727,40 +716,38 @@ tasks:
     internal: true
     preconditions:
       - sh: kubectl version
-        #>/dev/null
         msg: |-
-          No cluster available, run 'task dev:up' or 'task dev:cluster:reset' to setup local k3d cluster
-          or switch KUBECONFIG to use remote cluster.
+          No cluster available setup KUBECONFIG to use remote cluster.
 
-  _ensure:cluster-type:
-    desc: "Ensure cluster type variable is not empty"
-    internal: true
-    preconditions:
-      - sh: '[ -n "{{.ClusterType}}" ]'
-        msg: |-
-          ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
+  # _ensure:cluster-type:
+  #   desc: "Ensure cluster type variable is not empty"
+  #   internal: true
+  #   preconditions:
+  #     - sh: '[ -n "{{.ClusterType}}" ]'
+  #       msg: |-
+  #         ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
   #      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
   #        msg: |-
   #          Image prefix not detected for remote cluster. Switch KUBECONFIG, check SSH tunnel, or set .
 
-  _ensure:image-prefix:
-    internal: true
-    run: once
-    preconditions:
-      - sh: '[ -n "{{.ClusterType}}" ]'
-        msg: |-
-          ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
-      - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
-        msg: |-
-          ImagePrefix is empty: '{{.ImagePrefix}}'. Check cluster connection or set IMAGE_PREFIX env var.
+  # _ensure:image-prefix:
+  #   internal: true
+  #   run: once
+  #   preconditions:
+  #     - sh: '[ -n "{{.ClusterType}}" ]'
+  #       msg: |-
+  #         ClusterType is empty. Check cluster connection or set CLUSTER_TYPE env var.
+  #     - sh: '[[ "{{.ClusterType}}" != "remote" || -n "{{.ImagePrefix}}" ]]'
+  #       msg: |-
+  #         ImagePrefix is empty: '{{.ImagePrefix}}'. Check cluster connection or set IMAGE_PREFIX env var.
 
-  _ensure:k3d:
-    desc: "Ensure k3d is installed"
-    internal: true
-    cmds:
-      - echo "Install k3d" && exit 1
-    status:
-      - which k3d >/dev/null
+  # _ensure:k3d:
+  #   desc: "Ensure k3d is installed"
+  #   internal: true
+  #   cmds:
+  #     - echo "Install k3d" && exit 1
+  #   status:
+  #     - which k3d >/dev/null
 
   _ensure:crane:
     desc: "Ensure crane is installed"
@@ -770,24 +757,24 @@ tasks:
     status:
       - which crane >/dev/null
 
-  _ensure:k3d-registry-domain:
-    desc: "Ensure k3d registry domain available locally"
-    internal: true
-    cmds:
-      - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please add '127.0.0.1   k3d-registry.virtualization-controller.test' into /etc/hosts" && exit 1)
+  # _ensure:k3d-registry-domain:
+  #   desc: "Ensure k3d registry domain available locally"
+  #   internal: true
+  #   cmds:
+  #     - grep 'k3d-registry.virtualization-controller.test' /etc/hosts || (echo >&2 "Please add '127.0.0.1   k3d-registry.virtualization-controller.test' into /etc/hosts" && exit 1)
 
-  _ensure:k3d-registry-insecure-allowed:
-    desc: "Ensure docker daemon allows insecure k3d registry"
-    internal: true
-    cmds:
-      - |
-        echo -e >&2 "Please add k3d registry as insecure:\n" \
-          '{"insecure-registries": ["k3d-registry.virtualization-controller.test:5000"]'"}\n" \
-          "On Linux: edit /etc/docker/daemon.json and restart docker daemon with 'sudo systemctl restart docker'\n" \
-          "On Macos: configure Docker Engine in Docker Desktop settings." \
-      - exit 1
-    status:
-      - (cat /etc/docker/daemon.json $HOME/.docker/daemon.json 2>/dev/null || true) | grep 'k3d-registry.virtualization-controller.test'
+  # _ensure:k3d-registry-insecure-allowed:
+  #   desc: "Ensure docker daemon allows insecure k3d registry"
+  #   internal: true
+  #   cmds:
+  #     - |
+  #       echo -e >&2 "Please add k3d registry as insecure:\n" \
+  #         '{"insecure-registries": ["k3d-registry.virtualization-controller.test:5000"]'"}\n" \
+  #         "On Linux: edit /etc/docker/daemon.json and restart docker daemon with 'sudo systemctl restart docker'\n" \
+  #         "On Macos: configure Docker Engine in Docker Desktop settings." \
+  #     - exit 1
+  #   status:
+  #     - (cat /etc/docker/daemon.json $HOME/.docker/daemon.json 2>/dev/null || true) | grep 'k3d-registry.virtualization-controller.test'
 
   _ensure:golangci-lint:
     desc: "Ensure golangci-lint is available"
