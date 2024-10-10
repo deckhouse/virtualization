@@ -22,15 +22,17 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   GO_VERSION: "1.22.7"
+  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
 
 on:
   workflow_dispatch:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, synchronize]
   push:
     branches:
       - main
       - pre-alpha
+      - chore/ci/source-repo-var # test only
 
 defaults:
   run:
