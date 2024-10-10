@@ -40,3 +40,7 @@ CDI can currently upload virtual machine images to persistent volumes (PVCs). Re
 #### `014-delete-service-monitor.patch`
 
 Removed the creation of a service monitor from the cdi-operator.
+
+#### `015-scratch-filesystem-overhead-formula.patch`
+
+Manage the filesystem overhead of the scratch PVC using a formula derived from empirical estimates, adjusted for the target PVC size.
