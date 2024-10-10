@@ -20,12 +20,16 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type AttacheeHandler struct {
@@ -41,6 +45,15 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
+	inUseCondition, ok := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if !ok {
+		inUseCondition = metav1.Condition{
+			Type: vdcondition.InUseType,
+		}
+	}
+
+	var inUsed bool
+
 	attachedVMs, err := h.getAttachedVM(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -52,7 +65,23 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		vd.Status.AttachedToVirtualMachines = append(vd.Status.AttachedToVirtualMachines, virtv2.AttachedVirtualMachine{
 			Name: vm.GetName(),
 		})
+
+		runningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), vm.Status.Conditions)
+		if runningCondition.Status != metav1.ConditionFalse {
+			inUsed = true
+		}
 	}
+
+	if inUsed {
+		inUseCondition.Status = metav1.ConditionTrue
+		inUseCondition.Reason = vdcondition.InUse
+	} else {
+		inUseCondition.Status = metav1.ConditionFalse
+		inUseCondition.Reason = vdcondition.NotUse
+	}
+
+	inUseCondition.Message = ""
+	service.SetCondition(inUseCondition, &vd.Status.Conditions)
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {
 		log.Error("virtual disk connected to multiple virtual machines", "vms", len(attachedVMs))
