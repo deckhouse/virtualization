@@ -14,5 +14,5 @@ func LoggerWithCommonAttrs(ctx context.Context, attrs ...any) *slog.Logger {
 		slog.String("resource", labels.ResourceFromContext(ctx)),
 		slog.String("method", labels.MethodFromContext(ctx)),
 	)
-	return logger.With(attrs)
+	return logger.With(attrs...)
 }

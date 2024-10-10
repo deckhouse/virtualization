@@ -160,22 +160,22 @@ func (s *streamRewriter) start(ctx context.Context) {
 			rwrEvent, err = s.transformWatchEvent(&got)
 			if err != nil && errors.Is(err, rewriter.SkipItem) {
 				s.log.Warn(fmt.Sprintf("Watch event '%s': skipped by rewriter", got.Type), logutil.SlogErr(err))
-				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s' skipped", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s' skipped", got.Type), s.targetReq.ResourceForLog(), got.Object.Raw)
 				s.metrics.HandledRequestsSuccess()
 			} else {
 				if err != nil {
 					s.log.Error(fmt.Sprintf("Watch event '%s': transform error", got.Type), logutil.SlogErr(err))
-					logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.OrigResourceType(), got.Object.Raw)
+					logutil.DebugBodyHead(s.log, fmt.Sprintf("Watch event '%s'", got.Type), s.targetReq.ResourceForLog(), got.Object.Raw)
 				}
 				if rwrEvent == nil {
 					// No rewrite, pass original event as-is.
 					rwrEvent = &got
 				} else {
 					// Log changes after rewrite.
-					logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.OrigResourceType(), got.Object.Raw, rwrEvent.Object.Raw)
+					logutil.DebugBodyChanges(s.log, "Watch event", s.targetReq.ResourceForLog(), got.Object.Raw, rwrEvent.Object.Raw)
 				}
 				// Pass event to the client.
-				logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.OrigResourceType(), rwrEvent.Object.Raw)
+				logutil.DebugBodyHead(s.log, fmt.Sprintf("WatchEvent type '%s' send back to client %d bytes", rwrEvent.Type, len(rwrEvent.Object.Raw)), s.targetReq.ResourceForLog(), rwrEvent.Object.Raw)
 				s.writeEvent(rwrEvent)
 			}
 		}

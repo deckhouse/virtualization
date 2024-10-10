@@ -223,7 +223,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			logger.Debug(fmt.Sprintf("Response decision: PASS, Status %s, Headers %+v", resp.Status, resp.Header))
 		}
 		ctx = labels.ContextWithDecision(ctx, decisionPass)
-		h.passResponse(ctx, targetReq, w, resp, logger)
+		// h.passResponse(ctx, targetReq, w, resp, logger)
+		passResponse(targetReq, w, resp, logger)
 		return
 	}
 
@@ -388,8 +389,40 @@ func (h *Handler) passResponse(ctx context.Context, targetReq *rewriter.TargetRe
 	if logger.Enabled(nil, slog.LevelDebug) && !targetReq.IsWatch() {
 		logutil.DebugBodyHead(logger,
 			fmt.Sprintf("Pass through response: status %d, content-length: '%s'", resp.StatusCode, resp.Header.Get("Content-Length")),
-			"",
+			targetReq.ResourceForLog(),
 			logutil.Bytes(bodyReader),
+		)
+	}
+
+	return
+}
+
+func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+	copyHeader(w.Header(), resp.Header)
+	w.WriteHeader(resp.StatusCode)
+
+	dst := &immediateWriter{dst: w}
+
+	if logger.Enabled(nil, slog.LevelDebug) {
+		if targetReq.IsWatch() {
+			dst.chunkFn = func(chunk []byte) {
+				logger.Debug(fmt.Sprintf("Pass through response chunk: %s", string(chunk)))
+			}
+		} else {
+			resp.Body = logutil.NewReaderLogger(resp.Body)
+		}
+	}
+
+	_, err := io.Copy(dst, resp.Body)
+	if err != nil {
+		logger.Error(fmt.Sprintf("copy target response back to client: %v", err))
+	}
+
+	if logger.Enabled(nil, slog.LevelDebug) && !targetReq.IsWatch() {
+		logutil.DebugBodyHead(logger,
+			fmt.Sprintf("Pass through response: status %d, content-length: '%s'", resp.StatusCode, resp.Header.Get("Content-Length")),
+			targetReq.ResourceForLog(),
+			logutil.Bytes(resp.Body),
 		)
 	}
 
