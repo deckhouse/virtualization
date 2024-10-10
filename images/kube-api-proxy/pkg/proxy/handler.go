@@ -207,13 +207,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Step 5. Handle response: pass through, transform resp.Body, or run stream transformer.
-	if targetReq.IsWatch() {
-		logger.Debug(fmt.Sprintf("Response decision: REWRITE STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
-
-		ctx = labels.ContextWithDecision(ctx, decisionWatch)
-		h.transformStream(ctx, targetReq, w, resp, logger)
-		return
-	}
 
 	if !targetReq.ShouldRewriteResponse() {
 		// Pass response as-is without rewriting.
@@ -225,6 +218,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		ctx = labels.ContextWithDecision(ctx, decisionPass)
 		// h.passResponse(ctx, targetReq, w, resp, logger)
 		passResponse(targetReq, w, resp, logger)
+		return
+	}
+
+	if targetReq.IsWatch() {
+		logger.Debug(fmt.Sprintf("Response decision: REWRITE STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
+
+		ctx = labels.ContextWithDecision(ctx, decisionWatch)
+		h.transformStream(ctx, targetReq, w, resp, logger)
 		return
 	}
 
