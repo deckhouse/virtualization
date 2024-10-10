@@ -11,8 +11,11 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachines
+  - virtualmachinesnapshots
+  - virtualmachinerestores
   - clustervirtualimages
   - virtualdisks
+  - virtualdisksnapshot
   - virtualimages
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
@@ -70,7 +73,10 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachines
+  - virtualmachinesnapshots
+  - virtualmachinerestores
   - virtualdisks
+  - virtualdisksnapshot
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
   - virtualmachineoperations
