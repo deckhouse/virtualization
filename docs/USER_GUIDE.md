@@ -5,6 +5,7 @@ weight: 50
 ---
 
 ## Introduction
+
 This guide is intended for [users](./README.md#role-model) of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
