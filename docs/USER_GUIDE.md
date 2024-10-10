@@ -312,9 +312,7 @@ kind: VirtualImage
 metadata:
   name: some-image
 spec:
-  # Настройки хранения проектного образа.
   storage: ContainerRegistry
-  # Настройки источника образа.
   dataSource:
     type: Upload
 EOF
@@ -714,7 +712,6 @@ metadata:
   name: restart-linux-vm-$(date +%s)
 spec:
   virtualMachineName: linux-vm
-  # Тип применяемой операции = применяемая операция.
   type: Restart
 EOF
 ```
@@ -1067,7 +1064,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 # sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
 ```
 
-Для отключения диска от виртуальной машины удалите ранее созданный ресурс:
+To detach the disk from the virtual machine, delete the previously created resource:
 
 ```bash
 d8 k delete vmbda attach-blank-disk
@@ -1429,13 +1426,10 @@ kind: VirtualDisk
 metadata:
   name: linux-vm-root
 spec:
-  # Настройки параметров хранения диска.
   persistentVolumeClaim:
-    # Укажем размер больше чем значение .
     size: 10Gi
-    # Подставьте ваше название StorageClass.
+    # Substitute your StorageClass name.
     storageClassName: i-linstor-thin-r2
-  # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
     objectRef:
@@ -1444,7 +1438,7 @@ spec:
 EOF
 ```
 
-### Создание снимков виртуальных машин
+### Creating snapshots of virtual machines
 
 The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
@@ -1497,7 +1491,7 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   volumeSnapshotClasses:
-    - storageClassName: i-linstor-thin-r2 # Substitute your StorageClass name.
+    - # Substitute your StorageClass name.: i-linstor-thin-r2 # Substitute your StorageClass name.
       volumeSnapshotClassName: sds-replicated-volume # Substitute your VolumeSnapshotClass name.
   requiredConsistency: true
   keepIPAddress: Never
