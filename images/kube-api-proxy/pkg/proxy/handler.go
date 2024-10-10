@@ -141,6 +141,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		isMute = false
 	case "clustervirtualmachineimages":
 		isMute = false
+	case "virtualmachines":
+		isMute = false
+	case "virtualmachines/status":
+		isMute = false
 	}
 	if isMute {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
