@@ -184,12 +184,15 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	return &vm, nil
 }
 
-func GetObject(resource kc.Resource, name, namespace string, object client.Object) error {
+func GetObject(resource kc.Resource, name string, object client.Object, opts kc.GetOptions) error {
 	GinkgoHelper()
-	cmd := kubectl.GetResource(resource, name, kc.GetOptions{
-		Namespace: namespace,
-		Output:    "json",
-	})
+	cmdOpts := kc.GetOptions{
+		Output: "json",
+	}
+	if opts.Namespace != "" {
+		cmdOpts.Namespace = opts.Namespace
+	}
+	cmd := kubectl.GetResource(resource, name, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf(cmd.StdErr())
 	}
