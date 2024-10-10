@@ -3,7 +3,11 @@ title: "Admin guide"
 weight: 40
 ---
 
-This section provides information on creating and managing resources that are available only to users with platform administrator rights.
+## Introduction
+
+This guide is intended for [administrators](./README.md#role-model) of Deckhouse Virtualization Platform and describes how to create and modify cluster resources.
+
+The administrator also has rights to manage project resources, which are described in the [“User Guide”](./USER_GUIDE.md) document.
 
 ## Images
 
