@@ -1,6 +1,10 @@
 {{- define "kube_api_rewriter.env" -}}
 - name: LOG_LEVEL
   value: {{ .Values.virtualization.logLevel }}
+{{- if eq .Values.virtualization.logLevel "debug" }}
+- name: PPROF_BIND_ADDRESS
+  value: ":8129"
+{{- end }}
 {{- end -}}
 
 {{- define "kubeproxy_resources" -}}
@@ -27,6 +31,12 @@ spec:
         configMap:
           defaultMode: 0644
           name: kube-api-proxy-kubeconfig
+{{- if eq $ctx.Values.virtualization.logLevel "debug" }}
+      ports:
+      - containerPort: 8129
+        name: pprof
+        protocol: TCP
+{{- end }}
       containers:
       - name: proxy
         image: {{ $proxyImage }}
