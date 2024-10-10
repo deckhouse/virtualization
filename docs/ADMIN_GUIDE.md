@@ -61,7 +61,7 @@ Check the result of the `ClusterVirtualImage` creation:
 
 ```bash
 d8 k get clustervirtualimage ubuntu-22.04
-# или более короткий вариант
+# or shorter
 d8 k get cvi ubuntu-22.04
 
 # NAME           PHASE   CDROM   PROGRESS   AGE
@@ -222,7 +222,7 @@ kind: VirtualMachine
 metadata:
   name: linux-vm
 spec:
-  virtualMachineClassName: generic # название ресурса VirtualMachineClass
+  virtualMachineClassName: generic # the name of VirtualMachineClass
   ...
 ```
 

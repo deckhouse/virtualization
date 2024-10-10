@@ -12,6 +12,8 @@ The following minimum resources are recommended for infrastructure nodes, depend
 - Master node-4 CPUs, 8 GB of RAM, 60 GB of disk space on a fast disk (400+ IOPS);
 - Worker node-the requirements are similar to those for the master node, but largely depend on the nature of the load running on the node (nodes).
 
+> If you plan to use the virtualization module in a production environment, it is recommended to deploy it on physical servers. Deploying the module on virtual machines is also possible, but in this case you need to enable nested virtualization.
+
 ### Requirements for platform nodes:
 
 - Linux-based OS:
@@ -30,13 +32,13 @@ The following minimum resources are recommended for infrastructure nodes, depend
 
    To store virtual machine data (virtual disks and images), you must enable one or more of the following modules according to the installation instructions:
 
-   - [SDS-Replicated-volume](https://deckhouse.ru/modules/sds-replicated-volume/stable/)
-   - [SDS-Local-volume](https://deckhouse.ru/modules/sds-local-volume/stable/)
-   - [CSI-nfs](https://deckhouse.ru/modules/csi-nfs/stable/)
+   - [SDS-Replicated-volume](https://deckhouse.io/modules/sds-replicated-volume/stable/)
+   - [SDS-Local-volume](https://deckhouse.io/modules/sds-local-volume/stable/)
+   - [CSI-nfs](https://deckhouse.io/modules/csi-nfs/stable/)
    - [CEPH-CSI](/documentation/v1/modules/031-ceph-csi/)
 
 3. [Set](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) default `StorageClass`.
-4. Turn on the [console](https://deckhouse.ru/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
+4. Turn on the [console](https://deckhouse.io/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
 
 5. Enable the `virtualization` module:
 
