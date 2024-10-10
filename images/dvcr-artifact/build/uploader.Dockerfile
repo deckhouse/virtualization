@@ -11,7 +11,7 @@ RUN rm -rf /app
 ADD . /app
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends libnbd-dev
 RUN GOOS=linux \
-    go build -o uploader ./cmd/dvcr_uploader
+    go build -o uploader ./cmd/dvcr-uploader
 
 FROM debian:bookworm-slim
 RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
@@ -20,8 +20,8 @@ RUN apt-get -qq update && apt-get -qq install -y --no-install-recommends \
     qemu-utils \
     file && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/uploader /usr/local/bin/dvcr_uploader
+COPY --from=builder /app/uploader /usr/local/bin/dvcr-uploader
 
 ADD build/uploader_entrypoint.sh /
 
-CMD ["/usr/local/bin/dvcr_uploader"]
+CMD ["/usr/local/bin/dvcr-uploader"]

@@ -1,5 +1,5 @@
 diff --git a/cmd/cdi-operator/operator.go b/cmd/cdi-operator/operator.go
-index 211f8cf70..4d166b992 100644
+index 5a9236df9..8ccb0b7d7 100644
 --- a/cmd/cdi-operator/operator.go
 +++ b/cmd/cdi-operator/operator.go
 @@ -26,7 +26,6 @@ import (
@@ -8,20 +8,12 @@ index 211f8cf70..4d166b992 100644
  	secv1 "github.com/openshift/api/security/v1"
 -	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
  	"go.uber.org/zap/zapcore"
+
  	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
- 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-@@ -38,6 +37,7 @@ import (
- 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
- 
- 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-+
- 	"kubevirt.io/containerized-data-importer/pkg/operator/controller"
- 	"kubevirt.io/containerized-data-importer/pkg/util"
- )
-@@ -117,11 +117,6 @@ func main() {
+@@ -125,11 +124,6 @@ func main() {
  		os.Exit(1)
  	}
- 
+
 -	if err := promv1.AddToScheme(mgr.GetScheme()); err != nil {
 -		log.Error(err, "")
 -		os.Exit(1)
@@ -31,75 +23,25 @@ index 211f8cf70..4d166b992 100644
  		log.Error(err, "")
  		os.Exit(1)
 diff --git a/pkg/operator/controller/callbacks.go b/pkg/operator/controller/callbacks.go
-index fe40da5e4..7d97c3b8d 100644
+index a2d054fcc..d04789553 100644
 --- a/pkg/operator/controller/callbacks.go
 +++ b/pkg/operator/controller/callbacks.go
-@@ -37,10 +37,11 @@ import (
- 	sdk "kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk"
- 
- 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-+	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/callbacks"
-+
- 	"kubevirt.io/containerized-data-importer/pkg/common"
- 	cdicontroller "kubevirt.io/containerized-data-importer/pkg/controller"
- 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
--	"kubevirt.io/controller-lifecycle-operator-sdk/pkg/sdk/callbacks"
- )
- 
+@@ -52,7 +53,6 @@ import (
  func addReconcileCallbacks(r *ReconcileCDI) {
-@@ -49,7 +50,6 @@ func addReconcileCallbacks(r *ReconcileCDI) {
- 	r.reconciler.AddCallback(&corev1.ServiceAccount{}, reconcileServiceAccounts)
+ 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileDeleteControllerDeployment)
  	r.reconciler.AddCallback(&corev1.ServiceAccount{}, reconcileSCC)
- 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileCreateRoute)
 -	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileCreatePrometheusInfra)
  	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileRemainingRelationshipLabels)
- 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileDeleteSecrets)
+ 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileDeleteDeprecatedResources)
  	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileCDICRD)
-@@ -147,36 +147,6 @@ func reconcileSCC(args *callbacks.ReconcileCallbackArgs) error {
- 	return nil
- }
- 
--func reconcileCreatePrometheusInfra(args *callbacks.ReconcileCallbackArgs) error {
--	if args.State != callbacks.ReconcileStatePostRead {
--		return nil
--	}
--
--	deployment := args.CurrentObject.(*appsv1.Deployment)
--	// we don't check sdk.CheckDeploymentReady(deployment) since we want Prometheus to cover NotReady state as well
--	if !isControllerDeployment(deployment) {
--		return nil
--	}
--
--	cr := args.Resource.(runtime.Object)
--	namespace := deployment.GetNamespace()
--	if namespace == "" {
--		return fmt.Errorf("cluster scoped owner not supported")
--	}
--
--	if deployed, err := isPrometheusDeployed(args.Logger, args.Client, namespace); err != nil {
--		return err
--	} else if !deployed {
--		return nil
--	}
--	if err := ensurePrometheusResourcesExist(context.TODO(), args.Client, args.Scheme, deployment); err != nil {
--		args.Recorder.Event(cr, corev1.EventTypeWarning, createResourceFailed, fmt.Sprintf("Failed to ensure prometheus resources exists, %v", err))
--		return err
--	}
--
--	return nil
--}
--
- func deleteWorkerResources(l logr.Logger, c client.Client) error {
- 	listTypes := []client.ObjectList{&corev1.PodList{}, &corev1.ServiceList{}}
- 
 diff --git a/pkg/operator/controller/reconciler-hooks.go b/pkg/operator/controller/reconciler-hooks.go
-index 6aafe14d6..fc55bff35 100644
+index df17a6aac..0f3265c1f 100644
 --- a/pkg/operator/controller/reconciler-hooks.go
 +++ b/pkg/operator/controller/reconciler-hooks.go
-@@ -26,10 +26,6 @@ func (r *ReconcileCDI) watch() error {
+@@ -27,10 +27,6 @@ func (r *ReconcileCDI) watch() error {
  		return err
  	}
- 
+
 -	if err := r.watchPrometheusResources(); err != nil {
 -		return err
 -	}

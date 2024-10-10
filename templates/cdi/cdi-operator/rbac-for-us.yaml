@@ -73,6 +73,7 @@ rules:
     - admissionregistration.k8s.io
   resourceNames:
     - cdi-internal-virtualization-api-datavolume-mutate
+    - cdi-internal-virtualization-api-pvc-mutate
   resources:
     - mutatingwebhookconfigurations
   verbs:
@@ -110,6 +111,24 @@ rules:
     - persistentvolumeclaims
   verbs:
     - get
+    - list
+    - watch
+- apiGroups:
+    - ""
+  resources:
+    - persistentvolumes
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - storage.k8s.io
+  resources:
+    - storageclasses
+  verbs:
+    - get
+    - list
+    - watch
 - apiGroups:
     - ""
   resources:
@@ -122,6 +141,8 @@ rules:
     - volumesnapshots
   verbs:
     - get
+    - list
+    - watch
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
   resources:
@@ -138,9 +159,35 @@ rules:
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
   resources:
+    - internalvirtualizationvolumeclonesources
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - cdi.internal.virtualization.deckhouse.io
+  resources:
+    - internalvirtualizationstorageprofiles
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - cdi.internal.virtualization.deckhouse.io
+  resources:
     - internalvirtualizationcdis
   verbs:
     - get
+    - list
+    - watch
+- apiGroups:
+    - cdi.internal.virtualization.deckhouse.io
+  resources:
+    - internalvirtualizationcdiconfigs
+  verbs:
+    - get
+    - list
+    - watch
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
   resources:
@@ -214,10 +261,17 @@ rules:
     - config.openshift.io
   resources:
     - proxies
+    - infrastructures
   verbs:
     - get
     - list
     - watch
+- apiGroups:
+    - config.openshift.io
+  resources:
+    - clusterversions
+  verbs:
+    - get
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
   resources:
@@ -279,6 +333,15 @@ rules:
     - internalvirtualizationvirtualmachines/finalizers
   verbs:
     - update
+- apiGroups:
+    - forklift.cdi.internal.virtualization.deckhouse.io
+  resources:
+    - internalvirtualizationovirtvolumepopulators
+    - internalvirtualizationopenstackvolumepopulators
+  verbs:
+    - get
+    - list
+    - watch
 - apiGroups:
     - ""
   resources:
@@ -444,14 +507,14 @@ rules:
     - watch
     - create
     - update
-    - delete
+    - deletecollection
 - apiGroups:
     - batch
   resources:
     - jobs
   verbs:
     - create
-    - delete
+    - deletecollection
     - list
     - watch
 - apiGroups:

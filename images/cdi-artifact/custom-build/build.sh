@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright 2024 Flant JSC
 #
@@ -14,28 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo "Mounts:"
-mount | grep tmpfs | grep \(ro
+set -e
 
-echo "Environment variables:"
-export
+source hack/build/common.sh
+source hack/build/config.sh
 
-echo "Arguments:"
-echo "$@"
+rm -rf ${CMD_OUT_DIR}
+mkdir -p ${CMD_OUT_DIR}/dump
 
-if [ "x$IMPORTER_CERT_DIR" != "x" ] ; then
-  echo "IMPORTER_CERT_DIR is set. Remove well known certificates to properly test caBundle ..."
-  rm -rf /etc/ca-certificates.conf /etc/ssl/certs/*
-fi
-
-echo
-echo "Start importer ..."
-
-/usr/local/bin/dvcr-importer "$@"
-exitCode=$?
-if [ "x$exitCode" != "x0" ] ; then
-  # Add some messages for test purposes.
-  echo "Complete with error"
-  echo "Complete with error" > /dev/termination-log
-  exit $exitCode
-fi
+# Build all binaries for amd64
+bazel build \
+    --verbose_failures \
+    --config=${ARCHITECTURE} \
+    --sandbox_debug \
+    --explain=/build.log \
+    --verbose_explanations \
+    //custom-build:cdi-binaries

@@ -3,13 +3,18 @@ image: {{ $.ImageName }}
 fromImage: dvcr-artifact
 import:
 - image: dvcr-artifact-builder
-  add: /usr/local/go/src/dvcr_importers/dvcr_uploader
-  to: /usr/local/bin/dvcr_uploader
+  add: /out
+  to: /usr/local/bin
+  includePaths:
+  - dvcr-uploader
   after: install
-- image: dvcr-artifact-builder
-  add: /usr/local/go/src/dvcr_importers/build/uploader_entrypoint.sh
-  to: /uploader_entrypoint.sh
-  after: install
+git:
+- add: /images/dvcr-artifact/build
+  to: /
+  includePaths:
+    - uploader_entrypoint.sh
+  stageDependencies:
+    setup: ['*']
 docker:
   WORKDIR: "/"
-  CMD: ["/usr/local/bin/dvcr_uploader"]
+  CMD: ["/usr/local/bin/dvcr-uploader"]

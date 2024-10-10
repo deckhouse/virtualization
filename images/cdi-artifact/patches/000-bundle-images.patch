@@ -1,5 +1,5 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 3d4baba..d39b91a 100644
+index 9b878a2b1..a6d6448c4 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
 @@ -48,6 +48,19 @@ load(
@@ -22,3 +22,20 @@ index 3d4baba..d39b91a 100644
  container_bundle(
      name = "test-container-images-amd64",
      images = {
+diff --git a/hack/build/bazel-build-images.sh b/hack/build/bazel-build-images.sh
+index 5b9904e4a..4207cf9c0 100755
+--- a/hack/build/bazel-build-images.sh
++++ b/hack/build/bazel-build-images.sh
+@@ -31,5 +31,11 @@ for tag in ${docker_tag}; do
+         --define container_prefix=${docker_prefix} \
+         --define container_tag=${tag} \
+         --host_force_python=PY3 \
+-        //:test-container-images //cmd/cdi-operator:cdi-operator-image //cmd/cdi-controller:cdi-controller-image //cmd/cdi-apiserver:cdi-apiserver-image //cmd/cdi-cloner:cdi-cloner-image //cmd/cdi-importer:cdi-importer-image //cmd/cdi-uploadproxy:cdi-uploadproxy-image //cmd/cdi-uploadserver:cdi-uploadserver-image
++        //cmd/cdi-operator:cdi-operator-image \
++        //cmd/cdi-controller:cdi-controller-image \
++        //cmd/cdi-apiserver:cdi-apiserver-image \
++        //cmd/cdi-cloner:cdi-cloner-image \
++        //cmd/cdi-importer:cdi-importer-image \
++        //cmd/cdi-uploadproxy:cdi-uploadproxy-image \
++        //cmd/cdi-uploadserver:cdi-uploadserver-image
+ done

@@ -11,7 +11,7 @@ index 9d2ce692bb..a0287460fa 100644
 +        "$(container_prefix)/$(image_prefix)virt-exportproxy:$(container_tag)": "//cmd/virt-exportproxy:virt-exportproxy-image",
      },
  )
- 
+
 diff --git a/cmd/virt-handler/BUILD.bazel b/cmd/virt-handler/BUILD.bazel
 index 303dedd992..4e10e585dc 100644
 --- a/cmd/virt-handler/BUILD.bazel

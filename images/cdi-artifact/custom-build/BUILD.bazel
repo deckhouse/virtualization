@@ -1,0 +1,18 @@
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+  name = "cdi-binaries",
+  srcs = [
+    "//cmd/cdi-apiserver:cdi-apiserver",
+    "//cmd/cdi-cloner:cdi-cloner",
+    "//cmd/cdi-controller:cdi-controller",
+    "//cmd/cdi-importer:cdi-importer",
+    "//tools/cdi-containerimage-server:cdi-containerimage-server",
+    "//tools/cdi-image-size-detection:cdi-image-size-detection",
+    "//tools/cdi-source-update-poller:cdi-source-update-poller",
+    "//cmd/cdi-operator:cdi-operator",
+    "//tools/csv-generator:csv-generator",
+    "//cmd/cdi-uploadproxy:cdi-uploadproxy",
+    "//cmd/cdi-uploadserver:cdi-uploadserver",
+  ],
+)
