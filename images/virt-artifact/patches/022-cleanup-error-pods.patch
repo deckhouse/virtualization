@@ -53,7 +53,7 @@ index 19de1a1921..7f101e4710 100644
 +		if pod.Status.Phase != k8sv1.PodFailed {
 +			continue
 +		}
-+		if strings.Contains(pod.GetName(), "virt-launcher") {
++		if !strings.Contains(pod.GetName(), "virt-launcher") {
 +			continue
 +		}
 +		errorPods = append(errorPods, pod)
