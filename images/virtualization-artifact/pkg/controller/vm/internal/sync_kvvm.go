@@ -38,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -491,28 +490,6 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
-
-		restartingCondition, ok := service.GetCondition(vmcondition.TypeRestarting.String(), current.Status.Conditions)
-		if !ok {
-			restartingCondition = metav1.Condition{
-				Type: vmcondition.TypeRestarting.String(),
-			}
-		}
-
-		restartingCondition.Status = metav1.ConditionTrue
-		restartingCondition.Reason = vmcondition.ReasonVmIsRestarting.String()
-		restartingCondition.Message = ""
-
-		service.SetCondition(restartingCondition, &current.Status.Conditions)
-
-		// Update KVVM spec according the current VM spec.
-		if err := h.updateKVVM(ctx, s); err != nil {
-			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
-		}
-		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
-		if err := h.restartKVVM(ctx, kvvm, kvvmi); err != nil {
-			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
-		}
 
 	case vmchange.ActionApplyImmediate:
 		message := "Apply changes without restart"

@@ -37,7 +37,6 @@ const (
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
-	TypeRestarting                          Type = "Restarting"
 	TypeSnapshotting                        Type = "Snapshotting"
 )
 
@@ -98,7 +97,4 @@ const (
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
-
-	ReasonVmIsRestarting    Reason = "VirtualMachineRestarting"
-	ReasonVmIsNotRestarting Reason = "VirtualMachineNotRestarting"
 )

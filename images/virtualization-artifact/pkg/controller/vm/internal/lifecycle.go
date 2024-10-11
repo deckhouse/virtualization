@@ -261,19 +261,6 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		if vm.Status.Phase == virtv2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVmIsRunning).Status(metav1.ConditionTrue)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
-
-			restartingCondition, ok := service.GetCondition(vmcondition.TypeRestarting.String(), vm.Status.Conditions)
-			if !ok {
-				restartingCondition = metav1.Condition{
-					Type: vmcondition.TypeRestarting.String(),
-				}
-			}
-
-			restartingCondition.Status = metav1.ConditionFalse
-			restartingCondition.Reason = vmcondition.ReasonVmIsNotRestarting.String()
-			restartingCondition.Message = ""
-
-			service.SetCondition(restartingCondition, &vm.Status.Conditions)
 			return
 		}
 		for _, c := range kvvmi.Status.Conditions {
