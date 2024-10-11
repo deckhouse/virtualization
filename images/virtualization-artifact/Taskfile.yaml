@@ -1,0 +1,167 @@
+version: "3"
+
+silent: true
+
+includes:
+  init: Taskfile.init.yaml
+
+vars:
+  BaseNamespace: d8-virtualization
+
+tasks:
+  fmt:
+    desc: "Run formatters locally"
+    cmds:
+      - task: fmt:gci
+      - task: fmt:gofumpt
+
+  fmt:gci:
+    desc: "Format code with gci, important vars: paths."
+    cmds:
+      - |
+        gci write --skip-generated -s standard,default,prefix\(github.com/deckhouse/\) {{.CLI_ARGS}} {{.paths | default "pkg/ cmd/"}}
+
+  fmt:gofumpt:
+    desc: "Format code with gofumpt, important vars: paths"
+    cmds:
+      - |
+        gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "cmd/ pkg/"}}
+
+  test:unit:
+    desc: "Run go unit tests"
+    cmds:
+      - |
+        ginkgo -v -r pkg/
+
+  lint:
+    desc: "Run linters locally"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - |
+        golangci-lint run --sort-results
+
+  mirrord:run:controller:
+    desc: "Run local virtualization-controller in cluster using a mirrord"
+    deps:
+      - _ensure:mirrord
+    cmd: |
+      ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
+      --deployment=virtualization-controller                                 \
+      --namespace={{ .BaseNamespace }}                                       \
+      --container-name=virtualization-controller
+
+  mirrord:wipe:controller:
+    desc: "wipe up Mirrord's trash"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-controller --namespace={{ .BaseNamespace }}
+
+  mirrord:run:apiserver:
+    desc: "Run local virtualization-api in cluster using a mirrord"
+    deps:
+      - _ensure:mirrord
+    cmd: |
+      flags=()
+      flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
+      flags+=( "--kubevirt-endpoint=virt-api.{{ .BaseNamespace }}.svc" )
+      flags+=( "--secure-port=8443" )
+      flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
+      flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
+      flags+=( "--v=7" )
+      flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
+      flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
+      flags+=( "--service-account-name=virtualization-api" )
+      flags+=( "--service-account-namespace={{ .BaseNamespace }}" )
+
+      ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+      --deployment="virtualization-api"                                 \
+      --namespace="{{ .BaseNamespace }}"                                \
+      --flags="\"${flags[@]}\""
+
+  mirrord:wipe:apiserver:
+    desc: "wipe up Mirrord's trash"
+    deps:
+      - _ensure:mirrord
+    cmd: ./hack/mirrord.sh wipe --deployment=virtualization-api --namespace={{ .BaseNamespace }}
+
+  pyroscope:local:run:controller:
+    desc: "Run pyroscope locally for virtualization-controller"
+    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=virtualization-controller --port=8081
+
+  pyroscope:local:wipe:controller:
+    desc: "Wipe local pyroscope for virtualization-controller"
+    cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
+
+  pyroscope:local:run:vm-route-forge:
+    desc: "Run pyroscope locally for vm-route-forge"
+    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=vm-route-forge --port=8119
+
+  pyroscope:local:wipe:vm-route-forge:
+    desc: "Wipe local pyroscope for vm-route-forge"
+    cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
+
+  dlv:build:controller:
+    desc: "Build image virtualization-controller with dlv"
+    cmd: ./hack/dlv.sh build controller --image="$DLV_IMAGE"
+
+  dlv:build-push:controller:
+    desc: "Push image virtualization-controller with dlv"
+    cmd: ./hack/dlv.sh push controller --image="$DLV_IMAGE"
+
+  dlv:build:apiserver:
+    desc: "Build image virtualization-api with dlv"
+    cmd: ./hack/dlv.sh build apiserver --image="$DLV_IMAGE"
+
+  dlv:build-push:apiserver:
+    desc: "Push image virtualization-api with dlv"
+    cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
+
+  _ensure:kubectl:
+    desc: "Ensure kubectl is installed"
+    internal: true
+    cmds:
+      - echo "Install kubectl" && exit 1
+    status:
+      - which kubectl >/dev/null
+
+  _ensure:cluster-available:
+    desc: "Ensure kubernetes cluster available"
+    internal: true
+    preconditions:
+      - sh: kubectl version
+        msg: |-
+          No cluster available setup KUBECONFIG to use remote cluster.
+
+  _ensure:crane:
+    desc: "Ensure crane is installed"
+    internal: true
+    cmds:
+      - echo "Install crane" && exit 1
+    status:
+      - which crane >/dev/null
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint is available"
+    internal: true
+    cmds:
+      - |
+        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
+        exit 1
+    status:
+      - |
+        [ -f ./golangci-lint ] || which golangci-lint
+
+  _ensure:mirrord:
+    desc: "Ensure mirrord tool is installed"
+    internal: true
+    cmds:
+      - echo -e >&2 "Please install mirrord https://mirrord.dev/docs/overview/quick-start/#cli-tool"
+      - exit 1
+    status:
+      - which mirrord >/dev/null
