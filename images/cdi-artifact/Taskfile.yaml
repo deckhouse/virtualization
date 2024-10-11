@@ -2,8 +2,10 @@ version: "3"
 
 silent: true
 
+vars:
+  SOURCE_REPO: '{{ .SOURCE_REPO | default "https://github.com" }}'
 env:
-  CDI_REPO: "https://github.com/kubevirt/containerized-data-importer.git"
+  CDI_REPO: "https://{{ .SOURCE_REPO }/kubevirt/containerized-data-importer.git"
   CDI_VERSION: "v1.60.3"
 
 tasks:

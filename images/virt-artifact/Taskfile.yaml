@@ -2,9 +2,10 @@ version: "3"
 
 silent: true
 
+vars:
+  SOURCE_REPO: '{{ .SOURCE_REPO | default "https://github.com" }}'
 env:
-  # {{ .SOURCE_REPO }}
-  KUBEVIRT_REPO: "https://github.com/kubevirt/kubevirt.git"
+  KUBEVIRT_REPO: "https://{{ .SOURCE_REPO }}/kubevirt/kubevirt.git"
   KUBEVIRT_VERSION: "v1.3.1"
 
 tasks:

@@ -195,7 +195,7 @@ fromImage: {{ $.ImageName }}-lib-builder
 shell:
   beforeInstall:
   # Download libxcrypt sources.
-  - git clone --branch v4.4.36 {{ .SOURCE_REPO }}/besser82/libxcrypt.git /tmp/libxcrypt
+  - git clone --branch v4.4.36 {{ $.SOURCE_REPO }}/besser82/libxcrypt.git /tmp/libxcrypt
   install:
   # Build libcrypt.so.2.
   - cd /tmp/libxcrypt
@@ -209,7 +209,7 @@ fromImage: {{ $.ImageName }}-lib-builder
 shell:
   beforeInstall:
   # Download OpenSSL sources.
-  - git clone --branch openssl-3.3.1 {{ .SOURCE_REPO }}/openssl/openssl.git /tmp/openssl
+  - git clone --branch openssl-3.3.1 {{ $.SOURCE_REPO }}/openssl/openssl.git /tmp/openssl
   install:
   # Build libcrypto.so.3 and libssl.so.3.
   - cd /tmp/openssl
