@@ -41,7 +41,7 @@ Removed the creation of a service monitor from the cdi-operator.
 
 Fix JSON patch replace operation behaviour: set value even if path is not exist.
 
-Why we needed it? 
+Why we need it? 
 
 Previous CDI version uses evanphx-json-patch version 5.6.0+incompatible.
 That version ignores non-existent path and it actually a v4 from main branch.
@@ -52,4 +52,12 @@ to change behaviour for the replace operation.
 
 #### `016-scratch-filesystem-overhead-formula.patch`
 
-Manage the filesystem overhead of the scratch PVC using a formula derived from empirical estimates, adjusted for the target PVC size.
+Manage the filesystem overhead of the scratch PVC using a formula derived from empirical estimates depending on virtual image size.
+
+Why we need it?
+
+The size of the scratch PVC is calculated based on the size of the virtual image being imported. CDI has configuration
+options to set overhead percent globally or for the particular storage class. However, the overhead percent
+is not the same and depends on the size the virtual VM image.
+Previously we adjusted the whole PVC size to get bigger scratch PVC. This patch adds overhead for the scratch PVC only,
+leaving the size of the target PVC intact.
