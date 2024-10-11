@@ -72,7 +72,7 @@ var (
 	clientRequestsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: Subsystem,
 		Name:      clientRequestsTotalName,
-		Help:      "Total number of client requests",
+		Help:      "Total number of received client requests",
 	}, []string{nameLabel, resourceLabel, methodLabel, watchLabel, decisionLabel})
 
 	targetResponsesTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -96,7 +96,7 @@ var (
 	requestHandlingDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: Subsystem,
 		Name:      requestHandlingDurationSecondsName,
-		Help:      "Duration of handling non-watching requests",
+		Help:      "Duration of request handling for non-watching and watch event handling for watch requests",
 		Buckets: []float64{
 			0.0,
 			0.001, 0.002, 0.005, // 1, 2, 5 milliseconds
@@ -129,13 +129,13 @@ var (
 		Subsystem: Subsystem,
 		Name:      fromClientBytesName,
 		Help:      "Total bytes received from the client",
-	}, []string{nameLabel, resourceLabel, methodLabel, watchLabel})
+	}, []string{nameLabel, resourceLabel, methodLabel, watchLabel, decisionLabel})
 
 	toTargetBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: Subsystem,
 		Name:      toTargetBytesName,
 		Help:      "Total bytes transferred to the target",
-	}, []string{nameLabel, resourceLabel, methodLabel, watchLabel})
+	}, []string{nameLabel, resourceLabel, methodLabel, watchLabel, decisionLabel})
 
 	fromTargetBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Subsystem: Subsystem,
@@ -174,10 +174,10 @@ type MetricsProvider interface {
 	NewRequestsHandlingSeconds(name, resource, method, watch, decision, status string) prometheus.Observer
 	NewRewritesTotal(name, resource, method, watch, side, operation, error string) prometheus.Counter
 	NewRewritesDurationSeconds(name, resource, method, watch, side, operation string) prometheus.Observer
-	NewFromClientBytesTotal(name, resource, method, decision string) prometheus.Counter
-	NewToTargetBytesTotal(name, resource, method, decision string) prometheus.Counter
-	NewFromTargetBytesTotal(name, resource, method, decision string) prometheus.Counter
-	NewToClientBytesTotal(name, resource, method, decision string) prometheus.Counter
+	NewFromClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter
+	NewToTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter
+	NewFromTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter
+	NewToClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter
 }
 
 func NewMetricsProvider() MetricsProvider {
@@ -214,20 +214,20 @@ func (p *proxyMetricsProvider) NewRewritesDurationSeconds(name, resource, method
 	return rewritesDurationSeconds.WithLabelValues(name, resource, method, watch, side, operation)
 }
 
-func (p *proxyMetricsProvider) NewFromClientBytesTotal(name, resource, method, decision string) prometheus.Counter {
-	return fromClientBytes.WithLabelValues(name, resource, method, decision)
+func (p *proxyMetricsProvider) NewFromClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
+	return fromClientBytes.WithLabelValues(name, resource, method, watch, decision)
 }
 
-func (p *proxyMetricsProvider) NewToTargetBytesTotal(name, resource, method, decision string) prometheus.Counter {
-	return toTargetBytes.WithLabelValues(name, resource, method, decision)
+func (p *proxyMetricsProvider) NewToTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
+	return toTargetBytes.WithLabelValues(name, resource, method, watch, decision)
 }
 
-func (p *proxyMetricsProvider) NewFromTargetBytesTotal(name, resource, method, decision string) prometheus.Counter {
-	return fromTargetBytes.WithLabelValues(name, resource, method, decision)
+func (p *proxyMetricsProvider) NewFromTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
+	return fromTargetBytes.WithLabelValues(name, resource, method, watch, decision)
 }
 
-func (p *proxyMetricsProvider) NewToClientBytesTotal(name, resource, method, decision string) prometheus.Counter {
-	return toClientBytes.WithLabelValues(name, resource, method, decision)
+func (p *proxyMetricsProvider) NewToClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
+	return toClientBytes.WithLabelValues(name, resource, method, watch, decision)
 }
 
 func NoopMetricsProvider() MetricsProvider {
@@ -262,15 +262,15 @@ func (_ noopMetricsProvider) NewRewritesTotal(name, resource, method, watch, sid
 func (_ noopMetricsProvider) NewRewritesDurationSeconds(name, resource, method, watch, side, operation string) prometheus.Observer {
 	return noopMetric{}
 }
-func (_ noopMetricsProvider) NewFromClientBytesTotal(name, resource, method, decision string) prometheus.Counter {
+func (_ noopMetricsProvider) NewFromClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
 	return noopMetric{}
 }
-func (_ noopMetricsProvider) NewToTargetBytesTotal(name, resource, method, decision string) prometheus.Counter {
+func (_ noopMetricsProvider) NewToTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
 	return noopMetric{}
 }
-func (_ noopMetricsProvider) NewFromTargetBytesTotal(name, resource, method, decision string) prometheus.Counter {
+func (_ noopMetricsProvider) NewFromTargetBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
 	return noopMetric{}
 }
-func (_ noopMetricsProvider) NewToClientBytesTotal(name, resource, method, decision string) prometheus.Counter {
+func (_ noopMetricsProvider) NewToClientBytesTotal(name, resource, method, watch, decision string) prometheus.Counter {
 	return noopMetric{}
 }

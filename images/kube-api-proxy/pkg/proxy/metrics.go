@@ -110,17 +110,17 @@ func (p *ProxyMetrics) TargetResponseRewriteDuration(dur time.Duration) {
 }
 
 func (p *ProxyMetrics) FromClientBytesAdd(decision string, count int) {
-	p.provider.NewFromClientBytesTotal(p.name, p.resource, p.method, decision).Add(float64(count))
+	p.provider.NewFromClientBytesTotal(p.name, p.resource, p.method, p.watch, decision).Add(float64(count))
 }
 
 func (p *ProxyMetrics) ToTargetBytesAdd(decision string, count int) {
-	p.provider.NewToTargetBytesTotal(p.name, p.resource, p.method, decision).Add(float64(count))
+	p.provider.NewToTargetBytesTotal(p.name, p.resource, p.method, p.watch, decision).Add(float64(count))
 }
 
 func (p *ProxyMetrics) FromTargetBytesAdd(count int) {
-	p.provider.NewFromTargetBytesTotal(p.name, p.resource, p.method, p.decision).Add(float64(count))
+	p.provider.NewFromTargetBytesTotal(p.name, p.resource, p.method, p.watch, p.decision).Add(float64(count))
 }
 
 func (p *ProxyMetrics) ToClientBytesAdd(count int) {
-	p.provider.NewToClientBytesTotal(p.name, p.resource, p.method, p.decision).Add(float64(count))
+	p.provider.NewToClientBytesTotal(p.name, p.resource, p.method, p.watch, p.decision).Add(float64(count))
 }
