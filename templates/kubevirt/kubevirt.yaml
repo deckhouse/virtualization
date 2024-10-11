@@ -37,6 +37,8 @@ spec:
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
+    virtualMachineOptions:
+      disableSerialConsoleLog: {}
   customizeComponents:
     flags:
       api: {}
