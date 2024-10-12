@@ -108,9 +108,17 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		if inUsed {
 			inUseCondition.Status = metav1.ConditionTrue
 			inUseCondition.Reason = vdcondition.InUseForCreateImage
+			println("")
+			println("")
+			println("dlopatin inUseCondition.Reason = vdcondition.InUseForCreateImage")
+			println("")
 		} else if inUseCondition.Reason == vdcondition.InUseForCreateImage {
 			inUseCondition.Status = metav1.ConditionFalse
 			inUseCondition.Reason = vdcondition.NotUse
+			println("")
+			println("")
+			println("dlopatin inUseCondition.Reason = vdcondition.NotUse")
+			println("")
 		}
 
 		service.SetCondition(inUseCondition, &vd.Status.Conditions)
