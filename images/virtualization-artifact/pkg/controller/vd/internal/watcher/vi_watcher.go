@@ -59,6 +59,11 @@ func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 
 func (w VirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	vi, ok := obj.(*virtv2.VirtualImage)
+	println("")
+	println("")
+	println("dlopatin", vi.GetName())
+	println("")
+	println("")
 	if !ok {
 		w.logger.Error(fmt.Sprintf("expected a VirtualImage but got a %T", obj))
 		return
@@ -88,6 +93,6 @@ func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		w.logger.Error(fmt.Sprintf("expected a new VirtualImage but got a %T", e.ObjectNew))
 		return false
 	}
-
+	println("dlopatin", newVI.Name, oldVI.Status.Phase, newVI.Status.Phase, oldVI.Status.Phase != newVI.Status.Phase)
 	return oldVI.Status.Phase != newVI.Status.Phase
 }
