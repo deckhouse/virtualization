@@ -68,8 +68,6 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 				switch {
 				case oldIsDefaultOk && newIsDefaultOk:
 					return oldIsDefault != newIsDefault
-				case oldIsDefaultOk && !newIsDefaultOk:
-					return oldIsDefault == "true"
 				case !oldIsDefaultOk && newIsDefaultOk:
 					return newIsDefault == "true"
 				default:

@@ -55,6 +55,7 @@ type VirtualDiskStatus struct {
 	SourceUID                 *types.UID               `json:"sourceUID,omitempty"`
 	Conditions                []metav1.Condition       `json:"conditions,omitempty"`
 	ObservedGeneration        int64                    `json:"observedGeneration,omitempty"`
+	StorageClassName          string                   `json:"storageClassName,omitempty"`
 }
 
 type VirtualDiskStats struct {

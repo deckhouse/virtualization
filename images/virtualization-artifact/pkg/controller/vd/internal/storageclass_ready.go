@@ -21,21 +21,25 @@ import (
 	"errors"
 	"fmt"
 
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type StorageClassReadyHandler struct {
 	service DiskService
+	sources *source.Sources
 }
 
-func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService, sources *source.Sources) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
 		service: diskService,
+		sources: sources,
 	}
 }
 
@@ -57,9 +61,31 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	sc, err := h.service.GetStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
-	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
-		return reconcile.Result{}, err
+	isDefaultStorageClass := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
+	specClassChanged := false
+	if isDefaultStorageClass {
+		if vd.Status.StorageClassName == "" {
+			sc, _ := h.service.GetStorageClass(ctx, nil)
+			if sc != nil {
+				vd.Status.StorageClassName = sc.Name
+			}
+		}
+	} else {
+		if vd.Status.StorageClassName == "" {
+			vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
+		}
+		if vd.Status.StorageClassName != *vd.Spec.PersistentVolumeClaim.StorageClass {
+			specClassChanged = true
+		}
+	}
+
+	var sc *storagev1.StorageClass
+	if vd.Status.StorageClassName != "" {
+		var err error
+		sc, err = h.service.GetStorageClass(ctx, &vd.Status.StorageClassName)
+		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
+			return reconcile.Result{}, err
+		}
 	}
 
 	switch {
@@ -75,6 +101,18 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.StorageClassNotFound
 		condition.Message = fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass)
+	}
+
+	if condition.Status != metav1.ConditionTrue || specClassChanged {
+		vd.Status.Phase = virtv2.DiskPending
+		_, err := h.sources.CleanUp(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
+		}
+	}
+
+	if condition.Status != metav1.ConditionTrue && isDefaultStorageClass && vd.Status.StorageClassName != "" {
+		vd.Status.StorageClassName = ""
 	}
 
 	return reconcile.Result{}, nil
