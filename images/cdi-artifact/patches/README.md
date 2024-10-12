@@ -1,21 +1,5 @@
 # Patches
 
-#### `000-bundle-images.patch`
-
-Iternal patch which adds images bundle target with all images to build.
-
-#### `005-override-crds.patch`
-
-Rename group name for all cdi CRDs to override them with deckhouse virtualization CRDs.
-
-Also, remove short names and change categories. Just in case.
-
-#### `006-customizer.patch`
-
-Add `spec.customizeComponents` to the crd cdi to customize resources.
-
-https://github.com/kubevirt/containerized-data-importer/pull/3070
-
 #### `007-content-type-json.patch`
 set ContentTypeJson for kubernetes clients.
 
@@ -33,7 +17,11 @@ Do not manage DataVolume CRD with cdi-operator. Module will install this CRD usi
 
 #### `011-change-storage-class-for-scratch-pvc.patch`
 
-Set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
+Force setting an empty string to Status.ScratchSpaceStorageClass if config field ScratchSpaceStorageClass is empty
+to prevent using the default storage class name for the scratch pvc.
+
+The empty string in Status.ScratchSpaceStorageClass will force the cdi-operator
+to set the storage class name for the scratch pvc from the original pvc that will own the scratch pvc, or set it to an empty value if not available.
 
 #### `012-add-caps-for-deckhouse-provisioners.patch`
 
@@ -48,3 +36,28 @@ CDI can currently upload virtual machine images to persistent volumes (PVCs). Re
 #### `014-delete-service-monitor.patch`
 
 Removed the creation of a service monitor from the cdi-operator.
+
+#### `015-fix-replace-op-for-evanphx-json-patch-v5-lib.patch`
+
+Fix JSON patch replace operation behaviour: set value even if path is not exist.
+
+Why we need it? 
+
+Previous CDI version uses evanphx-json-patch version 5.6.0+incompatible.
+That version ignores non-existent path and it actually a v4 from main branch.
+
+CDI 1.60.3 uses evanphx-json-patch /v5 version, which has options to change
+the behaviour for add and remove operations, but there is no option
+to change behaviour for the replace operation.
+
+#### `016-scratch-filesystem-overhead-formula.patch`
+
+Manage the filesystem overhead of the scratch PVC using a formula derived from empirical estimates depending on virtual image size.
+
+Why we need it?
+
+The size of the scratch PVC is calculated based on the size of the virtual image being imported. CDI has configuration
+options to set overhead percent globally or for the particular storage class. However, the overhead percent
+is not the same and depends on the size the virtual VM image.
+Previously we adjusted the whole PVC size to get bigger scratch PVC. This patch adds overhead for the scratch PVC only,
+leaving the size of the target PVC intact.

@@ -17,6 +17,7 @@ limitations under the License.
 package rewriter
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/tidwall/gjson"
@@ -273,8 +274,11 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 		return obj, nil
 	}
 
-	rwrItems := []byte(`[]`)
+	var rwrItems bytes.Buffer
+	rwrItems.WriteString("[")
+	first := true
 	for _, item := range items {
+
 		itemBytes := []byte(item.Raw)
 		var err error
 
@@ -285,11 +289,14 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 			if rules.HasGroup(groupName) {
 				continue
 			}
-			// No transform for non-renamed groups.
-			rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", itemBytes)
-			if err != nil {
-				return nil, err
+
+			// No transform for non-renamed groups, add as-is.
+			if first {
+				first = false
+			} else {
+				rwrItems.WriteString(",")
 			}
+			rwrItems.Write(itemBytes)
 			continue
 		}
 
@@ -299,19 +306,27 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 		}
 		if newItems == nil {
 			// No transform for nil result.
-			rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", itemBytes)
+			if first {
+				first = false
+			} else {
+				rwrItems.WriteString(",")
+			}
+			rwrItems.Write(itemBytes)
 		} else {
 			// Replace renamed group with restored groups.
 			for _, newItem := range newItems {
-				rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", newItem)
-				if err != nil {
-					return nil, err
+				if first {
+					first = false
+				} else {
+					rwrItems.WriteString(",")
 				}
+				rwrItems.Write(newItem)
 			}
 		}
 	}
 
-	return sjson.SetRawBytes(obj, "items", rwrItems)
+	rwrItems.WriteString("]")
+	return sjson.SetRawBytes(obj, "items", rwrItems.Bytes())
 }
 
 // RestoreAggregatedGroupDiscovery returns an array of APIGroupDiscovery objects with restored resources.
@@ -390,35 +405,41 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 		restoredGroupObj := []byte(fmt.Sprintf(`{"metadata":{"name":"%s", "creationTimestamp":null}}`, groupName))
 
 		// Construct an array of APIVersionDiscovery objects.
-		restoredVersions := []byte(`[]`)
+		var restoredVersions bytes.Buffer
+		restoredVersions.WriteString("[")
+		first := true
 		for versionName, versionResources := range groupVersions {
+			if first {
+				first = false
+			} else {
+				restoredVersions.WriteString(",")
+			}
 			// Init restored APIVersionDiscovery object.
 			restoredVersionObj := []byte(fmt.Sprintf(`{"version":"%s"}`, versionName))
 
 			// Construct an array of APIResourceDiscovery objects.
 			{
-				restoredVersionResources := []byte(`[]`)
-				for _, resource := range versionResources {
-					restoredVersionResources, err = sjson.SetRawBytes(restoredVersionResources, "-1", resource)
-					if err != nil {
-						return nil, err
+				var restoredVersionResources bytes.Buffer
+				restoredVersionResources.WriteString("[")
+				for i, resource := range versionResources {
+					if i > 0 {
+						restoredVersionResources.WriteString(",")
 					}
+					restoredVersionResources.Write(resource)
 				}
+				restoredVersionResources.WriteString("]")
 				// Set resources field.
-				restoredVersionObj, err = sjson.SetRawBytes(restoredVersionObj, "resources", restoredVersionResources)
+				restoredVersionObj, err = sjson.SetRawBytes(restoredVersionObj, "resources", restoredVersionResources.Bytes())
 				if err != nil {
 					return nil, err
 				}
 			}
 
 			// Append restored APIVersionDiscovery object.
-			restoredVersions, err = sjson.SetRawBytes(restoredVersions, "-1", restoredVersionObj)
-			if err != nil {
-				return nil, err
-			}
+			restoredVersions.Write(restoredVersionObj)
 		}
-
-		restoredGroupObj, err := sjson.SetRawBytes(restoredGroupObj, "versions", restoredVersions)
+		restoredVersions.WriteString("]")
+		restoredGroupObj, err := sjson.SetRawBytes(restoredGroupObj, "versions", restoredVersions.Bytes())
 		if err != nil {
 			return nil, err
 		}

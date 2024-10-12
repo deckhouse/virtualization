@@ -56,22 +56,9 @@ func RenameResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
 	}
 
 	// Rewrite apiVersion and kind in each item.
-	items := gjson.GetBytes(obj, "items").Array()
-	rwrItems := []byte(`[]`)
-	for _, item := range items {
-		rwrItem, err := RenameResource(rules, []byte(item.Raw))
-		if err != nil {
-			return nil, err
-		}
-		rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", rwrItem)
-	}
-
-	obj, err = sjson.SetRawBytes(obj, "items", rwrItems)
-	if err != nil {
-		return nil, err
-	}
-
-	return obj, nil
+	return RewriteArray(obj, "items", func(singleResource []byte) ([]byte, error) {
+		return RenameResource(rules, singleResource)
+	})
 }
 
 func RestoreResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
@@ -80,23 +67,10 @@ func RestoreResourcesList(rules *RewriteRules, obj []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Rewrite apiVersion and kind in each item.
-	items := gjson.GetBytes(obj, "items").Array()
-	rwrItems := []byte(`[]`)
-	for _, item := range items {
-		rwrItem, err := RestoreResource(rules, []byte(item.Raw))
-		if err != nil {
-			return nil, err
-		}
-		rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", rwrItem)
-	}
-
-	obj, err = sjson.SetRawBytes(obj, "items", rwrItems)
-	if err != nil {
-		return nil, err
-	}
-
-	return obj, nil
+	// Restore apiVersion and kind in each item.
+	return RewriteArray(obj, "items", func(singleResource []byte) ([]byte, error) {
+		return RestoreResource(rules, singleResource)
+	})
 }
 
 func RenameResource(rules *RewriteRules, obj []byte) ([]byte, error) {
@@ -192,25 +166,11 @@ func RewriteOwnerReferences(rules *RewriteRules, obj []byte, path string, action
 //	    { "apiVersion":"renamed.resource.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
 func RestoreManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
-	mgFields := gjson.GetBytes(obj, "metadata.managedFields")
-	if !mgFields.Exists() || len(mgFields.Array()) == 0 {
-		return obj, nil
-	}
-
-	newFields := []byte(`[]`)
-	for _, mgField := range mgFields.Array() {
-		apiVersion := mgField.Get("apiVersion").String()
-		restoredAPIVersion := rules.RestoreApiVersion(apiVersion)
-		newField, err := sjson.SetBytes([]byte(mgField.Raw), "apiVersion", restoredAPIVersion)
-		if err != nil {
-			return nil, err
-		}
-		newFields, err = sjson.SetRawBytes(newFields, "-1", newField)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return sjson.SetRawBytes(obj, "metadata.managedFields", newFields)
+	return RewriteArray(obj, "metadata.managedFields", func(managedField []byte) ([]byte, error) {
+		return TransformString(managedField, "apiVersion", func(apiVersion string) string {
+			return rules.RestoreApiVersion(apiVersion)
+		})
+	})
 }
 
 // RenameManagedFields renames apiVersion in managedFields items.
@@ -223,25 +183,11 @@ func RestoreManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
 //	    { "apiVersion":"original.group.io/v1", "fieldsType":"FieldsV1", "fieldsV1":{ ... }}, "manager": "kubectl-edit", ...}
 //	  ],
 func RenameManagedFields(rules *RewriteRules, obj []byte) ([]byte, error) {
-	mgFields := gjson.GetBytes(obj, "metadata.managedFields")
-	if !mgFields.Exists() || len(mgFields.Array()) == 0 {
-		return obj, nil
-	}
-
-	newFields := []byte(`[]`)
-	for _, mgField := range mgFields.Array() {
-		apiVersion := mgField.Get("apiVersion").String()
-		renamedAPIVersion := rules.RenameApiVersion(apiVersion)
-		newField, err := sjson.SetBytes([]byte(mgField.Raw), "apiVersion", renamedAPIVersion)
-		if err != nil {
-			return nil, err
-		}
-		newFields, err = sjson.SetRawBytes(newFields, "-1", newField)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return sjson.SetRawBytes(obj, "metadata.managedFields", newFields)
+	return RewriteArray(obj, "metadata.managedFields", func(managedField []byte) ([]byte, error) {
+		return TransformString(managedField, "apiVersion", func(apiVersion string) string {
+			return rules.RenameApiVersion(apiVersion)
+		})
+	})
 }
 
 func RenameResourcePatch(rules *RewriteRules, patch []byte) ([]byte, error) {

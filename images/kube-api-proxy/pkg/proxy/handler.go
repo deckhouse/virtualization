@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,9 +30,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/tidwall/gjson"
 
+	"kube-api-proxy/pkg/labels"
 	logutil "kube-api-proxy/pkg/log"
 	"kube-api-proxy/pkg/rewriter"
 )
@@ -63,11 +66,23 @@ type Handler struct {
 	Name string
 	// ProxyPass is a target http client to send requests to.
 	// An allusion to nginx proxy_pass directive.
-	TargetClient *http.Client
-	TargetURL    *url.URL
-	ProxyMode    ProxyMode
-	Rewriter     *rewriter.RuleBasedRewriter
-	m            sync.Mutex
+	TargetClient    *http.Client
+	TargetURL       *url.URL
+	ProxyMode       ProxyMode
+	Rewriter        *rewriter.RuleBasedRewriter
+	MetricsProvider MetricsProvider
+	streamHandler   *StreamHandler
+	m               sync.Mutex
+}
+
+func (h *Handler) Init() {
+	if h.MetricsProvider == nil {
+		h.MetricsProvider = NewMetricsProvider()
+	}
+	h.streamHandler = &StreamHandler{
+		Rewriter:        h.Rewriter,
+		MetricsProvider: h.MetricsProvider,
+	}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -80,16 +95,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	requestHandleStart := time.Now()
+
 	// Step 1. Parse request url, prepare path rewrite.
 	targetReq := rewriter.NewTargetRequest(h.Rewriter, req)
 
 	resource := targetReq.ResourceForLog()
+	toTargetAction := string(ToTargetAction(h.ProxyMode))
+	fromTargetAction := string(FromTargetAction(h.ProxyMode))
+	ctx := labels.ContextWithCommon(req.Context(), h.Name, resource, req.Method, WatchLabel(targetReq.IsWatch()), toTargetAction, fromTargetAction)
 
-	logger := slog.With(
-		slog.String("request", fmt.Sprintf("%s %s", req.Method, req.URL.Path)),
-		slog.String("resource", resource),
-		slog.String("proxy.name", h.Name),
+	logger := LoggerWithCommonAttrs(ctx,
+		slog.String("url.path", req.URL.Path),
 	)
+
+	metrics := NewProxyMetrics(ctx, h.MetricsProvider)
+	metrics.GotClientRequest()
 
 	// Set target address, cleanup RequestURI.
 	req.RequestURI = ""
@@ -125,6 +146,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		isMute = false
 	case "clustervirtualmachineimages":
 		isMute = false
+	case "virtualmachines":
+		isMute = false
+	case "virtualmachines/status":
+		isMute = false
 	}
 	if isMute {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -137,29 +162,47 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error transforming request: %s", req.URL.String()), logutil.SlogErr(err))
 		http.Error(w, "can't rewrite request", http.StatusBadRequest)
+		metrics.ClientRequestRewriteError()
 		return
 	}
 
 	logger.Debug(fmt.Sprintf("Request: target headers: %+v", req.Header))
 
 	// Restore req.Body as this reader was read earlier by the transformRequest.
+	clientBodyDecision := decisionPass
 	if rwrRequestBytes != nil {
-		req.Body = io.NopCloser(bytes.NewBuffer(rwrRequestBytes))
+		req.Body = BytesCounterReaderWrap(bytes.NewBuffer(rwrRequestBytes))
+		metrics.ClientRequestRewriteSuccess()
+		clientBodyDecision = decisionRewrite
+		// metrics.ClientRequestRewriteDuration()
 	} else if origRequestBytes != nil {
 		// Fallback to origRequestBytes if body was not rewritten.
-		req.Body = io.NopCloser(bytes.NewBuffer(origRequestBytes))
+		req.Body = BytesCounterReaderWrap(bytes.NewBuffer(origRequestBytes))
 	}
+
+	metrics.FromClientBytesAdd(clientBodyDecision, len(origRequestBytes))
 
 	// Step 3. Send request to the target.
 	resp, err := h.TargetClient.Do(req)
 	if err != nil {
 		logger.Error("Error passing request to the target", logutil.SlogErr(err))
 		http.Error(w, "Error passing request to the target", http.StatusInternalServerError)
+		metrics.TargetResponseError()
 		// TODO return apimachinery NewInternalError
 		// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/errors/errors.go
 		return
 	}
-	defer resp.Body.Close()
+
+	ctx = labels.ContextWithStatus(ctx, resp.StatusCode)
+	metrics = NewProxyMetrics(ctx, h.MetricsProvider)
+	metrics.ToTargetBytesAdd(clientBodyDecision, CounterValue(req.Body))
+	metrics.TargetResponseSuccess(clientBodyDecision)
+
+	// Save original Body to close when handler finishes.
+	origRespBody := resp.Body
+	defer func() {
+		origRespBody.Close()
+	}()
 
 	// TODO handle resp.Status 3xx, 4xx, 5xx, etc.
 
@@ -173,27 +216,35 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Step 5. Handle response: pass through, transform resp.Body, or run stream transformer.
 
 	if !targetReq.ShouldRewriteResponse() {
+		ctx = labels.ContextWithDecision(ctx, decisionPass)
+		metrics = NewProxyMetrics(ctx, h.MetricsProvider)
 		// Pass response as-is without rewriting.
 		if targetReq.IsWatch() {
 			logger.Debug(fmt.Sprintf("Response decision: PASS STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
 		} else {
 			logger.Debug(fmt.Sprintf("Response decision: PASS, Status %s, Headers %+v", resp.Status, resp.Header))
 		}
-		passResponse(targetReq, w, resp, logger)
+		h.passResponse(ctx, targetReq, w, resp, logger)
+		metrics.RequestDuration(time.Since(requestHandleStart))
 		return
 	}
+
+	ctx = labels.ContextWithDecision(ctx, decisionRewrite)
+	metrics = NewProxyMetrics(ctx, h.MetricsProvider)
 
 	if targetReq.IsWatch() {
 		logger.Debug(fmt.Sprintf("Response decision: REWRITE STREAM, Status %s, Headers %+v", resp.Status, resp.Header))
 
-		h.transformStream(targetReq, w, resp, logger)
+		h.transformStream(ctx, targetReq, w, resp, logger)
+		metrics.RequestDuration(time.Since(requestHandleStart))
 		return
 	}
 
 	// One-time rewrite is required for client or webhook requests.
 	logger.Debug(fmt.Sprintf("Response decision: REWRITE, Status %s, Headers %+v", resp.Status, resp.Header))
 
-	h.transformResponse(targetReq, w, resp, logger)
+	h.transformResponse(ctx, targetReq, w, resp, logger)
+	metrics.RequestDuration(time.Since(requestHandleStart))
 	return
 }
 
@@ -209,31 +260,23 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func encodingAwareBodyReader(resp *http.Response) (io.ReadCloser, error) {
-	if resp == nil {
-		return nil, nil
-	}
-	body := resp.Body
-	if body == nil {
-		return nil, nil
-	}
-
+// resp.Header.Get("Content-Encoding")
+func encodingAwareReaderWrap(bodyReader io.ReadCloser, encoding string) (io.ReadCloser, error) {
 	var reader io.ReadCloser
 	var err error
 
-	encoding := resp.Header.Get("Content-Encoding")
 	switch encoding {
 	case "gzip":
-		reader, err = gzip.NewReader(body)
+		reader, err = gzip.NewReader(bodyReader)
 		if err != nil {
 			return nil, fmt.Errorf("errorf making gzip reader: %v", err)
 		}
 		return io.NopCloser(reader), nil
 	case "deflate":
-		return flate.NewReader(body), nil
+		return flate.NewReader(bodyReader), nil
 	}
 
-	return body, nil
+	return bodyReader, nil
 }
 
 // transformRequest transforms request headers and rewrites request payload to use
@@ -279,7 +322,6 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 			if req.Header.Get("Content-Length") != "" {
 				req.Header.Set("Content-Length", strconv.Itoa(rwrBodyLen))
 			}
-			//req.Body = io.NopCloser(bytes.NewBuffer(newBody))
 		}
 	}
 
@@ -323,9 +365,11 @@ func (h *Handler) transformRequest(targetReq *rewriter.TargetRequest, req *http.
 	return origBodyBytes, rwrBodyBytes, nil
 }
 
-func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+func (h *Handler) passResponse(ctx context.Context, targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
 	copyHeader(w.Header(), resp.Header)
 	w.WriteHeader(resp.StatusCode)
+
+	bodyReader := resp.Body
 
 	dst := &immediateWriter{dst: w}
 
@@ -335,20 +379,29 @@ func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp
 				logger.Debug(fmt.Sprintf("Pass through response chunk: %s", string(chunk)))
 			}
 		} else {
-			resp.Body = logutil.NewReaderLogger(resp.Body)
+			bodyReader = logutil.NewReaderLogger(bodyReader)
 		}
 	}
 
-	_, err := io.Copy(dst, resp.Body)
+	metrics := NewProxyMetrics(ctx, h.MetricsProvider)
+
+	// Wrap body reader with bytes counter to set to_client_bytes metric.
+	bytesCounterBody := BytesCounterReaderWrap(bodyReader)
+
+	_, err := io.Copy(dst, bytesCounterBody)
 	if err != nil {
 		logger.Error(fmt.Sprintf("copy target response back to client: %v", err))
+		metrics.RequestHandleError()
+	} else {
+		metrics.ToClientBytesAdd(CounterValue(bytesCounterBody))
+		metrics.RequestHandleSuccess()
 	}
 
 	if logger.Enabled(nil, slog.LevelDebug) && !targetReq.IsWatch() {
 		logutil.DebugBodyHead(logger,
 			fmt.Sprintf("Pass through response: status %d, content-length: '%s'", resp.StatusCode, resp.Header.Get("Content-Length")),
-			"",
-			logutil.Bytes(resp.Body),
+			targetReq.ResourceForLog(),
+			logutil.Bytes(bodyReader),
 		)
 	}
 
@@ -358,23 +411,32 @@ func passResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp
 // transformResponse rewrites payloads in responses from the target.
 //
 // ProxyMode field defines either rewriter should restore, or rename resources.
-func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
-	// Add gzip decoder if needed.
+func (h *Handler) transformResponse(ctx context.Context, targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+	metrics := NewProxyMetrics(ctx, h.MetricsProvider)
+
 	var err error
-	resp.Body, err = encodingAwareBodyReader(resp)
+	bytesCounter := BytesCounterReaderWrap(resp.Body)
+	// Add gzip decoder if needed.
+	bodyReader, err := encodingAwareReaderWrap(bytesCounter, resp.Header.Get("Content-Encoding"))
 	if err != nil {
 		logger.Error("Error decoding response body", logutil.SlogErr(err))
 		http.Error(w, "can't decode response body", http.StatusInternalServerError)
+		metrics.RequestHandleError()
 		return
 	}
+	// Close needed for gzip and flate readers.
+	defer bodyReader.Close()
 
 	// Step 1. Read response body to buffer.
-	origBodyBytes, err := io.ReadAll(resp.Body)
+	origBodyBytes, err := io.ReadAll(bodyReader)
 	if err != nil {
 		logger.Error("Error reading response payload", logutil.SlogErr(err))
 		http.Error(w, "Error reading response payload", http.StatusBadGateway)
+		metrics.RequestHandleError()
 		return
 	}
+
+	metrics.FromTargetBytesAdd(CounterValue(bytesCounter))
 
 	// Rewrite supports only json responses for now. Pass invalid JSON and non-JSON responses as-is.
 	if !gjson.ValidBytes(origBodyBytes) {
@@ -385,23 +447,30 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 			logger.Warn(fmt.Sprintf("Will not transform non JSON response from target: Content-type=%s", contentType))
 		}
 
-		passResponse(targetReq, w, resp, logger)
+		metrics.TargetResponseInvalidJSON(resp.StatusCode)
+
+		h.passResponse(ctx, targetReq, w, resp, logger)
 		return
 	}
 
 	// Step 2. Rewrite response JSON.
+	rewriteStart := time.Now()
 	statusCode := resp.StatusCode
 	rwrBodyBytes, err := h.Rewriter.RewriteJSONPayload(targetReq, origBodyBytes, FromTargetAction(h.ProxyMode))
 	if err != nil {
 		if !errors.Is(err, rewriter.SkipItem) {
 			logger.Error("Error rewriting response", logutil.SlogErr(err))
 			http.Error(w, "can't rewrite response", http.StatusInternalServerError)
+			metrics.RequestHandleError()
+			metrics.TargetResponseRewriteError()
 			return
 		}
 		// Return NotFound Status object if rewriter decides to skip resource.
 		rwrBodyBytes = notFoundJSON(targetReq.OrigResourceType(), origBodyBytes)
 		statusCode = http.StatusNotFound
 	}
+	metrics.TargetResponseRewriteSuccess()
+	metrics.TargetResponseRewriteDuration(time.Since(rewriteStart))
 
 	if targetReq.IsWebhook() {
 		logutil.DebugBodyHead(logger, "Response from webhook", targetReq.ResourceForLog(), origBodyBytes)
@@ -420,29 +489,26 @@ func (h *Handler) transformResponse(targetReq *rewriter.TargetRequest, w http.Re
 
 	// Step 4. Write non-empty rewritten body to the client.
 	if rwrBodyBytes != nil {
-		resp.Body = io.NopCloser(bytes.NewBuffer(rwrBodyBytes))
-		_, err := io.Copy(w, resp.Body)
+		copied, err := w.Write(rwrBodyBytes)
 		if err != nil {
 			logger.Error(fmt.Sprintf("error writing response from target to the client: %v", err))
+			metrics.RequestHandleError()
+		} else {
+			metrics.RequestHandleSuccess()
+			metrics.ToClientBytesAdd(copied)
 		}
 	}
 
 	return
 }
 
-func (h *Handler) transformStream(targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
-	copyHeader(w.Header(), resp.Header)
-	w.WriteHeader(resp.StatusCode)
-
-	// Start stream handler and lock ServeHTTP while proxying watch events stream.
-	wsr, err := NewStreamHandler(resp.Body, w, resp.Header.Get("Content-Type"), h.Rewriter, targetReq, logger)
+func (h *Handler) transformStream(ctx context.Context, targetReq *rewriter.TargetRequest, w http.ResponseWriter, resp *http.Response, logger *slog.Logger) {
+	// Rewrite body as a stream. ServeHTTP will block until context cancel.
+	err := h.streamHandler.Handle(ctx, w, resp, targetReq)
 	if err != nil {
 		logger.Error("Error watching stream", logutil.SlogErr(err))
 		http.Error(w, fmt.Sprintf("watch stream: %v", err), http.StatusInternalServerError)
-		return
 	}
-	<-wsr.DoneChan()
-	return
 }
 
 type immediateWriter struct {

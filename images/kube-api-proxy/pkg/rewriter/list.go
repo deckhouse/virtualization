@@ -17,11 +17,11 @@ limitations under the License.
 package rewriter
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 // TODO merge this file into transformers.go
@@ -52,14 +52,26 @@ var SkipItem = errors.New("remove item from the result")
 
 // RewriteArray gets array by path and transforms each item using transformFn.
 // Use Root path to transform object itself.
+// transformFn contract:
+// return obj, nil -> obj is considered a replacement for the element.
+// return nil, nil -> no transformation, element is added as-is.
+// return any, SkipItem -> no transformation and no adding to the result.
+// return any, err -> stop transformation, return error.
 func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([]byte, error)) ([]byte, error) {
 	// Transform each item in list. Put back original items if transformFn returns nil bytes.
 	items := GetBytes(obj, arrayPath).Array()
 	if len(items) == 0 {
 		return obj, nil
 	}
-	rwrItems := []byte(`[]`)
+
+	var rwrItems bytes.Buffer
+	rwrItems.Grow(len(obj))
+	// Start array
+	rwrItems.WriteString(`[`)
+
+	first := true
 	for _, item := range items {
+
 		rwrItem, err := transformFn([]byte(item.Raw))
 		if err != nil {
 			if errors.Is(err, SkipItem) {
@@ -67,15 +79,23 @@ func RewriteArray(obj []byte, arrayPath string, transformFn func(item []byte) ([
 			}
 			return nil, err
 		}
-		// Put original item back.
+
+		// Prepend a comma for all elements except the first one.
+		if first {
+			first = false
+		} else {
+			rwrItems.WriteString(`,`)
+		}
+
+		// Put original item back to allow transformFn returns nil.
 		if rwrItem == nil {
 			rwrItem = []byte(item.Raw)
 		}
-		rwrItems, err = sjson.SetRawBytes(rwrItems, "-1", rwrItem)
-		if err != nil {
-			return nil, err
-		}
+
+		rwrItems.Write(rwrItem)
 	}
 
-	return SetRawBytes(obj, arrayPath, rwrItems)
+	// Close array
+	rwrItems.WriteString(`]`)
+	return SetRawBytes(obj, arrayPath, rwrItems.Bytes())
 }

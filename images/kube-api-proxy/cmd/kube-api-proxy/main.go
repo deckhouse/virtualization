@@ -18,10 +18,14 @@ package main
 
 import (
 	log "log/slog"
+	"net/http"
 	"os"
 
 	"kube-api-proxy/pkg/kubevirt"
 	logutil "kube-api-proxy/pkg/log"
+	"kube-api-proxy/pkg/monitoring/healthz"
+	"kube-api-proxy/pkg/monitoring/metrics"
+	"kube-api-proxy/pkg/monitoring/profiler"
 	"kube-api-proxy/pkg/proxy"
 	"kube-api-proxy/pkg/rewriter"
 	"kube-api-proxy/pkg/server"
@@ -61,6 +65,12 @@ const (
 	logOutputEnv = "LOG_OUTPUT"
 )
 
+const (
+	MonitoringBindAddress        = "MONITORING_BIND_ADDRESS"
+	DefaultMonitoringBindAddress = ":9090"
+	PprofBindAddressEnv          = "PPROF_BIND_ADDRESS"
+)
+
 func main() {
 	// Set options for the default logger: level, format and output.
 	logutil.SetupDefaultLoggerFromEnv(logutil.Options{
@@ -81,7 +91,14 @@ func main() {
 	}
 	rewriteRules.Init()
 
-	proxies := make([]*server.HTTPServer, 0)
+	// Init and register metrics.
+	metrics.Init()
+	proxy.RegisterMetrics()
+
+	httpServers := make([]*server.HTTPServer, 0)
+
+	// Now add proxy workers with rewriters.
+	hasRewriter := false
 
 	// Register direct proxy from local Kubernetes API client to Kubernetes API server.
 	if os.Getenv("CLIENT_PROXY") == "no" {
@@ -105,12 +122,14 @@ func main() {
 			ProxyMode:    proxy.ToRenamed,
 			Rewriter:     rwr,
 		}
+		proxyHandler.Init()
 		proxySrv := &server.HTTPServer{
 			InstanceDesc: "API Client proxy",
 			ListenAddr:   lAddr,
 			RootHandler:  proxyHandler,
 		}
-		proxies = append(proxies, proxySrv)
+		httpServers = append(httpServers, proxySrv)
+		hasRewriter = true
 	}
 
 	// Register reverse proxy from Kubernetes API server to local webhook server.
@@ -135,31 +154,67 @@ func main() {
 			ProxyMode:    proxy.ToOriginal,
 			Rewriter:     rwr,
 		}
+		proxyHandler.Init()
 		proxySrv := &server.HTTPServer{
 			InstanceDesc: "Webhook proxy",
 			ListenAddr:   lAddr,
 			RootHandler:  proxyHandler,
 			CertManager:  config.CertManager,
 		}
-		proxies = append(proxies, proxySrv)
+		httpServers = append(httpServers, proxySrv)
+		hasRewriter = true
 	}
 
-	if len(proxies) == 0 {
-		log.Info("No proxies to start, exit")
+	if !hasRewriter {
+		log.Info("No proxy rewriters to start, exit. Check CLIENT_PROXY and WEBHOOK_ADDRESS environment variables.")
 		return
 	}
 
-	// Start proxies and block the main process until at least one proxy stops.
-	proxyGroup := server.NewRunnableGroup()
-	for i := range proxies {
-		proxyGroup.Add(proxies[i])
+	// Always add monitoring server with metrics and healthz probes
+	{
+		lAddr := os.Getenv(MonitoringBindAddress)
+		if lAddr == "" {
+			lAddr = DefaultMonitoringBindAddress
+		}
+
+		monMux := http.NewServeMux()
+		healthz.AddHealthzHandler(monMux)
+		metrics.AddMetricsHandler(monMux)
+
+		monSrv := &server.HTTPServer{
+			InstanceDesc: "Monitoring handlers",
+			ListenAddr:   lAddr,
+			RootHandler:  monMux,
+			CertManager:  nil,
+			Err:          nil,
+		}
+		httpServers = append(httpServers, monSrv)
 	}
-	// Block while proxies are running.
-	proxyGroup.Start()
+
+	// Enable pprof server if bind address is specified.
+	pprofBindAddress := os.Getenv(PprofBindAddressEnv)
+	if pprofBindAddress != "" {
+		pprofHandler := profiler.NewPprofHandler()
+
+		pprofSrv := &server.HTTPServer{
+			InstanceDesc: "Pprof",
+			ListenAddr:   pprofBindAddress,
+			RootHandler:  pprofHandler,
+		}
+		httpServers = append(httpServers, pprofSrv)
+	}
+
+	// Start all registered servers and block the main process until at least one server stops.
+	group := server.NewRunnableGroup()
+	for i := range httpServers {
+		group.Add(httpServers[i])
+	}
+	// Block while servers are running.
+	group.Start()
 
 	// Log errors for each instance and exit.
 	exitCode := 0
-	for _, srv := range proxies {
+	for _, srv := range httpServers {
 		if srv.Err != nil {
 			log.Error(srv.InstanceDesc, logutil.SlogErr(srv.Err))
 			exitCode = 1
