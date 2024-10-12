@@ -491,6 +491,15 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
 
+		// Update KVVM spec according the current VM spec.
+		if err := h.updateKVVM(ctx, s); err != nil {
+			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
+		}
+		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
+		if err := h.restartKVVM(ctx, kvvm, kvvmi); err != nil {
+			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
+		}
+
 	case vmchange.ActionApplyImmediate:
 		message := "Apply changes without restart"
 		if changes.IsDisruptive() {
