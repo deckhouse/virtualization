@@ -78,11 +78,9 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	if inUsed {
 		inUseCondition.Status = metav1.ConditionTrue
 		inUseCondition.Reason = vdcondition.InUseInRunningVirtualMachine
-	} else {
-		if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
-			inUseCondition.Status = metav1.ConditionFalse
-			inUseCondition.Reason = vdcondition.NotUse
-		}
+	} else if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
+		inUseCondition.Status = metav1.ConditionFalse
+		inUseCondition.Reason = vdcondition.NotUse
 	}
 
 	service.SetCondition(inUseCondition, &vd.Status.Conditions)
