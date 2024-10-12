@@ -11,7 +11,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type InUseHandler struct {
@@ -59,7 +61,10 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 				continue
 			}
 
-			inUsed = true
+			readyCondition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+			if readyCondition.Status != metav1.ConditionTrue {
+				inUsed = true
+			}
 		}
 
 		var cviList virtv2.ClusterVirtualImageList
@@ -78,7 +83,10 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 				continue
 			}
 
-			inUsed = true
+			readyCondition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+			if readyCondition.Status != metav1.ConditionTrue {
+				inUsed = true
+			}
 		}
 
 		if inUsed {
