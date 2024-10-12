@@ -89,16 +89,11 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			}
 		}
 
-		log.Debug("exec InUseHandler")
-
 		if inUsed {
-			log.Debug("inuse true")
 			inUseCondition.Status = metav1.ConditionTrue
 			inUseCondition.Reason = vdcondition.InUseForCreateImage
 		} else {
-			log.Debug("inuse false")
 			if inUseCondition.Reason == vdcondition.InUseForCreateImage {
-				log.Debug("need change status")
 				inUseCondition.Status = metav1.ConditionFalse
 				inUseCondition.Reason = vdcondition.NotUse
 			}

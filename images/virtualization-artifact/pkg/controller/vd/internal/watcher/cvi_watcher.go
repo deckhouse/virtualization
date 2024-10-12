@@ -47,7 +47,7 @@ func NewClusterVirtualImageWatcher() *ClusterVirtualImageWatcher {
 
 func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
+		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
@@ -56,11 +56,10 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 		},
 	)
 }
-
 func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualImage but got a %T", obj))
+		w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
 		return
 	}
 
@@ -79,13 +78,13 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj clien
 func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected an old VirtualImage but got a %T", e.ObjectOld))
+		w.logger.Error(fmt.Sprintf("expected an old ClusterVirtualImage but got a %T", e.ObjectOld))
 		return false
 	}
 
 	newCVI, ok := e.ObjectNew.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a new VirtualImage but got a %T", e.ObjectNew))
+		w.logger.Error(fmt.Sprintf("expected a new ClusterVirtualImage but got a %T", e.ObjectNew))
 		return false
 	}
 
