@@ -2906,6 +2906,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format: "int64",
 						},
 					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
