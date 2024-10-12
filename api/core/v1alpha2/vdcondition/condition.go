@@ -88,8 +88,10 @@ const (
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
 	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
 
-	// InUse indicates that this `VirtualDisk` attached to running `VirtualMachine` or running a process to create a `VirtualImage` from this `VirtualDisk`
-	InUse InUseReason = "InUse"
+	// InUseInRunningVirtualMachine indicates that this `VirtualDisk` attached to running `VirtualMachine`
+	InUseInRunningVirtualMachine InUseReason = "InUseInRunningVirtualMachine"
+	// InUseForCreateImage indicates running a process to create a `VirtualImage` or `ClusterVirtualImage` from this `VirtualDisk`
+	InUseForCreateImage InUseReason = "InUseForCreateImage"
 	// NotUse indicates that this `VirtualDisk` is available.
 	NotUse InUseReason = "NotUse"
 )

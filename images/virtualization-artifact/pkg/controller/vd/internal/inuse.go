@@ -30,7 +30,10 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	inUseCondition, ok := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if !ok {
 		inUseCondition = metav1.Condition{
-			Type: vdcondition.InUseType,
+			Type:    vdcondition.InUseType,
+			Status:  metav1.ConditionFalse,
+			Reason:  vdcondition.NotUse,
+			Message: "",
 		}
 	}
 
@@ -80,13 +83,9 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 		if inUsed {
 			inUseCondition.Status = metav1.ConditionTrue
-			inUseCondition.Reason = vdcondition.InUse
-		} else {
-			inUseCondition.Status = metav1.ConditionFalse
-			inUseCondition.Reason = vdcondition.NotUse
+			inUseCondition.Reason = vdcondition.InUseForCreateImage
 		}
 
-		inUseCondition.Message = ""
 		service.SetCondition(inUseCondition, &vd.Status.Conditions)
 	}
 

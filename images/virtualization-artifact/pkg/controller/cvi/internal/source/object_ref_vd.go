@@ -210,7 +210,9 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 
 	inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUseCondition.Status != metav1.ConditionFalse {
-		return NewVirtualDiskInUseError(vd.Name)
+		if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
+			return NewVirtualDiskInUseError(vd.Name)
+		}
 	}
 
 	return nil
