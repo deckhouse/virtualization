@@ -93,7 +93,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.StorageClassReady
 		condition.Message = ""
-	case vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "":
+	case isDefaultStorageClass:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.StorageClassNameNotProvided
 		condition.Message = "Storage class not provided and default storage class not found."

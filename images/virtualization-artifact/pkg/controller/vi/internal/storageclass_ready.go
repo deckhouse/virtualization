@@ -21,25 +21,29 @@ import (
 	"errors"
 	"fmt"
 
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type StorageClassReadyHandler struct {
 	service DiskService
+	sources *source.Sources
 }
 
 func (h StorageClassReadyHandler) Name() string {
 	return "StorageClassReadyHandler"
 }
 
-func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService, sources *source.Sources) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
 		service: diskService,
+		sources: sources,
 	}
 }
 
@@ -61,31 +65,65 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	switch vi.Spec.Storage {
-	case virtv2.StorageContainerRegistry:
+	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.DVCRTypeUsed
 		condition.Message = "Used dvcr storage"
-	case virtv2.StorageKubernetes:
-		sc, err := h.service.GetStorageClass(ctx, vi.Spec.PersistentVolumeClaim.StorageClass)
+		return reconcile.Result{}, nil
+	}
+
+	isDefaultStorageClass := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
+	specClassChanged := false
+	if isDefaultStorageClass {
+		if vi.Status.StorageClassName == "" {
+			sc, _ := h.service.GetStorageClass(ctx, nil)
+			if sc != nil {
+				vi.Status.StorageClassName = sc.Name
+			}
+		}
+	} else {
+		if vi.Status.StorageClassName == "" {
+			vi.Status.StorageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
+		}
+		if vi.Status.StorageClassName != *vi.Spec.PersistentVolumeClaim.StorageClass {
+			specClassChanged = true
+		}
+	}
+
+	var sc *storagev1.StorageClass
+	if vi.Status.StorageClassName != "" {
+		var err error
+		sc, err = h.service.GetStorageClass(ctx, &vi.Status.StorageClassName)
 		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 			return reconcile.Result{}, err
 		}
+	}
 
-		switch {
-		case sc != nil:
-			condition.Status = metav1.ConditionTrue
-			condition.Reason = vicondition.StorageClassReady
-			condition.Message = ""
-		case vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "":
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.StorageClassNameNotProvided
-			condition.Message = "Storage class not provided and default storage class not found."
-		default:
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.StorageClassNotFound
-			condition.Message = fmt.Sprintf("StorageClass %q not ready", *vi.Spec.PersistentVolumeClaim.StorageClass)
+	switch {
+	case sc != nil:
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = vicondition.StorageClassReady
+		condition.Message = ""
+	case isDefaultStorageClass:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.StorageClassNameNotProvided
+		condition.Message = "Storage class not provided and default storage class not found."
+	default:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vicondition.StorageClassNotFound
+		condition.Message = fmt.Sprintf("Storage class %q not found", *vi.Spec.PersistentVolumeClaim.StorageClass)
+	}
+
+	if condition.Status != metav1.ConditionTrue || specClassChanged {
+		vi.Status.Phase = virtv2.ImagePending
+		_, err := h.sources.CleanUp(ctx, vi)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
+	}
+
+	if condition.Status != metav1.ConditionTrue && isDefaultStorageClass && vi.Status.StorageClassName != "" {
+		vi.Status.StorageClassName = ""
 	}
 
 	return reconcile.Result{}, nil
