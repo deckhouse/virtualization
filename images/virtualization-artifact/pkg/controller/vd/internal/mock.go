@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sync"
 )
@@ -249,6 +249,9 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
+//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//				panic("mock out the CleanUp method")
+//			},
 //			GetFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
 //				panic("mock out the Get method")
 //			},
@@ -259,18 +262,65 @@ var _ Sources = &SourcesMock{}
 //
 //	}
 type SourcesMock struct {
+	// CleanUpFunc mocks the CleanUp method.
+	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+
 	// GetFunc mocks the Get method.
 	GetFunc func(dsType virtv2.DataSourceType) (source.Handler, bool)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// CleanUp holds details about calls to the CleanUp method.
+		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vd is the vd argument value.
+			Vd *virtv2.VirtualDisk
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// DsType is the dsType argument value.
 			DsType virtv2.DataSourceType
 		}
 	}
-	lockGet sync.RWMutex
+	lockCleanUp sync.RWMutex
+	lockGet     sync.RWMutex
+}
+
+// CleanUp calls CleanUpFunc.
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	if mock.CleanUpFunc == nil {
+		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}{
+		Ctx: ctx,
+		Vd:  vd,
+	}
+	mock.lockCleanUp.Lock()
+	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
+	mock.lockCleanUp.Unlock()
+	return mock.CleanUpFunc(ctx, vd)
+}
+
+// CleanUpCalls gets all the calls that were made to CleanUp.
+// Check the length with:
+//
+//	len(mockedSources.CleanUpCalls())
+func (mock *SourcesMock) CleanUpCalls() []struct {
+	Ctx context.Context
+	Vd  *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}
+	mock.lockCleanUp.RLock()
+	calls = mock.calls.CleanUp
+	mock.lockCleanUp.RUnlock()
+	return calls
 }
 
 // Get calls GetFunc.
@@ -318,7 +368,7 @@ var _ DiskService = &DiskServiceMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
+//			GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
 //				panic("mock out the GetStorageClass method")
 //			},
 //			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
@@ -335,7 +385,7 @@ type DiskServiceMock struct {
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetStorageClassFunc mocks the GetStorageClass method.
-	GetStorageClassFunc func(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetStorageClassFunc func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
 
 	// ResizeFunc mocks the Resize method.
 	ResizeFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
@@ -408,7 +458,7 @@ func (mock *DiskServiceMock) GetPersistentVolumeClaimCalls() []struct {
 }
 
 // GetStorageClass calls GetStorageClassFunc.
-func (mock *DiskServiceMock) GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
+func (mock *DiskServiceMock) GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
 	if mock.GetStorageClassFunc == nil {
 		panic("DiskServiceMock.GetStorageClassFunc: method is nil but DiskService.GetStorageClass was just called")
 	}

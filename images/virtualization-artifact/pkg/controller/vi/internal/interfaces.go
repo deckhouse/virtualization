@@ -18,11 +18,16 @@ package internal
 
 import (
 	"context"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 	storev1 "k8s.io/api/storage/v1"
 )
 
-//go:generate moq -rm -out mock.go . DiskService
+//go:generate moq -rm -out mock.go . DiskService Sources
+
+type Sources interface {
+	CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
+}
 
 type DiskService interface {
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)

@@ -26,17 +26,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type StorageClassReadyHandler struct {
 	service DiskService
-	sources *source.Sources
+	sources Sources
 }
 
-func NewStorageClassReadyHandler(diskService DiskService, sources *source.Sources) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService, sources Sources) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
 		service: diskService,
 		sources: sources,
