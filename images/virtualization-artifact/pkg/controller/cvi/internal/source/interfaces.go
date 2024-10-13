@@ -54,6 +54,8 @@ type Uploader interface {
 	GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error)
 	Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
+	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
 }
 
 type Stat interface {
@@ -63,7 +65,7 @@ type Stat interface {
 	GetDVCRImageName(pod *corev1.Pod) string
 	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
-	IsUploaderReady(pod *corev1.Pod, ing *netv1.Ingress) bool
+	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	CheckPod(pod *corev1.Pod) error
 }

@@ -173,14 +173,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
-	case ds.statService.IsUploaderReady(pod, ing):
+	case ds.statService.IsUploaderReady(pod, svc, ing):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.WaitForUserUpload
 		condition.Message = "Waiting for the user upload."
 
 		cvi.Status.Phase = virtv2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		cvi.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
+		cvi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+			External:  ds.uploaderService.GetExternalURL(ctx, ing),
+			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
+		}
 
 		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 	default:

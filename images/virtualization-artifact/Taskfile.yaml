@@ -4,6 +4,9 @@ silent: true
 
 includes:
   init: Taskfile.init.yaml
+  api:
+    taskfile: ../../api/Taskfile.dist.yaml
+    dir: ../../api
 
 vars:
   BaseNamespace: d8-virtualization

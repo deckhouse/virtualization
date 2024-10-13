@@ -197,7 +197,15 @@ spec:
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 uploadCommand:
                   description: |
-                    Команда для загрузки образа для типа 'Upload'.
+                    Устаревшее поле. Используйте imageUploadURLs.
+                imageUploadURLs:
+                  properties:
+                    external:
+                      description: |
+                        Команда для загрузки изображения с использованием `Ingress` вне кластера.
+                    inCluster:
+                      description: |
+                        Команда для загрузки изображения с использованием `Service` внутри кластера.
                 sourceUID:
                   description: |
                     UID источника (`VirtualImage` или `ClusterVirtualImage`), использовавшегося при создании виртуального диска.

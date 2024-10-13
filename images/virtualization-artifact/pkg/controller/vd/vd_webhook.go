@@ -19,7 +19,6 @@ package vd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,17 +36,15 @@ type VirtualDiskValidator interface {
 
 type Validator struct {
 	validators []VirtualDiskValidator
-	logger     *slog.Logger
 }
 
-func NewValidator(client client.Client, logger *slog.Logger) *Validator {
+func NewValidator(client client.Client) *Validator {
 	return &Validator{
 		validators: []VirtualDiskValidator{
 			validators.NewPVCSizeValidator(client),
 			validators.NewSpecChangesValidator(),
 			validators.NewISOSourceValidator(client),
 		},
-		logger: logger.With("webhook", "validator"),
 	}
 }
 
@@ -57,8 +54,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
 	}
 
-	log := logger.FromContext(ctx)
-	log.Info("[AAAAAAAAAAA] Validating virtual disk", "spec.pvc.size", vd.Spec.PersistentVolumeClaim.Size)
+	logger.FromContext(ctx).Info("Validating virtual disk", "spec.pvc.size", vd.Spec.PersistentVolumeClaim.Size)
 
 	var warnings admission.Warnings
 
@@ -84,7 +80,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		return nil, fmt.Errorf("expected an old VirtualDisk but got a %T", oldObj)
 	}
 
-	v.logger.Info("Validating virtual disk",
+	logger.FromContext(ctx).Info("Validating virtual disk",
 		"old.spec.pvc.size", oldVD.Spec.PersistentVolumeClaim.Size,
 		"new.spec.pvc.size", newVD.Spec.PersistentVolumeClaim.Size,
 	)
@@ -102,8 +98,8 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	return warnings, nil
 }
 
-func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(ctx context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	logger.FromContext(ctx).Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
 }

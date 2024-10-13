@@ -26,10 +26,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
 type UploaderService struct {
@@ -187,6 +190,33 @@ func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Genera
 	}
 
 	return ing, nil
+}
+
+func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
+	url := ing.Annotations[cc.AnnUploadURL]
+	if url == "" {
+		logger.FromContext(ctx).Error("unexpected empty upload url, please report a bug")
+		return ""
+	}
+
+	return url
+}
+
+func (s UploaderService) GetInClusterURL(ctx context.Context, svc *corev1.Service) string {
+	var port int32
+
+	for _, svcPort := range svc.Spec.Ports {
+		if svcPort.Name == common.UploaderPortName {
+			port = svcPort.Port
+		}
+	}
+
+	if port == 0 || svc.Spec.ClusterIP == "" {
+		logger.FromContext(ctx).Error("unexpected spec of the service, please report a bug", "port", port, "clusterIP", svc.Spec.ClusterIP)
+		return ""
+	}
+
+	return fmt.Sprintf("http://%s:%d/upload", svc.Spec.ClusterIP, port)
 }
 
 func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.PodSettings {

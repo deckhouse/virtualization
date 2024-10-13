@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
@@ -65,9 +66,7 @@ func (s *Service) makeSpec() *corev1.Service {
 			Annotations: map[string]string{
 				cc.AnnCreatedBy: "yes",
 			},
-			Labels: map[string]string{
-				// TODO add labels
-			},
+			Labels: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{
 				s.Settings.OwnerReference,
 			},
@@ -75,7 +74,7 @@ func (s *Service) makeSpec() *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Name:     "uploader",
+					Name:     common.UploaderPortName,
 					Protocol: "TCP",
 					Port:     443,
 					TargetPort: intstr.IntOrString{
@@ -87,8 +86,7 @@ func (s *Service) makeSpec() *corev1.Service {
 			Selector: map[string]string{
 				cc.UploaderServiceLabel: s.Settings.Name,
 			},
-			Type:      corev1.ServiceTypeClusterIP,
-			ClusterIP: corev1.ClusterIPNone,
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 

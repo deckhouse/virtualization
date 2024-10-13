@@ -38,8 +38,15 @@ type ImageStatus struct {
 	Target        ImageStatusTarget `json:"target"`
 	Phase         ImagePhase        `json:"phase,omitempty"`
 	Progress      string            `json:"progress,omitempty"`
-	UploadCommand string            `json:"uploadCommand,omitempty"`
 	SourceUID     *types.UID        `json:"sourceUID,omitempty"`
+	// Deprecated: use ImageUploadURLs instead.
+	UploadCommand   string           `json:"uploadCommand,omitempty"`
+	ImageUploadURLs *ImageUploadURLs `json:"imageUploadURLs,omitempty"`
+}
+
+type ImageUploadURLs struct {
+	External  string `json:"external,omitempty"`
+	InCluster string `json:"inCluster,omitempty"`
 }
 
 type StatusSpeed struct {
