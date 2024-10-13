@@ -60,7 +60,6 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	err := h.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
-
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list vi: %s", err))
 		return reconcile.Result{}, err

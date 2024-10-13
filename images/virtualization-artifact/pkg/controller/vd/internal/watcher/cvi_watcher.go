@@ -56,6 +56,7 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 		},
 	)
 }
+
 func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
