@@ -45,7 +45,7 @@ const (
 	// VirtualDiskNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskNotReady DatasourceReadyReason = "VirtualDiskNotReady"
 	// VirtualDiskInUseInRunningVirtualMachine indicates that the `VirtualDisk` attached to running `VirtualMachine`
-	VirtualDiskInUseInRunningVirtualMachine DatasourceReadyReason = "VirtualDiskInUseInRunningVM"
+	VirtualDiskInUseInRunningVirtualMachine DatasourceReadyReason = "VirtualDiskInUseInRunningVirtualMachine"
 
 	// WaitForUserUpload indicates that the `VirtualImage` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
