@@ -70,7 +70,7 @@ type VirtualDiskInUseError struct {
 }
 
 func (e VirtualDiskInUseError) Error() string {
-	return fmt.Sprintf("VirtualDisk %q attached to running `VirtualMachine` or running a process to create a `VirtualImage` from this `VirtualDisk`", e.name)
+	return fmt.Sprintf("VirtualDisk %q attached to running `VirtualMachine`", e.name)
 }
 
 func NewVirtualDiskInUseError(name string) error {
