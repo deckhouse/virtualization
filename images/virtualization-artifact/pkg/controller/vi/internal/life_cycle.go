@@ -127,7 +127,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 
 	var result reconcile.Result
 	var err error
-	if vi.Spec.Storage == virtv2.StorageKubernetes {
+	if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 		if vi.Status.StorageClassName != "" && storageClassReadyCondition.Status == metav1.ConditionTrue {
 			result, err = ds.StoreToPVC(ctx, vi)
 		}

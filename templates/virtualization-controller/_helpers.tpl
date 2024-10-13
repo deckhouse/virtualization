@@ -33,6 +33,20 @@
 {{- if (hasKey .Values.virtualization "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
   value: {{ .Values.virtualization.virtualImages.storageClassName }}
+- name: VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS
+  value: {{ .Values.virtualization.virtualImages.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.virtualImages "allowedStorageClassSelector") }}
+- name: VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES
+  value: {{ join "," .Values.virtualization.virtualImages.allowedStorageClassSelector.matchNames | quote }}
+{{- end }}
+{{- end }}
+{{- if (hasKey .Values.virtualization "virtualDisks") }}
+- name: VIRTUAL_DISK_DEFAULT_STORAGE_CLASS
+  value: {{ .Values.virtualization.virtualDisks.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.virtualDisks "allowedStorageClassSelector") }}
+- name: VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES
+  value: {{ join "," .Values.virtualization.virtualDisks.allowedStorageClassSelector.matchNames | quote }}
+{{- end }}
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"

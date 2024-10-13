@@ -215,8 +215,15 @@ spec:
                         "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http)
                         && !has(self.containerImage) : true"
                 persistentVolumeClaim:
+                  description:
+                    Settings for creating PVCs to store the image with storage
+                    type 'PersistentVolumeClaim'.
                   properties:
-                    storageClass:
+                    storageClassName:
+                      description: |-
+                        The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+
+                        When creating image with storage type 'PersistentVolumeClaim', the user can specify the required StorageClass to create the image, or not explicitly, in which case the default StorageClass will be used.
                       type: string
                   type: object
                 storage:
@@ -225,10 +232,12 @@ spec:
                     Storage type to store the image for current virtualization setup.
 
                     * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-                    * `Kubernetes` - use a Persistent Volume Claim (PVC).
+                    * `PersistentVolumeClaim` - use a Persistent Volume Claim (PVC).
+                    * `Kubernetes` - Deprecated: Use of this value is discouraged and may be removed in future versions. Use PersistentVolumeClaim instead.
                   enum:
                     - ContainerRegistry
                     - Kubernetes
+                    - PersistentVolumeClaim
                   type: string
               required:
                 - dataSource
@@ -399,7 +408,7 @@ spec:
                   properties:
                     persistentVolumeClaimName:
                       description:
-                        Created PersistentVolumeClaim name for Kubernetes
+                        Created PersistentVolumeClaim name for PersistentVolumeClaim
                         storage.
                       type: string
                     registryURL:

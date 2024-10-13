@@ -179,6 +179,14 @@ const (
 
 	// VirtualImageStorageClass is a parameter for configuring the storage class for Virtual Image on PVC.
 	VirtualImageStorageClass = "VIRTUAL_IMAGE_STORAGE_CLASS"
+	// VirtualImageDefaultStorageClass specifies the default storage class for virtual images on PVC when none is specified.
+	VirtualImageDefaultStorageClass = "VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS"
+	// VirtualImageAllowedStorageClasses is a parameter that lists all allowed storage classes for virtual images on PVC.
+	VirtualImageAllowedStorageClasses = "VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES"
+	// VirtualDiskDefaultStorageClass specifies the default storage class for virtual disks when none is specified.
+	VirtualDiskDefaultStorageClass = "VIRTUAL_DISK_DEFAULT_STORAGE_CLASS"
+	// VirtualDiskAllowedStorageClasses is a parameter that lists all allowed storage classes for virtual disks.
+	VirtualDiskAllowedStorageClasses = "VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES"
 
 	DockerRegistrySchemePrefix = "docker://"
 
