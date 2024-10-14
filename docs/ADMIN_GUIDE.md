@@ -172,7 +172,7 @@ d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
 # {
 #   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-#   "inCluster":"http://10.222.165.239"
+#   "inCluster":"http://10.222.165.239:443/upload"
 # }
 ```
 
