@@ -240,8 +240,8 @@ func (s StatService) IsImportStarted(ownerUID types.UID, pod *corev1.Pod) bool {
 	return progress.ProgressRaw() > 0
 }
 
-func (s StatService) IsUploaderReady(pod *corev1.Pod, ing *netv1.Ingress) bool {
-	if pod == nil || ing == nil {
+func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool {
+	if pod == nil || svc == nil || ing == nil {
 		return false
 	}
 

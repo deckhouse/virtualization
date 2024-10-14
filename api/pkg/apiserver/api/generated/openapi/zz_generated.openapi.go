@@ -56,6 +56,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatus":                               schema_virtualization_api_core_v1alpha2_ImageStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget":                         schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                           schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                              schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
@@ -1159,16 +1160,22 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Format: "",
 						},
 					},
-					"uploadCommand": {
+					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"sourceUID": {
+					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated: use ImageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
 					"conditions": {
@@ -1195,7 +1202,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -1442,16 +1449,22 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"uploadCommand": {
+					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"sourceUID": {
+					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated: use ImageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
 				},
@@ -1459,7 +1472,7 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
 	}
 }
 
@@ -1516,6 +1529,30 @@ func schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref common.Refere
 							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"inCluster": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -2548,8 +2585,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated: use ImageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
 					"phase": {
@@ -2608,7 +2651,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -2869,16 +2912,22 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format: "",
 						},
 					},
-					"uploadCommand": {
+					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"sourceUID": {
+					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated: use ImageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
 					"conditions": {
@@ -2905,7 +2954,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

@@ -44,11 +44,13 @@ type VirtualDiskSpec struct {
 }
 
 type VirtualDiskStatus struct {
-	DownloadSpeed             *StatusSpeed             `json:"downloadSpeed,omitempty"`
-	Capacity                  string                   `json:"capacity,omitempty"`
-	Target                    DiskTarget               `json:"target"`
-	Progress                  string                   `json:"progress,omitempty"`
+	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
+	Capacity      string       `json:"capacity,omitempty"`
+	Target        DiskTarget   `json:"target"`
+	Progress      string       `json:"progress,omitempty"`
+	// Deprecated: use ImageUploadURLs instead.
 	UploadCommand             string                   `json:"uploadCommand,omitempty"`
+	ImageUploadURLs           *ImageUploadURLs         `json:"imageUploadURLs,omitempty"`
 	Phase                     DiskPhase                `json:"phase"`
 	AttachedToVirtualMachines []AttachedVirtualMachine `json:"attachedToVirtualMachines,omitempty"`
 	Stats                     VirtualDiskStats         `json:"stats"`

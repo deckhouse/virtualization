@@ -326,7 +326,18 @@ spec:
                 uploadCommand:
                   type: string
                   description: |
-                    Command for uploading a image for the 'Upload' type.
+                    Deprecated. Use imageUploadURLs instead.
+                imageUploadURLs:
+                  type: object
+                  properties:
+                    external:
+                      type: string
+                      description: |
+                        Command to upload the image using `Ingress` from outside the cluster.
+                    inCluster:
+                      type: string
+                      description: |
+                        Command to upload the image using `Service` within the cluster.
                 sourceUID:
                   type: string
                   description: |

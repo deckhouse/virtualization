@@ -30,18 +30,12 @@ const (
 	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
 	KeySecret = "secretKey"
 
-	// ImporterSecretNamePrefix provides a constant that can be used as a prefix to create a secret
-	ImporterSecretNamePrefix = "importer-secret"
-	// ImporterPodNamePrefix provides a constant to use as a prefix for Pods created by CDI (controller only)
-	ImporterPodNamePrefix = "importer"
 	// ImporterContainerName provides a constant to use as a name for importer Container
 	ImporterContainerName = "importer"
-	// UploaderPodNamePrefix provides a constant to use as a prefix for uploader Pods created by CDI (controller only)
-	UploaderPodNamePrefix = "uploader"
 	// UploaderContainerName provides a constant to use as a name for uploader Container
 	UploaderContainerName = "uploader"
-	// UploaderServiceNamePrefix provides a constant to use as a prefix for uploader Service
-	UploaderServiceNamePrefix = "uploader-svc"
+	// UploaderPortName provides a constant to use as a port name for uploader Service
+	UploaderPortName = "uploader"
 	// UploaderIngressHostVar is a env variable
 	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
 	// UploaderIngressTLSSecretVar is a env variable
