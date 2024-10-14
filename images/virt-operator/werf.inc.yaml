@@ -3,6 +3,10 @@ image: {{ $.ImageName }}
 from: {{ .Images.DISTROLESS_ALT_P11 }}
 import:
 - image: base-alt-p11
+  add: /bin
+  to: /bin
+  before: setup
+- image: base-alt-p11
   add: /home
   to: /home
   includePaths:
