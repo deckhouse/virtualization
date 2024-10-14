@@ -43,14 +43,14 @@ func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec
 			}
 
 			if storageClassFromSpec == "" || storageClassFromSpec == svc.clusterDefaultStorageClassName {
-				return storageClassFromSpec, nil
+				return svc.clusterDefaultStorageClassName, nil
 			}
 
 			return "", ErrStorageClassNotAvailable
 		}
 
 		if storageClassFromSpec == "" || storageClassFromSpec == svc.storageClassSettings.StorageClassName {
-			return storageClassFromSpec, nil
+			return svc.storageClassSettings.StorageClassName, nil
 		}
 
 		return "", ErrStorageClassNotAvailable
