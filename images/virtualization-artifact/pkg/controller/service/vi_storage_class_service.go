@@ -38,6 +38,10 @@ func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec
 	// if settings is empty
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if svc.storageClassSettings.StorageClassName == "" {
+			if svc.clusterDefaultStorageClassName == "" {
+				return "", ErrDefaultStorageClassNotFound
+			}
+
 			if storageClassFromSpec == "" || storageClassFromSpec == svc.clusterDefaultStorageClassName {
 				return storageClassFromSpec, nil
 			}
