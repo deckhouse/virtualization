@@ -43,6 +43,16 @@ shell:
       done
     - go mod edit -go={{ $goVersion }}
     - go mod download
+    - |
+      go get github.com/opencontainers/runc@v1.1.14
+      go get github.com/containers/common@v0.60.4
+
+      go get github.com/go-openapi/strfmt@v0.23.0
+      go get github.com/onsi/gomega/matchers/support/goraph/bipartitegraph@v1.34.1
+      go get github.com/cilium/ebpf/btf@v0.11.0
+      go get github.com/cilium/ebpf/internal@v0.11.0
+
+      go mod vendor
 
   setup:
     - mkdir /kubevirt-binaries
