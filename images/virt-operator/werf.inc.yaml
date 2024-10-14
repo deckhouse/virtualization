@@ -2,6 +2,17 @@
 image: {{ $.ImageName }}
 from: {{ .Images.DISTROLESS_ALT_P11 }}
 import:
+- image: base-alt-p11
+  add: /home
+  to: /home
+  includePaths:
+  - nonroot-user
+  excludePaths:
+  - nonroot-user/.c*
+  - nonroot-user/.x*
+  - nonroot-user/.ssh
+  - nonroot-user/.l*
+  before: setup
 - image: virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin

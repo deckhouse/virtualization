@@ -7,6 +7,7 @@ shell:
   - |
     apt-get update && apt-get install --yes \
     acl \
+    systemd-sysctl-common \
     nftables \
     qemu-img==9.0.2-alt2 \
     xorriso==1.5.6-alt1
