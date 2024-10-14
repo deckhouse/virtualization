@@ -494,6 +494,7 @@ func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *stri
 	return s.getStorageClass(ctx, *storageClassName)
 }
 
+// FIXME move to utils.go
 func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	var scs storev1.StorageClassList
 	err := s.client.List(ctx, &scs, &client.ListOptions{})

@@ -17,8 +17,8 @@ limitations under the License.
 package config
 
 type VirtualDiskStorageClassSettings struct {
-	allowedStorageClassNames []string
-	defaultStorageClassName  string
+	AllowedStorageClassNames []string
+	DefaultStorageClassName  string
 }
 
 func LoadVirtualDiskStorageClassSettings() (VirtualDiskStorageClassSettings, error) {

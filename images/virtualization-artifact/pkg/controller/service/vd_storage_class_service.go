@@ -16,20 +16,71 @@ limitations under the License.
 
 package service
 
-import "github.com/deckhouse/virtualization-controller/pkg/config"
+import (
+	"slices"
+
+	"github.com/deckhouse/virtualization-controller/pkg/config"
+)
 
 type VirtualDiskStorageClassService struct {
-	storageClassSettings config.VirtualDiskStorageClassSettings
+	storageClassSettings           config.VirtualDiskStorageClassSettings
+	clusterDefaultStorageClassName string
 }
 
-func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSettings) *VirtualDiskStorageClassService {
+func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSettings, clusterDefaultStorageClassName string) *VirtualDiskStorageClassService {
 	return &VirtualDiskStorageClassService{
-		storageClassSettings: settings,
+		storageClassSettings:           settings,
+		clusterDefaultStorageClassName: clusterDefaultStorageClassName,
 	}
 }
 
-func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec string) string {
-	// TODO:
+func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec string) (string, error) {
+	// if settings is empty
+	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
+		return storageClassFromSpec, nil
+	}
 
-	return storageClassFromSpec
+	// if AllowedStorageClassNames is existed, but DefaultStorageClassName is empty
+	if len(svc.storageClassSettings.AllowedStorageClassNames) > 0 && svc.storageClassSettings.DefaultStorageClassName == "" {
+		if storageClassFromSpec != "" {
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
+				return storageClassFromSpec, nil
+			}
+
+			return "", ErrStorageClassNotAvailable
+		} else {
+			if svc.storageClassSettings.DefaultStorageClassName == "" {
+				return "", ErrDefaultStorageClassNotFound
+			}
+
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
+				return storageClassFromSpec, nil
+			}
+
+			return "", ErrStorageClassNotAvailable
+		}
+	}
+
+	// if AllowedStorageClassNames is empty, but DefaultStorageClassName exist
+	if len(svc.storageClassSettings.AllowedStorageClassNames) == 0 && svc.storageClassSettings.DefaultStorageClassName != "" {
+		if storageClassFromSpec == "" {
+			return svc.storageClassSettings.DefaultStorageClassName, nil
+		}
+
+		if storageClassFromSpec == svc.storageClassSettings.DefaultStorageClassName {
+			return storageClassFromSpec, nil
+		}
+
+		return "", ErrStorageClassNotAvailable
+	}
+
+	if storageClassFromSpec == "" {
+		return svc.storageClassSettings.DefaultStorageClassName, nil
+	}
+
+	if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
+		return storageClassFromSpec, nil
+	}
+
+	return "", ErrStorageClassNotAvailable
 }
