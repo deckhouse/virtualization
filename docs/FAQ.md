@@ -1,6 +1,6 @@
 ---
 title: "FAQ"
-weight: 50
+weight: 70
 ---
 
 ## How to install an operating system in a virtual machine from an iso-image?
@@ -100,23 +100,57 @@ spec:
       name: win-disk
 ```
 
-## How to create a virtual image for container registry
+## How to provide windows answer file(Sysprep)
 
-The virtual machine disk image stored in the container registry must be created in a special way.
+To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
+Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
+You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
 
-Example Dockerfile for creating an image:
+First, create sysprep secret:
 
-```Dockerfile
-FROM scratch
-COPY image-name.img /disk/image-name.img
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-config
+data:
+  unattend.xml: XXXx # base64 of answer file
+type: "provisioning.virtualization.deckhouse.io/sysprep"
 ```
 
-Next, you need to build the image and run it in the container registry:
+Then create a virtual machine with unattended installation:
 
-```bash
-docker build -t docker.io/username/image:latest
-
-docker push docker.io/username/image:latest
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  namespace: default
+  labels:
+    vm: win
+spec:
+  virtualMachineClassName: generic
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-config
+  runPolicy: AlwaysOn
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 6
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  enableParavirtualization: true
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 ## How to redirect traffic to a virtual machine
@@ -181,55 +215,37 @@ metadata:
     app: old
 ```
 
-## How to provide windows answer file(Sysprep)
+## How to increase the DVCR size
 
-To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
-Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
-You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
+To increase the disk size for DVCR, you must set a larger size in the `virtualization` module configuration than the current size.
 
-First, create sysprep secret:
+1. Check the current dvcr size:
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-config
-data:
-  unattend.xml: XXXx # base64 of answer file
-type: "provisioning.virtualization.deckhouse.io/sysprep"
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}''
+#Output
+{“size”:“58G”,“storageClass”:“linstor-thick-data-r1”}
 ```
 
-Then create a virtual machine with unattended installation:
+1. Set the size:
 
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: win-vm
-  namespace: default
-  labels:
-    vm: win
-spec:
-  virtualMachineClassName: generic
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-config
-  runPolicy: AlwaysOn
-  osType: Windows
-  bootloader: EFI
-  cpu:
-    cores: 6
-    coreFraction: 50%
-  memory:
-    size: 8Gi
-  enableParavirtualization: true
-  blockDeviceRefs:
-    - kind: ClusterVirtualImage
-      name: win-11-iso
-    - kind: ClusterVirtualImage
-      name: win-virtio-iso
-    - kind: VirtualDisk
-      name: win-disk
+```shell
+kubectl patch mc virtualization \.
+  --type merge -p '{“spec”: { “settings”: { “dvcr”: { “storage”: { “persistentVolumeClaim”: {“size”: “59G”}}}}}}''
+
+#Output
+moduleconfig.deckhouse.io/virtualization patched
+```
+
+1. Check the resizing:
+
+```shell
+kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+#Output
+{“size”:“59G”,“storageClass”:“linstor-thick-data-r1”}
+
+kubectl get pvc dvcr -n d8-virtualization
+#Output
+NAME STATUS STATUS VOLUME CAPACITY ACCESS MODES STORAGECLASS AGE
+dvcr Bound pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b 57617188Ki RWO linstor-thick-data-r1 7d
 ```

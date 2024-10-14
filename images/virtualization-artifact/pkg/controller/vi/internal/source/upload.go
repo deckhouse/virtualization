@@ -142,7 +142,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		}
 
 		if !ds.statService.IsUploadStarted(vi.GetUID(), pod) {
-			if ds.statService.IsUploaderReady(pod, ing) {
+			if ds.statService.IsUploaderReady(pod, svc, ing) {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
 				vi.Status.Phase = virtv2.ImageWaitForUserUpload
@@ -151,7 +151,10 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 				condition.Message = "Waiting for the user upload."
 
 				vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-				vi.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
+				vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+					External:  ds.uploaderService.GetExternalURL(ctx, ing),
+					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
+				}
 			} else {
 				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 
@@ -366,14 +369,17 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 		}
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
-	case ds.statService.IsUploaderReady(pod, ing):
+	case ds.statService.IsUploaderReady(pod, svc, ing):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.WaitForUserUpload
 		condition.Message = "Waiting for the user upload."
 
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		vi.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
+		vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+			External:  ds.uploaderService.GetExternalURL(ctx, ing),
+			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
+		}
 
 		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 	default:

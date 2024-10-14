@@ -108,23 +108,57 @@ spec:
    d8 v vnc -n default win-vm
    ```
 
-## Как создать образ виртуальной машины для container registry
+## Как предоставить файл ответов windows(Sysprep)
 
-Образ диска виртуальной машины, хранящийся в container registry, должен быть сформирован специальным образом.
+Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepRef.
 
-Пример Dockerfile для создания образа:
+Прежде всего необходимо создать секрет:
 
-```Dockerfile
-FROM scratch
-COPY image-name.img /disk/image-name.img
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-config
+data:
+  unattend.xml: XXXx # base64 файла ответов
+type: "provisioning.virtualization.deckhouse.io/sysprep"
 ```
 
-Соберите образ и отправьте его в `container registry`:
+Затем можно создать виртуальную машину, которая в процессе установке будет использовать файл ответов.
+Внесите файл ответов (обычно именуются unattend.xml или autounattend.xml) в секрет, чтобы выполнять автоматическую установку Windows.
+Вы также можете указать здесь другие файлы в формате base64 (customize.ps1, id_rsa.pub,...), необходимые для успешного выполнения скриптов внутри файла ответов.
 
-```bash
-docker build -t docker.io/username/image:latest
-
-docker push docker.io/username/image:latest
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: win-vm
+  namespace: default
+  labels:
+    vm: win
+spec:
+  virtualMachineClassName: generic
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-config
+  runPolicy: AlwaysOn
+  osType: Windows
+  bootloader: EFI
+  cpu:
+    cores: 6
+    coreFraction: 50%
+  memory:
+    size: 8Gi
+  enableParavirtualization: true
+  blockDeviceRefs:
+    - kind: ClusterVirtualImage
+      name: win-11-iso
+    - kind: ClusterVirtualImage
+      name: win-virtio-iso
+    - kind: VirtualDisk
+      name: win-disk
 ```
 
 ## Как перенаправить трафик на виртуальную машину
@@ -188,7 +222,7 @@ metadata:
     app: old
 ```
 
-# Как увеличить размер DVCR
+## Как увеличить размер DVCR
 
 Чтобы увеличить размер диска для DVCR, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
 
@@ -221,57 +255,4 @@ kubectl get pvc dvcr -n d8-virtualization
 #Output
 NAME   STATUS   VOLUME                                     CAPACITY     ACCESS MODES   STORAGECLASS            AGE
 dvcr   Bound    pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b   57617188Ki   RWO            linstor-thick-data-r1   7d
-```
-
-## Как предоставить файл ответов windows(Sysprep)
-
-Чтобы предоставить виртуальной машине windows файл ответов необходимо указать provisioning с типом SysprepRef.
-
-Прежде всего необходимо создать секрет:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-config
-data:
-  unattend.xml: XXXx # base64 файла ответов
-type: "provisioning.virtualization.deckhouse.io/sysprep"
-```
-
-Затем можно создать виртуальную машину, которая в процессе установке будет использовать файл ответов.
-Внесите файл ответов (обычно именуются unattend.xml или autounattend.xml) в секрет, чтобы выполнять автоматическую установку Windows.
-Вы также можете указать здесь другие файлы в формате base64 (customize.ps1, id_rsa.pub,...), необходимые для успешного выполнения скриптов внутри файла ответов.
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: win-vm
-  namespace: default
-  labels:
-    vm: win
-spec:
-  virtualMachineClassName: generic
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-config
-  runPolicy: AlwaysOn
-  osType: Windows
-  bootloader: EFI
-  cpu:
-    cores: 6
-    coreFraction: 50%
-  memory:
-    size: 8Gi
-  enableParavirtualization: true
-  blockDeviceRefs:
-    - kind: ClusterVirtualImage
-      name: win-11-iso
-    - kind: ClusterVirtualImage
-      name: win-virtio-iso
-    - kind: VirtualDisk
-      name: win-disk
 ```

@@ -102,7 +102,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualDisk{}).
-		WithValidator(NewValidator(mgr.GetClient(), log)).
+		WithValidator(NewValidator(mgr.GetClient())).
 		Complete(); err != nil {
 		return nil, err
 	}

@@ -152,15 +152,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		}
 
 		if !ds.statService.IsUploadStarted(vd.GetUID(), pod) {
-			if ds.statService.IsUploaderReady(pod, ing) {
+			if ds.statService.IsUploaderReady(pod, svc, ing) {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
 				vd.Status.Phase = virtv2.DiskWaitForUserUpload
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.WaitForUserUpload
 				condition.Message = "Waiting for the user upload."
-
-				vd.Status.UploadCommand = fmt.Sprintf("curl %s -T example.iso", ing.Annotations[common.AnnUploadURL])
+				vd.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+					External:  ds.uploaderService.GetExternalURL(ctx, ing),
+					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
+				}
 			} else {
 				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 

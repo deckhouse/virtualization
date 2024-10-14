@@ -1,27 +1,8 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
-{{- $builderImage := "quay.io/kubevirt/builder:2408151859-735f25dde" }}
 {{- $version := "1.3.1" }}
 {{- $goVersion := "1.22.7" }}
 
-# Update Go version in builder to prevent CVEs in kubevirt components.
-image: {{ $.ImageName }}-builder
-final: false
-from: {{ $builderImage }}
-shell:
-  install:
-  - export GIMME_GO_VERSION={{ $goVersion }}
-  - |
-    rm -rf /gimme && \
-    mkdir -p /gimme && curl -sL \
-      https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
-    HOME=/gimme bash > /etc/profile.d/gimme.sh
-  - export PATH=`echo $PATH | tr ":" "\n" | grep -v "go" | tr "\n" ":"`
-  - source /etc/profile.d/gimme.sh && go version
-docker:
-  ENV:
-    GIMME_GO_VERSION: "{{ $goVersion }}"
----
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
@@ -119,13 +100,13 @@ shell:
     - echo ============== Build virt-chroot ======================
     - go build -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
     
-    - echo ============== Build virt-exportproxy ================
+    - echo ============== Build virt-exportproxy =================
     - go build -o /kubevirt-binaries/virt-exportproxy ./cmd/virt-exportproxy/
     
     - echo ============== Build virt-exportserver ================
     - go build -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/
    
-    - echo ============== Build virt-controller ====================
+    - echo ============== Build virt-controller ==================
     - go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
     
     - echo ============== Build virt-operator ====================
