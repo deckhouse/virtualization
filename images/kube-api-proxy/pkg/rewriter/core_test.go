@@ -209,6 +209,69 @@ Host: 127.0.0.1
 
 }
 
+// TestRewriteMetadataPatchWithPreservedPrefixes
+// RewritePatch should remove prefix from preserved names.
+func TestRewriteMetadataPatchWithPreservedPrefixes(t *testing.T) {
+	nodeReq := `PATCH /api/v1/nodes/master-node-0 HTTP/1.1
+Host: 127.0.0.1
+
+`
+	nodePatch := `[{
+    "op":"test",
+    "path":"/metadata/labels",
+    "value": {
+        "preserved-original-labelgroup.io": "original-label-value",
+        "labelgroup.io": "value-for-overriden-label"
+    }
+},{
+	"op":"replace",
+	"path":"/metadata/labels",
+    "value": {
+        "preserved-original-labelgroup.io": "original-label-value",
+        "labelgroup.io": "new-value-for-overriden-label"
+    }
+}]`
+
+	req, err := http.ReadRequest(bufio.NewReader(bytes.NewBufferString(nodeReq + nodePatch)))
+	require.NoError(t, err, "should parse hardcoded http request")
+	require.NotNil(t, req.URL, "should parse url in hardcoded http request")
+
+	rwr := createTestRewriterForCore()
+	targetReq := NewTargetRequest(rwr, req)
+	require.NotNil(t, targetReq, "should get TargetRequest")
+	require.True(t, targetReq.ShouldRewriteRequest(), "should rewrite request")
+	require.True(t, targetReq.ShouldRewriteResponse(), "should rewrite response")
+	// require.Equal(t, origGroup, targetReq.OrigGroup(), "should set proper orig group")
+
+	resultBytes, err := rwr.RewritePatch(targetReq, []byte(nodePatch))
+	if err != nil {
+		t.Fatalf("should rename Node patch without error: %v", err)
+	}
+	if resultBytes == nil {
+		t.Fatalf("should rename Node patch: %v", err)
+	}
+
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{`0.value.labelgroup\.io`, "original-label-value"},
+		{`0.value.replacedlabelgroup\.io`, "value-for-overriden-label"},
+		{`1.value.labelgroup\.io`, "original-label-value"},
+		{`1.value.replacedlabelgroup\.io`, "new-value-for-overriden-label"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			actual := gjson.GetBytes(resultBytes, tt.path).String()
+			if actual != tt.expected {
+				t.Fatalf("%s value should be %s, got %s: %s", tt.path, tt.expected, actual, string(resultBytes))
+			}
+		})
+	}
+
+}
+
 func TestRewritePVC(t *testing.T) {
 	pvcReq := `POST /api/v1/namespaces/vm/persistentvolumeclaims HTTP/1.1
 Host: 127.0.0.1

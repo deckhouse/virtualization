@@ -241,7 +241,7 @@ func (p *PrefixedNameRewriter) isOriginal(name, value string) bool {
 }
 
 func (p *PrefixedNameRewriter) isPreserved(name string) bool {
-	return strings.HasSuffix(name, PreservedPrefix)
+	return strings.HasPrefix(name, PreservedPrefix)
 }
 
 func (p *PrefixedNameRewriter) preserveName(name string) string {
