@@ -1,22 +1,29 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.DISTROLESS_ALT_P11 }}
+fromImage: base-alt-p11
+# from: {{ .Images.DISTROLESS_ALT_P11 }}
 import:
-- image: base-alt-p11
-  add: /bin
-  to: /bin
-  before: setup
-- image: base-alt-p11
-  add: /home
-  to: /home
-  includePaths:
-  - nonroot-user
-  excludePaths:
-  - nonroot-user/.c*
-  - nonroot-user/.x*
-  - nonroot-user/.ssh
-  - nonroot-user/.l*
-  before: setup
+# - image: base-alt-p11
+#   add: /
+#   to: /
+#   before: setup
+#   includePaths:
+#   - bin
+#   - lib64/libreadline*
+#   - lib64/libtinfo.so*
+#   - usr/lib64/libreadline*
+#   - usr/lib64/libtinfo.so*
+# - image: base-alt-p11
+#   add: /home
+#   to: /home
+#   includePaths:
+#   - nonroot-user
+#   excludePaths:
+#   - nonroot-user/.c*
+#   - nonroot-user/.x*
+#   - nonroot-user/.ssh
+#   - nonroot-user/.l*
+#   before: setup
 - image: virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
@@ -29,8 +36,8 @@ import:
   add: /kubevirt-config-files/
   to: /etc
   includePaths:
-  - passwd
-  - group
+  # - passwd
+  # - group
   - .version
   before: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-operator/BUILD.bazel
