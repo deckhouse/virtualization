@@ -70,11 +70,11 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 			}
 		}
 	} else {
-		if vd.Status.StorageClassName == "" {
-			vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
-		}
 		if vd.Status.StorageClassName != *vd.Spec.PersistentVolumeClaim.StorageClass {
-			specClassChanged = true
+			if vd.Status.StorageClassName != "" {
+				specClassChanged = true
+			}
+			vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 		}
 	}
 
@@ -85,10 +85,14 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 			return reconcile.Result{}, err
 		}
+		// Update storage class in status when has default class and it not equal previous
+		if isDefaultStorageClass && sc != nil && sc.Name != vd.Status.StorageClassName {
+			vd.Status.StorageClassName = sc.Name
+		}
 	}
 
 	switch {
-	case sc != nil:
+	case sc != nil && (isDefaultStorageClass || sc.Name == *vd.Spec.PersistentVolumeClaim.StorageClass):
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.StorageClassReady
 		condition.Message = ""
@@ -103,15 +107,19 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	}
 
 	if condition.Status != metav1.ConditionTrue || specClassChanged {
-		vd.Status.Phase = virtv2.DiskPending
 		_, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
 	}
 
+	if condition.Status != metav1.ConditionTrue {
+		vd.Status.Phase = virtv2.DiskPending
+	}
+
 	if condition.Status != metav1.ConditionTrue && isDefaultStorageClass && vd.Status.StorageClassName != "" {
 		vd.Status.StorageClassName = ""
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return reconcile.Result{}, nil
