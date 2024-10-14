@@ -25,6 +25,7 @@ const (
 	PatchReplaceOp = "replace"
 	PatchAddOp     = "add"
 	PatchRemoveOp  = "remove"
+	PatchTestOp    = "test"
 )
 
 type JsonPatch struct {

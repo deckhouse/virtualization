@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
@@ -106,27 +108,67 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		return nil
 	}
 
-	finalizers := r.changedObj.GetFinalizers()
-
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
+		// Save some metadata fields.
+		finalizers := r.changedObj.GetFinalizers()
+		labels := r.changedObj.GetLabels()
+		annotations := r.changedObj.GetAnnotations()
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating status subresource: %w", err)
 		}
+		// Restore metadata in changedObject.
 		r.changedObj.SetFinalizers(finalizers)
+		r.changedObj.SetLabels(labels)
+		r.changedObj.SetAnnotations(annotations)
 	}
 
-	if !slices.Equal(r.currentObj.GetFinalizers(), r.changedObj.GetFinalizers()) {
-		patch, err := GetPatchFinalizers(r.changedObj.GetFinalizers())
-		if err != nil {
-			return err
-		}
+	metadataPatch := patch.NewJsonPatch()
 
-		if err = r.client.Patch(ctx, r.changedObj, patch); err != nil {
-			return fmt.Errorf("error patching finalizers: %w", err)
-		}
+	if !slices.Equal(r.currentObj.GetFinalizers(), r.changedObj.GetFinalizers()) {
+		metadataPatch.Append(r.JSONPatchOpsForFinalizers()...)
+	}
+	if !maps.Equal(r.currentObj.GetAnnotations(), r.changedObj.GetAnnotations()) {
+		metadataPatch.Append(r.JSONPatchOpsForAnnotations()...)
+	}
+	if !maps.Equal(r.currentObj.GetLabels(), r.changedObj.GetLabels()) {
+		metadataPatch.Append(r.JSONPatchOpsForLabels()...)
+	}
+
+	if metadataPatch.Len() == 0 {
+		return nil
+	}
+
+	metadataPatchBytes, err := metadataPatch.Bytes()
+	if err != nil {
+		return err
+	}
+	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
+	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
+		return fmt.Errorf("error patching metadata: %w", err)
 	}
 
 	return nil
+}
+
+func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JsonPatchOperation {
+	return []patch.JsonPatchOperation{
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", r.currentObj.GetFinalizers()),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", r.changedObj.GetFinalizers()),
+	}
+}
+
+func (r *Resource[T, ST]) JSONPatchOpsForAnnotations() []patch.JsonPatchOperation {
+	return []patch.JsonPatchOperation{
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/annotations", r.currentObj.GetAnnotations()),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", r.changedObj.GetAnnotations()),
+	}
+}
+
+func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JsonPatchOperation {
+	return []patch.JsonPatchOperation{
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", r.changedObj.GetLabels()),
+	}
 }
 
 func GetPatchOwnerReferences(ownerReferences []metav1.OwnerReference) (client.Patch, error) {
