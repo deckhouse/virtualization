@@ -489,13 +489,13 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 
 func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
 	if storageClassName == nil || *storageClassName == "" {
-		return s.getDefaultStorageClass(ctx)
+		return s.GetDefaultStorageClass(ctx)
 	}
 	return s.getStorageClass(ctx, *storageClassName)
 }
 
-// FIXME move to utils.go
-func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+// GetDefaultStorageClass FIXME move to utils.go
+func (s DiskService) GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	var scs storev1.StorageClassList
 	err := s.client.List(ctx, &scs, &client.ListOptions{})
 	if err != nil {
