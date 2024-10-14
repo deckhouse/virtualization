@@ -17,9 +17,9 @@ limitations under the License.
 package config
 
 type VirtualImageStorageClassSettings struct {
-	allowedStorageClassNames []string
-	defaultStorageClassName  string
-	storageClassName         string
+	AllowedStorageClassNames []string
+	DefaultStorageClassName  string
+	StorageClassName         string
 }
 
 func LoadVirtualImageStorageClassSettings() (VirtualImageStorageClassSettings, error) {
