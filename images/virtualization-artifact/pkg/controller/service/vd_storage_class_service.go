@@ -37,7 +37,15 @@ func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSe
 func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec string) (string, error) {
 	// if settings is empty
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
-		return storageClassFromSpec, nil
+		if storageClassFromSpec != "" {
+			return storageClassFromSpec, nil
+		} else {
+			if svc.clusterDefaultStorageClassName == "" {
+				return "", ErrDefaultStorageClassNotFound
+			}
+
+			return svc.clusterDefaultStorageClassName, nil
+		}
 	}
 
 	// if AllowedStorageClassNames is existed, but DefaultStorageClassName is empty
@@ -49,12 +57,12 @@ func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec 
 
 			return "", ErrStorageClassNotAvailable
 		} else {
-			if svc.storageClassSettings.DefaultStorageClassName == "" {
+			if svc.clusterDefaultStorageClassName == "" {
 				return "", ErrDefaultStorageClassNotFound
 			}
 
-			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
-				return storageClassFromSpec, nil
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, svc.clusterDefaultStorageClassName) {
+				return svc.clusterDefaultStorageClassName, nil
 			}
 
 			return "", ErrStorageClassNotAvailable
