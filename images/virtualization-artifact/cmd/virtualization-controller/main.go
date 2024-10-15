@@ -127,17 +127,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
+	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 
-	vdStorageClassSettings, err := appconfig.LoadVirtualDiskStorageClassSettings()
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
+	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
