@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -99,7 +100,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 										Service: &netv1.IngressServiceBackend{
 											Name: i.Settings.ServiceName,
 											Port: netv1.ServiceBackendPort{
-												Number: 443,
+												Number: common.UploaderPort,
 											},
 										},
 									},
