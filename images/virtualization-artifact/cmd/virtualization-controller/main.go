@@ -131,12 +131,6 @@ func main() {
 
 	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
-	println("")
-	println(viStorageClassSettings.StorageClassName, viStorageClassSettings.DefaultStorageClassName, viStorageClassSettings.AllowedStorageClassNames)
-	println("")
-	println(vdStorageClassSettings.DefaultStorageClassName, vdStorageClassSettings.AllowedStorageClassNames)
-	println("")
-
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
