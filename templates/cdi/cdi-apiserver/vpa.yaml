@@ -3,30 +3,30 @@
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler
 metadata:
-  name: virt-handler
+  name: cdi-apiserver
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "kubevirt.internal.virtualization.deckhouse.io" "virt-handler" "workload-resource-policy.deckhouse.io" "every-node")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-apiserver" )) | nindent 2 }}
 spec:
   targetRef:
     apiVersion: "apps/v1"
-    kind: DaemonSet
-    name: virt-handler
+    kind: Deployment
+    name: cdi-apiserver
   updatePolicy:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
-    - containerName: virt-handler
+    - containerName: cdi-apiserver
       minAllowed:
         cpu: 10m
-        memory: 230Mi
+        memory: 50Mi
       maxAllowed:
         cpu: 20m
-        memory: 400Mi
+        memory: 150Mi
     - containerName: proxy
       minAllowed:
         cpu: 10m
-        memory: 150Mi
+        memory: 50Mi
       maxAllowed:
         cpu: 20m
-        memory: 250Mi
+        memory: 150Mi
 {{- end }}
