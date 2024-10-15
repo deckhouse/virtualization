@@ -76,7 +76,7 @@ func (s *Service) makeSpec() *corev1.Service {
 				{
 					Name:     common.UploaderPortName,
 					Protocol: "TCP",
-					Port:     443,
+					Port:     common.UploaderPort,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.Int,
 						IntVal: 8444,
