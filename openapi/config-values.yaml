@@ -195,7 +195,7 @@ properties:
       Working for this components:
       - `virtualization-api`
       - `virtualization-controller`
-      - `kube-api-proxy`
+      - `kube-api-rewriter`
       - `vm-route-forge`
     enum:
       - "debug"
