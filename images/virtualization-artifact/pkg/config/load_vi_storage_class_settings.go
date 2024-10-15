@@ -16,13 +16,25 @@ limitations under the License.
 
 package config
 
+import (
+	"os"
+	"strings"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+)
+
 type VirtualImageStorageClassSettings struct {
 	AllowedStorageClassNames []string
 	DefaultStorageClassName  string
 	StorageClassName         string
 }
 
-func LoadVirtualImageStorageClassSettings() (VirtualImageStorageClassSettings, error) {
-	// TODO add parse settings for vi
-	return VirtualImageStorageClassSettings{}, nil
+func LoadVirtualImageStorageClassSettings() VirtualImageStorageClassSettings {
+	allowedStorageClassNamesRaw := os.Getenv(common.VirtualImageAllowedStorageClasses)
+
+	return VirtualImageStorageClassSettings{
+		AllowedStorageClassNames: strings.Split(allowedStorageClassNamesRaw, ","),
+		DefaultStorageClassName:  os.Getenv(common.VirtualImageDefaultStorageClass),
+		StorageClassName:         os.Getenv(common.VirtualImageStorageClass),
+	}
 }

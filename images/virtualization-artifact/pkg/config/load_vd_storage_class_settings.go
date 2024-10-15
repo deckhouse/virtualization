@@ -16,12 +16,23 @@ limitations under the License.
 
 package config
 
+import (
+	"os"
+	"strings"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+)
+
 type VirtualDiskStorageClassSettings struct {
 	AllowedStorageClassNames []string
 	DefaultStorageClassName  string
 }
 
-func LoadVirtualDiskStorageClassSettings() (VirtualDiskStorageClassSettings, error) {
-	// TODO add parse settings for vd
-	return VirtualDiskStorageClassSettings{}, nil
+func LoadVirtualDiskStorageClassSettings() VirtualDiskStorageClassSettings {
+	allowedStorageClassNamesRaw := os.Getenv(common.VirtualDiskAllowedStorageClasses)
+
+	return VirtualDiskStorageClassSettings{
+		AllowedStorageClassNames: strings.Split(allowedStorageClassNamesRaw, ","),
+		DefaultStorageClassName:  os.Getenv(common.VirtualDiskDefaultStorageClass),
+	}
 }
