@@ -65,34 +65,14 @@ spec:
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
       containers:
-        - name: proxy
-          image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
-          imagePullPolicy: IfNotPresent
-          env:
-          {{- include "kube_api_rewriter.env" . | nindent 10 }}
-          resources:
-            requests:
-              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
-              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "virtualization_controller_resources" . | nindent 14 }}
-              {{- end }}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            seccompProfile:
-              type: RuntimeDefault
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: File
+        {{- include "kube_api_rewriter.sidecar_container" . | nindent 8 }}
         - name: virtualization-controller
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
           imagePullPolicy: Always
           volumeMounts:
-          - mountPath: /tmp/k8s-webhook-server/serving-certs
-            name: admission-webhook-secret
-          - mountPath: /kubeconfig.local
-            name: kube-api-proxy-kubeconfig
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: admission-webhook-secret
+            {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 12 }}
           ports:
             - containerPort: 9443
               name: controller
@@ -109,7 +89,9 @@ spec:
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
               {{- include "virtualization_controller_resources" . | nindent 14 }}
               {{- end }}
-          env: {{ include "virtualization-controller.envs" . | nindent 12 }}
+          env:
+            {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
+            {{- include "virtualization-controller.envs" . | nindent 12 }}
 
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
@@ -120,7 +102,5 @@ spec:
         - name: admission-webhook-secret
           secret:
             secretName: virtualization-controller-tls
-        - name: kube-api-proxy-kubeconfig
-          configMap:
-            defaultMode: 0644
-            name: kube-api-proxy-kubeconfig
+        {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
+
