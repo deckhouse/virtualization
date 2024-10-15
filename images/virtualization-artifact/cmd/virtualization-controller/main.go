@@ -127,7 +127,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	//viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+	log.Debug("dlopatin", viStorageClassSettings.DefaultStorageClassName, viStorageClassSettings.StorageClassName)
 	//
 	//vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
