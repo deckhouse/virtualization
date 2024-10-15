@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
@@ -57,7 +56,6 @@ func NewController(
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
-	storageClassSettings config.VirtualDiskStorageClassSettings,
 ) (controller.Controller, error) {
 	log := lg.With(logger.SlogController(ControllerName))
 
@@ -67,14 +65,14 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
-	defSc, err := disk.GetDefaultStorageClass(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	scService := service.NewVirtualDiskStorageClassService(storageClassSettings, defSc.Name)
-	// FIXME: remove this
-	scService.GetStorageClass("")
+	//defSc, err := disk.GetDefaultStorageClass(ctx)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//scService := service.NewVirtualDiskStorageClassService(storageClassSettings, defSc.Name)
+	//// FIXME: remove this
+	//scService.GetStorageClass("")
 
 	blank := source.NewBlankDataSource(stat, disk)
 
