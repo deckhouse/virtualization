@@ -127,9 +127,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
-
-	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+	//viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+	//
+	//vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -224,12 +224,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC, viStorageClassSettings); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
