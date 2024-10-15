@@ -27,8 +27,13 @@ import (
 )
 
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
+	var (
+		testCaseLabel      = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
+	)
+
 	Context("When virtualization resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.ComplexTest, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -38,6 +43,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -48,16 +54,18 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		It("checks CVIs phases", func() {
 			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceCVI, PhaseReady, kc.GetOptions{
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+	Context("When virtual machine classes are applied:", func() {
+		It("checks VMClasses phases", func() {
+			By(fmt.Sprintf("VMClasses should be in %s phases", PhaseReady))
+			WaitPhase(kc.ResourceVMClass, PhaseReady, kc.GetOptions{
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -69,12 +77,35 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 			unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
 			Expect(err).NotTo(HaveOccurred())
 			vmipMetadataName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
-			mergePatch := fmt.Sprintf("{\"spec\":{\"staticIP\":\"%s\"}}", unassignedIP)
+			mergePatch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
 			MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
 		})
+
 		It("checks VMIPs phases", func() {
 			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
 			WaitPhase(kc.ResourceVMIP, PhaseAttached, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+		})
+	})
+
+	Context("When virtual disks are applied:", func() {
+		It("checks VDs phases with consumers", func() {
+			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
+			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+				ExcludeLabels: []string{"hasNoConsumer"},
+				Labels:        testCaseLabel,
+				Namespace:     conf.Namespace,
+				Output:        "jsonpath='{.items[*].metadata.name}'",
+			})
+		})
+
+		It("checks VDs phases with no consumers", func() {
+			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
+			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+				Labels:    hasNoConsumerLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -85,6 +116,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -95,6 +127,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -105,6 +138,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
 			It("checks VMs external connectivity", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -120,13 +154,14 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 		Context(fmt.Sprintf("When VMs are in %s phases:", PhaseRunning), func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				MigrateVirtualMachines(vms...)
+				MigrateVirtualMachines(testCaseLabel, conf.TestData.ComplexTest, vms...)
 			})
 		})
 
@@ -134,11 +169,13 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 			It("checks VMs and KubevirtVMIMs phases", func() {
 				By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
 				WaitPhase(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.GetOptions{
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				By(fmt.Sprintf("VMs should be in %s phase", PhaseRunning))
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -146,6 +183,7 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 			It("checks VMs external connection after migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})

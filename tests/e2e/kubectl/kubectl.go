@@ -70,10 +70,11 @@ type DeleteOptions struct {
 }
 
 type GetOptions struct {
+	ExcludeLabels  []string
+	IgnoreNotFound bool
 	Labels         map[string]string
 	Namespace      string
 	Output         string
-	IgnoreNotFound bool
 }
 
 type KustomizeOptions struct {
@@ -293,12 +294,25 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
-func (k KubectlCMD) addLabel(cmd string, labels map[string]string) string {
+func (k KubectlCMD) addLabels(cmd string, labels map[string]string) string {
 	if len(labels) != 0 {
 		rawLabels := make([]string, 0, len(labels))
 
 		for k, v := range labels {
 			rawLabels = append(rawLabels, fmt.Sprintf("-l %s=%s", k, v))
+		}
+		l := strings.Join(rawLabels, " ")
+		return fmt.Sprintf("%s %s", cmd, l)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) excludeLabels(cmd string, labels []string) string {
+	if len(labels) != 0 {
+		rawLabels := make([]string, 0, len(labels))
+
+		for _, v := range labels {
+			rawLabels = append(rawLabels, fmt.Sprintf("-l '!%s'", v))
 		}
 		l := strings.Join(rawLabels, " ")
 		return fmt.Sprintf("%s %s", cmd, l)
@@ -342,13 +356,14 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
-	cmd = k.addLabel(cmd, opts.Labels)
+	cmd = k.addLabels(cmd, opts.Labels)
+	cmd = k.excludeLabels(cmd, opts.ExcludeLabels)
 	return cmd
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addLabel(cmd, opts.Labels)
+	cmd = k.addLabels(cmd, opts.Labels)
 	return cmd
 }
 

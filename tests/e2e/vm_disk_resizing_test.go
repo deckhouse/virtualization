@@ -39,10 +39,7 @@ type DiskMetaData struct {
 	SizeFromObject *resource.Quantity
 }
 
-var (
-	DiskResizingLabel = map[string]string{"testcase": "disk-resizing"}
-	DiskIdPrefix      = "scsi-0QEMU_QEMU_HARDDISK_"
-)
+const DiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
 
 func WaitBlockDeviceRefsStatus(namespace string, vms ...string) {
 	GinkgoHelper()
@@ -152,8 +149,10 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 }
 
 var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
+	diskResizingLabel := map[string]string{"testcase": "disk-resizing"}
+
 	Context("When resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.DiskResizing, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -163,7 +162,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -174,7 +173,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -185,7 +184,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -199,14 +198,14 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 				vmDisksAfter  VirtualMachineDisks
 				err           error
 			)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, DiskResizingLabel["testcase"])
+			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, diskResizingLabel["testcase"])
 			It("get disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmName, conf)
 				Expect(err).NotTo(HaveOccurred(), err)
 			})
 			It("resizes disks", func() {
 				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -224,28 +223,28 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 			It("checks VDs, VMs and VMBDA phases", func() {
 				By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 				WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By("BlockDeviceRefsStatus: disks should be attached")
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})

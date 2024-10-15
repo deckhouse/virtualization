@@ -2,6 +2,8 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
   name: vd-attach
+  labels:
+    hasNoConsumer: "vm-disk-attachment"
 spec:
   persistentVolumeClaim:
     size: 100Mi

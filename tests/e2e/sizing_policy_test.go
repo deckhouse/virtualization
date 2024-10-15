@@ -74,10 +74,10 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 		notExistingVmClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
 		notExistingVmClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
 		existingVmClass                = map[string]string{"vm": "existing-vmclass"}
-		testcaseLabel                  = map[string]string{"testcase": "sizing-policy"}
+		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 	)
 
-	Context("Environment preparing", func() {
+	Context("Preparing the environment", func() {
 		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassChanging["vm"])
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
@@ -95,7 +95,7 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
-				Labels:    testcaseLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -160,7 +160,7 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 			})
 
 			It("changes VMClassName in VM specification with existing VMClass", func() {
-				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":\"%s\"}}", vmClassDiscovery)
+				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscovery)
 				MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
 			})
 
@@ -183,7 +183,7 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 			})
 
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
-				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":\"%s\"}}", vmClassDiscoveryCopy)
+				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscoveryCopy)
 				MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
 			})
 
@@ -216,7 +216,7 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 	Context(fmt.Sprintf("When virtual machines in phase %s:", PhaseRunning), func() {
 		It("checks sizing policy match", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-				Labels:    testcaseLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
