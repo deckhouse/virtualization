@@ -91,3 +91,53 @@ tasks:
     desc: "Destroy virtual machines."
     cmds:
       - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+
+  check_or_install_software:
+    desc: "Check and install Helm3, Ansible, and K9s"
+    cmds:
+      - task: install:helm
+      - task: install:ansible
+      - task: install:k9s
+
+  install:helm:
+    desc: "Install Helm if it's not installed"
+    cmds:
+      - |
+        if ! command -v helm &> /dev/null; then
+          echo "Installing Helm3..."
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        else
+          echo "Helm3 is already installed"
+        fi
+
+  install:ansible:
+    desc: "Install Ansible if it's not installed"
+    cmds:
+      - |
+        if ! command -v ansible &> /dev/null; then
+          echo "Installing Ansible..."
+          sudo apt update
+          sudo apt install -y ansible
+        else
+          echo "Ansible is already installed"
+        fi
+
+  install:k9s:
+    desc: "Install K9s if it's not installed"
+    cmds:
+      - |
+        if ! command -v k9s &> /dev/null; then
+          echo "Installing K9s..."
+          sudo apt update
+          sudo apt install -y curl
+          curl -s https://api.github.com/repos/derailed/k9s/releases/latest \
+          | grep "browser_download_url.*k9s_Linux" \
+          | cut -d : -f 2,3 \
+          | tr -d \" \
+          | wget -qi -
+          tar -xvf k9s_Linux_*.tar.gz
+          sudo mv k9s /usr/local/bin/k9s
+          k9s version
+        else
+          echo "K9s is already installed"
+        fi
