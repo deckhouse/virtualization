@@ -32,6 +32,7 @@ on:
     branches:
       - main
       - pre-alpha
+      # - refactor/ci/pullrequest-head-sha
 
 defaults:
   run:
@@ -121,6 +122,8 @@ jobs:
           version: 3.37.2
 
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run lint virtualization-controller
         run: |
@@ -158,6 +161,8 @@ jobs:
           version: 3.37.2
 
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run test hooks
         run: |
@@ -174,6 +179,7 @@ jobs:
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
         run: |
@@ -186,10 +192,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v1
 
+      - name: Echo
+        run: |
+          echo "HEAD SHA ${{ github.event.pull_request.head.sha }}"
       - uses: deckhouse/modules-actions/build@v1
