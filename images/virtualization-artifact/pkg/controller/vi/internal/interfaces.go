@@ -18,9 +18,10 @@ package internal
 
 import (
 	"context"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 	storev1 "k8s.io/api/storage/v1"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate moq -rm -out mock.go . DiskService Sources

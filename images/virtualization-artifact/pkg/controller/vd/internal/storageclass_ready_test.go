@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storev1 "k8s.io/api/storage/v1"
@@ -29,8 +30,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-var storageClasses []storev1.StorageClass
-var cleanUpUsed bool = false
+var (
+	storageClasses []storev1.StorageClass
+	cleanUpUsed    = false
+)
 
 var _ = Describe("Storage class ready handler Run", func() {
 	var vd *virtv2.VirtualDisk
