@@ -26,6 +26,10 @@ env:
 
 on:
   workflow_dispatch:
+    inputs:
+      pr_number:
+        required: false
+        type: number
   pull_request:
     types: [opened, reopened, synchronize]
   push:
@@ -53,8 +57,14 @@ jobs:
         run: |
           if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
-          else
+          elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+            MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
+          else
+            echo "Cannot set MODULES_MODULE_TAG variable"
+            echo "Exit"
+            exit 1
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
@@ -122,7 +132,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run lint virtualization-controller
         run: |
@@ -140,7 +150,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Lint yaml with prettier
         run: task -p lint:prettier:yaml
@@ -161,7 +171,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run test hooks
         run: |
@@ -191,7 +201,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
