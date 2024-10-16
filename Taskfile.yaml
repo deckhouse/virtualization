@@ -123,7 +123,7 @@ tasks:
   cve:bin:
     cmds:
       - |
-        curl -LO https://{{ .SOURCE_REPO }}/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
+        curl -LO {{ .SOURCE_REPO }}/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
         tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
         mv /opt/trivy /usr/local/bin/trivy
         chmod +x /usr/local/bin/trivy
