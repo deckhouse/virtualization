@@ -77,9 +77,9 @@ spec:
           {{- include "kube_api_rewriter.env" . | nindent 10 }}
           resources:
             requests:
-              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 16 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "virtualization_controller_resources" . | nindent 12 }}
+              {{- include "virtualization_controller_resources" . | nindent 16 }}
               {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -110,9 +110,9 @@ spec:
               protocol: TCP
           resources:
             requests:
-              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 16 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "virtualization_controller_resources" . | nindent 12 }}
+              {{- include "virtualization_controller_resources" . | nindent 16 }}
               {{- end }}
           env: {{ include "virtualization-controller.envs" . | nindent 12 }}
 

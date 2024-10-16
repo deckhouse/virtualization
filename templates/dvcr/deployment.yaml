@@ -88,9 +88,9 @@ spec:
               port: https
           resources:
             requests:
-              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 16 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "dvcr_resources" . | nindent 12 }}
+              {{- include "dvcr_resources" . | nindent 16 }}
               {{- end }}
           env: {{ include "dvcr.envs" . | nindent 12 }}
           volumeMounts: {{ include "dvcr.volumeMounts" . | nindent 12 }}

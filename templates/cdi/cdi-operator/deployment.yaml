@@ -16,10 +16,12 @@
 - name: UPLOAD_PROXY_IMAGE
   value: {{ include "helm_lib_module_image" (list . "cdiUploadproxy") }}
 {{- end }}
+
 {{- define "cdi_operator_resources" }}
 cpu: 10m
 memory: 150Mi
 {{- end }}
+
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1
