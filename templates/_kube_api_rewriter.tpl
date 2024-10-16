@@ -7,6 +7,16 @@
 {{- end }}
 {{- end -}}
 
+{{- define "kube_api_rewriter_vpa_container_policy" -}}
+- containerName: proxy
+  minAllowed:
+    cpu: 10m
+    memory: 150Mi
+  maxAllowed:
+    cpu: 20m
+    memory: 250Mi
+{{- end -}}
+
 {{- define "kubeproxy_resources" -}}
 cpu: 100m
 memory: 150Mi

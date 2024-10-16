@@ -15,18 +15,12 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
+    {{- include "kube_api_rewriter_vpa_container_policy" . | nindent 4 }}
     - containerName: cdi-apiserver
       minAllowed:
         cpu: 10m
         memory: 50Mi
       maxAllowed:
-        cpu: 20m
-        memory: 150Mi
-    - containerName: proxy
-      minAllowed:
-        cpu: 10m
-        memory: 50Mi
-      maxAllowed:
-        cpu: 20m
+        cpu: 100m
         memory: 150Mi
 {{- end }}

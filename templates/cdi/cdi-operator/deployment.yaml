@@ -39,13 +39,8 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
+    {{- include "kube_api_rewriter_vpa_container_policy" . | nindent 4 }}
     - containerName: cdi-operator
-      minAllowed:
-        {{- include "cdi_operator_resources" . | nindent 8 }}
-      maxAllowed:
-        cpu: 20m
-        memory: 250Mi
-    - containerName: proxy
       minAllowed:
         {{- include "cdi_operator_resources" . | nindent 8 }}
       maxAllowed:

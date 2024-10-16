@@ -15,6 +15,7 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
+    {{- include "kube_api_rewriter_vpa_container_policy" . | nindent 4 }}
     - containerName: virt-handler
       minAllowed:
         cpu: 10m
@@ -22,11 +23,4 @@ spec:
       maxAllowed:
         cpu: 20m
         memory: 400Mi
-    - containerName: proxy
-      minAllowed:
-        cpu: 10m
-        memory: 150Mi
-      maxAllowed:
-        cpu: 20m
-        memory: 250Mi
 {{- end }}
