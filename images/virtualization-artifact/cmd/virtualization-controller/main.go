@@ -128,9 +128,10 @@ func main() {
 	}
 
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
-	log.Info("dlopatin", viStorageClassSettings.DefaultStorageClassName, viStorageClassSettings.StorageClassName)
+	log.Info("dlopatin", "defSc", viStorageClassSettings.DefaultStorageClassName, "sc", viStorageClassSettings.StorageClassName, "allowed", viStorageClassSettings.AllowedStorageClassNames)
 
-	//vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+	log.Info("dlopatin", "defSc", vdStorageClassSettings.DefaultStorageClassName, "allowed", vdStorageClassSettings.AllowedStorageClassNames)
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
