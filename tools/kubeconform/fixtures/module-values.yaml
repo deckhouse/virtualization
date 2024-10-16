@@ -292,7 +292,7 @@ global:
       mode: CertManager
     ingressClass: nginx
     placement: {}
-    publicDomainTemplate: '%s.cluster.domain.io'
+    publicDomainTemplate: "%s.cluster.domain.io"
     resourcesRequests:
       controlPlane: {}
       everyNode:

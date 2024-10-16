@@ -104,7 +104,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Validate helm templates with OpenAPI schemas
     steps:
-
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
