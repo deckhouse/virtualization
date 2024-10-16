@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	. "github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -184,12 +185,15 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	return &vm, nil
 }
 
-func GetObject(resource kc.Resource, name, namespace string, object client.Object) error {
+func GetObject(resource kc.Resource, name string, object client.Object, opts kc.GetOptions) error {
 	GinkgoHelper()
-	cmd := kubectl.GetResource(resource, name, kc.GetOptions{
-		Namespace: namespace,
-		Output:    "json",
-	})
+	cmdOpts := kc.GetOptions{
+		Output: "json",
+	}
+	if opts.Namespace != "" {
+		cmdOpts.Namespace = opts.Namespace
+	}
+	cmd := kubectl.GetResource(resource, name, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf(cmd.StdErr())
 	}
@@ -283,4 +287,44 @@ func FindUnassignedIP(subnets []string) (string, error) {
 		}
 	}
 	return "", findError
+}
+
+func GetConditionStatus(obj client.Object, conditionType string) (string, error) {
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return "", err
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: u}
+
+	conditions, found, err := unstructured.NestedSlice(unstructuredObj.Object, "status", "conditions")
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf(".status.conditions not found")
+	}
+
+	for _, c := range conditions {
+		if conditionMap, isMap := c.(map[string]interface{}); isMap {
+			if conditionMap["type"] == conditionType {
+				if status, exists := conditionMap["status"].(string); exists {
+					return status, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("condition %s not found", conditionType)
+}
+
+func GetPhaseByVolumeBindingMode(c *Config) string {
+	switch c.StorageClass.VolumeBindingMode {
+	case "Immediate":
+		return PhaseReady
+	case "WaitForFirstConsumer":
+		return PhaseWaitForFirstConsumer
+	default:
+		return PhaseReady
+	}
 }
