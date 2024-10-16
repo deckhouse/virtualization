@@ -19,7 +19,7 @@ env:
 
 on:
   pull_request:
-    types: [opened, edited, synchronize]
+    types: [opened, synchronize, labeled, unlabeled]
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -98,3 +98,22 @@ jobs:
       - name: Run validation "Copyright"
         run: |
           task validation:copyright
+
+  helm_templates:
+    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates')"
+    runs-on: ubuntu-latest
+    name: Validate helm templates with OpenAPI schemas
+    steps:
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run validation "Helm templates"
+        run: |
+          task validation:helm-templates
