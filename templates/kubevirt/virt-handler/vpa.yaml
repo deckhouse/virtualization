@@ -15,7 +15,7 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
-    {{- include "kube_api_rewriter_vpa_container_policy" . | nindent 4 }}
+    {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
     - containerName: virt-handler
       minAllowed:
         cpu: 10m

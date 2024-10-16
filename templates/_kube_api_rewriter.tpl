@@ -7,7 +7,7 @@
 {{- end }}
 {{- end -}}
 
-{{- define "kube_api_rewriter_vpa_container_policy" -}}
+{{- define "kube_api_rewriter.vpa_container_policy" -}}
 - containerName: proxy
   minAllowed:
     cpu: 10m
