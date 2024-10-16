@@ -12,7 +12,7 @@ import:
   - edk2-ovmf-20231115-alt1.noarch.rpm
 
 # After install stage.
-#   Add libxcrypto library.
+#  Add libxcrypto library.
 - image: {{ $.ImageName }}-libxcrypt-builder
   add: /usr/local/lib/
   to: /lib64
@@ -29,13 +29,15 @@ import:
   - libcrypto.so.3
   - libssl.so.3
 
+{{/*
 #   Add pcre libraries.
-- image: {{ $.ImageName }}-pcre-builder
-  add: /usr/local/lib/
-  to: /lib64
-  after: install
-  includePaths:
-  - libpcre.so.1.2.13
+# - image: {{ $.ImageName }}-pcre-builder
+#   add: /usr/local/lib/
+#   to: /lib64
+#   after: install
+#   includePaths:
+#   - libpcre.so.1.2.13
+*/}}
 
 #   Add liboverride library.
 - image: {{ $.ImageName }}-liboverride-builder
@@ -110,6 +112,7 @@ shell:
   - |
     apt-get update && apt-get install --yes \
     acl \
+    pcre \
     ethtool \
     nftables \
     xorriso \
@@ -160,7 +163,7 @@ shell:
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
   # Create links to required for virt-launcher libs.
   - ln -s /lib64/libcrypt.so.2.0.0 /lib64/libcrypt.so.2
-  - ln -s /lib64/libpcre.so.1.2.13 /lib64/libpcre.so.1
+  # - ln -s /lib64/libpcre.so.1.2.13 /lib64/libpcre.so.1
   - |
     [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
@@ -215,20 +218,21 @@ shell:
   - cd /tmp/openssl
   - ./config no-docs
   - make && make install
----
-image: {{ $.ImageName }}-pcre-builder
-final: false
-fromImage: {{ $.ImageName }}-lib-builder
-shell:
-  beforeInstall:
-  # Download PCRE sources.
-  - wget -O /tmp/pcre.tar.gz https://sourceforge.net/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
-  install:
-  # Build libpcre.so.1.
-  - tar -xf /tmp/pcre.tar.gz -C /tmp
-  - cd /tmp/pcre-8.45
-  - ./configure --enable-utf --enable-unicode-properties
-  - make && make install
+# ---
+# image: {{ $.ImageName }}-pcre-builder
+# # final: false
+# fromImage: {{ $.ImageName }}-lib-builder
+# shell:
+#   beforeInstall:
+#   # Download PCRE sources.
+#   - wget -O /tmp/pcre.tar.gz {{ .SOURCE_REPO }}/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
+#   # - wget -O /tmp/pcre.tar.gz https://sourceforge.net/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
+#   install:
+#   # Build libpcre.so.1.
+#   - tar -xf /tmp/pcre.tar.gz -C /tmp
+#   - cd /tmp/pcre-8.45
+#   - ./configure --enable-utf --enable-unicode-properties
+#   - make && make install
 ---
 image: {{ $.ImageName }}-liboverride-builder
 final: false
