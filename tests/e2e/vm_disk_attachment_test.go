@@ -42,16 +42,10 @@ type BlockDevice struct {
 	Size string `json:"size"`
 }
 
-var (
-	DisksBefore                     Disks
-	DisksAfter                      Disks
-	AutomaticHotplugStandaloneLabel = map[string]string{"vm": "automatic-with-hotplug-standalone"}
-)
-
-func AttachVirtualDisk(virtualMachine, virtualDisk string) {
+func AttachVirtualDisk(virtualMachine, virtualDisk string, labels map[string]string) {
 	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", conf.TestData.VmDiskAttachment, virtualMachine)
 	fmt.Println(vmbdaFilePath)
-	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, AutomaticHotplugStandaloneLabel)
+	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, labels)
 	Expect(err).NotTo(HaveOccurred(), err)
 
 	res := kubectl.Apply(vmbdaFilePath, kc.ApplyOptions{
@@ -64,7 +58,7 @@ func CreateVMBDAManifest(filePath, vmName, vdName string, labels map[string]stri
 	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: APIVersion,
-			Kind:       virtv2.VMBDAKind,
+			Kind:       virtv2.VirtualMachineBlockDeviceAttachmentKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:   vmName,
@@ -104,30 +98,24 @@ func GetDisksMetadata(vmName string, disks *Disks) {
 
 var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 	var (
-		vdRoot                   string
-		vdAttach                 string
-		vmName                   string
-		vmbdaName                string
-		phaseByVolumeBindingMode string
+		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
+		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
+		nameSuffix         = "automatic-with-hotplug-standalone"
+		disksBefore        Disks
+		disksAfter         Disks
+		vdAttach           string
+		vmName             string
+		vmbdaName          string
 	)
 
-	Context("Environment preparing", func() {
-		vdRoot = fmt.Sprintf("%s-vd-root-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
-		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
-		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
-		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, AutomaticHotplugStandaloneLabel["vm"])
-		switch conf.StorageClass.VolumeBindingMode {
-		case "Immediate":
-			phaseByVolumeBindingMode = PhaseReady
-		case "WaitForFirstConsumer":
-			phaseByVolumeBindingMode = PhaseWaitForFirstConsumer
-		default:
-			phaseByVolumeBindingMode = PhaseReady
-		}
+	Context("Preparing the environment", func() {
+		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
+		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
+		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
 	})
 
 	Context("When resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.VmDiskAttachment, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -135,12 +123,19 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
-			By(fmt.Sprintf("%s should be in %s phases", vdRoot, PhaseReady))
-			waitReady := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseReady)
-			WaitResource(kc.ResourceVD, vdRoot, waitReady, LongWaitDuration)
-			By(fmt.Sprintf("%s should be in %s phases", vdAttach, phaseByVolumeBindingMode))
-			waitByVolumeBindingMode := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phaseByVolumeBindingMode)
-			WaitResource(kc.ResourceVD, vdAttach, waitByVolumeBindingMode, LongWaitDuration)
+			By(fmt.Sprintf("VDs with consumers should be in %s phases", PhaseReady))
+			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+				ExcludeLabels: []string{"hasNoConsumer"},
+				Labels:        testCaseLabel,
+				Namespace:     conf.Namespace,
+				Output:        "jsonpath='{.items[*].metadata.name}'",
+			})
+			By(fmt.Sprintf("VDs without consumers should be in %s phases", phaseByVolumeBindingMode))
+			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+				Labels:    hasNoConsumerLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
 		})
 	})
 
@@ -148,7 +143,7 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    AutomaticHotplugStandaloneLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -158,21 +153,29 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 	Describe("Attachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
 			It("get disk count before attachment", func() {
-				GetDisksMetadata(vmName, &DisksBefore)
+				GetDisksMetadata(vmName, &disksBefore)
 			})
 			It("attaches virtual disk", func() {
-				AttachVirtualDisk(vmName, vdAttach)
+				AttachVirtualDisk(vmName, vdAttach, testCaseLabel)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
-				WaitResource(kc.ResourceVMBDA, vmbdaName, "'jsonpath={.status.phase}=Attached'", ShortWaitDuration)
+				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitResource(kc.ResourceVM, vmName, "'jsonpath={.status.phase}=Running'", ShortWaitDuration)
+				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 			It("compares disk count before and after attachment", func() {
-				GetDisksMetadata(vmName, &DisksAfter)
-				diskCountBefore := len(DisksBefore.BlockDevices)
-				diskCountAfter := len(DisksAfter.BlockDevices)
+				GetDisksMetadata(vmName, &disksAfter)
+				diskCountBefore := len(disksBefore.BlockDevices)
+				diskCountAfter := len(disksAfter.BlockDevices)
 				Expect(diskCountBefore).To(Equal(diskCountAfter-1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
 			})
 		})
@@ -181,7 +184,7 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 	Describe("Detachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
 			It("get disk count before detachment", func() {
-				GetDisksMetadata(vmName, &DisksBefore)
+				GetDisksMetadata(vmName, &disksBefore)
 			})
 			It("detaches virtual disk", func() {
 				res := kubectl.DeleteResource(kc.ResourceVMBDA, vmbdaName, kc.DeleteOptions{
@@ -191,13 +194,17 @@ var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
 			})
 			It("checks VM phase", func() {
 				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitResource(kc.ResourceVM, vmName, "'jsonpath={.status.phase}=Running'", ShortWaitDuration)
+				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
 			})
 			It("compares disk count before and after detachment", func() {
-				diskCountBefore := len(DisksBefore.BlockDevices)
+				diskCountBefore := len(disksBefore.BlockDevices)
 				Eventually(func(g Gomega) {
-					GetDisksMetadata(vmName, &DisksAfter)
-					diskCountAfter := len(DisksAfter.BlockDevices)
+					GetDisksMetadata(vmName, &disksAfter)
+					diskCountAfter := len(disksAfter.BlockDevices)
 					Expect(diskCountBefore).To(Equal(diskCountAfter+1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
 				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 			})

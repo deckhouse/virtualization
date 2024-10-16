@@ -38,6 +38,7 @@ const (
 	PhaseAttached             = "Attached"
 	PhaseReady                = "Ready"
 	PhaseBound                = "Bound"
+	PhasePending              = "Pending"
 	PhaseReleased             = "Released"
 	PhaseSucceeded            = "Succeeded"
 	PhaseRunning              = "Running"
@@ -46,14 +47,15 @@ const (
 )
 
 var (
-	conf                *config.Config
-	mc                  *config.ModuleConfig
-	kustomize           *config.Kustomize
-	kubectl             kc.Kubectl
-	d8Virtualization    d8.D8Virtualization
-	git                 gt.Git
-	namePrefix          string
-	defaultStorageClass *storagev1.StorageClass
+	conf                     *config.Config
+	mc                       *config.ModuleConfig
+	kustomize                *config.Kustomize
+	kubectl                  kc.Kubectl
+	d8Virtualization         d8.D8Virtualization
+	git                      gt.Git
+	namePrefix               string
+	defaultStorageClass      *storagev1.StorageClass
+	phaseByVolumeBindingMode string
 )
 
 func init() {
@@ -82,11 +84,13 @@ func init() {
 	ChmodFile(conf.TestData.Sshkey, 0o600)
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
 	conf.StorageClass.VolumeBindingMode = *defaultStorageClass.VolumeBindingMode
+	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
@@ -113,6 +117,9 @@ func TestTests(t *testing.T) {
 func Cleanup() {
 	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
 	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
+		Labels: map[string]string{"id": namePrefix},
+	})
+	kubectl.DeleteResource(kc.ResourceVMClass, "", kc.DeleteOptions{
 		Labels: map[string]string{"id": namePrefix},
 	})
 }

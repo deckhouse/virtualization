@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: vm1-vd-from-vi
+  name: vd-connectivity-a
 spec:
   persistentVolumeClaim:
     size: 4Gi
@@ -15,10 +15,10 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: vm1
+  name: vm-connectivity-a
   labels:
     vm: linux
-    service: vm1
+    service: vm-connectivity-a
 spec:
   virtualMachineClassName: generic
   runPolicy: AlwaysOn
@@ -32,7 +32,7 @@ spec:
     size: 1Gi
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: vm1-vd-from-vi
+      name: vd-connectivity-a
   provisioning:
     type: UserData
     userData: |

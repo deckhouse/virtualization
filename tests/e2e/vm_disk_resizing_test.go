@@ -39,17 +39,14 @@ type DiskMetaData struct {
 	SizeFromObject *resource.Quantity
 }
 
-var (
-	DiskResizingLabel = map[string]string{"testcase": "disk-resizing"}
-	DiskIdPrefix      = "scsi-0QEMU_QEMU_HARDDISK_"
-)
+const DiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
 
 func WaitBlockDeviceRefsStatus(namespace string, vms ...string) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		for _, vmName := range vms {
 			vm := virtv2.VirtualMachine{}
-			err := GetObject(kc.ResourceKubevirtVM, vmName, namespace, &vm)
+			err := GetObject(kc.ResourceKubevirtVM, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			Expect(err).NotTo(HaveOccurred(), err)
 			for _, disk := range vm.Status.BlockDeviceRefs {
 				Expect(disk.Attached).To(BeTrue(), "attached status check failed: %#v", vm.Status.BlockDeviceRefs)
@@ -62,7 +59,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 	GinkgoHelper()
 	for _, vd := range virtualDisks {
 		diskObject := virtv2.VirtualDisk{}
-		err := GetObject(kc.ResourceVD, vd, config.Namespace, &diskObject)
+		err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
 		Expect(err).NotTo(HaveOccurred(), err)
 		newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
 		mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
@@ -73,7 +70,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
 	GinkgoHelper()
 	vd := virtv2.VirtualDisk{}
-	err := GetObject(kc.ResourceVD, vdName, namespace, &vd)
+	err := GetObject(kc.ResourceVD, vdName, &vd, kc.GetOptions{Namespace: namespace})
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +118,7 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 	GinkgoHelper()
 	var vmObject virtv2.VirtualMachine
 	disks := make(map[string]DiskMetaData, 0)
-	err := GetObject(kc.ResourceKubevirtVM, vmName, config.Namespace, &vmObject)
+	err := GetObject(kc.ResourceKubevirtVM, vmName, &vmObject, kc.GetOptions{Namespace: config.Namespace})
 	if err != nil {
 		return disks, err
 	}
@@ -152,8 +149,10 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 }
 
 var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
+	diskResizingLabel := map[string]string{"testcase": "disk-resizing"}
+
 	Context("When resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.DiskResizing, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
@@ -163,7 +162,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -174,7 +173,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -185,7 +184,7 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
-				Labels:    DiskResizingLabel,
+				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -199,14 +198,14 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 				vmDisksAfter  VirtualMachineDisks
 				err           error
 			)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, DiskResizingLabel["testcase"])
+			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, diskResizingLabel["testcase"])
 			It("get disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmName, conf)
 				Expect(err).NotTo(HaveOccurred(), err)
 			})
 			It("resizes disks", func() {
 				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -224,28 +223,28 @@ var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
 			It("checks VDs, VMs and VMBDA phases", func() {
 				By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 				WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 
 				By("BlockDeviceRefsStatus: disks should be attached")
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    DiskResizingLabel,
+					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})

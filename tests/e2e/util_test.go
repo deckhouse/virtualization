@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/netip"
 	"os"
 	"strings"
@@ -30,9 +31,11 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	. "github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -184,12 +187,15 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	return &vm, nil
 }
 
-func GetObject(resource kc.Resource, name, namespace string, object client.Object) error {
+func GetObject(resource kc.Resource, name string, object client.Object, opts kc.GetOptions) error {
 	GinkgoHelper()
-	cmd := kubectl.GetResource(resource, name, kc.GetOptions{
-		Namespace: namespace,
-		Output:    "json",
-	})
+	cmdOpts := kc.GetOptions{
+		Output: "json",
+	}
+	if opts.Namespace != "" {
+		cmdOpts.Namespace = opts.Namespace
+	}
+	cmd := kubectl.GetResource(resource, name, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf(cmd.StdErr())
 	}
@@ -253,6 +259,34 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
 }
 
+func toIPNet(prefix netip.Prefix) *net.IPNet {
+	return &net.IPNet{
+		IP:   prefix.Masked().Addr().AsSlice(),
+		Mask: net.CIDRMask(prefix.Bits(), prefix.Addr().BitLen()),
+	}
+}
+
+func isFirstLastIP(ip netip.Addr, cidr netip.Prefix) (bool, error) {
+	ipNet := toIPNet(cidr)
+	size := int(k8snet.RangeSize(ipNet))
+
+	first, err := k8snet.GetIndexedIP(ipNet, 0)
+	if err != nil {
+		return false, err
+	}
+
+	if first.Equal(ip.AsSlice()) {
+		return true, nil
+	}
+
+	last, err := k8snet.GetIndexedIP(ipNet, size-1)
+	if err != nil {
+		return false, err
+	}
+
+	return last.Equal(ip.AsSlice()), nil
+}
+
 func FindUnassignedIP(subnets []string) (string, error) {
 	findError := fmt.Errorf("error: cannot find unassigned IP address")
 	res := kubectl.List(kc.ResourceVMIPLease, kc.GetOptions{Output: "jsonpath='{.items[*].metadata.name}'"})
@@ -276,11 +310,58 @@ func FindUnassignedIP(subnets []string) (string, error) {
 			if _, found := reservedIPs[ip]; found {
 				continue
 			}
+			isFirstLast, err := isFirstLastIP(nextAddr, prefix)
+			if err != nil {
+				return "", findError
+			}
+			if isFirstLast {
+				continue
+			}
 			if prefix.Contains(nextAddr) {
 				return nextAddr.String(), nil
 			}
-			return "", findError
+			break
 		}
 	}
 	return "", findError
+}
+
+func GetConditionStatus(obj client.Object, conditionType string) (string, error) {
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return "", err
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: u}
+
+	conditions, found, err := unstructured.NestedSlice(unstructuredObj.Object, "status", "conditions")
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf(".status.conditions not found")
+	}
+
+	for _, c := range conditions {
+		if conditionMap, isMap := c.(map[string]interface{}); isMap {
+			if conditionMap["type"] == conditionType {
+				if status, exists := conditionMap["status"].(string); exists {
+					return status, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("condition %s not found", conditionType)
+}
+
+func GetPhaseByVolumeBindingMode(c *Config) string {
+	switch c.StorageClass.VolumeBindingMode {
+	case "Immediate":
+		return PhaseReady
+	case "WaitForFirstConsumer":
+		return PhaseWaitForFirstConsumer
+	default:
+		return PhaseReady
+	}
 }

@@ -19,7 +19,3 @@ patches:
     target:
       kind: VirtualMachine
       name: vm
-labels:
-  - includeSelectors: true
-    pairs:
-      vm: automatic-with-hotplug-standalone

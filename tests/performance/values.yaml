@@ -4,10 +4,10 @@ spec:
     cores: 1
     coreFraction: 10%
   memory:
-    size: 500Mi
+    size: 256Mi
 
 resources: "all"
 resourcesPrefix: "performance"
-diskSize: 3Gi
+diskSize: 300Mi
 storageClassName: ""
-imageURL: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+imageURL: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2"
