@@ -29,16 +29,6 @@ import:
   - libcrypto.so.3
   - libssl.so.3
 
-{{/*
-#   Add pcre libraries.
-# - image: {{ $.ImageName }}-pcre-builder
-#   add: /usr/local/lib/
-#   to: /lib64
-#   after: install
-#   includePaths:
-#   - libpcre.so.1.2.13
-*/}}
-
 #   Add liboverride library.
 - image: {{ $.ImageName }}-liboverride-builder
   add: /liboverride/
@@ -218,21 +208,6 @@ shell:
   - cd /tmp/openssl
   - ./config no-docs
   - make && make install
-# ---
-# image: {{ $.ImageName }}-pcre-builder
-# # final: false
-# fromImage: {{ $.ImageName }}-lib-builder
-# shell:
-#   beforeInstall:
-#   # Download PCRE sources.
-#   - wget -O /tmp/pcre.tar.gz {{ .SOURCE_REPO }}/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
-#   # - wget -O /tmp/pcre.tar.gz https://sourceforge.net/projects/pcre/files/pcre/8.45/pcre-8.45.tar.gz/download
-#   install:
-#   # Build libpcre.so.1.
-#   - tar -xf /tmp/pcre.tar.gz -C /tmp
-#   - cd /tmp/pcre-8.45
-#   - ./configure --enable-utf --enable-unicode-properties
-#   - make && make install
 ---
 image: {{ $.ImageName }}-liboverride-builder
 final: false
