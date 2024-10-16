@@ -28,6 +28,8 @@ const (
 	ResizedType Type = "Resized"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"
+	// InUseType indicates whether the `VirtualDisk` attached to running `VirtualMachine` or running a process to create a `VirtualImage` from this `VirtualDisk`.
+	InUseType Type = "InUse"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ResizedReason = string
 	// SnapshottingReason represents the various reasons for the Snapshotting condition type.
 	SnapshottingReason = string
+	// InUseReason represents the various reasons for the InUse condition type.
+	InUseReason = string
 )
 
 const (
@@ -83,4 +87,11 @@ const (
 	Snapshotting SnapshottingReason = "Snapshotting"
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
 	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
+
+	// InUseInRunningVirtualMachine indicates that this `VirtualDisk` attached to running `VirtualMachine`
+	InUseInRunningVirtualMachine InUseReason = "InUseInRunningVirtualMachine"
+	// InUseForCreateImage indicates running a process to create a `VirtualImage` or `ClusterVirtualImage` from this `VirtualDisk`
+	InUseForCreateImage InUseReason = "InUseForCreateImage"
+	// NotUse indicates that this `VirtualDisk` is available.
+	NotUse InUseReason = "NotUse"
 )

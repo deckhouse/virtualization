@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -344,15 +345,10 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if len(vd.Status.AttachedToVirtualMachines) > 0 {
-		vmName := vd.Status.AttachedToVirtualMachines[0]
-		vm, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
-		if err != nil {
-			return err
-		}
-
-		if vm.Status.Phase != virtv2.MachineStopped {
-			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
+	inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUseCondition.Status != metav1.ConditionFalse {
+		if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
+			return NewVirtualDiskInUseError(vd.Name)
 		}
 	}
 
