@@ -23,8 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+const deletionHandlerName = "DeletionHandler"
 
 type DeletionHandler struct {
 	snapshotter *service.SnapshotService
@@ -37,6 +40,8 @@ func NewDeletionHandler(snapshotter *service.SnapshotService) *DeletionHandler {
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+
 	if vdSnapshot.DeletionTimestamp != nil {
 		vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
 		if err != nil {
@@ -82,6 +87,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualD
 			return reconcile.Result{Requeue: true}, nil
 		}
 
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualDiskSnapshot")
 		controllerutil.RemoveFinalizer(vdSnapshot, virtv2.FinalizerVDSnapshotCleanup)
 		return reconcile.Result{}, nil
 	}
