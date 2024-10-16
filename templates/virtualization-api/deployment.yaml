@@ -4,6 +4,7 @@
 cpu: 10m
 memory: 150Mi
 {{- end }}
+
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1
@@ -23,7 +24,7 @@ spec:
     containerPolicies:
       - containerName: virtualization-api
         minAllowed:
-        {{- include "virtualization_api_resources" . | nindent 8 }}
+          {{- include "virtualization_api_resources" . | nindent 10 }}
         maxAllowed:
           cpu: 20m
           memory: 250Mi
@@ -97,9 +98,9 @@ spec:
               protocol: TCP
           resources:
             requests:
-              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "virtualization_api_resources" . | nindent 12 }}
+              {{- include "virtualization_api_resources" . | nindent 14 }}
               {{- end }}
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-api

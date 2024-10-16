@@ -36,6 +36,7 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
+    {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
     - containerName: virt-operator
       minAllowed:
         {{- include "virt_operator_resources" . | nindent 8 }}
