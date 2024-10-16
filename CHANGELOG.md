@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.14.0](https://github.com/deckhouse/virtualization/compare/v0.13.1...v0.14.0) (2024-10-14)
+
+
+### Features
+
+* **api:** move calculation of scratch filesystem overhead to cdi controller ([91d8db3](https://github.com/deckhouse/virtualization/commit/91d8db30c070bd0e65b22bb6f2f87630db52d619))
+* **cvi,vi,vd:** replace uploadCommand field with imageUploadURLs ([70ccd2e](https://github.com/deckhouse/virtualization/commit/70ccd2ecab58b5b7985109658056da5f2764010b))
+* **kube-api-rewriter:** add pprof and metrics, fix rewrite performance ([#402](https://github.com/deckhouse/virtualization/issues/402)) ([a009052](https://github.com/deckhouse/virtualization/commit/a0090526a3c4b08f1b4918f74ce13982961dbebb))
+* **vd, vmbda:** add _labels and _annotations metrics ([#399](https://github.com/deckhouse/virtualization/issues/399)) ([7690d2b](https://github.com/deckhouse/virtualization/commit/7690d2b6fbee85db7a06a68e169ec35915cd1c83))
+* **vd:** resizing vd in  filesystem mode ([#385](https://github.com/deckhouse/virtualization/issues/385)) ([7857bd3](https://github.com/deckhouse/virtualization/commit/7857bd3e28eee512b72dc2822704165f52267ae9))
+* **vm:** add custom secret types for provisioning ([#390](https://github.com/deckhouse/virtualization/issues/390)) ([597d551](https://github.com/deckhouse/virtualization/commit/597d551173c0fe439dd1f4d540284067a8465515))
+* **vm:** add failure message to condition if migration is failed ([78b3a42](https://github.com/deckhouse/virtualization/commit/78b3a424fde873baf8cd7e45caf70b9c9c8ddfbc))
+* **vm:** add new VM _labels and _annotations metrics and refactor existing ones ([#398](https://github.com/deckhouse/virtualization/issues/398)) ([75e57ad](https://github.com/deckhouse/virtualization/commit/75e57add7cf563b305e4765414b5a467682f07dc))
+* **vmclass:** add validation for matching virtual machine sizing policies upon virtual machine class change ([#389](https://github.com/deckhouse/virtualization/issues/389)) ([029c445](https://github.com/deckhouse/virtualization/commit/029c445960a7b473846f2e4e06f91a947abff4c6))
+* **vm:** disable serial console log ([21d0bec](https://github.com/deckhouse/virtualization/commit/21d0becc693e2dc5705ee636a5283fa17f57168b))
+* **vmop:** add metrics ([#370](https://github.com/deckhouse/virtualization/issues/370)) ([2436b8e](https://github.com/deckhouse/virtualization/commit/2436b8e59de4c25aff96035f2fe7fddb120318be))
+* **vmop:** add operation to migrate vm ([#386](https://github.com/deckhouse/virtualization/issues/386)) ([d61bab4](https://github.com/deckhouse/virtualization/commit/d61bab4b0ec616e36d5d0c012f158b758960da0b))
+* **vmrestore:** add the ability to restore virtualmachines ([0c59bff](https://github.com/deckhouse/virtualization/commit/0c59bff69d57b9dca93555ab57bb1ecf2f262577))
+* **vmsnapshot:** add the ability to snapshot virtualmachines ([38b84d4](https://github.com/deckhouse/virtualization/commit/38b84d4373d2ef355c40fa2ae065c16e4aae3150))
+
+
+### Bug Fixes
+
+* **vd,vi,cvi:** fix vd uploader service creating ([#409](https://github.com/deckhouse/virtualization/issues/409)) ([d012007](https://github.com/deckhouse/virtualization/commit/d0120072b741f01977e0bd74f008c27f044d3420))
+* **vd:** allow to change size in spec for not ready vd ([#411](https://github.com/deckhouse/virtualization/issues/411)) ([38bb0eb](https://github.com/deckhouse/virtualization/commit/38bb0ebd755b9087091d00d19733c4ef067f8d17))
+* **vm,vmip:** improve VMIP management ([#374](https://github.com/deckhouse/virtualization/issues/374)) ([d6695ef](https://github.com/deckhouse/virtualization/commit/d6695ef99b0e266244406559c8d1c7d8f52782f2))
+* **vmbda:** reconcile from virtual disk phase changes events ([7157204](https://github.com/deckhouse/virtualization/commit/7157204aad7f9ce5bc591f371247b5091f882f27))
+* **vm:** fix the virtual machine matching with the virtual machine class during validation when no sizing policy is provided ([#431](https://github.com/deckhouse/virtualization/issues/431)) ([4704e31](https://github.com/deckhouse/virtualization/commit/4704e314022e2bba086a45942b5225f144440518))
+* **vmip:** add validating ip address for VMIP with type 'Static' ([#404](https://github.com/deckhouse/virtualization/issues/404)) ([2c95be9](https://github.com/deckhouse/virtualization/commit/2c95be9d0a0d987955d9c38994c6234b601389bb))
+* **vmip:** fix deleting unattached vmip ([#405](https://github.com/deckhouse/virtualization/issues/405)) ([56cb6cd](https://github.com/deckhouse/virtualization/commit/56cb6cdafd6d8847aa6f27d49aa98530aa56a31c))
+
 ## [0.13.1](https://github.com/deckhouse/virtualization/compare/v0.13.0...v0.13.1) (2024-09-19)
 
 

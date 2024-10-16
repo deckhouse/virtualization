@@ -36,6 +36,8 @@ const (
 	UploaderContainerName = "uploader"
 	// UploaderPortName provides a constant to use as a port name for uploader Service
 	UploaderPortName = "uploader"
+	// UploaderPort provides a constant to use as a port for uploader Service
+	UploaderPort = 80
 	// UploaderIngressHostVar is a env variable
 	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
 	// UploaderIngressTLSSecretVar is a env variable
