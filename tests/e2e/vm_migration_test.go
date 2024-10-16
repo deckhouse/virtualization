@@ -34,14 +34,12 @@ const (
 	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
 )
 
-var MigrationLabel = map[string]string{"testcase": "vm-migration"}
-
-func MigrateVirtualMachines(virtualMachines ...string) {
+func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	migrationFilesPath := fmt.Sprintf("%s/migrations", conf.TestData.VmMigration)
+	migrationFilesPath := fmt.Sprintf("%s/migrations", templatePath)
 	for _, vm := range virtualMachines {
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		err := CreateMigrationManifest(vm, migrationFilePath, MigrationLabel)
+		err := CreateMigrationManifest(vm, migrationFilePath, label)
 		Expect(err).NotTo(HaveOccurred(), err)
 		res := kubectl.Apply(migrationFilePath, kc.ApplyOptions{
 			Namespace: conf.Namespace,
@@ -74,10 +72,23 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string) 
 }
 
 var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func() {
+	testCaseLabel := map[string]string{"testcase": "vm-migration"}
+
 	Context("When resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.VmMigration, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied:", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
 		})
 	})
 
@@ -85,7 +96,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -96,7 +107,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -106,14 +117,14 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 	Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
 		It("starts migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			MigrateVirtualMachines(vms...)
+			MigrateVirtualMachines(testCaseLabel, conf.TestData.VmMigration, vms...)
 		})
 	})
 
@@ -121,13 +132,13 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 		It("checks VMs and KubevirtVMIMs phases", func() {
 			By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
 			WaitPhase(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -135,7 +146,7 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 
 		It("checks VMs external connection after migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-				Labels:    MigrationLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})

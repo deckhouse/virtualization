@@ -10,4 +10,5 @@ configurations:
 labels:
   - includeSelectors: true
     pairs:
-      testcase: pr-number-or-commit-hash
+      id: pr-number-or-commit-hash
+      testcase: vm-connectivity

@@ -35,11 +35,6 @@ const (
 	StageAfter    = "after"
 )
 
-var (
-	AutomaticLabel = map[string]string{"vm": "automatic-conf"}
-	ManualLabel    = map[string]string{"vm": "manual-conf"}
-)
-
 func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
@@ -85,17 +80,34 @@ func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines
 }
 
 var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, func() {
+	var (
+		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
+		automaticLabel = map[string]string{"vm": "automatic-conf"}
+		manualLabel    = map[string]string{"vm": "manual-conf"}
+	)
+
 	Context("When resources are applied:", func() {
-		It("must have no errors", func() {
+		It("result should be succeeded", func() {
 			res := kubectl.Kustomize(conf.TestData.VmConfiguration, kc.KustomizeOptions{})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied:", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
 		})
 	})
 
 	Context("When virtual disks are applied:", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
 			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				Labels:    map[string]string{"testcase": "vm-configuration"},
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -105,7 +117,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 	Context("When virtual machines are applied:", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-				Labels:    map[string]string{"testcase": "vm-configuration"},
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
@@ -116,7 +128,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    ManualLabel,
+					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -131,7 +143,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context("When virtual machine is patched:", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    ManualLabel,
+					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -145,7 +157,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context("When virtual machine is restarted:", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    ManualLabel,
+					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -157,7 +169,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 					ExecSshCommand(vm, cmd)
 				}
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-					Labels:    ManualLabel,
+					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -167,7 +179,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    ManualLabel,
+					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -183,7 +195,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    AutomaticLabel,
+					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -198,7 +210,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context("When virtual machine is patched:", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    AutomaticLabel,
+					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -212,7 +224,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context("When virtual machine is restarted:", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
-					Labels:    AutomaticLabel,
+					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -222,7 +234,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    AutomaticLabel,
+					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})

@@ -8,3 +8,7 @@ resources:
   - ./vd-from-cvi-alpine-registry.yaml
   - ./vd-from-vi-alpine-http.yaml
   - ./vd-from-vi-alpine-registry.yaml
+labels:
+  - includeSelectors: true
+    pairs:
+      hasNoConsumer: "complex-test"
