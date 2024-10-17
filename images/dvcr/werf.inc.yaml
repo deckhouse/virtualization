@@ -21,7 +21,6 @@ shell:
 
       export GOPATH=$(go env GOPATH)
       export GOROOT=$(go env GOROOT)
-      export PATH=$PATH:$GOPATH/bin:$GOROOT/bin
       export GO111MODULE=off
       
       mkdir -p /container-registry-binary
