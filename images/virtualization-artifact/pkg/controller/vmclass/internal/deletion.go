@@ -68,7 +68,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMClassInUse, msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
-	h.logger.Info("Delete VmClass, remove protection finalizers")
+	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
 }
