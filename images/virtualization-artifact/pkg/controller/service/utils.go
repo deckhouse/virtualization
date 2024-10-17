@@ -16,17 +16,27 @@ limitations under the License.
 
 package service
 
-import "errors"
+import (
+	"context"
 
-var (
-	ErrStorageClassNotFound        = errors.New("storage class not found")
-	ErrStorageProfileNotFound      = errors.New("storage profile not found")
-	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
-	ErrStorageClassNotAvailable    = errors.New("storage class is not available")
-	ErrDataVolumeNotRunning        = errors.New("pvc importer is not running")
+	storev1 "k8s.io/api/storage/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
-var (
-	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
-	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
-)
+func GetDefaultStorageClass(ctx context.Context, cl client.Client) (*storev1.StorageClass, error) {
+	var scs storev1.StorageClassList
+	err := cl.List(ctx, &scs, &client.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sc := range scs.Items {
+		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
+			return &sc, nil
+		}
+	}
+
+	return nil, ErrDefaultStorageClassNotFound
+}
