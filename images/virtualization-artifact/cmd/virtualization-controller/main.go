@@ -226,7 +226,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
