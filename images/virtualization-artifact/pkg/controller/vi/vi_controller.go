@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
@@ -55,6 +56,7 @@ func NewController(
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassForVirtualImageOnPVC string,
+	storageClassSettings config.VirtualImageStorageClassSettings,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(ControllerName))
 
@@ -64,14 +66,8 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
-	//defSc, err := disk.GetDefaultStorageClass(ctx)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//scService := service.NewVirtualImageStorageClassService(storageClassSettings, defSc.Name)
-	//// FIXME: remove this
-	//scService.GetStorageClass("")
+	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
+	scService.GetStorageClass("", "")
 
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, disk, storageClassForVirtualImageOnPVC))

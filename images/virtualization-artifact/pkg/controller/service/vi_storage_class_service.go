@@ -23,27 +23,25 @@ import (
 )
 
 type VirtualImageStorageClassService struct {
-	storageClassSettings           config.VirtualImageStorageClassSettings
-	clusterDefaultStorageClassName string
+	storageClassSettings config.VirtualImageStorageClassSettings
 }
 
-func NewVirtualImageStorageClassService(settings config.VirtualImageStorageClassSettings, clusterDefaultStorageClassName string) *VirtualImageStorageClassService {
+func NewVirtualImageStorageClassService(settings config.VirtualImageStorageClassSettings) *VirtualImageStorageClassService {
 	return &VirtualImageStorageClassService{
-		storageClassSettings:           settings,
-		clusterDefaultStorageClassName: clusterDefaultStorageClassName,
+		storageClassSettings: settings,
 	}
 }
 
-func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec string) (string, error) {
+func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec, clusterDefaultStorageClassName string) (string, error) {
 	// if settings is empty
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if svc.storageClassSettings.StorageClassName == "" {
-			if svc.clusterDefaultStorageClassName == "" {
+			if clusterDefaultStorageClassName == "" {
 				return "", ErrDefaultStorageClassNotFound
 			}
 
-			if storageClassFromSpec == "" || storageClassFromSpec == svc.clusterDefaultStorageClassName {
-				return svc.clusterDefaultStorageClassName, nil
+			if storageClassFromSpec == "" || storageClassFromSpec == clusterDefaultStorageClassName {
+				return clusterDefaultStorageClassName, nil
 			}
 
 			return "", ErrStorageClassNotAvailable
@@ -65,12 +63,12 @@ func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec
 
 			return "", ErrStorageClassNotAvailable
 		} else {
-			if svc.clusterDefaultStorageClassName == "" {
+			if clusterDefaultStorageClassName == "" {
 				return "", ErrDefaultStorageClassNotFound
 			}
 
-			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, svc.clusterDefaultStorageClassName) {
-				return svc.clusterDefaultStorageClassName, nil
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, clusterDefaultStorageClassName) {
+				return clusterDefaultStorageClassName, nil
 			}
 
 			return "", ErrStorageClassNotAvailable

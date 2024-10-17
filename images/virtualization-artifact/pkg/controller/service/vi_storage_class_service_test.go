@@ -37,9 +37,9 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	Context("when settings are empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings are empty", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
-			service = NewVirtualImageStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 
-			_, err := service.GetStorageClass("requested-storage-class")
+			_, err := service.GetStorageClass("requested-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
@@ -48,9 +48,9 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	Context("when settings are empty and storageClassFromSpec is empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
-			service = NewVirtualImageStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-cluster-storage"))
@@ -60,9 +60,9 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	Context("when settings and clusterDefaultStorageClass are empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
-			service = NewVirtualImageStorageClassService(storageClassSettings, "")
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 
-			storageClass, err := service.GetStorageClass("requested-storage-class")
+			storageClass, err := service.GetStorageClass("requested-storage-class", "")
 
 			Expect(err).To(Equal(ErrDefaultStorageClassNotFound))
 			Expect(storageClass).To(Equal(""))
@@ -74,23 +74,23 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{
 				StorageClassName: "storage-class-name",
 			}
-			service = NewVirtualImageStorageClassService(storageClassSettings, "")
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 		})
 
 		It("return the StorageClassName if storageClassFromSpec is empty", func() {
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", "")
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal(storageClassSettings.StorageClassName))
 		})
 
 		It("return the StorageClassName if storageClassFromSpec equal StorageClassName", func() {
-			storageClass, err := service.GetStorageClass(storageClassSettings.StorageClassName)
+			storageClass, err := service.GetStorageClass(storageClassSettings.StorageClassName, "")
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal(storageClassSettings.StorageClassName))
 		})
 
 		It("return the err if storageClassFromSpec not equal StorageClassName", func() {
-			storageClass, err := service.GetStorageClass("requested-storage-class")
+			storageClass, err := service.GetStorageClass("requested-storage-class", "")
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 			Expect(storageClass).To(Equal(""))
 		})
@@ -102,24 +102,24 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 				AllowedStorageClassNames: []string{"allowed-storage-class"},
 				DefaultStorageClassName:  "",
 			}
-			service = NewVirtualImageStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 		})
 
 		It("returns the requested storage class if it's in the allowed list", func() {
-			storageClass, err := service.GetStorageClass("allowed-storage-class")
+			storageClass, err := service.GetStorageClass("allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("allowed-storage-class"))
 		})
 
 		It("returns an error if the requested storage class is not in the allowed list", func() {
-			_, err := service.GetStorageClass("not-allowed-storage-class")
+			_, err := service.GetStorageClass("not-allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
 
 		It("returns an error if storageClassFromSpec is empty", func() {
-			_, err := service.GetStorageClass("")
+			_, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
@@ -131,25 +131,25 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 				AllowedStorageClassNames: []string{},
 				DefaultStorageClassName:  "default-storage-class",
 			}
-			service = NewVirtualImageStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 		})
 
 		It("returns the default storage class if storageClassFromSpec is empty", func() {
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns the requested storage class if it matches the default storage class", func() {
-			storageClass, err := service.GetStorageClass("default-storage-class")
+			storageClass, err := service.GetStorageClass("default-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns an error if the requested storage class does not match the default", func() {
-			_, err := service.GetStorageClass("different-storage-class")
+			_, err := service.GetStorageClass("different-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
@@ -161,25 +161,25 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 				AllowedStorageClassNames: []string{"allowed-storage-class"},
 				DefaultStorageClassName:  "default-storage-class",
 			}
-			service = NewVirtualImageStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualImageStorageClassService(storageClassSettings)
 		})
 
 		It("returns the default storage class if storageClassFromSpec is empty", func() {
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns the requested storage class if it's in the allowed list", func() {
-			storageClass, err := service.GetStorageClass("allowed-storage-class")
+			storageClass, err := service.GetStorageClass("allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("allowed-storage-class"))
 		})
 
 		It("returns an error if the requested storage class is not in the allowed list", func() {
-			_, err := service.GetStorageClass("not-allowed-storage-class")
+			_, err := service.GetStorageClass("not-allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
