@@ -8,13 +8,6 @@ metadata:
   {{- include "helm_lib_module_labels" (list $ (dict "prometheus" "main")) | nindent 2 }}
 spec:
   endpoints:
-  - bearerTokenSecret:
-      key: token
-      name: prometheus-token
-    path: /metrics
-    port: metrics
-spec:
-  endpoints:
     - bearerTokenSecret:
         key: token
         name: prometheus-token
@@ -226,13 +219,5 @@ spec:
   selector:
     matchLabels:
       prometheus.kubevirt.internal.virtualization.deckhouse.io: "true"
-    scheme: https
-    tlsConfig:
-      insecureSkipVerify: true
-  namespaceSelector:
-    matchNames:
-    - d8-{{ .Chart.Name }}
-  selector:
-    matchLabels:
-      prometheus.kubevirt.internal.virtualization.deckhouse.io: "true"
+
 {{- end }}
