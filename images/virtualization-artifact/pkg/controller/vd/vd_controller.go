@@ -67,14 +67,10 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
-	//defSc, err := disk.GetDefaultStorageClass(ctx)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//scService := service.NewVirtualDiskStorageClassService(storageClassSettings, defSc.Name)
-	//// FIXME: remove this
-	//scService.GetStorageClass("")
+	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
+
+	// FIXME: remove this
+	scService.GetStorageClass("", "")
 
 	blank := source.NewBlankDataSource(stat, disk)
 

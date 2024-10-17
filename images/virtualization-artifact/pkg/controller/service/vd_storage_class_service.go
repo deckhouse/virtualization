@@ -23,28 +23,26 @@ import (
 )
 
 type VirtualDiskStorageClassService struct {
-	storageClassSettings           config.VirtualDiskStorageClassSettings
-	clusterDefaultStorageClassName string
+	storageClassSettings config.VirtualDiskStorageClassSettings
 }
 
-func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSettings, clusterDefaultStorageClassName string) *VirtualDiskStorageClassService {
+func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSettings) *VirtualDiskStorageClassService {
 	return &VirtualDiskStorageClassService{
-		storageClassSettings:           settings,
-		clusterDefaultStorageClassName: clusterDefaultStorageClassName,
+		storageClassSettings: settings,
 	}
 }
 
-func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec string) (string, error) {
+func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec, clusterDefaultStorageClassName string) (string, error) {
 	// if settings is empty
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if storageClassFromSpec != "" {
 			return storageClassFromSpec, nil
 		} else {
-			if svc.clusterDefaultStorageClassName == "" {
+			if clusterDefaultStorageClassName == "" {
 				return "", ErrDefaultStorageClassNotFound
 			}
 
-			return svc.clusterDefaultStorageClassName, nil
+			return clusterDefaultStorageClassName, nil
 		}
 	}
 
@@ -57,12 +55,12 @@ func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec 
 
 			return "", ErrStorageClassNotAvailable
 		} else {
-			if svc.clusterDefaultStorageClassName == "" {
+			if clusterDefaultStorageClassName == "" {
 				return "", ErrDefaultStorageClassNotFound
 			}
 
-			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, svc.clusterDefaultStorageClassName) {
-				return svc.clusterDefaultStorageClassName, nil
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, clusterDefaultStorageClassName) {
+				return clusterDefaultStorageClassName, nil
 			}
 
 			return "", ErrStorageClassNotAvailable

@@ -37,9 +37,9 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 	Context("when settings are empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings are empty", func() {
 			storageClassSettings = config.VirtualDiskStorageClassSettings{}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 
-			storageClass, err := service.GetStorageClass("requested-storage-class")
+			storageClass, err := service.GetStorageClass("requested-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("requested-storage-class"))
@@ -49,9 +49,9 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 	Context("when settings are empty and storageClassFromSpec is empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
 			storageClassSettings = config.VirtualDiskStorageClassSettings{}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-cluster-storage"))
@@ -61,9 +61,9 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 	Context("when settings and clusterDefaultStorageClass are empty", func() {
 		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
 			storageClassSettings = config.VirtualDiskStorageClassSettings{}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, "")
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 
-			storageClass, err := service.GetStorageClass("requested-storage-class")
+			storageClass, err := service.GetStorageClass("requested-storage-class", "")
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("requested-storage-class"))
@@ -76,24 +76,24 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 				AllowedStorageClassNames: []string{"allowed-storage-class"},
 				DefaultStorageClassName:  "",
 			}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 		})
 
 		It("returns the requested storage class if it's in the allowed list", func() {
-			storageClass, err := service.GetStorageClass("allowed-storage-class")
+			storageClass, err := service.GetStorageClass("allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("allowed-storage-class"))
 		})
 
 		It("returns an error if the requested storage class is not in the allowed list", func() {
-			_, err := service.GetStorageClass("not-allowed-storage-class")
+			_, err := service.GetStorageClass("not-allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
 
 		It("returns an error if storageClassFromSpec is empty", func() {
-			_, err := service.GetStorageClass("")
+			_, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
@@ -105,25 +105,25 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 				AllowedStorageClassNames: []string{},
 				DefaultStorageClassName:  "default-storage-class",
 			}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 		})
 
 		It("returns the default storage class if storageClassFromSpec is empty", func() {
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns the requested storage class if it matches the default storage class", func() {
-			storageClass, err := service.GetStorageClass("default-storage-class")
+			storageClass, err := service.GetStorageClass("default-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns an error if the requested storage class does not match the default", func() {
-			_, err := service.GetStorageClass("different-storage-class")
+			_, err := service.GetStorageClass("different-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
@@ -135,25 +135,25 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 				AllowedStorageClassNames: []string{"allowed-storage-class"},
 				DefaultStorageClassName:  "default-storage-class",
 			}
-			service = NewVirtualDiskStorageClassService(storageClassSettings, clusterDefaultStorageClass)
+			service = NewVirtualDiskStorageClassService(storageClassSettings)
 		})
 
 		It("returns the default storage class if storageClassFromSpec is empty", func() {
-			storageClass, err := service.GetStorageClass("")
+			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("default-storage-class"))
 		})
 
 		It("returns the requested storage class if it's in the allowed list", func() {
-			storageClass, err := service.GetStorageClass("allowed-storage-class")
+			storageClass, err := service.GetStorageClass("allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal("allowed-storage-class"))
 		})
 
 		It("returns an error if the requested storage class is not in the allowed list", func() {
-			_, err := service.GetStorageClass("not-allowed-storage-class")
+			_, err := service.GetStorageClass("not-allowed-storage-class", clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAvailable))
 		})
