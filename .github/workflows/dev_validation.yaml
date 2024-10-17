@@ -31,6 +31,7 @@ defaults:
 
 jobs:
   paths_filter:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
     runs-on: ubuntu-latest
     name: Filter changed paths
     outputs:
