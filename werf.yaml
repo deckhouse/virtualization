@@ -39,8 +39,13 @@ configVersion: 1
     {{- end }}
 
   {{- end }}
+
+# Source repo settings
+{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+
 # Modules_images
 {{- define "module_image_template" }}
+
   {{- if eq .ImageInstructionType "Dockerfile" }}
 ---
 image: images/{{ .ImageName }}
@@ -49,6 +54,7 @@ dockerfile: Dockerfile
   {{- else }}
 {{ tpl .ImageBuildData . }}
   {{- end }}
+
 {{- end }}
 
 {{- $Root := . }}
@@ -68,6 +74,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "ImageName" $ImageData._1 }}
   {{- $_ := set $ctx "ImageBuildData" $content }}
   {{- $_ := set $ctx "Images" $Root.Images }}
+  {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
