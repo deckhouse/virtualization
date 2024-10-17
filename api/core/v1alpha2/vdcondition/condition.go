@@ -28,6 +28,8 @@ const (
 	ResizedType Type = "Resized"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"
+	// StorageClassReadyType indicates whether the storage class is ready.
+	StorageClassReadyType Type = "StorageClassReady"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ResizedReason = string
 	// SnapshottingReason represents the various reasons for the Snapshotting condition type.
 	SnapshottingReason = string
+	// StorageClassReadyReason represents the various reasons for the Storageclass ready condition type.
+	StorageClassReadyReason = string
 )
 
 const (
@@ -83,4 +87,11 @@ const (
 	Snapshotting SnapshottingReason = "Snapshotting"
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
 	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
+
+	// StorageClassReady indicates that the storage class is ready
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotFound indicates that the storage class is not ready
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+	// StorageClassNameNotProvided indicates that the storage class name is not provided by spec
+	StorageClassNameNotProvided StorageClassReadyReason = "StorageClassNameNotProvided"
 )

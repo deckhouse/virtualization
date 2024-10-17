@@ -26,6 +26,10 @@ import (
 )
 
 const (
+	DefaultStorageClass = ""
+)
+
+const (
 	IndexFieldVMByClass = "spec.virtualMachineClassName"
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
@@ -34,6 +38,9 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
 
 	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
+
+	IndexFieldVDByStorageClass = "VD.spec.PersistentVolumeClaim.StorageClass"
+	IndexFieldVIByStorageClass = "VI.spec.PersistentVolumeClaim.StorageClass"
 
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
@@ -58,6 +65,8 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMSnapshotByVDSnapshot,
 		IndexVMRestoreByVMSnapshot,
 		IndexVMIPByVM,
+		IndexVDByStorageClass,
+		IndexVIByStorageClass,
 		IndexVMIPByAddress,
 	} {
 		if err := fn(ctx, mgr); err != nil {
@@ -117,5 +126,39 @@ func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
 			return nil
 		}
 		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
+	})
+}
+
+func IndexVDByStorageClass(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
+		vd, ok := object.(*virtv2.VirtualDisk)
+		if !ok || vd == nil {
+			return nil
+		}
+
+		if vd.Spec.PersistentVolumeClaim.StorageClass != nil {
+			return []string{*vd.Spec.PersistentVolumeClaim.StorageClass}
+		} else {
+			return []string{DefaultStorageClass}
+		}
+	})
+}
+
+func IndexVIByStorageClass(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByStorageClass, func(object client.Object) []string {
+		vi, ok := object.(*virtv2.VirtualImage)
+		if !ok || vi == nil {
+			return nil
+		}
+
+		if vi.Spec.Storage == virtv2.StorageContainerRegistry {
+			return nil
+		}
+
+		if vi.Spec.PersistentVolumeClaim.StorageClass != nil {
+			return []string{*vi.Spec.PersistentVolumeClaim.StorageClass}
+		} else {
+			return []string{DefaultStorageClass}
+		}
 	})
 }
