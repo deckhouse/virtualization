@@ -127,11 +127,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	envs := os.Environ()
-	for _, e := range envs {
-		fmt.Println(e)
-	}
-
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 	log.Info("dlopatin", "defSc", viStorageClassSettings.DefaultStorageClassName, "sc", viStorageClassSettings.StorageClassName, "allowed", viStorageClassSettings.AllowedStorageClassNames)
 
