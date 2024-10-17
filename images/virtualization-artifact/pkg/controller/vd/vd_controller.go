@@ -68,8 +68,6 @@ func NewController(
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
-
-	// FIXME: remove this
 	scService.GetStorageClass("", "")
 
 	blank := source.NewBlankDataSource(stat, disk)
