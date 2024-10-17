@@ -2320,3 +2320,8 @@ spec:
       served: true
       storage: true
       subresources: {}
+# IMPORTANT! Do not add status subresource, as it breaks the status update
+# in CDI components.
+# Delete this precaution when future CDI updates add status subresource.
+#      subresources:
+#        status: {}
