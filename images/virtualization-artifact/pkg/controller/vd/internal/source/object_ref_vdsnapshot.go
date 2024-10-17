@@ -18,12 +18,14 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -44,36 +46,46 @@ func NewObjectRefVirtualDiskSnapshot(diskService *service.DiskService) *ObjectRe
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
+func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+		return reconcile.Result{}, errors.New("object ref missed for data source")
+	}
+
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
-	vs, err := ds.diskService.GetVolumeSnapshot(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
-	if err != nil {
-		return false, err
-	}
+	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
+	}
+	vs, err := ds.diskService.GetVolumeSnapshot(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if vs == nil {
+		return reconcile.Result{}, errors.New("the source volume snapshot not found")
 	}
 
 	switch {
-	case isDiskProvisioningFinished(*condition):
+	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, condition, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
-		return false, nil
+		return reconcile.Result{}, nil
 	case common.IsTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
-		return true, nil
+		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		log.Info("Start import to PVC")
 
@@ -125,8 +137,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		err = ds.diskService.CreatePersistentVolumeClaim(ctx, pvc)
 		if err != nil {
-			setPhaseConditionToFailed(condition, &vd.Status.Phase, err)
-			return false, err
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+			return reconcile.Result{}, err
 		}
 
 		vd.Status.Phase = virtv2.DiskProvisioning
@@ -139,7 +151,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = pvc.Name
 
-		return false, nil
+		return reconcile.Result{}, nil
 	case pvc.Status.Phase == corev1.ClaimBound:
 		vd.Status.Phase = virtv2.DiskReady
 		condition.Status = metav1.ConditionTrue
@@ -150,20 +162,20 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = pvc.Name
 
-		return true, nil
+		return reconcile.Result{Requeue: true}, nil
 	default:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = fmt.Sprintf("Waiting for the PVC %s to be Bound.", pvc.Name)
 
-		return false, nil
+		return reconcile.Result{}, nil
 	}
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
-	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
-		return fmt.Errorf("not a %s data source", virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot)
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+		return errors.New("object ref missed for data source")
 	}
 
 	vdSnapshot, err := ds.diskService.GetVirtualDiskSnapshot(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
@@ -172,6 +184,15 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.
 	}
 
 	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	vs, err := ds.diskService.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if vs == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
