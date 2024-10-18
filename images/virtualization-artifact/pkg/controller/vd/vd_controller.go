@@ -74,7 +74,7 @@ func NewController(
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, scService))
 	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient(), scService))
 	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient(), scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, scService))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
