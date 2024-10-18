@@ -51,9 +51,12 @@ func IndexVDByStorageClass(ctx context.Context, mgr manager.Manager) error {
 			return nil
 		}
 
-		if vd.Spec.PersistentVolumeClaim.StorageClass != nil {
+		switch {
+		case vd.Status.StorageClassName != "":
+			return []string{vd.Status.StorageClassName}
+		case vd.Spec.PersistentVolumeClaim.StorageClass != nil:
 			return []string{*vd.Spec.PersistentVolumeClaim.StorageClass}
-		} else {
+		default:
 			return []string{DefaultStorageClass}
 		}
 	})
