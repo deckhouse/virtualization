@@ -1,11 +1,11 @@
 # Copyright 2024 Flant JSC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #      http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,9 +20,11 @@ env:
 
 on:
   workflow_dispatch:
-  # pull_request:
-  #   branches:
-  #     - ci/tests/e2e-workflow
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
+      - ci/tests/e2e-workflow
   # push:
   #   branches:
   #     - ci/tests/e2e-workflow
@@ -64,4 +66,5 @@ jobs:
       - name: e2e
         run: |
           export E2E_CLUSTERTRANSPORT_KUBECONFIG=$KUBECONFIG
+          cd ./tests/e2e/
           task run_local
