@@ -112,6 +112,13 @@ tasks:
     cmds:
       - go run {{ .VALIDATION_FILES }} --type copyright
 
+  validation:helm-templates:
+    desc: "Check Helm templates"
+    cmds:
+      - |
+        cd tools/kubeconform
+        ./kubeconform.sh
+
   cve:bin:
     cmds:
       - |
