@@ -23,6 +23,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
+  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
 
 on:
   workflow_dispatch:
