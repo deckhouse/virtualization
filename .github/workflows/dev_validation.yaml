@@ -30,6 +30,27 @@ defaults:
     shell: bash
 
 jobs:
+  paths_filter:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
+    runs-on: ubuntu-latest
+    name: Filter changed paths
+    outputs:
+      helm_templates: ${{ steps.paths_filter.outputs.helm_templates }}
+    steps:
+      # For pull requests it's not necessary to checkout the code, this action uses Github API.
+      - uses: dorny/paths-filter@v3
+        id: paths_filter
+        with:
+          filters: |
+            helm_templates:
+              - 'crds/**'
+              - 'charts/**'
+              - 'tools/kubeconform/**'
+              - 'templates/**'
+              - .helmignore
+              - Chart.yaml
+              - Taskfile.yaml
+
   no_cyrillic:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
     runs-on: ubuntu-latest
@@ -102,8 +123,10 @@ jobs:
         run: |
           task validation:copyright
 
+  # Run helm templates validation on changes in related files and without the skip labels.
   helm_templates:
-    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates')"
+    needs: paths_filter
+    if: ${{ needs.paths_filter.outputs.helm_templates == 'true' && !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
     runs-on: ubuntu-latest
     name: Validate helm templates with OpenAPI schemas
     steps:
@@ -113,8 +136,6 @@ jobs:
           version: 3.37.2
 
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Run validation "Helm templates"
         run: |
