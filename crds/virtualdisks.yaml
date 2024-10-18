@@ -364,7 +364,7 @@ spec:
                 storageClassName:
                   type: string
                   description: |
-                    The name of StorageClass used for DataVolume.
+                    The name of the `StorageClass` used by the `PersistentVolumeClaim`.
                 observedGeneration:
                   type: integer
                   description: |

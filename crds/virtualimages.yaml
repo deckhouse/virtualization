@@ -345,7 +345,7 @@ spec:
                 storageClassName:
                   type: string
                   description: |
-                    The name of StorageClass used for DataVolume if `Kubernetes` storage type used.
+                    The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.
                 observedGeneration:
                   type: integer
                   description: |

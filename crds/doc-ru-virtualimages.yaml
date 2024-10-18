@@ -182,7 +182,7 @@ spec:
                     UID источника (`VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`), использовавшегося при создании виртуального образа.
                 storageClassName:
                   description: |
-                    Имя StorageClass использованного для создания DataVolume если в поле `storage` был выбран тип `Kubernetes`.
+                    Имя StorageClass, использованного для создания DataVolume если в поле `storage` был выбран тип `Kubernetes`.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.
