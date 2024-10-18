@@ -42,10 +42,11 @@ import (
 const httpDataSource = "http"
 
 type HTTPDataSource struct {
-	statService     *service.StatService
-	importerService *service.ImporterService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
+	statService         *service.StatService
+	importerService     *service.ImporterService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewHTTPDataSource(
@@ -53,12 +54,14 @@ func NewHTTPDataSource(
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
-		statService:     statService,
-		importerService: importerService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
+		statService:         statService,
+		importerService:     importerService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		storageClassService: storageClassService,
 	}
 }
 

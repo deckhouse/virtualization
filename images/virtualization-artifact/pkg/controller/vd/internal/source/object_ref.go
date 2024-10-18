@@ -43,9 +43,10 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService *service.StatService
-	diskService *service.DiskService
-	client      client.Client
+	statService         *service.StatService
+	diskService         *service.DiskService
+	client              client.Client
+	storageClassService *service.VirtualDiskStorageClassService
 
 	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
 	viOnPvcSyncer    *ObjectRefVirtualImageOnPvc
@@ -55,13 +56,15 @@ func NewObjectRefDataSource(
 	statService *service.StatService,
 	diskService *service.DiskService,
 	client client.Client,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:      statService,
-		diskService:      diskService,
-		client:           client,
-		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(diskService),
-		viOnPvcSyncer:    NewObjectRefVirtualImageOnPvc(diskService),
+		statService:         statService,
+		diskService:         diskService,
+		client:              client,
+		storageClassService: storageClassService,
+		vdSnapshotSyncer:    NewObjectRefVirtualDiskSnapshot(diskService),
+		viOnPvcSyncer:       NewObjectRefVirtualImageOnPvc(diskService),
 	}
 }
 

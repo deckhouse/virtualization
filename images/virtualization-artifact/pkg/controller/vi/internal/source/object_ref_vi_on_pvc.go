@@ -40,12 +40,13 @@ import (
 )
 
 type ObjectRefDataVirtualImageOnPVC struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	importerService     Importer
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	diskService         *service.DiskService
+	storageClassForPVC  string
+	storageClassService *service.VirtualImageStorageClassService
 }
 
 func NewObjectRefDataVirtualImageOnPVC(
@@ -55,14 +56,16 @@ func NewObjectRefDataVirtualImageOnPVC(
 	client client.Client,
 	diskService *service.DiskService,
 	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataVirtualImageOnPVC {
 	return &ObjectRefDataVirtualImageOnPVC{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:         statService,
+		importerService:     importerService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		diskService:         diskService,
+		storageClassForPVC:  storageClassForPVC,
+		storageClassService: storageClassService,
 	}
 }
 

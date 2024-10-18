@@ -46,12 +46,13 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	importerService     Importer
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	diskService         *service.DiskService
+	storageClassForPVC  string
+	storageClassService *service.VirtualImageStorageClassService
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
 	vdSyncer         *ObjectRefVirtualDisk
@@ -64,16 +65,18 @@ func NewObjectRefDataSource(
 	client client.Client,
 	diskService *service.DiskService,
 	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
-		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
-		vdSyncer:           NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC),
+		statService:         statService,
+		importerService:     importerService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		diskService:         diskService,
+		storageClassForPVC:  storageClassForPVC,
+		storageClassService: storageClassService,
+		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC, storageClassService),
+		vdSyncer:            NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC, storageClassService),
 	}
 }
 

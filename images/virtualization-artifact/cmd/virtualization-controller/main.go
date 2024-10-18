@@ -127,6 +127,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+
+	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -186,6 +190,7 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
+	// FIXME delete this single param
 	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
 	if storageClassForVirtualImageOnPVC == "" {
 		log.Info("virtualImages.storageClassName not found in ModuleConfig, default storage class will be used for images on PVCs.")
@@ -219,12 +224,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
