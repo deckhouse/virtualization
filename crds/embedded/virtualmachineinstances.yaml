@@ -4054,3 +4054,8 @@ spec:
         type: object
     served: true
     storage: true
+# IMPORTANT! Do not add status subresource, as it breaks the status update
+# in Kubevirt components.
+# Delete this precaution when future Kubevirt updates add status subresource.
+#      subresources:
+#        status: {}
