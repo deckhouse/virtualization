@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -35,7 +37,7 @@ import (
 
 type Handler interface {
 	Name() string
-	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
 }
@@ -83,15 +85,15 @@ func (s Sources) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, err
 }
 
 type Cleaner interface {
-	CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 }
 
-func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Cleaner) (bool, error) {
+func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Cleaner) (reconcile.Result, error) {
 	if cc.ShouldCleanupSubResources(vd) {
 		return c.CleanUpSupplements(ctx, vd)
 	}
 
-	return false, nil
+	return reconcile.Result{}, nil
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
@@ -198,32 +200,20 @@ func setPhaseConditionForPVCProvisioningDisk(
 	}
 }
 
-func setPhaseConditionForImporterStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) (bool, error) {
-	return setPhaseConditionForPodStart(ready, phase, err, virtv2.DiskProvisioning, vdcondition.Provisioning)
-}
+const retryPeriod = 1
 
-func setPhaseConditionForUploaderStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) (bool, error) {
-	return setPhaseConditionForPodStart(ready, phase, err, virtv2.DiskPending, vdcondition.WaitForUserUpload)
-}
+func setQuotaExceededPhaseCondition(condition *metav1.Condition, phase *virtv2.DiskPhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+	*phase = virtv2.DiskFailed
+	condition.Status = metav1.ConditionFalse
+	condition.Reason = vdcondition.ProvisioningFailed
 
-func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.DiskPhase, err error, okPhase virtv2.DiskPhase, okReason vdcondition.ReadyReason) (bool, error) {
-	switch {
-	case err == nil:
-		*phase = okPhase
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = okReason
-		ready.Message = "DVCR Provisioner not found: create the new one."
-		return true, nil
-	case cc.ErrQuotaExceeded(err):
-		*phase = virtv2.DiskFailed
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = vdcondition.ProvisioningFailed
-		ready.Message = fmt.Sprintf("Quota exceeded: please configure the `importerResourceRequirements` field in the virtualization module configuration; %s.", err)
-		return false, nil
-	default:
-		setPhaseConditionToFailed(ready, phase, fmt.Errorf("unexpected error: %w", err))
-		return false, err
+	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
+		condition.Message = fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err)
+		return reconcile.Result{}
 	}
+
+	condition.Message = fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod)
+	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
 func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.DiskPhase, err error) {

@@ -19,39 +19,49 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-const blankDataSource = "blank"
-
-type BlankDataSource struct {
+type ObjectRefClusterVirtualImage struct {
 	statService *service.StatService
 	diskService *service.DiskService
+	client      client.Client
 }
 
-func NewBlankDataSource(
+func NewObjectRefClusterVirtualImage(
 	statService *service.StatService,
 	diskService *service.DiskService,
-) *BlankDataSource {
-	return &BlankDataSource{
+	client client.Client,
+) *ObjectRefClusterVirtualImage {
+	return &ObjectRefClusterVirtualImage{
 		statService: statService,
 		diskService: diskService,
+		client:      client,
 	}
 }
 
-func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	log, ctx := logger.GetDataSourceContext(ctx, blankDataSource)
+func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+		return reconcile.Result{}, errors.New("object ref missed for data source")
+	}
+
+	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -64,6 +74,13 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	cvi, err := ds.diskService.GetClusterVirtualImage(ctx, vd.Spec.DataSource.ObjectRef.Name)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if cvi == nil {
+		return reconcile.Result{}, errors.New("the source cluster virtual image not found")
 	}
 
 	switch {
@@ -90,19 +107,28 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		log.Info("Start import to PVC")
 
 		vd.Status.Progress = "0%"
+		vd.Status.SourceUID = util.GetPointer(cvi.GetUID())
+
+		if imageformat.IsISO(cvi.Status.Format) {
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, ErrISOSourceNotSupported)
+			return reconcile.Result{}, nil
+		}
 
 		var diskSize resource.Quantity
-		diskSize, err = ds.getPVCSize(vd)
+		diskSize, err = ds.getPVCSize(vd, cvi.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+
+			if errors.Is(err, service.ErrInsufficientPVCSize) {
+				return reconcile.Result{}, nil
+			}
 
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource()
+		source := ds.getSource(supgen, cvi)
 
 		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -148,24 +174,30 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}
+
 		return reconcile.Result{}, nil
 	}
 
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
-
-	requeue, err := ds.diskService.CleanUp(ctx, supgen)
-	if err != nil {
-		return false, err
+func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
+		return errors.New("object ref missed for data source")
 	}
 
-	return requeue, nil
+	cvi, err := ds.diskService.GetClusterVirtualImage(ctx, vd.Spec.DataSource.ObjectRef.Name)
+	if err != nil {
+		return err
+	}
+	if cvi == nil || cvi.Status.Phase != virtv2.ImageReady || cvi.Status.Target.RegistryURL == "" {
+		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	return nil
 }
 
-func (ds BlankDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefClusterVirtualImage) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
 	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
@@ -176,25 +208,25 @@ func (ds BlankDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.Vir
 	return reconcile.Result{Requeue: requeue}, nil
 }
 
-func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
-	return nil
-}
+func (ds ObjectRefClusterVirtualImage) getSource(sup *supplements.Generator, cvi *virtv2.ClusterVirtualImage) *cdiv1.DataVolumeSource {
+	url := common2.DockerRegistrySchemePrefix + cvi.Status.Target.RegistryURL
+	secretName := sup.DVCRAuthSecretForDV().Name
+	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
 
-func (ds BlankDataSource) Name() string {
-	return blankDataSource
-}
-
-func (ds BlankDataSource) getSource() *cdiv1.DataVolumeSource {
 	return &cdiv1.DataVolumeSource{
-		Blank: &cdiv1.DataVolumeBlankImage{},
+		Registry: &cdiv1.DataVolumeSourceRegistry{
+			URL:           &url,
+			SecretRef:     &secretName,
+			CertConfigMap: &certConfigMapName,
+		},
 	}
 }
 
-func (ds BlankDataSource) getPVCSize(vd *virtv2.VirtualDisk) (resource.Quantity, error) {
-	pvcSize := vd.Spec.PersistentVolumeClaim.Size
-	if pvcSize == nil || pvcSize.IsZero() {
-		return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank virtual disk")
+func (ds ObjectRefClusterVirtualImage) getPVCSize(vd *virtv2.VirtualDisk, size virtv2.ImageStatusSize) (resource.Quantity, error) {
+	unpackedSize, err := resource.ParseQuantity(size.UnpackedBytes)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", size.UnpackedBytes, err)
 	}
 
-	return *pvcSize, nil
+	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
