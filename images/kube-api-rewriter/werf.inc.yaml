@@ -1,0 +1,40 @@
+---
+image: {{ $.ImageName }}-builder
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /src/kube-api-rewriter
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
+shell:
+  install:
+    - cd /src/kube-api-rewriter
+    - go mod download
+  setup:
+    - cd /src/kube-api-rewriter
+    - export GO111MODULE=on
+    - export GOOS=linux
+    - export CGO_ENABLED=0
+    - export GOARCH=amd64
+    - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
+
+---
+image: {{ $.ImageName }}
+from: {{ .Images.BASE_SCRATCH }}
+import:
+  - image: {{ $.ImageName }}-builder
+    add: /src/kube-api-rewriter/kube-api-rewriter
+    to: /app/kube-api-rewriter
+    after: install
+docker:
+  USER: "65532:65532"
+  WORKDIR: "/app"
+  ENTRYPOINT: ["/app/kube-api-rewriter"]
