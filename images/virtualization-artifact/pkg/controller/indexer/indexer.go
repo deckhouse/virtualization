@@ -26,6 +26,10 @@ import (
 )
 
 const (
+	DefaultStorageClass = ""
+)
+
+const (
 	IndexFieldVMByClass = "spec.virtualMachineClassName"
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
@@ -34,6 +38,9 @@ const (
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
 
 	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
+
+	IndexFieldVDByStorageClass = "VD.spec.PersistentVolumeClaim.StorageClass"
+	IndexFieldVIByStorageClass = "VI.spec.PersistentVolumeClaim.StorageClass"
 
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
@@ -58,6 +65,8 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMSnapshotByVDSnapshot,
 		IndexVMRestoreByVMSnapshot,
 		IndexVMIPByVM,
+		IndexVDByStorageClass,
+		IndexVIByStorageClass,
 		IndexVMIPByAddress,
 	} {
 		if err := fn(ctx, mgr); err != nil {
