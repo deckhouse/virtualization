@@ -94,7 +94,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	if vi.Spec.Storage == virtv2.StorageKubernetes &&
-		vi.Status.Phase != virtv2.ImageReady &&
+		readyCondition.Status != metav1.ConditionTrue &&
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
 		vi.Status.Phase = virtv2.ImagePending
@@ -117,7 +117,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	var requeue bool
 	var err error
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
-		if storageClassReadyCondition.Status == metav1.ConditionTrue || vi.Status.Phase == virtv2.ImageReady {
+		if storageClassReadyCondition.Status == metav1.ConditionTrue || readyCondition.Status == metav1.ConditionTrue {
 			requeue, err = ds.StoreToPVC(ctx, vi)
 		}
 	} else {

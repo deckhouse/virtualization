@@ -98,7 +98,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
 	}
 
-	if vd.Status.Phase != virtv2.DiskReady && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
+	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
 		log.Info("Storage class was deleted while population, ")
 
 		vd.Status.Phase = virtv2.DiskPending
@@ -122,7 +122,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		}
 	}
 
-	if storageClassReadyCondition.Status == metav1.ConditionTrue || vd.Status.Phase == virtv2.DiskReady {
+	if storageClassReadyCondition.Status == metav1.ConditionTrue || readyCondition.Status == metav1.ConditionTrue {
 		requeue, err := ds.Sync(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
