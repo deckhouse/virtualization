@@ -82,8 +82,8 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		condition.Message = ""
 	case isDefaultStorageClass:
 		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageClassNameNotProvided
-		condition.Message = "Storage class is not provided in spec and default storage class not found."
+		condition.Reason = vdcondition.StorageClassNotFound
+		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification."
 	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.StorageClassNotFound
