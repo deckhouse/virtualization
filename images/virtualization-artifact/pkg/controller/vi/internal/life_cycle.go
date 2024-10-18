@@ -97,7 +97,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		vi.Status.Phase != virtv2.ImageReady &&
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
-
 		vi.Status.Phase = virtv2.ImagePending
 		vi.Status.Progress = ""
 

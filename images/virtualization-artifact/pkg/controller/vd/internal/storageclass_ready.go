@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -58,7 +59,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 
 	isDefaultStorageClass := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
 	hasStorageClassInStatus := vd.Status.StorageClassName != ""
-	checkedSCName := new(string)
+	var checkedSCName *string
 	if hasStorageClassInStatus {
 		checkedSCName = &vd.Status.StorageClassName
 	} else {
