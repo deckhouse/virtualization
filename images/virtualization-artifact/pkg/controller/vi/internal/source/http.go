@@ -40,11 +40,12 @@ import (
 )
 
 type HTTPDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	importerService     Importer
+	dvcrSettings        *dvcr.Settings
+	diskService         *service.DiskService
+	storageClassForPVC  string
+	storageClassService *service.VirtualImageStorageClassService
 }
 
 func NewHTTPDataSource(
@@ -53,13 +54,15 @@ func NewHTTPDataSource(
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
 	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:         statService,
+		importerService:     importerService,
+		dvcrSettings:        dvcrSettings,
+		diskService:         diskService,
+		storageClassService: storageClassService,
+		storageClassForPVC:  storageClassForPVC,
 	}
 }
 
