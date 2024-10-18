@@ -30,7 +30,7 @@ shell:
       git clone --depth 1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/docker/distribution.git
       cd distribution
 
-      go build -o /container-registry-binary/ -gcflags "-N -l" -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
+      go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
     - |
       echo "Clean up"
       apt-get clean
