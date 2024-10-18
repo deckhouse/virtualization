@@ -21,13 +21,17 @@ tasks:
         cp -a testdata/vm-migration /tmp/testdata/vm-migration
         cp -a testdata/vm-disk-attachment /tmp/testdata/vm-disk-attachment
         cp -a testdata/sshkeys /tmp/testdata/sshkeys
+
   ginkgo:
     cmds:
       - |
+        echo "Run ginkgo install"
         v=($(ginkgo version 2>/dev/null)) 
         if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then 
           go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ; 
         fi
+        ginkgo version
+
   run:
     desc: "Run e2e tests"
     deps:
@@ -40,9 +44,17 @@ tasks:
     desc: "Run locally e2e tests"
     deps:
       - copy
-      - ginkgo
+      # - ginkgo
     cmds:
       - |
+        echo "Install d8"
+        curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+        bash d8-install.sh
+
+        echo "Install ginkgo"
+        go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}"
+
+        echo "Run run_local"
         export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
         ginkgo \
           --skip-file vm_test.go \

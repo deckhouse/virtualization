@@ -62,6 +62,10 @@ jobs:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
           k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+      
+      - name: Test cluster connection
+        run: |
+          kubectl get no
 
       - name: e2e
         run: |
@@ -74,8 +78,8 @@ jobs:
           cd ./tests/e2e/
 
           echo "Show tasks"
-          task
+          task || true
           echo "--"
 
           echo "Run task local"
-          task run_local
+          task run_local -vvvvv
