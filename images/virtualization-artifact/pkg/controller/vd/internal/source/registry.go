@@ -45,11 +45,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService     *service.StatService
-	importerService *service.ImporterService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
+	statService         *service.StatService
+	importerService     *service.ImporterService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewRegistryDataSource(
@@ -58,13 +59,15 @@ func NewRegistryDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:     statService,
-		importerService: importerService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
-		client:          client,
+		statService:         statService,
+		importerService:     importerService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		storageClassService: storageClassService,
 	}
 }
 

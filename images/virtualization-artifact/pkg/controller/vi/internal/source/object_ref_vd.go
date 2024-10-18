@@ -43,22 +43,32 @@ import (
 )
 
 type ObjectRefVirtualDisk struct {
-	importerService    Importer
-	diskService        *service.DiskService
-	statService        Stat
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	storageClassForPVC string
+	importerService     Importer
+	diskService         *service.DiskService
+	statService         Stat
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	storageClassForPVC  string
+	storageClassService *service.VirtualImageStorageClassService
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, client client.Client, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(
+	importerService Importer,
+	client client.Client,
+	diskService *service.DiskService,
+	dvcrSettings *dvcr.Settings,
+	statService Stat,
+	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
+) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
-		importerService:    importerService,
-		client:             client,
-		diskService:        diskService,
-		statService:        statService,
-		dvcrSettings:       dvcrSettings,
-		storageClassForPVC: storageClassForPVC,
+		importerService:     importerService,
+		client:              client,
+		diskService:         diskService,
+		statService:         statService,
+		dvcrSettings:        dvcrSettings,
+		storageClassForPVC:  storageClassForPVC,
+		storageClassService: storageClassService,
 	}
 }
 

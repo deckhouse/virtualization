@@ -42,10 +42,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService     *service.StatService
-	uploaderService *service.UploaderService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
+	statService         *service.StatService
+	uploaderService     *service.UploaderService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewUploadDataSource(
@@ -53,12 +54,14 @@ func NewUploadDataSource(
 	uploaderService *service.UploaderService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:     statService,
-		uploaderService: uploaderService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
+		statService:         statService,
+		uploaderService:     uploaderService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		storageClassService: storageClassService,
 	}
 }
 

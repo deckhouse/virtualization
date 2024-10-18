@@ -33,7 +33,6 @@ func NewVirtualImageStorageClassService(settings config.VirtualImageStorageClass
 }
 
 func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec, clusterDefaultStorageClassName string) (string, error) {
-	// if settings is empty
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if svc.storageClassSettings.StorageClassName == "" {
 			if clusterDefaultStorageClassName == "" {
@@ -54,7 +53,6 @@ func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec
 		return "", ErrStorageClassNotAvailable
 	}
 
-	// if AllowedStorageClassNames is existed, but DefaultStorageClassName is empty
 	if len(svc.storageClassSettings.AllowedStorageClassNames) > 0 && svc.storageClassSettings.DefaultStorageClassName == "" {
 		if storageClassFromSpec != "" {
 			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
@@ -75,7 +73,6 @@ func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec
 		}
 	}
 
-	// if AllowedStorageClassNames is empty, but DefaultStorageClassName exist
 	if len(svc.storageClassSettings.AllowedStorageClassNames) == 0 && svc.storageClassSettings.DefaultStorageClassName != "" {
 		if storageClassFromSpec == "" {
 			return svc.storageClassSettings.DefaultStorageClassName, nil
