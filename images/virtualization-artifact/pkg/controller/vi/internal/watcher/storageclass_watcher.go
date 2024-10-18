@@ -19,7 +19,7 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
+	"strings"
 
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -35,17 +35,16 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
-	logger *slog.Logger
 	client client.Client
 }
 
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
-		logger: slog.Default().With("watcher", virtv2.VirtualImageKind),
 		client: client,
 	}
 }
@@ -81,9 +80,11 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.Object) []reconcile.Request {
+	log := logger.FromContext(ctx).With("watcher", strings.ToLower(virtv2.VirtualImageKind))
 	sc, ok := object.(*storagev1.StorageClass)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a Storage but got %T", object))
+		log.Error(fmt.Sprintf("expected a Storage but got %T", object))
+		return []reconcile.Request{}
 	}
 
 	var vis virtv2.VirtualImageList
@@ -91,11 +92,11 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByStorageClass, sc.Name),
 	})
 	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list virtual images: %s", err))
+		log.Error(fmt.Sprintf("failed to list virtual images: %s", err))
 		return []reconcile.Request{}
 	}
 
-	viMap := make(map[string]virtv2.VirtualImage)
+	viMap := make(map[string]virtv2.VirtualImage, len(vis.Items))
 	for _, vi := range vis.Items {
 		viMap[vi.Name] = vi
 	}
@@ -108,7 +109,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByStorageClass, indexer.DefaultStorageClass),
 		})
 		if err != nil {
-			w.logger.Error(fmt.Sprintf("failed to list virtual images: %s", err))
+			log.Error(fmt.Sprintf("failed to list virtual images: %s", err))
 			return []reconcile.Request{}
 		}
 	}

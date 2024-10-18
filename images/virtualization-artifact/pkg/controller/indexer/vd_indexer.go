@@ -43,3 +43,18 @@ func IndexVDByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
 		return []string{vd.Spec.DataSource.ObjectRef.Name}
 	})
 }
+
+func IndexVDByStorageClass(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
+		vd, ok := object.(*virtv2.VirtualDisk)
+		if !ok || vd == nil {
+			return nil
+		}
+
+		if vd.Spec.PersistentVolumeClaim.StorageClass != nil {
+			return []string{*vd.Spec.PersistentVolumeClaim.StorageClass}
+		} else {
+			return []string{DefaultStorageClass}
+		}
+	})
+}
