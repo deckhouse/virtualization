@@ -152,21 +152,21 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 
 func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JsonPatchOperation {
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", r.currentObj.GetFinalizers()),
+		//patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", r.currentObj.GetFinalizers()),
 		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", r.changedObj.GetFinalizers()),
 	}
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForAnnotations() []patch.JsonPatchOperation {
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/annotations", r.currentObj.GetAnnotations()),
+		//patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/annotations", r.currentObj.GetAnnotations()),
 		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", r.changedObj.GetAnnotations()),
 	}
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JsonPatchOperation {
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
+		//patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
 		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", r.changedObj.GetLabels()),
 	}
 }

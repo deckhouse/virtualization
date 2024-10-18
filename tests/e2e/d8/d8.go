@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/deckhouse/virtualization/tests/e2e/config/clustertransport"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 )
 
@@ -58,39 +60,23 @@ type D8Virtualization interface {
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error) {
-	envs := make([]string, 2)
-	if home, found := os.LookupEnv("HOME"); found {
-		envs[0] = "HOME=" + home
-	} else {
-		return nil, fmt.Errorf("env HOME not found")
+	if _, found := os.LookupEnv("HOME"); !found {
+		return nil, fmt.Errorf("HOME environment variable shoule be set")
 	}
-	if path, found := os.LookupEnv("PATH"); found {
-		envs[1] = "PATH=" + path
-	} else {
-		return nil, fmt.Errorf("env PATH not found")
+	if _, found := os.LookupEnv("PATH"); !found {
+		return nil, fmt.Errorf("PATH environment variable shoule be set")
 	}
-	if conf.KubeConfig != "" {
-		envs = append(envs, "KUBECONFIG="+conf.KubeConfig)
-		e := executor.NewExecutor(envs)
-		return &d8VirtualizationCMD{
-			Executor: e,
-			cmd:      Cmd,
-		}, nil
+
+	connEnvs, connArgs, err := clustertransport.KubeConnectionCmdSettings(clustertransport.ClusterTransport(conf))
+
+	if err != nil {
+		return nil, fmt.Errorf("load connection config: %w", err)
 	}
-	if conf.Token == "" || conf.Endpoint == "" {
-		return nil, fmt.Errorf("not found creds for connect to cluster")
-	}
-	cmd := fmt.Sprintf("%s --token=%s --server=%s", Cmd, conf.Token, conf.Endpoint)
-	if conf.CertificateAuthority != "" {
-		cmd = fmt.Sprintf("%s --certificate-authority=%s", cmd, conf.CertificateAuthority)
-	}
-	if conf.InsecureTls {
-		cmd = fmt.Sprintf("%s --insecure-skip-tls-verify=%t", cmd, true)
-	}
-	e := executor.NewExecutor(envs)
+
+	e := executor.NewExecutor(connEnvs)
 	return &d8VirtualizationCMD{
 		Executor: e,
-		cmd:      cmd,
+		cmd:      strings.Join(append([]string{Cmd}, connArgs...), " "),
 	}, nil
 }
 
