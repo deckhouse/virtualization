@@ -75,6 +75,7 @@ func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, er
 		requeue = requeue || ok
 	}
 
+	vi.Status.StorageClassName = ""
 	return requeue, nil
 }
 

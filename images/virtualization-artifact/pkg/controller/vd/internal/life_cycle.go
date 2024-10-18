@@ -93,6 +93,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	storageClassReadyCondition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	if !ok {
+		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
+	}
+
+	if vd.Status.Phase != virtv2.DiskReady && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
+		log.Info("Storage class was deleted while population, ")
+
+		vd.Status.Phase = virtv2.DiskPending
+
+		_, err := h.sources.CleanUp(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
+		}
+
+		return reconcile.Result{}, nil
+	}
+
 	var ds source.Handler
 	if vd.Spec.DataSource == nil {
 		ds = h.blank
@@ -103,18 +121,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		}
 	}
 
-	storageClassReadyCondition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if !ok {
-		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
-	}
-	if storageClassReadyCondition.Status == metav1.ConditionTrue {
+	if storageClassReadyCondition.Status == metav1.ConditionTrue || vd.Status.Phase == virtv2.DiskReady {
 		requeue, err := ds.Sync(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
 		}
 		return reconcile.Result{Requeue: requeue}, nil
-	} else {
-		vd.Status.Phase = virtv2.DiskPending
-		return reconcile.Result{}, nil
 	}
+
+	return reconcile.Result{}, nil
 }

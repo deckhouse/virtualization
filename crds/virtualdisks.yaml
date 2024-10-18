@@ -361,6 +361,10 @@ spec:
                   type: string
                   description: |
                     The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the virtual disk.
+                storageClassName:
+                  type: string
+                  description: |
+                    The name of StorageClass used for DataVolume.
                 observedGeneration:
                   type: integer
                   description: |

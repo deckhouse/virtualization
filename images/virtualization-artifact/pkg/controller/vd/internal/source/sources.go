@@ -79,6 +79,7 @@ func (s Sources) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, err
 		requeue = requeue || ok
 	}
 
+	vd.Status.StorageClassName = ""
 	return requeue, nil
 }
 

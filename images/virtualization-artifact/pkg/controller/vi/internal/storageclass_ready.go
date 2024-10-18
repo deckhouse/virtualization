@@ -20,8 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -72,65 +70,32 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	isDefaultStorageClass := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
-	specClassChanged := false
-	if isDefaultStorageClass {
-		if vi.Status.StorageClassName == "" {
-			sc, _ := h.service.GetStorageClass(ctx, nil)
-			if sc != nil {
-				vi.Status.StorageClassName = sc.Name
-			}
-		}
+	hasStorageClassInStatus := vi.Status.StorageClassName != ""
+	checkedSCName := new(string)
+	if hasStorageClassInStatus {
+		checkedSCName = &vi.Status.StorageClassName
 	} else {
-		if vi.Status.StorageClassName != *vi.Spec.PersistentVolumeClaim.StorageClass {
-			if vi.Status.StorageClassName != "" {
-				specClassChanged = true
-			}
-			vi.Status.StorageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
-		}
+		checkedSCName = vi.Spec.PersistentVolumeClaim.StorageClass
 	}
 
-	var sc *storagev1.StorageClass
-	if vi.Status.StorageClassName != "" {
-		var err error
-		sc, err = h.service.GetStorageClass(ctx, &vi.Status.StorageClassName)
-		if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
-			return reconcile.Result{}, err
-		}
-		// Update storage class in status when has default class and it not equal previous
-		if isDefaultStorageClass && sc != nil && sc.Name != vi.Status.StorageClassName {
-			vi.Status.StorageClassName = sc.Name
-		}
+	sc, err := h.service.GetStorageClass(ctx, checkedSCName)
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
+		return reconcile.Result{}, err
 	}
 
 	switch {
-	case sc != nil && (isDefaultStorageClass || sc.Name == *vi.Spec.PersistentVolumeClaim.StorageClass):
+	case sc != nil:
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.StorageClassReady
 		condition.Message = ""
 	case isDefaultStorageClass:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.StorageClassNameNotProvided
-		condition.Message = "Storage class not provided and default storage class not found."
+		condition.Message = "Storage class is not provided in spec and default storage class not found."
 	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.StorageClassNotFound
 		condition.Message = fmt.Sprintf("Storage class %q not found", *vi.Spec.PersistentVolumeClaim.StorageClass)
-	}
-
-	if condition.Status != metav1.ConditionTrue || specClassChanged {
-		_, err := h.sources.CleanUp(ctx, vi)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
-		}
-	}
-
-	if condition.Status != metav1.ConditionTrue {
-		vi.Status.Phase = virtv2.ImagePending
-	}
-
-	if condition.Status != metav1.ConditionTrue && isDefaultStorageClass && vi.Status.StorageClassName != "" {
-		vi.Status.StorageClassName = ""
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return reconcile.Result{}, nil

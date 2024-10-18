@@ -34,7 +34,6 @@ type Handler = source.Handler
 
 type Sources interface {
 	Get(dsType virtv2.DataSourceType) (source.Handler, bool)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 }
 
 type DiskService interface {

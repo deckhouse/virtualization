@@ -88,6 +88,27 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	storageClassReadyCondition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
+	if !ok {
+		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vicondition.StorageClassReadyType)
+	}
+
+	if vi.Spec.Storage == virtv2.StorageKubernetes &&
+		vi.Status.Phase != virtv2.ImageReady &&
+		storageClassReadyCondition.Status != metav1.ConditionTrue &&
+		vi.Status.StorageClassName != "" {
+
+		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Progress = ""
+
+		_, err := h.sources.CleanUp(ctx, vi)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
+		}
+
+		return reconcile.Result{}, nil
+	}
+
 	ds, exists := h.sources.For(vi.Spec.DataSource.Type)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vi.Spec.DataSource.Type)
@@ -96,7 +117,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	var requeue bool
 	var err error
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
-		requeue, err = ds.StoreToPVC(ctx, vi)
+		if storageClassReadyCondition.Status == metav1.ConditionTrue || vi.Status.Phase == virtv2.ImageReady {
+			requeue, err = ds.StoreToPVC(ctx, vi)
+		}
 	} else {
 		requeue, err = ds.StoreToDVCR(ctx, vi)
 	}
