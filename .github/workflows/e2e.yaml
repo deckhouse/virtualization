@@ -65,6 +65,17 @@ jobs:
 
       - name: e2e
         run: |
+          echo "Install"
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          bash d8-install.sh
+          echo "----"
+
           export E2E_CLUSTERTRANSPORT_KUBECONFIG=$KUBECONFIG
           cd ./tests/e2e/
+
+          echo "Show tasks"
+          task
+          echo "--"
+
+          echo "Run task local"
           task run_local
