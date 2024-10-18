@@ -116,28 +116,7 @@ func (s DiskService) Start(
 		return nil
 	}
 
-	dv := dvBuilder.GetResource()
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if ok {
-		// TODO: what if nil? New kind of error? This branch will executed only if StorageClass correct, but...
-		if dv.Spec.PVC.StorageClassName != nil {
-			vd.Status.StorageClassName = *dv.Spec.PVC.StorageClassName
-		} else {
-			vd.Status.StorageClassName = ""
-		}
-	}
-
-	vi, ok := obj.(*virtv2.VirtualImage)
-	if ok {
-		// TODO: what if nil? New kind of error? This branch will executed only if StorageClass correct, but...
-		if dv.Spec.PVC.StorageClassName != nil {
-			vi.Status.StorageClassName = *dv.Spec.PVC.StorageClassName
-		} else {
-			vi.Status.StorageClassName = ""
-		}
-	}
-
-	return supplements.EnsureForDataVolume(ctx, s.client, sup, dv, s.dvcrSettings)
+	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
 func (s DiskService) StartImmediate(
@@ -168,28 +147,7 @@ func (s DiskService) StartImmediate(
 		return nil
 	}
 
-	dv := dvBuilder.GetResource()
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if ok {
-		// TODO: what if nil? New kind of error? This branch will executed only if StorageClass correct, but...
-		if dv.Spec.PVC.StorageClassName != nil {
-			vd.Status.StorageClassName = *dv.Spec.PVC.StorageClassName
-		} else {
-			vd.Status.StorageClassName = ""
-		}
-	}
-
-	vi, ok := obj.(*virtv2.VirtualImage)
-	if ok {
-		// TODO: what if nil? New kind of error? This branch will executed only if StorageClass correct, but...
-		if dv.Spec.PVC.StorageClassName != nil {
-			vi.Status.StorageClassName = *dv.Spec.PVC.StorageClassName
-		} else {
-			vi.Status.StorageClassName = ""
-		}
-	}
-
-	return supplements.EnsureForDataVolume(ctx, s.client, sup, dv, s.dvcrSettings)
+	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
 func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {

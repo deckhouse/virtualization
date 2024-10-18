@@ -104,6 +104,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
+		vi.Status.StorageClassName = ""
 
 		return reconcile.Result{}, nil
 	}

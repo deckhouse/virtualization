@@ -84,6 +84,10 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	if !hasStorageClassInStatus && sc != nil {
+		vi.Status.StorageClassName = sc.Name
+	}
+
 	switch {
 	case sc != nil:
 		condition.Status = metav1.ConditionTrue
