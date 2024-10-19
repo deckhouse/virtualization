@@ -90,6 +90,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
 
+		vd.Status.StorageClassName = ""
+
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -107,7 +109,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
-		vd.Status.StorageClassName = ""
 
 		return reconcile.Result{}, nil
 	}

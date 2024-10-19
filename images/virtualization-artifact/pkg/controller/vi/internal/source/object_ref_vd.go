@@ -43,22 +43,20 @@ import (
 )
 
 type ObjectRefVirtualDisk struct {
-	importerService    Importer
-	diskService        *service.DiskService
-	statService        Stat
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	storageClassForPVC string
+	importerService Importer
+	diskService     *service.DiskService
+	statService     Stat
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, client client.Client, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(importerService Importer, client client.Client, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
-		importerService:    importerService,
-		client:             client,
-		diskService:        diskService,
-		statService:        statService,
-		dvcrSettings:       dvcrSettings,
-		storageClassForPVC: storageClassForPVC,
+		importerService: importerService,
+		client:          client,
+		diskService:     diskService,
+		statService:     statService,
+		dvcrSettings:    dvcrSettings,
 	}
 }
 
@@ -230,7 +228,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			return false, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, size, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
 			return false, err
 		}

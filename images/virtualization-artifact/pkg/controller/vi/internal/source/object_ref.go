@@ -46,12 +46,11 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService     Stat
+	importerService Importer
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
 	vdSyncer         *ObjectRefVirtualDisk
@@ -63,17 +62,15 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
-		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
-		vdSyncer:           NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC),
+		statService:      statService,
+		importerService:  importerService,
+		dvcrSettings:     dvcrSettings,
+		client:           client,
+		diskService:      diskService,
+		viObjectRefOnPvc: NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService),
+		vdSyncer:         NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService),
 	}
 }
 
@@ -178,7 +175,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return false, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}

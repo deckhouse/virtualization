@@ -19,6 +19,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	storagev1 "k8s.io/api/storage/v1"
@@ -35,17 +36,18 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
 	client client.Client
+	logger *slog.Logger
 }
 
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
 		client: client,
+		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskKind)),
 	}
 }
 
@@ -78,10 +80,9 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.Object) []reconcile.Request {
-	log := logger.FromContext(ctx).With("watcher", strings.ToLower(virtv2.VirtualDiskKind))
 	sc, ok := object.(*storagev1.StorageClass)
 	if !ok {
-		log.Error(fmt.Sprintf("expected a StorageClass but got %T", object))
+		w.logger.Error(fmt.Sprintf("expected a StorageClass but got %T", object))
 		return []reconcile.Request{}
 	}
 
@@ -90,7 +91,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, sc.Name),
 	})
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
 		return []reconcile.Request{}
 	}
 
@@ -107,7 +108,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, indexer.DefaultStorageClass),
 		})
 		if err != nil {
-			log.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
+			w.logger.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
 			return []reconcile.Request{}
 		}
 	}

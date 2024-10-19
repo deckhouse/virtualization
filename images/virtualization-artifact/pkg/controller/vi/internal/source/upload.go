@@ -42,11 +42,10 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService        Stat
-	uploaderService    Uploader
-	dvcrSettings       *dvcr.Settings
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService     Stat
+	uploaderService Uploader
+	dvcrSettings    *dvcr.Settings
+	diskService     *service.DiskService
 }
 
 func NewUploadDataSource(
@@ -54,14 +53,12 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:        statService,
-		uploaderService:    uploaderService,
-		dvcrSettings:       dvcrSettings,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:     statService,
+		uploaderService: uploaderService,
+		dvcrSettings:    dvcrSettings,
+		diskService:     diskService,
 	}
 }
 
@@ -214,7 +211,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}
