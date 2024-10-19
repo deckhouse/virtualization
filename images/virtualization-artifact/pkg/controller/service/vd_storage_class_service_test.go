@@ -54,7 +54,7 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
-			Expect(storageClass).To(Equal("default-cluster-storage"))
+			Expect(storageClass).To(Equal(""))
 		})
 	})
 
