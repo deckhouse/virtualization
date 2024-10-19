@@ -39,9 +39,10 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
 			service = NewVirtualImageStorageClassService(storageClassSettings)
 
-			_, err := service.GetStorageClass("requested-storage-class", clusterDefaultStorageClass)
+			storageClass, err := service.GetStorageClass("requested-storage-class", clusterDefaultStorageClass)
 
-			Expect(err).To(Equal(ErrStorageClassNotAvailable))
+			Expect(err).To(BeNil())
+			Expect(storageClass).To(Equal("requested-storage-class"))
 		})
 	})
 
@@ -53,7 +54,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			storageClass, err := service.GetStorageClass("", clusterDefaultStorageClass)
 
 			Expect(err).To(BeNil())
-			Expect(storageClass).To(Equal("default-cluster-storage"))
+			Expect(storageClass).To(Equal(""))
 		})
 	})
 
@@ -64,8 +65,8 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 
 			storageClass, err := service.GetStorageClass("requested-storage-class", "")
 
-			Expect(err).To(Equal(ErrDefaultStorageClassNotFound))
-			Expect(storageClass).To(Equal(""))
+			Expect(err).To(BeNil())
+			Expect(storageClass).To(Equal("requested-storage-class"))
 		})
 	})
 
