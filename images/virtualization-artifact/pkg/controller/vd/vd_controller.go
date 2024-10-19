@@ -68,7 +68,7 @@ func NewController(
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
 
-	blank := source.NewBlankDataSource(stat, disk)
+	blank := source.NewBlankDataSource(stat, disk, scService)
 
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, scService))

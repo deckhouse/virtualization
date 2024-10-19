@@ -35,17 +35,20 @@ import (
 const blankDataSource = "blank"
 
 type BlankDataSource struct {
-	statService *service.StatService
-	diskService *service.DiskService
+	statService         *service.StatService
+	diskService         *service.DiskService
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewBlankDataSource(
 	statService *service.StatService,
 	diskService *service.DiskService,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *BlankDataSource {
 	return &BlankDataSource{
-		statService: statService,
-		diskService: diskService,
+		statService:         statService,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -100,7 +103,17 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (boo
 
 		source := ds.getSource()
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
+
+		sc, err := ds.storageClassService.GetStorageClass(*vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, &sc, source, vd, supgen)
 
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
