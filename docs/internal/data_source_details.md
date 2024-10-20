@@ -19,7 +19,7 @@ Additional importer and uploader are implemented to import into DVCR instead PVC
 
 ## Supported storages (destinations)
 
-- Kubernetes - import into PVC.
+- PersistentVolumeClaim - import into PVC.
 - ContainerRegistry - import into DVCR.
 
 ## Possible import paths
@@ -53,7 +53,7 @@ When importing into DVCR, importer Pod expects auth Secret.
 
 Note: CA Bundle for DVCR is not implemented yet, DVCR is an internal Service, we use INSECURE_TLS=true to satisfy rbac-proxy.
 
-#### storage Kubernetes (import into PVC)
+#### storage PersistentVolumeClaim (import into PVC)
 
 When importing into PVC, DataVolume use DVCR as registry source, so it expects auth credentials in the Secret, and ca bundle in the ConfigMap.
 virtualization-controller creates copies of these resources:
