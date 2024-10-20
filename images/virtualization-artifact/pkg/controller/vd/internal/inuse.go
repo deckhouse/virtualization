@@ -155,13 +155,3 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 	return reconcile.Result{}, nil
 }
-
-func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.DiskDevice && bda.Name == vdName {
-			return true
-		}
-	}
-
-	return false
-}
