@@ -63,7 +63,6 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
@@ -72,10 +71,9 @@ func NewObjectRefDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		diskService:         diskService,
-		storageClassForPVC:  storageClassForPVC,
 		storageClassService: storageClassService,
-		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC, storageClassService),
-		vdSyncer:            NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC, storageClassService),
+		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassService),
+		vdSyncer:            NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassService),
 	}
 }
 

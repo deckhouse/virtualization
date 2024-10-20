@@ -44,7 +44,6 @@ type ObjectRefDataVirtualImageOnPVC struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	diskService         *service.DiskService
-	storageClassForPVC  string
 	storageClassService *service.VirtualImageStorageClassService
 }
 
@@ -54,7 +53,6 @@ func NewObjectRefDataVirtualImageOnPVC(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataVirtualImageOnPVC {
 	return &ObjectRefDataVirtualImageOnPVC{
@@ -63,7 +61,6 @@ func NewObjectRefDataVirtualImageOnPVC(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		diskService:         diskService,
-		storageClassForPVC:  storageClassForPVC,
 		storageClassService: storageClassService,
 	}
 }
