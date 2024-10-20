@@ -50,7 +50,6 @@ type ObjectRefDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	diskService         *service.DiskService
-	storageClassForPVC  string
 	storageClassService *service.VirtualImageStorageClassService
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
