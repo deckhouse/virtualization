@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -47,7 +46,6 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 }
 
 func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler("inuse"))
 	inUseCondition, ok := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if !ok {
 		inUseCondition = metav1.Condition{
@@ -93,8 +91,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to list vi: %s", err))
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("error getting virtual images: %w", err)
 	}
 
 	for _, vi := range viList.Items {
@@ -115,8 +112,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	var cviList virtv2.ClusterVirtualImageList
 	err = h.client.List(ctx, &cviList, &client.ListOptions{})
 	if err != nil {
-		log.Error(fmt.Sprintf("failed to list cvi: %s", err))
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("error getting cluster virtual images: %w", err)
 	}
 
 	for _, cvi := range cviList.Items {
