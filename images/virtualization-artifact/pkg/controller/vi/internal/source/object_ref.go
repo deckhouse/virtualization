@@ -94,7 +94,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return false, fmt.Errorf("VI object ref %s is nil", viKey)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef, &condition)
 		}
 	case virtv2.VirtualDiskKind:
@@ -262,7 +262,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 			return false, fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef, &condition)
 		}
 	case virtv2.VirtualDiskKind:
@@ -424,7 +424,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 			return fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			if viRef.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
