@@ -347,7 +347,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 
 	inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUseCondition.Status != metav1.ConditionFalse {
-		if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
+		if inUseCondition.Reason != vdcondition.InUseForCreateImage {
 			return NewVirtualDiskInUseError(vd.Name)
 		}
 	}

@@ -303,10 +303,10 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 
 			if vd.Status.Phase == virtv2.DiskReady {
 				inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-				if inUseCondition.Status == metav1.ConditionFalse {
+				if inUseCondition.Status != metav1.ConditionTrue {
 					ready++
 				} else {
-					msg := fmt.Sprintf("virtual disk %s is using for create virtual image or cluster virtual image", vd.Name)
+					msg := fmt.Sprintf("The virtual disk %s is being used to create a virtual image or a cluster virtual image.", vd.Name)
 					warnings = append(warnings, msg)
 					canStartKVVM = false
 				}
