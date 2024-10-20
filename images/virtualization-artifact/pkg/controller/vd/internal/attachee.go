@@ -51,11 +51,11 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	inUseCondition, ok := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if !ok {
 		inUseCondition = metav1.Condition{
-			Type:    vdcondition.InUseType,
-			Status:  metav1.ConditionFalse,
-			Reason:  vdcondition.NotUse,
-			Message: "",
+			Type:   vdcondition.InUseType,
+			Status: metav1.ConditionUnknown,
 		}
+
+		service.SetCondition(inUseCondition, &vd.Status.Conditions)
 	}
 
 	var inUsed bool
@@ -92,9 +92,10 @@ func (h AttacheeHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		inUseCondition.Reason = vdcondition.InUseInRunningVirtualMachine
 	} else if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
 		inUseCondition.Status = metav1.ConditionFalse
-		inUseCondition.Reason = vdcondition.NotUse
+		inUseCondition.Reason = vdcondition.NotInUse
 	}
 
+	inUseCondition.Message = ""
 	service.SetCondition(inUseCondition, &vd.Status.Conditions)
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {

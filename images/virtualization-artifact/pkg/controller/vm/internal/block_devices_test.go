@@ -76,7 +76,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.InUseType,
-						Reason: vdcondition.NotUse,
+						Reason: vdcondition.NotInUse,
 						Status: metav1.ConditionFalse,
 					},
 				},
@@ -90,7 +90,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.InUseType,
-						Reason: vdcondition.NotUse,
+						Reason: vdcondition.NotInUse,
 						Status: metav1.ConditionFalse,
 					},
 				},
