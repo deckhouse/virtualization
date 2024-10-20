@@ -55,7 +55,6 @@ func NewController(
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
-	storageClassForVirtualImageOnPVC string,
 	storageClassSettings config.VirtualImageStorageClassSettings,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(ControllerName))
@@ -68,10 +67,10 @@ func NewController(
 	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, disk, storageClassForVirtualImageOnPVC, scService))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, dvcr, mgr.GetClient(), disk, storageClassForVirtualImageOnPVC, scService))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, importer, dvcr, mgr.GetClient(), disk, storageClassForVirtualImageOnPVC, scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, dvcr, disk, storageClassForVirtualImageOnPVC, scService))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, disk, scService))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, dvcr, mgr.GetClient(), disk, scService))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, importer, dvcr, mgr.GetClient(), disk, scService))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, dvcr, disk, scService))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

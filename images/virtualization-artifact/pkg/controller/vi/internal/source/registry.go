@@ -49,7 +49,6 @@ type RegistryDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	diskService         *service.DiskService
-	storageClassForPVC  string
 	storageClassService *service.VirtualImageStorageClassService
 }
 
@@ -59,7 +58,6 @@ func NewRegistryDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 	storageClassService *service.VirtualImageStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
@@ -68,7 +66,6 @@ func NewRegistryDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		diskService:         diskService,
-		storageClassForPVC:  storageClassForPVC,
 		storageClassService: storageClassService,
 	}
 }

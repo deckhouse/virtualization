@@ -47,7 +47,6 @@ type ObjectRefVirtualDisk struct {
 	statService         Stat
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
-	storageClassForPVC  string
 	storageClassService *service.VirtualImageStorageClassService
 }
 
@@ -57,7 +56,6 @@ func NewObjectRefVirtualDisk(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	statService Stat,
-	storageClassForPVC string,
 	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
@@ -66,7 +64,6 @@ func NewObjectRefVirtualDisk(
 		diskService:         diskService,
 		statService:         statService,
 		dvcrSettings:        dvcrSettings,
-		storageClassForPVC:  storageClassForPVC,
 		storageClassService: storageClassService,
 	}
 }

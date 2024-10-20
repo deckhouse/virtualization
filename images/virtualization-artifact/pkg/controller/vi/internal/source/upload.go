@@ -45,7 +45,6 @@ type UploadDataSource struct {
 	uploaderService     Uploader
 	dvcrSettings        *dvcr.Settings
 	diskService         *service.DiskService
-	storageClassForPVC  string
 	storageClassService *service.VirtualImageStorageClassService
 }
 
@@ -54,7 +53,6 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 	storageClassService *service.VirtualImageStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
@@ -62,7 +60,6 @@ func NewUploadDataSource(
 		uploaderService:     uploaderService,
 		dvcrSettings:        dvcrSettings,
 		diskService:         diskService,
-		storageClassForPVC:  storageClassForPVC,
 		storageClassService: storageClassService,
 	}
 }
