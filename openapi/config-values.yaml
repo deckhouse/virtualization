@@ -182,9 +182,11 @@ properties:
       Configuring storage class for virtual images on PVC.
     properties:
       storageClassName:
+        deprecated: true
+        x-doc-deprecated: true
         type: string
         description: |
-          Specifies the name of the storage class to be used for virtual images on PVC.
+          Since the parameter has been deprecated, use the `defaultStorageClassName` parameter.
       defaultStorageClassName:
         type: string
         description: |
