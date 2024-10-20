@@ -333,7 +333,7 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(vi *virtv2.VirtualImage, sup *supp
 
 func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
 	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
-		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
+		return fmt.Errorf("not a %s data source", virtv2.VirtualImageObjectRefKindVirtualDisk)
 	}
 
 	vd, err := helper.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, ds.client, &virtv2.VirtualDisk{})
