@@ -96,7 +96,7 @@ properties:
       storageClassName:
         type: string
         description: |
-          Указывает имя класса хранения, который будет использоваться для виртуальных образов на PVC.
+          Поскольку этот параметр был устаревшим, используйте параметр `defaultStorageClassName`.
       defaultStorageClassName:
         type: string
         description: |
