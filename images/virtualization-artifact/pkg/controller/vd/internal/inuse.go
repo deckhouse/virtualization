@@ -21,15 +21,19 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type InUseHandler struct {
@@ -54,10 +58,38 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		service.SetCondition(inUseCondition, &vd.Status.Conditions)
 	}
 
-	var inUsed bool
+	var inUseForCreateImage, inUseInRunningVirtualMachine bool
+
+	var vms virtv2.VirtualMachineList
+	err := h.client.List(ctx, &vms, &client.ListOptions{
+		Namespace: vd.GetNamespace(),
+	})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("error getting virtual machines: %w", err)
+	}
+
+	for _, vm := range vms.Items {
+		for _, bda := range vm.Status.BlockDeviceRefs {
+			if bda.Kind == virtv2.DiskDevice && bda.Name == vd.GetName() {
+				runningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), vm.Status.Conditions)
+				if runningCondition.Status != metav1.ConditionFalse || vm.Status.Phase == virtv2.MachineStarting {
+					inUseInRunningVirtualMachine = true
+				} else {
+					kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.GetNamespace(), Name: vm.GetName()}, h.client, &virtv1.VirtualMachine{})
+					if err != nil {
+						return reconcile.Result{}, fmt.Errorf("error getting kubevirt virtual machine: %w", err)
+					}
+
+					if kvvm.Status.StateChangeRequests != nil {
+						inUseInRunningVirtualMachine = true
+					}
+				}
+			}
+		}
+	}
 
 	var viList virtv2.VirtualImageList
-	err := h.client.List(ctx, &viList, &client.ListOptions{
+	err = h.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
@@ -76,7 +108,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 		readyCondition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 		if readyCondition.Status != metav1.ConditionTrue {
-			inUsed = true
+			inUseForCreateImage = true
 		}
 	}
 
@@ -98,11 +130,19 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 		readyCondition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		if readyCondition.Status != metav1.ConditionTrue {
-			inUsed = true
+			inUseForCreateImage = true
 		}
 	}
 
-	if inUsed {
+	if inUseCondition.Status == metav1.ConditionFalse && inUseInRunningVirtualMachine {
+		inUseCondition.Status = metav1.ConditionTrue
+		inUseCondition.Reason = vdcondition.InUseInRunningVirtualMachine
+	} else if inUseCondition.Reason == vdcondition.InUseInRunningVirtualMachine {
+		inUseCondition.Status = metav1.ConditionFalse
+		inUseCondition.Reason = vdcondition.NotInUse
+	}
+
+	if inUseCondition.Status == metav1.ConditionFalse && inUseForCreateImage {
 		inUseCondition.Status = metav1.ConditionTrue
 		inUseCondition.Reason = vdcondition.InUseForCreateImage
 	} else if inUseCondition.Reason == vdcondition.InUseForCreateImage {
@@ -114,4 +154,14 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	service.SetCondition(inUseCondition, &vd.Status.Conditions)
 
 	return reconcile.Result{}, nil
+}
+
+func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) bool {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.DiskDevice && bda.Name == vdName {
+			return true
+		}
+	}
+
+	return false
 }
