@@ -28,7 +28,7 @@ const (
 	ResizedType Type = "Resized"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"
-	// InUseType indicates whether the `VirtualDisk` attached to running `VirtualMachine` or running a process to create a `VirtualImage` from this `VirtualDisk`.
+	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of a VirtualImage creation
 	InUseType Type = "InUse"
 )
 
