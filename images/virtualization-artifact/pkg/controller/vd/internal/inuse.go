@@ -70,7 +70,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		for _, bda := range vm.Status.BlockDeviceRefs {
 			if bda.Kind == virtv2.DiskDevice && bda.Name == vd.GetName() {
 				runningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), vm.Status.Conditions)
-				if runningCondition.Status != metav1.ConditionFalse || vm.Status.Phase == virtv2.MachineStarting {
+				if runningCondition.Status == metav1.ConditionTrue || vm.Status.Phase == virtv2.MachineStarting {
 					inUseInRunningVirtualMachine = true
 				} else {
 					kvvm, err := helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.GetNamespace(), Name: vm.GetName()}, h.client, &virtv1.VirtualMachine{})
