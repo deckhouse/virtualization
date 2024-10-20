@@ -35,7 +35,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	})
 
 	Context("when settings are empty", func() {
-		It("returns the storageClassFromSpec if both allowed and default settings are empty", func() {
+		It("returns the storageClassFromSpec", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
 			service = NewVirtualImageStorageClassService(storageClassSettings)
 
@@ -47,7 +47,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	})
 
 	Context("when settings are empty and storageClassFromSpec is empty", func() {
-		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
+		It("returns the storageClassFromSpec", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
 			service = NewVirtualImageStorageClassService(storageClassSettings)
 
@@ -59,7 +59,7 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 	})
 
 	Context("when settings and clusterDefaultStorageClass are empty", func() {
-		It("returns the storageClassFromSpec if both allowed and default settings and clusterDefaultStorageClass are empty", func() {
+		It("returns the storageClassFromSpec", func() {
 			storageClassSettings = config.VirtualImageStorageClassSettings{}
 			service = NewVirtualImageStorageClassService(storageClassSettings)
 
