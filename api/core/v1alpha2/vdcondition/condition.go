@@ -92,6 +92,6 @@ const (
 	InUseInRunningVirtualMachine InUseReason = "InUseInRunningVirtualMachine"
 	// InUseForCreateImage indicates running a process to create a `VirtualImage` or `ClusterVirtualImage` from this `VirtualDisk`
 	InUseForCreateImage InUseReason = "InUseForCreateImage"
-	// NotUse indicates that this `VirtualDisk` is available.
-	NotUse InUseReason = "NotUse"
+	// NotInUse indicates that this `VirtualDisk` is available.
+	NotInUse InUseReason = "NotInUse"
 )
