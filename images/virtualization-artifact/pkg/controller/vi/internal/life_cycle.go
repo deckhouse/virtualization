@@ -95,7 +95,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 
 	var requeue bool
 	var err error
-	if vi.Spec.Storage == virtv2.StorageKubernetes {
+	if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 		requeue, err = ds.StoreToPVC(ctx, vi)
 	} else {
 		requeue, err = ds.StoreToDVCR(ctx, vi)

@@ -88,7 +88,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, fmt.Errorf("VI object ref source %s is nil", vd.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viOnPvcSyncer.Sync(ctx, vd, vi, &condition)
 		}
 	}
@@ -270,7 +270,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			if vi.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 			}
