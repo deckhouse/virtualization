@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -180,8 +179,17 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		if err != nil {
 			return false, err
 		}
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
+			return false, err
+		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		sc, err := ds.storageClassService.GetStorageClass(*vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.StartImmediate(ctx, diskSize, &sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}

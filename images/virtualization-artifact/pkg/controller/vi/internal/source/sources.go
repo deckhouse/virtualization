@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -252,6 +253,12 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, condi
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.ProvisioningFailed
 		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return true, nil
+	case errors.Is(err, service.ErrStorageClassNotAvailable):
+		vi.Status.Phase = virtv2.ImageFailed
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not available."
 		return true, nil
 	default:
 		return false, err
