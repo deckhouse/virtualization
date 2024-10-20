@@ -35,12 +35,14 @@ import (
 )
 
 type ObjectRefVirtualImageOnPvc struct {
-	diskService *service.DiskService
+	diskService         *service.DiskService
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
-func NewObjectRefVirtualImageOnPvc(diskService *service.DiskService) *ObjectRefVirtualImageOnPvc {
+func NewObjectRefVirtualImageOnPvc(diskService *service.DiskService, storageClassService *service.VirtualDiskStorageClassService) *ObjectRefVirtualImageOnPvc {
 	return &ObjectRefVirtualImageOnPvc{
-		diskService: diskService,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -101,7 +103,17 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, vd *virtv2.Virtua
 			},
 		}
 
-		err = ds.diskService.Start(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, condition); err != nil || updated {
+			return false, err
+		}
+
+		sc, err := ds.storageClassService.GetStorageClass(*vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.Start(ctx, size, &sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, condition); err != nil || updated {
 			return false, err
 		}

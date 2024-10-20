@@ -43,9 +43,10 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService *service.StatService
-	diskService *service.DiskService
-	client      client.Client
+	statService         *service.StatService
+	diskService         *service.DiskService
+	client              client.Client
+	storageClassService *service.VirtualDiskStorageClassService
 
 	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
 	viOnPvcSyncer    *ObjectRefVirtualImageOnPvc
@@ -55,13 +56,15 @@ func NewObjectRefDataSource(
 	statService *service.StatService,
 	diskService *service.DiskService,
 	client client.Client,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:      statService,
-		diskService:      diskService,
-		client:           client,
-		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(diskService),
-		viOnPvcSyncer:    NewObjectRefVirtualImageOnPvc(diskService),
+		statService:         statService,
+		diskService:         diskService,
+		client:              client,
+		storageClassService: storageClassService,
+		vdSnapshotSyncer:    NewObjectRefVirtualDiskSnapshot(diskService),
+		viOnPvcSyncer:       NewObjectRefVirtualImageOnPvc(diskService, storageClassService),
 	}
 }
 
@@ -85,7 +88,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, fmt.Errorf("VI object ref source %s is nil", vd.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viOnPvcSyncer.Sync(ctx, vd, vi, &condition)
 		}
 	}
@@ -162,7 +165,17 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, err
 		}
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
+
+		sc, err := ds.storageClassService.GetStorageClass(*vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, &sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}
@@ -257,7 +270,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			if vi.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 			}

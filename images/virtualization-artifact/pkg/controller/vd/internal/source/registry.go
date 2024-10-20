@@ -45,11 +45,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService     *service.StatService
-	importerService *service.ImporterService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
+	statService         *service.StatService
+	importerService     *service.ImporterService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewRegistryDataSource(
@@ -58,13 +59,15 @@ func NewRegistryDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:     statService,
-		importerService: importerService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
-		client:          client,
+		statService:         statService,
+		importerService:     importerService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -200,8 +203,17 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		sc, err := ds.storageClassService.GetStorageClass(*vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, &sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}

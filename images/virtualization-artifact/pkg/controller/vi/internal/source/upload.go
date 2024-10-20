@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/common"
@@ -42,11 +41,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService        Stat
-	uploaderService    Uploader
-	dvcrSettings       *dvcr.Settings
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	uploaderService     Uploader
+	dvcrSettings        *dvcr.Settings
+	diskService         *service.DiskService
+	storageClassService *service.VirtualImageStorageClassService
 }
 
 func NewUploadDataSource(
@@ -54,14 +53,14 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:        statService,
-		uploaderService:    uploaderService,
-		dvcrSettings:       dvcrSettings,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:         statService,
+		uploaderService:     uploaderService,
+		dvcrSettings:        dvcrSettings,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -213,8 +212,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
+			return false, err
+		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		sc, err := ds.storageClassService.GetStorageClass(*vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
+			return false, err
+		}
+
+		err = ds.diskService.StartImmediate(ctx, diskSize, &sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}
