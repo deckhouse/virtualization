@@ -55,7 +55,7 @@ spec:
                     Storage type to store the image for current virtualization setup.
 
                     * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-                    * `Kubernetes` - use a Persistent Volume Claim (PVC).
+                    * `Kubernetes` - Deprecated: Use of this value is discouraged and may be removed in future versions. Use PersistentVolumeClaim instead.
                     * `PersistentVolumeClaim` - use a Persistent Volume Claim (PVC).
                 persistentVolumeClaim:
                   type: object
