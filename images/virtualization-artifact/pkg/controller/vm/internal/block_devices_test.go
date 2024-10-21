@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 func TestBlockDeviceHandler(t *testing.T) {
@@ -72,6 +73,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType,
+						Reason: vdcondition.NotInUse,
+						Status: metav1.ConditionFalse,
+					},
+				},
 			},
 		}
 		vdBar = &virtv2.VirtualDisk{
@@ -79,6 +87,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType,
+						Reason: vdcondition.NotInUse,
+						Status: metav1.ConditionFalse,
+					},
+				},
 			},
 		}
 		vm = &virtv2.VirtualMachine{

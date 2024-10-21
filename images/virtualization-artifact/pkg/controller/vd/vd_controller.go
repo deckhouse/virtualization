@@ -82,6 +82,7 @@ func NewController(
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
+		internal.NewInUseHandler(mgr.GetClient()),
 	)
 
 	vdController, err := controller.New(ControllerName, mgr, controller.Options{
