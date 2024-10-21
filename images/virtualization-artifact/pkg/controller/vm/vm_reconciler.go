@@ -337,21 +337,18 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		result = service.MergeResults(result, res)
 	}
 
-	if handlerErr != nil {
-		err = r.updateVM(ctx, vm)
-		if err != nil {
-			log.Error("Failed to update VirtualMachine")
-		}
-		return reconcile.Result{}, handlerErr
-	}
-
 	err = r.updateVM(ctx, vm)
 	if err != nil {
-		log.Error("Failed to update VirtualMachine")
+		log.Error("Failed to update VirtualMachine", logger.SlogErr(err))
+		if handlerErr != nil {
+			err = fmt.Errorf("error updating VM after error in handlers: %w (%w)", err, handlerErr)
+		} else {
+			err = fmt.Errorf("error updating VM: %w", err)
+		}
 		return reconcile.Result{}, err
 	}
 
-	log.Debug("Finished reconcile VM")
+	log.Debug("VirtualMachine reconcile success")
 	return result, nil
 }
 

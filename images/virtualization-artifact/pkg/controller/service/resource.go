@@ -108,31 +108,29 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		return nil
 	}
 
+	oldFinalizers := r.currentObj.GetFinalizers()
+	oldAnnotations := r.currentObj.GetAnnotations()
+	oldLabels := r.currentObj.GetLabels()
+
+	// Save metadata fields to survive an Update operation.
+	newFinalizers := r.changedObj.GetFinalizers()
+	newLabels := r.changedObj.GetLabels()
+	newAnnotations := r.changedObj.GetAnnotations()
+
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
-		// Save some metadata fields.
-		finalizers := r.changedObj.GetFinalizers()
-		labels := r.changedObj.GetLabels()
-		annotations := r.changedObj.GetAnnotations()
 		if err := r.client.Status().Update(ctx, r.changedObj); err != nil {
 			return fmt.Errorf("error updating status subresource: %w", err)
 		}
-		// Restore metadata in changedObject.
-		r.changedObj.SetFinalizers(finalizers)
-		r.changedObj.SetLabels(labels)
-		r.changedObj.SetAnnotations(annotations)
+		oldFinalizers = r.changedObj.GetFinalizers()
+		oldAnnotations = r.changedObj.GetAnnotations()
+		oldLabels = r.changedObj.GetLabels()
 	}
 
+	// r.changedObj is a current object with updated status.
 	metadataPatch := patch.NewJsonPatch()
-
-	if !slices.Equal(r.currentObj.GetFinalizers(), r.changedObj.GetFinalizers()) {
-		metadataPatch.Append(r.JSONPatchOpsForFinalizers()...)
-	}
-	if !maps.Equal(r.currentObj.GetAnnotations(), r.changedObj.GetAnnotations()) {
-		metadataPatch.Append(r.JSONPatchOpsForAnnotations()...)
-	}
-	if !maps.Equal(r.currentObj.GetLabels(), r.changedObj.GetLabels()) {
-		metadataPatch.Append(r.JSONPatchOpsForLabels()...)
-	}
+	metadataPatch.Append(r.JSONPatchOpsForFinalizers(oldFinalizers, newFinalizers)...)
+	metadataPatch.Append(r.JSONPatchOpsForAnnotations(oldAnnotations, newAnnotations)...)
+	metadataPatch.Append(r.JSONPatchOpsForLabels(oldLabels, newLabels)...)
 
 	if metadataPatch.Len() == 0 {
 		return nil
@@ -150,24 +148,33 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	return nil
 }
 
-func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JsonPatchOperation {
+func (r *Resource[T, ST]) JSONPatchOpsForFinalizers(olfFinalizers, newFinalizers []string) []patch.JsonPatchOperation {
+	if !slices.Equal(olfFinalizers, newFinalizers) {
+		return nil
+	}
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", r.currentObj.GetFinalizers()),
-		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", r.changedObj.GetFinalizers()),
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", olfFinalizers),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers),
 	}
 }
 
-func (r *Resource[T, ST]) JSONPatchOpsForAnnotations() []patch.JsonPatchOperation {
+func (r *Resource[T, ST]) JSONPatchOpsForAnnotations(oldAnnotations, newAnnotations map[string]string) []patch.JsonPatchOperation {
+	if !maps.Equal(oldAnnotations, newAnnotations) {
+		return nil
+	}
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/annotations", r.currentObj.GetAnnotations()),
-		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", r.changedObj.GetAnnotations()),
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/annotations", oldAnnotations),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", newAnnotations),
 	}
 }
 
-func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JsonPatchOperation {
+func (r *Resource[T, ST]) JSONPatchOpsForLabels(oldLabels, newLabels map[string]string) []patch.JsonPatchOperation {
+	if !maps.Equal(oldLabels, newLabels) {
+		return nil
+	}
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
-		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", r.changedObj.GetLabels()),
+		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", oldLabels),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", newLabels),
 	}
 }
 
