@@ -79,6 +79,11 @@ var _ = Describe("BlockDeviceHandler", func() {
 						Reason: vdcondition.NotInUse,
 						Status: metav1.ConditionFalse,
 					},
+					{
+						Type:   vdcondition.ReadyType,
+						Reason: vdcondition.Ready,
+						Status: metav1.ConditionTrue,
+					},
 				},
 			},
 		}
@@ -92,6 +97,11 @@ var _ = Describe("BlockDeviceHandler", func() {
 						Type:   vdcondition.InUseType,
 						Reason: vdcondition.NotInUse,
 						Status: metav1.ConditionFalse,
+					},
+					{
+						Type:   vdcondition.ReadyType,
+						Reason: vdcondition.Ready,
+						Status: metav1.ConditionTrue,
 					},
 				},
 			},
@@ -185,6 +195,18 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 		It("VirtualDisk's target pvc is created", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
+			vdFoo.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vdcondition.InUseType,
+					Reason: vdcondition.NotInUse,
+					Status: metav1.ConditionFalse,
+				},
+				{
+					Type:   vdcondition.ReadyType,
+					Reason: vdcondition.Provisioning,
+					Status: metav1.ConditionFalse,
+				},
+			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
 			Expect(ready).To(Equal(3))

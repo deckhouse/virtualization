@@ -301,7 +301,7 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				continue
 			}
 			readyCondition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-			if readyCondition.Status != metav1.ConditionFalse {
+			if readyCondition.Status == metav1.ConditionTrue {
 				inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 				if inUseCondition.Status != metav1.ConditionTrue {
 					ready++
