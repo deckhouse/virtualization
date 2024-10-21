@@ -300,8 +300,8 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				canStartKVVM = false
 				continue
 			}
-
-			if vd.Status.Phase == virtv2.DiskReady {
+			readyCondition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+			if readyCondition.Status != metav1.ConditionFalse {
 				inUseCondition, _ := service.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 				if inUseCondition.Status != metav1.ConditionTrue {
 					ready++
