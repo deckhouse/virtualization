@@ -1,7 +1,5 @@
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
-- name: KUBECONFIG
-  value: "/kubeconfig.local/proxy.kubeconfig"
 - name: LOG_LEVEL
   value: {{ .Values.virtualization.logLevel }}
 {{- if eq .Values.virtualization.logLevel "debug" }}
