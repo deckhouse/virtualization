@@ -2646,6 +2646,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							Format: "int64",
 						},
 					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"target", "phase", "stats"},
 			},
@@ -2947,6 +2953,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int64",
+						},
+					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},

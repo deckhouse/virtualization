@@ -45,12 +45,11 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService     Stat
+	importerService Importer
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
 }
 
 func NewRegistryDataSource(
@@ -59,15 +58,13 @@ func NewRegistryDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:     statService,
+		importerService: importerService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		diskService:     diskService,
 	}
 }
 
@@ -184,7 +181,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}
