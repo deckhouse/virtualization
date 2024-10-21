@@ -130,12 +130,12 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		}
 	}
 
-	if inUseCondition.Status != metav1.ConditionTrue && inUseInRunningVirtualMachine && !inUseForCreateImage {
+	if inUseInRunningVirtualMachine && !inUseForCreateImage {
 		inUseCondition.Status = metav1.ConditionTrue
 		inUseCondition.Reason = vdcondition.InUseInRunningVirtualMachine
 	}
 
-	if inUseCondition.Status != metav1.ConditionTrue && inUseForCreateImage && !inUseInRunningVirtualMachine {
+	if inUseForCreateImage && !inUseInRunningVirtualMachine {
 		inUseCondition.Status = metav1.ConditionTrue
 		inUseCondition.Reason = vdcondition.InUseForCreateImage
 	}
