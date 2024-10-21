@@ -51,7 +51,7 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached: storage class cannot be changed after disk is attached to VirtualMachine")
+			return nil, fmt.Errorf("VirtualDisk has already been attached: storage class cannot be changed while disk is attached to VirtualMachine")
 		}
 	}
 
