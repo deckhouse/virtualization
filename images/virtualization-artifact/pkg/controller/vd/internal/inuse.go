@@ -77,10 +77,12 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 					if err != nil {
 						return reconcile.Result{}, fmt.Errorf("error getting kubevirt virtual machine: %w", err)
 					}
-
-					if kvvm.Status.StateChangeRequests != nil {
-						inUseInRunningVirtualMachine = true
+					if kvvm != nil {
+						if kvvm.Status.StateChangeRequests != nil {
+							inUseInRunningVirtualMachine = true
+						}
 					}
+
 				}
 			}
 		}
