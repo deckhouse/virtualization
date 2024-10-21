@@ -82,7 +82,6 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 							inUseInRunningVirtualMachine = true
 						}
 					}
-
 				}
 			}
 		}
@@ -131,11 +130,6 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			inUseForCreateImage = true
 		}
 	}
-
-	println("")
-	println("inUseInRunningVirtualMachine=", inUseInRunningVirtualMachine)
-	println("inUseForCreateImage=", inUseForCreateImage)
-	println("")
 
 	if inUseInRunningVirtualMachine && !inUseForCreateImage {
 		inUseCondition.Status = metav1.ConditionTrue
