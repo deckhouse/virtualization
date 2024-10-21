@@ -60,7 +60,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	isDefaultStorageClass := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
 	hasStorageClassInStatus := vd.Status.StorageClassName != ""
 	var checkedSCName *string
-	if hasStorageClassInStatus {
+	if hasStorageClassInStatus && isDefaultStorageClass {
 		checkedSCName = &vd.Status.StorageClassName
 	} else {
 		checkedSCName = vd.Spec.PersistentVolumeClaim.StorageClass
