@@ -130,6 +130,11 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		}
 	}
 
+	println("")
+	println("inUseInRunningVirtualMachine=", inUseInRunningVirtualMachine)
+	println("inUseForCreateImage=", inUseForCreateImage)
+	println("")
+
 	if inUseInRunningVirtualMachine && !inUseForCreateImage {
 		inUseCondition.Status = metav1.ConditionTrue
 		inUseCondition.Reason = vdcondition.InUseInRunningVirtualMachine
