@@ -237,6 +237,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
 	}
 
+	storageClassReadyWatcher := watcher.NewStorageClassWatcher(mgr.GetClient())
+	if err := storageClassReadyWatcher.Watch(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on StorageClass: %w", err)
+	}
+
 	return nil
 }
 

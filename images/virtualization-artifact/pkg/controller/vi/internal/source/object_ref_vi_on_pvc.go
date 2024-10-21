@@ -40,12 +40,11 @@ import (
 )
 
 type ObjectRefDataVirtualImageOnPVC struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService     Stat
+	importerService Importer
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
 }
 
 func NewObjectRefDataVirtualImageOnPVC(
@@ -54,15 +53,13 @@ func NewObjectRefDataVirtualImageOnPVC(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
 ) *ObjectRefDataVirtualImageOnPVC {
 	return &ObjectRefDataVirtualImageOnPVC{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:     statService,
+		importerService: importerService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		diskService:     diskService,
 	}
 }
 
@@ -224,7 +221,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			},
 		}
 
-		err = ds.diskService.StartImmediate(ctx, size, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
 			return false, err
 		}
