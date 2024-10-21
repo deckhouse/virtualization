@@ -170,12 +170,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 			return false, err
 		}
 
-		sc, err := ds.storageClassService.GetStorageClass(*vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+		sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}
 
-		err = ds.diskService.Start(ctx, diskSize, &sc, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}
