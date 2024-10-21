@@ -47,7 +47,7 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
 		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached: data source cannot be changed after disk is attached to VirtualMachine")
+			return nil, fmt.Errorf("VirtualDisk has already been attached: data source cannot be changed while disk is attached to VirtualMachine")
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
