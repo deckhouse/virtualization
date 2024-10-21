@@ -47,21 +47,11 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
 		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualDisk has already been created: data source cannot be changed after disk is created")
+			return nil, fmt.Errorf("VirtualDisk has already been attached: data source cannot be changed after disk is attached to VirtualMachine")
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualDisk has already been created: storage class cannot be changed after disk is created")
-		}
-	}
-
-	if len(newVD.Status.AttachedToVirtualMachines) > 0 {
-		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached to the virtual machine: data source cannot be changed after disk is attached")
-		}
-
-		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached to the virtual machine: storage class cannot be changed after disk is attached")
+			return nil, fmt.Errorf("VirtualDisk has already been attached: storage class cannot be changed after disk is attached to VirtualMachine")
 		}
 	}
 
