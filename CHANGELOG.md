@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/deckhouse/virtualization/compare/v0.14.0...v0.15.0) (2024-10-21)
+
+
+### Features
+
+* **vd:** Allow change Virtual Disk spec after connect to Virtual Machine while Virtual Disk is not ready ([#461](https://github.com/deckhouse/virtualization/issues/461)) ([2ae87b8](https://github.com/deckhouse/virtualization/commit/2ae87b876b78c0688c99011f9d383ccd38dc6a5b))
+
+
+### Bug Fixes
+
+* **cvi,vi,vd:** use default http port for uploader service ([3a5f738](https://github.com/deckhouse/virtualization/commit/3a5f738a7905f55fcd9e4bbb2fd0e1fcd1c8303c))
+* **kube-api-rewriter:** add VPA settings ([#449](https://github.com/deckhouse/virtualization/issues/449)) ([e4385c4](https://github.com/deckhouse/virtualization/commit/e4385c45f7003158c6d2a4a0d0c5935c3a592590))
+* **vmop:** patch /metadata/labels for reconciled object ([#443](https://github.com/deckhouse/virtualization/issues/443)) ([8bb34f4](https://github.com/deckhouse/virtualization/commit/8bb34f4a1fb3ee03f44575187a9da3cdfefe482a))
+
 ## [0.14.0](https://github.com/deckhouse/virtualization/compare/v0.13.1...v0.14.0) (2024-10-14)
 
 
