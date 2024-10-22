@@ -195,4 +195,8 @@ const (
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
 	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
+
+	CmpLesser  = -1
+	CmpEqual   = 0
+	CmpGreater = 1
 )
