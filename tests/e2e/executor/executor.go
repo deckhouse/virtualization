@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -76,8 +77,27 @@ func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout, stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	cmd.Env = e.env
+	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
 	return cmd
+}
+
+func mergeEnvs(curr []string, override []string) []string {
+	envMap := make(map[string]string)
+
+	for _, currEnv := range curr {
+		envName, envValue, _ := strings.Cut(currEnv, "=")
+		envMap[envName] = envValue
+	}
+	for _, newEnv := range override {
+		envName, envValue, _ := strings.Cut(newEnv, "=")
+		envMap[envName] = envValue
+	}
+
+	res := make([]string, 0, len(envMap))
+	for name, val := range envMap {
+		res = append(res, fmt.Sprintf("%s=%s", name, val))
+	}
+	return res
 }
 
 type CMDExecutor struct {
