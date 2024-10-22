@@ -159,6 +159,8 @@ spec:
                     - type
                   type: object
                   x-kubernetes-validations:
+                    - message: .spec.cpu is immutable
+                      rule: self == oldSelf
                     - message:
                         HostPassthrough and Host cannot have model, features or
                         discovery
