@@ -149,7 +149,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForFinalizers(olfFinalizers, newFinalizers []string) []patch.JsonPatchOperation {
-	if !slices.Equal(olfFinalizers, newFinalizers) {
+	if slices.Equal(olfFinalizers, newFinalizers) {
 		return nil
 	}
 	return []patch.JsonPatchOperation{
@@ -159,7 +159,7 @@ func (r *Resource[T, ST]) JSONPatchOpsForFinalizers(olfFinalizers, newFinalizers
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForAnnotations(oldAnnotations, newAnnotations map[string]string) []patch.JsonPatchOperation {
-	if !maps.Equal(oldAnnotations, newAnnotations) {
+	if maps.Equal(oldAnnotations, newAnnotations) {
 		return nil
 	}
 	return []patch.JsonPatchOperation{
@@ -169,7 +169,7 @@ func (r *Resource[T, ST]) JSONPatchOpsForAnnotations(oldAnnotations, newAnnotati
 }
 
 func (r *Resource[T, ST]) JSONPatchOpsForLabels(oldLabels, newLabels map[string]string) []patch.JsonPatchOperation {
-	if !maps.Equal(oldLabels, newLabels) {
+	if maps.Equal(oldLabels, newLabels) {
 		return nil
 	}
 	return []patch.JsonPatchOperation{
