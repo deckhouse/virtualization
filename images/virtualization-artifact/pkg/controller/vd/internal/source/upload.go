@@ -94,11 +94,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 	}
 
 	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-	if updated, err := setConditionFromStorageClassError(err, vd, &condition); err != nil || updated {
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}
 	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
-	if updated, err := setConditionFromStorageClassError(err, vd, &condition); err != nil || updated {
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}
 

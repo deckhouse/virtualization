@@ -127,7 +127,7 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
-func setConditionFromStorageClassError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
+func setConditionFromStorageClassError(err error, condition *metav1.Condition) (bool, error) {
 	switch {
 	case err == nil:
 		return false, nil
