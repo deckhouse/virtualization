@@ -30,10 +30,14 @@ type VirtualImageStorageClassSettings struct {
 }
 
 func LoadVirtualImageStorageClassSettings() VirtualImageStorageClassSettings {
+	var allowedStorageClassNames []string
 	allowedStorageClassNamesRaw := os.Getenv(common.VirtualImageAllowedStorageClasses)
+	if allowedStorageClassNamesRaw != "" {
+		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
+	}
 
 	return VirtualImageStorageClassSettings{
-		AllowedStorageClassNames: strings.Split(allowedStorageClassNamesRaw, ","),
+		AllowedStorageClassNames: allowedStorageClassNames,
 		DefaultStorageClassName:  os.Getenv(common.VirtualImageDefaultStorageClass),
 		StorageClassName:         os.Getenv(common.VirtualImageStorageClass),
 	}

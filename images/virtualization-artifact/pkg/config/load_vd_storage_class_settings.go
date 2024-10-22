@@ -29,10 +29,14 @@ type VirtualDiskStorageClassSettings struct {
 }
 
 func LoadVirtualDiskStorageClassSettings() VirtualDiskStorageClassSettings {
+	var allowedStorageClassNames []string
 	allowedStorageClassNamesRaw := os.Getenv(common.VirtualDiskAllowedStorageClasses)
+	if allowedStorageClassNamesRaw != "" {
+		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
+	}
 
 	return VirtualDiskStorageClassSettings{
-		AllowedStorageClassNames: strings.Split(allowedStorageClassNamesRaw, ","),
+		AllowedStorageClassNames: allowedStorageClassNames,
 		DefaultStorageClassName:  os.Getenv(common.VirtualDiskDefaultStorageClass),
 	}
 }
