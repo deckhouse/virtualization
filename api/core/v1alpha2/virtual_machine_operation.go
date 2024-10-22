@@ -90,12 +90,12 @@ const (
 // * Stop - stop the virtualmachine.
 // * Restart - restart the virtualmachine.
 // * Migrate - migrate the virtualmachine.
-// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate}
+// +kubebuilder:validation:Enum={Restart,Start,Stop,Evict}
 type VMOPType string
 
 const (
 	VMOPTypeRestart VMOPType = "Restart"
 	VMOPTypeStart   VMOPType = "Start"
 	VMOPTypeStop    VMOPType = "Stop"
-	VMOPTypeMigrate VMOPType = "Migrate"
+	VMOPTypeEvict   VMOPType = "Evict"
 )
