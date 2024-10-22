@@ -79,6 +79,7 @@ type NodeSelector struct {
 }
 
 // CPU defines the requirements for the virtual CPU model.
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec.cpu is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'HostPassthrough' || self.type == 'Host' ? !has(self.model) && !has(self.features) && !has(self.discovery) : true",message="HostPassthrough and Host cannot have model, features or discovery"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Discovery' ? !has(self.model) && !has(self.features) : true",message="Discovery cannot have model or features"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Model' ? has(self.model) && !has(self.features) && !has(self.discovery) : true",message="Model requires model and cannot have features or discovery"
