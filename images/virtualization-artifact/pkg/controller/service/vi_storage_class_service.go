@@ -32,58 +32,58 @@ func NewVirtualImageStorageClassService(settings config.VirtualImageStorageClass
 	}
 }
 
-func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec, clusterDefaultStorageClassName string) (string, error) {
+func (svc *VirtualImageStorageClassService) GetStorageClass(storageClassFromSpec *string, clusterDefaultStorageClassName string) (*string, error) {
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if svc.storageClassSettings.StorageClassName == "" {
 			return storageClassFromSpec, nil
 		}
 
-		if storageClassFromSpec == "" || storageClassFromSpec == svc.storageClassSettings.StorageClassName {
-			return svc.storageClassSettings.StorageClassName, nil
+		if storageClassFromSpec == nil || *storageClassFromSpec == "" || *storageClassFromSpec == svc.storageClassSettings.StorageClassName {
+			return &svc.storageClassSettings.StorageClassName, nil
 		}
 
-		return "", ErrStorageClassNotAvailable
+		return nil, ErrStorageClassNotAvailable
 	}
 
 	if len(svc.storageClassSettings.AllowedStorageClassNames) > 0 && svc.storageClassSettings.DefaultStorageClassName == "" {
-		if storageClassFromSpec != "" {
-			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
+		if storageClassFromSpec != nil && *storageClassFromSpec != "" {
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, *storageClassFromSpec) {
 				return storageClassFromSpec, nil
 			}
 
-			return "", ErrStorageClassNotAvailable
+			return nil, ErrStorageClassNotAvailable
 		} else {
 			if clusterDefaultStorageClassName == "" {
-				return "", ErrDefaultStorageClassNotFound
+				return nil, ErrDefaultStorageClassNotFound
 			}
 
 			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, clusterDefaultStorageClassName) {
-				return clusterDefaultStorageClassName, nil
+				return &clusterDefaultStorageClassName, nil
 			}
 
-			return "", ErrStorageClassNotAvailable
+			return nil, ErrStorageClassNotAvailable
 		}
 	}
 
 	if len(svc.storageClassSettings.AllowedStorageClassNames) == 0 && svc.storageClassSettings.DefaultStorageClassName != "" {
-		if storageClassFromSpec == "" {
-			return svc.storageClassSettings.DefaultStorageClassName, nil
+		if storageClassFromSpec == nil || *storageClassFromSpec == "" {
+			return &svc.storageClassSettings.DefaultStorageClassName, nil
 		}
 
-		if storageClassFromSpec == svc.storageClassSettings.DefaultStorageClassName {
+		if *storageClassFromSpec == svc.storageClassSettings.DefaultStorageClassName {
 			return storageClassFromSpec, nil
 		}
 
-		return "", ErrStorageClassNotAvailable
+		return nil, ErrStorageClassNotAvailable
 	}
 
-	if storageClassFromSpec == "" {
-		return svc.storageClassSettings.DefaultStorageClassName, nil
+	if storageClassFromSpec == nil || *storageClassFromSpec == "" {
+		return &svc.storageClassSettings.DefaultStorageClassName, nil
 	}
 
-	if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, storageClassFromSpec) {
+	if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, *storageClassFromSpec) {
 		return storageClassFromSpec, nil
 	}
 
-	return "", ErrStorageClassNotAvailable
+	return nil, ErrStorageClassNotAvailable
 }
