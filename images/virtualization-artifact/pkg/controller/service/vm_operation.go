@@ -63,8 +63,8 @@ func (s VMOperationService) Do(ctx context.Context, vmop *virtv2.VirtualMachineO
 		return s.DoStop(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine, vmop.Spec.Force)
 	case virtv2.VMOPTypeRestart:
 		return s.DoRestart(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine, vmop.Spec.Force)
-	case virtv2.VMOPTypeMigrate:
-		return s.DoMigrate(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
+	case virtv2.VMOPTypeEvict:
+		return s.DoEvict(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 	default:
 		return fmt.Errorf("unexpected operation type %q: %w", vmop.Spec.Type, common.ErrUnknownValue)
 	}
@@ -98,7 +98,7 @@ func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName s
 	return powerstate.RestartVM(ctx, s.client, kvvm, kvvmi, force)
 }
 
-func (s VMOperationService) DoMigrate(ctx context.Context, vmNamespace, vmName string) error {
+func (s VMOperationService) DoEvict(ctx context.Context, vmNamespace, vmName string) error {
 	err := s.virtClient.VirtualMachines(vmNamespace).Migrate(ctx, vmName, v1alpha2.VirtualMachineMigrate{})
 	if err != nil {
 		return fmt.Errorf(`failed to migrate virtual machine "%s/%s": %w`, vmNamespace, vmName, err)
@@ -116,7 +116,7 @@ func (s VMOperationService) IsAllowedForVM(vmop *virtv2.VirtualMachineOperation,
 func (s VMOperationService) IsApplicableForRunPolicy(vmop *virtv2.VirtualMachineOperation, runPolicy virtv2.RunPolicy) bool {
 	switch runPolicy {
 	case virtv2.AlwaysOnPolicy:
-		return vmop.Spec.Type == virtv2.VMOPTypeRestart || vmop.Spec.Type == virtv2.VMOPTypeMigrate
+		return vmop.Spec.Type == virtv2.VMOPTypeRestart || vmop.Spec.Type == virtv2.VMOPTypeEvict
 	case virtv2.AlwaysOffPolicy:
 		return false
 	case virtv2.ManualPolicy, virtv2.AlwaysOnUnlessStoppedManually:
@@ -140,7 +140,7 @@ func (s VMOperationService) IsApplicableForVMPhase(vmop *virtv2.VirtualMachineOp
 			phase == virtv2.MachineDegraded ||
 			phase == virtv2.MachineStarting ||
 			phase == virtv2.MachinePause
-	case virtv2.VMOPTypeMigrate:
+	case virtv2.VMOPTypeEvict:
 		return phase == virtv2.MachineRunning
 	default:
 		return false
@@ -183,7 +183,7 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 		return vmopcondition.ReasonStopInProgress
 	case virtv2.VMOPTypeRestart:
 		return vmopcondition.ReasonRestartInProgress
-	case virtv2.VMOPTypeMigrate:
+	case virtv2.VMOPTypeEvict:
 		return vmopcondition.ReasonMigrationInProgress
 	}
 	return vmopcondition.ReasonCompletedUnknown
@@ -210,7 +210,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 
 		return kvvmi != nil && vmPhase == virtv2.MachineRunning &&
 			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), nil
-	case virtv2.VMOPTypeMigrate:
+	case virtv2.VMOPTypeEvict:
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
 			return false, err

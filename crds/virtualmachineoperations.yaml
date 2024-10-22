@@ -83,7 +83,7 @@ spec:
                     - Restart
                     - Start
                     - Stop
-                    - Migrate
+                    - Evict
                   type: string
                 virtualMachineName:
                   description:
