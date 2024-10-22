@@ -74,9 +74,14 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	availableNodes := make([]string, len(nodes))
-	for i, n := range nodes {
-		availableNodes[i] = n.GetName()
+	availableNodes, err := s.AvailableNodes(nodes)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	availableNodeNames := make([]string, len(availableNodes))
+
+	for i, n := range availableNodes {
+		availableNodeNames[i] = n.GetName()
 	}
 
 	var (
@@ -85,24 +90,24 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	)
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
-		if changed.Status.Phase == virtv2.ClassPhaseReady {
-			featuresEnabled = changed.Status.CpuFeatures.Enabled
+		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
+			featuresEnabled = fs
 			break
 		}
 		featuresEnabled = h.discoveryCommonFeatures(nodes)
 	case virtv2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
-		selectedNodes, err := s.NodesByVMNodeSelector(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		commonFeatures := h.discoveryCommonFeatures(selectedNodes)
+	}
+
+	if cpuType == virtv2.CPUTypeDiscovery || cpuType == virtv2.CPUTypeFeatures {
+		commonFeatures := h.discoveryCommonFeatures(availableNodes)
 		for _, cf := range commonFeatures {
 			if !slices.Contains(featuresEnabled, cf) {
 				featuresNotEnabled = append(featuresNotEnabled, cf)
 			}
 		}
 	}
+
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
@@ -121,11 +126,11 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
-	sort.Strings(availableNodes)
+	sort.Strings(availableNodeNames)
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
-	changed.Status.AvailableNodes = availableNodes
+	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
 		Enabled:          featuresEnabled,
 		NotEnabledCommon: featuresNotEnabled,
