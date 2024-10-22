@@ -106,7 +106,23 @@ spec:
                         Карта пар `ключ=значение`. Один `ключ=значение` для matchLabels эквивалентен элементу matchExpressions, ключевым полем которого является «ключ», оператором - «In», а список значений содержит только «значение».
 
                         Для выборки по данному критерию все значения логически суммируются.
-
+                tolerations:
+                  description: |
+                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), как и в параметре pods `spec.tolerations` в Kubernetes.
+                    Будут добавлены к tolerations в виртуальной машине. tolerations из ВМ могут перетирать эти.
+                  items:
+                    description: ""
+                    properties:
+                      effect:
+                        description: ""
+                      key:
+                        description: ""
+                      operator:
+                        description: ""
+                      tolerationSeconds:
+                        description: ""
+                      value:
+                        description: ""
                 sizingPolicies:
                   description: |
                     Политика выделения вычислительных ресурсов ВМ. Представлена в виде списка. Диапазоны cores.min - cores.max для разных элементов списка не должны пересекаться.
