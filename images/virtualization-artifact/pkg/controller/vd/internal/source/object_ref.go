@@ -103,6 +103,15 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		return false, err
 	}
 
+	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+	if updated, err := setConditionFromStorageClassError(err, vd, &condition); err != nil || updated {
+		return false, err
+	}
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	if updated, err := setConditionFromStorageClassError(err, vd, &condition); err != nil || updated {
+		return false, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -162,16 +171,6 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		var source *cdiv1.DataVolumeSource
 		source, err = ds.getSource(supgen, dvcrDataSource)
 		if err != nil {
-			return false, err
-		}
-
-		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
-			return false, err
-		}
-
-		sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}
 
