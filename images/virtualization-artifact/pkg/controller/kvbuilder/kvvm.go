@@ -153,12 +153,12 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 	b.Resource.Spec.Template.Spec.NodeSelector = selector
 }
 
-func (b *KVVM) SetTolerations(tolerations, classTolerations []corev1.Toleration) {
+func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
 	tolerationsMap := make(map[string]corev1.Toleration)
 	for _, toleration := range classTolerations {
 		tolerationsMap[toleration.Key] = toleration
 	}
-	for _, toleration := range tolerations {
+	for _, toleration := range vmTolerations {
 		tolerationsMap[toleration.Key] = toleration
 	}
 	resultTolerations := make([]corev1.Toleration, 0, len(tolerationsMap))
