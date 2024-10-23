@@ -176,6 +176,8 @@ spec:
                   description: |
                     Список узлов, поддерживающих эту модель процессора.
                     Не отображается для типов: `Host`, `HostPassthrough`.
+                maxAllocatableResources:
+                  description: Максимальный доступный объем для выделения ресурсов цпу/памяти.
                 conditions:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.

@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -59,27 +60,17 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	cpuType := current.Spec.CPU.Type
 
-	if cpuType == virtv2.CPUTypeHostPassthrough || cpuType == virtv2.CPUTypeHost {
-		cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).
-			Generation(current.GetGeneration()).
-			Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
-			Reason(vmclasscondition.ReasonDiscoverySkip).
-			Status(metav1.ConditionFalse)
-
-		conditions.SetCondition(cb, &changed.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
 	nodes, err := s.Nodes(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	availableNodes, err := s.AvailableNodes(nodes)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	availableNodeNames := make([]string, len(availableNodes))
 
+	availableNodeNames := make([]string, len(availableNodes))
 	for i, n := range availableNodes {
 		availableNodeNames[i] = n.GetName()
 	}
@@ -123,7 +114,6 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			Reason(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse)
 	}
-
 	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	sort.Strings(availableNodeNames)
@@ -131,6 +121,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	sort.Strings(featuresNotEnabled)
 
 	changed.Status.AvailableNodes = availableNodeNames
+	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
 		Enabled:          featuresEnabled,
 		NotEnabledCommon: featuresNotEnabled,
@@ -162,4 +153,25 @@ func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string
 		}
 	}
 	return features
+}
+
+func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.ResourceList {
+	var (
+		resourceList  corev1.ResourceList = make(map[corev1.ResourceName]resource.Quantity)
+		resourceNames                     = []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}
+	)
+
+	for _, node := range nodes {
+		for _, resourceName := range resourceNames {
+			newQ := node.Status.Allocatable[resourceName]
+			if newQ.IsZero() {
+				continue
+			}
+			oldQ := resourceList[resourceName]
+			if newQ.Cmp(oldQ) == 1 {
+				resourceList[resourceName] = newQ
+			}
+		}
+	}
+	return resourceList
 }
