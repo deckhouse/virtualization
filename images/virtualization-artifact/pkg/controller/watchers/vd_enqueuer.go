@@ -67,8 +67,6 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cli
 				},
 			})
 		}
-
-		return
 	} else if w.enqueueFromKind == virtv2.VirtualDiskObjectRefKindClusterVirtualImage {
 		cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 		if !ok {
