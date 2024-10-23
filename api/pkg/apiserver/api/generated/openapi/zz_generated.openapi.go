@@ -3445,6 +3445,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref common.
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector"),
 						},
 					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "[By analogy ](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), as in the path parameter `spec.tolerations` in Kubernetes. Will be added to the tolerations in the VM. The tolerations from the VM can grind these.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -3469,7 +3483,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU", "github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector", "github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU", "github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector", "github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 

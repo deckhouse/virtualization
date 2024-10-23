@@ -1681,6 +1681,13 @@ func (in *VirtualMachineClassList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineClassSpec) DeepCopyInto(out *VirtualMachineClassSpec) {
 	*out = *in
 	in.NodeSelector.DeepCopyInto(&out.NodeSelector)
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = make([]corev1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	in.CPU.DeepCopyInto(&out.CPU)
 	if in.SizingPolicies != nil {
 		in, out := &in.SizingPolicies, &out.SizingPolicies

@@ -87,7 +87,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
-	kvvm.SetTolerations(vm.Spec.Tolerations)
+	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
 	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
