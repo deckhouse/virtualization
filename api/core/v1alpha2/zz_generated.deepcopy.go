@@ -1718,6 +1718,13 @@ func (in *VirtualMachineClassStatus) DeepCopyInto(out *VirtualMachineClassStatus
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.MaxAllocatableResources != nil {
+		in, out := &in.MaxAllocatableResources, &out.MaxAllocatableResources
+		*out = make(corev1.ResourceList, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val.DeepCopy()
+		}
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]v1.Condition, len(*in))
