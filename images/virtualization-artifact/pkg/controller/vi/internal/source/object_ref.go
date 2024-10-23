@@ -82,6 +82,15 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
+	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
+		return false, err
+	}
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
+		return false, err
+	}
+
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
@@ -176,17 +185,8 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		if err != nil {
 			return false, err
 		}
-		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
-			return false, err
-		}
 
-		sc, err := ds.storageClassService.GetStorageClass(*vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
-			return false, err
-		}
-
-		err = ds.diskService.StartImmediate(ctx, diskSize, &sc, source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}

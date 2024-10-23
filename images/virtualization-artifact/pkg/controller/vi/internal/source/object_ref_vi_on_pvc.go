@@ -179,6 +179,15 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		return false, err
 	}
 
+	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
+	if updated, err := setConditionFromStorageClassError(err, condition); err != nil || updated {
+		return false, err
+	}
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	if updated, err := setConditionFromStorageClassError(err, condition); err != nil || updated {
+		return false, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(*condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -222,17 +231,8 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 				Namespace: viRef.Namespace,
 			},
 		}
-		clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
-			return false, err
-		}
 
-		sc, err := ds.storageClassService.GetStorageClass(*vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
-			return false, err
-		}
-
-		err = ds.diskService.StartImmediate(ctx, size, &sc, source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
 			return false, err
 		}
