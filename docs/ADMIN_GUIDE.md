@@ -516,11 +516,79 @@ Let's see how it works on the example:
 
 ![](./images/coldstandby.png)
 
-# Storage settings
+## Disk and image storage settings
 
-Storages are used by the `VirtualDisk` disk creation platform. The `VirtualDisk` resource is based on the `PersistentVolumeClaim` resource. When creating a disk, the controller will automatically select the most optimal parameters supported by the storage based on the data known to it.
+For storing disks (`VirtualDisk`) and images (`VirtualImage`) with the `PersistentVolumeClaim` type, platform-provided storage is used.
 
-Priorities for setting `PersistentVolumeClaim` parameters when creating a disk through automatic storage characterization:
+The list of storage supported by the platform can be listed by executing the command to view storage classes (`StorageClass`)
+
+```bash
+kubectl get storageclass
+```
+
+Example of command execution:
+
+```bash
+# NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
+# ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
+# linstor-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
+# linstor-thin-r2                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
+# nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
+```
+
+The `(default)` marker next to the class name indicates that this `StorageClass` will be used by default, in case the user has not specified the class name explicitly in the resource being created.
+
+If the default `StorageClass` is not present in the cluster, the user must specify the required `StorageClass` explicitly in the resource specification.
+
+The virtualization module also allows you to specify individual settings for disk and image storage.
+
+### Storage class settings for images
+
+The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
+
+Example:
+
+```yaml.
+spec:
+  ...
+  settings:
+    virtualImages:
+       `` allowedStorageClassNames:
+       - sc-1
+       - sc-2
+       defaultStorageClassName: sc-1
+```
+
+`allowedStorageClassNames` - (optional) is a list of allowed `StorageClass` for creating a `VirtualImage` that can be explicitly specified in the resource specification.
+`defaultStorageClassName` - (optional) is the `StorageClass` used by default when creating a `VirtualImage` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+
+### Storage class settings for disks
+
+The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
+
+Example:
+
+```yaml.
+spec:
+  ...
+  settings:
+    virtualDisks:
+       `` allowedStorageClassNames:
+       - sc-1
+       - sc-2
+       defaultStorageClassName: sc-1
+```
+
+`allowedStorageClassNames` - (optional) is a list of allowed `StorageClass` for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
+
+`defaultStorageClassName` - (optional) is the `StorageClass` used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+
+### Fine-tune storage classes for disks
+
+When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on what it knows.
+
+Prioritizes `PersistentVolumeClaim` parameter settings when creating a disk by automatically determining the characteristics of the storage:
 
 - RWX + Block
 - RWX + FileSystem
@@ -531,8 +599,8 @@ If the storage is unknown and it is not possible to automatically characterize i
 
 The following annotations can be used to modify the standard `PersistentVolumeClaim` parameter determination process for `StorageClass`:
 
-| Annotation                                           | Valid values                     |
+| Annotation | Valid values |
 | ---------------------------------------------------- | -------------------------------- |
-| virtualdisk.virtualization.deckhouse.io/volume-mode  | `Block`, `Filesystem`            |
-| virtualdisk.virtualization.deckhouse.io/access-mode  | `ReadWriteOnce`, `ReadWriteMany` |
-| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate`                      |
+| virtualdisk.virtualization.deckhouse.io/volume-mode | `Block`, `Filesystem` |
+| virtualdisk.virtualization.deckhouse.io/access-mode | `ReadWriteOnce`, `ReadWriteMany` |
+| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate` |
