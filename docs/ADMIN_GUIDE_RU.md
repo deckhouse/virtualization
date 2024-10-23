@@ -519,9 +519,77 @@ ColdStandby обеспечивает механизм восстановлени
 
 ![](./images/coldstandby.ru.png)
 
-# Настройки Хранилищ
+## Настройки хранения дисков и образов
 
-Хранилища применяются платформой для создания дисков `VirtualDisk`. В основе ресурсов `VirtualDisk` лежит ресурс `PersistentVolumeClaim`. При создании диска контроллер автоматически выберет наиболее оптимальные параметры, поддерживаемые хранилищем, на основании известных ему данных.
+Для хранения дисков (`VirtualDisk`) и образов (`VirtualImage`) с типом `PersistentVolumeClaim` используются хранилища, предоставляемые платформой.
+
+Перечень поддерживаемых платформой хранилищ можно посмотреть, выполнив команду, для просмотра классов хранилищ (`StorageClass`)
+
+```bash
+kubectl get storageclass
+```
+
+Пример выполнения команды:
+
+```bash
+# NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
+# ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
+# linstor-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
+# linstor-thin-r2                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
+# nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
+```
+
+Маркер `(default)` рядом с названием класса показывает, что данный `StorageClass` будет использоваться по умолчанию, в случае если пользователь не указал название класса явно в создаваемом ресурсе.
+
+Если `StorageClass` по умолчанию в кластере отсутствует, то пользователь должен указать требуемый `StorageClass` в спецификации ресурса явно.
+
+Также модуль virtualization позволяет задать индивидуальные настройки для хранения дисков и образов.
+
+### Настройки классов хранения для образов
+
+Настройки классов хранения для образов определяется в параметре `.spec.settings.virtualImages` настроек модуля.
+
+Пример:
+
+```yaml
+spec:
+  ...
+  settings:
+    virtualImages:
+       allowedStorageClassNames:
+       - sc-1
+       - sc-2
+       defaultStorageClassName: sc-1
+```
+
+`allowedStorageClassNames` — (опционально) это список допустимых `StorageClass` для создания `VirtualImage`, которые можно явно указать в спецификации ресурса.
+`defaultStorageClassName` — (опционально) это `StorageClass`, используемый по умолчанию при создании `VirtualImage`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+
+### Настройки классов хранения для дисков
+
+Настройки классов хранения для дисков определяется в параметре `.spec.settings.virtualDisks` настроек модуля.
+
+Пример:
+
+```yaml
+spec:
+  ...
+  settings:
+    virtualDisks:
+       allowedStorageClassNames:
+       - sc-1
+       - sc-2
+       defaultStorageClassName: sc-1
+```
+
+`allowedStorageClassNames` — (опционально) это список допустимых `StorageClass` для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
+
+`defaultStorageClassName` — (опционально) это `StorageClass`, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+
+### Тонкая настройка классов хранения для дисков
+
+При создании диска контроллер автоматически выберет наиболее оптимальные параметры, поддерживаемые хранилищем, на основании известных ему данных.
 
 Приоритеты настройки параметров `PersistentVolumeClaim` при создании диска посредством автоматического определения характеристик хранилища:
 
