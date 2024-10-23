@@ -159,7 +159,7 @@ Images can be created from other images and virtual machine disks.
 Project image two storage options are supported:
 
 - `ContainerRegistry` - the default type in which the image is stored in `DVCR`.
-- `Kubernetes` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
+- `PersistentVolumeClaim` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
 
 A full description of the `VirtualImage` resource configuration settings can be found at [link](cr.html#virtualimage).
 
@@ -236,7 +236,11 @@ kind: VirtualImage
 metadata:
   name: ubuntu-22.04-pvc
 spec:
-  storage: Kubernetes
+  storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    # Substitute your StorageClass name.
+    storageClassName: i-linstor-thin-r2
+  # Source for image creation.
   dataSource:
     type: HTTP
     http:
@@ -252,6 +256,9 @@ d8 k get vi ubuntu-22.04-pvc
 # NAME              PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04-pvc  Ready   false   100%       23h
 ```
+
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
+
 
 ### Creating an image from Container Registry
 
@@ -452,6 +459,8 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Terminating` - the disk is being deleted. The disk may “hang” in this state if it is still connected to the virtual machine.
 
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
+
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-disks).
 
 Check the status of the disk after creation with the command:
 
