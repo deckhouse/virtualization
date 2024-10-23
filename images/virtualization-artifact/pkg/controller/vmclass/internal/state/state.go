@@ -36,7 +36,7 @@ type VirtualMachineClassState interface {
 	VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 	VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, error)
 	Nodes(ctx context.Context) ([]corev1.Node, error)
-	NodesByVMNodeSelector(ctx context.Context) ([]corev1.Node, error)
+	AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error)
 }
 
 type state struct {
@@ -67,31 +67,44 @@ func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, e
 	return vms.Items, nil
 }
 
-type filterFunc func([]corev1.Node) []corev1.Node
+type filterFunc func(node *corev1.Node) (skip bool)
+
+func nodeFilter(nodes []corev1.Node, filters ...filterFunc) []corev1.Node {
+	if len(filters) == 0 {
+		return nodes
+	}
+	var filtered []corev1.Node
+loop:
+	for _, node := range nodes {
+		for _, f := range filters {
+			if f(&node) {
+				continue loop
+			}
+		}
+		filtered = append(filtered, node)
+	}
+	return filtered
+}
 
 func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
-	curr := s.vmClass.Current()
 
-	var matchLabels map[string]string
-	var filter filterFunc
+	var (
+		curr        = s.vmClass.Current()
+		matchLabels map[string]string
+		filters     []filterFunc
+	)
 
 	switch curr.Spec.CPU.Type {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
 		return nil, nil
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
-		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtered []corev1.Node
-			for _, node := range nodes {
-				if common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions) {
-					filtered = append(filtered, node)
-				}
-			}
-			return filtered
-		}
+		filters = append(filters, func(node *corev1.Node) bool {
+			return !common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
+		})
 	case virtv2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
 	case virtv2.CPUTypeFeatures:
@@ -111,48 +124,34 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
-	result := nodes.Items
-	if filter != nil {
-		result = filter(result)
-	}
-	return result, nil
+
+	return nodeFilter(nodes.Items, filters...), nil
 }
 
-func (s *state) NodesByVMNodeSelector(ctx context.Context) ([]corev1.Node, error) {
+func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
-	nodeSelector := s.vmClass.Current().Spec.NodeSelector
-	nodes := &corev1.NodeList{}
-	err := s.client.List(
-		ctx,
-		nodes,
-		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(nodeSelector.MatchLabels)})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list nodes: %w", err)
-	}
-	result := nodes.Items
-	var filter filterFunc
 
-	if len(nodeSelector.MatchExpressions) > 0 {
+	nodeSelector := s.vmClass.Current().Spec.NodeSelector
+
+	filters := []filterFunc{
+		func(node *corev1.Node) bool {
+			return !common.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
+		},
+	}
+
+	if me := nodeSelector.MatchExpressions; len(me) > 0 {
 		ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
-			NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: nodeSelector.MatchExpressions}},
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: me}},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create NodeSelector: %w", err)
 		}
-		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtered []corev1.Node
-			for _, node := range nodes {
-				if ns.Match(&node) {
-					filtered = append(filtered, node)
-				}
-			}
-			return filtered
-		}
+
+		filters = append(filters, func(node *corev1.Node) bool {
+			return !ns.Match(node)
+		})
 	}
-	if filter != nil {
-		result = filter(result)
-	}
-	return result, nil
+	return nodeFilter(nodes, filters...), nil
 }
