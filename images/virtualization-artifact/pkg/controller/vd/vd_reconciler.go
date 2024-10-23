@@ -237,16 +237,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
 	}
 
-	//viFromVDWatcher := watcher.NewVirtualImageWatcher()
-	//if err := viFromVDWatcher.Watch(mgr, ctr); err != nil {
-	//	return fmt.Errorf("error setting watch on VIs: %w", err)
-	//}
-	//
-	//cviFromVDWatcher := watcher.NewClusterVirtualImageWatcher()
-	//if err := cviFromVDWatcher.Watch(mgr, ctr); err != nil {
-	//	return fmt.Errorf("error setting watch on CVIs: %w", err)
-	//}
-
 	return nil
 }
 
