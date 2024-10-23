@@ -202,9 +202,11 @@ type VirtualMachineClassStatus struct {
 	// It is not displayed for the types: `Host`, `HostPassthrough`
 	//
 	// +kubebuilder:example={node-1, node-2}
-	AvailableNodes []string           `json:"availableNodes,omitempty"`
-	Conditions     []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller
+	AvailableNodes []string `json:"availableNodes,omitempty"`
+	// The maximum available amount for allocating CPU/Memory resources.
+	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
+	Conditions              []metav1.Condition  `json:"conditions,omitempty"`
+	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
