@@ -92,5 +92,5 @@ const (
 )
 
 type VirtualImagePersistentVolumeClaim struct {
-	StorageClass *string `json:"storageClass,omitempty"`
+	StorageClass *string `json:"storageClassName,omitempty"`
 }
