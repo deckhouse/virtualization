@@ -85,11 +85,8 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 		return false, err
 	}
 
-	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
-		return false, err
-	}
-	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
 	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}

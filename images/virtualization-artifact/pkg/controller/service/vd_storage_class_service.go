@@ -19,6 +19,8 @@ package service
 import (
 	"slices"
 
+	storev1 "k8s.io/api/storage/v1"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
@@ -32,7 +34,7 @@ func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSe
 	}
 }
 
-func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec *string, clusterDefaultStorageClassName string) (*string, error) {
+func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec *string, clusterDefaultStorageClass *storev1.StorageClass) (*string, error) {
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		return storageClassFromSpec, nil
 	}
@@ -45,12 +47,12 @@ func (svc *VirtualDiskStorageClassService) GetStorageClass(storageClassFromSpec 
 
 			return nil, ErrStorageClassNotAvailable
 		} else {
-			if clusterDefaultStorageClassName == "" {
+			if clusterDefaultStorageClass == nil || clusterDefaultStorageClass.Name == "" {
 				return nil, ErrDefaultStorageClassNotFound
 			}
 
-			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, clusterDefaultStorageClassName) {
-				return &clusterDefaultStorageClassName, nil
+			if slices.Contains(svc.storageClassSettings.AllowedStorageClassNames, clusterDefaultStorageClass.Name) {
+				return &clusterDefaultStorageClass.Name, nil
 			}
 
 			return nil, ErrStorageClassNotAvailable

@@ -19,6 +19,8 @@ package service
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	storev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
@@ -28,11 +30,11 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 	var (
 		service                    *VirtualDiskStorageClassService
 		storageClassSettings       config.VirtualDiskStorageClassSettings
-		clusterDefaultStorageClass string
+		clusterDefaultStorageClass *storev1.StorageClass
 	)
 
 	BeforeEach(func() {
-		clusterDefaultStorageClass = "default-cluster-storage"
+		clusterDefaultStorageClass = &storev1.StorageClass{ObjectMeta: metav1.ObjectMeta{Name: "default-cluster-storage"}}
 	})
 
 	Context("when settings are empty", func() {
@@ -64,7 +66,7 @@ var _ = Describe("VirtualDiskStorageClassService", func() {
 			storageClassSettings = config.VirtualDiskStorageClassSettings{}
 			service = NewVirtualDiskStorageClassService(storageClassSettings)
 			sc := ptr.To("requested-storage-class")
-			storageClass, err := service.GetStorageClass(sc, "")
+			storageClass, err := service.GetStorageClass(sc, nil)
 
 			Expect(err).To(BeNil())
 			Expect(storageClass).To(Equal(sc))
