@@ -574,7 +574,7 @@ spec:
   ...
   settings:
     virtualDisks:
-       `` allowedStorageClassNames:
+       allowedStorageClassNames:
        - sc-1
        - sc-2
        defaultStorageClassName: sc-1
