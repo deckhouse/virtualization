@@ -19,8 +19,9 @@ package conditions
 import (
 	"slices"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 // Deprecated: use direct SetCondition instead.
@@ -53,7 +54,7 @@ func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
 }
 
 func (m *Manager) Update(c metav1.Condition) {
-	meta.SetStatusCondition(&m.conds, c)
+	service.SetCondition(c, &m.conds)
 }
 
 func (m *Manager) Generate() []metav1.Condition {

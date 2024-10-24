@@ -80,7 +80,13 @@ func NewObjectRefDataSource(
 func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
@@ -239,7 +245,13 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {

@@ -58,7 +58,11 @@ func NewUploadDataSource(
 func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
-	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	condition := metav1.Condition{
+		Type:   cvicondition.ReadyType,
+		Status: metav1.ConditionUnknown,
+	}
+
 	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)

@@ -66,7 +66,13 @@ func NewHTTPDataSource(
 func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -168,7 +174,13 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)

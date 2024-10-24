@@ -43,12 +43,9 @@ func NewDatasourceReadyHandler(blank source.Handler, sources Sources) *Datasourc
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdcondition.DatasourceReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vdcondition.DatasourceReadyType,
+		Status: metav1.ConditionUnknown,
 	}
 
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
@@ -61,6 +58,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	}
 
 	var ds source.Handler
+	var ok bool
 	if vd.Spec.DataSource == nil {
 		ds = h.blank
 	} else {

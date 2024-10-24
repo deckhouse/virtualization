@@ -54,8 +54,6 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 
-	addAllUnknown(changed, vmcondition.TypeSizingPolicyMatched)
-
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
 	}

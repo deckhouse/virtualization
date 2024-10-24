@@ -54,10 +54,6 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeProvisioningReady); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
 	}

@@ -43,15 +43,7 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	readyCondition, ok := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	if !ok {
-		readyCondition = metav1.Condition{
-			Type:   cvicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-
-		service.SetCondition(readyCondition, &cvi.Status.Conditions)
-	}
+	readyCondition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 
 	if cvi.DeletionTimestamp != nil {
 		cvi.Status.Phase = virtv2.ImageTerminating
