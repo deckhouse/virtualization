@@ -38,13 +38,13 @@ func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 
 func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	if cvi.DeletionTimestamp != nil {
-		requeue, err := h.sources.CleanUp(ctx, cvi)
+		result, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		if requeue {
-			return reconcile.Result{Requeue: true}, nil
+		if !result.IsZero() {
+			return result, nil
 		}
 
 		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVICleanup)
