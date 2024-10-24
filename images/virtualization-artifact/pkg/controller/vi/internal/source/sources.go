@@ -20,22 +20,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Handler interface {
-	StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
-	StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
+	StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
 	Validate(ctx context.Context, vi *virtv2.VirtualImage) error
 }
@@ -80,7 +81,7 @@ func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, er
 
 type Cleaner interface {
 	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
-	CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
 }
 
 func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
@@ -91,47 +92,16 @@ func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, err
 	return false, nil
 }
 
-func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
+func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (reconcile.Result, error) {
 	if cc.ShouldCleanupSubResources(vi) {
 		return c.CleanUpSupplements(ctx, vi)
 	}
 
-	return false, nil
+	return reconcile.Result{}, nil
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready
-}
-
-func setPhaseConditionForImporterStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) (bool, error) {
-	return setPhaseConditionForPodStart(ready, phase, err, virtv2.ImageProvisioning, vicondition.Provisioning)
-}
-
-func setPhaseConditionForUploaderStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) (bool, error) {
-	return setPhaseConditionForPodStart(ready, phase, err, virtv2.ImagePending, vicondition.WaitForUserUpload)
-}
-
-func setPhaseConditionForPodStart(ready *metav1.Condition, phase *virtv2.ImagePhase, err error, okPhase virtv2.ImagePhase, okReason vicondition.ReadyReason) (bool, error) {
-	switch {
-	case err == nil:
-		*phase = okPhase
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = okReason
-		ready.Message = "DVCR Provisioner not found: create the new one."
-		return true, nil
-	case cc.ErrQuotaExceeded(err):
-		*phase = virtv2.ImageFailed
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = cvicondition.ProvisioningFailed
-		ready.Message = fmt.Sprintf("Quota exceeded: please configure the `importerResourceRequirements` field in the virtualization module configuration; %s.", err)
-		return false, nil
-	default:
-		*phase = virtv2.ImageFailed
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = cvicondition.ProvisioningFailed
-		ready.Message = fmt.Sprintf("Unexpected error: %s.", err)
-		return false, err
-	}
 }
 
 type CheckImportProcess interface {
@@ -256,4 +226,20 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, condi
 	default:
 		return false, err
 	}
+}
+
+const retryPeriod = 1
+
+func setQuotaExceededPhaseCondition(condition *metav1.Condition, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+	*phase = virtv2.ImageFailed
+	condition.Status = metav1.ConditionFalse
+	condition.Reason = vicondition.ProvisioningFailed
+
+	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
+		condition.Message = fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err)
+		return reconcile.Result{}
+	}
+
+	condition.Message = fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod)
+	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
