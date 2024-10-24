@@ -58,15 +58,15 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	}
 
 	cpuType := current.Spec.CPU.Type
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
+
 	if cpuType == virtv2.CPUTypeHostPassthrough || cpuType == virtv2.CPUTypeHost {
-		mgr.Update(conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).
+		cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).
 			Generation(current.GetGeneration()).
 			Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
 			Reason(vmclasscondition.ReasonDiscoverySkip).
-			Status(metav1.ConditionFalse).Condition())
-		changed.Status.Conditions = mgr.Generate()
+			Status(metav1.ConditionFalse)
+
+		conditions.SetCondition(cb, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -79,16 +79,19 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		availableNodes[i] = n.GetName()
 	}
 
-	var featuresEnabled []string
+	var (
+		featuresEnabled    []string
+		featuresNotEnabled []string
+	)
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
+		if changed.Status.Phase == virtv2.ClassPhaseReady {
+			featuresEnabled = changed.Status.CpuFeatures.Enabled
+			break
+		}
 		featuresEnabled = h.discoveryCommonFeatures(nodes)
 	case virtv2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
-	}
-
-	var featuresNotEnabled []string
-	if cpuType == virtv2.CPUTypeDiscovery || cpuType == virtv2.CPUTypeFeatures {
 		selectedNodes, err := s.NodesByVMNodeSelector(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -116,13 +119,12 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			Status(metav1.ConditionFalse)
 	}
 
-	mgr.Update(cb.Condition())
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 
 	sort.Strings(availableNodes)
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
-	changed.Status.Conditions = mgr.Generate()
 	changed.Status.AvailableNodes = availableNodes
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
 		Enabled:          featuresEnabled,
