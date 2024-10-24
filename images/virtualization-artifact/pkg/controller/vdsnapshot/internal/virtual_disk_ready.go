@@ -40,12 +40,9 @@ func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter) *Virtua
 }
 
 func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdscondition.VirtualDiskReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vdscondition.VirtualDiskReadyType,
+		Status: metav1.ConditionUnknown,
 	}
 
 	defer func() { service.SetCondition(condition, &vdSnapshot.Status.Conditions) }()

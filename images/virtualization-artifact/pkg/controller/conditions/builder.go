@@ -17,8 +17,9 @@ limitations under the License.
 package conditions
 
 import (
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 type Conder interface {
@@ -36,7 +37,7 @@ func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
 }
 
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
-	meta.SetStatusCondition(conditions, c.Condition())
+	service.SetCondition(c.Condition(), conditions)
 }
 
 func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {

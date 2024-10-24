@@ -38,12 +38,9 @@ func NewSnapshottingHandler(diskService *service.DiskService) *SnapshottingHandl
 }
 
 func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdcondition.SnapshottingType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vdcondition.SnapshottingType,
+		Status: metav1.ConditionUnknown,
 	}
 
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()

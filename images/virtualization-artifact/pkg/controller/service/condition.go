@@ -37,7 +37,11 @@ func GetCondition(condType string, conds []metav1.Condition) (metav1.Condition, 
 }
 
 func SetCondition(cond metav1.Condition, conditions *[]metav1.Condition) {
-	meta.SetStatusCondition(conditions, cond)
+	if cond.Status != metav1.ConditionUnknown {
+		meta.SetStatusCondition(conditions, cond)
+	} else {
+		meta.RemoveStatusCondition(conditions, cond.Type)
+	}
 }
 
 func CapitalizeFirstLetter(s string) string {

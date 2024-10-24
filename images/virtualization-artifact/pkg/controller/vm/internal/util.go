@@ -26,10 +26,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func isDeletion(vm *virtv2.VirtualMachine) bool {
@@ -37,21 +35,6 @@ func isDeletion(vm *virtv2.VirtualMachine) bool {
 }
 
 type updaterProtection func(p *service.ProtectionService) func(ctx context.Context, objs ...client.Object) error
-
-func addAllUnknown(vm *virtv2.VirtualMachine, conds ...vmcondition.Type) (update bool) {
-	for _, cond := range conds {
-		if conditions.HasCondition(cond, vm.Status.Conditions) {
-			continue
-		}
-		cb := conditions.NewConditionBuilder(cond).
-			Generation(vm.GetGeneration()).
-			Reason(vmcondition.ReasonUnknown).
-			Status(metav1.ConditionUnknown)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		update = true
-	}
-	return
-}
 
 func conditionStatus(status string) metav1.ConditionStatus {
 	status = strings.ToLower(status)

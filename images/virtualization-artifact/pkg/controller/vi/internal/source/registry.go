@@ -74,7 +74,13 @@ func NewRegistryDataSource(
 func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, registryDataSource)
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -238,7 +244,13 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)

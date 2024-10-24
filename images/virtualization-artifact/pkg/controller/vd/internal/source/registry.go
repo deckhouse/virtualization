@@ -71,7 +71,13 @@ func NewRegistryDataSource(
 func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, registryDataSource)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	condition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vdcondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
 	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)

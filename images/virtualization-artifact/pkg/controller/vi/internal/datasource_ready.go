@@ -42,12 +42,9 @@ func NewDatasourceReadyHandler(sources *source.Sources) *DatasourceReadyHandler 
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vicondition.DatasourceReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.DatasourceReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vicondition.DatasourceReadyType,
+		Status: metav1.ConditionUnknown,
 	}
 
 	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()

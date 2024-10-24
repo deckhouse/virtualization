@@ -51,11 +51,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
-			Type:   vdcondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 		}
-
-		service.SetCondition(readyCondition, &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {

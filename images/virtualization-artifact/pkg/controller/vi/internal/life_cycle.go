@@ -46,11 +46,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	readyCondition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
-			Type:   vicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 		}
-
-		service.SetCondition(readyCondition, &vi.Status.Conditions)
 	}
 
 	if vi.DeletionTimestamp != nil {

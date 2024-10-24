@@ -37,13 +37,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-var lifeCycleConditions = []vmcondition.Type{
-	vmcondition.TypeRunning,
-	vmcondition.TypeMigrating,
-	vmcondition.TypeMigratable,
-	vmcondition.TypePodStarted,
-}
-
 const nameLifeCycleHandler = "LifeCycleHandler"
 
 func NewLifeCycleHandler(client client.Client, recorder record.EventRecorder) *LifeCycleHandler {
@@ -80,11 +73,6 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	if isDeletion(current) {
 		changed.Status.Phase = virtv2.MachineTerminating
 		return reconcile.Result{}, nil
-	}
-
-	if updated := addAllUnknown(changed, lifeCycleConditions...); updated || changed.Status.Phase == "" {
-		changed.Status.Phase = virtv2.MachinePending
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	kvvm, err := s.KVVM(ctx)
