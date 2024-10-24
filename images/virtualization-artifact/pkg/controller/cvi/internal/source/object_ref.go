@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
@@ -68,7 +69,7 @@ func NewObjectRefDataSource(
 	}
 }
 
-func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
@@ -79,11 +80,11 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
 		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
-			return false, fmt.Errorf("unable to get VI %s: %w", viKey, err)
+			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
 
 		if vi == nil {
-			return false, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
+			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		if vi.Spec.Storage == virtv2.StorageKubernetes {
@@ -93,11 +94,11 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		vdKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
 		vd, err := helper.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
 		if err != nil {
-			return false, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
+			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
 		}
 
 		if vd == nil {
-			return false, fmt.Errorf("VD object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
+			return reconcile.Result{}, fmt.Errorf("VD object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		return ds.vdSyncer.Sync(ctx, cvi, vd, &condition)
@@ -106,7 +107,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -122,7 +123,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		// Unprotect import time supplements to delete them later.
 		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		return CleanUp(ctx, cvi, ds)
@@ -134,25 +135,34 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		var envSettings *importer.Settings
 		envSettings, err = ds.getEnvSettings(cvi, supgen, dvcrDataSource)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
-		var requeue bool
-		requeue, err = setPhaseConditionForImporterStart(&condition, &cvi.Status.Phase, err)
-		if err != nil {
-			return false, err
+		switch {
+		case err == nil:
+			// OK.
+		case common.ErrQuotaExceeded(err):
+			return setQuotaExceededPhaseCondition(&condition, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+		default:
+			setPhaseConditionToFailed(&condition, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, err
 		}
+
+		cvi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = cvicondition.Provisioning
+		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
-		return requeue, nil
+		return reconcile.Result{Requeue: true}, nil
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -163,9 +173,9 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -178,14 +188,14 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		if !dvcrDataSource.IsReady() {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = cvicondition.ProvisioningFailed
 			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
-			return false, nil
+			return reconcile.Result{}, nil
 		}
 
 		cvi.Status.Size = dvcrDataSource.GetSize()
@@ -205,14 +215,14 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -226,28 +236,28 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
-	return true, nil
+	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	viRefRequeue, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+	viRefResult, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
-	vdRefRequeue, err := ds.vdSyncer.CleanUp(ctx, cvi)
+	vdRefResult, err := ds.vdSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
-	return objRefRequeue || vdRefRequeue || viRefRequeue, nil
+	return service.MergeResults(viRefResult, vdRefResult, reconcile.Result{Requeue: objRefRequeue}), nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
