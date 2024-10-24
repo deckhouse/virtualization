@@ -92,11 +92,8 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		return false, err
 	}
 
-	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
-		return false, err
-	}
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
 	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}

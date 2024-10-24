@@ -92,10 +92,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	}
 
 	clusterDefaultSC, err := ds.diskService.GetDefaultStorageClass(ctx)
-	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
-		return false, err
-	}
-	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
 	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}

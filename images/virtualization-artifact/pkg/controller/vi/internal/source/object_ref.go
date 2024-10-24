@@ -86,7 +86,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC.Name)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
 	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}
