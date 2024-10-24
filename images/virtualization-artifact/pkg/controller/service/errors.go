@@ -22,6 +22,7 @@ var (
 	ErrStorageClassNotFound        = errors.New("storage class not found")
 	ErrStorageProfileNotFound      = errors.New("storage profile not found")
 	ErrDefaultStorageClassNotFound = errors.New("default storage class not found")
+	ErrStorageClassNotAvailable    = errors.New("storage class is not available")
 	ErrDataVolumeNotRunning        = errors.New("pvc importer is not running")
 )
 

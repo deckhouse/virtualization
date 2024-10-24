@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -40,11 +39,11 @@ import (
 )
 
 type HTTPDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	importerService     Importer
+	dvcrSettings        *dvcr.Settings
+	diskService         *service.DiskService
+	storageClassService *service.VirtualImageStorageClassService
 }
 
 func NewHTTPDataSource(
@@ -52,14 +51,14 @@ func NewHTTPDataSource(
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:         statService,
+		importerService:     importerService,
+		dvcrSettings:        dvcrSettings,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -185,6 +184,12 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		return false, err
 	}
 
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
+		return false, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Image provisioning finished: clean up")
@@ -279,7 +284,8 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+
+		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return false, err
 		}

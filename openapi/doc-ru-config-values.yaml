@@ -91,13 +91,37 @@ properties:
   virtualImages:
     type: object
     description: |
-      Настройка класса хранения для виртуальных образов. Если это значение не указано,
-      будет использоваться класс хранения по умолчанию.
+      Настройка класса хранения для виртуальных образов на PVC.
     properties:
       storageClassName:
         type: string
         description: |
-          Указывает имя класса хранения, который будет использоваться для виртуальных образов.
+          Поскольку этот параметр был устаревшим, используйте параметр `defaultStorageClassName`.
+      defaultStorageClassName:
+        type: string
+        description: |
+          Указывает имя класса хранения по умолчанию, который будет использоваться для виртуальных образов на PVC.
+      allowedStorageClassNames:
+        type: array
+        description: |
+          Указывает список разрешенных классов хранения, которые могут использоваться для виртуальных образов на PVC.
+        items:
+          type: string
+  virtualDisks:
+    type: object
+    description: |
+      Настройка класса хранения для виртуальных дисков.
+    properties:
+      defaultStorageClassName:
+        type: string
+        description: |
+          Указывает имя класса хранения по умолчанию, который будет использоваться для виртуальных дисков.
+      allowedStorageClassNames:
+        type: array
+        description: |
+          Указывает список разрешенных классов хранения, которые могут использоваться для виртуальных дисков.
+        items:
+          type: string
   logLevel:
     type: string
     description: |

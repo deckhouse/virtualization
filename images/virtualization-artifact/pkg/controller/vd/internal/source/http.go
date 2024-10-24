@@ -42,10 +42,11 @@ import (
 const httpDataSource = "http"
 
 type HTTPDataSource struct {
-	statService     *service.StatService
-	importerService *service.ImporterService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
+	statService         *service.StatService
+	importerService     *service.ImporterService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewHTTPDataSource(
@@ -53,12 +54,14 @@ func NewHTTPDataSource(
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
-		statService:     statService,
-		importerService: importerService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
+		statService:         statService,
+		importerService:     importerService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -79,6 +82,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		return false, err
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, &condition); err != nil || updated {
 		return false, err
 	}
 
@@ -197,7 +206,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return false, err
 		}

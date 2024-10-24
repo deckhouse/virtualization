@@ -127,6 +127,25 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
+func setConditionFromStorageClassError(err error, condition *metav1.Condition) (bool, error) {
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		return true, nil
+	case errors.Is(err, service.ErrStorageClassNotAvailable):
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.ProvisioningFailed
+		condition.Message = "Provided StorageClass not available."
+		return true, nil
+	default:
+		return false, err
+	}
+}
+
 func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condition *metav1.Condition) (bool, error) {
 	switch {
 	case err == nil:

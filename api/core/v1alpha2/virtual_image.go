@@ -84,10 +84,13 @@ const (
 type StorageType string
 
 const (
-	StorageContainerRegistry StorageType = "ContainerRegistry"
-	StorageKubernetes        StorageType = "Kubernetes"
+	StorageContainerRegistry     StorageType = "ContainerRegistry"
+	StoragePersistentVolumeClaim StorageType = "PersistentVolumeClaim"
+
+	// TODO: remove storage type Kubernetes in 2025
+	StorageKubernetes StorageType = "Kubernetes"
 )
 
 type VirtualImagePersistentVolumeClaim struct {
-	StorageClass *string `json:"storageClass,omitempty"`
+	StorageClass *string `json:"storageClassName,omitempty"`
 }
