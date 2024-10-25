@@ -22,51 +22,58 @@ import (
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Validator struct {
-	attacher *service.AttachmentService
-	logger   *slog.Logger
+type VirtualMachineBlockDeviceAttachmentValidator interface {
+	ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
 }
 
-func NewValidator(attacher *service.AttachmentService, logger *slog.Logger) *Validator {
+type Validator struct {
+	validators []VirtualMachineBlockDeviceAttachmentValidator
+	log        *slog.Logger
+}
+
+func NewValidator(attachmentService *service.AttachmentService, client client.Client, log *slog.Logger) *Validator {
 	return &Validator{
-		attacher: attacher,
-		logger:   logger.With("webhook", "validator"),
+		log: log.With("webhook", "validation"),
+		validators: []VirtualMachineBlockDeviceAttachmentValidator{
+			validators.NewSpecMutateValidator(),
+			validators.NewAttachmentConflictValidator(attachmentService, log),
+			validators.NewVMConnectLimiterValidator(client, log),
+		},
 	}
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vmbda, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
 	if !ok {
-		return nil, fmt.Errorf("expected a VirtualMachineBlockDeviceAttachment but got a %T", obj)
+		return nil, fmt.Errorf("expected a new VirtualMachineBlockDeviceAttachment but got a %T", obj)
 	}
 
-	isConflicted, conflictWithName, err := v.attacher.IsConflictedAttachment(ctx, vmbda)
-	if err != nil {
-		v.logger.Error("Failed to validate a VirtualMachineBlockDeviceAttachment creation", "err", err)
-		return nil, nil
+	var warnings admission.Warnings
+
+	for _, validator := range v.validators {
+		warn, err := validator.ValidateCreate(ctx, vmbda)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, warn...)
 	}
 
-	if isConflicted {
-		return nil, fmt.Errorf(
-			"another VirtualMachineBlockDeviceAttachment %s/%s already exists "+
-				"with the same block device %s for hot-plugging",
-			vmbda.Namespace, conflictWithName, vmbda.Spec.BlockDeviceRef.Name,
-		)
-	}
-
-	return nil, nil
+	return warnings, nil
 }
 
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldVMBDA, ok := oldObj.(*virtv2.VirtualMachineBlockDeviceAttachment)
 	if !ok {
-		return nil, fmt.Errorf("expected an old VirtualMachineBlockDeviceAttachment but got a %T", newObj)
+		return nil, fmt.Errorf("expected an old VirtualMachineBlockDeviceAttachment but got a %T", oldObj)
 	}
 
 	newVMBDA, ok := newObj.(*virtv2.VirtualMachineBlockDeviceAttachment)
@@ -74,17 +81,21 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, fmt.Errorf("expected a new VirtualMachineBlockDeviceAttachment but got a %T", newObj)
 	}
 
-	v.logger.Info("Validating VirtualMachineBlockDeviceAttachment")
+	var warnings admission.Warnings
 
-	if oldVMBDA.Generation != newVMBDA.Generation {
-		return nil, fmt.Errorf("VirtualMachineBlockDeviceAttachment is an idempotent resource: specification changes are not available")
+	for _, validator := range v.validators {
+		warn, err := validator.ValidateUpdate(ctx, oldVMBDA, newVMBDA)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, warn...)
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
 	return nil, nil
 }
