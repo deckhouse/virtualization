@@ -17,42 +17,6 @@ limitations under the License.
 package v1alpha2
 
 const (
-	// ReasonErrUnknownState is event reason that VMI has unexpected state
-	ReasonErrUnknownState = "UnknownState"
-
-	// ReasonErrWrongPVCSize is event reason that PVC has wrong size
-	ReasonErrWrongPVCSize = "WrongPVCSize"
-
-	// ReasonErrImportFailed is event reason that importer/uploader Pod is failed
-	ReasonErrImportFailed = "ImportFailed"
-
-	// ReasonErrGetProgressFailed is event reason about the failure of getting progress.
-	ReasonErrGetProgressFailed = "GetProgressFailed"
-
-	// ReasonIpAddressNotAvailable is event reason that VM cannot use defined ip address.
-	ReasonIpAddressNotAvailable = "IpAddressNotAvailable"
-
-	// ReasonIpAddressNotAssigned is event reason that Ip address is not assigned in the guest VM.
-	ReasonIpAddressNotAssigned = "IpAddressNotAssigned"
-
-	// ReasonCPUModelNotFound is event reason that defined cpu model not found.
-	ReasonCPUModelNotFound = "CPUModelNotFound"
-
-	// ReasonImportSucceeded is event reason that the import is successfully completed
-	ReasonImportSucceeded = "ImportSucceeded"
-
-	// ReasonImportSucceededToPVC is event reason that the import is successfully completed to PVC
-	ReasonImportSucceededToPVC = "ImportSucceededToPVC"
-
-	// ReasonHotplugPostponed is event reason that disk hotplug is not possible at the moment.
-	ReasonHotplugPostponed = "HotplugPostponed"
-
-	// ReasonVMWaitForBlockDevices is event reason that block devices used by VM are not ready yet.
-	ReasonVMWaitForBlockDevices = "WaitForBlockDevices"
-
-	// ReasonUnknownHotPluggedVolume is event reason that volume was hot plugged to VirtualMachineInstance, but it is not a VirtualDisk.
-	ReasonUnknownHotPluggedVolume = "UnknownHotPluggedVolume"
-
 	// ReasonVDAlreadyInUse is event reason that VirtualDisk was not attached to VirtualMachine, because VirtualDisk attached to another VirtualMachine.
 	ReasonVDAlreadyInUse = "VirtualDiskAlreadyInUse"
 	// ReasonVMChangesApplied is event reason that changes applied from VM to underlying KVVM.
@@ -64,14 +28,14 @@ const (
 	// ReasonVMLastAppliedSpecInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecInvalid = "VMLastAppliedSpecInvalid"
 
-	// ReasonErrUploaderWaitDurationExpired is event reason that uploading time expired.
-	ReasonErrUploaderWaitDurationExpired = "UploaderWaitDurationExpired"
-
 	// ReasonErrVmNotSynced is event reason that vm is not synced.
 	ReasonErrVmNotSynced = "VirtualMachineNotSynced"
 
-	// ReasonErrVMOPNotPermitted is event reason that vmop is not permitted.
-	ReasonErrVMOPNotPermitted = "VirtualMachineOperationNotPermitted"
+	// ReasonErrVmSynced is event reason that vm is synced.
+	ReasonErrVmSynced = "VirtualMachineSynced"
+
+	// ReasonErrRestartAwaitingChanges is event reason indicating that the vm has pending changes requiring a restart.
+	ReasonErrRestartAwaitingChanges = "RestartAwaitingChanges"
 
 	// ReasonErrVMOPFailed is event reason that operation is failed
 	ReasonErrVMOPFailed = "VirtualMachineOperationFailed"
