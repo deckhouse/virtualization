@@ -203,7 +203,8 @@ type VirtualMachineClassStatus struct {
 	//
 	// +kubebuilder:example={node-1, node-2}
 	AvailableNodes []string `json:"availableNodes,omitempty"`
-	// The maximum available amount for allocating CPU/Memory resources.
+	// The maximum amount of free CPU and Memory resources observed among all available nodes.
+	// +kubebuilder:example={"maxAllocatableResources: {\"cpu\": 1, \"memory\": \"10Gi\"}"}
 	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
 	Conditions              []metav1.Condition  `json:"conditions,omitempty"`
 	// The generation last processed by the controller.

@@ -3523,7 +3523,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 					},
 					"maxAllocatableResources": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The maximum available amount for allocating CPU/Memory resources.",
+							Description: "The maximum amount of free CPU and Memory resources observed among all available nodes.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
