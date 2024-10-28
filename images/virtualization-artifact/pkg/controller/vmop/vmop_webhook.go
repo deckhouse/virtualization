@@ -43,7 +43,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("expected a new VirtualMachineOperation but got a %T", obj)
 	}
 
-	//TODO: Delete me after v0.15
+	// TODO: Delete me after v0.15
 	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
 		return admission.Warnings{"The Migrate type is deprecated"}, nil
 	}
