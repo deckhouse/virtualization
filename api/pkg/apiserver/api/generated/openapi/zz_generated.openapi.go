@@ -3447,7 +3447,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref common.
 					},
 					"tolerations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "[By analogy ](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), as in the path parameter `spec.tolerations` in Kubernetes. Will be added to the tolerations in the VM. The tolerations from the VM can grind these.",
+							Description: "Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/). These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
