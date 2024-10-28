@@ -22,24 +22,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func isDeletion(class *virtv2.VirtualMachineClass) bool {
 	return class == nil || !class.GetDeletionTimestamp().IsZero()
 }
 
-func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
-	//nolint:staticcheck
-	mgr := conditions.NewManager(class.Status.Conditions)
-	for _, c := range conds {
-		if add := mgr.Add(conditions.NewConditionBuilder(c).
-			Generation(class.GetGeneration()).
-			Reason(vmclasscondition.ReasonUnknown).
-			Status(metav1.ConditionUnknown).
-			Condition()); add {
-			update = true
+func addAllUnknown(vm *virtv2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
+	for _, cond := range conds {
+		if conditions.HasCondition(cond, vm.Status.Conditions) {
+			continue
 		}
+		cb := conditions.NewConditionBuilder(cond).
+			Generation(vm.GetGeneration()).
+			Reason(vmcondition.ReasonUnknown).
+			Status(metav1.ConditionUnknown)
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		update = true
 	}
-	class.Status.Conditions = mgr.Generate()
 	return
 }
