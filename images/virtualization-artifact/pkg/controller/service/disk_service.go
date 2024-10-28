@@ -428,6 +428,14 @@ func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace stri
 	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &vsv1.VolumeSnapshot{})
 }
 
+func (s DiskService) GetVirtualImage(ctx context.Context, name, namespace string) (*virtv2.VirtualImage, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualImage{})
+}
+
+func (s DiskService) GetClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
+	return helper.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &virtv2.ClusterVirtualImage{})
+}
+
 func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]virtv2.VirtualDiskSnapshot, error) {
 	var vdSnapshots virtv2.VirtualDiskSnapshotList
 	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
