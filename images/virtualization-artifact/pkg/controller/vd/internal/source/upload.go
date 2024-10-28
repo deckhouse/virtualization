@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
@@ -62,7 +63,7 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
 	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -71,23 +72,23 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	ing, err := ds.uploaderService.GetIngress(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -99,18 +100,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		// Unprotect upload time supplements to delete them later.
 		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		err = ds.diskService.Unprotect(ctx, dv)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
@@ -119,17 +120,26 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 	case pod == nil || svc == nil || ing == nil:
 		log.Info("Start import to DVCR")
 
-		envSettings := ds.getEnvSettings(vd, supgen)
-		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
-		var requeue bool
-		requeue, err = setPhaseConditionForUploaderStart(&condition, &vd.Status.Phase, err)
-		if err != nil {
-			return false, err
-		}
-
 		vd.Status.Progress = "0%"
 
-		return requeue, nil
+		envSettings := ds.getEnvSettings(vd, supgen)
+		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
+		switch {
+		case err == nil:
+			// OK.
+		case common.ErrQuotaExceeded(err):
+			return setQuotaExceededPhaseCondition(&condition, &vd.Status.Phase, err, vd.CreationTimestamp), nil
+		default:
+			setPhaseConditionToFailed(&condition, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, err
+		}
+
+		vd.Status.Phase = virtv2.DiskPending
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = vdcondition.WaitForUserUpload
+		condition.Message = "DVCR Provisioner not found: create the new one."
+
+		return reconcile.Result{Requeue: true}, nil
 	case !common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -140,14 +150,14 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -172,7 +182,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 				condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
 			}
 
-			return true, nil
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
@@ -187,7 +197,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 	case dv == nil:
 		log.Info("Start import to PVC")
@@ -201,9 +211,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -212,7 +222,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 
 		if imageformat.IsISO(ds.statService.GetFormat(pod)) {
 			setPhaseConditionToFailed(&condition, &vd.Status.Phase, ErrISOSourceNotSupported)
-			return false, nil
+			return reconcile.Result{}, nil
 		}
 
 		var diskSize resource.Quantity
@@ -221,17 +231,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
 
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
-				return false, nil
+				return reconcile.Result{}, nil
 			}
 
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.Start(ctx, diskSize, &vd.Status.StorageClassName, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		vd.Status.Phase = virtv2.DiskProvisioning
@@ -239,13 +249,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC Provisioner not found: create the new one."
 
-		return true, nil
+		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.Provisioning
 		condition.Message = "PVC not found: waiting for creation."
-		return true, nil
+		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
@@ -268,19 +278,19 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bo
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
-			return false, err
+			return reconcile.Result{}, err
 		}
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
-		return false, nil
+		return reconcile.Result{}, nil
 	}
 
-	return true, nil
+	return reconcile.Result{Requeue: true}, nil
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
@@ -299,20 +309,20 @@ func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) 
 	return uploaderRequeue || diskRequeue, nil
 }
 
-func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
 	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
-	return uploaderRequeue || diskRequeue, nil
+	return reconcile.Result{Requeue: uploaderRequeue || diskRequeue}, nil
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {

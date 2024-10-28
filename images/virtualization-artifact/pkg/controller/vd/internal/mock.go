@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sync"
 )
 
@@ -46,7 +47,7 @@ var _ Handler = &HandlerMock{}
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
-//			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 //				panic("mock out the Sync method")
 //			},
 //			ValidateFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) error {
@@ -66,7 +67,7 @@ type HandlerMock struct {
 	NameFunc func() string
 
 	// SyncFunc mocks the Sync method.
-	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 
 	// ValidateFunc mocks the Validate method.
 	ValidateFunc func(ctx context.Context, vd *virtv2.VirtualDisk) error
@@ -168,7 +169,7 @@ func (mock *HandlerMock) NameCalls() []struct {
 }
 
 // Sync calls SyncFunc.
-func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	if mock.SyncFunc == nil {
 		panic("HandlerMock.SyncFunc: method is nil but Handler.Sync was just called")
 	}
