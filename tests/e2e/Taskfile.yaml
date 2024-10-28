@@ -3,7 +3,6 @@ version: "3"
 silent: true
 
 vars:
-  E2E_CLUSTERTRANSPORT_KUBECONFIG: '{{ .E2E_CLUSTERTRANSPORT_KUBECONFIG | default "$HOME/.kube/config" }}'
   GINKGO_VERSION: "2.20.0"
   VERSION: "v1.0.0"
 
@@ -37,7 +36,6 @@ tasks:
     deps:
       - ginkgo
     cmds:
-      - export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
       - ginkgo --focus "Virtualization resources" -v
 
   run_local:
@@ -71,7 +69,6 @@ tasks:
     cmds:
       - |
         {{if .TEST }}
-          export E2E_CLUSTERTRANSPORT_KUBECONFIG={{.E2E_CLUSTERTRANSPORT_KUBECONFIG}}
           ginkgo --focus "{{ .TEST }}" -v
         {{else}}
           echo "Specify test to run"
@@ -79,7 +76,7 @@ tasks:
         {{end}}
 
   fix:ssh_key_perm:
-    desc: "Check and fix rights for ssh keys"
+    desc: "Check and fix permissions for ssh keys"
     cmds:
       - |
         ID_ED=testdata/vm/sshkeys/id_ed
