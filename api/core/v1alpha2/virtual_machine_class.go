@@ -61,6 +61,9 @@ type VirtualMachineClassList struct {
 
 type VirtualMachineClassSpec struct {
 	NodeSelector NodeSelector `json:"nodeSelector,omitempty"`
+	// Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+	// These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
 	CPU            CPU            `json:"cpu"`
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
