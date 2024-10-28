@@ -23,8 +23,40 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
+
+func AssignIPToVMIP(name string) error {
+	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", name)
+	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
+	if err != nil {
+		return fmt.Errorf("%s\n%s", assignErr, err)
+	}
+	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
+	err = MergePatchResource(kc.ResourceVMIP, name, patch)
+	if err != nil {
+		return fmt.Errorf("%s\n%s", assignErr, err)
+	}
+	vmip := virtv2.VirtualMachineIPAddress{}
+	err = GetObject(kc.ResourceVMIP, name, &vmip, kc.GetOptions{
+		Namespace: conf.Namespace,
+	})
+	if err != nil {
+		return fmt.Errorf("%s\n%s", assignErr, err)
+	}
+	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
+	waitOpts := kc.WaitOptions{
+		Namespace: conf.Namespace,
+		For:       jsonPath,
+		Timeout:   30,
+	}
+	res := kubectl.WaitResources(kc.ResourceVMIP, waitOpts, name)
+	if res.Error() != nil {
+		return fmt.Errorf("%s\n%s", assignErr, res.StdErr())
+	}
+	return nil
+}
 
 var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 	var (
@@ -74,11 +106,10 @@ var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
 
 	Context("When virtual machines IP addresses are applied:", func() {
 		It("patches custom VMIP with unassigned address", func() {
-			unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
-			Expect(err).NotTo(HaveOccurred())
-			vmipMetadataName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
-			mergePatch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
-			MergePatchResource(kc.ResourceVMIP, vmipMetadataName, mergePatch)
+			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
+			Eventually(func() error {
+				return AssignIPToVMIP(vmipName)
+			}).Should(Succeed())
 		})
 
 		It("checks VMIPs phases", func() {
