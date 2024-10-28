@@ -37,10 +37,18 @@ type Validator struct {
 	log *slog.Logger
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	vmop, ok := obj.(*v1alpha2.VirtualMachineOperation)
+	if !ok {
+		return nil, fmt.Errorf("expected a new VirtualMachineOperation but got a %T", obj)
+	}
+
+	//TODO: Delete me after v0.15
+	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
+		return admission.Warnings{"The Migrate type is deprecated"}, nil
+	}
+
+	return admission.Warnings{}, nil
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
