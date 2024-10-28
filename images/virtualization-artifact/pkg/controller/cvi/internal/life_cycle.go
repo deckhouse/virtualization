@@ -85,10 +85,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", cvi.Spec.DataSource.Type)
 	}
 
-	requeue, err := ds.Sync(ctx, cvi)
+	result, err := ds.Sync(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{Requeue: requeue}, nil
+	return result, nil
 }

@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -55,7 +56,7 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition := metav1.Condition{
@@ -68,15 +69,15 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	svc, err := ds.uploaderService.GetService(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 	ing, err := ds.uploaderService.GetIngress(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -92,7 +93,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		// Unprotect upload time supplements to delete them later.
 		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		return CleanUp(ctx, cvi, ds)
@@ -103,15 +104,24 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	case pod == nil || svc == nil || ing == nil:
 		envSettings := ds.getEnvSettings(cvi, supgen)
 		err = ds.uploaderService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
-		var requeue bool
-		requeue, err = setPhaseConditionForUploaderStart(&condition, &cvi.Status.Phase, err)
-		if err != nil {
-			return false, err
+		switch {
+		case err == nil:
+			// OK.
+		case common.ErrQuotaExceeded(err):
+			return setQuotaExceededPhaseCondition(&condition, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+		default:
+			setPhaseConditionToFailed(&condition, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, err
 		}
+
+		cvi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = cvicondition.Provisioning
+		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		log.Info("Create uploader pod...", "progress", cvi.Status.Progress, "pod.phase", nil)
 
-		return requeue, nil
+		return reconcile.Result{Requeue: true}, nil
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -122,9 +132,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -151,14 +161,14 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -173,7 +183,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
@@ -200,18 +210,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
 
-	return true, nil
+	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
-	return requeue, nil
+	return reconcile.Result{Requeue: requeue}, nil
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualImage) error {

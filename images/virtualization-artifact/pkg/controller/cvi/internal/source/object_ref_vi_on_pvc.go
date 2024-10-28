@@ -19,8 +19,10 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
@@ -49,13 +51,13 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, dvcrSettings *dvcr.
 	}
 }
 
-func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
+func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, condition *metav1.Condition) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -70,7 +72,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		return CleanUp(ctx, cvi, ds)
@@ -87,16 +89,24 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, viRef.Status.Target.PersistentVolumeClaim, viRef.Namespace)
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)
-
-		var requeue bool
-		requeue, err = setPhaseConditionForImporterStart(condition, &cvi.Status.Phase, err)
-		if err != nil {
-			return false, err
+		switch {
+		case err == nil:
+			// OK.
+		case common.ErrQuotaExceeded(err):
+			return setQuotaExceededPhaseCondition(condition, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+		default:
+			setPhaseConditionToFailed(condition, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, err
 		}
+
+		cvi.Status.Phase = virtv2.ImageProvisioning
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = cvicondition.Provisioning
+		condition.Message = "DVCR Provisioner not found: create the new one."
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
-		return requeue, nil
+		return reconcile.Result{Requeue: true}, nil
 	case common.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -107,9 +117,9 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
@@ -135,20 +145,20 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningNotStarted
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
 				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
-				return false, nil
+				return reconcile.Result{}, nil
 			default:
-				return false, err
+				return reconcile.Result{}, err
 			}
 		}
 
 		err = ds.importerService.Protect(ctx, pod)
 		if err != nil {
-			return false, err
+			return reconcile.Result{}, err
 		}
 
 		condition.Status = metav1.ConditionFalse
@@ -162,16 +172,16 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
-	return true, nil
+	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	importerRequeue, err := ds.importerService.DeletePod(ctx, cvi, controllerName)
 	if err != nil {
-		return false, err
+		return reconcile.Result{}, err
 	}
 
-	return importerRequeue, nil
+	return reconcile.Result{Requeue: importerRequeue}, nil
 }
 
 func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
