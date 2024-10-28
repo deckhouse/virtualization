@@ -45,7 +45,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	// TODO: Delete me after v0.15
 	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
-		return admission.Warnings{"The Migrate type is deprecated"}, nil
+		return admission.Warnings{"The Migrate type is deprecated, consider using Evict operation"}, nil
 	}
 
 	return admission.Warnings{}, nil
