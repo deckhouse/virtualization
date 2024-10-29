@@ -16,47 +16,60 @@ tasks:
   ginkgo:
     cmds:
       - |
+        if ! which ginkgo >/dev/null ; then
+          echo "Ginkgo not found or not in the PATH. Install from github or run go install github.com/onsi/ginkgo/v2/ginkgo@v{{ .GINKGO_VERSION }}"
+          exit 1
+        fi
         v=($(ginkgo version 2>/dev/null))
         if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then
-          go install "github.com/onsi/ginkgo/v2/ginkgo@v{{ .GINKGO_VERSION }}" ;
+          echo "Ginkgo version mismatch: {{ .GINKGO_VERSION }} is required, $v is installed."
+          exit 2
         fi
+  kubectl:
+    cmds:
+      - |
+        if ! which kubectl >/dev/null ; then
+          echo "kubectl not found or not in PATH"
+          exit 1
+        fi
+  d8:
+    cmds:
+      - |
+        if ! which d8 >/dev/null ; then
+          echo "d8 not found or not in PATH. Install from https://github.com/deckhouse/deckhouse-cli/releases"
+          exit 1
+        fi
+  run:ci:
+    desc: "Separate task to run e2e tests in the CI environment"
+    deps:
+      - copy
+      - ginkgo
+      - kubectl
+      - d8
+    cmds:
+      - |
+        ginkgo \
+          --skip-file vm_test.go \
+          --skip-file vm_label_annotation_test.go \
+          --skip-file ipam_test.go \
+          --skip-file disks_test.go \
+          -v
+
   run:
     desc: "Run e2e tests"
     deps:
       - copy
+      - ginkgo
+      - kubectl
+      - d8
     cmds:
       - |
-        ginkgo \
+        ginkgo -v \
+          {{if .FOCUS -}}
+          --focus "{{ .FOCUS }}"
+          {{ else -}}
           --skip-file vm_test.go \
           --skip-file vm_label_annotation_test.go \
           --skip-file ipam_test.go \
-          --skip-file disks_test.go \
-          -v
-
-  run_local:
-    desc: "Run locally e2e tests"
-    deps:
-      - copy
-      - ginkgo
-    cmds:
-      - |
-        ginkgo \
-          --skip-file vm_test.go \
-          --skip-file vm_label_annotation_test.go \
-          --skip-file ipam_test.go \
-          --skip-file disks_test.go \
-          -v
-
-  run_one:
-    desc: "Run one test or group"
-    deps:
-      - copy
-      - ginkgo
-    cmds:
-      - |
-        {{if .FOCUS }}
-          ginkgo --focus "{{ .FOCUS }}" -v
-        {{else}}
-          echo "Specify test to run"
-          echo 'Example: FOCUS="Label and Annotation" task run_one'
-        {{end}}
+          --skip-file disks_test.go
+          {{end}}

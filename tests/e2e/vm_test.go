@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -48,7 +49,7 @@ func vmPath(file string) string {
 	return path.Join(conf.VM.TestDataDir, file)
 }
 
-var _ = Describe("VM", Ordered, ContinueOnFailure, func() {
+var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 	imageManifest := vmPath("image.yaml")
 	BeforeAll(func() {
 		By("Apply image for vms")
