@@ -24,7 +24,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -57,21 +59,32 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	isDefaultStorageClass := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
-	hasStorageClassInStatus := vd.Status.StorageClassName != ""
-	var checkedSCName *string
-	if hasStorageClassInStatus && isDefaultStorageClass {
-		checkedSCName = &vd.Status.StorageClassName
-	} else {
-		checkedSCName = vd.Spec.PersistentVolumeClaim.StorageClass
+	supgen := supplements.NewGenerator(cc.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	pvc, err := h.service.GetPersistentVolumeClaim(ctx, supgen)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	sc, err := h.service.GetStorageClass(ctx, checkedSCName)
+	useDefaultStorageClass := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
+	hasStorageClassInStatus := vd.Status.StorageClassName != ""
+	var storageClassName *string
+	switch {
+	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
+		storageClassName = pvc.Spec.StorageClassName
+	case hasStorageClassInStatus && useDefaultStorageClass:
+		storageClassName = &vd.Status.StorageClassName
+	default:
+		storageClassName = vd.Spec.PersistentVolumeClaim.StorageClass
+	}
+
+	sc, err := h.service.GetStorageClass(ctx, storageClassName)
 	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
 		return reconcile.Result{}, err
 	}
 
-	if !hasStorageClassInStatus && sc != nil {
+	if pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+		vd.Status.StorageClassName = *pvc.Spec.StorageClassName
+	} else if !hasStorageClassInStatus && sc != nil {
 		vd.Status.StorageClassName = sc.Name
 	}
 
@@ -80,7 +93,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vdcondition.StorageClassReady
 		condition.Message = ""
-	case isDefaultStorageClass:
+	case useDefaultStorageClass:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.StorageClassNotFound
 		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification."
