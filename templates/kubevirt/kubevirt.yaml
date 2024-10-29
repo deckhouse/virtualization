@@ -29,14 +29,12 @@ spec:
     evictionStrategy: LiveMigrate
     developerConfiguration:
       featureGates:
-      - Macvtap
       - HotplugVolumes
       - GPU
       - Snapshot
       - ExpandDisks
       - Root
       - VMLiveUpdateFeatures
-      - VMExport
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
@@ -66,10 +64,6 @@ spec:
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
-      type: json
-    - resourceType: Deployment
-      resourceName: virt-exportproxy
-      patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
       type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment
@@ -102,11 +96,6 @@ spec:
     - resourceName: virt-handler
       resourceType: DaemonSet
       patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-handler") }}
-      type: strategic
-
-    - resourceName: virt-exportproxy
-      resourceType: Deployment
-      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "exportproxy") }}
       type: strategic
 
     # Add rewriter proxy container port to Services used by webhook configurations.
@@ -197,10 +186,6 @@ spec:
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
-      type: strategic
-    - resourceType: Deployment
-      resourceName: virt-exportproxy
       patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: DaemonSet
