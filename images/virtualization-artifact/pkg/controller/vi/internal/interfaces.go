@@ -19,8 +19,10 @@ package internal
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -32,4 +34,5 @@ type Sources interface {
 
 type DiskService interface {
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

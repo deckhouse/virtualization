@@ -47,11 +47,12 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService     Stat
-	importerService Importer
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
-	diskService     *service.DiskService
+	statService        Stat
+	importerService    Importer
+	dvcrSettings       *dvcr.Settings
+	client             client.Client
+	diskService        *service.DiskService
+	storageClassForPVC string
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
 	vdSyncer         *ObjectRefVirtualDisk
@@ -63,15 +64,17 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
+	storageClassForPVC string,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:      statService,
-		importerService:  importerService,
-		dvcrSettings:     dvcrSettings,
-		client:           client,
-		diskService:      diskService,
-		viObjectRefOnPvc: NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService),
-		vdSyncer:         NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService),
+		statService:        statService,
+		importerService:    importerService,
+		dvcrSettings:       dvcrSettings,
+		client:             client,
+		diskService:        diskService,
+		storageClassForPVC: storageClassForPVC,
+		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
+		vdSyncer:           NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC),
 	}
 }
 

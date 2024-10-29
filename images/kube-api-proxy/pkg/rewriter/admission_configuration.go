@@ -30,7 +30,7 @@ func RewriteValidatingOrList(rules *RewriteRules, obj []byte, action Action) ([]
 		return RewriteResourceOrList(obj, ValidatingWebhookConfigurationListKind, func(singleObj []byte) ([]byte, error) {
 			return RewriteArray(singleObj, "webhooks", func(webhook []byte) ([]byte, error) {
 				return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-					return renameRoleRule(rules, item)
+					return RenameResourceRule(rules, item)
 				})
 			})
 		})
@@ -38,7 +38,7 @@ func RewriteValidatingOrList(rules *RewriteRules, obj []byte, action Action) ([]
 	return RewriteResourceOrList(obj, ValidatingWebhookConfigurationListKind, func(singleObj []byte) ([]byte, error) {
 		return RewriteArray(singleObj, "webhooks", func(webhook []byte) ([]byte, error) {
 			return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-				return restoreRoleRule(rules, item)
+				return RestoreResourceRule(rules, item)
 			})
 		})
 	})
@@ -49,7 +49,7 @@ func RewriteMutatingOrList(rules *RewriteRules, obj []byte, action Action) ([]by
 		return RewriteResourceOrList(obj, MutatingWebhookConfigurationListKind, func(singleObj []byte) ([]byte, error) {
 			return RewriteArray(singleObj, "webhooks", func(webhook []byte) ([]byte, error) {
 				return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-					return renameRoleRule(rules, item)
+					return RenameResourceRule(rules, item)
 				})
 			})
 		})
@@ -57,7 +57,7 @@ func RewriteMutatingOrList(rules *RewriteRules, obj []byte, action Action) ([]by
 	return RewriteResourceOrList(obj, MutatingWebhookConfigurationListKind, func(singleObj []byte) ([]byte, error) {
 		return RewriteArray(singleObj, "webhooks", func(webhook []byte) ([]byte, error) {
 			return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-				return restoreRoleRule(rules, item)
+				return RestoreResourceRule(rules, item)
 			})
 		})
 	})
@@ -72,7 +72,7 @@ func RenameWebhookConfigurationPatch(rules *RewriteRules, obj []byte) ([]byte, e
 	return TransformPatch(obj, func(mergePatch []byte) ([]byte, error) {
 		return RewriteArray(mergePatch, "webhooks", func(webhook []byte) ([]byte, error) {
 			return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-				return restoreRoleRule(rules, item)
+				return RestoreResourceRule(rules, item)
 			})
 		})
 	}, func(jsonPatch []byte) ([]byte, error) {
@@ -80,7 +80,7 @@ func RenameWebhookConfigurationPatch(rules *RewriteRules, obj []byte) ([]byte, e
 		if path == "/webhooks" {
 			return RewriteArray(jsonPatch, "value", func(webhook []byte) ([]byte, error) {
 				return RewriteArray(webhook, "rules", func(item []byte) ([]byte, error) {
-					return renameRoleRule(rules, item)
+					return RenameResourceRule(rules, item)
 				})
 			})
 		}
