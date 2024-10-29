@@ -32,16 +32,18 @@ import (
 )
 
 type StorageClassReadyHandler struct {
-	service DiskService
+	service                      DiskService
+	storageClassFromModuleConfig string
 }
 
 func (h StorageClassReadyHandler) Name() string {
 	return "StorageClassReadyHandler"
 }
 
-func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService, storageClassFromModuleConfig string) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service: diskService,
+		service:                      diskService,
+		storageClassFromModuleConfig: storageClassFromModuleConfig,
 	}
 }
 
@@ -76,14 +78,17 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
-	useDefaultStorageClass := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
+	hasNoStorageClassInSpec := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
+	useStorageClassFromModuleConfig := hasNoStorageClassInSpec && h.storageClassFromModuleConfig != ""
 	hasStorageClassInStatus := vi.Status.StorageClassName != ""
 	var storageClassName *string
 	switch {
 	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
 		storageClassName = pvc.Spec.StorageClassName
-	case hasStorageClassInStatus && useDefaultStorageClass:
+	case hasStorageClassInStatus && hasNoStorageClassInSpec:
 		storageClassName = &vi.Status.StorageClassName
+	case useStorageClassFromModuleConfig:
+		storageClassName = &h.storageClassFromModuleConfig
 	default:
 		storageClassName = vi.Spec.PersistentVolumeClaim.StorageClass
 	}
@@ -104,7 +109,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = vicondition.StorageClassReady
 		condition.Message = ""
-	case useDefaultStorageClass:
+	case hasNoStorageClassInSpec:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.StorageClassNotFound
 		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification."

@@ -90,8 +90,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
 		}
 
-		vd.Status.StorageClassName = ""
-
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -100,9 +98,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
 	}
 
+	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
+		defer func() {
+			readyCondition.Status = metav1.ConditionFalse
+			readyCondition.Reason = vdcondition.StorageClassNotReady
+			readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
+			service.SetCondition(readyCondition, &vd.Status.Conditions)
+		}()
+	}
+
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
 		log.Info("Storage class was deleted while population, ")
 
+		vd.Status = virtv2.VirtualDiskStatus{
+			Phase:              virtv2.DiskPending,
+			Conditions:         vd.Status.Conditions,
+			ObservedGeneration: vd.Status.ObservedGeneration,
+			StorageClassName:   vd.Status.StorageClassName,
+		}
 		vd.Status.Phase = virtv2.DiskPending
 
 		_, err := h.sources.CleanUp(ctx, vd)

@@ -95,12 +95,28 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vicondition.StorageClassReadyType)
 	}
 
+	if readyCondition.Status != metav1.ConditionTrue && vi.Spec.Storage == virtv2.StorageKubernetes && storageClassReadyCondition.Status != metav1.ConditionTrue {
+		defer func() {
+			readyCondition.Status = metav1.ConditionFalse
+			readyCondition.Reason = vicondition.StorageClassNotReady
+			readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
+			service.SetCondition(readyCondition, &vi.Status.Conditions)
+		}()
+	}
+
 	if vi.Spec.Storage == virtv2.StorageKubernetes &&
 		readyCondition.Status != metav1.ConditionTrue &&
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
+		vi.Status = virtv2.VirtualImageStatus{
+			ImageStatus: virtv2.ImageStatus{
+				Phase: virtv2.ImagePending,
+			},
+			Conditions:         vi.Status.Conditions,
+			ObservedGeneration: vi.Status.ObservedGeneration,
+			StorageClassName:   vi.Status.StorageClassName,
+		}
 		vi.Status.Phase = virtv2.ImagePending
-		vi.Status.Progress = ""
 
 		_, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
