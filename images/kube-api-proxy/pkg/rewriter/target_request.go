@@ -295,7 +295,9 @@ func shouldRewriteResource(resourceType string) bool {
 		"servicemonitors",
 		"poddisruptionbudgets",
 		"controllerrevisions",
-		"apiservices":
+		"apiservices",
+		"validatingadmissionpolicybindings",
+		"validatingadmissionpolicies":
 		return true
 	}
 

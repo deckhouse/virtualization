@@ -216,6 +216,12 @@ func TestRewriteAPIEndpoint(t *testing.T) {
 			"/apis/apps/v1/deployments",
 			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
 		},
+		{
+			"labelSelector label name and renamed values for validating admission policy binding",
+			"/apis/admissionregistration.k8s.io/v1/validatingadmissionpolicybindings?labelSelector=labelgroup.io+notin+%28value-one%2ClabelValueToRename%29&limit=500",
+			"/apis/admissionregistration.k8s.io/v1/validatingadmissionpolicybindings",
+			"labelSelector=replacedlabelgroup.io+notin+%28renamedLabelValue%2Cvalue-one%29&limit=500",
+		},
 	}
 
 	for _, tt := range tests {

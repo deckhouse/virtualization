@@ -268,15 +268,57 @@ func RewriteAPIResourceList(rules *RewriteRules, obj []byte) ([]byte, error) {
 //
 // NOTE: Can't use RewriteArray here, because one APIGroupDiscovery with renamed
 // resource produces many APIGroupDiscovery objects with restored resource.
+
+func newSliceBytesBuilder() *sliceBytesBuilder {
+	return &sliceBytesBuilder{
+		buf: bytes.NewBuffer([]byte("[")),
+	}
+}
+
+type sliceBytesBuilder struct {
+	buf   *bytes.Buffer
+	begin bool
+}
+
+func (b *sliceBytesBuilder) WriteString(s string) {
+	if s == "" {
+		return
+	}
+	if b.begin {
+		b.buf.WriteString(",")
+	}
+	b.buf.WriteString(s)
+	b.begin = true
+}
+
+func (b *sliceBytesBuilder) Write(bytes []byte) {
+	if len(bytes) == 0 {
+		return
+	}
+	if b.begin {
+		b.buf.WriteString(",")
+	}
+	b.buf.Write(bytes)
+	b.begin = true
+}
+
+func (b *sliceBytesBuilder) Complete() *sliceBytesBuilder {
+	b.buf.WriteString("]")
+	return b
+}
+
+func (b *sliceBytesBuilder) Bytes() []byte {
+	return b.buf.Bytes()
+}
+
 func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, error) {
 	items := gjson.GetBytes(obj, "items").Array()
 	if len(items) == 0 {
 		return obj, nil
 	}
 
-	var rwrItems bytes.Buffer
-	rwrItems.WriteString("[")
-	first := true
+	rwrItems := newSliceBytesBuilder()
+
 	for _, item := range items {
 
 		itemBytes := []byte(item.Raw)
@@ -291,11 +333,6 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 			}
 
 			// No transform for non-renamed groups, add as-is.
-			if first {
-				first = false
-			} else {
-				rwrItems.WriteString(",")
-			}
 			rwrItems.Write(itemBytes)
 			continue
 		}
@@ -305,28 +342,16 @@ func RewriteAPIGroupDiscoveryList(rules *RewriteRules, obj []byte) ([]byte, erro
 			return nil, err
 		}
 		if newItems == nil {
-			// No transform for nil result.
-			if first {
-				first = false
-			} else {
-				rwrItems.WriteString(",")
-			}
 			rwrItems.Write(itemBytes)
 		} else {
 			// Replace renamed group with restored groups.
 			for _, newItem := range newItems {
-				if first {
-					first = false
-				} else {
-					rwrItems.WriteString(",")
-				}
 				rwrItems.Write(newItem)
 			}
 		}
 	}
 
-	rwrItems.WriteString("]")
-	return sjson.SetRawBytes(obj, "items", rwrItems.Bytes())
+	return sjson.SetRawBytes(obj, "items", rwrItems.Complete().Bytes())
 }
 
 // RestoreAggregatedGroupDiscovery returns an array of APIGroupDiscovery objects with restored resources.
@@ -405,31 +430,20 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 		restoredGroupObj := []byte(fmt.Sprintf(`{"metadata":{"name":"%s", "creationTimestamp":null}}`, groupName))
 
 		// Construct an array of APIVersionDiscovery objects.
-		var restoredVersions bytes.Buffer
-		restoredVersions.WriteString("[")
-		first := true
+		restoredVersions := newSliceBytesBuilder()
 		for versionName, versionResources := range groupVersions {
-			if first {
-				first = false
-			} else {
-				restoredVersions.WriteString(",")
-			}
 			// Init restored APIVersionDiscovery object.
 			restoredVersionObj := []byte(fmt.Sprintf(`{"version":"%s"}`, versionName))
 
 			// Construct an array of APIResourceDiscovery objects.
 			{
-				var restoredVersionResources bytes.Buffer
-				restoredVersionResources.WriteString("[")
-				for i, resource := range versionResources {
-					if i > 0 {
-						restoredVersionResources.WriteString(",")
-					}
+
+				restoredVersionResources := newSliceBytesBuilder()
+				for _, resource := range versionResources {
 					restoredVersionResources.Write(resource)
 				}
-				restoredVersionResources.WriteString("]")
 				// Set resources field.
-				restoredVersionObj, err = sjson.SetRawBytes(restoredVersionObj, "resources", restoredVersionResources.Bytes())
+				restoredVersionObj, err = sjson.SetRawBytes(restoredVersionObj, "resources", restoredVersionResources.Complete().Bytes())
 				if err != nil {
 					return nil, err
 				}
@@ -438,8 +452,7 @@ func RestoreAggregatedGroupDiscovery(rules *RewriteRules, obj []byte) ([][]byte,
 			// Append restored APIVersionDiscovery object.
 			restoredVersions.Write(restoredVersionObj)
 		}
-		restoredVersions.WriteString("]")
-		restoredGroupObj, err := sjson.SetRawBytes(restoredGroupObj, "versions", restoredVersions.Bytes())
+		restoredGroupObj, err := sjson.SetRawBytes(restoredGroupObj, "versions", restoredVersions.Complete().Bytes())
 		if err != nil {
 			return nil, err
 		}

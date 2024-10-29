@@ -78,12 +78,14 @@ spec:
                     * Start - start the virtualmachine.
                     * Stop - stop the virtualmachine.
                     * Restart - restart the virtualmachine.
-                    * Migrate - migrate the virtualmachine.
+                    * Migrate (deprecated) - migrate the virtualmachine.
+                    * Evict - evict the virtualmachine.
                   enum:
                     - Restart
                     - Start
                     - Stop
                     - Migrate
+                    - Evict
                   type: string
                 virtualMachineName:
                   description:
