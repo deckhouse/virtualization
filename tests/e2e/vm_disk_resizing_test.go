@@ -63,7 +63,8 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 		Expect(err).NotTo(HaveOccurred(), err)
 		newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
 		mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
-		MergePatchResource(kc.ResourceVD, vd, mergePatch)
+		err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
+		Expect(err).NotTo(HaveOccurred(), err)
 	}
 }
 
