@@ -109,7 +109,7 @@ spec:
                 tolerations:
                   description: |
                     Параметр аналогичен параметру `spec.tolerations` у [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
-                    Tolerations из этого параметры будут объединены с tolerations, указанными в ресурсе VirtualMachine. При этом tolerations у VirtualMachine имеют больший приоритет.
+                    Tolerations из этого параметра будут объединены с tolerations, указанными в ресурсе VirtualMachine. При этом tolerations у VirtualMachine имеют больший приоритет.
                   items:
                     description: ""
                     properties:
