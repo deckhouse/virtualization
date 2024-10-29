@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package conditions
 
 import (
 	"unicode"
@@ -26,7 +26,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-func GetCondition(condType string, conds []metav1.Condition) (metav1.Condition, bool) {
+func GetConditionByType(condType string, conds []metav1.Condition) (metav1.Condition, bool) {
 	for _, cond := range conds {
 		if cond.Type == condType {
 			return cond, true
@@ -36,7 +36,7 @@ func GetCondition(condType string, conds []metav1.Condition) (metav1.Condition, 
 	return metav1.Condition{}, false
 }
 
-func SetCondition(cond metav1.Condition, conditions *[]metav1.Condition) {
+func ApplyCondition(cond metav1.Condition, conditions *[]metav1.Condition) {
 	if cond.Status != metav1.ConditionUnknown {
 		meta.SetStatusCondition(conditions, cond)
 	} else {

@@ -18,8 +18,6 @@ package conditions
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
 type Conder interface {
@@ -37,7 +35,7 @@ func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
 }
 
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
-	service.SetCondition(c.Condition(), conditions)
+	ApplyCondition(c.Condition(), conditions)
 }
 
 func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {

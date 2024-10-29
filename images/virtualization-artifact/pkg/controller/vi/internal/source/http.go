@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -67,14 +68,14 @@ func NewHTTPDataSource(
 func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
-	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
 			Type:   vicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -135,7 +136,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -184,14 +185,14 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
-	condition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
 			Type:   vicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 		}
 	}
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -287,7 +288,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -43,7 +43,7 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	readyCondition, ok := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	readyCondition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
 			Status: metav1.ConditionUnknown,
@@ -59,7 +59,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		vi.Status.Phase = virtv2.ImagePending
 	}
 
-	dataSourceReadyCondition, exists := service.GetCondition(vicondition.DatasourceReadyType, vi.Status.Conditions)
+	dataSourceReadyCondition, exists := conditions.GetConditionByType(vicondition.DatasourceReadyType, vi.Status.Conditions)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", vicondition.DatasourceReadyType)
 	}

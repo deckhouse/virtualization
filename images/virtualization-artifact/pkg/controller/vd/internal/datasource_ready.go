@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -48,7 +48,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		Status: metav1.ConditionUnknown,
 	}
 
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
@@ -78,22 +78,22 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ContainerRegistrySecretNotFound
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ClusterImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.VirtualDiskSnapshotNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error()) + "."
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)

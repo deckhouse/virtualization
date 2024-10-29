@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -64,7 +63,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, nil
 	}
 
-	agentReady, _ := service.GetCondition(vmcondition.TypeAgentReady.String(), changed.Status.Conditions)
+	agentReady, _ := conditions.GetConditionByType(vmcondition.TypeAgentReady.String(), changed.Status.Conditions)
 	if agentReady.Status != metav1.ConditionTrue {
 		cb.Status(metav1.ConditionUnknown).Reason(vmcondition.ReasonUnknown)
 		return reconcile.Result{}, nil
