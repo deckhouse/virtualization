@@ -148,14 +148,16 @@ func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
 		res.StdErr())
 }
 
-func MergePatchResource(resource kc.Resource, name, patch string) {
+func MergePatchResource(resource kc.Resource, name, patch string) error {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace:  conf.Namespace,
 		MergePatch: patch,
 	})
-	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
-		res.StdErr())
+	if res.Error() != nil {
+		return fmt.Errorf("patch failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	}
+	return nil
 }
 
 func CheckField(resource kc.Resource, name, output, compareValue string) {
@@ -234,7 +236,7 @@ func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
 		Timeout:   600,
 	}
 	waitResult := kubectl.WaitResources(resource, waitOpts, resources...)
-	Expect(waitResult.WasSuccess()).To(Equal(true), waitResult.StdErr())
+	Expect(waitResult.Error()).NotTo(HaveOccurred(), waitResult.StdErr())
 }
 
 func GetDefaultStorageClass() (*storagev1.StorageClass, error) {

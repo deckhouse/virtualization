@@ -68,7 +68,6 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error
 	}
 
 	connEnvs, connArgs, err := clustertransport.KubeConnectionCmdSettings(clustertransport.ClusterTransport(conf))
-
 	if err != nil {
 		return nil, fmt.Errorf("load connection config: %w", err)
 	}

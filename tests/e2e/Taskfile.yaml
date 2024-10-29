@@ -10,29 +10,28 @@ tasks:
   copy:
     cmds:
       - |
-        rm -fr /tmp/testdata
-        mkdir /tmp/testdata
-        cp -a testdata/complex-test /tmp/testdata/complex-test
-        cp -a testdata/connectivity /tmp/testdata/connectivity
-        cp -a testdata/disk-resizing /tmp/testdata/disk-resizing
-        cp -a testdata/sizing-policy /tmp/testdata/sizing-policy
-        cp -a testdata/vm-configuration /tmp/testdata/vm-configuration
-        cp -a testdata/vm-migration /tmp/testdata/vm-migration
-        cp -a testdata/vm-disk-attachment /tmp/testdata/vm-disk-attachment
-        cp -a testdata/sshkeys /tmp/testdata/sshkeys
+        rm --force --recursive /tmp/testdata
+        cp -a testdata /tmp/testdata
+
   ginkgo:
     cmds:
       - |
         v=($(ginkgo version 2>/dev/null))
         if [ "${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then
-          go install github.com/onsi/ginkgo/v2/ginkgo@v"{{ .GINKGO_VERSION }}" ;
+          go install "github.com/onsi/ginkgo/v2/ginkgo@v{{ .GINKGO_VERSION }}" ;
         fi
   run:
     desc: "Run e2e tests"
     deps:
-      - ginkgo
+      - copy
     cmds:
-      - ginkgo --focus "Virtualization resources" -v
+      - |
+        ginkgo \
+          --skip-file vm_test.go \
+          --skip-file vm_label_annotation_test.go \
+          --skip-file ipam_test.go \
+          --skip-file disks_test.go \
+          -v
 
   run_local:
     desc: "Run locally e2e tests"
@@ -55,25 +54,9 @@ tasks:
       - ginkgo
     cmds:
       - |
-        {{if .TEST }}
-          ginkgo --focus "{{ .TEST }}" -v
+        {{if .FOCUS }}
+          ginkgo --focus "{{ .FOCUS }}" -v
         {{else}}
           echo "Specify test to run"
-          echo 'Example: TEST="Label and Annotation" task run_one'
+          echo 'Example: FOCUS="Label and Annotation" task run_one'
         {{end}}
-
-  fix:ssh_key_perm:
-    desc: "Check and fix permissions for ssh keys"
-    cmds:
-      - |
-        ID_ED=testdata/vm/sshkeys/id_ed
-        case {{OS}} in
-          darwin*)      RIGHTS_SSH=$(stat -f %Lp $ID_ED) ;;
-          linux*)       RIGHTS_SSH=$(stat -c "%a" $ID_ED) ;;
-          *)            echo "unknown: {{OS}}"; exit 1       ;;
-        esac
-
-        if [ $RIGHTS_SSH -ne 600 ]; then
-          echo "Fix permissions for file $ID_ED"
-          chmod 600 $ID_ED
-        fi

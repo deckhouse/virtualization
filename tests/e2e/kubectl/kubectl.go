@@ -133,7 +133,6 @@ func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
 	}
 
 	connEnvs, connArgs, err := clustertransport.KubeConnectionCmdSettings(clustertransport.ClusterTransport(conf))
-
 	if err != nil {
 		return nil, fmt.Errorf("load connection config: %w", err)
 	}
