@@ -479,8 +479,21 @@ spec:
                         type: string
                       type: array
                   type: object
+                maxAllocatableResources:
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description:
+                    The maximum amount of free CPU and Memory resources observed
+                    among all available nodes.
+                  example:
+                    - 'maxAllocatableResources: {"cpu": 1, "memory": "10Gi"}'
+                  type: object
                 observedGeneration:
-                  description: The generation last processed by the controller
+                  description: The generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:

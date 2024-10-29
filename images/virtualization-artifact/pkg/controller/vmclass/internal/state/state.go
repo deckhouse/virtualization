@@ -67,23 +67,8 @@ func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, e
 	return vms.Items, nil
 }
 
-type filterFunc func(node *corev1.Node) (skip bool)
-
-func nodeFilter(nodes []corev1.Node, filters ...filterFunc) []corev1.Node {
-	if len(filters) == 0 {
-		return nodes
-	}
-	var filtered []corev1.Node
-loop:
-	for _, node := range nodes {
-		for _, f := range filters {
-			if f(&node) {
-				continue loop
-			}
-		}
-		filtered = append(filtered, node)
-	}
-	return filtered
+func nodeFilter(nodes []corev1.Node, filters ...common.FilterFunc[corev1.Node]) []corev1.Node {
+	return common.Filter[corev1.Node](nodes, filters...)
 }
 
 func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
@@ -94,16 +79,16 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	var (
 		curr        = s.vmClass.Current()
 		matchLabels map[string]string
-		filters     []filterFunc
+		filters     []common.FilterFunc[corev1.Node]
 	)
 
 	switch curr.Spec.CPU.Type {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
-		return nil, nil
+		// each node
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
 		filters = append(filters, func(node *corev1.Node) bool {
-			return !common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
+			return common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
 		})
 	case virtv2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
@@ -132,12 +117,15 @@ func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
+	if len(nodes) == 0 {
+		return nodes, nil
+	}
 
 	nodeSelector := s.vmClass.Current().Spec.NodeSelector
 
-	filters := []filterFunc{
+	filters := []common.FilterFunc[corev1.Node]{
 		func(node *corev1.Node) bool {
-			return !common.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
+			return common.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
 		},
 	}
 
@@ -150,7 +138,7 @@ func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 		}
 
 		filters = append(filters, func(node *corev1.Node) bool {
-			return !ns.Match(node)
+			return ns.Match(node)
 		})
 	}
 	return nodeFilter(nodes, filters...), nil

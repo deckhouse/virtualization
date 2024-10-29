@@ -3521,6 +3521,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 							},
 						},
 					},
+					"maxAllocatableResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The maximum amount of free CPU and Memory resources observed among all available nodes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -3536,7 +3550,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The generation last processed by the controller",
+							Description: "The generation last processed by the controller.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -3546,7 +3560,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
