@@ -27,7 +27,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -47,7 +46,7 @@ func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter) *LifeCycleHandler {
 func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
-	condition, ok := conditions.GetConditionByType(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+	condition, ok := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
 			Type:   vdscondition.VirtualDiskSnapshotReadyType,
@@ -55,7 +54,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		}
 	}
 
-	defer func() { conditions.ApplyCondition(condition, &vdSnapshot.Status.Conditions) }()
+	defer func() { service.SetCondition(condition, &vdSnapshot.Status.Conditions) }()
 
 	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
 	if err != nil {
@@ -103,7 +102,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	virtualDiskReadyCondition, _ := conditions.GetConditionByType(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+	virtualDiskReadyCondition, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 	if vd == nil || virtualDiskReadyCondition.Status != metav1.ConditionTrue {
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
 		condition.Status = metav1.ConditionFalse
@@ -289,5 +288,5 @@ func setPhaseConditionToFailed(cond *metav1.Condition, phase *virtv2.VirtualDisk
 	*phase = virtv2.VirtualDiskSnapshotPhaseFailed
 	cond.Status = metav1.ConditionFalse
 	cond.Reason = vdscondition.VirtualDiskSnapshotFailed
-	cond.Message = conditions.CapitalizeFirstLetter(err.Error())
+	cond.Message = service.CapitalizeFirstLetter(err.Error())
 }

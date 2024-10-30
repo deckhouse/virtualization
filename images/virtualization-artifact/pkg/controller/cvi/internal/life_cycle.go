@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -43,7 +43,15 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	readyCondition, _ := conditions.GetConditionByType(cvicondition.ReadyType, cvi.Status.Conditions)
+	readyCondition, ok := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	if !ok {
+		readyCondition = metav1.Condition{
+			Type:   cvicondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+
+		service.SetCondition(readyCondition, &cvi.Status.Conditions)
+	}
 
 	if cvi.DeletionTimestamp != nil {
 		cvi.Status.Phase = virtv2.ImageTerminating
@@ -54,7 +62,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		cvi.Status.Phase = virtv2.ImagePending
 	}
 
-	dataSourceReadyCondition, exists := conditions.GetConditionByType(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
+	dataSourceReadyCondition, exists := service.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", cvicondition.DatasourceReadyType)
 	}

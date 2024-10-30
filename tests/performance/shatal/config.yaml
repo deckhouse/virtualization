@@ -4,6 +4,7 @@ namespace: "default"
 interval: "5s"
 count: 100
 debug: true
+forceInterruption: false
 drainer:
   enabled: true
   interval: "10s"

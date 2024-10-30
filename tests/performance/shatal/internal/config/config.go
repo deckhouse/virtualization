@@ -23,17 +23,18 @@ import (
 )
 
 type Config struct {
-	Kubeconfig      string          `yaml:"kubeconfigBase64" env:"KUBECONFIG_BASE64" env-required:""`
-	ResourcesPrefix string          `yaml:"resourcesPrefix" env:"RESOURCES_PREFIX" env-default:"performance"`
-	Namespace       string          `yaml:"namespace" env:"NAMESPACE" env-default:"default"`
-	Interval        time.Duration   `yaml:"interval" env:"INTERVAL" env-default:"5s"`
-	Count           int             `yaml:"count" env:"COUNT"`
-	Debug           bool            `yaml:"debug" env:"DEBUG" env-default:"false"`
-	Drainer         DrainerFeature  `yaml:"drainer"`
-	Creator         CreatorFeature  `yaml:"creator"`
-	Deleter         DeleterFeature  `yaml:"deleter"`
-	Modifier        ModifierFeature `yaml:"modifier"`
-	Nothing         NothingFeature  `yaml:"nothing"`
+	Kubeconfig        string          `yaml:"kubeconfigBase64" env:"KUBECONFIG_BASE64" env-required:""`
+	ResourcesPrefix   string          `yaml:"resourcesPrefix" env:"RESOURCES_PREFIX" env-default:"performance"`
+	Namespace         string          `yaml:"namespace" env:"NAMESPACE" env-default:"default"`
+	Interval          time.Duration   `yaml:"interval" env:"INTERVAL" env-default:"5s"`
+	Count             int             `yaml:"count" env:"COUNT"`
+	Debug             bool            `yaml:"debug" env:"DEBUG" env-default:"false"`
+	Drainer           DrainerFeature  `yaml:"drainer"`
+	Creator           CreatorFeature  `yaml:"creator"`
+	Deleter           DeleterFeature  `yaml:"deleter"`
+	Modifier          ModifierFeature `yaml:"modifier"`
+	Nothing           NothingFeature  `yaml:"nothing"`
+	ForceInterruption bool            `yaml:"forceInterruption"`
 }
 
 type DrainerFeature struct {

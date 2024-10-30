@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -60,7 +60,7 @@ func (v *ISOSourceValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virt
 
 		if imageformat.IsISO(dvcrDataSource.GetFormat()) {
 			return admission.Warnings{
-				conditions.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
+				service.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
 			}, nil
 		}
 	}
@@ -91,7 +91,7 @@ func (v *ISOSourceValidator) ValidateUpdate(ctx context.Context, _, newVD *virtv
 
 		if imageformat.IsISO(dvcrDataSource.GetFormat()) {
 			return admission.Warnings{
-				conditions.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
+				service.CapitalizeFirstLetter(source.ErrISOSourceNotSupported.Error()),
 			}, nil
 		}
 	}

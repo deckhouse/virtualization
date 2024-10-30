@@ -71,6 +71,10 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	if update := addAllUnknown(changed, vmcondition.TypeBlockDevicesReady); update {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
