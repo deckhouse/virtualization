@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -234,7 +235,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 func (s VMOperationService) isAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
-	signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
+	signalSendCond, found := conditions.GetConditionByType(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
 	if found && signalSendCond.Status == metav1.ConditionTrue && signalSendCond.LastTransitionTime.After(signalSentTime) {
 		signalSentTime = signalSendCond.LastTransitionTime.Time
 	}

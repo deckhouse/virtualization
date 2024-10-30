@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -38,15 +39,12 @@ func NewSnapshottingHandler(diskService *service.DiskService) *SnapshottingHandl
 }
 
 func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdcondition.SnapshottingType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vdcondition.SnapshottingType,
+		Status: metav1.ConditionUnknown,
 	}
 
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
@@ -55,7 +53,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		return reconcile.Result{}, nil
 	}
 
-	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	readyCondition, ok := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
 		condition.Status = metav1.ConditionUnknown
 		condition.Reason = ""
@@ -77,7 +75,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			continue
 		}
 
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		if resized.Reason == vdcondition.InProgress {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vdcondition.SnapshottingNotAvailable

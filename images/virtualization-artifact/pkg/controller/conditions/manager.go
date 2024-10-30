@@ -19,7 +19,6 @@ package conditions
 import (
 	"slices"
 
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,7 +52,7 @@ func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
 }
 
 func (m *Manager) Update(c metav1.Condition) {
-	meta.SetStatusCondition(&m.conds, c)
+	ApplyCondition(c, &m.conds)
 }
 
 func (m *Manager) Generate() []metav1.Condition {

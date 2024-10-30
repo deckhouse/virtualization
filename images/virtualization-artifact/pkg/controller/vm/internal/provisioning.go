@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -53,10 +52,6 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	if update := addAllUnknown(changed, vmcondition.TypeProvisioningReady); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
@@ -128,7 +123,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	case errors.As(err, new(secretNotFoundError)):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error()))
+			Message(conditions.CapitalizeFirstLetter(err.Error()))
 		return nil
 
 	case errors.Is(err, errSecretIsNotValid):
@@ -140,7 +135,7 @@ func (h *ProvisioningHandler) genConditionFromSecret(ctx context.Context, builde
 	case errors.As(err, new(unexpectedSecretTypeError)):
 		builder.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonProvisioningNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error()))
+			Message(conditions.CapitalizeFirstLetter(err.Error()))
 		return nil
 
 	default:

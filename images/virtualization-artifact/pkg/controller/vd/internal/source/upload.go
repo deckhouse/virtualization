@@ -30,6 +30,7 @@ import (
 	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -66,8 +67,14 @@ func NewUploadDataSource(
 func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	condition, ok := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vdcondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
+	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -149,12 +156,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningNotStarted
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -210,7 +217,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vdcondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
