@@ -59,9 +59,8 @@ spec:
                 The observed state of `VirtualMachineIPAddressLease`.
               properties:
                 conditions:
-                  description:
-                    The latest detailed observations of the VirtualMachineOperation
-                    resource.
+                  description: |
+                    The latest available observations of an object's current state.
                   items:
                     description:
                       "Condition contains details for one aspect of the current
