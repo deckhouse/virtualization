@@ -36,10 +36,10 @@ func Retry(ctx context.Context, f Fn) error {
 	return ExponentialBackoff(ctx, f, defaultBackoff)
 }
 
-// Sleep for 1 then 3 seconds. This should cover networking blips.
+// Sleep for 3^0 then 3^1, 3^2 , ..., 3^7 seconds. This should cover networking blips.
 var defaultBackoff = Backoff{
 	Duration: time.Second,
 	Factor:   3.0,
 	Jitter:   0.1,
-	Steps:    3,
+	Steps:    9,
 }

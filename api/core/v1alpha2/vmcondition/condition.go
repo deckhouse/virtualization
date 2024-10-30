@@ -66,11 +66,11 @@ const (
 	ReasonProvisioningReady    Reason = "ProvisioningReady"
 	ReasonProvisioningNotReady Reason = "ProvisioningNotReady"
 
-	ReasonConfigurationApplied           Reason = "ConfigurationApplied"
-	ReasonConfigurationNotApplied        Reason = "ConfigurationNotApplied"
-	ReasonRestartAwaitingChangesExist    Reason = "RestartAwaitingChangesExist"
-	ReasonRestartAwaitingChangesNotExist Reason = "RestartAwaitingChangesNotExist"
-	ReasonRestartNoNeed                  Reason = "NoNeedRestart"
+	ReasonConfigurationApplied    Reason = "ConfigurationApplied"
+	ReasonConfigurationNotApplied Reason = "ConfigurationNotApplied"
+
+	ReasonRestartAwaitingChangesExist Reason = "RestartAwaitingChangesExist"
+	ReasonRestartNoNeed               Reason = "NoNeedRestart"
 
 	ReasonPodStarted    Reason = "PodStarted"
 	ReasonPodNotFound   Reason = "PodNotFound"

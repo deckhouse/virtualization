@@ -24,7 +24,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -38,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -47,11 +47,6 @@ import (
 )
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
-
-var syncKVVMConditions = []vmcondition.Type{
-	vmcondition.TypeConfigurationApplied,
-	vmcondition.TypeAwaitingRestartToApplyConfiguration,
-}
 
 func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder record.EventRecorder) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
@@ -77,39 +72,115 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, syncKVVMConditions...); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
+	cbConfApplied := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
+		Generation(current.GetGeneration()).
+		Status(metav1.ConditionUnknown).
+		Reason(vmcondition.ReasonUnknown)
+
+	cbAwaitingRestart := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
+		Generation(current.GetGeneration()).
+		Status(metav1.ConditionFalse).
+		Reason(vmcondition.ReasonRestartNoNeed)
+
+	defer func() {
+		conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
+		conditions.SetCondition(cbAwaitingRestart, &changed.Status.Conditions)
+	}()
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
-
-	if h.isWaiting(changed) {
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-			Generation(current.GetGeneration()).
+	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message("Waiting for dependent resources. Afterwards, configuration may be applied.").
-			Condition())
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
-			Generation(current.GetGeneration()).
-			Message("Waiting for dependent resources.").
-			Reason(vmcondition.ReasonRestartNoNeed).
-			Status(metav1.ConditionFalse).
-			Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-	if err := h.syncKVVM(ctx, s); err != nil {
-		log.Error(fmt.Sprintf("Failed to sync kvvm: %v", err))
-		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, err.Error())
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{}, nil
+
+	// 1. Set RestartAwaitingChanges.
+	var lastAppliedSpec *virtv2.VirtualMachineSpec
+	var changes vmchange.SpecChanges
+	if kvvm != nil {
+		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
+		changes = h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
+	}
+
+	if kvvm == nil || changes.IsEmpty() {
+		changed.Status.RestartAwaitingChanges = nil
+	} else {
+		changed.Status.RestartAwaitingChanges, err = changes.ConvertPendingChanges()
+		if err != nil {
+			err = fmt.Errorf("failed to generate pending configuration changes: %w", err)
+			cbConfApplied.
+				Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonConfigurationNotApplied).
+				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+			return reconcile.Result{}, err
+		}
+	}
+
+	// 2. Wait if dependent resources are not ready yet.
+	if h.isWaiting(changed) {
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message(
+				"Waiting for the dependent resources. Be careful restarting the virtual machine: " +
+					"the virtual machine cannot be restarted immediately to apply pending configuration changes " +
+					"as it is awaiting the availability of dependent resources.",
+			)
+		return reconcile.Result{RequeueAfter: time.Minute}, nil
+	}
+
+	var errs error
+
+	// 3. Create or update KVVM.
+	synced, kvvmSyncErr := h.syncKVVM(ctx, s, changes)
+	if kvvmSyncErr != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
+	}
+
+	if synced {
+		// 3.1. Changes are applied, consider current spec as last applied.
+		lastAppliedSpec = &current.Spec
+		changed.Status.RestartAwaitingChanges = nil
+	}
+
+	// 4. Ensure power state according to the runPolicy.
+	powerStateSyncErr := h.syncPowerState(ctx, s, kvvm, lastAppliedSpec)
+	if powerStateSyncErr != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to sync powerstate: %w", powerStateSyncErr))
+	}
+
+	// 5. Set ConfigurationApplied condition.
+	switch {
+	case errs != nil:
+		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message(service.CapitalizeFirstLetter(errs.Error()) + ".")
+	case len(changed.Status.RestartAwaitingChanges) > 0:
+		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("Waiting for the user to restart in order to apply the configuration changes.")
+		cbAwaitingRestart.
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonRestartAwaitingChangesExist).
+			Message("Waiting for the user to restart in order to apply the configuration changes.")
+	case synced:
+		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
+		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
+	default:
+		log.Error("Unexpected case during kvvm sync, please report a bug")
+	}
+
+	return reconcile.Result{}, errs
 }
 
 func (h *SyncKvvmHandler) Name() string {
@@ -144,130 +215,49 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 	return false
 }
 
-func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState) error {
-	log := logger.FromContext(ctx)
-
+func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, changes vmchange.SpecChanges) (bool, error) {
 	if s.VirtualMachine().IsEmpty() {
-		return fmt.Errorf("VM is empty")
+		return false, fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
+
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("find the internal virtual machine: %w", err)
 	}
-
-	current := s.VirtualMachine().Current()
-	changed := s.VirtualMachine().Changed()
-
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
 
 	if kvvm == nil {
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
-			Generation(current.GetGeneration()).
-			Reason(vmcondition.ReasonRestartNoNeed).
-			Status(metav1.ConditionFalse).
-			Condition())
-
-		cb := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-			Generation(current.GetGeneration())
 		err = h.createKVVM(ctx, s)
 		if err != nil {
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonConfigurationNotApplied).
-				Message(fmt.Sprintf("Failed to apply configuration: %s", err.Error()))
-		} else {
-			cb.Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonConfigurationApplied)
+			return false, fmt.Errorf("create the internal virtual machine: %w", err)
 		}
-		mgr.Update(cb.Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return err
-	}
 
-	lastAppliedSpec := h.loadLastAppliedSpec(current, kvvm)
-	changes := h.detectSpecChanges(ctx, kvvm, &current.Spec, lastAppliedSpec)
+		return true, nil
+	}
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("find the internal virtual machine instance: %w", err)
 	}
 	pod, err := s.Pod(ctx)
 	if err != nil {
-		return err
+		return false, fmt.Errorf("find the virtual machine pod: %w", err)
 	}
-	var syncErr error
 
 	switch {
-	case h.canApplyChanges(current, kvvm, kvvmi, pod, changes):
-		cb := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-			Generation(current.GetGeneration())
+	case h.canApplyChanges(s.VirtualMachine().Current(), kvvm, kvvmi, pod, changes):
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, changes)
 		if err != nil {
-			syncErr = errors.Join(syncErr, err)
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonConfigurationNotApplied).
-				Message(fmt.Sprintf("Failed to apply configuration changes: %s", err.Error()))
-		} else {
-			changed.Status.RestartAwaitingChanges = nil
-			cb.Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonConfigurationApplied)
+			return false, fmt.Errorf("apply changes to the internal virtual machine: %w", err)
 		}
-		mgr.Update(cb.Condition())
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
-			Generation(current.GetGeneration()).
-			Reason(vmcondition.ReasonRestartNoNeed).
-			Status(metav1.ConditionFalse).
-			Condition())
-		// Changes are applied, consider current spec as last applied.
-		lastAppliedSpec = &current.Spec
-	case !changes.IsEmpty():
-		// Delay changes propagation to KVVM until user restarts VM.
-		cb := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
-			Generation(current.GetGeneration())
 
-		var statusChanges []apiextensionsv1.JSON
-		statusChanges, err = changes.ConvertPendingChanges()
-		if err != nil {
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonRestartAwaitingChangesNotExist).
-				Message(fmt.Sprintf("Failed to generate RestartAwaitingChanges: %s", err.Error()))
-			log.Error(fmt.Sprintf("Error should not occurs when preparing changesInfo, there is a possible bug in code: %v", syncErr))
-			syncErr = errors.Join(syncErr, fmt.Errorf("convert pending changes for status: %w", syncErr))
-		} else {
-			cb.Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonRestartAwaitingChangesExist)
-		}
-		mgr.Update(cb.Condition())
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message("Waiting for restart from user.").
-			Condition())
-		changed.Status.RestartAwaitingChanges = statusChanges
+		return true, nil
+	case changes.IsEmpty():
+		return true, nil
 	default:
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonConfigurationApplied).
-			Condition())
-		mgr.Update(conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonRestartNoNeed).
-			Condition())
-		changed.Status.RestartAwaitingChanges = nil
+		// Delay changes propagation to KVVM until user restarts VM.
+		return false, nil
 	}
-	changed.Status.Conditions = mgr.Generate()
-	// Ensure power state according to the runPolicy.
-	err = h.syncPowerState(ctx, s, kvvm, kvvmi, lastAppliedSpec)
-	if err != nil {
-		log.Error(fmt.Sprintf("Failed to sync powerstate for VirtualMachine %q: %v", current.GetName(), err))
-		syncErr = errors.Join(syncErr, fmt.Errorf("failed to sync powerstate: %w", err))
-	}
-
-	return syncErr
 }
 
 // createKVVM constructs and creates new KubeVirt VirtualMachine based on d8 VirtualMachine spec.
@@ -275,16 +265,15 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	log := logger.FromContext(ctx)
 
 	if s.VirtualMachine().IsEmpty() {
-		return fmt.Errorf("VM is empty")
+		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
 	kvvm, err := h.makeKVVMFromVMSpec(ctx, s)
-	current := s.VirtualMachine().Current()
 	if err != nil {
-		return fmt.Errorf("prepare to create KubeVirt VM '%s': %w", current.GetName(), err)
+		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
 	if err = h.client.Create(ctx, kvvm); err != nil {
-		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
+		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
 	}
 
 	log.Info("Created new KubeVirt VM", "name", kvvm.Name)
@@ -298,16 +287,16 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	log := logger.FromContext(ctx)
 
 	if s.VirtualMachine().IsEmpty() {
-		return fmt.Errorf("VM is empty")
+		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
+
 	kvvm, err := h.makeKVVMFromVMSpec(ctx, s)
-	current := s.VirtualMachine().Current()
 	if err != nil {
-		return fmt.Errorf("prepare to update KubeVirt VM '%s': %w", current.GetName(), err)
+		return fmt.Errorf("failed to prepare the internal virtual machine: %w", err)
 	}
 
 	if err = h.client.Update(ctx, kvvm); err != nil {
-		return fmt.Errorf("unable to create KubeVirt VM '%s': %w", kvvm.GetName(), err)
+		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
 	}
 
 	log.Info("Update KubeVirt VM done", "name", kvvm.Name)
@@ -320,8 +309,9 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 func (h *SyncKvvmHandler) restartKVVM(ctx context.Context, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	err := powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
 	if err != nil {
-		return fmt.Errorf("unable to restart current KubeVirt VMI %q: %w", kvvmi.GetName(), err)
+		return fmt.Errorf("failed to restart the current internal virtual machine instance: %w", err)
 	}
+
 	return nil
 }
 
@@ -351,7 +341,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	bdState := NewBlockDeviceState(s)
 	err = bdState.Reload(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to relaod blockdevice state for vm %q: %w", current.GetName(), err)
+		return nil, fmt.Errorf("failed to relaod blockdevice state for the virtual machine: %w", err)
 	}
 	class, err := s.Class(ctx)
 	if err != nil {
@@ -363,7 +353,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	}
 
 	if ip.Status.Address == "" {
-		return nil, fmt.Errorf("the IP address is not found for VM %q", current.GetName())
+		return nil, fmt.Errorf("the IP address is not found for the virtual machine")
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
@@ -375,7 +365,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 
 	err = kvbuilder.SetLastAppliedSpec(newKVVM, current)
 	if err != nil {
-		return nil, fmt.Errorf("set last applied spec on KubeVirt VM '%s': %w", newKVVM.GetName(), err)
+		return nil, fmt.Errorf("set last applied spec on the internal virtual machine: %w", err)
 	}
 
 	return newKVVM, nil
@@ -492,12 +482,12 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMRestarted, "")
 
 		// Update KVVM spec according the current VM spec.
-		if err := h.updateKVVM(ctx, s); err != nil {
-			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
+		if err = h.updateKVVM(ctx, s); err != nil {
+			return fmt.Errorf("failed to update the internal virtual machine using the new spec: %w", err)
 		}
 		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
-		if err := h.restartKVVM(ctx, kvvm, kvvmi); err != nil {
-			return fmt.Errorf("unable restart KVVM instance in order to apply changes: %w", err)
+		if err = h.restartKVVM(ctx, kvvm, kvvmi); err != nil {
+			return fmt.Errorf("failed to restart the internal virtual machine instance to apply changes: %w", err)
 		}
 
 	case vmchange.ActionApplyImmediate:
@@ -544,11 +534,16 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(ctx context.Context, vm *vir
 }
 
 // syncPowerState enforces runPolicy on the underlying KVVM.
-func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, effectiveSpec *virtv2.VirtualMachineSpec) error {
+func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, effectiveSpec *virtv2.VirtualMachineSpec) error {
 	log := logger.FromContext(ctx)
 
 	if kvvm == nil {
 		return nil
+	}
+
+	kvvmi, err := s.KVVMI(ctx)
+	if err != nil {
+		return fmt.Errorf("find the internal virtual machine instance: %w", err)
 	}
 
 	vmRunPolicy := effectiveSpec.RunPolicy
@@ -557,7 +552,6 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 		shutdownInfo = s.ShutdownInfo
 	})
 
-	var err error
 	switch vmRunPolicy {
 	case virtv2.AlwaysOffPolicy:
 		if kvvmi != nil {
