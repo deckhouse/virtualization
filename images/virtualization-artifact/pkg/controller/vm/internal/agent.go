@@ -31,6 +31,11 @@ import (
 
 const nameAgentHandler = "AgentHandler"
 
+var agentConditions = []vmcondition.Type{
+	vmcondition.TypeAgentReady,
+	vmcondition.TypeAgentVersionNotSupported,
+}
+
 func NewAgentHandler() *AgentHandler {
 	return &AgentHandler{}
 }
@@ -43,6 +48,10 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
+
+	if update := addAllUnknown(changed, agentConditions...); update {
+		return reconcile.Result{Requeue: true}, nil
+	}
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil

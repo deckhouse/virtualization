@@ -134,7 +134,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.BlockDevicesNotReady).
-			Message(conditions.CapitalizeFirstLetter(err.Error() + "."))
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	default:
 		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
@@ -201,7 +201,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	case err == nil:
 	case errors.Is(err, ErrVolumeSnapshotClassNotFound), errors.Is(err, ErrCannotTakeSnapshot):
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
-		msg := conditions.CapitalizeFirstLetter(err.Error())
+		msg := service.CapitalizeFirstLetter(err.Error())
 		if !strings.HasSuffix(msg, ".") {
 			msg += "."
 		}
@@ -261,7 +261,7 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Vi
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmscondition.VirtualMachineSnapshotFailed).
-		Message(conditions.CapitalizeFirstLetter(err.Error()) + ".")
+		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
 func (h LifeCycleHandler) fillStatusVirtualDiskSnapshotNames(vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) {

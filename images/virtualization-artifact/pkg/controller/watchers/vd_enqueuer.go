@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -60,7 +60,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cli
 	}
 
 	for _, vd := range vds.Items {
-		dsReady, _ := conditions.GetConditionByType(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		dsReady, _ := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 		if dsReady.Status == metav1.ConditionTrue {
 			continue
 		}
