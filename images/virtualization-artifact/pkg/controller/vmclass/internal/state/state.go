@@ -84,7 +84,7 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 
 	switch curr.Spec.CPU.Type {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
-		// each node
+		// Node is always has the "Host" CPU type, no additional filters required.
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
 		filters = append(filters, func(node *corev1.Node) bool {
