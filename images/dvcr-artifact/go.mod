@@ -166,7 +166,8 @@ replace (
 
 replace (
 	k8s.io/client-go => k8s.io/client-go v0.26.1
-	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.54.1-0.20231108105404-81f1cea8c40d // branch: virtualization-controller
+	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241029151102-2923980c3805 // branch: virtualization-controller
+	// kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.54.1-0.20231108105404-81f1cea8c40d // branch: virtualization-controller
 	// kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.3
 	// v1.60.3-0.20241029134307-923980c38052 // branch: virtualization-controller-new-main-cdi
 	// kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.3-0.20241029134307-51a9bc57e9ce // branch: virtualization-controller-new-main-cdi
