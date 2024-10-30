@@ -128,7 +128,9 @@ func (s *state) getVirtHandlerNodeNames(ctx context.Context) (map[string]struct{
 	err := s.client.List(ctx, pods, client.InNamespace(s.controllerNamespace),
 		client.MatchingLabelsSelector{
 			Selector: labels.SelectorFromSet(map[string]string{
-				virtv1.AppLabel: "virt-handler"})})
+				virtv1.AppLabel: "virt-handler",
+			}),
+		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
