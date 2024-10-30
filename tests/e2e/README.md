@@ -1,14 +1,23 @@
 # Integration tests
 
-## Running integration tests
+## Prerequisites
 
-### Prerequisites
+### Utilities
 
-#### Deckhouse cluster
+Some utilities should be installed to run e2e tests:
+
+- task (https://taskfile.dev)
+- kubectl (https://kubernetes.io/docs/tasks/tools/#kubectl)
+- d8 (https://github.com/deckhouse/deckhouse-cli/releases)
+- ginkgo
+  - Download from https://github.com/onsi/ginkgo
+  - Or just run `go install github.com/onsi/ginkgo/v2/ginkgo@$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)`
+
+### Deckhouse cluster
 
 Integration tests require a running Deckhouse cluster with the virtualization module installed.
 
-#### Default StorageClass
+### Default StorageClass
 
 Default storage class should be set in the cluster. Annotate a StorageClass with
 storageclass.kubernetes.io/is-default-class to mark it as the default:
@@ -25,7 +34,7 @@ metadata:
 ...
 ```
 
-#### Configuration
+### E2E configuration
 
 Temp directories, prefixes, images and ssh settings can be set in the
 YAML configuration file.
@@ -36,7 +45,7 @@ You can override config field with environment variables. Use E2E_ prefix and jo
 
 For example, to override curl image, set `E2E_HELPERIMAGES_CURLIMAGE` environment variable.
 
-#### Cluster connection settings
+### Cluster connection settings
 
 Connection settings priority from highest to lowest:
 
@@ -46,20 +55,13 @@ Connection settings priority from highest to lowest:
 - A path to kubeconfig file in KUBECONFIG env.
 - A path to kubeconfig file in `~/.kube/config`.
 
-#### Utilities
 
-Some utilities should be installed to run e2e tests:
+## Run tests from developer machine
 
-- task (https://taskfile.dev)
-- kubectl (https://kubernetes.io/docs/tasks/tools/#kubectl)
-- d8 (https://github.com/deckhouse/deckhouse-cli/releases)
-
-
-### Run tests from developer machine
-With "$HOME/.kube/config" by default and current cluster context:
+Setup cluster connection in "$HOME/.kube/config" or by [switch](https://github.com/danielfoehrKn/kubeswitch)ing the `KUBECONFIG` env and run tests:
 
 ```bash
-task run_local
+task run
 ```
 
 ### Debugging options
@@ -69,15 +71,15 @@ task run_local
 
 For example, run only "Complex text" without cleanup on failure:
 ```bash
-FOCUS="Complex test" STOP_ON_FAILURE=yes task run_local
+FOCUS="Complex test" STOP_ON_FAILURE=yes task run
 ```
 
-### Run tests in CI
+## Run tests in CI
 ```bash
-task run
+task run:ci
 ```
 
-#### Example
+### Example
 Create namespace for service account
 ```bash
 kubectl create ns e2e-tests
