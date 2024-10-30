@@ -22,6 +22,23 @@ import (
 	"github.com/onsi/ginkgo/v2"
 )
 
+// Ginkgo decorators helpers:
+// - Common decorators for e2e: Ordered and ContinueOnFailure.
+// - ContinueOnFailure decorator is switchable and can be disabled with STOP_ON_FAILURE=yes env.
+//
+// A quote from Ginkgo documentation:
+// Moreover, Ginkgo also supports passing in arbitrarily nested slices of decorators.
+// Ginkgo will unroll these slices and process the flattened list. This makes it easier
+// to pass around groups of decorators. For example, this is valid:
+// markFlaky := []interface{}{Label("flaky"), FlakeAttempts(3)}
+// var _ = Describe("a bunch of flaky controller tests", markFlaky, Label("controller"), func() {
+//  ...
+// }
+// The resulting tests will be decorated with FlakeAttempts(3) and the two labels flaky and controller.
+//
+// This helper uses this "flattening" feature, so DecoratorsFromEnv implements
+// dynamic list of switchable decorators by returning an array of decorators.
+
 type EnvSwitchable interface {
 	Decorator() interface{}
 }
@@ -48,15 +65,15 @@ const StopOnFailureEnv = "STOP_ON_FAILURE"
 
 type FailureBehaviourEnvSwitcher struct{}
 
-func (c FailureBehaviourEnvSwitcher) Decorator() interface{} {
-	if !c.IsStopOnFailure() {
+func (f FailureBehaviourEnvSwitcher) Decorator() interface{} {
+	if !f.IsStopOnFailure() {
 		return ginkgo.ContinueOnFailure
 	}
 	return nil
 }
 
 // IsStopOnFailure returns true if Stop on error is enabled.
-func (c FailureBehaviourEnvSwitcher) IsStopOnFailure() bool {
+func (f FailureBehaviourEnvSwitcher) IsStopOnFailure() bool {
 	return os.Getenv(StopOnFailureEnv) == "yes"
 }
 
