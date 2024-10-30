@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -44,7 +44,7 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 		return nil, nil
 	}
 
-	ready, _ := conditions.GetConditionByType(vdcondition.ReadyType, newVD.Status.Conditions)
+	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
 		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
 			return nil, fmt.Errorf("VirtualDisk has already been attached: data source cannot be changed while disk is attached to VirtualMachine")

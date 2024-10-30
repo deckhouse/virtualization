@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -54,7 +53,7 @@ func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	filesystemReady, _ := conditions.GetConditionByType(vmcondition.TypeFilesystemReady.String(), vm.Status.Conditions)
+	filesystemReady, _ := GetCondition(vmcondition.TypeFilesystemReady.String(), vm.Status.Conditions)
 
 	return filesystemReady.Status == metav1.ConditionFalse && filesystemReady.Reason == vmcondition.ReasonFilesystemFrozen.String()
 }
@@ -64,7 +63,7 @@ func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	agentReady, _ := conditions.GetConditionByType(vmcondition.TypeAgentReady.String(), vm.Status.Conditions)
+	agentReady, _ := GetCondition(vmcondition.TypeAgentReady.String(), vm.Status.Conditions)
 
 	return agentReady.Status == metav1.ConditionTrue
 }

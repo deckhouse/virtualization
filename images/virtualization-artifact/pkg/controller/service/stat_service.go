@@ -30,7 +30,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
@@ -107,12 +106,12 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 		return errors.New("nil pod")
 	}
 
-	podInitializedCond, ok := conditions.GetPodCondition(corev1.PodInitialized, pod.Status.Conditions)
+	podInitializedCond, ok := GetPodCondition(corev1.PodInitialized, pod.Status.Conditions)
 	if ok && podInitializedCond.Status == corev1.ConditionFalse {
 		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotInitialized, podInitializedCond.Message)
 	}
 
-	podScheduledCond, ok := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+	podScheduledCond, ok := GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 	if ok && podScheduledCond.Status == corev1.ConditionFalse {
 		return fmt.Errorf("provisioning Pod %s/%s is %w: %s", pod.Namespace, pod.Name, ErrNotScheduled, podScheduledCond.Message)
 	}

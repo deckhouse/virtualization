@@ -189,7 +189,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.AttachmentRequestSent).
-				Message(conditions.CapitalizeFirstLetter(err.Error() + "."))
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return reconcile.Result{}, nil
 		}
 
@@ -230,7 +230,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.Conflict).
-			Message(conditions.CapitalizeFirstLetter(err.Error()))
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
 	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
@@ -248,7 +248,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
-			Message(conditions.CapitalizeFirstLetter(err.Error()))
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

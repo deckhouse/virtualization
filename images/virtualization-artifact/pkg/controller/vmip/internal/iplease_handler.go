@@ -63,7 +63,7 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	condition, _ := conditions.GetConditionByType(vmipcondition.BoundType.String(), vmipStatus.Conditions)
+	condition, _ := service.GetCondition(vmipcondition.BoundType.String(), vmipStatus.Conditions)
 
 	switch {
 	case lease == nil && vmipStatus.Address != "" && condition.Reason != vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String():

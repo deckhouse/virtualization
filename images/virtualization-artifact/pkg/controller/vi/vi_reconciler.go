@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -158,7 +157,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return true
 				}
 
-				dvRunning := conditions.GetDataVolumeCondition(cdiv1.DataVolumeRunning, newDV.Status.Conditions)
+				dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, newDV.Status.Conditions)
 				return dvRunning != nil && dvRunning.Reason == "Error"
 			},
 		},
@@ -189,8 +188,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return true
 				}
 
-				if conditions.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
-					conditions.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
+				if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
+					service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
 					return true
 				}
 

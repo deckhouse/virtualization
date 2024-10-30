@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,7 +46,7 @@ func NewResizingHandler(diskService DiskService) *ResizingHandler {
 func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("resizing"))
 
-	condition, ok := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
+	condition, ok := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 	if !ok {
 		condition = metav1.Condition{
 			Type:   vdcondition.ResizedType,
@@ -54,7 +54,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		}
 	}
 
-	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
+	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
@@ -63,7 +63,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
-	readyCondition, ok := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
+	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
 		condition.Status = metav1.ConditionUnknown
 		condition.Reason = ""
@@ -100,7 +100,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	// Synchronize VirtualDisk size with PVC size.
 	vd.Status.Capacity = pvcStatusSize.String()
 
-	pvcResizing := conditions.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, pvc.Status.Conditions)
+	pvcResizing := service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, pvc.Status.Conditions)
 	if pvcResizing != nil && pvcResizing.Status == corev1.ConditionTrue {
 		log.Info("Resizing is in progress", "msg", pvcResizing.Message)
 
@@ -113,7 +113,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
 	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == 1 {
-		snapshotting, _ := conditions.GetConditionByType(vdcondition.SnapshottingType, vd.Status.Conditions)
+		snapshotting, _ := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status == metav1.ConditionTrue {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vdcondition.ResizingNotAvailable

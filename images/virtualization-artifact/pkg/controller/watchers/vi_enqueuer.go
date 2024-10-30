@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -60,7 +60,7 @@ func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cl
 	}
 
 	for _, vi := range vis.Items {
-		dsReady, _ := conditions.GetConditionByType(vicondition.DatasourceReadyType, vi.Status.Conditions)
+		dsReady, _ := service.GetCondition(vicondition.DatasourceReadyType, vi.Status.Conditions)
 		if dsReady.Status == metav1.ConditionTrue {
 			continue
 		}
