@@ -19,7 +19,9 @@ package shatal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/deckhouse/virtualization/shatal/internal/api"
@@ -38,13 +40,16 @@ type Shatal struct {
 	logger *slog.Logger
 	exit   chan struct{}
 	wg     sync.WaitGroup
+
+	forceInterruption bool
 }
 
 func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error) {
 	shatal := Shatal{
-		api:    api,
-		logger: log,
-		exit:   make(chan struct{}),
+		api:               api,
+		logger:            log,
+		exit:              make(chan struct{}),
+		forceInterruption: conf.ForceInterruption,
 	}
 
 	nodes, err := api.GetNodes(context.Background(), conf.Drainer.LabelSelector)
@@ -131,7 +136,12 @@ func (s *Shatal) Run() {
 		select {
 		case <-s.exit:
 			s.logger.Info("Stop runners")
-			cancel()
+			if s.forceInterruption {
+				fmt.Println("Performing force interruption")
+				os.Exit(1)
+			} else {
+				cancel()
+			}
 		case <-ctx.Done():
 		}
 	}()
