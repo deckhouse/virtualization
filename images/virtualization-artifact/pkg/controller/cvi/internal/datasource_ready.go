@@ -24,8 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -41,15 +41,12 @@ func NewDatasourceReadyHandler(sources *source.Sources) *DatasourceReadyHandler 
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   cvicondition.DatasourceReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   cvicondition.DatasourceReadyType,
+		Status: metav1.ConditionUnknown,
 	}
 
-	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &cvi.Status.Conditions) }()
 
 	if cvi.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
@@ -72,27 +69,27 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 	case errors.Is(err, source.ErrSecretNotFound):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.ContainerRegistrySecretNotFound
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.ImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.ClusterImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskNotReadyError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.VirtualDiskNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskAttachedToRunningVMError{}):
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = cvicondition.VirtualDiskNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

@@ -29,6 +29,7 @@ import (
 
 	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
@@ -63,8 +64,8 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	condition, _ := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
+	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)

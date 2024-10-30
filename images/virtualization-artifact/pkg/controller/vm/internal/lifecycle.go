@@ -30,19 +30,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
-
-var lifeCycleConditions = []vmcondition.Type{
-	vmcondition.TypeRunning,
-	vmcondition.TypeMigrating,
-	vmcondition.TypeMigratable,
-	vmcondition.TypePodStarted,
-}
 
 const nameLifeCycleHandler = "LifeCycleHandler"
 
@@ -80,11 +72,6 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	if isDeletion(current) {
 		changed.Status.Phase = virtv2.MachineTerminating
 		return reconcile.Result{}, nil
-	}
-
-	if updated := addAllUnknown(changed, lifeCycleConditions...); updated || changed.Status.Phase == "" {
-		changed.Status.Phase = virtv2.MachinePending
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	kvvm, err := s.KVVM(ctx)
@@ -156,7 +143,7 @@ func (h *LifeCycleHandler) syncMigrationState(vm *virtv2.VirtualMachine, kvvm *v
 	cbMigratable := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
 	if kvvm != nil {
-		liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
+		liveMigratable := conditions.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
 		if liveMigratable != nil && liveMigratable.Status == corev1.ConditionFalse && liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
 			cbMigratable.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonNotMigratable).
@@ -193,7 +180,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 
 	if kvvm != nil {
 		// Try to extract error from kvvm PodScheduled condition.
-		cond := service.GetKVVMCondition(string(corev1.PodScheduled), kvvm.Status.Conditions)
+		cond := conditions.GetKVVMCondition(string(corev1.PodScheduled), kvvm.Status.Conditions)
 		if cond != nil && cond.Status == corev1.ConditionFalse && cond.Message != "" {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonPodNotStarted).
@@ -208,7 +195,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 			if kvvmi != nil {
 				msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
 			}
-			synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+			synchronized := conditions.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
 			if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
 				msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
 			}
@@ -240,7 +227,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 			msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
 		}
 
-		synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+		synchronized := conditions.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
 		if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
 			msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
 		}

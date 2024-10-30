@@ -48,11 +48,6 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
-var syncKVVMConditions = []vmcondition.Type{
-	vmcondition.TypeConfigurationApplied,
-	vmcondition.TypeAwaitingRestartToApplyConfiguration,
-}
-
 func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder record.EventRecorder) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
 		dvcrSettings: dvcrSettings,
@@ -76,10 +71,6 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	if update := addAllUnknown(changed, syncKVVMConditions...); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil

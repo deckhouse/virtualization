@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -193,7 +194,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 		vd.Status.Phase = virtv2.DiskFailed
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return nil
 	default:
 		return err
@@ -220,5 +221,5 @@ func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.DiskPhase,
 	*phase = virtv2.DiskFailed
 	ready.Status = metav1.ConditionFalse
 	ready.Reason = vdcondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+	ready.Message = conditions.CapitalizeFirstLetter(err.Error()) + "."
 }

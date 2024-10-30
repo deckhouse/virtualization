@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -63,7 +63,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, nil
 	}
 
-	ready, _ := service.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
+	ready, _ := conditions.GetConditionByType(cvicondition.ReadyType, newCVI.Status.Conditions)
 	if newCVI.Status.Phase == virtv2.ImageReady || ready.Status == metav1.ConditionTrue {
 		return nil, fmt.Errorf("ClusterVirtualImage is in a Ready state: configuration changes are not available")
 	}

@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -40,15 +40,12 @@ func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter) *Virtua
 }
 
 func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdscondition.VirtualDiskReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+	condition := metav1.Condition{
+		Type:   vdscondition.VirtualDiskReadyType,
+		Status: metav1.ConditionUnknown,
 	}
 
-	defer func() { service.SetCondition(condition, &vdSnapshot.Status.Conditions) }()
+	defer func() { conditions.ApplyCondition(condition, &vdSnapshot.Status.Conditions) }()
 
 	if vdSnapshot.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
@@ -85,7 +82,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 
 	switch vd.Status.Phase {
 	case virtv2.DiskReady:
-		snapshotting, _ := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+		snapshotting, _ := conditions.GetConditionByType(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue {
 			condition.Status = metav1.ConditionFalse
 			condition.Reason = vdscondition.VirtualDiskNotReadyForSnapshotting
