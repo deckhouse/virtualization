@@ -36,7 +36,9 @@ count: 100
 # The flag to show debug level logs. 
 # Corresponds to the DEBUG environment variable.
 debug: true
-# The flag to enable force interrupting mode
+# Flag to enable forced interrupt mode
+# If `true` - shatal stops immediately, all affected resources remain in the state at the moment of shatal interruption.
+# If `false` - after shatal interruption all affected resources return to their initial state.
 forceInterruption: false
 drainer:
   # The flag to enable node draining.
