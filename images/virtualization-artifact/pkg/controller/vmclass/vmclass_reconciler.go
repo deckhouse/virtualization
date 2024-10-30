@@ -45,16 +45,18 @@ type Handler interface {
 	Name() string
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(controllerNamespace string, client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		controllerNamespace: controllerNamespace,
+		client:              client,
+		handlers:            handlers,
 	}
 }
 
 type Reconciler struct {
-	client   client.Client
-	handlers []Handler
+	controllerNamespace string
+	client              client.Client
+	handlers            []Handler
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -138,7 +140,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		log.Info("Reconcile observe an absent VirtualMachineClass: it may be deleted")
 		return reconcile.Result{}, nil
 	}
-	s := state.New(r.client, class)
+	s := state.New(r.client, r.controllerNamespace, class)
 
 	log.Debug("Start reconcile VMClass")
 

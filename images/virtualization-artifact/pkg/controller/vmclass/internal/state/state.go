@@ -40,12 +40,13 @@ type VirtualMachineClassState interface {
 }
 
 type state struct {
-	client  client.Client
-	vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
+	controllerNamespace string
+	client              client.Client
+	vmClass             *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 }
 
-func New(c client.Client, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
-	return &state{client: c, vmClass: vmClass}
+func New(c client.Client, controllerNamespace string, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
+	return &state{client: c, controllerNamespace: controllerNamespace, vmClass: vmClass}
 }
 
 func (s *state) VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus] {
@@ -79,8 +80,17 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	var (
 		curr        = s.vmClass.Current()
 		matchLabels map[string]string
-		filters     []common.FilterFunc[corev1.Node]
 	)
+	virtHandlerNodes, err := s.getVirtHandlerNodeNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filters := []common.FilterFunc[corev1.Node]{
+		func(node *corev1.Node) (keep bool) {
+			_, found := virtHandlerNodes[node.GetName()]
+			return found
+		},
+	}
 
 	switch curr.Spec.CPU.Type {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
@@ -102,7 +112,7 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 		return nil, fmt.Errorf("unexpected cpu type %s", curr.Spec.CPU.Type)
 	}
 	nodes := &corev1.NodeList{}
-	err := s.client.List(
+	err = s.client.List(
 		ctx,
 		nodes,
 		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(matchLabels)})
@@ -111,6 +121,22 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	}
 
 	return nodeFilter(nodes.Items, filters...), nil
+}
+
+func (s *state) getVirtHandlerNodeNames(ctx context.Context) (map[string]struct{}, error) {
+	pods := &corev1.PodList{}
+	err := s.client.List(ctx, pods, client.InNamespace(s.controllerNamespace),
+		client.MatchingLabelsSelector{
+			Selector: labels.SelectorFromSet(map[string]string{
+				virtv1.AppLabel: "virt-handler"})})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", err)
+	}
+	nodes := make(map[string]struct{}, len(pods.Items))
+	for _, pod := range pods.Items {
+		nodes[pod.Spec.NodeName] = struct{}{}
+	}
+	return nodes, nil
 }
 
 func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
