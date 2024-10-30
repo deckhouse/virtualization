@@ -195,4 +195,6 @@ const (
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
 	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
+
+	VmBlockDeviceAttachedLimit = 16
 )
