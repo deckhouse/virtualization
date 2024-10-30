@@ -22,6 +22,7 @@ import (
 
 type FilterFunc[T any] func(obj *T) (keep bool)
 
+// Filter removes an item from the "objs" array if at least one of the "keeps" functions return false for the item.
 func Filter[T any](objs []T, keeps ...FilterFunc[T]) []T {
 	if len(keeps) == 0 {
 		return slices.Clone(objs)
