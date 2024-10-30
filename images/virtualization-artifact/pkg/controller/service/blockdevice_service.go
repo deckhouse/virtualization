@@ -46,9 +46,6 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVm(ctx context.Context, 
 			indexer.IndexFieldVMBDAByVM: vm.Name,
 		})
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return count, nil
-		}
 		return 0, err
 	}
 
@@ -75,11 +72,7 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVmName(ctx context.Conte
 			indexer.IndexFieldVMBDAByVM: vmName,
 		})
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return count, nil
-		} else {
-			return 0, err
-		}
+		return 0, err
 	}
 
 	count += len(vmbdaList.Items)
