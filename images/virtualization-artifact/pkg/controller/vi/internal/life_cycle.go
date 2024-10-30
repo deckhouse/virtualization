@@ -48,6 +48,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		readyCondition = metav1.Condition{
 			Type:   vicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: vicondition.ReadyReasonUnknown,
 		}
 
 		service.SetCondition(readyCondition, &vi.Status.Conditions)

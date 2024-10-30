@@ -51,6 +51,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		condition = metav1.Condition{
 			Type:   vdcondition.ResizedType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdcondition.ResizedReasonUnknown,
 		}
 	}
 

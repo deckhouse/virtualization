@@ -48,6 +48,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		condition = metav1.Condition{
 			Type:   vdcondition.DatasourceReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdcondition.DatasourceReadyReasonUnknown,
 		}
 	}
 

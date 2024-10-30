@@ -45,6 +45,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 		condition = metav1.Condition{
 			Type:   vdscondition.VirtualDiskReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdscondition.VirtualDiskReadyReasonUnknown,
 		}
 	}
 

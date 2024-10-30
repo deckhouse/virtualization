@@ -48,6 +48,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		readyCondition = metav1.Condition{
 			Type:   cvicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: cvicondition.ReadyReasonUnknown,
 		}
 
 		service.SetCondition(readyCondition, &cvi.Status.Conditions)

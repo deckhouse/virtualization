@@ -43,6 +43,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		condition = metav1.Condition{
 			Type:   vdcondition.SnapshottingType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdcondition.SnapshottingReasonUnknown,
 		}
 	}
 

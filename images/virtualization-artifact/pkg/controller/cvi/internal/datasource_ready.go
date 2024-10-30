@@ -46,6 +46,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 		condition = metav1.Condition{
 			Type:   cvicondition.DatasourceReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: cvicondition.DatasourceReadyReasonUnknown,
 		}
 	}
 

@@ -53,6 +53,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		readyCondition = metav1.Condition{
 			Type:   vdcondition.ReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdcondition.ReadyReasonUnknown,
 		}
 
 		service.SetCondition(readyCondition, &vd.Status.Conditions)

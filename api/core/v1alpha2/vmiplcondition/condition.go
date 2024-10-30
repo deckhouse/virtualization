@@ -35,6 +35,8 @@ func (r BoundReason) String() string {
 }
 
 const (
+	BoundReasonUnknown BoundReason = "Unknown"
+
 	// Released is a BoundReason indicating the IP address lease has been released.
 	Released BoundReason = "Released"
 

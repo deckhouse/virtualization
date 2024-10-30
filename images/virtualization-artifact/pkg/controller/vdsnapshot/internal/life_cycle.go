@@ -51,6 +51,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		condition = metav1.Condition{
 			Type:   vdscondition.VirtualDiskSnapshotReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: vdscondition.VirtualDiskSnapshotReadyReasonUnknown,
 		}
 	}
 
