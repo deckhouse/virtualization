@@ -290,6 +290,10 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(_ *TargetRequest, obj []byte, ac
 	case ServiceMonitorKind, ServiceMonitorListKind:
 		rwrBytes, err = RewriteServiceMonitorOrList(rw.Rules, obj, action)
 
+	case ValidatingAdmissionPolicyBindingKind, ValidatingAdmissionPolicyBindingListKind:
+		rwrBytes, err = RewriteValidatingAdmissionPolicyBindingOrList(rw.Rules, obj, action)
+	case ValidatingAdmissionPolicyKind, ValidatingAdmissionPolicyListKind:
+		rwrBytes, err = RewriteValidatingAdmissionPolicyOrList(rw.Rules, obj, action)
 	default:
 		// TODO Add rw.Rules.IsKnownKind() to rewrite only known kinds.
 		rwrBytes, err = RewriteCustomResourceOrList(rw.Rules, obj, action)

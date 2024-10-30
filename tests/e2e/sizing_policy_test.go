@@ -161,7 +161,8 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 
 			It("changes VMClassName in VM specification with existing VMClass", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscovery)
-				MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), err)
 			})
 
 			It("checks VM phase and condition status after changing", func() {
@@ -184,7 +185,8 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscoveryCopy)
-				MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), err)
 			})
 
 			It("creates new `VirtualMachineClass`", func() {

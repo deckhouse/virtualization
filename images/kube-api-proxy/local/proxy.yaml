@@ -23,19 +23,10 @@ spec:
       imagePullSecrets:
         - name: "deckhouse-registry"
       containers:
-        - name: proxy-only
-          image: "${IMAGE}"
-          imagePullPolicy: Always
-          command:
-            - /proxy
-          env:
-            - name: CLIENT_PROXY_PORT
-              value: "23916"
         - name: proxy
           image: "${IMAGE}"
           imagePullPolicy: Always
-          command:
-            - /proxy
+          command: ${CTR_COMMAND}
           env:
             - name: WEBHOOK_ADDRESS
               value: "https://127.0.0.1:9443"

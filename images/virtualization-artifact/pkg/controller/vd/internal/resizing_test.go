@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -100,7 +100,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
 	})
@@ -112,7 +112,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
@@ -124,7 +124,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
@@ -134,7 +134,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
 	})
@@ -146,7 +146,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
 	})
@@ -162,7 +162,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetConditionByType(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.Resized))
 	})

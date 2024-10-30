@@ -35,13 +35,13 @@ func RewriteClusterRoleOrList(rules *RewriteRules, obj []byte, action Action) ([
 	if action == Rename {
 		return RewriteResourceOrList(obj, ClusterRoleListKind, func(singleObj []byte) ([]byte, error) {
 			return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-				return renameRoleRule(rules, item)
+				return RenameResourceRule(rules, item)
 			})
 		})
 	}
 	return RewriteResourceOrList(obj, ClusterRoleListKind, func(singleObj []byte) ([]byte, error) {
 		return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-			return restoreRoleRule(rules, item)
+			return RestoreResourceRule(rules, item)
 		})
 	})
 }
@@ -50,18 +50,18 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 	if action == Rename {
 		return RewriteResourceOrList(obj, RoleListKind, func(singleObj []byte) ([]byte, error) {
 			return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-				return renameRoleRule(rules, item)
+				return RenameResourceRule(rules, item)
 			})
 		})
 	}
 	return RewriteResourceOrList(obj, RoleListKind, func(singleObj []byte) ([]byte, error) {
 		return RewriteArray(singleObj, "rules", func(item []byte) ([]byte, error) {
-			return restoreRoleRule(rules, item)
+			return RestoreResourceRule(rules, item)
 		})
 	})
 }
 
-// renameRoleRule renames apiGroups and resources in a single rule.
+// RenameResourceRule renames apiGroups and resources in a single rule.
 // Rule examples:
 //   - apiGroups:
 //   - original.group.io
@@ -80,7 +80,7 @@ func RewriteRoleOrList(rules *RewriteRules, obj []byte, action Action) ([]byte, 
 //   - watch
 //   - list
 //   - create
-func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
+func RenameResourceRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
 	renameResources := false
@@ -117,8 +117,8 @@ func renameRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	})
 }
 
-// restoreRoleRule restores apiGroups and resources in a single rule.
-func restoreRoleRule(rules *RewriteRules, obj []byte) ([]byte, error) {
+// RestoreResourceRule restores apiGroups and resources in a single rule.
+func RestoreResourceRule(rules *RewriteRules, obj []byte) ([]byte, error) {
 	var err error
 
 	restoreResources := false

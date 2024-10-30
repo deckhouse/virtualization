@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -132,7 +133,7 @@ func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase
 	*phase = virtv2.ImageFailed
 	ready.Status = metav1.ConditionFalse
 	ready.Reason = vicondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error())
+	ready.Message = conditions.CapitalizeFirstLetter(err.Error())
 }
 
 func setPhaseConditionForPVCProvisioningImage(
@@ -163,7 +164,7 @@ func setPhaseConditionForPVCProvisioningImage(
 		vi.Status.Phase = virtv2.ImageProvisioning
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		condition.Message = conditions.CapitalizeFirstLetter(err.Error())
 		return nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImageProvisioning
@@ -189,12 +190,12 @@ func setPhaseConditionFromPodError(ready *metav1.Condition, vi *virtv2.VirtualIm
 	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = vicondition.ProvisioningNotStarted
-		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		ready.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 		return nil
 	case errors.Is(err, service.ErrProvisioningFailed):
 		ready.Status = metav1.ConditionFalse
 		ready.Reason = vicondition.ProvisioningFailed
-		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		ready.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 		return nil
 	default:
 		return err

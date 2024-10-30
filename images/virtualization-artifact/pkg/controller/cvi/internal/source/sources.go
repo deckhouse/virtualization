@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -111,5 +112,5 @@ func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase
 	*phase = virtv2.ImageFailed
 	ready.Status = metav1.ConditionFalse
 	ready.Reason = cvicondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error())
+	ready.Message = conditions.CapitalizeFirstLetter(err.Error())
 }

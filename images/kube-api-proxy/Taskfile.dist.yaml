@@ -8,7 +8,7 @@ includes:
     optional: true
 
 vars:
-  DevImage: "localhost:5000/$USER/kube-api-proxy:latest"
+  DevImage: "${DevImage:-localhost:5000/$USER/kube-api-proxy:latest}"
 
 tasks:
   default:
@@ -24,13 +24,41 @@ tasks:
   dev:deploy:
     desc: "apply manifest with proxy and test-controller"
     cmds:
+      - task: dev:__deploy
+        vars:
+          CTR_COMMAND: "['./proxy']"
+
+  dev:deploy-with-dlv:
+    desc: "apply manifest with proxy with dlv and test-controller"
+    cmds:
+      - task: dev:__deploy
+        vars:
+          CTR_COMMAND: "['./dlv', '--listen=:2345', '--headless=true', '--continue', '--log=true', '--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc', '--accept-multiclient', '--api-version=2', 'exec', './proxy']"
+
+  dev:__deploy:
+    internal: true
+    cmds:
       - |
         if ! kubectl get no 2>&1 >/dev/null ; then
           echo Restart cluster connection
           exit 1
         fi
       - |
-        cat local/proxy.yaml | IMAGE={{.DevImage}} envsubst | kubectl -n kproxy apply -f -
+        kubectl get ns kproxy &>/dev/null || kubectl create ns kproxy
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: deckhouse-registry
+          namespace: kproxy
+        type: $(kubectl get secrets deckhouse-registry -n d8-system -ojsonpath='{.type}')
+        data: $(kubectl get secrets deckhouse-registry -n d8-system -ojsonpath='{.data}')
+        EOF
+        cat local/proxy.yaml | CTR_COMMAND="{{.CTR_COMMAND}}" IMAGE="{{.DevImage}}" envsubst | kubectl -n kproxy apply -f -
+
+  dev:undeploy:
+    desc: "delete manifest with proxy and test-controller"
+    cmd: kubectl delete ns kproxy
 
   dev:restart:
     desc: "restart deployment"
