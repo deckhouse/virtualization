@@ -160,7 +160,6 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 				condition.Reason = vicondition.WaitForUserUpload
 				condition.Message = "Waiting for the user upload."
 
-				vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 				vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
