@@ -150,9 +150,9 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		}
 	}
 
-	scReady, _ := service.GetCondition(vdcondition.StorageClassReadyType, newVD.Status.Conditions)
+	scReady, _ := conditions.GetConditionByType(vdcondition.StorageClassReadyType, newVD.Status.Conditions)
 	if scReady.Status != metav1.ConditionTrue && newSize.Cmp(oldSize) == common.CmpGreater {
-		return nil, errors.New("can not expand spec.persistentVolumeClaim.size because storage class not ready")
+		return nil, fmt.Errorf("can not expand spec.persistentVolumeClaim.size because `StorageClass` of `VirtualDisk` not ready")
 	}
 
 	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
