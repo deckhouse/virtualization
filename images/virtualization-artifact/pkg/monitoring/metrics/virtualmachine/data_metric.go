@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -62,11 +62,11 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		awaitingRestartToApplyConfiguration bool
 		configurationApplied                bool
 	)
-	if cond, found := service.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
+	if cond, found := conditions.GetConditionByType(vmcondition.TypeAwaitingRestartToApplyConfiguration.String(),
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		awaitingRestartToApplyConfiguration = true
 	}
-	if cond, found := service.GetCondition(vmcondition.TypeConfigurationApplied.String(),
+	if cond, found := conditions.GetConditionByType(vmcondition.TypeConfigurationApplied.String(),
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		configurationApplied = true
 	}

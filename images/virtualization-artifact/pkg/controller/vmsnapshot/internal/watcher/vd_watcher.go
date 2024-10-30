@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -105,8 +105,8 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldResized, _ := service.GetCondition(vdcondition.ResizedType, oldVD.Status.Conditions)
-	newResized, _ := service.GetCondition(vdcondition.ResizedType, newVD.Status.Conditions)
+	oldResized, _ := conditions.GetConditionByType(vdcondition.ResizedType, oldVD.Status.Conditions)
+	newResized, _ := conditions.GetConditionByType(vdcondition.ResizedType, newVD.Status.Conditions)
 
 	return oldResized.Status != newResized.Status || oldResized.Reason != newResized.Reason
 }

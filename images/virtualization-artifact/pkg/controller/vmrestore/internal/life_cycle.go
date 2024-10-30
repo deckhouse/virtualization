@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -138,7 +137,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmrestorecondition.VirtualMachineSnapshotNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+			Message(conditions.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, nil
 	default:
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
@@ -182,7 +181,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmrestorecondition.VirtualMachineRestoreConflict).
-				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+				Message(conditions.CapitalizeFirstLetter(err.Error()) + ".")
 			return reconcile.Result{}, nil
 		default:
 			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
@@ -270,5 +269,5 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Vi
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmrestorecondition.VirtualMachineRestoreFailed).
-		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+		Message(conditions.CapitalizeFirstLetter(err.Error()) + ".")
 }

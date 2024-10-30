@@ -49,10 +49,6 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	current := s.VirtualMachineClass().Current()
 	changed := s.VirtualMachineClass().Changed()
 
-	if updated := addAllUnknown(changed, vmclasscondition.TypeDiscovered); updated {
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
 	}

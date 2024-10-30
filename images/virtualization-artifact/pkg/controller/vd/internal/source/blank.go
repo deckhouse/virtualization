@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -53,8 +54,14 @@ func NewBlankDataSource(
 func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, blankDataSource)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	condition, ok := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
+	if !ok {
+		condition = metav1.Condition{
+			Type:   vdcondition.ReadyType,
+			Status: metav1.ConditionUnknown,
+		}
+	}
+	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)

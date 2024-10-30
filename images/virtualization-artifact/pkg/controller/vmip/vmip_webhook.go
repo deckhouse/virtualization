@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -112,7 +113,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		"old.address", oldVmip.Spec.StaticIP, "new.address", newVmip.Spec.StaticIP,
 	)
 
-	boundCondition, exist := service.GetCondition(vmipcondition.BoundType.String(), oldVmip.Status.Conditions)
+	boundCondition, exist := conditions.GetConditionByType(vmipcondition.BoundType.String(), oldVmip.Status.Conditions)
 	if exist && boundCondition.Status == metav1.ConditionTrue {
 		if oldVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto && newVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
 			v.log.Info("Change the VirtualMachineIP address type to 'Auto' from 'Static' for ip: ", "address", newVmip.Spec.StaticIP)

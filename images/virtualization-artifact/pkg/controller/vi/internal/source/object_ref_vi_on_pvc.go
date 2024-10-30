@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -132,7 +133,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
