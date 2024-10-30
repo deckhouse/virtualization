@@ -36,6 +36,8 @@ count: 100
 # The flag to show debug level logs. 
 # Corresponds to the DEBUG environment variable.
 debug: true
+# The flag to enable force interrupting mode
+forceInterruption: false
 drainer:
   # The flag to enable node draining.
   # Corresponds to the DRAINER_ENABLED environment variable.
