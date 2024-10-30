@@ -33,7 +33,10 @@ func GetConditionByType(condType string, conds []metav1.Condition) (metav1.Condi
 		}
 	}
 
-	return metav1.Condition{}, false
+	return metav1.Condition{
+		Type:   condType,
+		Status: metav1.ConditionUnknown,
+	}, false
 }
 
 func ApplyCondition(cond metav1.Condition, conditions *[]metav1.Condition) {
