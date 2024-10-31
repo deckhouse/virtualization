@@ -54,7 +54,6 @@ shell:
 
       go mod vendor
 
-  setup:
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
