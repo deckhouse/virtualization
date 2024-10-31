@@ -26,20 +26,24 @@ spec:
               properties:
                 conditions:
                   description: |
-                    Последние доступные наблюдения текущего состояния объекта.
-                  properties:
-                    type:
-                      description: Тип состояния.
-                    status:
-                      description: Статус состояния (одно из True, False, Unknown).
-                    message:
-                      description: Сообщение c деталями последнего перехода состояния.
-                    reason:
-                      description: Краткая причина последнего перехода состояния.
-                    lastProbeTime:
-                      description: Время последней проверки состояния.
-                    lastTransitionTime:
-                      description: Время последнего перехода состояния из одного статуса в другой.
+                    Последнее подтвержденное состояние данного ресурса.
+                  items:
+                    properties:
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
+                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                      type:
+                        description: Тип условия.
                 phase:
                   description: |
                     Представляет текущее состояние ресурса `VirtualMachineIPAddressLease`.

@@ -29,12 +29,14 @@ spec:
                     Последнее подтвержденное состояние данного ресурса.
                   items:
                     properties:
-                      lastProbeTime:
-                        description: Время проверки условия.
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
                       message:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
+                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
