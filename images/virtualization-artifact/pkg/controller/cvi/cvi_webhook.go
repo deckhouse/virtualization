@@ -63,7 +63,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, nil
 	}
 
-	ready, _ := service.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
+	ready, _ := service.GetCondition(cvicondition.ReadyType.String(), newCVI.Status.Conditions)
 	if newCVI.Status.Phase == virtv2.ImageReady || ready.Status == metav1.ConditionTrue {
 		return nil, fmt.Errorf("ClusterVirtualImage is in a Ready state: configuration changes are not available")
 	}
