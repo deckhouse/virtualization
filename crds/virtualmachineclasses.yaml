@@ -186,6 +186,7 @@ spec:
                     to VM scheduling.
                   properties:
                     matchExpressions:
+                      description: A list of node selector requirements by node's labels.
                       items:
                         description: |-
                           A node selector requirement is a selector that contains values, a key, and an operator
@@ -384,6 +385,9 @@ spec:
                     type: string
                   type: array
                 conditions:
+                  description:
+                    The latest detailed observations of the VirtualMachineClass
+                    resource.
                   items:
                     description:
                       "Condition contains details for one aspect of the current

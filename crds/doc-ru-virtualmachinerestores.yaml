@@ -11,6 +11,8 @@ spec:
                 nameReplacements:
                   description: Правила для переименования ресурсов виртуальной машины.
                   items:
+                    description: |
+                      NameReplacement представляет собой правило для переопределения имен ресурсов виртуальной машины.
                     properties:
                       from:
                         description: Селектор для выбора ресурсов для переименования.
@@ -29,6 +31,8 @@ spec:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.

@@ -49,8 +49,6 @@ spec:
               required:
                 - type
             status:
-              description: |
-                The observed state of `VirtualMachineIPAddress`.
               properties:
                 conditions:
                   description: |

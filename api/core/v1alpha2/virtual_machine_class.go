@@ -74,7 +74,8 @@ type NodeSelector struct {
 	// A map of {key,value} pairs.
 	// A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value".
 	// The requirements are ANDed.
-	MatchLabels      map[string]string                `json:"matchLabels,omitempty"`
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// A list of node selector requirements by node's labels.
 	MatchExpressions []corev1.NodeSelectorRequirement `json:"matchExpressions,omitempty"`
 }
 
@@ -206,6 +207,7 @@ type VirtualMachineClassStatus struct {
 	// The maximum amount of free CPU and Memory resources observed among all available nodes.
 	// +kubebuilder:example={"maxAllocatableResources: {\"cpu\": 1, \"memory\": \"10Gi\"}"}
 	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
+	// The latest detailed observations of the VirtualMachineClass resource.
 	Conditions              []metav1.Condition  `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`

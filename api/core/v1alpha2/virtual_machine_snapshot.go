@@ -79,8 +79,9 @@ type VirtualMachineSnapshotStatus struct {
 	// The name of underlying `Secret`, created for virtual machine snapshotting.
 	VirtualMachineSnapshotSecretName string `json:"virtualMachineSnapshotSecretName,omitempty"`
 	// The list of `VirtualDiskSnapshot` names for the snapshots taken from the virtual disks of the associated virtual machine.
-	VirtualDiskSnapshotNames []string           `json:"virtualDiskSnapshotNames,omitempty"`
-	Conditions               []metav1.Condition `json:"conditions,omitempty"`
+	VirtualDiskSnapshotNames []string `json:"virtualDiskSnapshotNames,omitempty"`
+	// The latest detailed observations of the VirtualMachineSnapshot resource.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }

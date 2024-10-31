@@ -24,13 +24,13 @@ spec:
                   description: |
                     Форсирует выполнение операции. Применяется только для операций Restart и Stop. В этом случае действие над виртуальной машиной выполняется немедленно.
             status:
-              description: |
-                Состояние ресурса `VirtualMachineOperation`.
               properties:
                 conditions:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.

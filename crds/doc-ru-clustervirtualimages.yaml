@@ -56,9 +56,6 @@ spec:
                               description: ""
                             sha256:
                               description: ""
-                        insecureSkipVerify:
-                          description: |
-                            Отключить проверку TLS-сертификата (небезопасно и не должно использоваться в производственных средах).
                         url:
                           description: |
                             Для образа расположенного по URL, поддерживаются следующие типы образов:
@@ -98,6 +95,8 @@ spec:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.

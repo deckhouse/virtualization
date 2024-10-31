@@ -18,13 +18,13 @@ spec:
                   description: |
                     Запрашиваемый статический IP-адрес, который должен быть присвоен виртуальной машине. Это поле является обязательным, только если для параметра type задано значение "Static".
             status:
-              description: |
-                Состояние ресурса `VirtualMachineIPAddress`.
               properties:
                 conditions:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.

@@ -63,6 +63,9 @@ spec:
             spec:
               properties:
                 blockDeviceRef:
+                  description:
+                    A block device that will be connected to the VM as a
+                    hot Plug disk.
                   properties:
                     kind:
                       description: |-

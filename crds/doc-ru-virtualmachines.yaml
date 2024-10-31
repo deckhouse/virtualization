@@ -565,6 +565,8 @@ spec:
                   description: |
                     Состояния во время работы виртуальной машины.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
