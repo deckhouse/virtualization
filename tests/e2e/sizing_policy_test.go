@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -65,7 +66,7 @@ func CompareVirtualMachineClassReadyStatus(vmName, expectedStatus string) {
 	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
 }
 
-var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string

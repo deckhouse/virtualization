@@ -27,10 +27,11 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Label and Annotation", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Label and Annotation", ginkgoutil.CommonE2ETestDecorators(), func() {
 	imageManifest := vmPath("image.yaml")
 	vmManifest := vmPath("vm_label_annotation.yaml")
 

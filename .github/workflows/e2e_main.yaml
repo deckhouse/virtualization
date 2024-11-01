@@ -17,7 +17,6 @@ name: e2e
 env:
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.22.7"
-  GINKGO_VERSION: "2.20.0"
 
 on:
   workflow_dispatch:
@@ -46,7 +45,8 @@ jobs:
       - name: Install ginkgo
         run: |
           echo "Install ginkgo"
-          go install "github.com/onsi/ginkgo/v2/ginkgo@v${{ env.GINKGO_VERSION }}"
+          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
+          go install "github.com/onsi/ginkgo/v2/ginkgo@v${GINKGO_VERSION}"
 
       - name: Install Deckhouse-cli
         run: |
@@ -69,4 +69,4 @@ jobs:
       - name: Run E2E
         working-directory: ./tests/e2e/
         run: |
-          task run -v
+          task run:ci -v

@@ -29,6 +29,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -92,7 +93,7 @@ func CheckResultSshCommand(vmName, cmd, equal string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
-var _ = Describe("VM connectivity", Ordered, ContinueOnFailure, func() {
+var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
