@@ -27,7 +27,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -46,12 +45,10 @@ func (h *BlockDeviceLimiterHandler) Handle(ctx context.Context, s state.VirtualM
 	changed := s.VirtualMachine().Changed()
 
 	if isDeletion(current) {
-		changed.Status.Phase = virtv2.MachineTerminating
 		return reconcile.Result{}, nil
 	}
 
-	if updated := addAllUnknown(changed, vmcondition.TypeDiskAttachmentCapacityAvailable); updated || changed.Status.Phase == "" {
-		changed.Status.Phase = virtv2.MachinePending
+	if updated := addAllUnknown(changed, vmcondition.TypeDiskAttachmentCapacityAvailable); updated {
 		return reconcile.Result{Requeue: true}, nil
 	}
 

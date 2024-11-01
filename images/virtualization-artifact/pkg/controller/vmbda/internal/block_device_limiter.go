@@ -47,6 +47,11 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMa
 	cb := conditions.NewConditionBuilder(vmbdacondition.DiskAttachmentCapacityAvailableType).Generation(vmbda.Generation)
 	defer func() { conditions.SetCondition(cb, &vmbda.Status.Conditions) }()
 
+	if vmbda.DeletionTimestamp != nil {
+		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.CapacityUnknown)
+		return reconcile.Result{}, nil
+	}
+
 	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
 		cb.
 			Status(metav1.ConditionTrue).

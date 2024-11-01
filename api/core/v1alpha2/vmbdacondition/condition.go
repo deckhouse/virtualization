@@ -74,6 +74,8 @@ const (
 	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
 	// CapacityReached signifies that the capacity reached and attaching not available.
 	CapacityReached DiskAttachmentCapacityAvailableReason = "CapacityReached"
+	// CapacityUnknown represents unknown condition state
+	CapacityUnknown DiskAttachmentCapacityAvailableReason = "CapacityUnknown"
 )
 
 func (t Type) String() string {
