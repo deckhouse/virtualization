@@ -36,8 +36,7 @@ type RetentionHandler struct {
 	retentionDuration time.Duration
 }
 
-func NewRetentionHandler(retentionDuration time.Duration,
-) *RetentionHandler {
+func NewRetentionHandler(retentionDuration time.Duration) *RetentionHandler {
 	return &RetentionHandler{
 		retentionDuration: retentionDuration,
 	}
