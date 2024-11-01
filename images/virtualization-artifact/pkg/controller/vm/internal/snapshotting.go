@@ -46,6 +46,10 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	vm := s.VirtualMachine().Changed()
 
+	if update := addAllUnknown(vm, vmcondition.TypeSnapshotting); update {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	if isDeletion(vm) {
 		return reconcile.Result{}, nil
 	}

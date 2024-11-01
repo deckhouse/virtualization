@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -56,8 +55,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
-	condition, _ := conditions.GetConditionByType(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { conditions.ApplyCondition(condition, &vd.Status.Conditions) }()
+	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
 
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -79,7 +80,7 @@ func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines
 	}
 }
 
-var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}

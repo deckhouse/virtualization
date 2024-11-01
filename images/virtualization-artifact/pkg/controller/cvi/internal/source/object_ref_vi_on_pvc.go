@@ -26,7 +26,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -117,7 +116,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -145,12 +144,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningNotStarted
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err

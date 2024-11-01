@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -101,8 +101,8 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return true
 	}
 
-	oldReadyCondition, _ := conditions.GetConditionByType(vdcondition.ReadyType, oldVD.Status.Conditions)
-	newReadyCondition, _ := conditions.GetConditionByType(vdcondition.ReadyType, newVD.Status.Conditions)
+	oldReadyCondition, _ := service.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
+	newReadyCondition, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 
 	return oldReadyCondition.Status != newReadyCondition.Status
 }

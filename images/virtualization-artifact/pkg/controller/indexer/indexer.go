@@ -49,6 +49,8 @@ const (
 
 	IndexFieldVMIPByVM      = "status.virtualMachine"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
+
+	IndexFieldVMBDAByVM = "spec.virtualMachineName"
 )
 
 type indexFunc func(ctx context.Context, mgr manager.Manager) error
@@ -68,6 +70,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVDByStorageClass,
 		IndexVIByStorageClass,
 		IndexVMIPByAddress,
+		IndexVMBDAByVM,
 	} {
 		if err := fn(ctx, mgr); err != nil {
 			return err

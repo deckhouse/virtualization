@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -60,7 +60,7 @@ func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context,
 	}
 
 	for _, cvi := range cvis.Items {
-		dsReady, _ := conditions.GetConditionByType(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
+		dsReady, _ := service.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
 		if dsReady.Status == metav1.ConditionTrue {
 			continue
 		}
