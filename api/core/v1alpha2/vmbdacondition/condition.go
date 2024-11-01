@@ -26,6 +26,8 @@ const (
 	VirtualMachineReadyType Type = "VirtualMachineReady"
 	// AttachedType indicates that the block device is hot-plugged into the virtual machine.
 	AttachedType Type = "Attached"
+	// DiskAttachmentCapacityAvailableType indicates that the entity has not yet reached its predefined limit for block device attachments.
+	DiskAttachmentCapacityAvailableType Type = "DiskAttachmentCapacityAvailableType"
 )
 
 type (
@@ -35,6 +37,8 @@ type (
 	VirtualMachineReadyReason string
 	// AttachedReason represents the various reasons for the `Attached` condition type.
 	AttachedReason string
+	// DiskAttachmentCapacityAvailableReason represent the various reasons for the `DiskAttachmentCapacityAvailableType` condition type.
+	DiskAttachmentCapacityAvailableReason string
 )
 
 const (
@@ -65,6 +69,11 @@ const (
 	// or the virtual disk is already attached to the virtual machine spec.
 	// Only the one that was created or started sooner can be processed.
 	Conflict AttachedReason = "Conflict"
+
+	// CapacityAvailable signifies that the capacity not reached and attaching available.
+	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
+	// CapacityReached signifies that the capacity reached and attaching not available.
+	CapacityReached DiskAttachmentCapacityAvailableReason = "CapacityReached"
 )
 
 func (t Type) String() string {
@@ -80,5 +89,9 @@ func (t VirtualMachineReadyReason) String() string {
 }
 
 func (t AttachedReason) String() string {
+	return string(t)
+}
+
+func (t DiskAttachmentCapacityAvailableReason) String() string {
 	return string(t)
 }

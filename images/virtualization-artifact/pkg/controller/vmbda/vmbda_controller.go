@@ -45,6 +45,7 @@ func NewController(
 	log := lg.With(logger.SlogController(ControllerName))
 
 	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
+	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
@@ -52,6 +53,7 @@ func NewController(
 		internal.NewVirtualMachineReadyHandler(attacher),
 		internal.NewLifeCycleHandler(attacher),
 		internal.NewDeletionHandler(),
+		internal.NewBlockDeviceLimiter(blockDeviceService),
 	)
 
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{
@@ -71,7 +73,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, mgr.GetClient(), log)).
+		WithValidator(NewValidator(attacher, blockDeviceService, log)).
 		Complete(); err != nil {
 		return nil, err
 	}
