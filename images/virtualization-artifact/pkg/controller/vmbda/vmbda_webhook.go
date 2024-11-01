@@ -22,7 +22,6 @@ import (
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -40,13 +39,13 @@ type Validator struct {
 	log        *slog.Logger
 }
 
-func NewValidator(attachmentService *service.AttachmentService, client client.Client, log *slog.Logger) *Validator {
+func NewValidator(attachmentService *service.AttachmentService, service *service.BlockDeviceService, log *slog.Logger) *Validator {
 	return &Validator{
 		log: log.With("webhook", "validation"),
 		validators: []VirtualMachineBlockDeviceAttachmentValidator{
 			validators.NewSpecMutateValidator(),
 			validators.NewAttachmentConflictValidator(attachmentService, log),
-			validators.NewVMConnectLimiterValidator(client, log),
+			validators.NewVMConnectLimiterValidator(service, log),
 		},
 	}
 }

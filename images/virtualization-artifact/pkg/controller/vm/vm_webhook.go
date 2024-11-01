@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -40,14 +41,14 @@ type Validator struct {
 	log        *slog.Logger
 }
 
-func NewValidator(ipam internal.IPAM, client client.Client, log *slog.Logger) *Validator {
+func NewValidator(ipam internal.IPAM, client client.Client, service *service.BlockDeviceService, log *slog.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(ipam, client),
 			validators.NewBlockDeviceSpecRefsValidator(),
 			validators.NewSizingPolicyValidator(client),
-			validators.NewBlockDeviceLimiterValidator(client, log),
+			validators.NewBlockDeviceLimiterValidator(service, log),
 		},
 		log: log.With("webhook", "validation"),
 	}
