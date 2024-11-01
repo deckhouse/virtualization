@@ -26,6 +26,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -96,7 +97,7 @@ func GetDisksMetadata(vmName string, disks *Disks) {
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
-var _ = Describe("Virtual disk attachment", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}

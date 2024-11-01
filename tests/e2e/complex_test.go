@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -58,7 +59,7 @@ func AssignIPToVMIP(name string) error {
 	return nil
 }
 
-var _ = Describe("Complex test", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}

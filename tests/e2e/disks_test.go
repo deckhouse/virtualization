@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -42,7 +43,7 @@ func vdPath(file string) string {
 	return path.Join(conf.Disks.VdTestDataDir, file)
 }
 
-var _ = Describe("Disks", func() {
+var _ = Describe("Disks", ginkgoutil.CommonE2ETestDecorators(), func() {
 	CheckProgress := func(filepath string) {
 		GinkgoHelper()
 		out := "jsonpath={.status.progress}"
@@ -71,7 +72,7 @@ var _ = Describe("Disks", func() {
 		ItChekStatusPhaseFromFile(filepath, PhaseReady)
 	}
 
-	Context("CVI", Ordered, ContinueOnFailure, func() {
+	Context("CVI", func() {
 		AfterAll(func() {
 			By("Removing resources for cvi tests")
 			kubectl.Delete(conf.Disks.CviTestDataDir, kc.DeleteOptions{})
@@ -112,7 +113,7 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VI", Ordered, ContinueOnFailure, func() {
+	Context("VI", func() {
 		AfterAll(func() {
 			By("Removing resources for vi tests")
 			kubectl.Delete(conf.Disks.ViTestDataDir, kc.DeleteOptions{})
@@ -153,7 +154,7 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VD", Ordered, ContinueOnFailure, func() {
+	Context("VD", func() {
 		AfterAll(func() {
 			By("Removing resources for vd tests")
 			kubectl.Delete(conf.Disks.VdTestDataDir, kc.DeleteOptions{})
