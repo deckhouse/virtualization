@@ -112,7 +112,7 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
+	if !(ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
 		Cleanup()
 	}
 }

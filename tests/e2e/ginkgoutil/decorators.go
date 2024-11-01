@@ -47,9 +47,9 @@ func DecoratorsFromEnv(decorators ...interface{}) []interface{} {
 	out := make([]interface{}, 0)
 
 	for _, decorator := range decorators {
-		switch decorator.(type) {
+		switch v := decorator.(type) {
 		case EnvSwitchable:
-			gdeco := decorator.(EnvSwitchable).Decorator()
+			gdeco := v.Decorator()
 			if gdeco != nil {
 				out = append(out, gdeco)
 			}
