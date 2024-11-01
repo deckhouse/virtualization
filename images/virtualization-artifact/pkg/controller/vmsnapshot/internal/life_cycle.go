@@ -56,14 +56,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	defer func() { conditions.SetCondition(cb.Generation(vmSnapshot.Generation), &vmSnapshot.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmSnapshot.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmscondition.VirtualMachineSnapshotUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
-			Reason(vmscondition.VirtualMachineSnapshotUnknown).
+			Reason(conditions.ReasonUnknown).
 			Message("")
 
 		return reconcile.Result{}, nil

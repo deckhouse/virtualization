@@ -49,11 +49,11 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 	defer func() { conditions.SetCondition(cb.Generation(vmSnapshot.Generation), &vmSnapshot.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmSnapshot.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmscondition.VirtualMachineUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
-		cb.Status(metav1.ConditionUnknown).Reason(vmscondition.VirtualMachineUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 

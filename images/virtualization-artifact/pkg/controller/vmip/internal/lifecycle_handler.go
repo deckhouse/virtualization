@@ -54,12 +54,12 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 
 	conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
 		Generation(vmip.GetGeneration()).
-		Reason(vmipcondition.BoundReasonUnknown).
+		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
 	conditionAttach := conditions.NewConditionBuilder(vmipcondition.AttachedType).
 		Generation(vmip.GetGeneration()).
-		Reason(vmipcondition.AttachedReasonUnknown).
+		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
 	defer func() {

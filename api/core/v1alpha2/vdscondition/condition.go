@@ -34,13 +34,11 @@ type (
 )
 
 const (
-	VirtualDiskReadyReasonUnknown VirtualDiskReadyReason = "Unknown"
 	// VirtualDiskReady signifies that the source virtual disk is ready for snapshotting, allowing the snapshot process to begin.
 	VirtualDiskReady VirtualDiskReadyReason = "VirtualDiskReady"
 	// VirtualDiskNotReadyForSnapshotting signifies that the source virtual disk is not ready for snapshotting, preventing the snapshot process from starting.
 	VirtualDiskNotReadyForSnapshotting VirtualDiskReadyReason = "VirtualDiskNotReadyForSnapshotting"
 
-	VirtualDiskSnapshotReadyReasonUnknown VirtualDiskSnapshotReadyReason = "Unknown"
 	// WaitingForTheVirtualDisk signifies that the snapshot process is waiting for the virtual disk to become ready for snapshotting.
 	WaitingForTheVirtualDisk VirtualDiskSnapshotReadyReason = "WaitingForTheVirtualDisk"
 	// PotentiallyInconsistent signifies that the snapshotting process cannot begin because creating a snapshot of virtual disk attached to the running virtual machine might result in an inconsistent snapshot.

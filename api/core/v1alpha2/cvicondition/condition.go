@@ -34,7 +34,6 @@ type (
 )
 
 const (
-	DatasourceReadyReasonUnknown DatasourceReadyReason = "Unknown"
 	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
 	DatasourceReady DatasourceReadyReason = "DatasourceReady"
 	// ContainerRegistrySecretNotFound indicates that the container registry secret was not found, which prevents the import process from starting.
@@ -46,7 +45,6 @@ const (
 	// VirtualDiskNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskNotReady DatasourceReadyReason = "VirtualDiskNotReady"
 
-	ReadyReasonUnknown ReadyReason = "Unknown"
 	// WaitForUserUpload indicates that the `ClusterVirtualImage` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
 	// Provisioning indicates that the provisioning process is currently in progress.

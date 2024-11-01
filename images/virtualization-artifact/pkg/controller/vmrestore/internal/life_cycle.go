@@ -60,7 +60,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 	defer func() { conditions.SetCondition(cb.Generation(vmRestore.Generation), &vmRestore.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmRestore.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmrestorecondition.VirtualMachineRestoreUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmRestore.Status.Phase == "" {
@@ -69,7 +69,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 
 	if vmRestore.DeletionTimestamp != nil {
 		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseTerminating
-		cb.Status(metav1.ConditionUnknown).Reason(vmrestorecondition.VirtualMachineRestoreUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 

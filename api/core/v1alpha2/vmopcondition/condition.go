@@ -38,8 +38,6 @@ func (r ReasonCompleted) String() string {
 }
 
 const (
-	ReasonCompletedUnknown ReasonCompleted = "Unknown"
-
 	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
 	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
@@ -79,8 +77,6 @@ func (r ReasonSignalSent) String() string {
 }
 
 const (
-	ReasonSignalSentUnknown ReasonSignalSent = "Unknown"
-
 	// ReasonSignalSentError is a ReasonCompleted indicating an error occurred while sending powerstate signal to the VM.
 	ReasonSignalSentError ReasonSignalSent = "SignalSentError"
 

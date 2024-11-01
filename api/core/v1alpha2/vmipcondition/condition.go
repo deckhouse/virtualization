@@ -47,8 +47,6 @@ func (r AttachedReason) String() string {
 }
 
 const (
-	BoundReasonUnknown BoundReason = "Unknown"
-
 	// VirtualMachineIPAddressIsOutOfTheValidRange is a BoundReason indicating when specified IP address is out of the range in controller settings.
 	VirtualMachineIPAddressIsOutOfTheValidRange BoundReason = "VirtualMachineIPAddressIsOutOfTheValidRange"
 
@@ -66,8 +64,6 @@ const (
 
 	// Bound is a BoundReason indicating the IP address lease is successfully bound.
 	Bound BoundReason = "Bound"
-
-	AttachedReasonUnknown AttachedReason = "Unknown"
 
 	// VirtualMachineNotFound is an AttachedReason indicating the Virtual Machine was not found.
 	VirtualMachineNotFound AttachedReason = "VirtualMachineNotFound"

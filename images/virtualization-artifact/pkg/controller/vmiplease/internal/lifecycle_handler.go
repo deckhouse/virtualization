@@ -47,7 +47,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).
 		Generation(lease.GetGeneration()).
-		Reason(vmiplcondition.BoundReasonUnknown).
+		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
 	defer func() {
