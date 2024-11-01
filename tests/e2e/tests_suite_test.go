@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -111,7 +112,9 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-	Cleanup()
+	if !(ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
+		Cleanup()
+	}
 }
 
 func Cleanup() {

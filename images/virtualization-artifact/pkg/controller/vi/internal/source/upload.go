@@ -31,7 +31,6 @@ import (
 	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -70,14 +69,8 @@ func NewUploadDataSource(
 func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
-	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -167,7 +160,6 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 				condition.Reason = vicondition.WaitForUserUpload
 				condition.Message = "Waiting for the user upload."
 
-				vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 				vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
@@ -207,7 +199,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -287,14 +279,8 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
-	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -360,7 +346,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err

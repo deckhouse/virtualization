@@ -28,6 +28,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -149,7 +150,7 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 	return disks, nil
 }
 
-var _ = Describe("Virtual disk resizing", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
 	diskResizingLabel := map[string]string{"testcase": "disk-resizing"}
 
 	Context("When resources are applied:", func() {

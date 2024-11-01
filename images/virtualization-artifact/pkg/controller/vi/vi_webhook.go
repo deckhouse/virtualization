@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -63,7 +63,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, nil
 	}
 
-	ready, _ := conditions.GetConditionByType(vicondition.ReadyType, newVI.Status.Conditions)
+	ready, _ := service.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
 	if newVI.Status.Phase == virtv2.ImageReady || ready.Status == metav1.ConditionTrue {
 		return nil, fmt.Errorf("VirtualImage is in the Ready state: spec is immutable now")
 	}

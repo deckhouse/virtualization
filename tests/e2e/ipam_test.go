@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -30,7 +31,7 @@ func ipamPath(file string) string {
 }
 
 var _ = Describe("Ipam", func() {
-	Context("VirtualMachineIPAddressClaim", Ordered, ContinueOnFailure, func() {
+	Context("VirtualMachineIPAddressClaim", ginkgoutil.CommonE2ETestDecorators(), func() {
 		AfterAll(func() {
 			By("Removing resources for vmip tests")
 			kubectl.Delete(conf.Ipam.TestDataDir, kc.DeleteOptions{})

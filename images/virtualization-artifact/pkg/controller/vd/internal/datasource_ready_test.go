@@ -51,7 +51,11 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		handler := NewDatasourceReadyHandler(nil, nil)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
-		require.Equal(t, len(vd.Status.Conditions), 0)
+
+		condition := vd.Status.Conditions[0]
+		require.Equal(t, vdcondition.DatasourceReadyType, condition.Type)
+		require.Equal(t, metav1.ConditionUnknown, condition.Status)
+		require.Equal(t, "", condition.Reason)
 	})
 
 	t.Run("VirtualDisk with Blank DataSource", func(t *testing.T) {

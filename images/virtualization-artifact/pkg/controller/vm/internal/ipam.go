@@ -71,6 +71,10 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
+	if update := addAllUnknown(changed, vmcondition.TypeIPAddressReady); update {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	//nolint:staticcheck
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeIPAddressReady).

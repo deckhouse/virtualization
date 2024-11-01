@@ -199,4 +199,6 @@ const (
 	CmpLesser  = -1
 	CmpEqual   = 0
 	CmpGreater = 1
+
+	VmBlockDeviceAttachedLimit = 16
 )

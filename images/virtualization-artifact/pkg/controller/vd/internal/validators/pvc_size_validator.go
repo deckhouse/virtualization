@@ -30,7 +30,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -113,7 +112,7 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 		return nil, nil
 	case errors.Is(err, service.ErrInsufficientPVCSize):
 		return admission.Warnings{
-			conditions.CapitalizeFirstLetter(err.Error()),
+			service.CapitalizeFirstLetter(err.Error()),
 		}, nil
 	default:
 		return nil, err
@@ -133,7 +132,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		oldSize = *s
 	}
 
-	ready, _ := conditions.GetConditionByType(vdcondition.ReadyType, newVD.Status.Conditions)
+	ready, _ := service.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	if s := newVD.Spec.PersistentVolumeClaim.Size; s != nil {
 		newSize = *s
 	} else if ready.Status == metav1.ConditionTrue || newVD.Status.Phase != virtv2.DiskPending && newVD.Status.Phase != virtv2.DiskProvisioning {
@@ -215,7 +214,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		return nil, nil
 	case errors.Is(err, service.ErrInsufficientPVCSize):
 		return admission.Warnings{
-			conditions.CapitalizeFirstLetter(err.Error()),
+			service.CapitalizeFirstLetter(err.Error()),
 		}, nil
 	default:
 		return nil, err

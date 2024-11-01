@@ -33,7 +33,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -82,14 +81,8 @@ func NewObjectRefDataSource(
 func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
@@ -247,14 +240,8 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	condition, ok := conditions.GetConditionByType(vicondition.ReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
-	defer func() { conditions.ApplyCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
@@ -356,7 +343,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 			case errors.Is(err, service.ErrProvisioningFailed):
 				condition.Status = metav1.ConditionFalse
 				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = conditions.CapitalizeFirstLetter(err.Error() + ".")
+				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
