@@ -68,7 +68,6 @@ const (
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
 	Lost ReadyReason = "PVCLost"
 
-	ResizedReasonUnknown ResizedReason = "Unknown"
 	// ResizingNotRequested indicates that the resize operation has not been requested yet.
 	ResizingNotRequested ResizedReason = "NotRequested"
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
@@ -78,7 +77,6 @@ const (
 	// ResizingNotAvailable indicates that the resize operation is not available for now.
 	ResizingNotAvailable SnapshottingReason = "NotAvailable"
 
-	SnapshottingReasonUnknown SnapshottingReason = "Unknown"
 	// SnapshottingNotRequested indicates that the snapshotting operation has been successfully started and is in progress now.
 	SnapshottingNotRequested SnapshottingReason = "NotRequested"
 	// Snapshotting indicates that the snapshotting operation has been successfully started and is in progress now.

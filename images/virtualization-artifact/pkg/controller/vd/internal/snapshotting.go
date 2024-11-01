@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -43,7 +44,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		condition = metav1.Condition{
 			Type:   vdcondition.SnapshottingType,
 			Status: metav1.ConditionUnknown,
-			Reason: vdcondition.SnapshottingReasonUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 	}
 

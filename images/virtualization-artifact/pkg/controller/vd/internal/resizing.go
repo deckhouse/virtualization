@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -51,7 +52,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		condition = metav1.Condition{
 			Type:   vdcondition.ResizedType,
 			Status: metav1.ConditionUnknown,
-			Reason: vdcondition.ResizedReasonUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 	}
 
