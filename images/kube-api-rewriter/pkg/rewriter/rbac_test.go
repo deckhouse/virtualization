@@ -94,7 +94,7 @@ func TestRenameRoleRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resBytes, err := renameRoleRule(rwr.Rules, []byte(tt.rule))
+			resBytes, err := RenameResourceRule(rwr.Rules, []byte(tt.rule))
 			require.NoError(t, err, "should rename rule")
 
 			actual := string(resBytes)
@@ -174,7 +174,7 @@ func TestRestoreRoleRule(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resBytes, err := restoreRoleRule(rwr.Rules, []byte(tt.rule))
+			resBytes, err := RestoreResourceRule(rwr.Rules, []byte(tt.rule))
 			require.NoError(t, err, "should rename rule")
 
 			actual := string(resBytes)
