@@ -22,8 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+const deletionHandlerName = "DeletionHandler"
 
 type DeletionHandler struct{}
 
@@ -31,8 +34,10 @@ func NewDeletionHandler() *DeletionHandler {
 	return &DeletionHandler{}
 }
 
-func (h DeletionHandler) Handle(_ context.Context, vd *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 	if vd.DeletionTimestamp != nil {
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
 		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVMBDACleanup)
 		return reconcile.Result{}, nil
 	}
