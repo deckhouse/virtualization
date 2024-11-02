@@ -38,27 +38,26 @@ func RewriteGVK(rules *RewriteRules, obj []byte, action Action, gvFieldName stri
 	rwrApiVersion := ""
 	rwrKind := ""
 	if action == Rename {
+		// Rename if there is a rule for kind and group
 		_, resourceRule := rules.KindRules(apiGroupVersion, kind)
-		if resourceRule != nil {
-			rwrApiVersion = rules.RenameApiVersion(apiGroupVersion)
-			rwrKind = rules.RenameKind(kind)
+		if resourceRule == nil {
+			return obj, nil
 		}
+		rwrApiVersion = rules.RenameApiVersion(apiGroupVersion)
+		rwrKind = rules.RenameKind(kind)
 	}
 	if action == Restore {
-		if rules.IsRenamedGroup(apiGroupVersion) {
-			rwrApiVersion = rules.RestoreApiVersion(apiGroupVersion)
-			rwrKind = rules.RestoreKind(kind)
-			// Find resource rule by restored apiGroup and kind
-			_, resourceRule := rules.KindRules(rwrApiVersion, rwrKind)
-			if resourceRule == nil {
-				return obj, nil
-			}
+		// Restore if group is renamed and a rule can be found
+		// for restored kind and group.
+		if !rules.IsRenamedGroup(apiGroupVersion) {
+			return obj, nil
 		}
-	}
-
-	if rwrApiVersion == "" || rwrKind == "" {
-		// No rewrite for OwnerReference without rules.
-		return obj, nil
+		rwrApiVersion = rules.RestoreApiVersion(apiGroupVersion)
+		rwrKind = rules.RestoreKind(kind)
+		_, resourceRule := rules.KindRules(rwrApiVersion, rwrKind)
+		if resourceRule == nil {
+			return obj, nil
+		}
 	}
 
 	obj, err := sjson.SetBytes(obj, "kind", rwrKind)
