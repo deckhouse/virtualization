@@ -510,10 +510,10 @@ func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.Stora
 		return nil, err
 	}
 
-	defaultClasses := []storev1.StorageClass{}
+	var defaultClasses []*storev1.StorageClass
 	for _, sc := range scs.Items {
 		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
-			defaultClasses = append(defaultClasses, sc)
+			defaultClasses = append(defaultClasses, &sc)
 		}
 	}
 
@@ -530,7 +530,7 @@ func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.Stora
 		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
 	})
 
-	return nil, ErrDefaultStorageClassNotFound
+	return defaultClasses[0], nil
 }
 
 func (s DiskService) getStorageClass(ctx context.Context, storageClassName string) (*storev1.StorageClass, error) {

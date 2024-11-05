@@ -252,11 +252,10 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 		return nil, err
 	}
 
-	defaultClasses := []storagev1.StorageClass{}
+	var defaultClasses []*storagev1.StorageClass
 	for _, sc := range scList.Items {
-		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
-		if ok && isDefault == "true" {
-			defaultClasses = append(defaultClasses, sc)
+		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			defaultClasses = append(defaultClasses, &sc)
 		}
 	}
 
@@ -273,7 +272,7 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
 	})
 
-	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	return defaultClasses[0], nil
 }
 
 func toIPNet(prefix netip.Prefix) *net.IPNet {
