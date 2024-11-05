@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
@@ -45,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization-controller/pkg/util"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DiskService struct {
