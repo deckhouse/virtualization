@@ -105,6 +105,7 @@ func (r *Resource[T, ST]) Changed() T {
 	return r.changedObj
 }
 
+// rewriteObject is part of the transition from version 1.14, where you can specify empty reasons. After version 1.15, this feature is not needed.
 // TODO: Delete me after release v1.15
 func rewriteObject(obj client.Object) {
 	var conds []metav1.Condition
