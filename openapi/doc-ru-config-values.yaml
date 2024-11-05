@@ -106,7 +106,7 @@ properties:
       Работает для следующих компонентов:
       - `virtualization-api`
       - `virtualization-controller`
-      - `kube-api-proxy`
+      - `kube-api-rewriter`
       - `vm-route-forge`
   logFormat:
     type: string

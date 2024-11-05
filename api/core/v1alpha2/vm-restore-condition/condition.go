@@ -34,8 +34,6 @@ type (
 )
 
 const (
-	// VirtualMachineSnapshotUnknown represents unknown condition state.
-	VirtualMachineSnapshotUnknown VirtualMachineSnapshotReadyToUseReason = "Unknown"
 	// VirtualMachineSnapshotNotFound indicates that the specified virtual machine snapshot is absent.
 	VirtualMachineSnapshotNotFound VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotNotFound"
 	// VirtualMachineSnapshotNotReady indicates that the specified virtual machine snapshot is not ready.
@@ -43,8 +41,6 @@ const (
 	// VirtualMachineSnapshotReadyToUse indicates that the specified virtual machine snapshot is ready to restore.
 	VirtualMachineSnapshotReadyToUse VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotReadyToUse"
 
-	// VirtualMachineRestoreUnknown represents unknown condition state.
-	VirtualMachineRestoreUnknown VirtualMachineRestoreReadyReason = "Unknown"
 	// VirtualMachineSnapshotNotReadyToUse signifies that the virtual machine snapshot is not ready to use.
 	VirtualMachineSnapshotNotReadyToUse VirtualMachineRestoreReadyReason = "VirtualMachineSnapshotNotReadyToUse"
 	// VirtualMachineRestoreConflict signifies that the virtual machine cannot be restored as it's resources already exist.

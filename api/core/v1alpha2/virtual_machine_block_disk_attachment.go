@@ -68,6 +68,7 @@ type VirtualMachineBlockDeviceAttachmentStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
+// A block device that will be connected to the VM as a hot Plug disk.
 type VMBDAObjectRef struct {
 	// The type of the block device. Options are:
 	// * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.

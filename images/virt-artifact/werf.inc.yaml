@@ -13,7 +13,7 @@ git:
   - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
-      setup:
+      install:
       - '**/*'
     includePaths:
     - patches

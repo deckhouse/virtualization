@@ -106,11 +106,27 @@ spec:
                         Карта пар `ключ=значение`. Один `ключ=значение` для matchLabels эквивалентен элементу matchExpressions, ключевым полем которого является «ключ», оператором - «In», а список значений содержит только «значение».
 
                         Для выборки по данному критерию все значения логически суммируются.
-
-                sizingPolicies:
+                tolerations:
                   description: |
-                    Политика выделения вычислительных ресурсов ВМ. Представлена в виде списка. Диапазоны cores.min - cores.max для разных элементов списка не должны пересекаться.
+                    Параметр аналогичен параметру `spec.tolerations` у [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+                    Tolerations из этого параметра будут объединены с tolerations, указанными в ресурсе VirtualMachine. При этом tolerations у VirtualMachine имеют больший приоритет.
                   items:
+                    description: ""
+                    properties:
+                      effect:
+                        description: ""
+                      key:
+                        description: ""
+                      operator:
+                        description: ""
+                      tolerationSeconds:
+                        description: ""
+                      value:
+                        description: ""
+                sizingPolicies:
+                  items:
+                    description: |
+                      Политика выделения вычислительных ресурсов ВМ. Представлена в виде списка. Диапазоны cores.min - cores.max для разных элементов списка не должны пересекаться.
                     properties:
                       coreFractions:
                         description: |
@@ -160,17 +176,24 @@ spec:
                   description: |
                     Список узлов, поддерживающих эту модель процессора.
                     Не отображается для типов: `Host`, `HostPassthrough`.
+                maxAllocatableResources:
+                  description: |
+                    Максимальные размеры свободных ресурсов процессора и памяти, найденные среди всех доступных узлов.
                 conditions:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
-                      lastProbeTime:
-                        description: Время проверки условия.
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
                       message:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
+                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:

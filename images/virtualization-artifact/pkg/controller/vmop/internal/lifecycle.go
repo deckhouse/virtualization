@@ -75,13 +75,13 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
 			completedCond.
-				Reason(vmopcondition.ReasonCompletedUnknown).
+				Reason(conditions.ReasonUnknown).
 				Message("").
 				Status(metav1.ConditionUnknown),
 			&changed.Status.Conditions)
 		conditions.SetCondition(
 			signalSendCond.
-				Reason(vmopcondition.ReasonSignalSentUnknown).
+				Reason(conditions.ReasonUnknown).
 				Message("").
 				Status(metav1.ConditionUnknown),
 			&changed.Status.Conditions)

@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -59,7 +58,11 @@ func (h DeletionHandler) Handle(ctx context.Context, s state.VMOperationState) (
 	}
 
 	// Remove finalizer when VirtualMachineOperation is in deletion state or not in progress.
-	log.Debug(fmt.Sprintf("Remove cleanup finalier from VMOP: deletion %v, phase %s", changed.DeletionTimestamp != nil, changed.Status.Phase))
+	if changed.DeletionTimestamp != nil {
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", changed.Status.Phase)
+	} else {
+		log.Debug("Remove cleanup finalizer from VirtualMachineOperation: not InProgress state", "phase", changed.Status.Phase)
+	}
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMOPCleanup)
 	return reconcile.Result{}, nil
 }

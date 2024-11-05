@@ -20,6 +20,16 @@ type Stringer interface {
 	String() string
 }
 
+type CommonReason string
+
+func (cr CommonReason) String() string {
+	return string(cr)
+}
+
+const (
+	ReasonUnknown CommonReason = "Unknown"
+)
+
 // Deprecated: avoid using this wrapper.
 // TODO: get rid of this wrapper.
 type DeprecatedWrappedString string

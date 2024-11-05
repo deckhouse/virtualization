@@ -18,6 +18,11 @@ package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+const (
+	VirtualMachineIPAddressLeaseKind     = "VirtualMachineIPAddressLease"
+	VirtualMachineIPAddressLeaseResource = "virtualmachineipaddresleases"
+)
+
 // VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddress`.
 // +genclient
 // +genclient:nonNamespaced

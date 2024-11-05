@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -48,6 +49,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		readyCondition = metav1.Condition{
 			Type:   cvicondition.ReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 
 		service.SetCondition(readyCondition, &cvi.Status.Conditions)
