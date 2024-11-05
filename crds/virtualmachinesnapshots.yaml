@@ -115,6 +115,9 @@ spec:
             status:
               properties:
                 conditions:
+                  description:
+                    The latest detailed observations of the VirtualMachineSnapshot
+                    resource.
                   items:
                     description:
                       "Condition contains details for one aspect of the current

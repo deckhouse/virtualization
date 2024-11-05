@@ -1721,7 +1721,8 @@ func schema_virtualization_api_core_v1alpha2_NodeSelector(ref common.ReferenceCa
 					},
 					"matchExpressions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "A list of node selector requirements by node's labels.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2091,7 +2092,8 @@ func schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "A block device that will be connected to the VM as a hot Plug disk.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -3537,7 +3539,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The latest detailed observations of the VirtualMachineClass resource.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -4685,7 +4688,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref co
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The latest detailed observations of the VirtualMachineSnapshot resource.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

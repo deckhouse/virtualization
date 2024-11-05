@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -51,6 +52,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		condition = metav1.Condition{
 			Type:   vdscondition.VirtualDiskSnapshotReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 	}
 

@@ -11,6 +11,8 @@ spec:
                 nameReplacements:
                   description: Правила для переименования ресурсов виртуальной машины.
                   items:
+                    description: |
+                      NameReplacement представляет собой правило для переопределения имен ресурсов виртуальной машины.
                     properties:
                       from:
                         description: Селектор для выбора ресурсов для переименования.
@@ -29,13 +31,17 @@ spec:
                   description: |
                     Последнее подтвержденное состояние данного ресурса.
                   items:
+                    description: |
+                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
                     properties:
-                      lastProbeTime:
-                        description: Время проверки условия.
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
                       message:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
+                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
