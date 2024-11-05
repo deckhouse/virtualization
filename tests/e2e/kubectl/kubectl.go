@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	Cmd           = "kubectl"
-	ShortTimeout  = 10 * time.Second
-	MediumTimeout = 30 * time.Second
-	LongTimeout   = 60 * time.Second
+	Cmd             = "kubectl"
+	ShortTimeout    = 10 * time.Second
+	MediumTimeout   = 30 * time.Second
+	LongTimeout     = 60 * time.Second
+	ExecTimeoutDiff = 20 * time.Second
 )
 
 type Resource string
@@ -48,6 +49,7 @@ type Kubectl interface {
 	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
+	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
 	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
@@ -66,12 +68,13 @@ type CreateOptions struct {
 }
 
 type DeleteOptions struct {
-	Labels    map[string]string
-	Namespace string
+	ExcludedLabels []string
+	Labels         map[string]string
+	Namespace      string
 }
 
 type GetOptions struct {
-	ExcludeLabels  []string
+	ExcludedLabels []string
 	IgnoreNotFound bool
 	Labels         map[string]string
 	Namespace      string
@@ -85,9 +88,11 @@ type KustomizeOptions struct {
 }
 
 type WaitOptions struct {
-	Namespace string
-	For       string
-	Timeout   time.Duration
+	ExcludedLabels []string
+	Labels         map[string]string
+	Namespace      string
+	For            string
+	Timeout        time.Duration
 }
 
 type PatchOptions struct {
@@ -221,7 +226,7 @@ func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult 
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout
+		timeout = opts.Timeout + ExecTimeoutDiff
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -232,7 +237,7 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout * time.Second
+		timeout = opts.Timeout + ExecTimeoutDiff
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -243,7 +248,7 @@ func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout * time.Second
+		timeout = opts.Timeout + ExecTimeoutDiff
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -278,28 +283,20 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
-func (k KubectlCMD) addLabels(cmd string, labels map[string]string) string {
-	if len(labels) != 0 {
-		rawLabels := make([]string, 0, len(labels))
+func (k KubectlCMD) addLabels(cmd string, labels map[string]string, excludedLabels []string) string {
+	if len(labels) != 0 || len(excludedLabels) != 0 {
+		rawLabels := make([]string, 0, len(labels)+len(excludedLabels))
 
 		for k, v := range labels {
-			rawLabels = append(rawLabels, fmt.Sprintf("-l %s=%s", k, v))
+			rawLabels = append(rawLabels, fmt.Sprintf("%s=%s", k, v))
 		}
-		l := strings.Join(rawLabels, " ")
-		return fmt.Sprintf("%s %s", cmd, l)
-	}
-	return cmd
-}
 
-func (k KubectlCMD) excludeLabels(cmd string, labels []string) string {
-	if len(labels) != 0 {
-		rawLabels := make([]string, 0, len(labels))
-
-		for _, v := range labels {
-			rawLabels = append(rawLabels, fmt.Sprintf("-l '!%s'", v))
+		for _, v := range excludedLabels {
+			rawLabels = append(rawLabels, fmt.Sprintf("!%s", v))
 		}
-		l := strings.Join(rawLabels, " ")
-		return fmt.Sprintf("%s %s", cmd, l)
+
+		l := strings.Join(rawLabels, ",")
+		return fmt.Sprintf("%s -l '%s'", cmd, l)
 	}
 	return cmd
 }
@@ -340,24 +337,24 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
-	cmd = k.addLabels(cmd, opts.Labels)
-	cmd = k.excludeLabels(cmd, opts.ExcludeLabels)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	return cmd
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addLabels(cmd, opts.Labels)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	return cmd
 }
 
 func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	if opts.For != "" {
 		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
 	}
 	if opts.Timeout != 0 {
-		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout*time.Second)
+		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
 	}
 	return cmd
 }

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,8 +34,6 @@ import (
 
 const (
 	CurlPod           = "curl-helper"
-	Timeout           = 90 * time.Second
-	Interval          = 5 * time.Second
 	externalHost      = "https://flant.com"
 	nginxActiveStatus = "active"
 )
@@ -82,15 +79,17 @@ func CheckExternalConnection(host, httpCode string, vms ...string) {
 
 func CheckResultSshCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
+	Eventually(func() (string, error) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SshUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "result check failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
-		g.Expect(strings.TrimSpace(res.StdOut())).To(Equal(equal))
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+		if res.Error() != nil {
+			return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return strings.TrimSpace(res.StdOut()), nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
 }
 
 var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -113,10 +112,10 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual images are applied:", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -124,10 +123,10 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -135,10 +134,10 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phase", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -203,20 +202,24 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			service := GenerateServiceUrl(&svcA, conf.Namespace)
-			Eventually(func(g Gomega) {
+			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmA.Name))
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmA.Name))
 		})
 
 		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
 			service := GenerateServiceUrl(&svcB, conf.Namespace)
-			Eventually(func(g Gomega) {
+			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmB.Name))
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
 		})
 
 		It(fmt.Sprintf("changes selector in service %s with selector from service %s", aObjName, bObjName), func() {
@@ -237,11 +240,13 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
 			service := GenerateServiceUrl(&svcA, conf.Namespace)
-			Eventually(func(g Gomega) {
+			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				g.Expect(res.Error()).NotTo(HaveOccurred(), "%s", res.StdErr())
-				g.Expect(strings.TrimSpace(res.StdOut())).Should(ContainSubstring(vmB.Name))
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
 		})
 	})
 })

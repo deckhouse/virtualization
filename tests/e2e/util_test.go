@@ -25,6 +25,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -223,21 +224,45 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
+// Useful when require to async await resources filtered by labels.
+//
+//	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
+func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 	GinkgoHelper()
-	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 
-	res := kubectl.List(resource, opts)
-	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+	res := kubectl.List(resource, kc.GetOptions{
+		ExcludedLabels: opts.ExcludedLabels,
+		Labels:         opts.Labels,
+		Namespace:      opts.Namespace,
+		Output:         "jsonpath='{.items[*].metadata.name}'",
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
+	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
+		For:       fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase),
 		Namespace: opts.Namespace,
-		For:       jsonPath,
-		Timeout:   600,
+		Timeout:   opts.Timeout,
 	}
-	waitResult := kubectl.WaitResources(resource, waitOpts, resources...)
-	Expect(waitResult.Error()).NotTo(HaveOccurred(), waitResult.StdErr())
+
+	for _, name := range resources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res := kubectl.WaitResource(resource, name, waitOpts)
+			fmt.Println(res.GetCmd())
+			if res.Error() != nil {
+				mu.Lock()
+				waitErr = append(waitErr, res.StdErr())
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	Expect(waitErr).To(BeEmpty())
 }
 
 func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
