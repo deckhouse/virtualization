@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -509,13 +510,27 @@ func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.Stora
 		return nil, err
 	}
 
-	for _, sc := range scs.Items {
-		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
-			return &sc, nil
+	var defaultClasses []*storev1.StorageClass
+	for idx := range scs.Items {
+		if scs.Items[idx].Annotations[common.AnnDefaultStorageClass] == "true" {
+			defaultClasses = append(defaultClasses, &scs.Items[idx])
 		}
 	}
 
-	return nil, ErrDefaultStorageClassNotFound
+	if len(defaultClasses) == 0 {
+		return nil, ErrDefaultStorageClassNotFound
+	}
+
+	// Primary sort by creation timestamp, newest first
+	// Secondary sort by class name, ascending order
+	sort.Slice(defaultClasses, func(i, j int) bool {
+		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
+			return defaultClasses[i].Name < defaultClasses[j].Name
+		}
+		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
+	})
+
+	return defaultClasses[0], nil
 }
 
 func (s DiskService) getStorageClass(ctx context.Context, storageClassName string) (*storev1.StorageClass, error) {
