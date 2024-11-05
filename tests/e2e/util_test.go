@@ -253,9 +253,9 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	}
 
 	var defaultClasses []*storagev1.StorageClass
-	for _, sc := range scList.Items {
-		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
-			defaultClasses = append(defaultClasses, &sc)
+	for idx := range scList.Items {
+		if scList.Items[idx].Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			defaultClasses = append(defaultClasses, &scList.Items[idx])
 		}
 	}
 
