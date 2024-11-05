@@ -122,13 +122,14 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 	}
 
 	return &ProgressMeter{
-		ProgressReader: prometheusutil.NewProgressReader(rdr, total, registryProgress, ownerUID),
-		total:          total,
-		ownerUID:       ownerUID,
-		avgSpeed:       registryAvgSpeed,
-		curSpeed:       registryCurSpeed,
-		emitInterval:   time.Second,
-		stop:           make(chan struct{}),
+		ProgressReader: prometheusutil.NewProgressReader(rdr, metrics.Progress(ownerUID), total, registryProgress,
+			ownerUID),
+		total:        total,
+		ownerUID:     ownerUID,
+		avgSpeed:     registryAvgSpeed,
+		curSpeed:     registryCurSpeed,
+		emitInterval: time.Second,
+		stop:         make(chan struct{}),
 	}
 }
 

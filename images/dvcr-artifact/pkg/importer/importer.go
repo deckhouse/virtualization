@@ -177,22 +177,24 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 		return monitoring.WriteImportFailureMessage(err)
 	}
 
-	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format,
+		durCollector.Collect())
 }
 
 func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
 	var result datasource.DataSourceInterface
-
 	switch i.srcType {
 	case cc.SourceHTTP:
 		var err error
-		result, err = importer.NewHTTPDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir, cdiv1.DataVolumeContentType(i.srcContentType))
+		result, err = importer.NewHTTPDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir,
+			cdiv1.DataVolumeContentType(i.srcContentType))
 		if err != nil {
 			return nil, fmt.Errorf("error creating HTTP data source: %w", err)
 		}
 	case cc.SourceRegistry:
 		var err error
-		result, err = datasource.NewContainerRegistryDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir, i.srcInsecure)
+		result, err = datasource.NewContainerRegistryDataSource(i.src, i.srcUsername, i.srcPassword, i.certDir,
+			i.srcInsecure)
 		if err != nil {
 			return nil, fmt.Errorf("error creating container registry data source: %w", err)
 		}
