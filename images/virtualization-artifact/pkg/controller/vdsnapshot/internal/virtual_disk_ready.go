@@ -54,7 +54,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 
 	if vdSnapshot.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
