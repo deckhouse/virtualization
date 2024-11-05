@@ -265,6 +265,9 @@ func (rw *RuleBasedRewriter) RewriteJSONPayload(_ *TargetRequest, obj []byte, ac
 		ValidatingWebhookConfigurationListKind:
 		rwrBytes, err = RewriteValidatingOrList(rw.Rules, obj, action)
 
+	case EventKind, EventListKind:
+		rwrBytes, err = RewriteEventOrList(rw.Rules, obj, action)
+
 	case ClusterRoleKind, ClusterRoleListKind:
 		rwrBytes, err = RewriteClusterRoleOrList(rw.Rules, obj, action)
 
