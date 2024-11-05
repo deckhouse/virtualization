@@ -210,6 +210,11 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 			if c.Status != metav1.ConditionTrue {
 				return true
 			}
+
+		case vmcondition.TypeDiskAttachmentCapacityAvailable:
+			if c.Status != metav1.ConditionTrue {
+				return true
+			}
 		}
 	}
 	return false

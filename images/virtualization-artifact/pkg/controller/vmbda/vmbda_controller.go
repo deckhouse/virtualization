@@ -49,11 +49,11 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewBlockDeviceLimiter(blockDeviceService),
 		internal.NewBlockDeviceReadyHandler(attacher),
 		internal.NewVirtualMachineReadyHandler(attacher),
 		internal.NewLifeCycleHandler(attacher),
 		internal.NewDeletionHandler(),
-		internal.NewBlockDeviceLimiter(blockDeviceService),
 	)
 
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{

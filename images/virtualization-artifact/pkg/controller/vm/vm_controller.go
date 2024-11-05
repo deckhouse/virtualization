@@ -56,6 +56,7 @@ func SetupController(
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
 		internal.NewBlockDeviceHandler(client, recorder),
+		internal.NewBlockDeviceLimiterHandler(blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
@@ -66,7 +67,6 @@ func SetupController(
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewBlockDeviceLimiterHandler(blockDeviceService),
 	}
 	r := NewReconciler(client, handlers...)
 

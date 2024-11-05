@@ -60,7 +60,7 @@ func (h *BlockDeviceLimiterHandler) Handle(ctx context.Context, s state.VirtualM
 	cb := conditions.NewConditionBuilder(vmcondition.TypeDiskAttachmentCapacityAvailable).Generation(changed.Generation)
 	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 
-	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+	if blockDeviceAttachedCount <= common.VmBlockDeviceAttachedLimit {
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonBlockDeviceCapacityAvailable).
