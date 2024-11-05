@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -251,12 +252,26 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 		return nil, err
 	}
 
+	defaultClasses := []storagev1.StorageClass{}
 	for _, sc := range scList.Items {
 		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
 		if ok && isDefault == "true" {
-			return &sc, nil
+			defaultClasses = append(defaultClasses, sc)
 		}
 	}
+
+	if len(defaultClasses) == 0 {
+		return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	}
+
+	// Primary sort by creation timestamp, newest first
+	// Secondary sort by class name, ascending order
+	sort.Slice(defaultClasses, func(i, j int) bool {
+		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
+			return defaultClasses[i].Name < defaultClasses[j].Name
+		}
+		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
+	})
 
 	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
 }
