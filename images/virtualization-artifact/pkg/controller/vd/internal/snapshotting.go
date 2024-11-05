@@ -52,7 +52,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -60,7 +60,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -94,7 +94,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 	}
 
 	condition.Status = metav1.ConditionUnknown
-	condition.Reason = ""
+	condition.Reason = conditions.ReasonUnknown.String()
 	condition.Message = ""
 	return reconcile.Result{}, nil
 }

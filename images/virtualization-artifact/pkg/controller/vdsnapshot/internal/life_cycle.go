@@ -79,7 +79,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	if vdSnapshot.DeletionTimestamp != nil {
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseTerminating
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 
 		return reconcile.Result{}, nil

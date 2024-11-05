@@ -57,7 +57,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
