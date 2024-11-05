@@ -3445,6 +3445,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref common.
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector"),
 						},
 					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/). These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
 					"cpu": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -3469,7 +3483,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU", "github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector", "github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU", "github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector", "github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -3507,6 +3521,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 							},
 						},
 					},
+					"maxAllocatableResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The maximum amount of free CPU and Memory resources observed among all available nodes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -3522,7 +3550,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The generation last processed by the controller",
+							Description: "The generation last processed by the controller.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -3532,7 +3560,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

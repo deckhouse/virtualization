@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -58,48 +59,46 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	}
 
 	cpuType := current.Spec.CPU.Type
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
-	if cpuType == virtv2.CPUTypeHostPassthrough || cpuType == virtv2.CPUTypeHost {
-		mgr.Update(conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).
-			Generation(current.GetGeneration()).
-			Message(fmt.Sprintf("Discovery not needed for cpu.type %q", cpuType)).
-			Reason(vmclasscondition.ReasonDiscoverySkip).
-			Status(metav1.ConditionFalse).Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{}, nil
-	}
 
 	nodes, err := s.Nodes(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	availableNodes := make([]string, len(nodes))
-	for i, n := range nodes {
-		availableNodes[i] = n.GetName()
+
+	availableNodes, err := s.AvailableNodes(nodes)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	var featuresEnabled []string
+	availableNodeNames := make([]string, len(availableNodes))
+	for i, n := range availableNodes {
+		availableNodeNames[i] = n.GetName()
+	}
+
+	var (
+		featuresEnabled    []string
+		featuresNotEnabled []string
+	)
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
+		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
+			featuresEnabled = fs
+			break
+		}
 		featuresEnabled = h.discoveryCommonFeatures(nodes)
 	case virtv2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
 	}
 
-	var featuresNotEnabled []string
 	if cpuType == virtv2.CPUTypeDiscovery || cpuType == virtv2.CPUTypeFeatures {
-		selectedNodes, err := s.NodesByVMNodeSelector(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		commonFeatures := h.discoveryCommonFeatures(selectedNodes)
+		commonFeatures := h.discoveryCommonFeatures(availableNodes)
 		for _, cf := range commonFeatures {
 			if !slices.Contains(featuresEnabled, cf) {
 				featuresNotEnabled = append(featuresNotEnabled, cf)
 			}
 		}
 	}
+
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
 	case virtv2.CPUTypeDiscovery:
@@ -115,15 +114,14 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			Reason(vmclasscondition.ReasonDiscoverySkip).
 			Status(metav1.ConditionFalse)
 	}
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 
-	mgr.Update(cb.Condition())
-
-	sort.Strings(availableNodes)
+	sort.Strings(availableNodeNames)
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
-	changed.Status.Conditions = mgr.Generate()
-	changed.Status.AvailableNodes = availableNodes
+	changed.Status.AvailableNodes = availableNodeNames
+	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
 		Enabled:          featuresEnabled,
 		NotEnabledCommon: featuresNotEnabled,
@@ -155,4 +153,25 @@ func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string
 		}
 	}
 	return features
+}
+
+func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.ResourceList {
+	var (
+		resourceList  corev1.ResourceList = make(map[corev1.ResourceName]resource.Quantity)
+		resourceNames                     = []corev1.ResourceName{corev1.ResourceCPU, corev1.ResourceMemory}
+	)
+
+	for _, node := range nodes {
+		for _, resourceName := range resourceNames {
+			newQ := node.Status.Allocatable[resourceName]
+			if newQ.IsZero() {
+				continue
+			}
+			oldQ := resourceList[resourceName]
+			if newQ.Cmp(oldQ) == 1 {
+				resourceList[resourceName] = newQ
+			}
+		}
+	}
+	return resourceList
 }

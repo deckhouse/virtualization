@@ -61,6 +61,9 @@ type VirtualMachineClassList struct {
 
 type VirtualMachineClassSpec struct {
 	NodeSelector NodeSelector `json:"nodeSelector,omitempty"`
+	// Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+	// These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
 	CPU            CPU            `json:"cpu"`
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
@@ -76,6 +79,7 @@ type NodeSelector struct {
 }
 
 // CPU defines the requirements for the virtual CPU model.
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec.cpu is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'HostPassthrough' || self.type == 'Host' ? !has(self.model) && !has(self.features) && !has(self.discovery) : true",message="HostPassthrough and Host cannot have model, features or discovery"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Discovery' ? !has(self.model) && !has(self.features) : true",message="Discovery cannot have model or features"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Model' ? has(self.model) && !has(self.features) && !has(self.discovery) : true",message="Model requires model and cannot have features or discovery"
@@ -198,9 +202,12 @@ type VirtualMachineClassStatus struct {
 	// It is not displayed for the types: `Host`, `HostPassthrough`
 	//
 	// +kubebuilder:example={node-1, node-2}
-	AvailableNodes []string           `json:"availableNodes,omitempty"`
-	Conditions     []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller
+	AvailableNodes []string `json:"availableNodes,omitempty"`
+	// The maximum amount of free CPU and Memory resources observed among all available nodes.
+	// +kubebuilder:example={"maxAllocatableResources: {\"cpu\": 1, \"memory\": \"10Gi\"}"}
+	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
+	Conditions              []metav1.Condition  `json:"conditions,omitempty"`
+	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 

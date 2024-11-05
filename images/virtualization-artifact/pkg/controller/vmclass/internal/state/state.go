@@ -36,16 +36,17 @@ type VirtualMachineClassState interface {
 	VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 	VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, error)
 	Nodes(ctx context.Context) ([]corev1.Node, error)
-	NodesByVMNodeSelector(ctx context.Context) ([]corev1.Node, error)
+	AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error)
 }
 
 type state struct {
-	client  client.Client
-	vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
+	controllerNamespace string
+	client              client.Client
+	vmClass             *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 }
 
-func New(c client.Client, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
-	return &state{client: c, vmClass: vmClass}
+func New(c client.Client, controllerNamespace string, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
+	return &state{client: c, controllerNamespace: controllerNamespace, vmClass: vmClass}
 }
 
 func (s *state) VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus] {
@@ -67,31 +68,38 @@ func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, e
 	return vms.Items, nil
 }
 
-type filterFunc func([]corev1.Node) []corev1.Node
+func nodeFilter(nodes []corev1.Node, filters ...common.FilterFunc[corev1.Node]) []corev1.Node {
+	return common.Filter[corev1.Node](nodes, filters...)
+}
 
 func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
-	curr := s.vmClass.Current()
 
-	var matchLabels map[string]string
-	var filter filterFunc
+	var (
+		curr        = s.vmClass.Current()
+		matchLabels map[string]string
+	)
+	virtHandlerNodes, err := s.getVirtHandlerNodeNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filters := []common.FilterFunc[corev1.Node]{
+		func(node *corev1.Node) (keep bool) {
+			_, found := virtHandlerNodes[node.GetName()]
+			return found
+		},
+	}
 
 	switch curr.Spec.CPU.Type {
 	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
-		return nil, nil
+		// Node is always has the "Host" CPU type, no additional filters required.
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
-		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtered []corev1.Node
-			for _, node := range nodes {
-				if common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions) {
-					filtered = append(filtered, node)
-				}
-			}
-			return filtered
-		}
+		filters = append(filters, func(node *corev1.Node) bool {
+			return common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
+		})
 	case virtv2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
 	case virtv2.CPUTypeFeatures:
@@ -104,55 +112,62 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 		return nil, fmt.Errorf("unexpected cpu type %s", curr.Spec.CPU.Type)
 	}
 	nodes := &corev1.NodeList{}
-	err := s.client.List(
+	err = s.client.List(
 		ctx,
 		nodes,
 		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(matchLabels)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
-	result := nodes.Items
-	if filter != nil {
-		result = filter(result)
-	}
-	return result, nil
+
+	return nodeFilter(nodes.Items, filters...), nil
 }
 
-func (s *state) NodesByVMNodeSelector(ctx context.Context) ([]corev1.Node, error) {
+func (s *state) getVirtHandlerNodeNames(ctx context.Context) (map[string]struct{}, error) {
+	pods := &corev1.PodList{}
+	err := s.client.List(ctx, pods, client.InNamespace(s.controllerNamespace),
+		client.MatchingLabelsSelector{
+			Selector: labels.SelectorFromSet(map[string]string{
+				virtv1.AppLabel: "virt-handler",
+			}),
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pods: %w", err)
+	}
+	nodes := make(map[string]struct{}, len(pods.Items))
+	for _, pod := range pods.Items {
+		nodes[pod.Spec.NodeName] = struct{}{}
+	}
+	return nodes, nil
+}
+
+func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
-	nodeSelector := s.vmClass.Current().Spec.NodeSelector
-	nodes := &corev1.NodeList{}
-	err := s.client.List(
-		ctx,
-		nodes,
-		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(nodeSelector.MatchLabels)})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list nodes: %w", err)
+	if len(nodes) == 0 {
+		return nodes, nil
 	}
-	result := nodes.Items
-	var filter filterFunc
 
-	if len(nodeSelector.MatchExpressions) > 0 {
+	nodeSelector := s.vmClass.Current().Spec.NodeSelector
+
+	filters := []common.FilterFunc[corev1.Node]{
+		func(node *corev1.Node) bool {
+			return common.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
+		},
+	}
+
+	if me := nodeSelector.MatchExpressions; len(me) > 0 {
 		ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
-			NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: nodeSelector.MatchExpressions}},
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: me}},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create NodeSelector: %w", err)
 		}
-		filter = func(nodes []corev1.Node) []corev1.Node {
-			var filtered []corev1.Node
-			for _, node := range nodes {
-				if ns.Match(&node) {
-					filtered = append(filtered, node)
-				}
-			}
-			return filtered
-		}
+
+		filters = append(filters, func(node *corev1.Node) bool {
+			return ns.Match(node)
+		})
 	}
-	if filter != nil {
-		result = filter(result)
-	}
-	return result, nil
+	return nodeFilter(nodes, filters...), nil
 }
