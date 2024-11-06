@@ -149,13 +149,16 @@ func rewriteObject(obj client.Object) {
 		conds = snap.Status.Conditions
 	}
 
-	rewriteEmptyReason(conds)
+	rewriteConditions(conds)
 }
 
-func rewriteEmptyReason(conds []metav1.Condition) {
+func rewriteConditions(conds []metav1.Condition) {
 	for i := range conds {
 		if conds[i].Reason == "" {
 			conds[i].Reason = conditions.ReasonUnknown.String()
+		}
+		if conds[i].Status == "" {
+			conds[i].Status = metav1.ConditionUnknown
 		}
 	}
 }
