@@ -98,12 +98,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && vi.Spec.Storage == virtv2.StorageKubernetes && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		defer func() {
-			readyCondition.Status = metav1.ConditionFalse
-			readyCondition.Reason = vicondition.StorageClassNotReady
-			readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
-			service.SetCondition(readyCondition, &vi.Status.Conditions)
-		}()
+		readyCondition.Status = metav1.ConditionFalse
+		readyCondition.Reason = vicondition.StorageClassNotReady
+		readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
+		service.SetCondition(readyCondition, &vi.Status.Conditions)
 	}
 
 	if vi.Spec.Storage == virtv2.StorageKubernetes &&
