@@ -14,7 +14,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/client_model v0.6.0
-	golang.org/x/net v0.26.0
+	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sync v0.7.0
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
@@ -170,7 +170,10 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.30.2
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.30.2
 	k8s.io/sample-controller => k8s.io/sample-controller v0.30.2
-	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241105203712-6d09bb531bdf //branch: virtualization-controller-v1.60.3
+
+	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241106140025-ac4205e6ecb6
+	//kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241106105712-417a3b9b195e //branch: virtualization-controller-v1.60.3-test
+	//kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241105203712-6d09bb531bdf //branch: virtualization-controller-v1.60.3
 	// kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241102174230-052ff563fa89 //branch: virtualization-controller-reb-rel-1-60 3835d4ea7e992952be74345cbf91b2f6509435ab
 	// kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241031143641-f6fb17bfa7bf //branch: virtualization-controller-new-main-cdi
 
