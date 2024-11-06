@@ -50,7 +50,11 @@ func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Cond
 }
 
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
-	return &ConditionBuilder{conditionType: conditionType}
+	return &ConditionBuilder{
+		status:        metav1.ConditionUnknown,
+		reason:        ReasonUnknown.String(),
+		conditionType: conditionType,
+	}
 }
 
 type ConditionBuilder struct {
@@ -73,12 +77,16 @@ func (c *ConditionBuilder) Condition() metav1.Condition {
 }
 
 func (c *ConditionBuilder) Status(status metav1.ConditionStatus) *ConditionBuilder {
-	c.status = status
+	if status != "" {
+		c.status = status
+	}
 	return c
 }
 
 func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
-	c.reason = reason.String()
+	if reason.String() != "" {
+		c.reason = reason.String()
+	}
 	return c
 }
 
