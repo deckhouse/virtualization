@@ -52,7 +52,7 @@ function build_apiserver {
 function build {
     local dockerfile=$1
     cd "$ROOT"
-    docker build -f "./images/virtualization-artifact/hack/$dockerfile" -t "${IMAGE}" .
+    docker build -f "./images/virtualization-artifact/hack/$dockerfile" -t "${IMAGE}" --platform=linux/x86_64 .
 }
 
 function push {
