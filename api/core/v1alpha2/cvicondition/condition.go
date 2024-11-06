@@ -19,10 +19,6 @@ package cvicondition
 // Type represents the various condition types for the `ClusterVirtualImage`.
 type Type string
 
-func (s Type) String() string {
-	return string(s)
-}
-
 const (
 	// DatasourceReadyType indicates whether the datasource (for example, a `VirtualImage`) is ready, allowing the import process for the `ClusterVirtualImage` to start.
 	DatasourceReadyType Type = "DatasourceReady"
@@ -30,32 +26,45 @@ const (
 	ReadyType Type = "Ready"
 )
 
-type Reason string
+type (
+	// DatasourceReadyReason represents the various reasons for the DatasourceReady condition type.
+	DatasourceReadyReason string
+	// ReadyReason represents the various reasons for the Ready condition type.
+	ReadyReason string
+)
 
-func (r Reason) String() string {
-	return string(r)
+func (s Type) String() string {
+	return string(s)
 }
 
 const (
 	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
-	DatasourceReady Reason = "DatasourceReady"
+	DatasourceReady DatasourceReadyReason = "DatasourceReady"
 	// ContainerRegistrySecretNotFound indicates that the container registry secret was not found, which prevents the import process from starting.
-	ContainerRegistrySecretNotFound Reason = "ContainerRegistrySecretNotFound"
+	ContainerRegistrySecretNotFound DatasourceReadyReason = "ContainerRegistrySecretNotFound"
 	// ImageNotReady indicates that the `VirtualImage` datasource is not ready yet, which prevents the import process from starting.
-	ImageNotReady Reason = "ImageNotReady"
+	ImageNotReady DatasourceReadyReason = "ImageNotReady"
 	// ClusterImageNotReady indicates that the `ClusterVirtualImage` datasource is not ready, which prevents the import process from starting.
-	ClusterImageNotReady Reason = "ClusterImageNotReady"
+	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 	// VirtualDiskNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
-	VirtualDiskNotReady Reason = "VirtualDiskNotReady"
+	VirtualDiskNotReady DatasourceReadyReason = "VirtualDiskNotReady"
 
 	// WaitForUserUpload indicates that the `ClusterVirtualImage` is waiting for the user to upload a datasource for the import process to continue.
-	WaitForUserUpload Reason = "WaitForUserUpload"
+	WaitForUserUpload ReadyReason = "WaitForUserUpload"
 	// Provisioning indicates that the provisioning process is currently in progress.
-	Provisioning Reason = "Provisioning"
+	Provisioning ReadyReason = "Provisioning"
 	// ProvisioningNotStarted indicates that the provisioning process has not started yet.
-	ProvisioningNotStarted Reason = "ProvisioningNotStarted"
+	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
-	ProvisioningFailed Reason = "ProvisioningFailed"
+	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
-	Ready Reason = "Ready"
+	Ready ReadyReason = "Ready"
 )
+
+func (s DatasourceReadyReason) String() string {
+	return string(s)
+}
+
+func (s ReadyReason) String() string {
+	return string(s)
+}
