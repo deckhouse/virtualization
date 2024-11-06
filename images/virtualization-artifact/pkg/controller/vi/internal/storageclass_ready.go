@@ -66,13 +66,13 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
-		condition.Status = metav1.ConditionTrue
+		condition.Status = metav1.ConditionUnknown
 		condition.Reason = vicondition.DVCRTypeUsed
 		condition.Message = "Used dvcr storage"
 		return reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(cc.VDShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pvc, err := h.service.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -112,7 +112,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	case hasNoStorageClassInSpec:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.StorageClassNotFound
-		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification."
+		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual image or virtualization module config specification."
 	default:
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vicondition.StorageClassNotFound
