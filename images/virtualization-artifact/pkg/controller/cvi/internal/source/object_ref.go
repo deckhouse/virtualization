@@ -74,7 +74,11 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).FromCondition(condition).Generation(cvi.Generation)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
+		ReasonString(condition.Reason).
+		Message(condition.Message).
+		Status(condition.Status).
+		Generation(cvi.Generation)
 	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
 
 	switch cvi.Spec.DataSource.ObjectRef.Kind {

@@ -53,21 +53,6 @@ func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
 	return &ConditionBuilder{conditionType: conditionType.String()}
 }
 
-func (c *ConditionBuilder) FromCondition(condition metav1.Condition) *ConditionBuilder {
-	if condition.Type != "" {
-		c.conditionType = condition.Type
-	}
-	if condition.Status != "" {
-		c.status = condition.Status
-	} else {
-		c.status = metav1.ConditionUnknown
-	}
-	c.reason = condition.Reason
-	c.message = condition.Message
-	c.generation = condition.ObservedGeneration
-	return c
-}
-
 type ConditionBuilder struct {
 	status        metav1.ConditionStatus
 	conditionType string
@@ -94,6 +79,11 @@ func (c *ConditionBuilder) Status(status metav1.ConditionStatus) *ConditionBuild
 
 func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	c.reason = reason.String()
+	return c
+}
+
+func (c *ConditionBuilder) ReasonString(reason string) *ConditionBuilder {
+	c.reason = reason
 	return c
 }
 

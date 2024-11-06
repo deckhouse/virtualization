@@ -68,7 +68,11 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 	log, ctx := logger.GetDataSourceContext(ctx, "registry")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).FromCondition(condition).Generation(cvi.Generation)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
+		ReasonString(condition.Reason).
+		Message(condition.Message).
+		Status(condition.Status).
+		Generation(cvi.Generation)
 	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
