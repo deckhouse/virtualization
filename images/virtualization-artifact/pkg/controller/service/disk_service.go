@@ -73,10 +73,6 @@ func (s DiskService) Start(
 	obj ObjectKind,
 	sup *supplements.Generator,
 ) error {
-	if storageClass == nil || *storageClass == "" {
-		return nil
-	}
-
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
@@ -132,10 +128,6 @@ func (s DiskService) StartImmediate(
 	obj ObjectKind,
 	sup *supplements.Generator,
 ) error {
-	if storageClass == nil || *storageClass == "" {
-		return nil
-	}
-
 	sc, err := s.GetStorageClass(ctx, storageClass)
 	if err != nil {
 		return err

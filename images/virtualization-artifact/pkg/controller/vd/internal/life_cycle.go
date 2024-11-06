@@ -138,10 +138,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		}
 	}
 
-	result, err := ds.Sync(ctx, vd)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	if vd.Status.StorageClassName != "" && storageClassReadyCondition.Status == metav1.ConditionTrue {
+		result, err := ds.Sync(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+		}
+
+		return result, nil
 	}
 
-	return result, nil
+	return reconcile.Result{}, nil
 }
