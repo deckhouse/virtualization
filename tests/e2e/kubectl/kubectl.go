@@ -29,11 +29,11 @@ import (
 )
 
 const (
-	Cmd             = "kubectl"
-	ShortTimeout    = 10 * time.Second
-	MediumTimeout   = 30 * time.Second
-	LongTimeout     = 60 * time.Second
-	ExecTimeoutDiff = 20 * time.Second
+	Cmd              = "kubectl"
+	ShortTimeout     = 10 * time.Second
+	MediumTimeout    = 30 * time.Second
+	LongTimeout      = 60 * time.Second
+	ExecExtraTimeout = 20 * time.Second
 )
 
 type Resource string
@@ -226,7 +226,7 @@ func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult 
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout + ExecTimeoutDiff
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -237,7 +237,7 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout + ExecTimeoutDiff
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -248,7 +248,7 @@ func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout + ExecTimeoutDiff
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

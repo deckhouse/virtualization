@@ -31,10 +31,9 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-const (
-	APIVersion        = "virtualization.deckhouse.io/v1alpha2"
-	unacceptableCount = -1000
-)
+const unacceptableCount = -1000
+
+var APIVersion = virtv2.SchemeGroupVersion.String()
 
 // lsblk JSON output
 type Disks struct {

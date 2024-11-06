@@ -253,7 +253,6 @@ func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 		go func() {
 			defer wg.Done()
 			res := kubectl.WaitResource(resource, name, waitOpts)
-			fmt.Println(res.GetCmd())
 			if res.Error() != nil {
 				mu.Lock()
 				waitErr = append(waitErr, res.StdErr())
