@@ -5,7 +5,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
   labels:
-    backup.deckhouse.io/cluster-config: ""
+    backup.deckhouse.io/cluster-config: "true"
     heritage: deckhouse
     module: virtualization
   name: virtualmachineclasses.virtualization.deckhouse.io
