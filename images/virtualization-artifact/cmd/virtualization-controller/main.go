@@ -253,7 +253,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vmclass.NewController(ctx, mgr, log); err != nil {
+	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

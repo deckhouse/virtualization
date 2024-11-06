@@ -1,0 +1,118 @@
+version: "3"
+
+silent: true
+
+includes:
+  my:
+    taskfile: Taskfile.my.yaml
+    optional: true
+
+vars:
+  DevImage: "${DevImage:-localhost:5000/$USER/kube-api-rewriter:latest}"
+
+tasks:
+  default:
+    cmds:
+      - task: dev:status
+  dev:build:
+    desc: "build latest image with kube-api-rewriter and test-controller"
+    cmds:
+      - |
+        docker build . -t {{.DevImage}} -f local/Dockerfile
+        docker push {{.DevImage}}
+
+  dev:deploy:
+    desc: "apply manifest with kube-api-rewriter and test-controller"
+    cmds:
+      - task: dev:__deploy
+        vars:
+          CTR_COMMAND: "['./kube-api-rewriter']"
+
+  dev:deploy-with-dlv:
+    desc: "apply manifest with kube-api-rewriter with dlv and test-controller"
+    cmds:
+      - task: dev:__deploy
+        vars:
+          CTR_COMMAND: "['./dlv', '--listen=:2345', '--headless=true', '--continue', '--log=true', '--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc', '--accept-multiclient', '--api-version=2', 'exec', './kube-api-rewriter']"
+
+  dev:__deploy:
+    internal: true
+    cmds:
+      - |
+        if ! kubectl get no 2>&1 >/dev/null ; then
+          echo Restart cluster connection
+          exit 1
+        fi
+      - |
+        kubectl get ns kproxy &>/dev/null || kubectl create ns kproxy
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: deckhouse-registry
+          namespace: kproxy
+        type: $(kubectl get secrets deckhouse-registry -n d8-system -ojsonpath='{.type}')
+        data: $(kubectl get secrets deckhouse-registry -n d8-system -ojsonpath='{.data}')
+        EOF
+        cat local/proxy.yaml | CTR_COMMAND="{{.CTR_COMMAND}}" IMAGE="{{.DevImage}}" envsubst | kubectl -n kproxy apply -f -
+
+  dev:undeploy:
+    desc: "delete manifest with kube-api-rewriter and test-controller"
+    cmd: kubectl delete ns kproxy
+
+  dev:restart:
+    desc: "restart deployment"
+    cmds:
+      - |
+        if ! kubectl get no 2>&1 >/dev/null ; then
+          echo Restart cluster connection
+          exit 1
+        fi
+      - |
+        kubectl -n kproxy scale deployment/kube-api-rewriter --replicas=0
+        kubectl -n kproxy scale deployment/kube-api-rewriter --replicas=1
+
+  dev:redeploy:
+    desc: "build, deploy, restart"
+    cmds:
+      - |
+        if ! kubectl get no 2>&1 >/dev/null ; then
+          echo Restart cluster connection
+          exit 1
+        fi
+      - task: dev:build
+      - task: dev:deploy
+      - task: dev:restart
+      - |
+        sleep 3
+        kubectl -n kproxy get all
+
+  dev:status:
+    cmds:
+      - |
+        kubectl -n kproxy get po,deploy
+
+  dev:curl:
+    desc: "run curl in kube-api-rewriter deployment"
+    cmds:
+      - |
+        kubectl -n kproxy exec -t deploy/kube-api-rewriter -- curl {{.CLI_ARGS}}
+
+  dev:kubectl:
+    desc: "run kubectl in kube-api-rewriter deployment"
+    cmds:
+      - |
+        kubectl -n kproxy exec deploy/kube-api-rewriter -c proxy -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
+        #kubectl -n d8-virtualization exec  deploy/virt-operator -- kubectl -s 127.0.0.1:23915 {{.CLI_ARGS}}
+
+  logs:proxy:
+    desc: "Logs for proxy container"
+    cmds:
+      - |
+        kubectl -n kproxy logs deployments/kube-api-rewriter -c proxy -f
+
+  logs:controller:
+    desc: "Logs for test-controller container"
+    cmds:
+      - |
+        kubectl -n kproxy logs deployments/kube-api-rewriter -c controller -f

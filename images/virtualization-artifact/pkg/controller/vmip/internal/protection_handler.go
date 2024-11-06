@@ -57,7 +57,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 
 	switch {
 	case len(configuredVms) == 0:
-		log.Debug("Allow VirtualMachineIPAddress deletion")
+		log.Debug("Allow VirtualMachineIPAddress deletion: remove protection finalizer")
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
 	case vmip.DeletionTimestamp == nil:
 		log.Debug("Protect VirtualMachineIPAddress from deletion")
@@ -67,7 +67,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 	}
 
 	if vm == nil || vm.DeletionTimestamp != nil {
-		log.Info("VirtualMachineIP is no longer attached to any VM, proceeding with detachment", "VirtualMachineIPName", vmip.Name)
+		log.Info("VirtualMachineIP is no longer attached to any VM: remove cleanup finalizer", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	} else if vmip.GetDeletionTimestamp() == nil {
 		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)

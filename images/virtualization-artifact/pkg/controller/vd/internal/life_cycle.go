@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -53,6 +54,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		readyCondition = metav1.Condition{
 			Type:   vdcondition.ReadyType,
 			Status: metav1.ConditionUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 
 		service.SetCondition(readyCondition, &vd.Status.Conditions)

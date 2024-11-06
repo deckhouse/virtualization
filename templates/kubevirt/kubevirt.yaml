@@ -2,9 +2,6 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
-{{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
-{{- $kubeAPIProxyRewriter := true }}
-{{- $webhookProxyPort := 24192 }}
 {{- $priorityClassName := "" | quote }}
 {{- if (.Values.global.enabledModules | has "priority-class") }}
 {{- $priorityClassName = include "priorityClassName" . | quote }}
@@ -19,6 +16,12 @@ metadata:
 spec:
   certificateRotateStrategy: {}
   configuration:
+    apiConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            qps: 5000
+            burst: 6000
     smbios:
       manufacturer: Flant
       family: Deckhouse
@@ -26,14 +29,12 @@ spec:
     evictionStrategy: LiveMigrate
     developerConfiguration:
       featureGates:
-      - Macvtap
       - HotplugVolumes
       - GPU
       - Snapshot
       - ExpandDisks
       - Root
       - VMLiveUpdateFeatures
-      - VMExport
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
@@ -64,10 +65,6 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-    - resourceType: Deployment
-      resourceName: virt-exportproxy
-      patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
-      type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment
       resourceName: virt-api
@@ -79,28 +76,30 @@ spec:
       type: strategic
     {{- end }}
 
-    {{- if $kubeAPIProxyRewriter }}
+    # Add kube-api-rewriter sidecar containers to virt-controller, virt-api, virt-handler and virt-exportproxy.
     - resourceName: virt-controller
       resourceType: Deployment
-      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-controller") }}
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-controller") }}
       type: strategic
 
+    {{- $virtApiRewriterSettings := dict }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_ADDRESS" "https://127.0.0.1:8443" }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_CERT_FILE" "/etc/virt-api/certificates/tls.crt" }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_KEY_FILE" "/etc/virt-api/certificates/tls.key" }}
+    {{- $_ := set $virtApiRewriterSettings "webhookCertsVolumeName" "kubevirt-virt-api-certs" }}
+    {{- $_ := set $virtApiRewriterSettings "webhookCertsMountPath" "/etc/virt-api/certificates" }}
     - resourceName: virt-api
       resourceType: Deployment
-      patch: {{ include "kubevirt.apiserver_kubeproxy_patch" . }}
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (tuple . "virt-api" $virtApiRewriterSettings) }}
       type: strategic
 
     - resourceName: virt-handler
       resourceType: DaemonSet
-      patch: {{ include "nowebhook_kubeproxy_patch" (list . "virt-handler") }}
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-handler") }}
       type: strategic
 
-    - resourceName: virt-exportproxy
-      resourceType: Deployment
-      patch: {{ include "nowebhook_kubeproxy_patch" (list . "exportproxy") }}
-      type: strategic
-
-    # Patch services used in webhook configurations, add webhook-proxy port 24192.
+    # Add rewriter proxy container port to Services used by webhook configurations.
+    # First need to set name for existing port to make strategic patch works later.
     - resourceName: virt-api
       resourceType: Service
       patch: |
@@ -108,238 +107,90 @@ spec:
       type: json
     - resourceName: virt-api
       resourceType: Service
-      patch: |
-        {"spec":{"ports":[
-          {"name": "webhook-proxy",
-           "port": {{ $webhookProxyPort }},
-           "protocol": "TCP",
-           "targetPort": "webhook-proxy"}
-        ]}}
+      patch: {{ include "kube_api_rewriter.service_spec_port_patch_json" . }}
       type: strategic
     - resourceName: kubevirt-operator-webhook
       resourceType: Service
-      patch: |
-        {"spec":{"ports":[
-          {"name": "webhook-proxy",
-           "port": {{ $webhookProxyPort }},
-           "protocol": "TCP",
-           "targetPort": "webhook-proxy"}
-        ]}}
+      patch: {{ include "kube_api_rewriter.service_spec_port_patch_json" . }}
       type: strategic
-    # Change service in webhook configuration to point to the rewriter proxy.
-    # Patch was produced with this jq command:
-    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
-    # virt-api-webhook-proxy service is created separately.
+
+    # Change service port in virt-api webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '.webhooks[]|.name' -r | sort
     # NOTE virt-api-validator is renamed to virt-internal-virtualization-api-validator.
+    {{- define "virt-api-validating-webhook-names" -}}
+    kubevirt-crd-status-validator.kubevirt.io
+    migration-create-validator.kubevirt.io
+    migration-policy-validator.kubevirt.io
+    migration-update-validator.kubevirt.io
+    virt-launcher-eviction-interceptor.kubevirt.io
+    virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io
+    virtualmachineclusterpreference-validator.instancetype.kubevirt.io
+    virtualmachineexport-validator.export.kubevirt.io
+    virtualmachineinstances-create-validator.kubevirt.io
+    virtualmachineinstances-update-validator.kubevirt.io
+    virtualmachineinstancetype-validator.instancetype.kubevirt.io
+    virtualmachinepool-validator.kubevirt.io
+    virtualmachinepreference-validator.instancetype.kubevirt.io
+    virtualmachinepreset-validator.kubevirt.io
+    virtualmachinereplicaset-validator.kubevirt.io
+    virtualmachinerestore-validator.snapshot.kubevirt.io
+    virtualmachinesnapshot-validator.snapshot.kubevirt.io
+    virtualmachine-validator.kubevirt.io
+    vm-clone-validator.kubevirt.io
+    {{- end -}}
+    {{- $virtApiValidatingWebhooks := include "virt-api-validating-webhook-names" . | splitList "\n" }}
     - resourceName: virt-internal-virtualization-api-validator
       resourceType: ValidatingWebhookConfiguration
-      patch: |
-        {
-          "webhooks": [
-            {
-              "name": "virt-launcher-eviction-interceptor.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineinstances-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineinstances-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachine-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinereplicaset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinepool-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinepreset-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "migration-create-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "migration-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinerestore-validator.snapshot.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineexport-validator.export.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachinepreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineclusterpreference-validator.instancetype.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "kubevirt-crd-status-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "migration-policy-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "vm-clone-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            }
-          ]
-        }
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtApiValidatingWebhooks }}
       type: strategic
-    # Change service in webhook configuration to point to the rewriter proxy.
-    # Patch was produced with this jq command:
-    # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
-    # virt-api-webhook-proxy service is created separately.
+
+    # Change service port in virt-api webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '.webhooks[]|.name' -r
     # NOTE virt-api-mutator is renamed to virt-internal-virtualization-api-mutator.
+    {{- define "virt-api-mutating-webhook-names" -}}
+    migrations-mutator.kubevirt.io
+    virtualmachineclones-mutator.kubevirt.io
+    virtualmachineinstances-mutator.kubevirt.io
+    virtualmachines-mutator.kubevirt.io
+    {{- end -}}
+    {{- $virtApiMutatingWebhooks := include "virt-api-mutating-webhook-names" . | splitList "\n" }}
     - resourceName: virt-internal-virtualization-api-mutator
       resourceType: MutatingWebhookConfiguration
-      patch: |
-        {
-          "webhooks": [
-            {
-              "name": "virtualmachines-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineinstances-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "migrations-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "virtualmachineclones-mutator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            }
-          ]
-        }
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtApiMutatingWebhooks }}
       type: strategic
-    # Change service in webhook configuration to point to the rewriter proxy.
-    # Patch was produced with this jq command:
-    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-internal-virtualization-operator-validator -o json | jq '{"webhooks": .webhooks|map({"name":.name, "clientConfig":{"service":{"port":24192}}}) }'
-    # kubevirt-operator-webhook-proxy service is created separately.
+
+    # Change service port in virt-operator webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-internal-virtualization-operator-validator -o json | jq ' .webhooks[]|.name' -r
     # NOTE: original virt-operator-validator is renamed to virt-internal-virtualization-operator-validator.
+    {{- define "virt-operator-webhook-names" -}}
+    kubevirt-validator.kubevirt.io
+    kubevirt-update-validator.kubevirt.io
+    kubevirt-create-validator.kubevirt.io
+    {{- end -}}
+    {{- $virtOperatorWebhooks := include "virt-operator-webhook-names" . | splitList "\n" }}
     - resourceName: virt-internal-virtualization-operator-validator
       resourceType: ValidatingWebhookConfiguration
-      patch: |
-        {
-          "webhooks": [
-            {
-              "name": "kubevirt-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            },
-            {
-              "name": "kubevirt-update-validator.kubevirt.io",
-              "clientConfig": {"service": {"port": {{ $webhookProxyPort }} }}
-            }
-          ]
-        }
-
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtOperatorWebhooks }}
       type: strategic
+
+    # Set priority class name for components.
+    {{- define "pod_spec_priotity_class_name_patch" -}}
+    '{"spec":{"template":{"spec":{"priorityClassName": {{ . }} }}}}'
     {{- end }}
     - resourceType: Deployment
       resourceName: virt-api
-      patch: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "containers": [{
-                  "name": "virt-api",
-                  "env": [{
-                    "name": "VIRT_API_RATE_LIMITER_QPS",
-                    "value": "5000"
-                  },{
-                    "name": "VIRT_API_RATE_LIMITER_BURST",
-                    "value": "6000"
-                  }]
-                }]
-              }
-            }
-          }
-        }
-      type: strategic
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "priorityClassName": {{ $priorityClassName }}
-              }
-            }
-          }
-        }
+      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "priorityClassName": {{ $priorityClassName }}
-              }
-            }
-          }
-        }
-      type: strategic
-    - resourceType: Deployment
-      resourceName: virt-exportproxy
-      patch: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "priorityClassName": {{ $priorityClassName }}
-              }
-            }
-          }
-        }
+      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: DaemonSet
       resourceName: virt-handler
-      patch: |
-        {
-          "spec": {
-            "template": {
-              "spec": {
-                "priorityClassName": {{ $priorityClassName }}
-              }
-            }
-          }
-        }
+      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
 
   imagePullPolicy: IfNotPresent

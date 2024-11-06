@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -51,6 +52,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		condition = metav1.Condition{
 			Type:   vdcondition.ResizedType,
 			Status: metav1.ConditionUnknown,
+			Reason: conditions.ReasonUnknown.String(),
 		}
 	}
 
@@ -58,7 +60,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	if vd.DeletionTimestamp != nil {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -66,7 +68,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok || readyCondition.Status != metav1.ConditionTrue {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = ""
 		return reconcile.Result{}, nil
 	}
@@ -79,14 +81,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	if pvc == nil {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = "Underlying PersistentVolumeClaim not found: resizing is not possible."
 		return reconcile.Result{}, nil
 	}
 
 	if pvc.Status.Phase != corev1.ClaimBound {
 		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
+		condition.Reason = conditions.ReasonUnknown.String()
 		condition.Message = "Underlying PersistentVolumeClaim not bound: resizing is not possible."
 		return reconcile.Result{}, nil
 	}

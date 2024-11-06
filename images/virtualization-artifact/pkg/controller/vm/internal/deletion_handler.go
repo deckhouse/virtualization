@@ -32,7 +32,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const nameDeletionHandler = "DeletionHandler"
+const deletionHandlerName = "DeletionHandler"
 
 func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
@@ -47,7 +47,7 @@ type DeletionHandler struct {
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(nameDeletionHandler))
+	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
@@ -57,7 +57,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
-	log.Info("Delete VM, remove protective finalizers")
+	log.Info("Deletion observed: remove protection from KVVM")
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -81,10 +81,11 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
+	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachine")
 	controllerutil.RemoveFinalizer(s.VirtualMachine().Changed(), virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
 }
 
 func (h *DeletionHandler) Name() string {
-	return nameDeletionHandler
+	return deletionHandlerName
 }
