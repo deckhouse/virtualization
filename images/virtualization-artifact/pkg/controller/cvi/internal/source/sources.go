@@ -107,9 +107,9 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(readyCB *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
+func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
 	*phase = virtv2.ImageFailed
-	readyCB.Status(metav1.ConditionFalse).
+	cbReady.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
 }

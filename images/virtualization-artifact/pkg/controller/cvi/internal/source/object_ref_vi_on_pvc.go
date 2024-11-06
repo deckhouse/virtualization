@@ -52,7 +52,7 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, dvcrSettings *dvcr.
 	}
 }
 
-func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, conditionBuilder *conditions.ConditionBuilder) (reconcile.Result, error) {
+func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
@@ -62,10 +62,10 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 	}
 
 	switch {
-	case isDiskProvisioningFinished(conditionBuilder.Condition()):
+	case isDiskProvisioningFinished(cb.Condition()):
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
-		conditionBuilder.
+		cb.
 			Status(metav1.ConditionTrue).
 			Reason(cvicondition.Ready).
 			Message("")
@@ -95,14 +95,14 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(conditionBuilder, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(conditionBuilder, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
-		conditionBuilder.
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
 			Message("DVCR Provisioner not found: create the new one.")
@@ -117,7 +117,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				conditionBuilder.
+				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
@@ -127,7 +127,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			}
 		}
 
-		conditionBuilder.
+		cb.
 			Status(metav1.ConditionTrue).
 			Reason(cvicondition.Ready).
 			Message("")
@@ -147,13 +147,13 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				conditionBuilder.
+				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningNotStarted).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				conditionBuilder.
+				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
@@ -168,7 +168,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			return reconcile.Result{}, err
 		}
 
-		conditionBuilder.
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
