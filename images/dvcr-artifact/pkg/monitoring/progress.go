@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
+	ioprometheusclient "github.com/prometheus/client_model/go"
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
@@ -43,9 +43,8 @@ type ProgressMeter struct {
 	*prometheusutil.ProgressReader
 
 	total                uint64
-	ownerUID             string
-	avgSpeed             *prometheus.GaugeVec
-	curSpeed             *prometheus.GaugeVec
+	avgSpeed             ProgressMetric
+	curSpeed             ProgressMetric
 	startedAt            time.Time
 	stoppedAt            time.Time
 	prevTransmittedBytes float64
@@ -63,8 +62,8 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 		klog.Errorf("Failed to set owner UID for progress meter")
 	}
 
-	registryProgress := prometheus.NewCounterVec(
-		prometheus.CounterOpts{
+	registryProgress := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
 			Name: registryProgressName,
 			Help: registryProgressHelp,
 		},
@@ -77,7 +76,7 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 
 		if errors.As(err, &alreadyRegisteredErr) {
 			// A counter for that metric has been registered before: use the old counter from now on.
-			registryProgress = alreadyRegisteredErr.ExistingCollector.(*prometheus.CounterVec)
+			registryProgress = alreadyRegisteredErr.ExistingCollector.(*prometheus.GaugeVec)
 		} else {
 			klog.Errorf("Unable to create prometheus progress counter")
 		}
@@ -121,15 +120,15 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 		}
 	}
 
+	importProgress := NewProgress(registryProgress, ownerUID)
+
 	return &ProgressMeter{
-		ProgressReader: prometheusutil.NewProgressReader(rdr, metrics.Progress(ownerUID), total, registryProgress,
-			ownerUID),
-		total:        total,
-		ownerUID:     ownerUID,
-		avgSpeed:     registryAvgSpeed,
-		curSpeed:     registryCurSpeed,
-		emitInterval: time.Second,
-		stop:         make(chan struct{}),
+		ProgressReader: prometheusutil.NewProgressReader(rdr, importProgress, total),
+		total:          total,
+		avgSpeed:       NewProgress(registryAvgSpeed, ownerUID),
+		curSpeed:       NewProgress(registryCurSpeed, ownerUID),
+		emitInterval:   time.Second,
+		stop:           make(chan struct{}),
 	}
 }
 
@@ -184,50 +183,66 @@ func (p *ProgressMeter) updateSpeed() bool {
 		transmittedBytes = float64(p.Current)
 	}
 
-	avgSpeedErr := p.updateAvgSpeed(transmittedBytes)
-	if avgSpeedErr != nil {
-		klog.Errorf("updateProgress: failed to read avg speed metric; %v", avgSpeedErr)
-	}
+	p.updateAvgSpeed(transmittedBytes)
 
-	curSpeedErr := p.updateCurSpeed(transmittedBytes)
-	if curSpeedErr != nil {
-		klog.Errorf("updateProgress: failed to read cur speed metric; %v", curSpeedErr)
-	}
-
-	if avgSpeedErr != nil || curSpeedErr != nil {
-		return true // true ==> to try again // todo - how to avoid endless loop in case it's a constant error?
-	}
+	p.updateCurSpeed(transmittedBytes)
 
 	return !finished
 }
 
-func (p *ProgressMeter) updateAvgSpeed(transmittedBytes float64) error {
+func (p *ProgressMeter) updateAvgSpeed(transmittedBytes float64) {
 	passedTime := float64(time.Since(p.startedAt).Nanoseconds()) / 1e9
-
 	avgSpeed := transmittedBytes / passedTime
-
-	err := p.avgSpeed.WithLabelValues(p.ownerUID).Write(&dto.Metric{})
-	if err != nil {
-		return err
-	}
-	p.avgSpeed.WithLabelValues(p.ownerUID).Set(avgSpeed)
+	p.avgSpeed.Set(avgSpeed)
 	klog.V(1).Infoln(fmt.Sprintf("Avg speed: %.2f b/s", avgSpeed))
-
-	return nil
 }
 
-func (p *ProgressMeter) updateCurSpeed(transmittedBytes float64) error {
+func (p *ProgressMeter) updateCurSpeed(transmittedBytes float64) {
 	diffBytes := transmittedBytes - p.prevTransmittedBytes
 	p.prevTransmittedBytes = transmittedBytes
-
 	curSpeed := diffBytes / p.emitInterval.Seconds()
-
-	err := p.curSpeed.WithLabelValues(p.ownerUID).Write(&dto.Metric{})
-	if err != nil {
-		return err
-	}
-	p.curSpeed.WithLabelValues(p.ownerUID).Set(curSpeed)
+	p.curSpeed.Set(curSpeed)
 	klog.V(1).Infoln(fmt.Sprintf("Cur speed: %.2f b/s", curSpeed))
+}
 
-	return nil
+type ProgressMetric interface {
+	Add(value float64)
+	Set(value float64)
+	Get() (float64, error)
+	Delete()
+}
+
+func NewProgress(importProgress *prometheus.GaugeVec, lvs ...string) *ImportProgress {
+	return &ImportProgress{
+		importProgress: importProgress,
+		lvs:            lvs,
+	}
+}
+
+type ImportProgress struct {
+	importProgress *prometheus.GaugeVec
+	lvs            []string
+}
+
+// Add adds value to the importProgress metric
+func (ip *ImportProgress) Add(value float64) {
+	ip.importProgress.WithLabelValues(ip.lvs...).Add(value)
+}
+
+func (ip *ImportProgress) Set(value float64) {
+	ip.importProgress.WithLabelValues(ip.lvs...).Set(value)
+}
+
+// Get returns the importProgress value
+func (ip *ImportProgress) Get() (float64, error) {
+	dto := &ioprometheusclient.Metric{}
+	if err := ip.importProgress.WithLabelValues(ip.lvs...).Write(dto); err != nil {
+		return 0, err
+	}
+	return dto.Gauge.GetValue(), nil
+}
+
+// Delete removes the importProgress metric with the passed label
+func (ip *ImportProgress) Delete() {
+	ip.importProgress.DeleteLabelValues(ip.lvs...)
 }
