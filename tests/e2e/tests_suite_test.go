@@ -34,8 +34,11 @@ import (
 )
 
 const (
+	Interval                  = 5 * time.Second
+	Timeout                   = 90 * time.Second
 	ShortWaitDuration         = 60 * time.Second
 	LongWaitDuration          = 300 * time.Second
+	MaxWaitTimeout            = 600 * time.Second
 	PhaseAttached             = "Attached"
 	PhaseReady                = "Ready"
 	PhaseBound                = "Bound"

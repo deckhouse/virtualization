@@ -2,9 +2,6 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
-{{- $proxyImage := include "helm_lib_module_image" (list . "kubeApiProxy") | toJson }}
-{{- $kubeAPIProxyRewriter := true }}
-{{- $webhookProxyPort :=  24192 }}
 {{- $priorityClassName := include "priorityClassName" . }}
 ---
 apiVersion: cdi.internal.virtualization.deckhouse.io/v1beta1
@@ -46,6 +43,8 @@ spec:
         resourceName: cdi-apiserver
         patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
         type: json
+
+      # Turn off cdi-uploadproxy.
       - resourceType: Deployment
         resourceName: cdi-uploadproxy
         patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
@@ -71,19 +70,26 @@ spec:
         type: strategic
     {{- end }}
 
-    {{- if $kubeAPIProxyRewriter }}
+      # Add kube-api-rewriter as a sidecar container to cdi-apiserver and cdi-deployment.
+
+      {{- $apiRewriterSettings := dict }}
+      {{- $_ := set $apiRewriterSettings "WEBHOOK_ADDRESS" "https://127.0.0.1:8443" }}
+      {{- $_ := set $apiRewriterSettings "WEBHOOK_CERT_FILE" "/var/run/certs/cdi-apiserver-server-cert/tls.crt" }}
+      {{- $_ := set $apiRewriterSettings "WEBHOOK_KEY_FILE" "/var/run/certs/cdi-apiserver-server-cert/tls.key" }}
+      {{- $_ := set $apiRewriterSettings "webhookCertsVolumeName" "server-cert" }}
+      {{- $_ := set $apiRewriterSettings "webhookCertsMountPath" "/var/run/certs/cdi-apiserver-server-cert" }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: {{ include "cdi.apiserver_kubeproxy_patch" . }}
+        patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (tuple . "cdi-apiserver" $apiRewriterSettings) }}
         type: strategic
 
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "nowebhook_kubeproxy_patch" (list . "cdi-deployment") }}
+        patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (tuple . "cdi-deployment") }}
         type: strategic
 
-      # Change service in webhook configurations to point to the rewriter proxy.
-      # Add port to cdi-api service.
+      # Add rewriter proxy container port to the Service used by webhook configurations.
+      # First need to set name for existing port to make strategic patch works later.
       - resourceName: cdi-api
         resourceType: Service
         patch: |
@@ -91,64 +97,35 @@ spec:
         type: json
       - resourceName: cdi-api
         resourceType: Service
-        patch: |
-          {"spec":{"ports":[
-            {"name": "webhook-proxy",
-             "port": {{ $webhookProxyPort }},
-             "protocol": "TCP",
-             "targetPort": "webhook-proxy"}
-          ]}}
+        patch: {{ include "kube_api_rewriter.service_spec_port_patch_json" . }}
         type: strategic
+
+      # Change service port in webhook configurations.
+      # NOTE: names are prefixed with "cdi-internal-virtualization-".
       - resourceName: cdi-internal-virtualization-api-datavolume-mutate
         resourceType: MutatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"datavolume-mutate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "datavolume-mutate.cdi.kubevirt.io"}}
         type: strategic
       - resourceName: cdi-internal-virtualization-api-dataimportcron-validate
         resourceType: ValidatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"dataimportcron-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "dataimportcron-validate.cdi.kubevirt.io"}}
         type: strategic
       - resourceName: cdi-internal-virtualization-api-datavolume-validate
         resourceType: ValidatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"datavolume-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "datavolume-validate.cdi.kubevirt.io"}}
         type: strategic
       - resourceName: cdi-internal-virtualization-api-populator-validate
         resourceType: ValidatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"populator-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "populator-validate.cdi.kubevirt.io"}}
         type: strategic
       - resourceName: cdi-internal-virtualization-api-validate
         resourceType: ValidatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"cdi-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "cdi-validate.cdi.kubevirt.io"}}
         type: strategic
       - resourceName: cdi-internal-virtualization-objecttransfer-api-validate
         resourceType: ValidatingWebhookConfiguration
-        patch: |
-          {"webhooks":[
-            { "name":"objecttransfer-validate.cdi.kubevirt.io",
-              "clientConfig":{"service":{"port": {{ $webhookProxyPort }} }}}
-          ]}
+        patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" "objecttransfer-validate.cdi.kubevirt.io"}}
         type: strategic
-
-    {{- end }}
 
   workload:
     nodeSelector:

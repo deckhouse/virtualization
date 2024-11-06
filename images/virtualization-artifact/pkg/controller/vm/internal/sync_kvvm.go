@@ -75,7 +75,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	cbConfApplied := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 		Generation(current.GetGeneration()).
 		Status(metav1.ConditionUnknown).
-		Reason(vmcondition.ReasonUnknown)
+		Reason(conditions.ReasonUnknown)
 
 	cbAwaitingRestart := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 		Generation(current.GetGeneration()).

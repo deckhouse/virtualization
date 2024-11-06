@@ -38,6 +38,7 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
+	controllerNamespace string,
 	log *slog.Logger,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(controllerName))
@@ -49,7 +50,7 @@ func NewController(
 		internal.NewDiscoveryHandler(),
 		internal.NewLifeCycleHandler(client),
 	}
-	r := NewReconciler(client, handlers...)
+	r := NewReconciler(controllerNamespace, client, handlers...)
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
 		Reconciler:       r,

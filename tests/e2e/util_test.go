@@ -23,7 +23,9 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -222,21 +224,44 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
+// Useful when require to async await resources filtered by labels.
+//
+//	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
+func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 	GinkgoHelper()
-	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 
-	res := kubectl.List(resource, opts)
-	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+	res := kubectl.List(resource, kc.GetOptions{
+		ExcludedLabels: opts.ExcludedLabels,
+		Labels:         opts.Labels,
+		Namespace:      opts.Namespace,
+		Output:         "jsonpath='{.items[*].metadata.name}'",
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
+	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
+		For:       fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase),
 		Namespace: opts.Namespace,
-		For:       jsonPath,
-		Timeout:   600,
+		Timeout:   opts.Timeout,
 	}
-	waitResult := kubectl.WaitResources(resource, waitOpts, resources...)
-	Expect(waitResult.Error()).NotTo(HaveOccurred(), waitResult.StdErr())
+
+	for _, name := range resources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res := kubectl.WaitResource(resource, name, waitOpts)
+			if res.Error() != nil {
+				mu.Lock()
+				waitErr = append(waitErr, res.StdErr())
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	Expect(waitErr).To(BeEmpty())
 }
 
 func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
@@ -251,14 +276,27 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 		return nil, err
 	}
 
-	for _, sc := range scList.Items {
-		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
-		if ok && isDefault == "true" {
-			return &sc, nil
+	var defaultClasses []*storagev1.StorageClass
+	for idx := range scList.Items {
+		if scList.Items[idx].Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			defaultClasses = append(defaultClasses, &scList.Items[idx])
 		}
 	}
 
-	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	if len(defaultClasses) == 0 {
+		return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	}
+
+	// Primary sort by creation timestamp, newest first
+	// Secondary sort by class name, ascending order
+	sort.Slice(defaultClasses, func(i, j int) bool {
+		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
+			return defaultClasses[i].Name < defaultClasses[j].Name
+		}
+		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
+	})
+
+	return defaultClasses[0], nil
 }
 
 func toIPNet(prefix netip.Prefix) *net.IPNet {

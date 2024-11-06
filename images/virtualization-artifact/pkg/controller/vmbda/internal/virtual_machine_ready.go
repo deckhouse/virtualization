@@ -45,11 +45,11 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.VirtualMachineReadyUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmbda.DeletionTimestamp != nil {
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.VirtualMachineReadyUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 

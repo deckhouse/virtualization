@@ -23,8 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+const deletionHandlerName = "DeletionHandler"
 
 type DeletionHandler struct {
 	sources *source.Sources
@@ -37,6 +40,8 @@ func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+
 	if vi.DeletionTimestamp != nil {
 		requeue, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
@@ -47,6 +52,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 			return reconcile.Result{Requeue: true}, nil
 		}
 
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualImage")
 		controllerutil.RemoveFinalizer(vi, virtv2.FinalizerVICleanup)
 		return reconcile.Result{}, nil
 	}

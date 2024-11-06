@@ -95,10 +95,10 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When virtual images are applied:", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -106,24 +106,24 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When virtual disks are applied:", func() {
 		It(fmt.Sprintf("checks VDs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
-			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVmClassChanging,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
-			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVmClassCreating,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 
 		It(fmt.Sprintf("checks VDs phases with %s label", existingVmClass), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    existingVmClass,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -131,24 +131,24 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When virtual machines are applied:", func() {
 		It(fmt.Sprintf("checks VMs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhasePending))
-			WaitPhase(kc.ResourceVM, PhasePending, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVmClassChanging,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
-			WaitPhase(kc.ResourceVM, PhasePending, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVmClassCreating,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 
 		It(fmt.Sprintf("checks VMs phases with %s label", existingVmClass), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    existingVmClass,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -168,10 +168,10 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition status after changing", func() {
 				By(fmt.Sprintf("VM should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    notExistingVmClassChanging,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after changing", ReadyStatusTrue))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusTrue)
@@ -205,10 +205,10 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition after creating", func() {
 				By(fmt.Sprintf("VM should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    notExistingVmClassCreating,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after creating", ReadyStatusTrue))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusTrue)

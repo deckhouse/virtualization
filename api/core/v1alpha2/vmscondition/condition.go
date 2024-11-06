@@ -34,15 +34,11 @@ type (
 )
 
 const (
-	// VirtualMachineUnknown signifies that the state of virtual machine is unknown, preventing the snapshot process from starting.
-	VirtualMachineUnknown VirtualMachineReadyReason = "Unknown"
 	// VirtualMachineReady signifies that the virtual machine is ready for snapshotting, allowing the snapshot process to begin.
 	VirtualMachineReady VirtualMachineReadyReason = "VirtualMachineReady"
 	// VirtualMachineNotReadyForSnapshotting signifies that the virtual machine is not ready for snapshotting, preventing the snapshot process from starting.
 	VirtualMachineNotReadyForSnapshotting VirtualMachineReadyReason = "VirtualMachineNotReadyForSnapshotting"
 
-	// VirtualMachineSnapshotUnknown signifies that the state of virtual machine snapshot is unknown.
-	VirtualMachineSnapshotUnknown VirtualMachineSnapshotReadyReason = "Unknown"
 	// WaitingForTheVirtualMachine signifies that the snapshot process is waiting for the virtual machine to become ready for snapshotting.
 	WaitingForTheVirtualMachine VirtualMachineSnapshotReadyReason = "WaitingForTheVirtualMachine"
 	// RestartAwaitingChanges signifies that the snapshotting process cannot begin because the virtual machine has awaiting changes.

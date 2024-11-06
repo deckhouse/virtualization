@@ -44,6 +44,4 @@ const (
 	ReasonDiscoverySucceeded Reason = "DiscoverySucceeded"
 	ReasonDiscoverySkip      Reason = "DiscoverySkip"
 	ReasonDiscoveryFailed    Reason = "DiscoveryFailed"
-
-	ReasonUnknown Reason = "Unknown"
 )
