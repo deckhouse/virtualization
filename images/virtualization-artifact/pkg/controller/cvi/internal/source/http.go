@@ -61,11 +61,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
-		Status(condition.Status).
-		ReasonString(condition.Reason).
-		Message(condition.Message).
-		Generation(cvi.Generation)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
 	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)

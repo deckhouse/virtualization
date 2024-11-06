@@ -50,12 +50,12 @@ func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Cond
 }
 
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
-	return &ConditionBuilder{conditionType: conditionType.String()}
+	return &ConditionBuilder{conditionType: conditionType}
 }
 
 type ConditionBuilder struct {
 	status        metav1.ConditionStatus
-	conditionType string
+	conditionType Stringer
 	reason        string
 	message       string
 	generation    int64
@@ -63,7 +63,7 @@ type ConditionBuilder struct {
 
 func (c *ConditionBuilder) Condition() metav1.Condition {
 	return metav1.Condition{
-		Type:               c.conditionType,
+		Type:               c.conditionType.String(),
 		Status:             c.status,
 		Reason:             c.reason,
 		LastTransitionTime: metav1.Now(),
@@ -79,11 +79,6 @@ func (c *ConditionBuilder) Status(status metav1.ConditionStatus) *ConditionBuild
 
 func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	c.reason = reason.String()
-	return c
-}
-
-func (c *ConditionBuilder) ReasonString(reason string) *ConditionBuilder {
-	c.reason = reason
 	return c
 }
 
@@ -103,14 +98,6 @@ func (c *ConditionBuilder) Clone() *ConditionBuilder {
 	return out
 }
 
-type stringerMock struct {
-	Value string
-}
-
-func (m stringerMock) String() string {
-	return m.Value
-}
-
 func (c *ConditionBuilder) GetType() Stringer {
-	return stringerMock{Value: c.conditionType}
+	return c.conditionType
 }

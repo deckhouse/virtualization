@@ -61,11 +61,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
-		ReasonString(condition.Reason).
-		Message(condition.Message).
-		Status(condition.Status).
-		Generation(cvi.Generation)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
 	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
