@@ -80,7 +80,7 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error
 }
 
 func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SshOptions) *executor.CMDResult {
-	timeout := LongTimeout
+	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
 	}

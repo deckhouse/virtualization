@@ -38,14 +38,17 @@ const (
 
 func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
+	Eventually(func() error {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SshUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
 func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...string) {
@@ -53,7 +56,7 @@ func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...st
 	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, conf.Namespace, vms, cpuNumber)
 	By("Patching virtual machine specification")
 	patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
-	Expect(patchRes.WasSuccess()).To(Equal(true), patchRes.StdErr())
+	Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
 }
 
 func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualMachines ...string) {
@@ -97,30 +100,30 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	Context("When virtual images are applied:", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
 	Context("When virtual disks are applied:", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
 	Context("When virtual machines are applied:", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -133,7 +136,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumber(ManualMode, StageBefore, 1, vms...)
@@ -169,10 +172,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					cmd := "sudo reboot"
 					ExecSshCommand(vm, cmd)
 				}
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 		})
@@ -224,10 +227,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 		Context("When virtual machine is restarted:", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 		})
@@ -239,7 +242,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
