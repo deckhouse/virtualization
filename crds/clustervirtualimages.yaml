@@ -154,6 +154,11 @@ spec:
                       description: |
                         Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
                       required: ["kind", "name"]
+                      x-kubernetes-validations:
+                        - rule: "self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) > 0 : true"
+                          message: The namespace is required for VirtualDisk and VirtualImage
+                        - rule: "self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) < 64 : true"
+                          message: "The namespace must be no longer than 63 characters."
                       properties:
                         kind:
                           type: string
