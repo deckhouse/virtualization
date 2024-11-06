@@ -31,7 +31,9 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-const APIVersion = "virtualization.deckhouse.io/v1alpha2"
+const unacceptableCount = -1000
+
+var APIVersion = virtv2.SchemeGroupVersion.String()
 
 // lsblk JSON output
 type Disks struct {
@@ -82,19 +84,22 @@ func CreateVMBDAManifest(filePath, vmName, vdName string, labels map[string]stri
 	return nil
 }
 
-func GetDisksMetadata(vmName string, disks *Disks) {
+func GetDisksMetadata(vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	Eventually(func(g Gomega) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
-			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
-			IdenityFile: conf.TestData.Sshkey,
-		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "getting disk count failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
-		err := json.Unmarshal(res.StdOutBytes(), disks)
-		g.Expect(err).NotTo(HaveOccurred())
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+		Namespace:   conf.Namespace,
+		Username:    conf.TestData.SshUser,
+		IdenityFile: conf.TestData.Sshkey,
+	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	err := json.Unmarshal(res.StdOutBytes(), disks)
+	if err != nil {
+		return fmt.Errorf("failed when getting disk count\nvirtualMachine: %s/%s\nstderr: %s", conf.Namespace, vmName, res.StdErr())
+	}
+	return nil
 }
 
 var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -125,17 +130,17 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs with consumers should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
-				ExcludeLabels: []string{"hasNoConsumer"},
-				Labels:        testCaseLabel,
-				Namespace:     conf.Namespace,
-				Output:        "jsonpath='{.items[*].metadata.name}'",
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+				ExcludedLabels: []string{"hasNoConsumer"},
+				Labels:         testCaseLabel,
+				Namespace:      conf.Namespace,
+				Timeout:        MaxWaitTimeout,
 			})
 			By(fmt.Sprintf("VDs without consumers should be in %s phases", phaseByVolumeBindingMode))
-			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    hasNoConsumerLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -143,10 +148,10 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -154,30 +159,37 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Describe("Attachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
 			It("get disk count before attachment", func() {
-				GetDisksMetadata(vmName, &disksBefore)
+				Eventually(func() error {
+					return GetDisksMetadata(vmName, &disksBefore)
+				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmName)
 			})
 			It("attaches virtual disk", func() {
 				AttachVirtualDisk(vmName, vdAttach, testCaseLabel)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
-				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 			It("compares disk count before and after attachment", func() {
-				GetDisksMetadata(vmName, &disksAfter)
 				diskCountBefore := len(disksBefore.BlockDevices)
-				diskCountAfter := len(disksAfter.BlockDevices)
-				Expect(diskCountBefore).To(Equal(diskCountAfter-1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
+				Eventually(func() (int, error) {
+					err := GetDisksMetadata(vmName, &disksAfter)
+					if err != nil {
+						return unacceptableCount, err
+					}
+					diskCountAfter := len(disksAfter.BlockDevices)
+					return diskCountAfter, nil
+				}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore+1), "comparing error: 'after' must be equal 'before + 1'")
 			})
 		})
 	})
@@ -185,7 +197,9 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Describe("Detachment", func() {
 		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
 			It("get disk count before detachment", func() {
-				GetDisksMetadata(vmName, &disksBefore)
+				Eventually(func() error {
+					return GetDisksMetadata(vmName, &disksBefore)
+				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtual machine: %s", vmName)
 			})
 			It("detaches virtual disk", func() {
 				res := kubectl.DeleteResource(kc.ResourceVMBDA, vmbdaName, kc.DeleteOptions{
@@ -195,19 +209,21 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 			})
 			It("checks VM phase", func() {
 				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 			It("compares disk count before and after detachment", func() {
 				diskCountBefore := len(disksBefore.BlockDevices)
-				Eventually(func(g Gomega) {
-					GetDisksMetadata(vmName, &disksAfter)
-					diskCountAfter := len(disksAfter.BlockDevices)
-					Expect(diskCountBefore).To(Equal(diskCountAfter+1), "compare error: 'before' must be equal 'after - 1', before: %d, after: %d", diskCountBefore, diskCountAfter)
-				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				Eventually(func() (int, error) {
+					err := GetDisksMetadata(vmName, &disksAfter)
+					if err != nil {
+						return unacceptableCount, err
+					}
+					return len(disksAfter.BlockDevices), nil
+				}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore-1), "comparing error: 'after' must be equal 'before - 1'")
 			})
 		})
 	})

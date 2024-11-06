@@ -81,7 +81,7 @@ func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout, stderr
 	return cmd
 }
 
-func mergeEnvs(curr []string, override []string) []string {
+func mergeEnvs(curr, override []string) []string {
 	envMap := make(map[string]string)
 
 	for _, currEnv := range curr {

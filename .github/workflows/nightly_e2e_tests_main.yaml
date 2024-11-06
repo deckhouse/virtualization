@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: e2e
+name: Nightly E2E tests(main)
 
 env:
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
@@ -43,6 +43,7 @@ jobs:
         uses: arduino/setup-task@v2
 
       - name: Install ginkgo
+        working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
           GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
