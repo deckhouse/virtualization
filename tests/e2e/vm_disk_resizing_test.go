@@ -44,15 +44,20 @@ const DiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
 
 func WaitBlockDeviceRefsStatus(namespace string, vms ...string) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
+	Eventually(func() error {
 		for _, vmName := range vms {
 			vm := virtv2.VirtualMachine{}
 			err := GetObject(kc.ResourceKubevirtVM, vmName, &vm, kc.GetOptions{Namespace: namespace})
-			Expect(err).NotTo(HaveOccurred(), err)
+			if err != nil {
+				return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
+			}
 			for _, disk := range vm.Status.BlockDeviceRefs {
-				Expect(disk.Attached).To(BeTrue(), "attached status check failed: %#v", vm.Status.BlockDeviceRefs)
+				if !disk.Attached {
+					return fmt.Errorf("virtualMachine: %s\nblockDeviceRefs: %#v", vmName, vm.Status.BlockDeviceRefs)
+				}
 			}
 		}
+		return nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 }
 
@@ -107,9 +112,12 @@ func GetDiskSize(vmName, vdName, diskId string, config *cfg.Config, disk *DiskMe
 	sizeFromObject, err := GetSizeFromObject(vdName, config.Namespace)
 	Expect(err).NotTo(HaveOccurred(), err)
 	var sizeByLsblk *resource.Quantity
-	Eventually(func(g Gomega) {
+	Eventually(func() error {
 		sizeByLsblk, err = GetSizeByLsblk(vmName, diskId)
-		Expect(err).NotTo(HaveOccurred(), err)
+		if err != nil {
+			return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
+		}
+		return nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 	disk.SizeFromObject = sizeFromObject
 	disk.SizeByLsblk = sizeByLsblk
@@ -163,10 +171,10 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 	Context("When virtual disks are applied:", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -174,10 +182,10 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -185,10 +193,10 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 	Context("When virtual machine block device attachments are applied:", func() {
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-			WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 				Labels:    diskResizingLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
@@ -224,24 +232,24 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 			It("checks VDs, VMs and VMBDA phases", func() {
 				By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-				WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 
 				By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 
 				By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-				WaitPhase(kc.ResourceVMBDA, PhaseAttached, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 					Labels:    diskResizingLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 
 				By("BlockDeviceRefsStatus: disks should be attached")
