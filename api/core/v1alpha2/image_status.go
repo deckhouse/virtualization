@@ -100,5 +100,6 @@ type ImageStatusTarget struct {
 	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
-	// PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
+
+	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }
