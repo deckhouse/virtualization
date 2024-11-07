@@ -16,8 +16,15 @@ limitations under the License.
 
 package v1alpha2
 
-import "k8s.io/apimachinery/pkg/types"
-
+// Current status of `ClusterVirtualImage` resource:
+// * Pending - The resource has been created and is on a waiting queue.
+// * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
+// * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+// * Ready - The resource is created and ready to use.
+// * Failed - There was a problem when creating a resource.
+// * Terminating - The process of resource deletion is in progress.
+// * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
+// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,PVCLost}
 type ImagePhase string
 
 const (
@@ -38,21 +45,10 @@ type ImageStatus struct {
 	// Discovered format of the image.
 	Format string `json:"format,omitempty"`
 	// Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
-	CDROM  bool              `json:"cdrom,omitempty"`
-	Target ImageStatusTarget `json:"target,omitempty"`
-	// Current status of `ClusterVirtualImage` resource:
-	// * Pending - The resource has been created and is on a waiting queue.
-	// * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
-	// * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
-	// * Ready - The resource is created and ready to use.
-	// * Failed - There was a problem when creating a resource.
-	// * Terminating - The process of resource deletion is in progress.
-	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating}
+	CDROM bool       `json:"cdrom,omitempty"`
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
-	// The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.
-	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// Deprecated. Use imageUploadURLs instead.
 	UploadCommand   string           `json:"uploadCommand,omitempty"`
 	ImageUploadURLs *ImageUploadURLs `json:"imageUploadURLs,omitempty"`
@@ -65,6 +61,7 @@ type ImageUploadURLs struct {
 	InCluster string `json:"inCluster,omitempty"`
 }
 
+// Image download speed from an external source. Appears only during the `Provisioning` phase.
 type StatusSpeed struct {
 	// Average download speed.
 	// +kubebuilder:example:="1 Mbps"
@@ -80,6 +77,7 @@ type StatusSpeed struct {
 	CurrentBytes string `json:"currentBytes,omitempty"`
 }
 
+// Discovered sizes of the image.
 type ImageStatusSize struct {
 	// Image size in DVCR or in PVC in human-readable format.
 	// +kubebuilder:example:="199M"
@@ -93,13 +91,4 @@ type ImageStatusSize struct {
 	// Unpacked image size in bytes.
 	// +kubebuilder:example:=1000000234
 	UnpackedBytes string `json:"unpackedBytes,omitempty"`
-}
-
-type ImageStatusTarget struct {
-	// Created image in DVCR.
-	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest"
-	RegistryURL string `json:"registryURL,omitempty"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
-
-	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }

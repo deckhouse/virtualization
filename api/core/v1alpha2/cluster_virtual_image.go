@@ -20,6 +20,7 @@ package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -107,8 +108,18 @@ const (
 
 type ClusterVirtualImageStatus struct {
 	ImageStatus `json:",inline"`
+	Target      ClusterVirtualImageStatusTarget `json:"target,omitempty"`
+	// The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.
+	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
+
+type ClusterVirtualImageStatusTarget struct {
+	// Created image in DVCR.
+	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest"
+	RegistryURL string `json:"registryURL,omitempty"`
+	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
 }

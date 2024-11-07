@@ -46,6 +46,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef":              schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageSpec":                   schema_virtualization_api_core_v1alpha2_ClusterVirtualImageSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatus":                 schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget":           schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery":                              schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures":                               schema_virtualization_api_core_v1alpha2_CpuFeatures(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry":               schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref),
@@ -55,7 +56,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                           schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatus":                               schema_virtualization_api_core_v1alpha2_ImageStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget":                         schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                           schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
@@ -94,6 +94,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim":         schema_virtualization_api_core_v1alpha2_VirtualImagePersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageSpec":                          schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatus":                        schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget":                  schema_virtualization_api_core_v1alpha2_VirtualImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachine":                            schema_virtualization_api_core_v1alpha2_VirtualMachine(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinity":              schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinity(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinityTerm":          schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinityTerm(ref),
@@ -932,7 +933,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref common.Refe
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ClusterVirtualImage is a cluster wide available image for virtual machines.",
+				Description: "Describes a virtual disk image that can be used as a data source for new `VirtualDisks` or an installation image (iso) to be mounted in `Virtuals` directly. This resource type is available for all namespaces in the cluster.\n\n> This resource cannot be modified once it has been created.\n\nA container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registry (DVCR).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -980,14 +981,9 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "An origin of the image.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"http": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP"),
@@ -1003,7 +999,15 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef"),
 						},
 					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
+				Required: []string{"type"},
 			},
 		},
 		Dependencies: []string{
@@ -1065,27 +1069,33 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A namespace where `VirtualImage` or `VirtualDisk` is located.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"kind", "name"},
 			},
 		},
 	}
@@ -1120,32 +1130,29 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
+							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
+							Description: "Discovered sizes of the image.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
 						},
 					},
 					"format": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Discovered format of the image.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"),
+							Description: "Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"phase": {
@@ -1156,19 +1163,14 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"progress": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"sourceUID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: use ImageUploadURLs instead.",
+							Description: "Deprecated. Use imageUploadURLs instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1178,9 +1180,23 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
+						},
+					},
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The latest available observations of an object's current state.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -1193,16 +1209,35 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "The generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatusTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"registryURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Created image in DVCR.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -1274,13 +1309,15 @@ func schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref com
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"image": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The container registry address of an image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"imagePullSecret": {
@@ -1291,12 +1328,13 @@ func schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref com
 					},
 					"caBundle": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
+							Description: "The CA chain in base64 format to verify the container registry.",
+							Type:        []string{"string"},
+							Format:      "byte",
 						},
 					},
 				},
-				Required: []string{"image", "imagePullSecret", "caBundle"},
+				Required: []string{"image"},
 			},
 		},
 		Dependencies: []string{
@@ -1308,28 +1346,32 @@ func schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref common.Reference
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Fill the image with data from some external url. Supported schemas are:\n\n* http * https\n\nFor https schema there is an option to skip TLS verification.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"checksum": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum"),
+						},
+					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "The http url with an image. The following formats are supported: * qcow2 * vmdk * vdi * iso * raw these formats can also be compressed with the following formats: * gz * xz",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"caBundle": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"checksum": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum"),
+							Description: "The CA chain in base64 format to verify the url.",
+							Type:        []string{"string"},
+							Format:      "byte",
 						},
 					},
 				},
-				Required: []string{"url", "caBundle"},
+				Required: []string{"url"},
 			},
 		},
 		Dependencies: []string{
@@ -1382,20 +1424,19 @@ func schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "A name of the secret containing registry credentials.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "A namespace where imagePullSecret is located.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"name", "namespace"},
 			},
 		},
 	}
@@ -1409,32 +1450,29 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
+							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
+							Description: "Discovered sizes of the image.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
 						},
 					},
 					"format": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Discovered format of the image.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"),
+							Description: "Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"phase": {
@@ -1445,19 +1483,14 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 					},
 					"progress": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"sourceUID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: use ImageUploadURLs instead.",
+							Description: "Deprecated. Use imageUploadURLs instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1468,11 +1501,10 @@ func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
 	}
 }
 
@@ -1480,53 +1512,33 @@ func schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Discovered sizes of the image.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"stored": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Image size in DVCR or in PVC in human-readable format.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"storedBytes": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Image size in DVCR or in PVC in bytes.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"unpacked": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Unpacked image size in human-readable format.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"unpackedBytes": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_ImageStatusTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"registryURL": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"persistentVolumeClaimName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim",
+							Description: "Unpacked image size in bytes.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1545,14 +1557,16 @@ func schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"external": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Command to upload the image using `Ingress` from outside the cluster.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"inCluster": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Command to upload the image using `Service` within the cluster.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -1970,30 +1984,35 @@ func schema_virtualization_api_core_v1alpha2_StatusSpeed(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"avg": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Average download speed.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"avgBytes": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Average download speed in bytes per second.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"current": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Current download speed.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"currentBytes": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Current download speed in bytes per second.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -2667,7 +2686,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImage(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualImage is an image for virtual machines available in the particular namespace.",
+				Description: "This resource describes a virtual disk image or installation image (iso) that can be used as a data source for new `VirtualDisks` or can be mounted in `Virtuals`. > This resource cannot be modified once it has been created.\n\nA container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2800,21 +2819,27 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"kind", "name"},
 			},
 		},
 	}
@@ -2851,12 +2876,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref common.Referen
 							Format:  "",
 						},
 					},
-					"persistentVolumeClaim": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim"),
-						},
-					},
 					"dataSource": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2864,11 +2883,11 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"storage", "persistentVolumeClaim", "dataSource"},
+				Required: []string{"storage", "dataSource"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource"},
 	}
 }
 
@@ -2880,32 +2899,29 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
+							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
 						},
 					},
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
+							Description: "Discovered sizes of the image.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
 						},
 					},
 					"format": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Discovered format of the image.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"cdrom": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget"),
+							Description: "Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"phase": {
@@ -2916,19 +2932,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"progress": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"sourceUID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"uploadCommand": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: use ImageUploadURLs instead.",
+							Description: "Deprecated. Use imageUploadURLs instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2938,9 +2949,23 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
 						},
 					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget"),
+						},
+					},
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The latest available observations of an object's current state.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2953,8 +2978,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "The generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 					"storageClassName": {
@@ -2964,11 +2990,36 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"downloadSpeed", "size", "cdrom", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualImageStatusTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"registryURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Created image in DVCR.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"persistentVolumeClaimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Created PersistentVolumeClaim name for Kubernetes storage.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

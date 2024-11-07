@@ -372,6 +372,7 @@ spec:
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource.
                     * Terminating - The process of resource deletion is in progress.
+                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                   enum:
                     - Pending
                     - Provisioning
@@ -379,6 +380,7 @@ spec:
                     - Ready
                     - Failed
                     - Terminating
+                    - PVCLost
                   type: string
                 progress:
                   description:
