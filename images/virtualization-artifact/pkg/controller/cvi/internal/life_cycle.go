@@ -26,7 +26,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -44,15 +43,15 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	readyCondition, ok := service.GetCondition(cvicondition.ReadyType.String(), cvi.Status.Conditions)
+	readyCondition, ok := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	if !ok {
-		readyCondition = metav1.Condition{
-			Type:   cvicondition.ReadyType.String(),
-			Status: metav1.ConditionUnknown,
-			Reason: conditions.ReasonUnknown.String(),
-		}
+		cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Generation(cvi.Generation)
+		conditions.SetCondition(cb, &cvi.Status.Conditions)
 
-		service.SetCondition(readyCondition, &cvi.Status.Conditions)
+		readyCondition = cb.Condition()
 	}
 
 	if cvi.DeletionTimestamp != nil {
