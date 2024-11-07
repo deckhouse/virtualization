@@ -74,13 +74,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
-	defer func() {
-		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
-		if !(cb.Condition().Status == metav1.ConditionUnknown && condition.Status == metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &cvi.Status.Conditions)
-		}
-	}()
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
+		Status(condition.Status).
+		ReasonFromCondition(condition).
+		Message(condition.Message).
+		Generation(cvi.Generation)
+	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
 
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:

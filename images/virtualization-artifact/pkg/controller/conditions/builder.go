@@ -90,6 +90,13 @@ func (c *ConditionBuilder) Reason(reason Stringer) *ConditionBuilder {
 	return c
 }
 
+func (c *ConditionBuilder) ReasonFromCondition(condition metav1.Condition) *ConditionBuilder {
+	if condition.Reason != "" {
+		c.reason = condition.Reason
+	}
+	return c
+}
+
 func (c *ConditionBuilder) Message(msg string) *ConditionBuilder {
 	c.message = msg
 	return c
