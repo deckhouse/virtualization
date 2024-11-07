@@ -22,6 +22,7 @@ package internal
 import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
@@ -160,8 +161,14 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
+//			ChangedFunc: func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+//				panic("mock out the Changed method")
+//			},
 //			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
 //				panic("mock out the CleanUp method")
+//			},
+//			ForFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+//				panic("mock out the For method")
 //			},
 //		}
 //
@@ -170,11 +177,24 @@ var _ Sources = &SourcesMock{}
 //
 //	}
 type SourcesMock struct {
+	// ChangedFunc mocks the Changed method.
+	ChangedFunc func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool
+
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
 
+	// ForFunc mocks the For method.
+	ForFunc func(dsType virtv2.DataSourceType) (source.Handler, bool)
+
 	// calls tracks calls to the methods.
 	calls struct {
+		// Changed holds details about calls to the Changed method.
+		Changed []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Vi is the vi argument value.
+			Vi *virtv2.VirtualImage
+		}
 		// CleanUp holds details about calls to the CleanUp method.
 		CleanUp []struct {
 			// Ctx is the ctx argument value.
@@ -182,8 +202,51 @@ type SourcesMock struct {
 			// Vd is the vd argument value.
 			Vd *virtv2.VirtualImage
 		}
+		// For holds details about calls to the For method.
+		For []struct {
+			// DsType is the dsType argument value.
+			DsType virtv2.DataSourceType
+		}
 	}
+	lockChanged sync.RWMutex
 	lockCleanUp sync.RWMutex
+	lockFor     sync.RWMutex
+}
+
+// Changed calls ChangedFunc.
+func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+	if mock.ChangedFunc == nil {
+		panic("SourcesMock.ChangedFunc: method is nil but Sources.Changed was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Vi              *virtv2.VirtualImage
+	}{
+		ContextMoqParam: contextMoqParam,
+		Vi:              vi,
+	}
+	mock.lockChanged.Lock()
+	mock.calls.Changed = append(mock.calls.Changed, callInfo)
+	mock.lockChanged.Unlock()
+	return mock.ChangedFunc(contextMoqParam, vi)
+}
+
+// ChangedCalls gets all the calls that were made to Changed.
+// Check the length with:
+//
+//	len(mockedSources.ChangedCalls())
+func (mock *SourcesMock) ChangedCalls() []struct {
+	ContextMoqParam context.Context
+	Vi              *virtv2.VirtualImage
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Vi              *virtv2.VirtualImage
+	}
+	mock.lockChanged.RLock()
+	calls = mock.calls.Changed
+	mock.lockChanged.RUnlock()
+	return calls
 }
 
 // CleanUp calls CleanUpFunc.
@@ -219,5 +282,37 @@ func (mock *SourcesMock) CleanUpCalls() []struct {
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
 	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// For calls ForFunc.
+func (mock *SourcesMock) For(dsType virtv2.DataSourceType) (source.Handler, bool) {
+	if mock.ForFunc == nil {
+		panic("SourcesMock.ForFunc: method is nil but Sources.For was just called")
+	}
+	callInfo := struct {
+		DsType virtv2.DataSourceType
+	}{
+		DsType: dsType,
+	}
+	mock.lockFor.Lock()
+	mock.calls.For = append(mock.calls.For, callInfo)
+	mock.lockFor.Unlock()
+	return mock.ForFunc(dsType)
+}
+
+// ForCalls gets all the calls that were made to For.
+// Check the length with:
+//
+//	len(mockedSources.ForCalls())
+func (mock *SourcesMock) ForCalls() []struct {
+	DsType virtv2.DataSourceType
+} {
+	var calls []struct {
+		DsType virtv2.DataSourceType
+	}
+	mock.lockFor.RLock()
+	calls = mock.calls.For
+	mock.lockFor.RUnlock()
 	return calls
 }
