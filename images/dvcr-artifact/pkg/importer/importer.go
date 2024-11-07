@@ -177,8 +177,7 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 		return monitoring.WriteImportFailureMessage(err)
 	}
 
-	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format,
-		durCollector.Collect())
+	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }
 
 func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {

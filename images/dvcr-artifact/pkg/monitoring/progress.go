@@ -212,31 +212,31 @@ type ProgressMetric interface {
 	Delete()
 }
 
-func NewProgress(importProgress *prometheus.GaugeVec, lvs ...string) *ImportProgress {
+func NewProgress(importProgress *prometheus.GaugeVec, labelValues ...string) *ImportProgress {
 	return &ImportProgress{
 		importProgress: importProgress,
-		lvs:            lvs,
+		labelValues:    labelValues,
 	}
 }
 
 type ImportProgress struct {
 	importProgress *prometheus.GaugeVec
-	lvs            []string
+	labelValues    []string
 }
 
 // Add adds value to the importProgress metric
 func (ip *ImportProgress) Add(value float64) {
-	ip.importProgress.WithLabelValues(ip.lvs...).Add(value)
+	ip.importProgress.WithLabelValues(ip.labelValues...).Add(value)
 }
 
 func (ip *ImportProgress) Set(value float64) {
-	ip.importProgress.WithLabelValues(ip.lvs...).Set(value)
+	ip.importProgress.WithLabelValues(ip.labelValues...).Set(value)
 }
 
 // Get returns the importProgress value
 func (ip *ImportProgress) Get() (float64, error) {
 	dto := &ioprometheusclient.Metric{}
-	if err := ip.importProgress.WithLabelValues(ip.lvs...).Write(dto); err != nil {
+	if err := ip.importProgress.WithLabelValues(ip.labelValues...).Write(dto); err != nil {
 		return 0, err
 	}
 	return dto.Gauge.GetValue(), nil
@@ -244,5 +244,5 @@ func (ip *ImportProgress) Get() (float64, error) {
 
 // Delete removes the importProgress metric with the passed label
 func (ip *ImportProgress) Delete() {
-	ip.importProgress.DeleteLabelValues(ip.lvs...)
+	ip.importProgress.DeleteLabelValues(ip.labelValues...)
 }
