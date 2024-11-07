@@ -93,7 +93,7 @@ function generate::crds() {
               if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
                 continue
               fi
-              cp "$file" "./crds/${file/#"$OUTPUT_BASE/$PREFIX_GROUP"/}"
+              cp "$file" "./crds/$(echo $file | awk -Fio_ '{print $2}')"
           done
 }
 

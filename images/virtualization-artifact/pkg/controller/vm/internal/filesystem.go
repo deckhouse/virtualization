@@ -57,7 +57,9 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, err
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemReady).Generation(changed.GetGeneration())
+	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemReady).
+		Status(metav1.ConditionUnknown).
+		Generation(changed.GetGeneration())
 
 	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 

@@ -33,7 +33,7 @@ const (
 // A resource cannot be deleted as long as it is used in one of the VMs.
 //
 // +kubebuilder:object:root=true
-// +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=}
+// +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={vmc,vmcs,vmclass,vmclasses},singular=virtualmachineclass
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
