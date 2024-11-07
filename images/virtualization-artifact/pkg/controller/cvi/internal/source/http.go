@@ -61,12 +61,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	log, ctx := logger.GetDataSourceContext(ctx, "http")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
-		Status(condition.Status).
-		ReasonFromCondition(condition).
-		Message(condition.Message).
-		Generation(cvi.Generation)
-	defer func() { conditions.SetCondition(cb, &cvi.Status.Conditions) }()
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+	defer func() {
+		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
+		if !(cb.Condition().Status == metav1.ConditionUnknown && condition.Status == metav1.ConditionTrue) {
+			conditions.SetCondition(cb, &cvi.Status.Conditions)
+		}
+	}()
 
 	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
