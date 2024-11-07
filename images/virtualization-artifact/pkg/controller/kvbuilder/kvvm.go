@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -41,6 +42,14 @@ const (
 	CloudInitDiskName = "cloudinit"
 	SysprepDiskName   = "sysprep"
 )
+
+func NewKVVMOptions(vmSpec virtv2.VirtualMachineSpec) KVVMOptions {
+	return KVVMOptions{
+		EnableParavirtualization: vmSpec.EnableParavirtualization,
+		OsType:                   vmSpec.OsType,
+		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
+	}
+}
 
 type KVVMOptions struct {
 	EnableParavirtualization bool

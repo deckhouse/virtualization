@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	vmtemplate "github.com/deckhouse/virtualization-controller/pkg/controller/template/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -290,6 +291,28 @@ func createPod(vmKey types.NamespacedName) *corev1.Pod {
 			},
 		},
 	}
+}
+
+func createVM22(key types.NamespacedName,
+	phase virtv2.MachinePhase,
+	stats *virtv2.VirtualMachineStats,
+	guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo) {
+
+	options := []vmtemplate.Option{
+		vmtemplate.WithCPUSpec(virtv2.CPUSpec{
+			Cores:        1,
+			CoreFraction: "50%",
+		}),
+		vmtemplate.WithMemorySpec(virtv2.MemorySpec{
+			Size: resource.MustParse("512Mi"),
+		}),
+		vmtemplate.WithStatus(virtv2.VirtualMachineStatus{
+			Phase:       phase,
+			Stats:       stats,
+			GuestOSInfo: guestOSInfo,
+		}),
+	}
+	vmtemplate.New(key).WithOptions(options...)
 }
 
 func createVM(key types.NamespacedName,

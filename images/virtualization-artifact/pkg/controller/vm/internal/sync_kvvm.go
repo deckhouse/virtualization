@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -322,11 +321,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	current := s.VirtualMachine().Current()
 	kvvmName := common.NamespacedName(current)
 
-	kvvmOpts := kvbuilder.KVVMOptions{
-		EnableParavirtualization: current.Spec.EnableParavirtualization,
-		OsType:                   current.Spec.OsType,
-		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
-	}
+	kvvmOpts := kvbuilder.NewKVVMOptions(current.Spec)
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
