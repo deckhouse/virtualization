@@ -144,7 +144,6 @@ spec:
           volumeMounts:
           - name: kube-rbac-proxy-ca
             mountPath: /etc/kube-rbac-proxy
-      {{- end }}
         serviceAccountName: virtualization-controller
         volumes:
         - name: tmp
