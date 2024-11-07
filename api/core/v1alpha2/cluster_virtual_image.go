@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// +kubebuilder:object:generate=true
+// +groupName=virtualization.deckhouse.io
 package v1alpha2
 
 import (
@@ -25,10 +27,25 @@ const (
 	ClusterVirtualImageResource = "clustervirtualimages"
 )
 
-// +genclient:nonNamespaced
-
-// ClusterVirtualImage is a cluster wide available image for virtual machines.
+// Describes a virtual disk image that can be used as a data source for new `VirtualDisks` or an installation image (iso) to be mounted in `Virtuals` directly. This resource type is available for all namespaces in the cluster.
+//
+// > This resource cannot be modified once it has been created.
+//
+// A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registry (DVCR).
+//
+// +kubebuilder:object:root=true
+// +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
+// +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={cvi,cvis},singular=clustervirtualimage
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="CDROM",type=boolean,JSONPath=`.status.cdrom`
+// +kubebuilder:printcolumn:name="Progress",type=string,JSONPath=`.status.progress`
+// +kubebuilder:printcolumn:name="StoredSize",type=string,JSONPath=`.status.size.stored`,priority=1
+// +kubebuilder:printcolumn:name="UnpackedSize",type=string,JSONPath=`.status.size.unpacked`,priority=1
+// +kubebuilder:printcolumn:name="Registry URL",type=string,JSONPath=`.status.target.registryURL`,priority=1
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:validation:XValidation:rule="self.metadata.name.size() <= 128",message="The name must be no longer than 128 characters."
 // +genclient
+// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterVirtualImage struct {
 	metav1.TypeMeta `json:",inline"`
@@ -55,19 +72,31 @@ type ClusterVirtualImageSpec struct {
 	DataSource ClusterVirtualImageDataSource `json:"dataSource"`
 }
 
+// An origin of the image.
+// +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="HTTP requires http and cannot have ContainerImage or ObjectRef"
+// +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef"
+// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage"
 type ClusterVirtualImageDataSource struct {
-	Type           DataSourceType                `json:"type,omitempty"`
 	HTTP           *DataSourceHTTP               `json:"http,omitempty"`
 	ContainerImage *DataSourceContainerRegistry  `json:"containerImage,omitempty"`
 	ObjectRef      *ClusterVirtualImageObjectRef `json:"objectRef,omitempty"`
+	Type           DataSourceType                `json:"type"`
 }
 
+// Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
+//
+// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) > 0 : true",message="The namespace is required for VirtualDisk and VirtualImage"
+// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) < 64 : true",message="The namespace must be no longer than 63 characters."
 type ClusterVirtualImageObjectRef struct {
-	Kind      ClusterVirtualImageObjectRefKind `json:"kind,omitempty"`
-	Name      string                           `json:"name,omitempty"`
-	Namespace string                           `json:"namespace,omitempty"`
+	Kind ClusterVirtualImageObjectRefKind `json:"kind"`
+	// A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
+	Name string `json:"name"`
+	// A namespace where `VirtualImage` or `VirtualDisk` is located.
+	Namespace string `json:"namespace,omitempty"`
 }
 
+// A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
+// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk}
 type ClusterVirtualImageObjectRefKind string
 
 const (
@@ -77,7 +106,9 @@ const (
 )
 
 type ClusterVirtualImageStatus struct {
-	ImageStatus        `json:",inline"`
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
+	ImageStatus `json:",inline"`
+	// The latest available observations of an object's current state.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// The generation last processed by the controller.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }

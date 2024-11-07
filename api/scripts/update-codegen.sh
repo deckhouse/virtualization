@@ -36,7 +36,8 @@ function source::settings {
                             "VirtualMachineBlockDeviceAttachment"
                             "VirtualMachineSnapshot"
                             "VirtualMachineRestore"
-                            "VirtualMachineOperation")
+                            "VirtualMachineOperation"
+                            "ClusterVirtualImage")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 

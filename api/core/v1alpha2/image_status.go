@@ -31,40 +31,74 @@ const (
 )
 
 type ImageStatus struct {
-	DownloadSpeed *StatusSpeed      `json:"downloadSpeed"`
-	Size          ImageStatusSize   `json:"size"`
-	Format        string            `json:"format,omitempty"`
-	CDROM         bool              `json:"cdrom"`
-	Target        ImageStatusTarget `json:"target"`
-	Phase         ImagePhase        `json:"phase,omitempty"`
-	Progress      string            `json:"progress,omitempty"`
-	SourceUID     *types.UID        `json:"sourceUID,omitempty"`
-	// Deprecated: use ImageUploadURLs instead.
+	// Image download speed from an external source. Appears only during the `Provisioning` phase.
+	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
+	// Discovered sizes of the image.
+	Size ImageStatusSize `json:"size,omitempty"`
+	// Discovered format of the image.
+	Format string `json:"format,omitempty"`
+	// Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
+	CDROM  bool              `json:"cdrom,omitempty"`
+	Target ImageStatusTarget `json:"target,omitempty"`
+	// Current status of `ClusterVirtualImage` resource:
+	// * Pending - The resource has been created and is on a waiting queue.
+	// * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
+	// * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+	// * Ready - The resource is created and ready to use.
+	// * Failed - There was a problem when creating a resource.
+	// * Terminating - The process of resource deletion is in progress.
+	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating}
+	Phase ImagePhase `json:"phase,omitempty"`
+	// Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.
+	Progress string `json:"progress,omitempty"`
+	// The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.
+	SourceUID *types.UID `json:"sourceUID,omitempty"`
+	// Deprecated. Use imageUploadURLs instead.
 	UploadCommand   string           `json:"uploadCommand,omitempty"`
 	ImageUploadURLs *ImageUploadURLs `json:"imageUploadURLs,omitempty"`
 }
 
 type ImageUploadURLs struct {
-	External  string `json:"external,omitempty"`
+	// Command to upload the image using `Ingress` from outside the cluster.
+	External string `json:"external,omitempty"`
+	// Command to upload the image using `Service` within the cluster.
 	InCluster string `json:"inCluster,omitempty"`
 }
 
 type StatusSpeed struct {
-	Avg          string `json:"avg,omitempty"`
-	AvgBytes     string `json:"avgBytes,omitempty"`
-	Current      string `json:"current,omitempty"`
+	// Average download speed.
+	// +kubebuilder:example:="1 Mbps"
+	Avg string `json:"avg,omitempty"`
+	// Average download speed in bytes per second.
+	// +kubebuilder:example:=1012345
+	AvgBytes string `json:"avgBytes,omitempty"`
+	// Current download speed.
+	// +kubebuilder:example:="5 Mbps"
+	Current string `json:"current,omitempty"`
+	// Current download speed in bytes per second.
+	// +kubebuilder:example:=5123456
 	CurrentBytes string `json:"currentBytes,omitempty"`
 }
 
 type ImageStatusSize struct {
-	Stored        string `json:"stored,omitempty"`
-	StoredBytes   string `json:"storedBytes,omitempty"`
-	Unpacked      string `json:"unpacked,omitempty"`
+	// Image size in DVCR or in PVC in human-readable format.
+	// +kubebuilder:example:="199M"
+	Stored string `json:"stored,omitempty"`
+	// Image size in DVCR or in PVC in bytes.
+	// +kubebuilder:example:=199001234
+	StoredBytes string `json:"storedBytes,omitempty"`
+	// Unpacked image size in human-readable format.
+	// +kubebuilder:example:="1G"
+	Unpacked string `json:"unpacked,omitempty"`
+	// Unpacked image size in bytes.
+	// +kubebuilder:example:=1000000234
 	UnpackedBytes string `json:"unpackedBytes,omitempty"`
 }
 
 type ImageStatusTarget struct {
+	// Created image in DVCR.
+	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
 	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
-	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
+	// PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }
