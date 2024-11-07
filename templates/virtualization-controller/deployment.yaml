@@ -121,7 +121,7 @@ spec:
                     apiVersion: v1
                     resource: deployments
                     subresource: http
-                    name: dashboard
+                    name: virtualization-controller
           ports:
           - containerPort: 8443
             name: https
@@ -145,7 +145,7 @@ spec:
           - name: kube-rbac-proxy-ca
             mountPath: /etc/kube-rbac-proxy
       {{- end }}
-        serviceAccountName: dashboard
+        serviceAccountName: virtualization-controller
         volumes:
         - name: tmp
           emptyDir: {}
