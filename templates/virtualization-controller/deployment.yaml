@@ -144,14 +144,14 @@ spec:
           volumeMounts:
           - name: kube-rbac-proxy-ca
             mountPath: /etc/kube-rbac-proxy
-        serviceAccountName: virtualization-controller
-        volumes:
-        - name: tmp
-          emptyDir: {}
-        - name: kube-rbac-proxy-ca
-          configMap:
-            defaultMode: 420
-            name: kube-rbac-proxy-ca.crt
+      serviceAccountName: virtualization-controller
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: kube-rbac-proxy-ca
+        configMap:
+          defaultMode: 420
+          name: kube-rbac-proxy-ca.crt
 
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
