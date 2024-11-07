@@ -1,5 +1,6 @@
 cffi==1.16.0
-cryptography==42.0.2
+certifi==2024.07.04
+cryptography==42.0.4
 DateTime==5.2
 deckhouse==0.4.9
 dictdiffer==0.9.0
