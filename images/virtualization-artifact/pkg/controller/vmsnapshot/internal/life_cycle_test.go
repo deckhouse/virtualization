@@ -50,13 +50,13 @@ var _ = Describe("LifeCycle handler", func() {
 				Phase: virtv2.DiskReady,
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdcondition.Ready,
+						Type:   vdcondition.Ready.String(),
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   vdcondition.Resized,
+						Type:   vdcondition.Resized.String(),
 						Status: metav1.ConditionTrue,
-						Reason: vdcondition.Resized,
+						Reason: vdcondition.Resized.String(),
 					},
 				},
 			},
@@ -181,7 +181,7 @@ var _ = Describe("LifeCycle handler", func() {
 		It("The virtual disk is not Ready", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
 				service.SetCondition(metav1.Condition{
-					Type:   vdcondition.Ready,
+					Type:   vdcondition.Ready.String(),
 					Status: metav1.ConditionFalse,
 				}, &vd.Status.Conditions)
 				return vd, nil
@@ -200,9 +200,9 @@ var _ = Describe("LifeCycle handler", func() {
 		It("The virtual disk is the process of Resizing", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
 				service.SetCondition(metav1.Condition{
-					Type:   vdcondition.Resized,
+					Type:   vdcondition.Resized.String(),
 					Status: metav1.ConditionFalse,
-					Reason: vdcondition.InProgress,
+					Reason: vdcondition.InProgress.String(),
 				}, &vd.Status.Conditions)
 				return vd, nil
 			}
