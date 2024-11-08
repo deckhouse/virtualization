@@ -17,7 +17,11 @@ limitations under the License.
 package cvicondition
 
 // Type represents the various condition types for the `ClusterVirtualImage`.
-type Type = string
+type Type string
+
+func (s Type) String() string {
+	return string(s)
+}
 
 const (
 	// DatasourceReadyType indicates whether the datasource (for example, a `VirtualImage`) is ready, allowing the import process for the `ClusterVirtualImage` to start.
@@ -28,10 +32,18 @@ const (
 
 type (
 	// DatasourceReadyReason represents the various reasons for the DatasourceReady condition type.
-	DatasourceReadyReason = string
+	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
-	ReadyReason = string
+	ReadyReason string
 )
+
+func (s DatasourceReadyReason) String() string {
+	return string(s)
+}
+
+func (s ReadyReason) String() string {
+	return string(s)
+}
 
 const (
 	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.

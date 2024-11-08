@@ -117,7 +117,7 @@ shell:
 ---
 image: python-dependencies
 from: python:3.9-slim
-fromCacheVersion: "2024-06-25.0"
+fromCacheVersion: "2024-11-07.1"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
@@ -127,7 +127,7 @@ shell:
 ---
 image: bundle
 from: {{ .Images.BASE_SCRATCH }}
-fromCacheVersion: "2024-09-17.0"
+fromCacheVersion: "2024-11-07.1"
 import:
   - image: images-digests
     add: /images_digests.json

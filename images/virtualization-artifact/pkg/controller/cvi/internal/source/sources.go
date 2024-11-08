@@ -25,10 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Handler interface {
@@ -88,28 +88,28 @@ func CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage, c Cleaner) (r
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
-	return c.Reason == cvicondition.Ready
+	return c.Reason == cvicondition.Ready.String()
 }
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(condition *metav1.Condition, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
 	*phase = virtv2.ImageFailed
-	condition.Status = metav1.ConditionFalse
-	condition.Reason = vicondition.ProvisioningFailed
+	cb.Status(metav1.ConditionFalse).
+		Reason(cvicondition.ProvisioningFailed)
 
 	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
-		condition.Message = fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err)
+		cb.Message(fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err))
 		return reconcile.Result{}
 	}
 
-	condition.Message = fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod)
+	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) {
+func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
 	*phase = virtv2.ImageFailed
-	ready.Status = metav1.ConditionFalse
-	ready.Reason = cvicondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error())
+	cbReady.Status(metav1.ConditionFalse).
+		Reason(cvicondition.ProvisioningFailed).
+		Message(service.CapitalizeFirstLetter(err.Error()))
 }
