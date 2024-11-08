@@ -44,21 +44,15 @@ func NewDatasourceReadyHandler(blank source.Handler, sources Sources) *Datasourc
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdcondition.DatasourceReadyType,
-			Status: metav1.ConditionUnknown,
-			Reason: conditions.ReasonUnknown.String(),
-		}
-	}
+	cb := conditions.NewConditionBuilder(vdcondition.DatasourceReadyType).Generation(vd.Generation)
 
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = conditions.ReasonUnknown.String()
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
 		return reconcile.Result{}, nil
 	}
 
@@ -66,6 +60,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	if vd.Spec.DataSource == nil {
 		ds = h.blank
 	} else {
+		var ok bool
 		ds, ok = h.sources.Get(vd.Spec.DataSource.Type)
 		if !ok {
 			return reconcile.Result{}, fmt.Errorf("data source validator not found for type: %s", vd.Spec.DataSource.Type)
@@ -75,29 +70,34 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	err := ds.Validate(ctx, vd)
 	switch {
 	case err == nil:
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.DatasourceReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.DatasourceReady).
+			Message("")
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ContainerRegistrySecretNotFound
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ContainerRegistrySecretNotFound).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ImageNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.ClusterImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ClusterImageNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.VirtualDiskSnapshotNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error()) + "."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.VirtualDiskSnapshotNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)

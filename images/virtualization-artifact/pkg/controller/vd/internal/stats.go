@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -48,14 +49,14 @@ func NewStatsHandler(stat *service.StatService, importer *service.ImporterServic
 func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
-	datasourceReady, _ := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+	datasourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 	if datasourceReady.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.WaitingForDependencies == nil {
 		vd.Status.Stats.CreationDuration.WaitingForDependencies = &metav1.Duration{
 			Duration: sinceCreation,
 		}
 	}
 
-	ready, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.TotalProvisioning == nil {
 		duration := sinceCreation
 

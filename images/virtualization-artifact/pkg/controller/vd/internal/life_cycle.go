@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,15 +48,18 @@ func NewLifeCycleHandler(blank source.Handler, sources *source.Sources, client c
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
-	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
-			Type:   vdcondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 			Reason: conditions.ReasonUnknown.String(),
 		}
 
-		service.SetCondition(readyCondition, &vd.Status.Conditions)
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Generation(vd.Generation)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {
@@ -69,7 +71,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		vd.Status.Phase = virtv2.DiskPending
 	}
 
-	dataSourceReadyCondition, exists := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+	dataSourceReadyCondition, exists := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", vdcondition.DatasourceReadyType)
 	}
@@ -78,7 +80,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, nil
 	}
 
-	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost && h.sources.Changed(ctx, vd) {
+	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		log.Info("Spec changes are detected: restart import process")
 
 		vd.Status = virtv2.VirtualDiskStatus{

@@ -42,7 +42,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 				Phase: virtv2.DiskReady,
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdcondition.SnapshottingType,
+						Type:   vdcondition.SnapshottingType.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -123,7 +123,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
 				vd.Status.Conditions = nil
 				vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
-					Type:    vdcondition.SnapshottingType,
+					Type:    vdcondition.SnapshottingType.String(),
 					Status:  metav1.ConditionFalse,
 					Reason:  vdscondition.VirtualDiskNotReadyForSnapshotting,
 					Message: "error",
