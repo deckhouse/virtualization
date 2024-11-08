@@ -235,11 +235,11 @@ func (ip *ImportProgress) Set(value float64) {
 
 // Get returns the importProgress value
 func (ip *ImportProgress) Get() (float64, error) {
-	dto := &dto.Metric{}
-	if err := ip.importProgress.WithLabelValues(ip.labelValues...).Write(dto); err != nil {
+	dtoMetric := &dto.Metric{}
+	if err := ip.importProgress.WithLabelValues(ip.labelValues...).Write(dtoMetric); err != nil {
 		return 0, err
 	}
-	return dto.Gauge.GetValue(), nil
+	return dtoMetric.Gauge.GetValue(), nil
 }
 
 // Delete removes the importProgress metric with the passed label
