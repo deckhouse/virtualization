@@ -35,10 +35,10 @@ import (
 type LifeCycleHandler struct {
 	client  client.Client
 	blank   source.Handler
-	sources *source.Sources
+	sources Sources
 }
 
-func NewLifeCycleHandler(blank source.Handler, sources *source.Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		client:  client,
 		blank:   blank,

@@ -18,15 +18,14 @@ package internal
 
 import (
 	"context"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 var _ = Describe("LifeCycleHandler Run", func() {
@@ -36,7 +35,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			changedMock bool,
 			scInStatus string,
 			storageType virtv2.StorageType,
-			needCleanup bool,
+			needCleanUp bool,
 		) {
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
@@ -80,7 +79,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 
-			Expect(cleanUpCalled).To(Equal(needCleanup))
+			Expect(cleanUpCalled).To(Equal(needCleanUp))
 		},
 		Entry(
 			"Should call cleanup",
