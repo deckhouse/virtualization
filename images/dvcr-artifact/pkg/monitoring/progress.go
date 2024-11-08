@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	ioprometheusclient "github.com/prometheus/client_model/go"
+	dto "github.com/prometheus/client_model/go"
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
@@ -235,7 +235,7 @@ func (ip *ImportProgress) Set(value float64) {
 
 // Get returns the importProgress value
 func (ip *ImportProgress) Get() (float64, error) {
-	dto := &ioprometheusclient.Metric{}
+	dto := &dto.Metric{}
 	if err := ip.importProgress.WithLabelValues(ip.labelValues...).Write(dto); err != nil {
 		return 0, err
 	}
