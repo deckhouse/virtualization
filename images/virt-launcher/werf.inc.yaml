@@ -103,6 +103,7 @@ shell:
     apt-get update && apt-get install --yes \
     acl \
     pcre \
+    procps \
     ethtool \
     nftables \
     xorriso \
@@ -110,9 +111,9 @@ shell:
     seabios \
     libffi8 \
     swtpm-tools \
-    libvirt-client==10.2.0-alt1 \
-    libvirt-daemon-driver-qemu==10.2.0-alt1 \
-    qemu-kvm-core==9.0.2-alt2
+    libvirt-client \
+    libvirt-daemon-driver-qemu \
+    qemu-kvm-core
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
