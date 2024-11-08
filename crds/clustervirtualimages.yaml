@@ -372,7 +372,6 @@ spec:
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource.
                     * Terminating - The process of resource deletion is in progress.
-                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                   enum:
                     - Pending
                     - Provisioning
@@ -380,7 +379,6 @@ spec:
                     - Ready
                     - Failed
                     - Terminating
-                    - PVCLost
                   type: string
                 progress:
                   description:
@@ -391,11 +389,11 @@ spec:
                   description: Discovered sizes of the image.
                   properties:
                     stored:
-                      description: Image size in DVCR or in PVC in human-readable format.
+                      description: Image size in human-readable format.
                       example: 199M
                       type: string
                     storedBytes:
-                      description: Image size in DVCR or in PVC in bytes.
+                      description: Image size in bytes.
                       example: 199001234
                       type: string
                     unpacked:

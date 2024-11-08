@@ -18,6 +18,7 @@ package importer
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	dsutil "github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -90,7 +91,7 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSource
 }
 
 // ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
-func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry, supGen *supplements.Generator) {
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.DataSourceContainerRegistry, supGen *supplements.Generator) {
 	podEnvVars.Source = cc.SourceRegistry
 	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
 

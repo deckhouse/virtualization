@@ -42,18 +42,6 @@ type DataSourceHTTP struct {
 	CABundle []byte `json:"caBundle,omitempty"`
 }
 
-// Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
-type DataSourceContainerRegistry struct {
-	// The container registry address of an image.
-	// +kubebuilder:example:="registry.example.com/images/slackware:15"
-	// +kubebuilder:validation:Pattern:=`^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$`
-	Image           string          `json:"image"`
-	ImagePullSecret ImagePullSecret `json:"imagePullSecret,omitempty"`
-	// The CA chain in base64 format to verify the container registry.
-	// +kubebuilder:example:="YWFhCg=="
-	CABundle []byte `json:"caBundle,omitempty"`
-}
-
 type ImagePullSecret struct {
 	// A name of the secret containing registry credentials.
 	Name string `json:"name,omitempty"`
@@ -62,7 +50,7 @@ type ImagePullSecret struct {
 }
 
 type ImagePullSecretName struct {
-	// A name of the secret containing registry credentials.
+	// A name of the secret containing registry credentials which must be located in the same namespace.
 	Name string `json:"name,omitempty"`
 }
 

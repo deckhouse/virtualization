@@ -50,13 +50,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget":           schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatusTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery":                              schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures":                               schema_virtualization_api_core_v1alpha2_CpuFeatures(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry":               schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP":                            schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget":                                schema_virtualization_api_core_v1alpha2_DiskTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions":                               schema_virtualization_api_core_v1alpha2_Disruptions(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                           schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName":                       schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatus":                               schema_virtualization_api_core_v1alpha2_ImageStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                           schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
@@ -1169,6 +1167,12 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
+						},
+					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
@@ -1198,8 +1202,9 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Current status of `ClusterVirtualImage` resource: * Pending - The resource has been created and is on a waiting queue. * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress. * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * Ready - The resource is created and ready to use. * Failed - There was a problem when creating a resource. * Terminating - The process of resource deletion is in progress.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"progress": {
@@ -1219,12 +1224,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					"imageUploadURLs": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
 						},
 					},
 					"sourceUID": {
@@ -1346,43 +1345,6 @@ func schema_virtualization_api_core_v1alpha2_CpuFeatures(ref common.ReferenceCal
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_DataSourceContainerRegistry(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"image": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The container registry address of an image.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"imagePullSecret": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret"),
-						},
-					},
-					"caBundle": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The CA chain in base64 format to verify the container registry.",
-							Type:        []string{"string"},
-							Format:      "byte",
-						},
-					},
-				},
-				Required: []string{"image"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret"},
-	}
-}
-
 func schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1491,7 +1453,7 @@ func schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref common.Refe
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "A name of the secret containing registry credentials.",
+							Description: "A name of the secret containing registry credentials which must be located in the same namespace.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1499,72 +1461,6 @@ func schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref common.Refe
 				},
 			},
 		},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_ImageStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"downloadSpeed": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"),
-						},
-					},
-					"size": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Discovered sizes of the image.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize"),
-						},
-					},
-					"format": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Discovered format of the image.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"cdrom": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"progress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"uploadCommand": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated. Use imageUploadURLs instead.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"imageUploadURLs": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed"},
 	}
 }
 
@@ -1584,7 +1480,7 @@ func schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref common.Referenc
 					},
 					"storedBytes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Image size in DVCR or in PVC in bytes.",
+							Description: "Image size in bytes.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3066,13 +2962,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Current status of `ClusterVirtualImage` resource: * Pending - The resource has been created and is on a waiting queue. * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress. * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * Ready - The resource is created and ready to use. * Failed - There was a problem when creating a resource. * Terminating - The process of resource deletion is in progress. * PVCLost - The child PVC of the resource is missing. The resource cannot be used.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"progress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.",
+							Description: "Progress of copying an image from source to DVCR.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -334,9 +334,9 @@ func (ds RegistryDataSource) Name() string {
 func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
-	containerImage := &virtv2.DataSourceContainerRegistry{
+	containerImage := &datasource.DataSourceContainerRegistry{
 		Image: vd.Spec.DataSource.ContainerImage.Image,
-		ImagePullSecret: virtv2.ImagePullSecret{
+		ImagePullSecret: types.NamespacedName{
 			Name:      vd.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 			Namespace: vd.GetNamespace(),
 		},

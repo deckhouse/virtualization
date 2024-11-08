@@ -16,22 +16,35 @@ limitations under the License.
 
 package datasource
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"k8s.io/apimachinery/pkg/types"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
 
 type CABundle struct {
 	Type           virtv2.DataSourceType
 	HTTP           *virtv2.DataSourceHTTP
-	ContainerImage *virtv2.DataSourceContainerRegistry
+	ContainerImage *DataSourceContainerRegistry
+}
+
+type DataSourceContainerRegistry struct {
+	Image           string
+	ImagePullSecret types.NamespacedName
+	CABundle        []byte
 }
 
 func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 	return &CABundle{
 		Type: ds.Type,
 		HTTP: ds.HTTP,
-		ContainerImage: &virtv2.DataSourceContainerRegistry{
-			Image:           ds.ContainerImage.Image,
-			ImagePullSecret: ds.ContainerImage.ImagePullSecret,
-			CABundle:        ds.ContainerImage.CABundle,
+		ContainerImage: &DataSourceContainerRegistry{
+			Image: ds.ContainerImage.Image,
+			ImagePullSecret: types.NamespacedName{
+				Name:      ds.ContainerImage.ImagePullSecret.Name,
+				Namespace: ds.ContainerImage.ImagePullSecret.Namespace,
+			},
+			CABundle: ds.ContainerImage.CABundle,
 		},
 	}
 }
@@ -40,9 +53,9 @@ func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABu
 	return &CABundle{
 		Type: ds.Type,
 		HTTP: ds.HTTP,
-		ContainerImage: &virtv2.DataSourceContainerRegistry{
+		ContainerImage: &DataSourceContainerRegistry{
 			Image: ds.ContainerImage.Image,
-			ImagePullSecret: virtv2.ImagePullSecret{
+			ImagePullSecret: types.NamespacedName{
 				Name:      ds.ContainerImage.Image,
 				Namespace: namespace,
 			},
@@ -55,9 +68,9 @@ func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABu
 	return &CABundle{
 		Type: ds.Type,
 		HTTP: ds.HTTP,
-		ContainerImage: &virtv2.DataSourceContainerRegistry{
+		ContainerImage: &DataSourceContainerRegistry{
 			Image: ds.ContainerImage.Image,
-			ImagePullSecret: virtv2.ImagePullSecret{
+			ImagePullSecret: types.NamespacedName{
 				Name:      ds.ContainerImage.Image,
 				Namespace: namespace,
 			},
@@ -87,6 +100,6 @@ func (ds *CABundle) GetCABundle() string {
 	return ""
 }
 
-func (ds *CABundle) GetContainerImage() *virtv2.DataSourceContainerRegistry {
+func (ds *CABundle) GetContainerImage() *DataSourceContainerRegistry {
 	return ds.ContainerImage
 }

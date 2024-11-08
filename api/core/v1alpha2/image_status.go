@@ -16,15 +16,6 @@ limitations under the License.
 
 package v1alpha2
 
-// Current status of `ClusterVirtualImage` resource:
-// * Pending - The resource has been created and is on a waiting queue.
-// * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
-// * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
-// * Ready - The resource is created and ready to use.
-// * Failed - There was a problem when creating a resource.
-// * Terminating - The process of resource deletion is in progress.
-// * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
-// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,PVCLost}
 type ImagePhase string
 
 const (
@@ -36,23 +27,6 @@ const (
 	ImageTerminating       ImagePhase = "Terminating"
 	ImageLost              ImagePhase = "PVCLost"
 )
-
-type ImageStatus struct {
-	// Image download speed from an external source. Appears only during the `Provisioning` phase.
-	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
-	// Discovered sizes of the image.
-	Size ImageStatusSize `json:"size,omitempty"`
-	// Discovered format of the image.
-	Format string `json:"format,omitempty"`
-	// Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
-	CDROM bool       `json:"cdrom,omitempty"`
-	Phase ImagePhase `json:"phase,omitempty"`
-	// Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.
-	Progress string `json:"progress,omitempty"`
-	// Deprecated. Use imageUploadURLs instead.
-	UploadCommand   string           `json:"uploadCommand,omitempty"`
-	ImageUploadURLs *ImageUploadURLs `json:"imageUploadURLs,omitempty"`
-}
 
 type ImageUploadURLs struct {
 	// Command to upload the image using `Ingress` from outside the cluster.
@@ -79,10 +53,10 @@ type StatusSpeed struct {
 
 // Discovered sizes of the image.
 type ImageStatusSize struct {
-	// Image size in DVCR or in PVC in human-readable format.
+	// Image size in human-readable format.
 	// +kubebuilder:example:="199M"
 	Stored string `json:"stored,omitempty"`
-	// Image size in DVCR or in PVC in bytes.
+	// Image size in bytes.
 	// +kubebuilder:example:=199001234
 	StoredBytes string `json:"storedBytes,omitempty"`
 	// Unpacked image size in human-readable format.
