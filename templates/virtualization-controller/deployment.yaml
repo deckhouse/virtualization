@@ -154,9 +154,9 @@ spec:
         - name: admission-webhook-secret
           secret:
             secretName: virtualization-controller-tls
-      - name: kube-rbac-proxy-ca
-        configMap:
-          defaultMode: 420
-          name: kube-rbac-proxy-ca.crt
+        - name: kube-rbac-proxy-ca
+          configMap:
+            defaultMode: 420
+            name: kube-rbac-proxy-ca.crt
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
 
