@@ -88,9 +88,12 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
-	if pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+	switch {
+	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
 		vi.Status.StorageClassName = *pvc.Spec.StorageClassName
-	} else if !hasStorageClassInStatus && sc != nil {
+	case vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "":
+		vi.Status.StorageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
+	case !hasStorageClassInStatus && sc != nil:
 		vi.Status.StorageClassName = sc.Name
 	}
 
