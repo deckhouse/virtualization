@@ -16,15 +16,28 @@
 
 REPORT_FILE_NAME=$1
 module_tag=$2
+common_registry_path="dev-registry.deckhouse.io/sys/deckhouse-oss/modules"
+module_name="virtualization"
+registry_path="$common_registry_path/$module_name"
+
 if [[ -z $REPORT_FILE_NAME ]];then echo "file must be define";exit 1;fi
 if [[ -z $module_tag ]]; then module_tag=main; fi
 
 # Prepare images digests in form of "image_name image_sha256_digest".
-images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:${module_tag} - | tar -Oxf - images_digests.json | jq -r 'to_entries[] | .key + " " + .value')
+images_digests=$(crane export $registry_path:${module_tag} - | tar -Oxf - images_digests.json | jq -r 'to_entries[] | .key + " " + .value')
+
+check_image_bundle() {
+  echo "⭐ ==============================================================================================================="
+    echo "name: bandle-${module_tag}"
+    echo "image: $registry_path:${module_tag}"
+    echo "=================================================================================================================="
+
+  trivy image $registry_path:${module_tag} -f table
+}
 
 {
   while read name digest; do
-    image="dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization@${digest}"
+    image="$registry_path@${digest}"
 
     echo "⭐ ==============================================================================================================="
     echo "name: ${name}"
@@ -34,4 +47,7 @@ images_digests=$(crane export dev-registry.deckhouse.io/sys/deckhouse-oss/module
     trivy image ${image} -f table
 
   done <<< "${images_digests}"
+
+  check_image_bundle
+
 } > "${REPORT_FILE_NAME}"
