@@ -26,25 +26,43 @@ type CABundle struct {
 
 func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+		Type: ds.Type,
+		HTTP: ds.HTTP,
+		ContainerImage: &virtv2.DataSourceContainerRegistry{
+			Image:           ds.ContainerImage.Image,
+			ImagePullSecret: ds.ContainerImage.ImagePullSecret,
+			CABundle:        ds.ContainerImage.CABundle,
+		},
 	}
 }
 
-func NewCABundleForVMI(ds virtv2.VirtualImageDataSource) *CABundle {
+func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABundle {
 	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+		Type: ds.Type,
+		HTTP: ds.HTTP,
+		ContainerImage: &virtv2.DataSourceContainerRegistry{
+			Image: ds.ContainerImage.Image,
+			ImagePullSecret: virtv2.ImagePullSecret{
+				Name:      ds.ContainerImage.Image,
+				Namespace: namespace,
+			},
+			CABundle: ds.ContainerImage.CABundle,
+		},
 	}
 }
 
-func NewCABundleForVMD(ds *virtv2.VirtualDiskDataSource) *CABundle {
+func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABundle {
 	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+		Type: ds.Type,
+		HTTP: ds.HTTP,
+		ContainerImage: &virtv2.DataSourceContainerRegistry{
+			Image: ds.ContainerImage.Image,
+			ImagePullSecret: virtv2.ImagePullSecret{
+				Name:      ds.ContainerImage.Image,
+				Namespace: namespace,
+			},
+			CABundle: ds.ContainerImage.CABundle,
+		},
 	}
 }
 

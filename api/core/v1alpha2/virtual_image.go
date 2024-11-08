@@ -67,10 +67,9 @@ type VirtualImageList struct {
 
 type VirtualImageSpec struct {
 	// +kubebuilder:default:=ContainerRegistry
-	Storage StorageType `json:"storage"`
-	// PersistentVolumeClaim VirtualImagePersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
-
-	DataSource VirtualImageDataSource `json:"dataSource"`
+	Storage               StorageType                       `json:"storage"`
+	PersistentVolumeClaim VirtualImagePersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
+	DataSource            VirtualImageDataSource            `json:"dataSource"`
 }
 
 type VirtualImageStatus struct {
@@ -94,10 +93,22 @@ type VirtualImageStatusTarget struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef"
 // +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage"
 type VirtualImageDataSource struct {
-	Type           DataSourceType               `json:"type,omitempty"`
-	HTTP           *DataSourceHTTP              `json:"http,omitempty"`
-	ContainerImage *DataSourceContainerRegistry `json:"containerImage,omitempty"`
-	ObjectRef      *VirtualImageObjectRef       `json:"objectRef,omitempty"`
+	Type           DataSourceType              `json:"type,omitempty"`
+	HTTP           *DataSourceHTTP             `json:"http,omitempty"`
+	ContainerImage *VirtualImageContainerImage `json:"containerImage,omitempty"`
+	ObjectRef      *VirtualImageObjectRef      `json:"objectRef,omitempty"`
+}
+
+// Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+type VirtualImageContainerImage struct {
+	// The container registry address of an image.
+	// +kubebuilder:example:="registry.example.com/images/slackware:15"
+	// +kubebuilder:validation:Pattern:=`^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$`
+	Image           string              `json:"image"`
+	ImagePullSecret ImagePullSecretName `json:"imagePullSecret,omitempty"`
+	// The CA chain in base64 format to verify the container registry.
+	// +kubebuilder:example:="YWFhCg=="
+	CABundle []byte `json:"caBundle,omitempty"`
 }
 
 // Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.

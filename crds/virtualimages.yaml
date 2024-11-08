@@ -108,9 +108,6 @@ spec:
                                 A name of the secret containing registry
                                 credentials.
                               type: string
-                            namespace:
-                              description: A namespace where imagePullSecret is located.
-                              type: string
                           type: object
                       required:
                         - image
@@ -221,6 +218,11 @@ spec:
                       rule:
                         "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http)
                         && !has(self.containerImage) : true"
+                persistentVolumeClaim:
+                  properties:
+                    storageClass:
+                      type: string
+                  type: object
                 storage:
                   default: ContainerRegistry
                   description: |-

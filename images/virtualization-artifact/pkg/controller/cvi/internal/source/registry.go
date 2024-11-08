@@ -229,7 +229,12 @@ func (ds RegistryDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVi
 func (ds RegistryDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
-	importer.ApplyRegistrySourceSettings(&settings, cvi.Spec.DataSource.ContainerImage, supgen)
+	containerImage := &virtv2.DataSourceContainerRegistry{
+		Image:           cvi.Spec.DataSource.ContainerImage.Image,
+		ImagePullSecret: cvi.Spec.DataSource.ContainerImage.ImagePullSecret,
+		CABundle:        cvi.Spec.DataSource.ContainerImage.CABundle,
+	}
+	importer.ApplyRegistrySourceSettings(&settings, containerImage, supgen)
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

@@ -41,6 +41,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus":                                 schema_virtualization_api_core_v1alpha2_CPUStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum":                                  schema_virtualization_api_core_v1alpha2_Checksum(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImage":                       schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage":         schema_virtualization_api_core_v1alpha2_ClusterVirtualImageContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageDataSource":             schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageList":                   schema_virtualization_api_core_v1alpha2_ClusterVirtualImageList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef":              schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref),
@@ -54,6 +55,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget":                                schema_virtualization_api_core_v1alpha2_DiskTarget(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions":                               schema_virtualization_api_core_v1alpha2_Disruptions(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                           schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName":                       schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatus":                               schema_virtualization_api_core_v1alpha2_ImageStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                           schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
@@ -75,6 +77,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity":                                schema_virtualization_api_core_v1alpha2_VMAffinity(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef":                            schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDisk":                               schema_virtualization_api_core_v1alpha2_VirtualDisk(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                 schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                     schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                           schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                      schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
@@ -88,6 +91,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration":          schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatus":                         schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImage":                              schema_virtualization_api_core_v1alpha2_VirtualImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageContainerImage":                schema_virtualization_api_core_v1alpha2_VirtualImageContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource":                    schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageList":                          schema_virtualization_api_core_v1alpha2_VirtualImageList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageObjectRef":                     schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref),
@@ -977,6 +981,43 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref common.Refe
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageContainerImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The container registry address of an image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imagePullSecret": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret"),
+						},
+					},
+					"caBundle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The CA chain in base64 format to verify the container registry.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"image"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -991,7 +1032,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 					},
 					"containerImage": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage"),
 						},
 					},
 					"objectRef": {
@@ -1011,7 +1052,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry", "github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage", "github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP"},
 	}
 }
 
@@ -1432,6 +1473,25 @@ func schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref common.Referenc
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "A namespace where imagePullSecret is located.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A name of the secret containing registry credentials.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2182,6 +2242,43 @@ func schema_virtualization_api_core_v1alpha2_VirtualDisk(ref common.ReferenceCal
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The container registry address of an image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imagePullSecret": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName"),
+						},
+					},
+					"caBundle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The CA chain in base64 format to verify the container registry.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"image"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2201,7 +2298,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref common.Re
 					},
 					"containerImage": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage"),
 						},
 					},
 					"objectRef": {
@@ -2213,7 +2310,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry", "github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef"},
 	}
 }
 
@@ -2730,6 +2827,43 @@ func schema_virtualization_api_core_v1alpha2_VirtualImage(ref common.ReferenceCa
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualImageContainerImage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The container registry address of an image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imagePullSecret": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName"),
+						},
+					},
+					"caBundle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The CA chain in base64 format to verify the container registry.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"image"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2749,7 +2883,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref common.R
 					},
 					"containerImage": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry"),
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageContainerImage"),
 						},
 					},
 					"objectRef": {
@@ -2761,7 +2895,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceContainerRegistry", "github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageObjectRef"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageContainerImage", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageObjectRef"},
 	}
 }
 
@@ -2876,6 +3010,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref common.Referen
 							Format:  "",
 						},
 					},
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim"),
+						},
+					},
 					"dataSource": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2887,7 +3027,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim"},
 	}
 }
 

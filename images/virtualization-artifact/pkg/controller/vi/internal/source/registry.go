@@ -126,7 +126,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 		vi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource))
 		switch {
 		case err == nil:
 			// OK.
@@ -291,7 +291,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtual
 		vi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource))
 		switch {
 		case err == nil:
 			// OK.
@@ -381,7 +381,7 @@ func (ds RegistryDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImag
 func (ds RegistryDataSource) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
 	if vi.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" {
 		secretName := types.NamespacedName{
-			Namespace: vi.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace,
+			Namespace: vi.GetNamespace(),
 			Name:      vi.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 		}
 		secret, err := helper.FetchObject[*corev1.Secret](ctx, secretName, ds.client, &corev1.Secret{})
@@ -400,7 +400,15 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIma
 func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
-	importer.ApplyRegistrySourceSettings(&settings, vi.Spec.DataSource.ContainerImage, supgen)
+	containerImage := &virtv2.DataSourceContainerRegistry{
+		Image: vi.Spec.DataSource.ContainerImage.Image,
+		ImagePullSecret: virtv2.ImagePullSecret{
+			Name:      vi.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
+			Namespace: vi.GetNamespace(),
+		},
+		CABundle: vi.Spec.DataSource.ContainerImage.CABundle,
+	}
+	importer.ApplyRegistrySourceSettings(&settings, containerImage, supgen)
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

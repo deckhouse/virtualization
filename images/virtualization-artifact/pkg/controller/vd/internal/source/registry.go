@@ -123,7 +123,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vd, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource))
 		switch {
 		case err == nil:
 			// OK.
@@ -311,7 +311,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDis
 
 	if vd.Spec.DataSource.ContainerImage.ImagePullSecret.Name != "" {
 		secretName := types.NamespacedName{
-			Namespace: vd.Spec.DataSource.ContainerImage.ImagePullSecret.Namespace,
+			Namespace: vd.GetNamespace(),
 			Name:      vd.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
 		}
 		secret, err := helper.FetchObject[*corev1.Secret](ctx, secretName, ds.client, &corev1.Secret{})
@@ -334,7 +334,14 @@ func (ds RegistryDataSource) Name() string {
 func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
-	importer.ApplyRegistrySourceSettings(&settings, vd.Spec.DataSource.ContainerImage, supgen)
+	containerImage := &virtv2.DataSourceContainerRegistry{
+		Image: vd.Spec.DataSource.ContainerImage.Image,
+		ImagePullSecret: virtv2.ImagePullSecret{
+			Name:      vd.Spec.DataSource.ContainerImage.ImagePullSecret.Name,
+			Namespace: vd.GetNamespace(),
+		},
+	}
+	importer.ApplyRegistrySourceSettings(&settings, containerImage, supgen)
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

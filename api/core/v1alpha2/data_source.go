@@ -61,6 +61,11 @@ type ImagePullSecret struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+type ImagePullSecretName struct {
+	// A name of the secret containing registry credentials.
+	Name string `json:"name,omitempty"`
+}
+
 type Checksum struct {
 	// +kubebuilder:example:="f3b59bed9f91e32fac1210184fcff6f5"
 	// +kubebuilder:validation:Pattern="^[0-9a-fA-F]{32}$"
