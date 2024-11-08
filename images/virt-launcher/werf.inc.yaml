@@ -10,6 +10,7 @@ import:
   before: install
   includePaths:
   - edk2-ovmf-20231115-alt1.noarch.rpm
+  - edk2-ovmf-20240811-alt2.noarch.rpm
 
 # After install stage.
 #  Add libxcrypto library.
@@ -119,8 +120,13 @@ shell:
   install:
   # Upgrade edk2-ovmf package to custom build and remove its package.
   - |
-    rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
-    rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    echo "rpm -Uv /edk2-ovmf.noarch.rpm"
+    # rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
+    # rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    # rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
+    # rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    rpm -Uv /edk2-ovmf-20240811-alt2.noarch.rpm
+    rm /edk2-ovmf-20240811-alt2.noarch.rpm
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
   - |
@@ -138,10 +144,10 @@ shell:
     rm OVMF_VARS.secboot.fd
     mv OVMF_VARS_4M.fd OVMF_VARS.fd
     rm OVMF_VARS_4M.ms.fd
-    rm OVMF_VARS_4M.ms.qcow2
-    rm OVMF_VARS_4M.qcow2
+    rm OVMF_VARS_4M.ms.qcow2 || true
+    rm OVMF_VARS_4M.qcow2 || true
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
-    rm OVMF_VARS_4M.secboot.qcow2
+    rm OVMF_VARS_4M.secboot.qcow2 || true
     ls -la
   setup:
   # Replace virt-launcher-monitor with the wrapper.
@@ -268,6 +274,7 @@ shell:
     zlib-devel
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  - echo "Done"
 
   install:
   # AltLinux requires building packages by non-root users.
@@ -290,3 +297,5 @@ shell:
     echo "Build RPMs from:" /home/builder/*.rpm
     echo "Note: time consuming operation, be patient ..."
     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
+    echo "Done"
+    ls -la
