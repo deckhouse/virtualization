@@ -182,7 +182,6 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 
 func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
 	var result datasource.DataSourceInterface
-
 	switch i.srcType {
 	case cc.SourceHTTP:
 		var err error
