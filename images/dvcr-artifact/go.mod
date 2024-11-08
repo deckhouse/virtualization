@@ -168,7 +168,7 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.30.2
 	k8s.io/sample-controller => k8s.io/sample-controller v0.30.2
 
-	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241106145358-f09e2d1ef91e // branch virtualization-controller-v1.60.3
+	kubevirt.io/containerized-data-importer => github.com/deckhouse/3p-containerized-data-importer v1.60.4-0.20241108122445-9cf23c40b9ca // branch virtualization-controller-v1.60.3
 
 	kubevirt.io/controller-lifecycle-operator-sdk/api => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.18.4
