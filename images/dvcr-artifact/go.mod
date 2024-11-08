@@ -18,9 +18,6 @@ require (
 	golang.org/x/sync v0.7.0
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
-	// kubevirt.io/containerized-data-importer-api v1.60.3
-	// kubevirt.io/containerized-data-importer-api v1.58.0-rc1
-	// kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/containerized-data-importer-api v1.60.3
 )
 
