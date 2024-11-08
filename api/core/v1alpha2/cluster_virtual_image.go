@@ -78,10 +78,10 @@ type ClusterVirtualImageSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef"
 // +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage"
 type ClusterVirtualImageDataSource struct {
+	Type           DataSourceType                     `json:"type"`
 	HTTP           *DataSourceHTTP                    `json:"http,omitempty"`
 	ContainerImage *ClusterVirtualImageContainerImage `json:"containerImage,omitempty"`
 	ObjectRef      *ClusterVirtualImageObjectRef      `json:"objectRef,omitempty"`
-	Type           DataSourceType                     `json:"type"`
 }
 
 // Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
@@ -119,7 +119,6 @@ const (
 )
 
 type ClusterVirtualImageStatus struct {
-	Target ClusterVirtualImageStatusTarget `json:"target,omitempty"`
 	// Image download speed from an external source. Appears only during the `Provisioning` phase.
 	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
 	// Discovered sizes of the image.
@@ -139,20 +138,20 @@ type ClusterVirtualImageStatus struct {
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from source to DVCR. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
-	// Deprecated. Use imageUploadURLs instead.
-	UploadCommand   string           `json:"uploadCommand,omitempty"`
-	ImageUploadURLs *ImageUploadURLs `json:"imageUploadURLs,omitempty"`
 	// The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.
 	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Deprecated. Use imageUploadURLs instead.
+	UploadCommand   string                          `json:"uploadCommand,omitempty"`
+	ImageUploadURLs *ImageUploadURLs                `json:"imageUploadURLs,omitempty"`
+	Target          ClusterVirtualImageStatusTarget `json:"target,omitempty"`
 }
 
 type ClusterVirtualImageStatusTarget struct {
 	// Created image in DVCR.
 	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/cvi/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
 }

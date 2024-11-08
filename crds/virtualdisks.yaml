@@ -1,111 +1,117 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
   name: virtualdisks.virtualization.deckhouse.io
+  labels:
+    heritage: deckhouse
+    module: virtualization
 spec:
   group: virtualization.deckhouse.io
+  scope: Namespaced
   names:
-    kind: VirtualDisk
-    listKind: VirtualDiskList
+    categories:
+      - all
+      - virtualization
     plural: virtualdisks
     singular: virtualdisk
-  scope: Namespaced
+    kind: VirtualDisk
+    shortNames:
+      - vd
+      - vds
+  preserveUnknownFields: false
   versions:
     - name: v1alpha2
+      served: true
+      storage: true
       schema:
         openAPIV3Schema:
-          description: VirtualDisk is a disk ready to be bound by a VM
-          properties:
-            apiVersion:
-              description: |-
-                APIVersion defines the versioned schema of this representation of an object.
-                Servers should convert recognized schemas to the latest internal value, and
-                may reject unrecognized values.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-              type: string
-            kind:
-              description: |-
-                Kind is a string value representing the REST resource this object represents.
-                Servers may infer this from the endpoint the client submits requests to.
-                Cannot be updated.
-                In CamelCase.
-                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-              type: string
-            metadata:
-              type: object
-            spec:
-              properties:
-                dataSource:
-                  properties:
-                    containerImage:
-                      description:
-                        Use an image stored in external container registry.
-                        Only TLS enabled registries are supported. Use caBundle field
-                        to provide custom CA chain if needed.
-                      properties:
-                        caBundle:
-                          description:
-                            The CA chain in base64 format to verify the container
-                            registry.
-                          example: YWFhCg==
-                          format: byte
-                          type: string
-                        image:
-                          description: The container registry address of an image.
-                          example: registry.example.com/images/slackware:15
-                          pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
-                          type: string
-                        imagePullSecret:
-                          properties:
-                            name:
-                              description:
-                                A name of the secret containing registry
-                                credentials which must be located in the same namespace.
-                              type: string
-                          type: object
-                      required:
-                        - image
-                      type: object
-                    http:
-                      description: |-
-                        Fill the image with data from some external url. Supported schemas are:
+          type: object
+          description: |
+            The `VirtualDisk` resource describes the desired virtual machine disk configuration. A `VirtualDisk` can be mounted statically in the virtual machine by specifying it in the `.spec.blockDeviceRefs` disk list, or mounted on-the-fly using the `VirtualMachineBlockDeviceAttachments` resource.
 
+            Once `VirtualDisk` is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.
+          required:
+            - spec
+          x-kubernetes-validations:
+            - rule: "self.metadata.name.size() <= 128"
+              message: "The name must be no longer than 128 characters."
+          properties:
+            spec:
+              type: object
+              properties:
+                persistentVolumeClaim:
+                  type: object
+                  description: |
+                    Settings for creating PVCs to store the disk.
+                  properties:
+                    size:
+                      type: string
+                      description: |
+                        Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.
+
+                        This parameter can be omitted if the `.spec.dataSource` block is specified, in which case the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.
+                      pattern: "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"
+                    storageClassName:
+                      type: string
+                      description: |
+                        The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+
+                        When creating disks, the user can specify the required StorageClass to create the disk, or not explicitly, in which case the default StorageClass will be used.
+
+                        The disk features and virtual machine behavior depend on the selected StorageClass.
+
+                        The `VolumeBindingMode` parameter in the StorageClass affects the disk creation process:
+                        - `Immediate` - The disk will be created and available for use immediately after creation.
+                        - `WaitForFirstConsumer` - The disk will be created only when it is used in a virtual machine. In this case, the disk will be created on the host where the virtual machine will be started.
+
+                        StorageClass can support different storage settings:
+                        - Creating a block device (`Block`) or file system (`FileSystem`).
+                        - Multiple Access (`ReadWriteMany`) or Single Access (`ReadWriteOnce`). `ReadWriteMany` disks support multiple access, which enables live migration of virtual machines. In contrast, `ReadWriteOnce` disks, which are limited to access from only one host, cannot provide this capability.
+
+                        For known storage types, the platform will independently determine the most effective settings when creating disks (in descending order of priority):
+                        1. `Block` + `ReadWriteMany`
+                        2. `FileSystem` + `ReadWriteMany`
+                        3. `Block` + `ReadWriteOnce`
+                        4. `FileSystem` + `ReadWriteOnce`
+                dataSource:
+                  type: object
+                  description: |
+                    An origin of the disk. If empty or absent, empty disk will be created.
+                  required:
+                    - type
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - "HTTP"
+                        - "ContainerImage"
+                        - "ObjectRef"
+                        - "Upload"
+                      description: |
+                        The type of an origin of the disk. Options are:
+
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
+                        * `ObjectRef` — fill the disk from another existing resource.
+                        * `Upload` — fill the disk with data, uploaded by user via the special interface.
+                    http:
+                      type: object
+                      description: |
+                        Fill the image with data from some external url. Supported schemas are:
 
                         * http
                         * https
 
-
                         For https schema there is an option to skip TLS verification.
+                      required:
+                        - url
                       properties:
-                        caBundle:
-                          description: The CA chain in base64 format to verify the url.
-                          example: YWFhCg==
-                          format: byte
-                          type: string
-                        checksum:
-                          description:
-                            A checksum of the file, provided by the url,
-                            to verify if it was downloaded correctly or wasn't changed.
-                            The file should match all specified checksums.
-                          properties:
-                            md5:
-                              example: f3b59bed9f91e32fac1210184fcff6f5
-                              maxLength: 32
-                              minLength: 32
-                              pattern: ^[0-9a-fA-F]{32}$
-                              type: string
-                            sha256:
-                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
-                              maxLength: 64
-                              minLength: 64
-                              pattern: ^[0-9a-fA-F]{64}$
-                              type: string
-                          type: object
                         url:
-                          description: |-
+                          type: string
+                          example: "https://mirror.example.com/images/slackware-15.qcow.gz"
+                          # https://regex101.com/r/2zx8as/1
+                          pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
+                          description: |
                             The http url with an image. The following formats are supported:
                             * qcow2
                             * vmdk
@@ -115,63 +121,102 @@ spec:
                             these formats can also be compressed with the following formats:
                             * gz
                             * xz
-                          example: https://mirror.example.com/images/slackware-15.qcow.gz
-                          pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
+                        caBundle:
                           type: string
-                      required:
-                        - url
+                          format: byte
+                          description: |
+                            A certificate bundle in Base64 format to verify the TLS certificate of the server hosting the image.
+                          example: |
+                            YWFhCg==
+                        checksum:
+                          type: object
+                          description: |
+                            A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
+                          properties:
+                            md5:
+                              description: ""
+                              type: string
+                              pattern: ^[0-9a-fA-F]{32}$
+                              minLength: 32
+                              maxLength: 32
+                              example: f3b59bed9f91e32fac1210184fcff6f5
+                            sha256:
+                              description: ""
+                              type: string
+                              pattern: ^[0-9a-fA-F]{64}$
+                              minLength: 64
+                              maxLength: 64
+                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+                    containerImage:
                       type: object
+                      required:
+                        - image
+                      description: |
+                        Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+                      properties:
+                        image:
+                          type: string
+                          example: "registry.example.com/images/slackware:15"
+                          # https://regex101.com/r/NXfP8Y/1
+                          pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
+                          description: |
+                            The container registry address of an image.
+                        imagePullSecret:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                              description: |
+                                A name of the secret containing registry credentials.
+                        caBundle:
+                          type: string
+                          format: byte
+                          description: |
+                            The CA chain in base64 format to verify the container registry.
+                          example: |
+                            YWFhCg==
                     objectRef:
+                      type: object
+                      description: |
+                        Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot` to create a disk.
+                      required: ["kind", "name"]
                       properties:
                         kind:
                           type: string
+                          description: A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.
+                          enum:
+                            - "VirtualImage"
+                            - "ClusterVirtualImage"
+                            - "VirtualDiskSnapshot"
                         name:
                           type: string
-                      type: object
-                    type:
-                      description: |-
-                        The type of an origin of the image. Options are:
-
-
-                        * `HTTP` — create an image from a file published on http/https service at a given url
-                        * `ContainerImage` — create the image from image stored in container registry.
-                        * `ObjectRef` — fill the disk from another existing resource.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
-                      enum:
-                        - HTTP
-                        - ContainerImage
-                        - ObjectRef
-                        - Upload
-                      type: string
-                  type: object
-                persistentVolumeClaim:
-                  properties:
-                    size:
-                      anyOf:
-                        - type: integer
-                        - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      x-kubernetes-int-or-string: true
-                    storageClassName:
-                      type: string
-                  type: object
-              required:
-                - persistentVolumeClaim
-              type: object
+                          description: |
+                            A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.
+                  oneOf:
+                    - properties:
+                        type:
+                          enum: ["HTTP"]
+                        http: {}
+                      required: ["http"]
+                    - properties:
+                        type:
+                          enum: ["ContainerImage"]
+                        containerImage: {}
+                      required: ["containerImage"]
+                    - properties:
+                        type:
+                          enum: ["ObjectRef"]
+                        objectRef: {}
+                      required: ["objectRef"]
+                    - properties:
+                        type:
+                          enum: ["Upload"]
             status:
+              type: object
               properties:
-                attachedToVirtualMachines:
-                  items:
-                    properties:
-                      name:
-                        type: string
-                    required:
-                      - name
-                    type: object
-                  type: array
-                capacity:
-                  type: string
                 conditions:
+                  description: |
+                    The latest available observations of an object's current state.
                   items:
                     description:
                       "Condition contains details for one aspect of the current
@@ -242,82 +287,146 @@ spec:
                     type: object
                   type: array
                 downloadSpeed:
-                  description:
-                    Image download speed from an external source. Appears
-                    only during the `Provisioning` phase.
+                  type: object
+                  description: |
+                    Image download speed from an external source. Appears only during the `Provisioning' phase.
                   properties:
                     avg:
-                      description: Average download speed.
+                      type: string
                       example: 1 Mbps
-                      type: string
-                    avgBytes:
-                      description: Average download speed in bytes per second.
-                      example: 1012345
-                      type: string
+                      description: |
+                        Average download speed.
                     current:
-                      description: Current download speed.
+                      type: string
                       example: 5 Mbps
+                      description: Current download speed.
+                    avgBytes:
                       type: string
+                      example: 1012345
+                      description: Average download speed in bytes per second.
                     currentBytes:
-                      description: Current download speed in bytes per second.
+                      type: string
                       example: 5123456
-                      type: string
-                  type: object
-                imageUploadURLs:
-                  properties:
-                    external:
-                      description:
-                        Command to upload the image using `Ingress` from
-                        outside the cluster.
-                      type: string
-                    inCluster:
-                      description:
-                        Command to upload the image using `Service` within
-                        the cluster.
-                      type: string
-                  type: object
-                observedGeneration:
-                  format: int64
-                  type: integer
-                phase:
+                      description: Current download speed in bytes per second.
+                capacity:
                   type: string
-                progress:
-                  type: string
-                sourceUID:
-                  description: |-
-                    UID is a type that holds unique ID values, including UUIDs.  Because we
-                    don't ONLY use UUIDs, this is an alias to string.  Being a type captures
-                    intent and helps make sure that UIDs and names do not get conflated.
-                  type: string
-                stats:
-                  properties:
-                    creationDuration:
-                      properties:
-                        dvcrProvisioning:
-                          type: string
-                        totalProvisioning:
-                          type: string
-                        waitingForDependencies:
-                          type: string
-                      type: object
-                  required:
-                    - creationDuration
-                  type: object
+                  example: 50G
+                  description: |
+                    Requested capacity of the PVC in human-readable format.
                 target:
+                  type: object
                   properties:
                     persistentVolumeClaimName:
                       type: string
-                  type: object
-                uploadCommand:
-                  description: "Deprecated: use ImageUploadURLs instead."
+                      description: |
+                        Created PersistentVolumeClaim name for Kubernetes storage.
+                phase:
                   type: string
-              required:
-                - phase
-                - stats
-                - target
-              type: object
-          required:
-            - spec
-          type: object
-      served: true
-      storage: true
+                  description: |
+                    Current status of `VirtualDisk` resource:
+                    * Pending - The resource has been created and is on a waiting queue.
+                    * Provisioning - The process of resource creation (copying/downloading/filling the PVC with data/extending PVC) is in progress.
+                    * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+                    * WaitForFirstConsumer - Waiting for the virtual machine that uses the disk is scheduled.
+                    * Ready - The resource is created and ready to use.
+                    * Resizing — The process of resource resizing is in progress.
+                    * Failed - There was a problem when creating a resource.
+                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
+                    * Terminating - The process of resource deletion is in progress.
+                  enum:
+                    [
+                      "Pending",
+                      "Provisioning",
+                      "WaitForUserUpload",
+                      "WaitForFirstConsumer",
+                      "Ready",
+                      "Resizing",
+                      "Failed",
+                      "PVCLost",
+                      "Terminating",
+                    ]
+                progress:
+                  type: string
+                  description: |
+                    Progress of copying an image from source to PVC. Appears only during the `Provisioning' phase.
+                uploadCommand:
+                  type: string
+                  description: |
+                    Deprecated. Use imageUploadURLs instead.
+                imageUploadURLs:
+                  type: object
+                  properties:
+                    external:
+                      type: string
+                      description: |
+                        Command to upload the image using `Ingress` from outside the cluster.
+                    inCluster:
+                      type: string
+                      description: |
+                        Command to upload the image using `Service` within the cluster.
+                attachedToVirtualMachines:
+                  type: array
+                  description: |
+                    A list of `VirtualMachines` that use the disk
+                  example: [{ name: "VM100" }]
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                stats:
+                  type: object
+                  description: "VirtualDisk statistics"
+                  properties:
+                    creationDuration:
+                      type: object
+                      description: |
+                        The waiting time for the virtual disk creation.
+                      properties:
+                        waitingForDependencies:
+                          type: string
+                          description: |
+                            The waiting time for dependent resources.
+                          nullable: true
+                        dvcrProvisioning:
+                          type: string
+                          description: |
+                            Duration of the loading into DVCR.
+                          nullable: true
+                        totalProvisioning:
+                          type: string
+                          description: |
+                            The duration of resource creation from the moment dependencies are ready until the resource transitions to the Ready state.
+                          nullable: true
+                sourceUID:
+                  type: string
+                  description: |
+                    The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the virtual disk.
+                observedGeneration:
+                  type: integer
+                  description: |
+                    The generation last processed by the controller.
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Capacity
+          type: string
+          jsonPath: .status.capacity
+        - name: Progress
+          type: string
+          jsonPath: .status.progress
+          priority: 1
+        - name: StorageClass
+          jsonPath: .spec.persistentVolumeClaim.storageClassName
+          type: string
+          priority: 1
+        - name: TargetPVC
+          jsonPath: .status.target.persistentVolumeClaimName
+          type: string
+          priority: 1
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
