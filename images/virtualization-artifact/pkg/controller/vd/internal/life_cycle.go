@@ -110,7 +110,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
-		log.Info("Storage class was deleted while population, ")
+		log.Info("Storage class was deleted while population")
 
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,
@@ -128,17 +128,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, nil
 	}
 
-	var ds source.Handler
-	if vd.Spec.DataSource == nil {
-		ds = h.blank
-	} else {
-		ds, exists = h.sources.Get(vd.Spec.DataSource.Type)
-		if !exists {
-			return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vd.Spec.DataSource.Type)
-		}
-	}
-
 	if vd.Status.StorageClassName != "" && storageClassReadyCondition.Status == metav1.ConditionTrue {
+		var ds source.Handler
+		if vd.Spec.DataSource == nil {
+			ds = h.blank
+		} else {
+			ds, exists = h.sources.Get(vd.Spec.DataSource.Type)
+			if !exists {
+				return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vd.Spec.DataSource.Type)
+			}
+		}
+
 		result, err := ds.Sync(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
