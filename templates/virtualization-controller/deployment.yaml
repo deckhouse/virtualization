@@ -144,14 +144,6 @@ spec:
           volumeMounts:
           - name: kube-rbac-proxy-ca
             mountPath: /etc/kube-rbac-proxy
-      serviceAccountName: virtualization-controller
-      volumes:
-      - name: tmp
-        emptyDir: {}
-      - name: kube-rbac-proxy-ca
-        configMap:
-          defaultMode: 420
-          name: kube-rbac-proxy-ca.crt
 
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
@@ -162,5 +154,9 @@ spec:
         - name: admission-webhook-secret
           secret:
             secretName: virtualization-controller-tls
+      - name: kube-rbac-proxy-ca
+        configMap:
+          defaultMode: 420
+          name: kube-rbac-proxy-ca.crt
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
 
