@@ -66,11 +66,20 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 			return nil
 		})
 		if err != nil || len(files) == 0 {
-			kubectl.Delete(imageManifest, kc.DeleteOptions{})
-			kubectl.Delete(conf.VM.TestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{imageManifest},
+				FilenameOption: kc.Filename,
+			})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.VM.TestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		} else {
 			for _, f := range files {
-				kubectl.Delete(f, kc.DeleteOptions{})
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:       []string{f},
+					FilenameOption: kc.Filename,
+				})
 			}
 		}
 	})
@@ -93,7 +102,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("Boot", func() {
 		AfterAll(func() {
-			kubectl.Delete(vmPath("boot/"), kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{vmPath("boot/")},
+				FilenameOption: kc.Filename,
+			})
 		})
 		Test := func(manifest string) {
 			GinkgoHelper()
@@ -152,7 +164,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifest, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{manifest},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("On to AlwaysOff", func() {
 			It("Patch runpolicy to AlwaysOff", func() {
@@ -229,7 +244,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		}
 		AfterAll(func() {
 			By("Delete manifests")
-			kubectl.Delete(vmPath("provisioning/"), kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{vmPath("provisioning/")},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("UserData", func() {
 			manifest := vmPath("provisioning/vm_provisioning_useradata.yaml")
@@ -293,7 +311,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		}
 		AfterAll(func() {
 			By("Delete manifests")
-			kubectl.Delete(vmPath("resources/"), kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{vmPath("resources/")},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("Corefraction 100", func() {
 			manifest := vmPath("resources/vm_100.yaml")
@@ -335,7 +356,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 		AfterAll(func() {
 			By("Delete manifests")
-			kubectl.Delete(manifest, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{manifest},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("Compare priorityClassNames", func() {
 			It("Compare priorityClassNames", func() {
@@ -369,7 +393,10 @@ var _ = Describe("VM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(manifest, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{manifest},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("Compare periods", func() {
 			It("Compare periods", func() {

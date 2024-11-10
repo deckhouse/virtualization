@@ -51,8 +51,10 @@ func AttachVirtualDisk(virtualMachine, virtualDisk string, labels map[string]str
 	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, labels)
 	Expect(err).NotTo(HaveOccurred(), err)
 
-	res := kubectl.Apply(vmbdaFilePath, kc.ApplyOptions{
-		Namespace: conf.Namespace,
+	res := kubectl.Apply(kc.ApplyOptions{
+		Filename:       []string{vmbdaFilePath},
+		FilenameOption: kc.Filename,
+		Namespace:      conf.Namespace,
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
@@ -122,8 +124,22 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmDiskAttachment, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmDiskAttachment},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied:", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
+			})
 		})
 	})
 
@@ -202,8 +218,10 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtual machine: %s", vmName)
 			})
 			It("detaches virtual disk", func() {
-				res := kubectl.DeleteResource(kc.ResourceVMBDA, vmbdaName, kc.DeleteOptions{
+				res := kubectl.Delete(kc.DeleteOptions{
+					Filename:  []string{vmbdaName},
 					Namespace: conf.Namespace,
+					Resource:  kc.ResourceVMBDA,
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
@@ -225,6 +243,19 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 					return len(disksAfter.BlockDevices), nil
 				}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore-1), "comparing error: 'after' must be equal 'before - 1'")
 			})
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("tries to delete used resources", func() {
+			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml")
+			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.TestData.VmDiskAttachment},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })

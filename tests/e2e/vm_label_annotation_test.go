@@ -89,11 +89,20 @@ var _ = Describe("Label and Annotation", ginkgoutil.CommonE2ETestDecorators(), f
 			return nil
 		})
 		if err != nil || len(files) == 0 {
-			kubectl.Delete(imageManifest, kc.DeleteOptions{})
-			kubectl.Delete(conf.VM.TestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{imageManifest},
+				FilenameOption: kc.Filename,
+			})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.VM.TestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		} else {
 			for _, f := range files {
-				kubectl.Delete(f, kc.DeleteOptions{})
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:       []string{f},
+					FilenameOption: kc.Filename,
+				})
 			}
 		}
 	})
@@ -112,7 +121,10 @@ var _ = Describe("Label and Annotation", ginkgoutil.CommonE2ETestDecorators(), f
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(vmManifest, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{vmManifest},
+				FilenameOption: kc.Filename,
+			})
 		})
 
 		Describe(fmt.Sprintf("Add label %s=%s", labelName, labelValue), func() {
@@ -194,7 +206,10 @@ var _ = Describe("Label and Annotation", ginkgoutil.CommonE2ETestDecorators(), f
 
 		AfterAll(func() {
 			By("Delete manifest")
-			kubectl.Delete(vmManifest, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{vmManifest},
+				FilenameOption: kc.Filename,
+			})
 		})
 
 		Describe(fmt.Sprintf("Add annotation %s=%s", annotationName, annotationValue), func() {

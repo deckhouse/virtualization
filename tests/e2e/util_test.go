@@ -73,7 +73,10 @@ func ItApplyFromFile(filepath string) {
 func ApplyFromFile(filepath string) {
 	GinkgoHelper()
 	fmt.Printf("Apply file %s\n", filepath)
-	res := kubectl.Apply(filepath, kc.ApplyOptions{})
+	res := kubectl.Apply(kc.ApplyOptions{
+		Filename:       []string{filepath},
+		FilenameOption: kc.Filename,
+	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "apply failed for file %s\n%s", filepath, res.StdErr())
 }
 

@@ -104,7 +104,10 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.Connectivity, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.Connectivity},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -247,6 +250,25 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 				}
 				return strings.TrimSpace(res.StdOut()), nil
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("tries to delete used resources", func() {
+			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
+			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.TestData.Connectivity},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+			res = kubectl.Delete(kc.DeleteOptions{
+				Filename:  []string{CurlPod},
+				Namespace: conf.Namespace,
+				Resource:  kc.ResourcePod,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })

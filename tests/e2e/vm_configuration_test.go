@@ -92,7 +92,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmConfiguration, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmConfiguration},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -247,6 +250,19 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
 			})
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("tries to delete used resources", func() {
+			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
+			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.TestData.VmConfiguration},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })
