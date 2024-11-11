@@ -53,7 +53,6 @@ func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 				CABundle: ds.ContainerImage.CABundle,
 			},
 		}
-
 	}
 
 	return &CABundle{Type: ds.Type}
@@ -78,7 +77,6 @@ func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABu
 				CABundle: ds.ContainerImage.CABundle,
 			},
 		}
-
 	}
 
 	return &CABundle{Type: ds.Type}
@@ -103,7 +101,6 @@ func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABu
 				CABundle: ds.ContainerImage.CABundle,
 			},
 		}
-
 	}
 
 	return &CABundle{Type: ds.Type}
