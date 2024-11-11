@@ -38,6 +38,7 @@ const (
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 	TypeSnapshotting                        Type = "Snapshotting"
+	TypeDiskAttachmentCapacityAvailable     Type = "DiskAttachmentCapacityAvailable"
 )
 
 type Reason string
@@ -95,4 +96,7 @@ const (
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
+
+	ReasonBlockDeviceCapacityAvailable Reason = "BlockDeviceCapacityAvailable"
+	ReasonBlockDeviceCapacityReached   Reason = "BlockDeviceCapacityReached"
 )
