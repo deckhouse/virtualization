@@ -17,11 +17,12 @@ limitations under the License.
 package retry
 
 import (
+	"context"
 	"fmt"
-	"golang.org/x/net/context"
-	"k8s.io/klog/v2"
 	"math/rand"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 // Jitter returns a time.Duration between duration and duration + maxFactor *

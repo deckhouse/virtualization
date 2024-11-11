@@ -47,7 +47,7 @@ jobs:
         run: |
           echo "Install ginkgo"
           GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
-          go install "github.com/onsi/ginkgo/v2/ginkgo@v${GINKGO_VERSION}"
+          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
 
       - name: Install Deckhouse-cli
         run: |
