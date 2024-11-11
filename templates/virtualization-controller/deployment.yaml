@@ -77,6 +77,9 @@ spec:
             - containerPort: 9443
               name: controller
               protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
             - containerPort: 8081
               name: pprof
               protocol: TCP
@@ -119,19 +122,6 @@ spec:
                     resource: deployments
                     subresource: http
                     name: virtualization-controller
-          ports:
-          - containerPort: 8080
-            name: https
-          livenessProbe:
-            httpGet:
-              path: /livez
-              port: 8080
-              scheme: HTTPS
-          readinessProbe:
-            httpGet:
-              path: /livez
-              port: 8080
-              scheme: HTTPS
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
