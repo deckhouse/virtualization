@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -49,11 +50,13 @@ func SetupController(
 	recorder := mgr.GetEventRecorderFor(controllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
+	blockDeviceService := service.NewBlockDeviceService(client)
 	handlers := []Handler{
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
 		internal.NewBlockDeviceHandler(client, recorder),
+		internal.NewBlockDeviceLimiterHandler(blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
@@ -83,7 +86,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), log)).
+		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
 		Complete(); err != nil {
 		return err
 	}

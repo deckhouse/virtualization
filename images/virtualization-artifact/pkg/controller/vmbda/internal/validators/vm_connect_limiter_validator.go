@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -30,15 +29,13 @@ import (
 )
 
 type VMConnectLimiterValidator struct {
-	client  client.Client
 	service *service.BlockDeviceService
 	log     *slog.Logger
 }
 
-func NewVMConnectLimiterValidator(client client.Client, log *slog.Logger) *VMConnectLimiterValidator {
+func NewVMConnectLimiterValidator(service *service.BlockDeviceService, log *slog.Logger) *VMConnectLimiterValidator {
 	return &VMConnectLimiterValidator{
-		client:  client,
-		service: service.NewBlockDeviceService(client),
+		service: service,
 		log:     log,
 	}
 }
