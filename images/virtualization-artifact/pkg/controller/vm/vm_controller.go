@@ -62,11 +62,11 @@ func SetupController(
 		internal.NewFilesystemHandler(),
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
+		internal.NewSizePolicyHandler(),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
-		internal.NewSizePolicyHandler(),
 	}
 	r := NewReconciler(client, handlers...)
 
