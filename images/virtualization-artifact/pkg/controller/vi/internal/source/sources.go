@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -101,7 +102,7 @@ func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner)
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
-	return c.Reason == vicondition.Ready
+	return c.Reason == vicondition.Ready.String()
 }
 
 type CheckImportProcess interface {
@@ -110,29 +111,32 @@ type CheckImportProcess interface {
 
 func setPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
-	condition *metav1.Condition,
+	cb *conditions.ConditionBuilder,
 	phase *virtv2.ImagePhase,
 	supgen *supplements.Generator,
 ) {
 	switch {
 	case pvc == nil:
 		*phase = virtv2.ImageLost
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Lost
-		condition.Message = fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Lost).
+			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	default:
 		*phase = virtv2.ImageReady
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 	}
 }
 
-func setPhaseConditionToFailed(ready *metav1.Condition, phase *virtv2.ImagePhase, err error) {
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
 	*phase = virtv2.ImageFailed
-	ready.Status = metav1.ConditionFalse
-	ready.Reason = vicondition.ProvisioningFailed
-	ready.Message = service.CapitalizeFirstLetter(err.Error())
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vicondition.ProvisioningFailed).
+		Message(service.CapitalizeFirstLetter(err.Error()))
 }
 
 func setPhaseConditionForPVCProvisioningImage(
@@ -140,7 +144,7 @@ func setPhaseConditionForPVCProvisioningImage(
 	dv *cdiv1.DataVolume,
 	vi *virtv2.VirtualImage,
 	pvc *corev1.PersistentVolumeClaim,
-	condition *metav1.Condition,
+	cb *conditions.ConditionBuilder,
 	checker CheckImportProcess,
 ) error {
 	err := checker.CheckImportProcess(ctx, dv, pvc)
@@ -148,80 +152,90 @@ func setPhaseConditionForPVCProvisioningImage(
 	case err == nil:
 		if dv == nil {
 			vi.Status.Phase = virtv2.ImageProvisioning
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vicondition.Provisioning
-			condition.Message = "Waiting for the pvc importer to be created"
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.Provisioning).
+				Message("Waiting for the pvc importer to be created")
 			return nil
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to PVC."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("Import is in the process of provisioning to PVC.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = service.CapitalizeFirstLetter(err.Error())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = "Provided StorageClass not found in the cluster."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Provided StorageClass not found in the cluster.")
 		return nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
 		return nil
 	default:
 		return err
 	}
 }
 
-func setPhaseConditionFromPodError(ready *metav1.Condition, vi *virtv2.VirtualImage, err error) error {
+func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *virtv2.VirtualImage, err error) error {
 	vi.Status.Phase = virtv2.ImageFailed
 
 	switch {
 	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = vicondition.ProvisioningNotStarted
-		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningNotStarted).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return nil
 	case errors.Is(err, service.ErrProvisioningFailed):
-		ready.Status = metav1.ConditionFalse
-		ready.Reason = vicondition.ProvisioningFailed
-		ready.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return nil
 	default:
 		return err
 	}
 }
 
-func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, condition *metav1.Condition) (bool, error) {
+func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
 		return false, nil
 	case errors.Is(err, service.ErrStorageProfileNotFound):
 		vi.Status.Phase = virtv2.ImageFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImageFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = "Provided StorageClass not found in the cluster."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Provided StorageClass not found in the cluster.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImageFailed
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningFailed
-		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass.")
 		return true, nil
 	default:
 		return false, err
@@ -230,16 +244,17 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, condi
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(condition *metav1.Condition, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
 	*phase = virtv2.ImageFailed
-	condition.Status = metav1.ConditionFalse
-	condition.Reason = vicondition.ProvisioningFailed
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vicondition.ProvisioningFailed)
 
 	if creationTimestamp.Add(30 * time.Minute).After(time.Now()) {
-		condition.Message = fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err)
+		cb.Message(fmt.Sprintf("Quota exceeded: %s; Please configure quotas or try recreating the resource later.", err))
 		return reconcile.Result{}
 	}
 
-	condition.Message = fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod)
+	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
