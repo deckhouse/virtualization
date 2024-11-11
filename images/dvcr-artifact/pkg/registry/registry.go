@@ -42,7 +42,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
-	"kubevirt.io/containerized-data-importer/pkg/util"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/datasource"
 	importerrs "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/errors"
@@ -372,7 +371,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 
 		if imageInfo.Format != "raw" {
 			// It's necessary to read everything from the original image to avoid blocking.
-			_, err = io.Copy(&util.EmptyWriter{}, sourceReader)
+			_, err = io.Copy(&EmptyWriter{}, sourceReader)
 			if err != nil {
 				return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 			}
@@ -400,7 +399,7 @@ func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, e
 		}
 
 		// Count uncompressed size of source image.
-		n, err := io.Copy(&util.EmptyWriter{}, formatSourceReaders.TopReader())
+		n, err := io.Copy(&EmptyWriter{}, formatSourceReaders.TopReader())
 		if err != nil {
 			return ImageInfo{}, fmt.Errorf("error copying to nowhere: %w", err)
 		}
@@ -436,4 +435,10 @@ func destRemoteOptions(ctx context.Context, destUsername, destPassword string, d
 	}
 
 	return remoteOpts
+}
+
+type EmptyWriter struct{}
+
+func (w EmptyWriter) Write(p []byte) (int, error) {
+	return len(p), nil
 }
