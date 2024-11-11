@@ -412,40 +412,13 @@ spec:
                     The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.
                 storageClassName:
                   type: string
-                  description: |
-                    The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.
-                observedGeneration:
-                  type: integer
-                  description: |
-                    The generation last processed by the controller.
-      additionalPrinterColumns:
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: CDROM
-          type: boolean
-          jsonPath: .status.cdrom
-        - name: Progress
-          type: string
-          jsonPath: .status.progress
-        - name: StoredSize
-          type: string
-          jsonPath: .status.size.stored
-          priority: 1
-        - name: UnpackedSize
-          type: string
-          jsonPath: .status.size.unpacked
-          priority: 1
-        - name: Registry URL
-          jsonPath: .status.target.registryURL
-          type: string
-          priority: 1
-        - name: TargetPVC
-          jsonPath: .status.target.persistentVolumeClaimName
-          type: string
-          priority: 1
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
-      subresources:
-        status: {}
+              type: object
+          required:
+            - spec
+          type: object
+          x-kubernetes-validations:
+            - message: The name must be no longer than 128 characters.
+              rule: self.metadata.name.size() <= 128
+      served: true
+      storage: true
+      subresources: {}

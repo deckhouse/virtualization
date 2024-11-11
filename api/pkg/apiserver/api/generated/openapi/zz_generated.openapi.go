@@ -1023,6 +1023,13 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 				Description: "An origin of the image.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"http": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP"),
@@ -1036,13 +1043,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref c
 					"objectRef": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef"),
-						},
-					},
-					"type": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
 						},
 					},
 				},
@@ -1167,12 +1167,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
-						},
-					},
 					"downloadSpeed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Image download speed from an external source. Appears only during the `Provisioning` phase.",
@@ -1214,18 +1208,6 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Format:      "",
 						},
 					},
-					"uploadCommand": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated. Use imageUploadURLs instead.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"imageUploadURLs": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
-						},
-					},
 					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the cluster virtual image.",
@@ -1252,6 +1234,24 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Description: "The generation last processed by the controller.",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"uploadCommand": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated. Use imageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
 						},
 					},
 				},
@@ -1473,7 +1473,7 @@ func schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"stored": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Image size in DVCR or in PVC in human-readable format.",
+							Description: "Image size in human-readable format.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2974,24 +2974,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format:      "",
 						},
 					},
-					"uploadCommand": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated. Use imageUploadURLs instead.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"imageUploadURLs": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
-						},
-					},
-					"target": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget"),
-						},
-					},
 					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.",
@@ -3018,12 +3000,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Description: "The generation last processed by the controller.",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"storageClassName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 				},

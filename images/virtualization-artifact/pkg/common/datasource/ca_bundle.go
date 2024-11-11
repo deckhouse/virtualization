@@ -35,48 +35,78 @@ type DataSourceContainerRegistry struct {
 }
 
 func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
-	return &CABundle{
-		Type: ds.Type,
-		HTTP: ds.HTTP,
-		ContainerImage: &DataSourceContainerRegistry{
-			Image: ds.ContainerImage.Image,
-			ImagePullSecret: types.NamespacedName{
-				Name:      ds.ContainerImage.ImagePullSecret.Name,
-				Namespace: ds.ContainerImage.ImagePullSecret.Namespace,
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &DataSourceContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: ds.ContainerImage.ImagePullSecret.Namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
 			},
-			CABundle: ds.ContainerImage.CABundle,
-		},
+		}
+
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
 func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABundle {
-	return &CABundle{
-		Type: ds.Type,
-		HTTP: ds.HTTP,
-		ContainerImage: &DataSourceContainerRegistry{
-			Image: ds.ContainerImage.Image,
-			ImagePullSecret: types.NamespacedName{
-				Name:      ds.ContainerImage.Image,
-				Namespace: namespace,
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &DataSourceContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
 			},
-			CABundle: ds.ContainerImage.CABundle,
-		},
+		}
+
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
 func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABundle {
-	return &CABundle{
-		Type: ds.Type,
-		HTTP: ds.HTTP,
-		ContainerImage: &DataSourceContainerRegistry{
-			Image: ds.ContainerImage.Image,
-			ImagePullSecret: types.NamespacedName{
-				Name:      ds.ContainerImage.Image,
-				Namespace: namespace,
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &DataSourceContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
 			},
-			CABundle: ds.ContainerImage.CABundle,
-		},
+		}
+
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
 func (ds *CABundle) HasCABundle() bool {
