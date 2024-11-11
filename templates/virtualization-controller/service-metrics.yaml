@@ -10,6 +10,6 @@ spec:
     - name: metrics
       port: 8080
       protocol: TCP
-      targetPort: metrics
+      targetPort: https-metrics
   selector:
     app: virtualization-controller

@@ -131,7 +131,10 @@ spec:
           volumeMounts:
           - name: kube-rbac-proxy-ca
             mountPath: /etc/kube-rbac-proxy
-
+          ports:
+            - containerPort: 8082
+              name: https-metrics
+              protocol: TCP
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
