@@ -45,9 +45,11 @@ func NewController(
 	log := lg.With(logger.SlogController(ControllerName))
 
 	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
+	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewBlockDeviceLimiter(blockDeviceService),
 		internal.NewBlockDeviceReadyHandler(attacher),
 		internal.NewVirtualMachineReadyHandler(attacher),
 		internal.NewLifeCycleHandler(attacher),
@@ -71,7 +73,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, mgr.GetClient(), log)).
+		WithValidator(NewValidator(attacher, blockDeviceService, log)).
 		Complete(); err != nil {
 		return nil, err
 	}

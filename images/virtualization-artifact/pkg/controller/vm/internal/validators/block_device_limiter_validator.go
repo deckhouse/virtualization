@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -34,9 +33,9 @@ type BlockDeviceLimiterValidator struct {
 	log     *slog.Logger
 }
 
-func NewBlockDeviceLimiterValidator(client client.Client, log *slog.Logger) *BlockDeviceLimiterValidator {
+func NewBlockDeviceLimiterValidator(service *service.BlockDeviceService, log *slog.Logger) *BlockDeviceLimiterValidator {
 	return &BlockDeviceLimiterValidator{
-		service: service.NewBlockDeviceService(client),
+		service: service,
 		log:     log,
 	}
 }
