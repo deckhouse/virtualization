@@ -67,11 +67,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
