@@ -27,6 +27,7 @@ spec:
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
     evictionStrategy: LiveMigrate
+    vmRolloutStrategy: LiveUpdate
     developerConfiguration:
       featureGates:
       - HotplugVolumes
