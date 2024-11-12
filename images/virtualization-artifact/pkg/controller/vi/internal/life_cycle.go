@@ -116,7 +116,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 			ObservedGeneration: vi.Status.ObservedGeneration,
 			StorageClassName:   vi.Status.StorageClassName,
 		}
-		vi.Status.Phase = virtv2.ImagePending
 
 		_, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {

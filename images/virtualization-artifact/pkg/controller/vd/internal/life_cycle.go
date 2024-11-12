@@ -101,12 +101,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		defer func() {
-			readyCondition.Status = metav1.ConditionFalse
-			readyCondition.Reason = vdcondition.StorageClassNotReady
-			readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
-			service.SetCondition(readyCondition, &vd.Status.Conditions)
-		}()
+		readyCondition.Status = metav1.ConditionFalse
+		readyCondition.Reason = vdcondition.StorageClassNotReady
+		readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
+		service.SetCondition(readyCondition, &vd.Status.Conditions)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
@@ -118,7 +116,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			ObservedGeneration: vd.Status.ObservedGeneration,
 			StorageClassName:   vd.Status.StorageClassName,
 		}
-		vd.Status.Phase = virtv2.DiskPending
 
 		_, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {

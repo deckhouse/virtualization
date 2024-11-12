@@ -66,8 +66,8 @@ const (
 	Lost ReadyReason = "PVCLost"
 
 	// StorageClassReady indicates that the chosen StorageClass exists.
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
 	// StorageClassNotFound indicates that the chosen StorageClass not found.
-	StorageClassReady    StorageClassReadyReason = "StorageClassReady"
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
