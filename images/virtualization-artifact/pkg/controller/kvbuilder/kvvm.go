@@ -96,18 +96,18 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 }
 
 func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
-	domainSpec := &b.Resource.Spec.Template.Spec.Domain
-	if domainSpec.CPU == nil {
-		domainSpec.CPU = &virtv1.CPU{}
+	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
+		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
+	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
 
 	switch class.Spec.CPU.Type {
 	case virtv2.CPUTypeHost:
-		domainSpec.CPU.Model = virtv1.CPUModeHostModel
+		cpu.Model = virtv1.CPUModeHostModel
 	case virtv2.CPUTypeHostPassthrough:
-		domainSpec.CPU.Model = virtv1.CPUModeHostPassthrough
+		cpu.Model = virtv1.CPUModeHostPassthrough
 	case virtv2.CPUTypeModel:
-		domainSpec.CPU.Model = class.Spec.CPU.Model
+		cpu.Model = class.Spec.CPU.Model
 	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
 		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
@@ -120,7 +120,7 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 				Policy: policy,
 			}
 		}
-		domainSpec.CPU.Features = features
+		cpu.Features = features
 	default:
 		return fmt.Errorf("unexpected cpu type: %q", class.Spec.CPU.Type)
 	}
