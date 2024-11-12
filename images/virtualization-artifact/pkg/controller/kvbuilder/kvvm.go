@@ -96,33 +96,34 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 }
 
 func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
-	var cpu virtv1.CPU
+	domainSpec := &b.Resource.Spec.Template.Spec.Domain
+	if domainSpec.CPU == nil {
+		domainSpec.CPU = &virtv1.CPU{}
+	}
 
 	switch class.Spec.CPU.Type {
 	case virtv2.CPUTypeHost:
-		cpu.Model = virtv1.CPUModeHostModel
+		domainSpec.CPU.Model = virtv1.CPUModeHostModel
 	case virtv2.CPUTypeHostPassthrough:
-		cpu.Model = virtv1.CPUModeHostPassthrough
+		domainSpec.CPU.Model = virtv1.CPUModeHostPassthrough
 	case virtv2.CPUTypeModel:
-		cpu.Model = class.Spec.CPU.Model
+		domainSpec.CPU.Model = class.Spec.CPU.Model
 	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
-		cpu.Features = make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
 				policy = "optional"
 			}
-			cpu.Features[i] = virtv1.CPUFeature{
+			features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
 			}
 		}
+		domainSpec.CPU.Features = features
 	default:
 		return fmt.Errorf("unexpected cpu type: %q", class.Spec.CPU.Type)
 	}
-
-	b.Resource.Spec.Template.Spec.Domain.CPU = &cpu
-
 	return nil
 }
 
@@ -206,22 +207,40 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 	b.Resource.Spec.Template.Spec.TopologySpreadConstraints = topology
 }
 
-func (b *KVVM) SetResourceRequirements(cores int, coreFraction string, memorySize resource.Quantity) error {
+func (b *KVVM) SetCpu(cores int, coreFraction string) error {
+	domainSpec := &b.Resource.Spec.Template.Spec.Domain
+	if domainSpec.CPU == nil {
+		domainSpec.CPU = &virtv1.CPU{}
+	}
 	cpuRequest, err := GetCPURequest(cores, coreFraction)
 	if err != nil {
 		return err
 	}
-	b.Resource.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    *cpuRequest,
-			corev1.ResourceMemory: memorySize,
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    *GetCPULimit(cores),
-			corev1.ResourceMemory: memorySize,
-		},
+	cpuLimit := GetCPULimit(cores)
+	if domainSpec.Resources.Requests == nil {
+		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 	}
+	if domainSpec.Resources.Limits == nil {
+		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
+	}
+	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
+	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
+	domainSpec.CPU.Cores = uint32(cores)
+	domainSpec.CPU.Sockets = uint32(cpuRequest.Value())
+	domainSpec.CPU.MaxSockets = uint32(cpuLimit.Value())
 	return nil
+}
+
+func (b *KVVM) SetMemory(memorySize resource.Quantity) {
+	res := &b.Resource.Spec.Template.Spec.Domain.Resources
+	if res.Requests == nil {
+		res.Requests = make(map[corev1.ResourceName]resource.Quantity)
+	}
+	if res.Limits == nil {
+		res.Limits = make(map[corev1.ResourceName]resource.Quantity)
+	}
+	res.Requests[corev1.ResourceMemory] = memorySize
+	res.Limits[corev1.ResourceMemory] = memorySize
 }
 
 func GetCPURequest(cores int, coreFraction string) (*resource.Quantity, error) {
