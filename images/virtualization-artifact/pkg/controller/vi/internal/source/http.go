@@ -70,11 +70,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
@@ -191,11 +187,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)

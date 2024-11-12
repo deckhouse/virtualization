@@ -84,11 +84,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
@@ -252,11 +248,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:

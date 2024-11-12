@@ -72,11 +72,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -295,11 +291,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-	defer func() {
-		if !(condition.Status == metav1.ConditionTrue && cb.Condition().Status != metav1.ConditionTrue) {
-			conditions.SetCondition(cb, &vi.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
