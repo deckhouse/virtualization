@@ -52,7 +52,7 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMa
 		return reconcile.Result{}, nil
 	}
 
-	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+	if blockDeviceAttachedCount <= common.VmBlockDeviceAttachedLimit {
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmbdacondition.CapacityAvailable).
