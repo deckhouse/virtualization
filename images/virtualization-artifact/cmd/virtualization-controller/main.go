@@ -52,6 +52,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -316,6 +317,7 @@ func main() {
 func printVersion(log *log.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	log.Info(fmt.Sprintf("Edition: %s", version.GetEdition()))
 }
 
 func getEnv(env, defaultEnv string) string {
