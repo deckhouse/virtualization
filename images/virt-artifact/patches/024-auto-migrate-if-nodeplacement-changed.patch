@@ -1,0 +1,97 @@
+diff --git a/pkg/virt-controller/watch/vmi.go b/pkg/virt-controller/watch/vmi.go
+index 0c4bfca389..cf7440e84f 100644
+--- a/pkg/virt-controller/watch/vmi.go
++++ b/pkg/virt-controller/watch/vmi.go
+@@ -691,6 +691,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
+ 			c.syncVolumesUpdate(vmiCopy)
+ 		}
+ 
++		if err := c.updateNodePlacementCondition(vmiCopy, pod); err != nil {
++			return fmt.Errorf("failed to update condition %s", virtv1.VirtualMachineInstanceNodePlacementChange)
++		}
++
+ 	case vmi.IsScheduled():
+ 		if !vmiPodExists {
+ 			vmiCopy.Status.Phase = virtv1.Failed
+@@ -2416,6 +2420,42 @@ func (c *VMIController) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
+ 	vmiConditions.UpdateCondition(vmi, &condition)
+ }
+ 
++func (c *VMIController) updateNodePlacementCondition(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
++	status := k8sv1.ConditionFalse
++	changed, err := c.isChangedNodePlacement(vmi, pod)
++	if err != nil {
++		return fmt.Errorf("could not verify if NodePlacement update is required: %w", err)
++	}
++	if changed {
++		status = k8sv1.ConditionTrue
++	}
++	c.syncNodePlacementUpdate(vmi, status)
++	return nil
++}
++
++func (c *VMIController) isChangedNodePlacement(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) (bool, error) {
++	if vmi == nil || pod == nil {
++		return false, nil
++	}
++	templatePod, err := c.templateService.RenderLaunchManifest(vmi)
++	if err != nil {
++		return false, err
++	}
++
++	return !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, templatePod.Spec.NodeSelector) ||
++		!equality.Semantic.DeepEqual(pod.Spec.Affinity, templatePod.Spec.Affinity), nil
++}
++
++func (c *VMIController) syncNodePlacementUpdate(vmi *virtv1.VirtualMachineInstance, status k8sv1.ConditionStatus) {
++	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
++	condition := virtv1.VirtualMachineInstanceCondition{
++		Type:               virtv1.VirtualMachineInstanceNodePlacementChange,
++		Status:             status,
++		LastTransitionTime: v1.Now(),
++	}
++	vmiConditions.UpdateCondition(vmi, &condition)
++}
++
+ func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
+ 	if len(dvs) == 0 {
+ 		return
+diff --git a/pkg/virt-controller/watch/workload-updater/workload-updater.go b/pkg/virt-controller/watch/workload-updater/workload-updater.go
+index a7d0f76e24..0482b732fe 100644
+--- a/pkg/virt-controller/watch/workload-updater/workload-updater.go
++++ b/pkg/virt-controller/watch/workload-updater/workload-updater.go
+@@ -214,7 +214,7 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
+ 		return
+ 	}
+ 
+-	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi)) ||
++	if !(isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) || isNodePlacementInProgress(vmi)) ||
+ 		migrationutils.IsMigrating(vmi) {
+ 		return
+ 	}
+@@ -324,6 +324,11 @@ func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
+ 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
+ }
+ 
++func isNodePlacementInProgress(vmi *virtv1.VirtualMachineInstance) bool {
++	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
++		virtv1.VirtualMachineInstanceNodePlacementChange, k8sv1.ConditionTrue)
++}
++
+ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
+ 	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
+ 		return false
+diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
+index 7aa814d8f1..b7e5792a71 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types.go
++++ b/staging/src/kubevirt.io/api/core/v1/types.go
+@@ -568,6 +568,9 @@ const (
+ 
+ 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
+ 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
++
++	// Indicates that the VMI has affinity or nodeSelector changes
++	VirtualMachineInstanceNodePlacementChange VirtualMachineInstanceConditionType = "NodePlacementChange"
+ )
+ 
+ // These are valid reasons for VMI conditions.
