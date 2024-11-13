@@ -100,53 +100,53 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"Should be \"false\" status condition because sc from status not found",
 			handlerTestArgs{
-				VirtualDisk:                  newVD(nil, "scInStatus"),
+				VirtualDisk:                  newVD(nil, "statusSC"),
 				StorageClassExistedInCluster: nil,
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vdcondition.StorageClassNotFound,
 				},
-				ExpectedStorageClassInStatus: "scInStatus",
+				ExpectedStorageClassInStatus: "statusSC",
 			},
 		),
 		Entry(
 			"Should be pvc sc in status",
 			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("spec"), "scInStatus"),
-				StorageClassExistedInCluster: ptr.To("scInPVC"),
-				StorageClassInExistedPVC:     ptr.To("scInPVC"),
+				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
+				StorageClassExistedInCluster: ptr.To("pvcSC"),
+				StorageClassInExistedPVC:     ptr.To("pvcSC"),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vdcondition.StorageClassReady,
 				},
-				ExpectedStorageClassInStatus: "scInPVC",
+				ExpectedStorageClassInStatus: "pvcSC",
 			},
 		),
 		Entry(
 			"Should be pvc sc in status",
 			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("scInSpec"), "scInStatus"),
-				StorageClassExistedInCluster: ptr.To("scInPVC"),
-				StorageClassInExistedPVC:     ptr.To("scInPVC"),
+				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
+				StorageClassExistedInCluster: ptr.To("pvcSC"),
+				StorageClassInExistedPVC:     ptr.To("pvcSC"),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vdcondition.StorageClassReady,
 				},
-				ExpectedStorageClassInStatus: "scInPVC",
+				ExpectedStorageClassInStatus: "pvcSC",
 			},
 		),
 		Entry(
 			"Should be spec sc in status",
 			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("scInSpec"), "scInStatus"),
-				StorageClassExistedInCluster: ptr.To("scInSpec"),
+				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
+				StorageClassExistedInCluster: ptr.To("specSC"),
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vdcondition.StorageClassReady,
 				},
-				ExpectedStorageClassInStatus: "scInSpec",
+				ExpectedStorageClassInStatus: "specSC",
 			},
 		),
 	)
@@ -160,11 +160,11 @@ type handlerTestArgs struct {
 	ExpectedStorageClassInStatus string
 }
 
-func newDiskServiceMock(existedStorageClass, scInPVC *string) *DiskServiceMock {
+func newDiskServiceMock(existedStorageClass, pvcSC *string) *DiskServiceMock {
 	var diskServiceMock DiskServiceMock
 
 	diskServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-		return newPVC(scInPVC), nil
+		return newPVC(pvcSC), nil
 	}
 
 	diskServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
@@ -191,15 +191,15 @@ func newDiskServiceMock(existedStorageClass, scInPVC *string) *DiskServiceMock {
 	return &diskServiceMock
 }
 
-func newVD(scInSpec *string, scInStatus string) *virtv2.VirtualDisk {
+func newVD(specSC *string, statusSC string) *virtv2.VirtualDisk {
 	return &virtv2.VirtualDisk{
 		Spec: virtv2.VirtualDiskSpec{
 			PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-				StorageClass: scInSpec,
+				StorageClass: specSC,
 			},
 		},
 		Status: virtv2.VirtualDiskStatus{
-			StorageClassName: scInStatus,
+			StorageClassName: statusSC,
 		},
 	}
 }

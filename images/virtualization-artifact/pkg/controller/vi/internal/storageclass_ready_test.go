@@ -61,18 +61,18 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"Should be from status if have in status, but not in spec",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "",
-				VI:                           newVI(nil, "scInStatus", ""),
+				VI:                           newVI(nil, "statusSC", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("scInStatus"),
+				ExpectedStatus:               ptr.To("statusSC"),
 			},
 		),
 		Entry(
 			"Should be from status if have in status and in mc",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(nil, "scInStatus", ""),
+				VI:                           newVI(nil, "statusSC", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("scInStatus"),
+				ExpectedStatus:               ptr.To("statusSC"),
 			},
 		),
 		Entry(
@@ -88,36 +88,36 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"Should be from spec if pvc does not exists",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
+				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("scInSpec"),
+				ExpectedStatus:               ptr.To("specSC"),
 			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is nil",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
+				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
 				PVC:                          newPVC(nil),
-				ExpectedStatus:               ptr.To("scInSpec"),
+				ExpectedStatus:               ptr.To("specSC"),
 			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is empty",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
+				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
 				PVC:                          newPVC(ptr.To("")),
-				ExpectedStatus:               ptr.To("scInSpec"),
+				ExpectedStatus:               ptr.To("specSC"),
 			},
 		),
 		Entry(
 			"Should be from pvc if pvc exists",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
-				PVC:                          newPVC(ptr.To("scInPVC")),
-				ExpectedStatus:               ptr.To("scInPVC"),
+				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
+				PVC:                          newPVC(ptr.To("pvcSC")),
+				ExpectedStatus:               ptr.To("pvcSC"),
 			},
 		),
 	)
@@ -224,16 +224,16 @@ func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
 	return &diskServiceMock
 }
 
-func newVI(scInSpec *string, scInStatus string, storageType virtv2.StorageType) *virtv2.VirtualImage {
+func newVI(specSC *string, statusSC string, storageType virtv2.StorageType) *virtv2.VirtualImage {
 	return &virtv2.VirtualImage{
 		Spec: virtv2.VirtualImageSpec{
 			PersistentVolumeClaim: virtv2.VirtualImagePersistentVolumeClaim{
-				StorageClass: scInSpec,
+				StorageClass: specSC,
 			},
 			Storage: storageType,
 		},
 		Status: virtv2.VirtualImageStatus{
-			StorageClassName: scInStatus,
+			StorageClassName: statusSC,
 		},
 	}
 }
