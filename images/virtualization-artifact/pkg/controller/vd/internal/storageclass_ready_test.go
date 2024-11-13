@@ -59,7 +59,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be true condition because PVC exists",
+			"Should be \"true\" status condition because PVC exists",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(nil, ""),
 				StorageClassExistedInCluster: ptr.To("sc"),
@@ -72,7 +72,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be true condition because sc in spec",
+			"Should be \"true\" status condition because sc in spec",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(ptr.To("sc"), ""),
 				StorageClassExistedInCluster: ptr.To("sc"),
@@ -85,7 +85,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be true condition because has default sc",
+			"Should be \"true\" status condition because has default sc",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(nil, ""),
 				StorageClassExistedInCluster: ptr.To("sc"),
@@ -98,7 +98,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be false condition because sc from status not found",
+			"Should be \"false\" status condition because sc from status not found",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(nil, "scInStatus"),
 				StorageClassExistedInCluster: nil,
@@ -111,7 +111,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be pvc in status",
+			"Should be pvc sc in status",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(ptr.To("spec"), "scInStatus"),
 				StorageClassExistedInCluster: ptr.To("scInPVC"),
@@ -124,7 +124,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be pvc in status",
+			"Should be pvc sc in status",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(ptr.To("scInSpec"), "scInStatus"),
 				StorageClassExistedInCluster: ptr.To("scInPVC"),
@@ -137,7 +137,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should be spec in status",
+			"Should be spec sc in status",
 			handlerTestArgs{
 				VirtualDisk:                  newVD(ptr.To("scInSpec"), "scInStatus"),
 				StorageClassExistedInCluster: ptr.To("scInSpec"),
