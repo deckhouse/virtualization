@@ -34,117 +34,164 @@ import (
 
 var _ = Describe("StorageClassHandler Run", func() {
 	DescribeTable("Checking ActualStorageClass",
-		func(storageClassFromModuleConfig string, vi *virtv2.VirtualImage, pvc *corev1.PersistentVolumeClaim, expectedStatus *string) {
-			h := NewStorageClassReadyHandler(nil, storageClassFromModuleConfig)
+		func(args actualScNameTestArgs) {
+			h := NewStorageClassReadyHandler(nil, args.StorageClassFromModuleConfig)
 
-			Expect(h.ActualStorageClass(vi, pvc)).To(Equal(expectedStatus))
+			Expect(h.ActualStorageClass(args.VI, args.PVC)).To(Equal(args.ExpectedStatus))
 		},
 		Entry(
 			"Should be nil if no VI",
-			"",
-			nil,
-			nil,
-			nil,
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "",
+				VI:                           nil,
+				PVC:                          nil,
+				ExpectedStatus:               nil,
+			},
 		),
 		Entry(
 			"Should be nil because no data",
-			"",
-			newVI(nil, "", ""),
-			nil,
-			nil,
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "",
+				VI:                           newVI(nil, "", ""),
+				PVC:                          nil,
+				ExpectedStatus:               nil,
+			},
 		),
 		Entry(
 			"Should be from status if have in status, but not in spec",
-			"",
-			newVI(nil, "fromStatus", ""),
-			nil,
-			ptr.To("fromStatus"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "",
+				VI:                           newVI(nil, "fromStatus", ""),
+				PVC:                          nil,
+				ExpectedStatus:               ptr.To("fromStatus"),
+			},
 		),
 		Entry(
 			"Should be from status if have in status and in mc",
-			"fromMC",
-			newVI(nil, "fromStatus", ""),
-			nil,
-			ptr.To("fromStatus"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(nil, "fromStatus", ""),
+				PVC:                          nil,
+				ExpectedStatus:               ptr.To("fromStatus"),
+			},
 		),
 		Entry(
 			"Should be from mc if only in mc",
-			"fromMC",
-			newVI(nil, "", ""),
-			nil,
-			ptr.To("fromMC"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(nil, "", ""),
+				PVC:                          nil,
+				ExpectedStatus:               ptr.To("fromMC"),
+			},
 		),
 		Entry(
 			"Should be from spec if pvc does not exists",
-			"fromMC",
-			newVI(ptr.To("fromSPEC"), "fromStatus", ""),
-			nil,
-			ptr.To("fromSPEC"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				PVC:                          nil,
+				ExpectedStatus:               ptr.To("fromSpec"),
+			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is nil",
-			"fromMC",
-			newVI(ptr.To("fromSPEC"), "fromStatus", ""),
-			newPVC(nil),
-			ptr.To("fromSPEC"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				PVC:                          newPVC(nil),
+				ExpectedStatus:               ptr.To("fromSpec"),
+			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is empty",
-			"fromMC",
-			newVI(ptr.To("fromSPEC"), "fromStatus", ""),
-			newPVC(ptr.To("")),
-			ptr.To("fromSPEC"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				PVC:                          newPVC(ptr.To("")),
+				ExpectedStatus:               ptr.To("fromSpec"),
+			},
 		),
 		Entry(
 			"Should be from pvc if pvc exists",
-			"fromMC",
-			newVI(ptr.To("fromSPEC"), "fromStatus", ""),
-			newPVC(ptr.To("fromPVC")),
-			ptr.To("fromPVC"),
+			actualScNameTestArgs{
+				StorageClassFromModuleConfig: "fromMC",
+				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				PVC:                          newPVC(ptr.To("fromPVC")),
+				ExpectedStatus:               ptr.To("fromPVC"),
+			},
 		),
 	)
 
 	DescribeTable("Checking returning conditions",
-		func(diskServiceMock DiskService, vi *virtv2.VirtualImage, expectedStatus metav1.ConditionStatus, expectedReason vicondition.StorageClassReadyReason) {
-			handler := NewStorageClassReadyHandler(diskServiceMock, "")
-			_, err := handler.Handle(context.TODO(), vi)
+		func(args handlerTestArgs) {
+			handler := NewStorageClassReadyHandler(args.DiskServiceMock, "")
+			_, err := handler.Handle(context.TODO(), args.VI)
 
 			Expect(err).To(BeNil())
-			condition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
+			condition, ok := service.GetCondition(vicondition.StorageClassReadyType, args.VI.Status.Conditions)
 			Expect(ok).To(BeTrue())
-			Expect(condition.Status).To(Equal(expectedStatus))
-			Expect(condition.Reason).To(Equal(expectedReason))
+			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
+			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
 		},
 		Entry(
 			"StorageClassReady must be false because used dvcr storage type",
-			newDiskServiceMock(nil),
-			newVI(nil, "", virtv2.StorageContainerRegistry),
-			metav1.ConditionUnknown,
-			vicondition.DVCRTypeUsed,
+			handlerTestArgs{
+				DiskServiceMock: newDiskServiceMock(nil),
+				VI:              newVI(nil, "", virtv2.StorageContainerRegistry),
+				ExpectedCondition: metav1.Condition{
+					Status: metav1.ConditionUnknown,
+					Reason: vicondition.DVCRTypeUsed,
+				},
+			},
 		),
 		Entry(
 			"StorageClassReady must be false because no storage class can be return",
-			newDiskServiceMock(nil),
-			newVI(nil, "", virtv2.StorageKubernetes),
-			metav1.ConditionFalse,
-			vicondition.StorageClassNotFound,
+			handlerTestArgs{
+				DiskServiceMock: newDiskServiceMock(nil),
+				VI:              newVI(nil, "", virtv2.StorageKubernetes),
+				ExpectedCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+					Reason: vicondition.StorageClassNotFound,
+				},
+			},
 		),
 		Entry(
 			"StorageClassReady must be true because storage class from spec found",
-			newDiskServiceMock(ptr.To("sc")),
-			newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
-			metav1.ConditionTrue,
-			vicondition.StorageClassReady,
+			handlerTestArgs{
+				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
+				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
+				ExpectedCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+					Reason: vicondition.StorageClassReady,
+				},
+			},
 		),
 		Entry(
 			"StorageClassReady must be true because default storage class found",
-			newDiskServiceMock(ptr.To("sc")),
-			newVI(nil, "", virtv2.StorageKubernetes),
-			metav1.ConditionTrue,
-			vicondition.StorageClassReady,
+			handlerTestArgs{
+				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
+				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
+				ExpectedCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+					Reason: vicondition.StorageClassReady,
+				},
+			},
 		),
 	)
 })
+
+type actualScNameTestArgs struct {
+	StorageClassFromModuleConfig string
+	VI                           *virtv2.VirtualImage
+	PVC                          *corev1.PersistentVolumeClaim
+	ExpectedStatus               *string
+}
+
+type handlerTestArgs struct {
+	DiskServiceMock   DiskService
+	VI                *virtv2.VirtualImage
+	ExpectedCondition metav1.Condition
+}
 
 func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
 	var diskServiceMock DiskServiceMock

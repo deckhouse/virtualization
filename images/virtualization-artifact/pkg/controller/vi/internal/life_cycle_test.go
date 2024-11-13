@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -29,30 +30,19 @@ import (
 )
 
 var _ = Describe("LifeCycleHandler Run", func() {
-	DescribeTable("Check lifeCycle Cleanup calling",
-		func(
-			readyConditionStatus, scConditionReadyStatus metav1.ConditionStatus,
-			changedMock bool,
-			scInStatus string,
-			storageType virtv2.StorageType,
-			needCleanUp bool,
-		) {
+	DescribeTable(
+		"Check LifeCycleCleanup calling after spec changes",
+		func(args cleanupAfterSpecChangeTestArgs) {
+			args.ReadyCondition.Type = vicondition.ReadyType
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
 			vi := virtv2.VirtualImage{
-				Spec: virtv2.VirtualImageSpec{
-					Storage: storageType,
-				},
 				Status: virtv2.VirtualImageStatus{
-					StorageClassName: scInStatus,
 					Conditions: []metav1.Condition{
+						args.ReadyCondition,
 						{
 							Type:   vicondition.StorageClassReadyType,
-							Status: scConditionReadyStatus,
-						},
-						{
-							Type:   vicondition.ReadyType,
-							Status: readyConditionStatus,
+							Status: metav1.ConditionTrue,
 						},
 						{
 							Type:   vicondition.DatasourceReadyType,
@@ -68,81 +58,189 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			}
 
 			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
-				return changedMock
+				return args.SpecChanged
 			}
 
 			sourcesMock.ForFunc = func(_ virtv2.DataSourceType) (source.Handler, bool) {
-				return nil, false
+				var handler source.HandlerMock
+
+				handler.StoreToPVCFunc = func(_ context.Context, _ *virtv2.VirtualImage) (reconcile.Result, error) {
+					return reconcile.Result{}, nil
+				}
+
+				return &handler, false
 			}
 
 			handler := NewLifeCycleHandler(&sourcesMock, nil)
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 
-			Expect(cleanUpCalled).To(Equal(needCleanUp))
+			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
 		},
 		Entry(
-			"Should call cleanup",
-			metav1.ConditionUnknown,
-			metav1.ConditionUnknown,
-			true,
-			"",
-			virtv2.StorageContainerRegistry,
-			true,
+			"Should to call cleanup",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionUnknown,
+				},
+				SpecChanged:   true,
+				ExpectCleanup: true,
+			},
 		),
 		Entry(
-			"Should not call cleanup because ready condition true",
-			metav1.ConditionTrue,
-			metav1.ConditionUnknown,
-			true,
-			"",
-			virtv2.StorageContainerRegistry,
-			false,
+			"Should not to call cleanup because ready condition status is true",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+				},
+				SpecChanged:   true,
+				ExpectCleanup: false,
+			},
 		),
 		Entry(
-			"Should call cleanup",
-			metav1.ConditionUnknown,
-			metav1.ConditionUnknown,
-			false,
-			"hasClass",
-			virtv2.StorageKubernetes,
-			true,
+			"Should not to call cleanup because spec is not changed",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				SpecChanged:   false,
+				ExpectCleanup: false,
+			},
+		),
+	)
+
+	DescribeTable(
+		"Check LifeCycleCleanup calling when StorageClassReady condition status is false",
+		func(args cleanupAfterScNotReadyTestArgs) {
+			args.ReadyCondition.Type = vicondition.ReadyType
+			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType
+			var sourcesMock SourcesMock
+			cleanUpCalled := false
+			vi := virtv2.VirtualImage{
+				Spec: virtv2.VirtualImageSpec{
+					Storage: args.StorageType,
+				},
+				Status: virtv2.VirtualImageStatus{
+					Conditions: []metav1.Condition{
+						args.ReadyCondition,
+						args.StorageClassReadyCondition,
+						{
+							Type:   vicondition.DatasourceReadyType,
+							Status: metav1.ConditionTrue,
+						},
+					},
+					StorageClassName: args.StorageClassInStatus,
+				},
+			}
+
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
+				cleanUpCalled = true
+				return false, nil
+			}
+
+			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+				return false
+			}
+
+			sourcesMock.ForFunc = func(_ virtv2.DataSourceType) (source.Handler, bool) {
+				var handler source.HandlerMock
+
+				handler.StoreToPVCFunc = func(_ context.Context, _ *virtv2.VirtualImage) (reconcile.Result, error) {
+					return reconcile.Result{}, nil
+				}
+
+				return &handler, false
+			}
+
+			handler := NewLifeCycleHandler(&sourcesMock, nil)
+
+			_, _ = handler.Handle(context.TODO(), &vi)
+
+			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
+		},
+		Entry(
+			"Should to call cleanup",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatus: "sc",
+				StorageType:          virtv2.StorageKubernetes,
+				ExpectCleanup:        true,
+			},
 		),
 		Entry(
-			"Should not call because ready condition true",
-			metav1.ConditionUnknown,
-			metav1.ConditionTrue,
-			false,
-			"hasClass",
-			virtv2.StorageKubernetes,
-			false,
+			"Should not to call cleanup because DVCR storage type used",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatus: "sc",
+				StorageType:          virtv2.StorageContainerRegistry,
+				ExpectCleanup:        false,
+			},
 		),
 		Entry(
-			"Should not call cleanup because storageClass ready condition true",
-			metav1.ConditionTrue,
-			metav1.ConditionUnknown,
-			false,
-			"hasClass",
-			virtv2.StorageKubernetes,
-			false,
+			"Should not to call cleanup because there is no sc in status",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatus: "",
+				StorageType:          virtv2.StorageKubernetes,
+				ExpectCleanup:        false,
+			},
 		),
 		Entry(
-			"Should not call cleanup because not storage class in status",
-			metav1.ConditionUnknown,
-			metav1.ConditionUnknown,
-			false,
-			"",
-			virtv2.StorageKubernetes,
-			false,
+			"Should not to call cleanup because ready condition status is true",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatus: "sc",
+				StorageType:          virtv2.StorageKubernetes,
+				ExpectCleanup:        false,
+			},
 		),
 		Entry(
-			"Should not call cleanup because dvcr storage type",
-			metav1.ConditionUnknown,
-			metav1.ConditionUnknown,
-			false,
-			"hasClass",
-			virtv2.StorageContainerRegistry,
-			false,
+			"Should not to call cleanup because storage class ready condition status is true",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+				},
+				StorageClassInStatus: "sc",
+				StorageType:          virtv2.StorageKubernetes,
+				ExpectCleanup:        false,
+			},
 		),
 	)
 })
+
+type cleanupAfterSpecChangeTestArgs struct {
+	ReadyCondition metav1.Condition
+	SpecChanged    bool
+	ExpectCleanup  bool
+}
+
+type cleanupAfterScNotReadyTestArgs struct {
+	ReadyCondition             metav1.Condition
+	StorageClassReadyCondition metav1.Condition
+	StorageClassInStatus       string
+	StorageType                virtv2.StorageType
+	ExpectCleanup              bool
+}

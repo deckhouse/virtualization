@@ -30,7 +30,7 @@ import (
 //go:generate moq -rm -out mock.go . DiskService Sources
 
 type Sources interface {
-	Changed(_ context.Context, vi *virtv2.VirtualImage) bool
+	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool
 	For(dsType virtv2.DataSourceType) (source.Handler, bool)
 	CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
 }

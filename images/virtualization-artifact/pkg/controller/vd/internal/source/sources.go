@@ -35,6 +35,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+//go:generate moq -rm -out mock.go . Handler
+
 type Handler interface {
 	Name() string
 	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)

@@ -19,11 +19,11 @@ package internal
 import (
 	"context"
 	"log/slog"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
@@ -33,34 +33,30 @@ import (
 )
 
 var _ = Describe("LifeCycleHandler Run", func() {
-	DescribeTable("Check lifeCycleCleanup calling",
-		func(
-			readyConditionStatus metav1.ConditionStatus,
-			readyConditionReason string,
-			scConditionReadyStatus metav1.ConditionStatus,
-			changedMock bool,
-			scInStatus string,
-			needCleanUp bool,
-		) {
+	DescribeTable(
+		"Check LifeCycleCleanup calling after spec changes",
+		func(args cleanupAfterSpecChangeTestArgs) {
 			var sourcesMock SourcesMock
+			args.ReadyCondition.Type = vdcondition.ReadyType
 			cleanUpCalled := false
 			vd := virtv2.VirtualDisk{
 				Status: virtv2.VirtualDiskStatus{
-					StorageClassName: scInStatus,
+					StorageClassName: "",
 					Conditions: []metav1.Condition{
-						{
-							Type:   vdcondition.StorageClassReadyType,
-							Status: scConditionReadyStatus,
-						},
-						{
-							Type:   vdcondition.ReadyType,
-							Status: readyConditionStatus,
-							Reason: readyConditionReason,
-						},
+						args.ReadyCondition,
 						{
 							Type:   vdcondition.DatasourceReadyType,
 							Status: metav1.ConditionTrue,
 						},
+						{
+							Type:   vdcondition.StorageClassReadyType,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+				Spec: virtv2.VirtualDiskSpec{
+					DataSource: &virtv2.VirtualDiskDataSource{
+						Type: virtv2.DataSourceTypeHTTP,
 					},
 				},
 			}
@@ -71,88 +67,190 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			}
 
 			sourcesMock.ChangedFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) bool {
-				return changedMock
+				return args.SpecChanged
 			}
 
 			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
-				return nil, false
+				var handler source.HandlerMock
+
+				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
+					return reconcile.Result{}, nil
+				}
+
+				return &handler, false
 			}
 
 			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
 
-			opts := slog.HandlerOptions{
-				AddSource: true,
-				Level:     slog.Level(-1),
-			}
-			slogHandler := slog.NewJSONHandler(os.Stderr, &opts)
-			ctx := logger.ToContext(context.TODO(), slog.New(slogHandler))
+			ctx := logger.ToContext(context.TODO(), slog.Default())
 
 			_, _ = handler.Handle(ctx, &vd)
 
-			Expect(cleanUpCalled).To(Equal(needCleanUp))
+			Expect(cleanUpCalled).Should(Equal(args.ExpectCleanup))
 		},
 		Entry(
-			"Should call cleanUp because changed spec",
-			metav1.ConditionUnknown,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			true,
-			"",
-			true,
+			"Should to call cleanup",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionUnknown,
+					Reason: conditions.ReasonUnknown.String(),
+				},
+				SpecChanged:   true,
+				ExpectCleanup: true,
+			},
 		),
 		Entry(
-			"Should not call cleanUp because ready condition true",
-			metav1.ConditionTrue,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			true,
-			"",
-			false,
+			"Should not to call cleanup because spec has not changed",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionUnknown,
+					Reason: conditions.ReasonUnknown.String(),
+				},
+				SpecChanged:   false,
+				ExpectCleanup: false,
+			},
 		),
 		Entry(
-			"Should not call cleanUp because ready condition reason Lost",
-			metav1.ConditionUnknown,
-			vdcondition.Lost,
-			metav1.ConditionUnknown,
-			true,
-			"",
-			false,
+			"Should not to call cleanup because readyCondition status is true",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+					Reason: vdcondition.Ready,
+				},
+				SpecChanged:   true,
+				ExpectCleanup: false,
+			},
 		),
 		Entry(
-			"Should not call cleanUp because spec not changed",
-			metav1.ConditionUnknown,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			false,
-			"",
-			false,
+			"Should not to call cleanup because readyCondition reason is Lost",
+			cleanupAfterSpecChangeTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionUnknown,
+					Reason: vdcondition.Lost,
+				},
+				SpecChanged:   true,
+				ExpectCleanup: false,
+			},
+		),
+	)
+
+	DescribeTable(
+		"Check LifeCycleCleanup calling after StorageClassReady set to false",
+		func(args cleanupAfterScNotReadyTestArgs) {
+			args.ReadyCondition.Type = vdcondition.ReadyType
+			args.StorageClassReadyCondition.Type = vdcondition.StorageClassReadyType
+			var sourcesMock SourcesMock
+			cleanUpCalled := false
+			vd := virtv2.VirtualDisk{
+				Status: virtv2.VirtualDiskStatus{
+					StorageClassName: args.StorageClassInStatusName,
+					Conditions: []metav1.Condition{
+						args.ReadyCondition,
+						args.StorageClassReadyCondition,
+						{
+							Type:   vdcondition.DatasourceReadyType,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+				Spec: virtv2.VirtualDiskSpec{
+					DataSource: &virtv2.VirtualDiskDataSource{
+						Type: virtv2.DataSourceTypeHTTP,
+					},
+				},
+			}
+
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+				cleanUpCalled = true
+				return false, nil
+			}
+
+			sourcesMock.ChangedFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) bool {
+				return false
+			}
+
+			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+				var handler source.HandlerMock
+
+				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
+					return reconcile.Result{}, nil
+				}
+
+				return &handler, false
+			}
+
+			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
+
+			ctx := logger.ToContext(context.TODO(), slog.Default())
+
+			_, _ = handler.Handle(ctx, &vd)
+
+			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
+		},
+		Entry(
+			"Should to call cleanup because StorageClassReady status is false",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatusName: "sc",
+				ExpectCleanup:            true,
+			},
 		),
 		Entry(
-			"Should call cleanUp because StorageClassReady condition turned to false",
-			metav1.ConditionUnknown,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			false,
-			"sc",
-			true,
+			"Should not to call cleanup because StorageClassReady status is true",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+				},
+				StorageClassInStatusName: "sc",
+				ExpectCleanup:            false,
+			},
 		),
 		Entry(
-			"Should not call cleanUp because no StorageClass in status",
-			metav1.ConditionUnknown,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			false,
-			"",
-			false,
+			"Should to call cleanup because Ready status is true",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionTrue,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatusName: "sc",
+				ExpectCleanup:            false,
+			},
 		),
 		Entry(
-			"Should not call cleanUp because ready condition true",
-			metav1.ConditionTrue,
-			conditions.ReasonUnknown.String(),
-			metav1.ConditionUnknown,
-			false,
-			"sc",
-			false,
+			"Should to call cleanup because StorageClass in status is empty",
+			cleanupAfterScNotReadyTestArgs{
+				ReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassReadyCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+				},
+				StorageClassInStatusName: "",
+				ExpectCleanup:            false,
+			},
 		),
 	)
 })
+
+type cleanupAfterSpecChangeTestArgs struct {
+	ReadyCondition metav1.Condition
+	SpecChanged    bool
+	ExpectCleanup  bool
+}
+
+type cleanupAfterScNotReadyTestArgs struct {
+	ReadyCondition             metav1.Condition
+	StorageClassReadyCondition metav1.Condition
+	StorageClassInStatusName   string
+	ExpectCleanup              bool
+}
