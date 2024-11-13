@@ -93,3 +93,7 @@ Currently covered metrics:
 - virt-handler
 - virt-controller
 - virt-api
+
+#### `024-auto-migrate-if-nodeplacement-changed.patch`
+
+Start the migration if the nodeSelector or affinity has changed.
