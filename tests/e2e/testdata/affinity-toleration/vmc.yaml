@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: affinity-discovery
+spec:
+  cpu:
+    type: Discovery

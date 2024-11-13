@@ -1,0 +1,15 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  affinity:
+    virtualMachineAndPodAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: vm
+                operator: In
+                values:
+                  - vm-b
+          topologyKey: kubernetes.io/hostname

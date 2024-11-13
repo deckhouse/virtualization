@@ -91,6 +91,7 @@ func init() {
 	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
+		fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
