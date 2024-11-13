@@ -61,18 +61,18 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"Should be from status if have in status, but not in spec",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "",
-				VI:                           newVI(nil, "fromStatus", ""),
+				VI:                           newVI(nil, "scInStatus", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("fromStatus"),
+				ExpectedStatus:               ptr.To("scInStatus"),
 			},
 		),
 		Entry(
 			"Should be from status if have in status and in mc",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(nil, "fromStatus", ""),
+				VI:                           newVI(nil, "scInStatus", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("fromStatus"),
+				ExpectedStatus:               ptr.To("scInStatus"),
 			},
 		),
 		Entry(
@@ -88,36 +88,36 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"Should be from spec if pvc does not exists",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
 				PVC:                          nil,
-				ExpectedStatus:               ptr.To("fromSpec"),
+				ExpectedStatus:               ptr.To("scInSpec"),
 			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is nil",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
 				PVC:                          newPVC(nil),
-				ExpectedStatus:               ptr.To("fromSpec"),
+				ExpectedStatus:               ptr.To("scInSpec"),
 			},
 		),
 		Entry(
 			"Should be from spec if pvc exists, but his storage class is empty",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
+				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
 				PVC:                          newPVC(ptr.To("")),
-				ExpectedStatus:               ptr.To("fromSpec"),
+				ExpectedStatus:               ptr.To("scInSpec"),
 			},
 		),
 		Entry(
 			"Should be from pvc if pvc exists",
 			actualScNameTestArgs{
 				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("fromSpec"), "fromStatus", ""),
-				PVC:                          newPVC(ptr.To("fromPVC")),
-				ExpectedStatus:               ptr.To("fromPVC"),
+				VI:                           newVI(ptr.To("scInSpec"), "scInStatus", ""),
+				PVC:                          newPVC(ptr.To("scInPVC")),
+				ExpectedStatus:               ptr.To("scInPVC"),
 			},
 		),
 	)
