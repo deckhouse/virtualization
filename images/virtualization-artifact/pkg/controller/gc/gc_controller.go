@@ -17,18 +17,17 @@ limitations under the License.
 package gc
 
 import (
-	"log/slog"
-
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
 func SetupGcController(
 	controllerName string,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	watchSource source.Source,
 	newObject NewObject,
 	isNeedDelete IsNeedDelete,

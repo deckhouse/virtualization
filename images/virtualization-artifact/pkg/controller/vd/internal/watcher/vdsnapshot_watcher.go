@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/fields"
@@ -33,19 +32,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskSnapshotWatcher struct {
-	logger *slog.Logger
+	logger *log.Logger
 	client client.Client
 }
 
 func NewVirtualDiskSnapshotWatcher(client client.Client) *VirtualDiskSnapshotWatcher {
 	return &VirtualDiskSnapshotWatcher{
-		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskSnapshotKind)),
+		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskSnapshotKind)),
 		client: client,
 	}
 }

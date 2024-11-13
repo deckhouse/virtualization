@@ -25,24 +25,8 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/klog/v2"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
 
-func New(opts Options) *slog.Logger {
-	return slog.New(NewHandler(opts))
-}
-
-func SetDefaultLogger(l *slog.Logger) {
-	slog.SetDefault(l)
-	fromSlog := logr.FromSlogHandler(l.Handler())
-	logf.SetLogger(fromSlog)
-	klog.SetLogger(fromSlog)
-}
-
-type Format string
-
-const (
-	TextLog Format = "text"
-	JSONLog Format = "json"
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type Output string
@@ -53,63 +37,37 @@ const (
 	Discard Output = "discard"
 )
 
-const (
-	DefaultLogLevel  = slog.LevelInfo
-	DefaultLogFormat = JSONLog
-)
+const DefaultLogLevel = log.LevelInfo
 
 var DefaultLogOutput = os.Stdout
 
-type Options struct {
-	Level          string
-	DebugVerbosity int
-	Format         string
-	Output         string
-}
-
-func NewHandler(opts Options) slog.Handler {
-	logLevel := detectLogLevel(opts.Level, opts.DebugVerbosity)
-	logFormat := detectLogFormat(opts.Format)
-	logOutput := detectLogOutput(opts.Output)
-
-	logHandlerOpts := &slog.HandlerOptions{Level: logLevel}
-	switch logFormat {
-	case TextLog:
-		return slog.NewTextHandler(logOutput, logHandlerOpts)
-	case JSONLog:
-		return slog.NewJSONHandler(logOutput, logHandlerOpts)
-	default:
-		return slog.NewTextHandler(logOutput, logHandlerOpts)
-	}
+func NewLogger(level, output string, debugVerbosity int) *log.Logger {
+	return log.NewLogger(log.Options{
+		Level:  detectLogLevel(level, debugVerbosity),
+		Output: detectLogOutput(output),
+	})
 }
 
 func detectLogLevel(level string, debugVerbosity int) slog.Level {
 	switch strings.ToLower(level) {
+	case "fatal":
+		return log.LevelFatal.Level()
 	case "error":
-		return slog.LevelError
+		return log.LevelError.Level()
 	case "warn":
-		return slog.LevelWarn
+		return log.LevelWarn.Level()
 	case "info":
-		return slog.LevelInfo
+		return log.LevelInfo.Level()
 	case "debug":
 		if debugVerbosity != 0 {
 			return slog.Level(-1 * debugVerbosity)
 		}
 
-		return slog.LevelDebug
+		return log.LevelDebug.Level()
+	case "trace":
+		return log.LevelTrace.Level()
 	default:
-		return DefaultLogLevel
-	}
-}
-
-func detectLogFormat(format string) Format {
-	switch strings.ToLower(format) {
-	case string(TextLog):
-		return TextLog
-	case string(JSONLog):
-		return JSONLog
-	default:
-		return DefaultLogFormat
+		return DefaultLogLevel.Level()
 	}
 }
 
@@ -124,4 +82,11 @@ func detectLogOutput(output string) io.Writer {
 	default:
 		return DefaultLogOutput
 	}
+}
+
+func SetDefaultLogger(l *log.Logger) {
+	log.SetDefault(l)
+	fromSlog := logr.FromSlogHandler(l.Handler())
+	logf.SetLogger(fromSlog)
+	klog.SetLogger(fromSlog)
 }

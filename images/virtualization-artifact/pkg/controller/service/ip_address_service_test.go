@@ -17,12 +17,12 @@ limitations under the License.
 package service
 
 import (
-	"log/slog"
 	"net/netip"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -31,7 +31,7 @@ var _ = Describe("IpAddressService", func() {
 	var (
 		ipService    *IpAddressService
 		allocatedIPs common.AllocatedIPs
-		logger       *slog.Logger
+		logger       *log.Logger
 	)
 
 	BeforeEach(func() {

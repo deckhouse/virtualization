@@ -18,7 +18,6 @@ package cvi
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -49,7 +49,7 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	importerImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,

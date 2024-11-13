@@ -17,12 +17,12 @@ limitations under the License.
 package vmop
 
 import (
-	"log/slog"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -32,7 +32,7 @@ const gcControllerName = "vmop-gc-controller"
 
 func SetupGC(
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	gcSettings config.BaseGcSettings,
 ) error {
 	ttl := 24 * time.Hour

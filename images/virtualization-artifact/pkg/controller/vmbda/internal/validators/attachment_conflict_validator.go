@@ -19,20 +19,20 @@ package validators
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type AttachmentConflictValidator struct {
-	log     *slog.Logger
+	log     *log.Logger
 	service *service.AttachmentService
 }
 
-func NewAttachmentConflictValidator(service *service.AttachmentService, log *slog.Logger) *AttachmentConflictValidator {
+func NewAttachmentConflictValidator(service *service.AttachmentService, log *log.Logger) *AttachmentConflictValidator {
 	return &AttachmentConflictValidator{
 		log:     log,
 		service: service,

@@ -18,7 +18,6 @@ package vmclass
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -39,7 +39,7 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	controllerNamespace string,
-	log *slog.Logger,
+	log *log.Logger,
 ) (controller.Controller, error) {
 	log = log.With(logger.SlogController(controllerName))
 
