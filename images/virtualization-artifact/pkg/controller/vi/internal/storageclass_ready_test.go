@@ -134,7 +134,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
 		},
 		Entry(
-			"StorageClassReady must be false because used dvcr storage type",
+			"StorageClassReady must be false because used DVCR storage type",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(nil),
 				VI:              newVI(nil, "", virtv2.StorageContainerRegistry),

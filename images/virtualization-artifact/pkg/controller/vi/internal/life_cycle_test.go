@@ -31,7 +31,7 @@ import (
 
 var _ = Describe("LifeCycleHandler Run", func() {
 	DescribeTable(
-		"Check LifeCycleCleanup calling after spec changes",
+		"Check on LifeCycle.Cleanup after spec changes",
 		func(args cleanupAfterSpecChangeTestArgs) {
 			args.ReadyCondition.Type = vicondition.ReadyType
 			var sourcesMock SourcesMock
@@ -78,7 +78,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
 		},
 		Entry(
-			"Should to call cleanup",
+			"CleanUp should be called",
 			cleanupAfterSpecChangeTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionUnknown,
@@ -88,7 +88,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because ready condition status is true",
+			"CleanUp should not be called because ReadyCondition status is true",
 			cleanupAfterSpecChangeTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
@@ -98,7 +98,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because spec is not changed",
+			"CleanUp should not be called because spec is not changed",
 			cleanupAfterSpecChangeTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
@@ -110,7 +110,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 	)
 
 	DescribeTable(
-		"Check LifeCycleCleanup calling when StorageClassReady condition status is false",
+		"Verification that LifeCycle.CleanUp is called after the StorageClassReady status becomes false",
 		func(args cleanupAfterScNotReadyTestArgs) {
 			args.ReadyCondition.Type = vicondition.ReadyType
 			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType
@@ -159,7 +159,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
 		},
 		Entry(
-			"Should to call cleanup",
+			"CleanUp should be called",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
@@ -173,7 +173,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because DVCR storage type used",
+			"CleanUp should not be called because DVCR storage type used",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
@@ -187,7 +187,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because there is no sc in status",
+			"CleanUp should not be called because there is no sc in status",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
@@ -201,7 +201,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because ready condition status is true",
+			"CleanUp should not be called because ReadyCondition status is true",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
@@ -215,7 +215,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			},
 		),
 		Entry(
-			"Should not to call cleanup because storage class ready condition status is true",
+			"Should not to call cleanup because StorageClassReady condition status is true",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
