@@ -107,9 +107,13 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
 		cpu.Features = make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
+			policy := "require"
+			if feature == "invtsc" {
+				policy = "optional"
+			}
 			cpu.Features[i] = virtv1.CPUFeature{
 				Name:   feature,
-				Policy: "require",
+				Policy: policy,
 			}
 		}
 	default:
