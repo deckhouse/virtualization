@@ -97,16 +97,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	storageClassReadyCondition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if !ok {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = vdcondition.StorageClassNotReady
-		readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
-		service.SetCondition(readyCondition, &vd.Status.Conditions)
+		readyCB := conditions.
+			NewConditionBuilder(vdcondition.ReadyType).
+			Generation(vd.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message("Storage class is not ready, please read the StorageClassReady condition state.")
+
+		conditions.SetCondition(readyCB, &vd.Status.Conditions)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {

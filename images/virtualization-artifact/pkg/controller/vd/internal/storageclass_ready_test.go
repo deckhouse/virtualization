@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -39,7 +39,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			_, err := handler.Handle(context.TODO(), args.VirtualDisk)
 
 			Expect(err).To(BeNil())
-			condition, ok := service.GetCondition(vdcondition.StorageClassReadyType, args.VirtualDisk.Status.Conditions)
+			condition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, args.VirtualDisk.Status.Conditions)
 			Expect(ok).To(BeTrue())
 			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
 			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
@@ -53,7 +53,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
-					Reason: vdcondition.StorageClassNotFound,
+					Reason: vdcondition.StorageClassNotFound.String(),
 				},
 				ExpectedStorageClassInStatus: "",
 			},
@@ -66,7 +66,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     ptr.To("sc"),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "sc",
 			},
@@ -79,7 +79,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "sc",
 			},
@@ -92,7 +92,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "sc",
 			},
@@ -105,7 +105,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
-					Reason: vdcondition.StorageClassNotFound,
+					Reason: vdcondition.StorageClassNotFound.String(),
 				},
 				ExpectedStorageClassInStatus: "statusSC",
 			},
@@ -118,7 +118,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     ptr.To("pvcSC"),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "pvcSC",
 			},
@@ -131,7 +131,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     ptr.To("pvcSC"),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "pvcSC",
 			},
@@ -144,7 +144,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				StorageClassInExistedPVC:     nil,
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady,
+					Reason: vdcondition.StorageClassReady.String(),
 				},
 				ExpectedStorageClassInStatus: "specSC",
 			},

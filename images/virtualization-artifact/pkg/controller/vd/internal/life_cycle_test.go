@@ -37,7 +37,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 		"Check on LifeCycle.Cleanup after spec changes",
 		func(args cleanupAfterSpecChangeTestArgs) {
 			var sourcesMock SourcesMock
-			args.ReadyCondition.Type = vdcondition.ReadyType
+			args.ReadyCondition.Type = vdcondition.ReadyType.String()
 			cleanUpCalled := false
 			vd := virtv2.VirtualDisk{
 				Status: virtv2.VirtualDiskStatus{
@@ -45,11 +45,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						{
-							Type:   vdcondition.DatasourceReadyType,
+							Type:   vdcondition.DatasourceReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 						{
-							Type:   vdcondition.StorageClassReadyType,
+							Type:   vdcondition.StorageClassReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
@@ -115,7 +115,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			cleanupAfterSpecChangeTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vdcondition.Ready,
+					Reason: vdcondition.Ready.String(),
 				},
 				SpecChanged:   true,
 				ExpectCleanup: false,
@@ -126,7 +126,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			cleanupAfterSpecChangeTestArgs{
 				ReadyCondition: metav1.Condition{
 					Status: metav1.ConditionUnknown,
-					Reason: vdcondition.Lost,
+					Reason: vdcondition.Lost.String(),
 				},
 				SpecChanged:   true,
 				ExpectCleanup: false,
@@ -137,8 +137,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 	DescribeTable(
 		"Verification that LifeCycle.CleanUp is called after the StorageClassReady status becomes false",
 		func(args cleanupAfterScNotReadyTestArgs) {
-			args.ReadyCondition.Type = vdcondition.ReadyType
-			args.StorageClassReadyCondition.Type = vdcondition.StorageClassReadyType
+			args.ReadyCondition.Type = vdcondition.ReadyType.String()
+			args.StorageClassReadyCondition.Type = vdcondition.StorageClassReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
 			vd := virtv2.VirtualDisk{
@@ -148,7 +148,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 						args.ReadyCondition,
 						args.StorageClassReadyCondition,
 						{
-							Type:   vdcondition.DatasourceReadyType,
+							Type:   vdcondition.DatasourceReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
