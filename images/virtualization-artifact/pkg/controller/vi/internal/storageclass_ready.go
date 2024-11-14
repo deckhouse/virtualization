@@ -50,28 +50,22 @@ func NewStorageClassReadyHandler(diskService DiskService, storageClassFromModule
 }
 
 func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.StorageClassReadyType,
-			Reason: conditions.ReasonUnknown.String(),
-			Status: metav1.ConditionUnknown,
-		}
-	}
+	cb := conditions.NewConditionBuilder(vicondition.StorageClassReadyType).Generation(vi.Generation)
 
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	if vi.DeletionTimestamp != nil {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = conditions.ReasonUnknown.String()
-		condition.Message = ""
-		return reconcile.Result{}, nil
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
 	}
 
 	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = vicondition.DVCRTypeUsed
-		condition.Message = "Used dvcr storage"
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(vicondition.DVCRTypeUsed).
+			Message("Used dvcr storage")
 		return reconcile.Result{}, nil
 	}
 
@@ -101,17 +95,20 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 
 	switch {
 	case sc != nil:
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.StorageClassReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.StorageClassReady).
+			Message("")
 	case hasNoStorageClassInSpec:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.StorageClassNotFound
-		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual image or virtualization module config specification."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotFound).
+			Message("The default storage class was not found in cluster. Please specify the storage class name in the virtual image or virtualization module config specification.")
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.StorageClassNotFound
-		condition.Message = fmt.Sprintf("Storage class %q not found", *vi.Spec.PersistentVolumeClaim.StorageClass)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotFound).
+			Message(fmt.Sprintf("Storage class %q not found", *vi.Spec.PersistentVolumeClaim.StorageClass))
 	}
 
 	return reconcile.Result{}, nil

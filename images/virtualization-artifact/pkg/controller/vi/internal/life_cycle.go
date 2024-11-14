@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -91,16 +90,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	storageClassReadyCondition, ok := service.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
+	storageClassReadyCondition, ok := conditions.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
 	if !ok {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vicondition.StorageClassReadyType)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && vi.Spec.Storage == virtv2.StorageKubernetes && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = vicondition.StorageClassNotReady
-		readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
-		service.SetCondition(readyCondition, &vi.Status.Conditions)
+		readyCB := conditions.NewConditionBuilder(vicondition.ReadyType).
+			Generation(vi.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotReady).
+			Message("Storage class is not ready, please read the StorageClassReady condition state.")
+		conditions.SetCondition(readyCB, &vi.Status.Conditions)
 	}
 
 	if vi.Spec.Storage == virtv2.StorageKubernetes &&

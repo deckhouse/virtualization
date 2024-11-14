@@ -49,6 +49,10 @@ func (s ReadyReason) String() string {
 	return string(s)
 }
 
+func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
 const (
 	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
 	DatasourceReady DatasourceReadyReason = "DatasourceReady"
