@@ -207,7 +207,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, &vd.Status.StorageClassName, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
 			return reconcile.Result{}, err
 		}

@@ -72,6 +72,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewStorageClassReadyHandler(disk, storageClassForVirtualImageOnPVC),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),

@@ -173,14 +173,14 @@ func setPhaseConditionForPVCProvisioningImage(
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("Provided StorageClass not found in the cluster.")
 		return nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
@@ -224,14 +224,14 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *c
 			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImageFailed
+		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("Provided StorageClass not found in the cluster.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImageFailed
+		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).

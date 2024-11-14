@@ -402,6 +402,10 @@ spec:
                   type: string
                   description: |
                     The UID of the source (`VirtualImage` or `ClusterVirtualImage`) used when creating the virtual disk.
+                storageClassName:
+                  type: string
+                  description: |
+                    The name of the `StorageClass` used by the `PersistentVolumeClaim`.
                 observedGeneration:
                   type: integer
                   description: |

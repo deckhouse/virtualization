@@ -21,25 +21,21 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Handler Sources DiskService
-
-type Handler = source.Handler
+//go:generate moq -rm -out mock.go . DiskService Sources
 
 type Sources interface {
-	Changed(_ context.Context, vi *virtv2.VirtualDisk) bool
-	Get(dsType virtv2.DataSourceType) (source.Handler, bool)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool
+	For(dsType virtv2.DataSourceType) (source.Handler, bool)
+	CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
 }
 
 type DiskService interface {
-	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

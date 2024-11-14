@@ -28,6 +28,8 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// StorageClassReadyType indicates whether the storageClass ready
+	StorageClassReadyType Type = "StorageClassReady"
 )
 
 type (
@@ -35,6 +37,8 @@ type (
 	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason string
+	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
+	StorageClassReadyReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -65,9 +69,18 @@ const (
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
+	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+
+	// StorageClassReady indicates that the chosen StorageClass exists.
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotFound indicates that the chosen StorageClass not found.
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
+	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
 )
