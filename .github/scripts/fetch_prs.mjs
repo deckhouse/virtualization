@@ -21,7 +21,7 @@ const owner = 'deckhouse';
 const repo = 'virtualization';
 const project = ':dvp: DVP';
 const defaultLogin = '@anton.nikonov';
-const octokit = new Octokit({ auth: process.env.RELEASE_PLEASE_TOKEN });
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 const recentDays = 2;
 const approvalsRequired = 1
 
