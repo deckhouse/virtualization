@@ -10,8 +10,10 @@
 {{- $settings := index . 1 }}
 - name: {{ $settings.containerName | default "kube-rbac-proxy" }}
   {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" $ctx | nindent 2 }}
-  {{- if $settings.runAsUserNobody | default true }}
-  {{- include "helm_lib_module_pod_security_context_run_as_user_nobody" . | nindent 2}} 
+  {{- if eq $settings.runAsUserNobody true }}
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
   {{- end }}
   image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") }}
   args:
@@ -35,11 +37,11 @@
           path: {{ $settings.path | default "/metrics" }}
           authorization:
             resourceAttributes:
-              namespace: {{ $settings.namespace }}
-              apiGroup: {{ $settings.apiGroup }}
-              apiVersion: {{ $settings.apiVersion }}
-              resource: {{ $settings.resource }}
-              subresource: {{ $settings.subresource }}
+              namespace: {{ $settings.namespace | default "d8-virtualization" }}
+              apiGroup: {{ $settings.apiGroup | default "apps" }}
+              apiVersion: {{ $settings.apiVersion | default "v1" }}
+              resource: {{ $settings.resource | default "deployment" }}
+              subresource: {{ $settings.subresource | default "prometheus-metrics" }}
               name: {{ $settings.name }}
   resources:
     requests:
