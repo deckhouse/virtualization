@@ -39,8 +39,6 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 ) error {
-	log = log.With(logger.SlogController(ControllerName))
-
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		internal.NewVirtualMachineSnapshotReadyToUseHandler(mgr.GetClient()),

@@ -20,6 +20,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -46,6 +47,23 @@ func NewLogger(level, output string, debugVerbosity int) *log.Logger {
 		Level:  detectLogLevel(level, debugVerbosity),
 		Output: detectLogOutput(output),
 	})
+}
+
+func NewControllerLogger(controllerName, level, output string, debugVerbosity int, controllerDebugList []string) *log.Logger {
+	slogLevel := detectLogLevel(level, debugVerbosity)
+
+	if slices.Contains(controllerDebugList, controllerName) {
+		if debugVerbosity != 0 {
+			slogLevel = slog.Level(-1 * debugVerbosity)
+		} else {
+			slogLevel = log.LevelDebug.Level()
+		}
+	}
+
+	return log.NewLogger(log.Options{
+		Level:  slogLevel,
+		Output: detectLogOutput(output),
+	}).With(SlogController(controllerName))
 }
 
 func detectLogLevel(level string, debugVerbosity int) slog.Level {

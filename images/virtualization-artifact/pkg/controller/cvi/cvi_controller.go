@@ -56,8 +56,6 @@ func NewController(
 	dvcr *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(ControllerName))
-
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerCVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)

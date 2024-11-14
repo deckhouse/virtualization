@@ -29,7 +29,7 @@ import (
 
 func NewValidator(log *log.Logger) *Validator {
 	return &Validator{
-		log: log.With("controller", controllerName).With("webhook", "validation"),
+		log: log.With("controller", ControllerName).With("webhook", "validation"),
 	}
 }
 
