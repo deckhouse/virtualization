@@ -194,7 +194,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(ds.storageClassForPVC), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
 			return reconcile.Result{}, err
 		}

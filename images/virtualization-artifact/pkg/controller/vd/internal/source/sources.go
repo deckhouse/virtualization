@@ -35,6 +35,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+//go:generate moq -rm -out mock.go . Handler
+
 type Handler interface {
 	Name() string
 	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
@@ -134,19 +136,19 @@ func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, condit
 	case err == nil:
 		return false, nil
 	case errors.Is(err, service.ErrStorageProfileNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = virtv2.DiskPending
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass."
 		return true, nil
 	case errors.Is(err, service.ErrStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = virtv2.DiskPending
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "Provided StorageClass not found in the cluster."
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = virtv2.DiskPending
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = vdcondition.ProvisioningFailed
 		condition.Message = "Default StorageClass not found in the cluster: please provide a StorageClass name or set a default StorageClass."
