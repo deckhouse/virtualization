@@ -8,6 +8,9 @@ spec:
       containers:
       - name: {{ $settings.containerName | default "kube-rbac-proxy" }}
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" $ctx | nindent 8 }}
+        {{- if $settings.runAsUserNobody | default true }}
+        {{- include "helm_lib_module_pod_security_context_run_as_user_nobody" . | nindent 8}} 
+        {{- end }}
         image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") }}
         args:
         - "--secure-listen-address=$(KUBE_RBAC_PROXY_LISTEN_ADDRESS):{{ $settings.listenPort | default "8082" }}"
