@@ -241,7 +241,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 		err = ds.diskService.StartImmediate(ctx, size, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
-
 			return reconcile.Result{}, err
 		}
 
