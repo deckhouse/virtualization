@@ -49,11 +49,11 @@ spec:
         - containerPort: {{ $settings.listenPort | default "8082" }}
           name: {{ $settings.portName | default "https-metrics" }}
           protocol: TCP
-    volumes:
-    - name: kube-rbac-proxy-ca
-      configMap:
-        defaultMode: 420
-        name: kube-rbac-proxy-ca.crt
+      volumes:
+      - name: kube-rbac-proxy-ca
+        configMap:
+          defaultMode: 420
+          name: kube-rbac-proxy-ca.crt
 {{- end }}
 
 {{- define "kube_rbac_proxy.image" -}}
