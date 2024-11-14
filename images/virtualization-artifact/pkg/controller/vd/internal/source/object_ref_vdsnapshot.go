@@ -112,6 +112,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		if storageClassName != "" {
 			spec.StorageClassName = &storageClassName
+			vd.Status.StorageClassName = storageClassName
 		}
 
 		if volumeMode != "" {

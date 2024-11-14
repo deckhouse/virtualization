@@ -213,6 +213,9 @@ spec:
                 sourceUID:
                   description: |
                     UID источника (`VirtualImage` или `ClusterVirtualImage`), использовавшегося при создании виртуального диска.
+                storageClassName:
+                  description: |
+                    Имя StorageClass, использованного для создания DataVolume.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

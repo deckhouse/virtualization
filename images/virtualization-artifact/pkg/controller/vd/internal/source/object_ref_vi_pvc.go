@@ -167,7 +167,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			return reconcile.Result{}, err
 		}
 
-		sc, err := ds.diskService.GetStorageClass(ctx, vd.Spec.PersistentVolumeClaim.StorageClass)
+		sc, err := ds.diskService.GetStorageClass(ctx, &vd.Status.StorageClassName)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

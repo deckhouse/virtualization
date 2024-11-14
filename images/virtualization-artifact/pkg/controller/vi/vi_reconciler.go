@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -236,6 +237,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), viFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+
+	storageClassReadyWatcher := watcher.NewStorageClassWatcher(mgr.GetClient())
+	if err := storageClassReadyWatcher.Watch(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on StorageClass: %w", err)
 	}
 
 	return nil

@@ -32,6 +32,8 @@ const (
 	ResizedType Type = "Resized"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"
+	// StorageClassReadyType indicates whether the storage class is ready.
+	StorageClassReadyType Type = "StorageClassReady"
 )
 
 type (
@@ -43,6 +45,8 @@ type (
 	ResizedReason string
 	// SnapshottingReason represents the various reasons for the Snapshotting condition type.
 	SnapshottingReason string
+	// StorageClassReadyReason represents the various reasons for the Storageclass ready condition type.
+	StorageClassReadyReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -83,6 +87,8 @@ const (
 	WaitingForFirstConsumer ReadyReason = "WaitingForFirstConsumer"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
+	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualDisk` is ready for use.
 	Ready ReadyReason = "Ready"
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
@@ -103,4 +109,9 @@ const (
 	Snapshotting SnapshottingReason = "Snapshotting"
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
 	SnapshottingNotAvailable SnapshottingReason = "NotAvailable"
+
+	// StorageClassReady indicates that the storage class is ready
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotFound indicates that the storage class is not ready
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 )
