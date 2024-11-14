@@ -33,7 +33,9 @@ import (
 type Handler = source.Handler
 
 type Sources interface {
+	Changed(_ context.Context, vi *virtv2.VirtualDisk) bool
 	Get(dsType virtv2.DataSourceType) (source.Handler, bool)
+	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
 }
 
 type DiskService interface {

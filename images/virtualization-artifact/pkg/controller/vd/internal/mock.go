@@ -250,6 +250,12 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
+//			ChangedFunc: func(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool {
+//				panic("mock out the Changed method")
+//			},
+//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//				panic("mock out the CleanUp method")
+//			},
 //			GetFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
 //				panic("mock out the Get method")
 //			},
@@ -260,18 +266,112 @@ var _ Sources = &SourcesMock{}
 //
 //	}
 type SourcesMock struct {
+	// ChangedFunc mocks the Changed method.
+	ChangedFunc func(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool
+
+	// CleanUpFunc mocks the CleanUp method.
+	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+
 	// GetFunc mocks the Get method.
 	GetFunc func(dsType virtv2.DataSourceType) (source.Handler, bool)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Changed holds details about calls to the Changed method.
+		Changed []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// Vi is the vi argument value.
+			Vi *virtv2.VirtualDisk
+		}
+		// CleanUp holds details about calls to the CleanUp method.
+		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vd is the vd argument value.
+			Vd *virtv2.VirtualDisk
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// DsType is the dsType argument value.
 			DsType virtv2.DataSourceType
 		}
 	}
-	lockGet sync.RWMutex
+	lockChanged sync.RWMutex
+	lockCleanUp sync.RWMutex
+	lockGet     sync.RWMutex
+}
+
+// Changed calls ChangedFunc.
+func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool {
+	if mock.ChangedFunc == nil {
+		panic("SourcesMock.ChangedFunc: method is nil but Sources.Changed was just called")
+	}
+	callInfo := struct {
+		ContextMoqParam context.Context
+		Vi              *virtv2.VirtualDisk
+	}{
+		ContextMoqParam: contextMoqParam,
+		Vi:              vi,
+	}
+	mock.lockChanged.Lock()
+	mock.calls.Changed = append(mock.calls.Changed, callInfo)
+	mock.lockChanged.Unlock()
+	return mock.ChangedFunc(contextMoqParam, vi)
+}
+
+// ChangedCalls gets all the calls that were made to Changed.
+// Check the length with:
+//
+//	len(mockedSources.ChangedCalls())
+func (mock *SourcesMock) ChangedCalls() []struct {
+	ContextMoqParam context.Context
+	Vi              *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		Vi              *virtv2.VirtualDisk
+	}
+	mock.lockChanged.RLock()
+	calls = mock.calls.Changed
+	mock.lockChanged.RUnlock()
+	return calls
+}
+
+// CleanUp calls CleanUpFunc.
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	if mock.CleanUpFunc == nil {
+		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}{
+		Ctx: ctx,
+		Vd:  vd,
+	}
+	mock.lockCleanUp.Lock()
+	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
+	mock.lockCleanUp.Unlock()
+	return mock.CleanUpFunc(ctx, vd)
+}
+
+// CleanUpCalls gets all the calls that were made to CleanUp.
+// Check the length with:
+//
+//	len(mockedSources.CleanUpCalls())
+func (mock *SourcesMock) CleanUpCalls() []struct {
+	Ctx context.Context
+	Vd  *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}
+	mock.lockCleanUp.RLock()
+	calls = mock.calls.CleanUp
+	mock.lockCleanUp.RUnlock()
+	return calls
 }
 
 // Get calls GetFunc.

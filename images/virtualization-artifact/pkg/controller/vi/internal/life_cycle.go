@@ -26,17 +26,16 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type LifeCycleHandler struct {
 	client  client.Client
-	sources *source.Sources
+	sources Sources
 }
 
-func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		client:  client,
 		sources: sources,
