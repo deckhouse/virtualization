@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -63,7 +64,7 @@ func NewObjectRefVirtualDisk(importerService Importer, client client.Client, dis
 	}
 }
 
-func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vdRef.Namespace, vi.UID)
@@ -73,12 +74,13 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 	}
 
 	switch {
-	case isDiskProvisioningFinished(*condition):
+	case isDiskProvisioningFinished(cb.Condition()):
 		log.Info("Virtual image provisioning finished: clean up")
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Phase = virtv2.ImageReady
 
@@ -105,16 +107,17 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(condition, &vi.Status.Phase, err, vi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(condition, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("DVCR Provisioner not found: create the new one.")
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
@@ -126,18 +129,20 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Phase = virtv2.ImageReady
 		vi.Status.Size = ds.statService.GetSize(pod)
@@ -154,14 +159,16 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningNotStarted
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningNotStarted).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -173,9 +180,10 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 			return reconcile.Result{}, err
 		}
 
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
@@ -187,7 +195,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, condition *metav1.Condition) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -202,10 +210,10 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 	}
 
 	switch {
-	case isDiskProvisioningFinished(*condition):
+	case isDiskProvisioningFinished(cb.Condition()):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pvc, condition, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
@@ -240,29 +248,32 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		err = ds.diskService.StartImmediate(ctx, size, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, condition); err != nil || updated {
+		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "PVC Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "PVC not found: waiting for creation."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("PVC not found: waiting for creation.")
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Phase = virtv2.ImageReady
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		var imageStatus virtv2.ImageStatusSize
 		imageStatus.Stored = vdRef.Status.Capacity
@@ -283,7 +294,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			return reconcile.Result{}, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, condition, ds.diskService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, cb, ds.diskService)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

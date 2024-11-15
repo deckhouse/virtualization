@@ -31,6 +31,7 @@ import (
 	cc "github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -69,8 +70,9 @@ func NewUploadDataSource(
 func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -98,7 +100,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pvc, &condition, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
@@ -131,16 +133,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(&condition, &vi.Status.Phase, err, vi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("DVCR Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
 	case !common.IsPodComplete(pod):
@@ -148,7 +151,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			return reconcile.Result{}, setPhaseConditionFromPodError(&condition, vi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
 		}
 
 		if !ds.statService.IsUploadStarted(vi.GetUID(), pod) {
@@ -156,9 +159,10 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
 				vi.Status.Phase = virtv2.ImageWaitForUserUpload
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.WaitForUserUpload
-				condition.Message = "Waiting for the user upload."
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.WaitForUserUpload).
+					Message("Waiting for the user upload.")
 
 				vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
@@ -168,18 +172,20 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 
 				vi.Status.Phase = virtv2.ImagePending
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningNotStarted
-				condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningNotStarted).
+					Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 			}
 
 			return reconcile.Result{Requeue: true}, nil
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
@@ -197,9 +203,10 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
@@ -212,7 +219,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(pod)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, err)
+			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
 
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
 				return reconcile.Result{}, nil
@@ -224,29 +231,32 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vi, &condition); err != nil || updated {
+		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "PVC Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "PVC not found: waiting for creation."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("PVC not found: waiting for creation.")
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Phase = virtv2.ImageReady
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Progress = "100%"
 		vi.Status.Size = ds.statService.GetSize(pod)
@@ -265,7 +275,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			return reconcile.Result{}, err
 		}
 
-		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, &condition, ds.diskService)
+		err = setPhaseConditionForPVCProvisioningImage(ctx, dv, vi, pvc, cb, ds.diskService)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -279,8 +289,9 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
-	condition, _ := service.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
@@ -300,9 +311,10 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	case isDiskProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Phase = virtv2.ImageReady
 
@@ -323,16 +335,17 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(&condition, &vi.Status.Phase, err, vi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(&condition, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		vi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("DVCR Provisioner not found: create the new one.")
 
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 
@@ -344,18 +357,20 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = vicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Phase = virtv2.ImageReady
 		vi.Status.Size = ds.statService.GetSize(pod)
@@ -369,12 +384,13 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	case ds.statService.IsUploadStarted(vi.GetUID(), pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			return reconcile.Result{}, setPhaseConditionFromPodError(&condition, vi, err)
+			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
 		}
 
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.Provisioning).
+			Message("Import is in the process of provisioning to DVCR.")
 
 		vi.Status.Phase = virtv2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
@@ -388,9 +404,10 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 
 		log.Info("Provisioning...", "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploaderReady(pod, svc, ing):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.WaitForUserUpload
-		condition.Message = "Waiting for the user upload."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.WaitForUserUpload).
+			Message("Waiting for the user upload.")
 
 		vi.Status.Phase = virtv2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
@@ -401,9 +418,10 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 
 		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ProvisioningNotStarted
-		condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningNotStarted).
+			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 
 		vi.Status.Phase = virtv2.ImagePending
 

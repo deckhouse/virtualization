@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -128,7 +128,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			_, err := handler.Handle(context.TODO(), args.VI)
 
 			Expect(err).To(BeNil())
-			condition, ok := service.GetCondition(vicondition.StorageClassReadyType, args.VI.Status.Conditions)
+			condition, ok := conditions.GetCondition(vicondition.StorageClassReadyType, args.VI.Status.Conditions)
 			Expect(ok).To(BeTrue())
 			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
 			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
@@ -140,7 +140,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				VI:              newVI(nil, "", virtv2.StorageContainerRegistry),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionUnknown,
-					Reason: vicondition.DVCRTypeUsed,
+					Reason: vicondition.DVCRTypeUsed.String(),
 				},
 			},
 		),
@@ -151,7 +151,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				VI:              newVI(nil, "", virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
-					Reason: vicondition.StorageClassNotFound,
+					Reason: vicondition.StorageClassNotFound.String(),
 				},
 			},
 		),
@@ -162,7 +162,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vicondition.StorageClassReady,
+					Reason: vicondition.StorageClassReady.String(),
 				},
 			},
 		),
@@ -173,7 +173,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
-					Reason: vicondition.StorageClassReady,
+					Reason: vicondition.StorageClassReady.String(),
 				},
 			},
 		),

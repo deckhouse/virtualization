@@ -33,7 +33,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 	DescribeTable(
 		"Check on LifeCycle.Cleanup after spec changes",
 		func(args cleanupAfterSpecChangeTestArgs) {
-			args.ReadyCondition.Type = vicondition.ReadyType
+			args.ReadyCondition.Type = vicondition.ReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
 			vi := virtv2.VirtualImage{
@@ -41,11 +41,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						{
-							Type:   vicondition.StorageClassReadyType,
+							Type:   vicondition.StorageClassReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 						{
-							Type:   vicondition.DatasourceReadyType,
+							Type:   vicondition.DatasourceReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
@@ -112,8 +112,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 	DescribeTable(
 		"Verification that LifeCycle.CleanUp is called after the StorageClassReady status becomes false",
 		func(args cleanupAfterScNotReadyTestArgs) {
-			args.ReadyCondition.Type = vicondition.ReadyType
-			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType
+			args.ReadyCondition.Type = vicondition.ReadyType.String()
+			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
 			vi := virtv2.VirtualImage{
@@ -125,7 +125,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 						args.ReadyCondition,
 						args.StorageClassReadyCondition,
 						{
-							Type:   vicondition.DatasourceReadyType,
+							Type:   vicondition.DatasourceReadyType.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
