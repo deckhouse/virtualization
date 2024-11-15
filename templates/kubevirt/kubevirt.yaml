@@ -122,6 +122,7 @@ spec:
       type: strategic
     {{- $_ := set $kubeRbacProxySettings "resource" "deployment" }}
     {{- $_ := set $kubeRbacProxySettings "name" "virt-api" }}
+    {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     - resourceName: virt-api
       resourceType: Deployment
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
