@@ -25,10 +25,10 @@ import (
 type CABundle struct {
 	Type           virtv2.DataSourceType
 	HTTP           *virtv2.DataSourceHTTP
-	ContainerImage *DataSourceContainerRegistry
+	ContainerImage *ContainerRegistry
 }
 
-type DataSourceContainerRegistry struct {
+type ContainerRegistry struct {
 	Image           string
 	ImagePullSecret types.NamespacedName
 	CABundle        []byte
@@ -44,7 +44,7 @@ func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 	case virtv2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
-			ContainerImage: &DataSourceContainerRegistry{
+			ContainerImage: &ContainerRegistry{
 				Image: ds.ContainerImage.Image,
 				ImagePullSecret: types.NamespacedName{
 					Name:      ds.ContainerImage.ImagePullSecret.Name,
@@ -68,7 +68,7 @@ func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABu
 	case virtv2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
-			ContainerImage: &DataSourceContainerRegistry{
+			ContainerImage: &ContainerRegistry{
 				Image: ds.ContainerImage.Image,
 				ImagePullSecret: types.NamespacedName{
 					Name:      ds.ContainerImage.ImagePullSecret.Name,
@@ -92,7 +92,7 @@ func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABu
 	case virtv2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
-			ContainerImage: &DataSourceContainerRegistry{
+			ContainerImage: &ContainerRegistry{
 				Image: ds.ContainerImage.Image,
 				ImagePullSecret: types.NamespacedName{
 					Name:      ds.ContainerImage.ImagePullSecret.Name,
@@ -127,6 +127,6 @@ func (ds *CABundle) GetCABundle() string {
 	return ""
 }
 
-func (ds *CABundle) GetContainerImage() *DataSourceContainerRegistry {
+func (ds *CABundle) GetContainerImage() *ContainerRegistry {
 	return ds.ContainerImage
 }

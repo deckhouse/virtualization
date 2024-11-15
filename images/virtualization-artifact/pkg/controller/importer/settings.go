@@ -91,7 +91,7 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSource
 }
 
 // ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
-func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.DataSourceContainerRegistry, supGen *supplements.Generator) {
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.ContainerRegistry, supGen *supplements.Generator) {
 	podEnvVars.Source = cc.SourceRegistry
 	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
 

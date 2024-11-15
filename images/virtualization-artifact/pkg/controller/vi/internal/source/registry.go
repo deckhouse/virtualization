@@ -400,7 +400,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIma
 func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
-	containerImage := &datasource.DataSourceContainerRegistry{
+	containerImage := &datasource.ContainerRegistry{
 		Image: vi.Spec.DataSource.ContainerImage.Image,
 		ImagePullSecret: types.NamespacedName{
 			Name:      vi.Spec.DataSource.ContainerImage.ImagePullSecret.Name,

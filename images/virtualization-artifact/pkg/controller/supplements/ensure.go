@@ -39,7 +39,7 @@ import (
 type DataSource interface {
 	HasCABundle() bool
 	GetCABundle() string
-	GetContainerImage() *datasource.DataSourceContainerRegistry
+	GetContainerImage() *datasource.ContainerRegistry
 }
 
 // EnsureForPod make supplements for importer or uploader Pod:
@@ -116,7 +116,7 @@ func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator)
 	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace
 }
 
-func ShouldCopyImagePullSecret(ctrImg *datasource.DataSourceContainerRegistry, targetNS string) bool {
+func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS string) bool {
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
 		return false
 	}

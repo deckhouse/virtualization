@@ -16,7 +16,7 @@ limitations under the License.
 
 package datasource
 
-func ShouldCopyImagePullSecret(ctrImg *DataSourceContainerRegistry, targetNS string) bool {
+func ShouldCopyImagePullSecret(ctrImg *ContainerRegistry, targetNS string) bool {
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
 		return false
 	}
