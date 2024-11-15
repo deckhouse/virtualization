@@ -7,7 +7,7 @@ env:
     sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
 
 vars:
-  CONTROLLER_GEN_VERSION: 0.14.0
+  CONTROLLER_GEN_VERSION: 0.16.4
 
 tasks:
   generate:
