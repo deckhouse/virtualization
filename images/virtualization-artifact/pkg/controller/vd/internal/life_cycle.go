@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,15 +48,18 @@ func NewLifeCycleHandler(blank source.Handler, sources Sources, client client.Cl
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
-	readyCondition, ok := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
-			Type:   vdcondition.ReadyType,
 			Status: metav1.ConditionUnknown,
 			Reason: conditions.ReasonUnknown.String(),
 		}
 
-		service.SetCondition(readyCondition, &vd.Status.Conditions)
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Generation(vd.Generation)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {
@@ -69,7 +71,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		vd.Status.Phase = virtv2.DiskPending
 	}
 
-	dataSourceReadyCondition, exists := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+	dataSourceReadyCondition, exists := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", vdcondition.DatasourceReadyType)
 	}
@@ -78,7 +80,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, nil
 	}
 
-	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost && h.sources.Changed(ctx, vd) {
+	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		log.Info("Spec changes are detected: restart import process")
 
 		vd.Status = virtv2.VirtualDiskStatus{
@@ -95,16 +97,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	storageClassReadyCondition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if !ok {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		readyCondition.Status = metav1.ConditionFalse
-		readyCondition.Reason = vdcondition.StorageClassNotReady
-		readyCondition.Message = "Storage class is not ready, please read the StorageClassReady condition state."
-		service.SetCondition(readyCondition, &vd.Status.Conditions)
+		readyCB := conditions.
+			NewConditionBuilder(vdcondition.ReadyType).
+			Generation(vd.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message("Storage class is not ready, please read the StorageClassReady condition state.")
+
+		conditions.SetCondition(readyCB, &vd.Status.Conditions)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {

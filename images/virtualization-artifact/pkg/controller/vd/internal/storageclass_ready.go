@@ -43,21 +43,15 @@ func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHand
 }
 
 func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdcondition.StorageClassReadyType,
-			Status: metav1.ConditionUnknown,
-			Reason: conditions.ReasonUnknown.String(),
-		}
-	}
+	cb := conditions.NewConditionBuilder(vdcondition.StorageClassReadyType).Generation(vd.Generation)
 
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = conditions.ReasonUnknown.String()
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
 		return reconcile.Result{}, nil
 	}
 
@@ -95,17 +89,20 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 
 	switch {
 	case sc != nil:
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.StorageClassReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.StorageClassReady).
+			Message("")
 	case hasNoStorageClassInSpec:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageClassNotFound
-		condition.Message = "The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotFound).
+			Message("The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.")
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.StorageClassNotFound
-		condition.Message = fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotFound).
+			Message(fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass))
 	}
 
 	return reconcile.Result{}, nil
