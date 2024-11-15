@@ -52,6 +52,5 @@ func (f VirtualImageFilter) FilterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	// Triggered only if the resource phase changed to Ready.
-	return oldVI.Status.Phase != newVI.Status.Phase && newVI.Status.Phase == virtv2.ImageReady
+	return oldVI.Status.Phase != newVI.Status.Phase
 }

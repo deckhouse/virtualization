@@ -380,10 +380,8 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-	if inUseCondition.Status == metav1.ConditionTrue {
-		if inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() {
-			return nil
-		}
+	if inUseCondition.Status == metav1.ConditionTrue && inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() {
+		return nil
 	}
 
 	return NewVirtualDiskNotAllowedForUseError(vd.Name)

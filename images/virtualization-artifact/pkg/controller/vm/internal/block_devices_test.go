@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -130,6 +131,84 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Expect(ready).To(Equal(4))
 			Expect(canStart).To(BeTrue())
 			Expect(warnings).To(BeNil())
+		})
+	})
+
+	Context("BlockDevices are not ready, because VirtualDisk is not allowed", func() {
+		It("return false", func() {
+			anyVd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
+				Status: virtv2.VirtualDiskStatus{
+					Phase:  virtv2.DiskReady,
+					Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+					Conditions: []metav1.Condition{
+						{
+							Type:   vdcondition.ReadyType.String(),
+							Reason: vdcondition.Ready.String(),
+							Status: metav1.ConditionTrue,
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Reason: conditions.ReasonUnknown.String(),
+							Status: metav1.ConditionUnknown,
+						},
+					},
+				},
+			}
+
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+				anyVd.Name: anyVd,
+			}
+
+			allowed := h.checkAllowVirtualDisks(vds)
+			Expect(allowed).To(BeFalse())
+		})
+	})
+
+	Context("BlockDevices are not ready, because VirtualDisk using for create image", func() {
+		It("return false", func() {
+			anyVd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
+				Status: virtv2.VirtualDiskStatus{
+					Phase:  virtv2.DiskReady,
+					Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+					Conditions: []metav1.Condition{
+						{
+							Type:   vdcondition.ReadyType.String(),
+							Reason: vdcondition.Ready.String(),
+							Status: metav1.ConditionTrue,
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Reason: vdcondition.AllowedForImageUsage.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+				anyVd.Name: anyVd,
+			}
+
+			allowed := h.checkAllowVirtualDisks(vds)
+			Expect(allowed).To(BeFalse())
+		})
+	})
+
+	Context("BlockDevices are ready, because VirtualDisk is allowed", func() {
+		It("return false", func() {
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+			}
+
+			allowed := h.checkAllowVirtualDisks(vds)
+			Expect(allowed).To(BeTrue())
 		})
 	})
 
