@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -218,8 +219,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
-				oldInUseCondition, _ := service.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
-				newInUseCondition, _ := service.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
+				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
+				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
 
 				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition.Status != newInUseCondition.Status {
 					return true

@@ -71,8 +71,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdcondition.ReadyType,
-						Reason: vdcondition.Ready,
+						Type:   vdcondition.ReadyType.String(),
+						Reason: vdcondition.Ready.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -85,8 +90,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdcondition.ReadyType,
-						Reason: vdcondition.Ready,
+						Type:   vdcondition.ReadyType.String(),
+						Reason: vdcondition.Ready.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -183,9 +193,14 @@ var _ = Describe("BlockDeviceHandler", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
 			vdFoo.Status.Conditions = []metav1.Condition{
 				{
-					Type:   vdcondition.ReadyType,
-					Reason: vdcondition.Provisioning,
+					Type:   vdcondition.ReadyType.String(),
+					Reason: vdcondition.Provisioning.String(),
 					Status: metav1.ConditionFalse,
+				},
+				{
+					Type:   vdcondition.InUseType.String(),
+					Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+					Status: metav1.ConditionTrue,
 				},
 			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)

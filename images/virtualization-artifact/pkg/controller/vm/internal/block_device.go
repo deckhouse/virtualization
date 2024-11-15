@@ -318,9 +318,15 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				canStartKVVM = false
 				continue
 			}
-			readyCondition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			if readyCondition.Status == metav1.ConditionTrue {
-				ready++
+				inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+				if inUseCondition.Status == metav1.ConditionTrue && inUseCondition.Reason == vdcondition.AllowedForVirtualMachineUsage.String() {
+					ready++
+				} else {
+					msg := fmt.Sprintf("virtual disk %s is not allowed for use in the virtual machine, it may be used to create an image", vd.Name)
+					warnings = append(warnings, msg)
+				}
 			} else {
 				msg := fmt.Sprintf("virtual disk %s is waiting for the it's pvc to be bound", vd.Name)
 				warnings = append(warnings, msg)

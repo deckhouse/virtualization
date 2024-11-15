@@ -50,7 +50,7 @@ type (
 	// StorageClassReadyReason represents the various reasons for the Storageclass ready condition type.
 	StorageClassReadyReason string
 	// InUseReason represents the various reasons for the InUse condition type.
-	InUseReason = string
+	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -70,6 +70,10 @@ func (s SnapshottingReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -123,8 +127,8 @@ const (
 	// StorageClassNotFound indicates that the storage class is not ready
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 
-	// InUseByVirtualImage indicates that the VirtualDisk is being used in a process of a VirtualImage creation.
-	InUseByVirtualImage InUseReason = "InUseByVirtualImage"
-	// InUseByVirtualMachine indicates that the VirtualDisk is attached to a running VirtualMachine.
-	InUseByVirtualMachine InUseReason = "InUseByVirtualMachine"
+	// AllowedForImageUsage indicates that the VirtualDisk is permitted for use in a process of an image creation.
+	AllowedForImageUsage InUseReason = "AllowedForImageUsage"
+	// AllowedForVirtualMachineUsage indicates that the VirtualDisk is permitted for use by a running VirtualMachine.
+	AllowedForVirtualMachineUsage InUseReason = "AllowedForVirtualMachineUsage"
 )

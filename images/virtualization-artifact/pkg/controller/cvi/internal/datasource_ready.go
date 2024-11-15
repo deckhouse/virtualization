@@ -89,7 +89,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 			Reason(cvicondition.VirtualDiskNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
-	case errors.As(err, &source.VirtualDiskInUseError{}):
+	case errors.As(err, &source.VirtualDiskNotAllowedForUseError{}):
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.VirtualDiskInUseInRunningVirtualMachine).

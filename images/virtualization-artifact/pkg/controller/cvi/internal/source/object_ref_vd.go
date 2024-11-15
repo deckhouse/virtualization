@@ -40,7 +40,6 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefVirtualDisk struct {
@@ -230,10 +229,10 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 
 	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUseCondition.Status == metav1.ConditionTrue {
-		if inUseCondition.Reason == vdcondition.InUseByVirtualMachine {
-			return NewVirtualDiskInUseError(vd.Name)
+		if inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() {
+			return nil
 		}
 	}
 
-	return nil
+	return NewVirtualDiskNotAllowedForUseError(vd.Name)
 }
