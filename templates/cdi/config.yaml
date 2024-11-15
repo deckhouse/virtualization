@@ -106,6 +106,7 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "upstream" "http://127.0.0.1:8080/metrics" }}
       {{- $_ := set $kubeRbacProxySettings "path" "/metrics" }}
       {{- $_ := set $kubeRbacProxySettings "portName" "https-metrics" }}
+      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       - resourceName: cdi-deployment
         resourceType: Deployment
         patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
