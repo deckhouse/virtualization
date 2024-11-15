@@ -74,9 +74,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 
 	if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, cvi) {
 		cvi.Status = virtv2.ClusterVirtualImageStatus{
-			ImageStatus: virtv2.ImageStatus{
-				Phase: virtv2.ImagePending,
-			},
+			Phase:              virtv2.ImagePending,
 			Conditions:         cvi.Status.Conditions,
 			ObservedGeneration: cvi.Status.ObservedGeneration,
 		}

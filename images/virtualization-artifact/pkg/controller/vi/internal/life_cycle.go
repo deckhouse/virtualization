@@ -73,9 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 
 	if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, vi) {
 		vi.Status = virtv2.VirtualImageStatus{
-			ImageStatus: virtv2.ImageStatus{
-				Phase: virtv2.ImagePending,
-			},
+			Phase:              virtv2.ImagePending,
 			Conditions:         vi.Status.Conditions,
 			ObservedGeneration: vi.Status.ObservedGeneration,
 		}
@@ -109,9 +107,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
 		vi.Status = virtv2.VirtualImageStatus{
-			ImageStatus: virtv2.ImageStatus{
-				Phase: virtv2.ImagePending,
-			},
+			Phase:              virtv2.ImagePending,
 			Conditions:         vi.Status.Conditions,
 			ObservedGeneration: vi.Status.ObservedGeneration,
 			StorageClassName:   vi.Status.StorageClassName,

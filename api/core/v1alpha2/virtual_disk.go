@@ -75,10 +75,22 @@ type AttachedVirtualMachine struct {
 }
 
 type VirtualDiskDataSource struct {
-	Type           DataSourceType               `json:"type,omitempty"`
-	HTTP           *DataSourceHTTP              `json:"http,omitempty"`
-	ContainerImage *DataSourceContainerRegistry `json:"containerImage,omitempty"`
-	ObjectRef      *VirtualDiskObjectRef        `json:"objectRef,omitempty"`
+	Type           DataSourceType             `json:"type,omitempty"`
+	HTTP           *DataSourceHTTP            `json:"http,omitempty"`
+	ContainerImage *VirtualDiskContainerImage `json:"containerImage,omitempty"`
+	ObjectRef      *VirtualDiskObjectRef      `json:"objectRef,omitempty"`
+}
+
+// Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+type VirtualDiskContainerImage struct {
+	// The container registry address of an image.
+	// +kubebuilder:example:="registry.example.com/images/slackware:15"
+	// +kubebuilder:validation:Pattern:=`^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$`
+	Image           string              `json:"image"`
+	ImagePullSecret ImagePullSecretName `json:"imagePullSecret,omitempty"`
+	// The CA chain in base64 format to verify the container registry.
+	// +kubebuilder:example:="YWFhCg=="
+	CABundle []byte `json:"caBundle,omitempty"`
 }
 
 type VirtualDiskObjectRef struct {

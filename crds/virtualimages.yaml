@@ -1,99 +1,151 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: virtualimages.virtualization.deckhouse.io
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
   labels:
     heritage: deckhouse
     module: virtualization
+  name: virtualimages.virtualization.deckhouse.io
 spec:
   group: virtualization.deckhouse.io
-  scope: Namespaced
   names:
     categories:
-      - all
       - virtualization
-    plural: virtualimages
-    singular: virtualimage
+      - all
     kind: VirtualImage
+    listKind: VirtualImageList
+    plural: virtualimages
     shortNames:
       - vi
       - vis
-  preserveUnknownFields: false
+    singular: virtualimage
+  scope: Namespaced
   versions:
-    - name: v1alpha2
-      served: true
-      storage: true
+    - additionalPrinterColumns:
+        - jsonPath: .status.phase
+          name: Phase
+          type: string
+        - jsonPath: .status.cdrom
+          name: CDROM
+          type: boolean
+        - jsonPath: .status.progress
+          name: Progress
+          type: string
+        - jsonPath: .status.size.stored
+          name: StoredSize
+          priority: 1
+          type: string
+        - jsonPath: .status.size.unpacked
+          name: UnpackedSize
+          priority: 1
+          type: string
+        - jsonPath: .status.target.registryURL
+          name: Registry URL
+          priority: 1
+          type: string
+        - jsonPath: .status.target.persistentVolumeClaimName
+          name: TargetPVC
+          priority: 1
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha2
       schema:
         openAPIV3Schema:
-          type: object
-          description: |
+          description: |-
             This resource describes a virtual disk image or installation image (iso) that can be used as a data source for new `VirtualDisks` or can be mounted in `Virtuals`.
-
             > This resource cannot be modified once it has been created.
 
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
-          required:
-            - spec
-          x-kubernetes-validations:
-            - rule: "self.metadata.name.size() <= 128"
-              message: "The name must be no longer than 128 characters."
           properties:
-            spec:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
               type: object
-              required:
-                - storage
-                - dataSource
+            spec:
               properties:
-                storage:
-                  type: string
-                  enum:
-                    - "ContainerRegistry"
-                    - "Kubernetes"
-                  default: ContainerRegistry
-                  description: |
-                    Storage type to store the image for current virtualization setup.
-
-                    * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-                    * `Kubernetes` - use a Persistent Volume Claim (PVC).
                 dataSource:
-                  type: object
-                  description: |
-                    An origin of the image.
-                  required:
-                    - type
                   properties:
-                    type:
-                      type: string
-                      enum:
-                        - "HTTP"
-                        - "ContainerImage"
-                        - "ObjectRef"
-                        - "Upload"
-                      description: |
-                        The type of an origin of the image. Options are:
-
-                        * `HTTP` — fill the image with data from some external http/https url.
-                        * `ContainerImage` — use an image, stored in container registry image.
-                        * `ObjectRef` — fill the disk from another existing resource.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
-                    http:
+                    containerImage:
+                      description:
+                        Use an image stored in external container registry.
+                        Only TLS enabled registries are supported. Use caBundle field
+                        to provide custom CA chain if needed.
+                      properties:
+                        caBundle:
+                          description:
+                            The CA chain in base64 format to verify the container
+                            registry.
+                          example: YWFhCg==
+                          format: byte
+                          type: string
+                        image:
+                          description: The container registry address of an image.
+                          example: registry.example.com/images/slackware:15
+                          pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
+                          type: string
+                        imagePullSecret:
+                          properties:
+                            name:
+                              description:
+                                A name of the secret containing registry
+                                credentials which must be located in the same namespace.
+                              type: string
+                          type: object
+                      required:
+                        - image
                       type: object
-                      description: |
+                    http:
+                      description: |-
                         Fill the image with data from some external url. Supported schemas are:
 
                         * http
                         * https
 
                         For https schema there is an option to skip TLS verification.
-                      required:
-                        - url
                       properties:
-                        url:
+                        caBundle:
+                          description: The CA chain in base64 format to verify the url.
+                          example: YWFhCg==
+                          format: byte
                           type: string
-                          example: "https://mirror.example.com/images/slackware-15.qcow.gz"
-                          # https://regex101.com/r/2zx8as/1
-                          pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
-                          description: |
+                        checksum:
+                          description:
+                            A checksum of the file, provided by the url,
+                            to verify if it was downloaded correctly or wasn't changed.
+                            The file should match all specified checksums.
+                          properties:
+                            md5:
+                              example: f3b59bed9f91e32fac1210184fcff6f5
+                              maxLength: 32
+                              minLength: 32
+                              pattern: ^[0-9a-fA-F]{32}$
+                              type: string
+                            sha256:
+                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
+                              maxLength: 64
+                              minLength: 64
+                              pattern: ^[0-9a-fA-F]{64}$
+                              type: string
+                          type: object
+                        url:
+                          description: |-
                             The http url with an image. The following formats are supported:
                             * qcow2
                             * vmdk
@@ -103,113 +155,100 @@ spec:
                             these formats can also be compressed with the following formats:
                             * gz
                             * xz
-                        caBundle:
+                          example: https://mirror.example.com/images/slackware-15.qcow.gz
+                          pattern: ^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$
                           type: string
-                          format: byte
-                          description: The CA chain in base64 format to verify the url.
-                          example: |
-                            YWFhCg==
-                        checksum:
-                          type: object
-                          description: |
-                            A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
-                          properties:
-                            md5:
-                              description: ""
-                              type: string
-                              pattern: ^[0-9a-fA-F]{32}$
-                              minLength: 32
-                              maxLength: 32
-                              example: f3b59bed9f91e32fac1210184fcff6f5
-                            sha256:
-                              description: ""
-                              type: string
-                              pattern: ^[0-9a-fA-F]{64}$
-                              minLength: 64
-                              maxLength: 64
-                              example: 78be890d71dde316c412da2ce8332ba47b9ce7a29d573801d2777e01aa20b9b5
-                    containerImage:
-                      type: object
                       required:
-                        - image
-                      description: |
-                        Use an image stored in external container regitry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
-                      properties:
-                        image:
-                          type: string
-                          example: "registry.example.com/images/slackware:15"
-                          # https://regex101.com/r/NXfP8Y/1
-                          pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
-                          description: |
-                            The container registry address of an image.
-                        imagePullSecret:
-                          type: object
-                          properties:
-                            name:
-                              type: string
-                              description: |
-                                A name of the secret containing registry credentials which must be located in the same namespace.
-                        caBundle:
-                          type: string
-                          format: byte
-                          description: |
-                            The CA chain in base64 format to verify the container registry.
-                          example: |
-                            YWFhCg==
-                    objectRef:
+                        - url
                       type: object
-                      description: |
-                        Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
-                      required: ["kind", "name"]
+                    objectRef:
+                      description:
+                        Use an existing `VirtualImage`, `ClusterVirtualImage`
+                        or `VirtualDisk` to create an image.
                       properties:
                         kind:
-                          type: string
-                          description: A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
+                          description:
+                            A kind of existing `VirtualImage`, `ClusterVirtualImage`
+                            or `VirtualDisk`.
                           enum:
-                            - "ClusterVirtualImage"
-                            - "VirtualImage"
-                            - "VirtualDisk"
-                        name:
+                            - ClusterVirtualImage
+                            - VirtualImage
+                            - VirtualDisk
                           type: string
-                          description: |
-                            A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
-                  oneOf:
-                    - properties:
-                        type:
-                          enum: ["HTTP"]
-                        http: {}
-                      required: ["http"]
-                    - properties:
-                        type:
-                          enum: ["ContainerImage"]
-                        containerImage: {}
-                      required: ["containerImage"]
-                    - properties:
-                        type:
-                          enum: ["ObjectRef"]
-                        objectRef: {}
-                      required: ["objectRef"]
-                    - properties:
-                        type:
-                          enum: ["Upload"]
-            status:
+                        name:
+                          description:
+                            A name of existing `VirtualImage`, `ClusterVirtualImage`
+                            or `VirtualDisk`.
+                          type: string
+                      required:
+                        - kind
+                        - name
+                      type: object
+                    type:
+                      description: |-
+                        The type of an origin of the image. Options are:
+
+                        * `HTTP` — create an image from a file published on http/https service at a given url
+                        * `ContainerImage` — create the image from image stored in container registry.
+                        * `ObjectRef` — fill the disk from another existing resource.
+                        * `Upload` — fill the image with data, uploaded by user via the special interface.
+                      enum:
+                        - HTTP
+                        - ContainerImage
+                        - ObjectRef
+                        - Upload
+                      type: string
+                  type: object
+                  x-kubernetes-validations:
+                    - message: HTTP requires http and cannot have ContainerImage or ObjectRef
+                      rule:
+                        "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage)
+                        && !has(self.objectRef) : true"
+                    - message:
+                        ContainerImage requires containerImage and cannot have
+                        HTTP or ObjectRef
+                      rule:
+                        "self.type == 'ContainerImage' ? has(self.containerImage)
+                        && !has(self.http) && !has(self.objectRef) : true"
+                    - message: ObjectRef requires objectRef and cannot have HTTP or ContainerImage
+                      rule:
+                        "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http)
+                        && !has(self.containerImage) : true"
+                persistentVolumeClaim:
+                  properties:
+                    storageClass:
+                      type: string
+                  type: object
+                storage:
+                  default: ContainerRegistry
+                  description: |-
+                    Storage type to store the image for current virtualization setup.
+
+                    * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
+                    * `Kubernetes` - use a Persistent Volume Claim (PVC).
+                  enum:
+                    - ContainerRegistry
+                    - Kubernetes
+                  type: string
+              required:
+                - dataSource
+                - storage
               type: object
+            status:
               properties:
+                cdrom:
+                  description:
+                    Whether the image is a format that is supposed to be
+                    mounted as a cdrom, such as iso and so on.
+                  type: boolean
                 conditions:
-                  description: |
-                    The latest available observations of an object's current state.
+                  description:
+                    The latest available observations of an object's current
+                    state.
                   items:
                     description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -250,12 +289,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -268,157 +302,122 @@ spec:
                     type: object
                   type: array
                 downloadSpeed:
-                  type: object
-                  description: |
-                    Image download speed from an external source. Appears only during the `Provisioning' phase.
+                  description:
+                    Image download speed from an external source. Appears
+                    only during the `Provisioning` phase.
                   properties:
                     avg:
-                      type: string
+                      description: Average download speed.
                       example: 1 Mbps
-                      description: |
-                        Average download speed.
-                    current:
                       type: string
-                      example: 5 Mbps
-                      description: |
-                        Current download speed.
                     avgBytes:
-                      type: string
+                      description: Average download speed in bytes per second.
                       example: 1012345
-                      description: |
-                        Average download speed in bytes per second.
+                      type: string
+                    current:
+                      description: Current download speed.
+                      example: 5 Mbps
+                      type: string
                     currentBytes:
-                      type: string
+                      description: Current download speed in bytes per second.
                       example: 5123456
-                      description: |
-                        Current download speed in bytes per second.
+                      type: string
+                  type: object
                 format:
+                  description: Discovered format of the image.
                   type: string
-                  description: |
-                    Discovered format of the image.
-                size:
-                  type: object
-                  description: |
-                    Discovered sizes of the image.
+                imageUploadURLs:
                   properties:
-                    stored:
+                    external:
+                      description:
+                        Command to upload the image using `Ingress` from
+                        outside the cluster.
                       type: string
-                      example: 199M
-                      description: |
-                        Image size in DVCR in human-readable format.
-                    storedBytes:
+                    inCluster:
+                      description:
+                        Command to upload the image using `Service` within
+                        the cluster.
                       type: string
-                      example: 199001234
-                      description: |
-                        Image size in DVCR in bytes.
-                    unpacked:
-                      type: string
-                      example: 1G
-                      description: |
-                        Unpacked image size in human-readable format.
-                    unpackedBytes:
-                      type: string
-                      example: 1000000234
-                      description: |
-                        Unpacked image size in bytes.
-                cdrom:
-                  type: boolean
-                  description: |
-                    Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
-                target:
                   type: object
-                  properties:
-                    registryURL:
-                      type: string
-                      example: dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest
-                      description: |
-                        Created image in DVCR.
-                    persistentVolumeClaimName:
-                      type: string
-                      description: |
-                        Created PersistentVolumeClaim name for Kubernetes storage.
+                observedGeneration:
+                  description: The generation last processed by the controller.
+                  format: int64
+                  type: integer
                 phase:
-                  type: string
-                  description: |
-                    Current status of `VirtualImage` resource:
-
+                  description: |-
+                    Current status of `ClusterVirtualImage` resource:
                     * Pending - The resource has been created and is on a waiting queue.
                     * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
                     * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
                     * Ready - The resource is created and ready to use.
                     * Failed - There was a problem when creating a resource.
-                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                     * Terminating - The process of resource deletion is in progress.
-
+                    * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
                   enum:
-                    [
-                      "Pending",
-                      "Provisioning",
-                      "WaitForUserUpload",
-                      "Ready",
-                      "Failed",
-                      "PVCLost",
-                      "Terminating",
-                    ]
+                    - Pending
+                    - Provisioning
+                    - WaitForUserUpload
+                    - Ready
+                    - Failed
+                    - Terminating
+                    - PVCLost
+                  type: string
                 progress:
+                  description: Progress of copying an image from source to DVCR.
                   type: string
-                  description: |
-                    Progress of copying an image from source to DVCR.
-                uploadCommand:
-                  type: string
-                  description: |
-                    Deprecated. Use imageUploadURLs instead.
-                imageUploadURLs:
-                  type: object
+                size:
+                  description: Discovered sizes of the image.
                   properties:
-                    external:
+                    stored:
+                      description: Image size in human-readable format.
+                      example: 199M
                       type: string
-                      description: |
-                        Command to upload the image using `Ingress` from outside the cluster.
-                    inCluster:
+                    storedBytes:
+                      description: Image size in bytes.
+                      example: 199001234
                       type: string
-                      description: |
-                        Command to upload the image using `Service` within the cluster.
+                    unpacked:
+                      description: Unpacked image size in human-readable format.
+                      example: 1G
+                      type: string
+                    unpackedBytes:
+                      description: Unpacked image size in bytes.
+                      example: 1000000234
+                      type: string
+                  type: object
                 sourceUID:
+                  description:
+                    The UID of the source (`VirtualImage`, `ClusterVirtualImage`
+                    or `VirtualDisk`) used when creating the virtual image.
                   type: string
-                  description: |
-                    The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.
                 storageClassName:
+                  description:
+                    The name of the StorageClass used by the PersistentVolumeClaim
+                    if `Kubernetes` storage type used.
                   type: string
-                  description: |
-                    The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.
-                observedGeneration:
-                  type: integer
-                  description: |
-                    The generation last processed by the controller.
-      additionalPrinterColumns:
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: CDROM
-          type: boolean
-          jsonPath: .status.cdrom
-        - name: Progress
-          type: string
-          jsonPath: .status.progress
-        - name: StoredSize
-          type: string
-          jsonPath: .status.size.stored
-          priority: 1
-        - name: UnpackedSize
-          type: string
-          jsonPath: .status.size.unpacked
-          priority: 1
-        - name: Registry URL
-          jsonPath: .status.target.registryURL
-          type: string
-          priority: 1
-        - name: TargetPVC
-          jsonPath: .status.target.persistentVolumeClaimName
-          type: string
-          priority: 1
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
+                target:
+                  properties:
+                    persistentVolumeClaimName:
+                      description:
+                        Created PersistentVolumeClaim name for Kubernetes
+                        storage.
+                      type: string
+                    registryURL:
+                      description: Created image in DVCR.
+                      example: dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest
+                      type: string
+                  type: object
+                uploadCommand:
+                  description: Deprecated. Use imageUploadURLs instead.
+                  type: string
+              type: object
+          required:
+            - spec
+          type: object
+          x-kubernetes-validations:
+            - message: The name must be no longer than 128 characters.
+              rule: self.metadata.name.size() <= 128
+      served: true
+      storage: true
       subresources:
         status: {}
