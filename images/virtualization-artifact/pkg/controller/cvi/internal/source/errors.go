@@ -65,16 +65,16 @@ func NewVirtualDiskNotReadyError(name string) error {
 	}
 }
 
-type VirtualDiskInUseError struct {
+type VirtualDiskNotAllowedForUseError struct {
 	name string
 }
 
-func (e VirtualDiskInUseError) Error() string {
-	return fmt.Sprintf("reading from the VirtualDisk is not possible while it is in use by the running VirtualMachine/%s", e.name)
+func (e VirtualDiskNotAllowedForUseError) Error() string {
+	return fmt.Sprintf("use of VirtualDisk %s is not allowed, it may be connected to a running VirtualMachine", e.name)
 }
 
-func NewVirtualDiskInUseError(name string) error {
-	return VirtualDiskInUseError{
+func NewVirtualDiskNotAllowedForUseError(name string) error {
+	return VirtualDiskNotAllowedForUseError{
 		name: name,
 	}
 }
