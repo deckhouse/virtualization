@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -67,7 +67,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskReady))
 			Expect(ready.Message).To(BeEmpty())
@@ -83,7 +83,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting))
 			Expect(ready.Message).ToNot(BeEmpty())
@@ -98,7 +98,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting))
 			Expect(ready.Message).ToNot(BeEmpty())
@@ -113,7 +113,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting))
 			Expect(ready.Message).ToNot(BeEmpty())
@@ -125,7 +125,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 				vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
 					Type:    vdcondition.SnapshottingType.String(),
 					Status:  metav1.ConditionFalse,
-					Reason:  vdscondition.VirtualDiskNotReadyForSnapshotting,
+					Reason:  vdscondition.VirtualDiskNotReadyForSnapshotting.String(),
 					Message: "error",
 				})
 				return vd, nil
@@ -134,7 +134,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskNotReadyForSnapshotting))
 			Expect(ready.Message).ToNot(BeEmpty())

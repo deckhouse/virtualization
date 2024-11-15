@@ -353,7 +353,7 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 
 		//nolint:staticcheck
 		vdSnapshotReady, _ := conditions.GetCondition(conditions.DeprecatedWrappedString(vdscondition.VirtualDiskSnapshotReadyType), vdSnapshot.Status.Conditions)
-		if vdSnapshotReady.Reason == vdscondition.VirtualDiskSnapshotFailed || vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseFailed {
+		if vdSnapshotReady.Reason == vdscondition.VirtualDiskSnapshotFailed.String() || vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseFailed {
 			return nil, fmt.Errorf("the virtual disk snapshot %q is failed: %w. %s", vdSnapshot.Name, ErrCannotTakeSnapshot, vdSnapshotReady.Message)
 		}
 

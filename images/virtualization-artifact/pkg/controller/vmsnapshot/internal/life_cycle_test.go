@@ -27,7 +27,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -145,10 +144,10 @@ var _ = Describe("LifeCycle handler", func() {
 	Context("The block devices of the virtual machine are not in the consistent state", func() {
 		It("The BlockDevicesReady condition of the virtual machine isn't True", func() {
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
-				service.SetCondition(metav1.Condition{
-					Type:   vmcondition.TypeBlockDevicesReady.String(),
-					Status: metav1.ConditionFalse,
-				}, &vm.Status.Conditions)
+				cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+					Generation(vm.Generation).
+					Status(metav1.ConditionFalse)
+				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return vm, nil
 			}
 			h := NewLifeCycleHandler(snapshotter, storer)
@@ -180,10 +179,10 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("The virtual disk is not Ready", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
-				service.SetCondition(metav1.Condition{
-					Type:   vdcondition.Ready.String(),
-					Status: metav1.ConditionFalse,
-				}, &vd.Status.Conditions)
+				cb := conditions.NewConditionBuilder(vdcondition.Ready).
+					Generation(vd.Generation).
+					Status(metav1.ConditionFalse)
+				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return vd, nil
 			}
 			h := NewLifeCycleHandler(snapshotter, storer)
@@ -199,11 +198,11 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("The virtual disk is the process of Resizing", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
-				service.SetCondition(metav1.Condition{
-					Type:   vdcondition.Resized.String(),
-					Status: metav1.ConditionFalse,
-					Reason: vdcondition.InProgress.String(),
-				}, &vd.Status.Conditions)
+				cb := conditions.NewConditionBuilder(vdcondition.Resized).
+					Generation(vd.Generation).
+					Status(metav1.ConditionFalse).
+					Reason(vdcondition.InProgress)
+				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return vd, nil
 			}
 			h := NewLifeCycleHandler(snapshotter, storer)

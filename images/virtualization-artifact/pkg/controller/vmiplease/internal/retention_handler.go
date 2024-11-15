@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
@@ -61,7 +61,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		}
 
 		leaseStatus := &lease.Status
-		boundCondition, _ := service.GetCondition(vmipcondition.BoundType.String(), leaseStatus.Conditions)
+		boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, leaseStatus.Conditions)
 		if boundCondition.Reason == vmiplcondition.Released.String() {
 			currentTime := time.Now().UTC()
 
