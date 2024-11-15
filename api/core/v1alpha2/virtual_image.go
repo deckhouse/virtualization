@@ -104,14 +104,14 @@ type VirtualImageStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.
+	StorageClassName string `json:"storageClassName,omitempty"`
 }
 
 type VirtualImageStatusTarget struct {
 	// Created image in DVCR.
 	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
-	// FIXME: create ClusterImageStatus without Capacity and PersistentVolumeClaim
-
 	// Created PersistentVolumeClaim name for Kubernetes storage.
 	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }

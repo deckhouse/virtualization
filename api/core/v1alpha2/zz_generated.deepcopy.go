@@ -1414,6 +1414,12 @@ func (in *VirtualImageStatus) DeepCopyInto(out *VirtualImageStatus) {
 		**out = **in
 	}
 	out.Size = in.Size
+	if in.ImageUploadURLs != nil {
+		in, out := &in.ImageUploadURLs, &out.ImageUploadURLs
+		*out = new(ImageUploadURLs)
+		**out = **in
+	}
+	out.Target = in.Target
 	if in.SourceUID != nil {
 		in, out := &in.SourceUID, &out.SourceUID
 		*out = new(types.UID)
@@ -1426,12 +1432,6 @@ func (in *VirtualImageStatus) DeepCopyInto(out *VirtualImageStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.ImageUploadURLs != nil {
-		in, out := &in.ImageUploadURLs, &out.ImageUploadURLs
-		*out = new(ImageUploadURLs)
-		**out = **in
-	}
-	out.Target = in.Target
 	return
 }
 

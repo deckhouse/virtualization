@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   labels:
     heritage: deckhouse
     module: virtualization
@@ -58,7 +58,6 @@ spec:
           description: |-
             This resource describes a virtual disk image or installation image (iso) that can be used as a data source for new `VirtualDisks` or can be mounted in `Virtuals`.
             > This resource cannot be modified once it has been created.
-
 
             A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
           properties:
@@ -116,10 +115,8 @@ spec:
                       description: |-
                         Fill the image with data from some external url. Supported schemas are:
 
-
                         * http
                         * https
-
 
                         For https schema there is an option to skip TLS verification.
                       properties:
@@ -191,7 +188,6 @@ spec:
                       description: |-
                         The type of an origin of the image. Options are:
 
-
                         * `HTTP` — create an image from a file published on http/https service at a given url
                         * `ContainerImage` — create the image from image stored in container registry.
                         * `ObjectRef` — fill the disk from another existing resource.
@@ -228,7 +224,6 @@ spec:
                   description: |-
                     Storage type to store the image for current virtualization setup.
 
-
                     * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
                     * `Kubernetes` - use a Persistent Volume Claim (PVC).
                   enum:
@@ -252,16 +247,8 @@ spec:
                     state.
                   items:
                     description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -302,12 +289,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -408,9 +390,25 @@ spec:
                     The UID of the source (`VirtualImage`, `ClusterVirtualImage`
                     or `VirtualDisk`) used when creating the virtual image.
                   type: string
-                  description: |
-                    The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.
                 storageClassName:
+                  description:
+                    The name of the StorageClass used by the PersistentVolumeClaim
+                    if `Kubernetes` storage type used.
+                  type: string
+                target:
+                  properties:
+                    persistentVolumeClaimName:
+                      description:
+                        Created PersistentVolumeClaim name for Kubernetes
+                        storage.
+                      type: string
+                    registryURL:
+                      description: Created image in DVCR.
+                      example: dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest
+                      type: string
+                  type: object
+                uploadCommand:
+                  description: Deprecated. Use imageUploadURLs instead.
                   type: string
               type: object
           required:
@@ -421,4 +419,5 @@ spec:
               rule: self.metadata.name.size() <= 128
       served: true
       storage: true
-      subresources: {}
+      subresources:
+        status: {}

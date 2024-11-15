@@ -2974,6 +2974,24 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Format:      "",
 						},
 					},
+					"uploadCommand": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated. Use imageUploadURLs instead.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageUploadURLs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget"),
+						},
+					},
 					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.",
@@ -3000,6 +3018,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 							Description: "The generation last processed by the controller.",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
