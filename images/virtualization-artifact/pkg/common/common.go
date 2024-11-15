@@ -197,4 +197,8 @@ const (
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
 
 	VmBlockDeviceAttachedLimit = 16
+
+	CmpLesser  = -1
+	CmpEqual   = 0
+	CmpGreater = 1
 )

@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -140,13 +141,18 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 	}
 
 	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase != virtv2.DiskPending && newVD.Status.Phase != virtv2.DiskProvisioning {
-		if newSize.Cmp(oldSize) == -1 {
+		if newSize.Cmp(oldSize) == common.CmpLesser {
 			return nil, fmt.Errorf(
 				"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
 				newSize.String(),
 				oldSize.String(),
 			)
 		}
+	}
+
+	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, newVD.Status.Conditions)
+	if storageClassReady.Status != metav1.ConditionTrue && newSize.Cmp(oldSize) == common.CmpGreater {
+		return nil, errors.New("can not expand Virtual Disk because its StorageClass is not ready")
 	}
 
 	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {

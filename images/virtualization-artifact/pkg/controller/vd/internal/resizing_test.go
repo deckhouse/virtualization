@@ -53,6 +53,10 @@ var _ = Describe("Resizing handler Run", func() {
 						Type:   vdcondition.ReadyType.String(),
 						Status: metav1.ConditionTrue,
 					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
 				},
 				Capacity: size.String(),
 			},
