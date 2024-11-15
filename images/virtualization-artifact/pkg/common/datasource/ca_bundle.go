@@ -16,36 +16,94 @@ limitations under the License.
 
 package datasource
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"k8s.io/apimachinery/pkg/types"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
 
 type CABundle struct {
 	Type           virtv2.DataSourceType
 	HTTP           *virtv2.DataSourceHTTP
-	ContainerImage *virtv2.DataSourceContainerRegistry
+	ContainerImage *ContainerRegistry
+}
+
+type ContainerRegistry struct {
+	Image           string
+	ImagePullSecret types.NamespacedName
+	CABundle        []byte
 }
 
 func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
-	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &ContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: ds.ContainerImage.ImagePullSecret.Namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
+			},
+		}
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
-func NewCABundleForVMI(ds virtv2.VirtualImageDataSource) *CABundle {
-	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABundle {
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &ContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
+			},
+		}
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
-func NewCABundleForVMD(ds *virtv2.VirtualDiskDataSource) *CABundle {
-	return &CABundle{
-		Type:           ds.Type,
-		HTTP:           ds.HTTP,
-		ContainerImage: ds.ContainerImage,
+func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABundle {
+	switch ds.Type {
+	case virtv2.DataSourceTypeHTTP:
+		return &CABundle{
+			Type: ds.Type,
+			HTTP: ds.HTTP,
+		}
+	case virtv2.DataSourceTypeContainerImage:
+		return &CABundle{
+			Type: ds.Type,
+			ContainerImage: &ContainerRegistry{
+				Image: ds.ContainerImage.Image,
+				ImagePullSecret: types.NamespacedName{
+					Name:      ds.ContainerImage.ImagePullSecret.Name,
+					Namespace: namespace,
+				},
+				CABundle: ds.ContainerImage.CABundle,
+			},
+		}
 	}
+
+	return &CABundle{Type: ds.Type}
 }
 
 func (ds *CABundle) HasCABundle() bool {
@@ -69,6 +127,6 @@ func (ds *CABundle) GetCABundle() string {
 	return ""
 }
 
-func (ds *CABundle) GetContainerImage() *virtv2.DataSourceContainerRegistry {
+func (ds *CABundle) GetContainerImage() *ContainerRegistry {
 	return ds.ContainerImage
 }
