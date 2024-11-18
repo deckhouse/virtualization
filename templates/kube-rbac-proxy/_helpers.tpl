@@ -33,16 +33,18 @@
       excludePaths:
         - {{ $settings.excludePath | default "/config" }}
       upstreams:
-        - upstream: {{ $settings.upstream | default "http://127.0.0.1:8080/metrics" }}
-          path: {{ $settings.path | default "/metrics" }}
+        {{- range $settings.upstreams }}
+        - upstream: {{ .upstream }}
+          path: {{ .path }}
           authorization:
             resourceAttributes:
-              namespace: {{ $settings.namespace | default "d8-virtualization" }}
-              apiGroup: {{ $settings.apiGroup | default "apps" }}
-              apiVersion: {{ $settings.apiVersion | default "v1" }}
-              resource: {{ $settings.resource | default "deployment" }}
-              subresource: {{ $settings.subresource | default "prometheus-metrics" }}
-              name: {{ $settings.name }}
+              namespace: {{ .namespace | default "d8-virtualization" }}
+              apiGroup: {{ .apiGroup | default "apps" }}
+              apiVersion: {{ .apiVersion | default "v1" }}
+              resource: {{ .resource | default "deployment" }}
+              subresource: {{ .subresource | default "prometheus-metrics" }}
+              name: {{ .name }}
+        {{- end }}
   resources:
     requests:
       {{- include "helm_lib_module_ephemeral_storage_only_logs" $ctx | nindent 6 }}

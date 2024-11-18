@@ -91,21 +91,15 @@ spec:
       # Add kube-rbac-proxy as a sidecar container to cdi-deployment
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "containerName" "kube-rbac-proxy" }}
-      {{- $_ := set $kubeRbacProxySettings "namespace" "d8-virtualization" }}
-      {{- $_ := set $kubeRbacProxySettings "apiGroup" "apps" }}
-      {{- $_ := set $kubeRbacProxySettings "apiVersion" "v1" }}
-      {{- $_ := set $kubeRbacProxySettings "resource" "deployment" }}
-      {{- $_ := set $kubeRbacProxySettings "subresource" "prometheus-metrics" }}
-      {{- $_ := set $kubeRbacProxySettings "name" "cdi-deployment" }}
-      {{- $_ := set $kubeRbacProxySettings "listenPort" "8082" }}
       {{- $_ := set $kubeRbacProxySettings "clientCAFile" "/etc/kube-rbac-proxy/ca.crt" }}
       {{- $_ := set $kubeRbacProxySettings "logLevel" "2" }}
       {{- $_ := set $kubeRbacProxySettings "staleCacheInterval" "1h30m" }}
       {{- $_ := set $kubeRbacProxySettings "livezPath" "/livez" }}
       {{- $_ := set $kubeRbacProxySettings "excludePath" "/config" }}
-      {{- $_ := set $kubeRbacProxySettings "upstream" "http://127.0.0.1:8080/metrics" }}
-      {{- $_ := set $kubeRbacProxySettings "path" "/metrics" }}
-      {{- $_ := set $kubeRbacProxySettings "portName" "https-metrics" }}
+      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment") 
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+      ) -}}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       - resourceName: cdi-deployment
         resourceType: Deployment
