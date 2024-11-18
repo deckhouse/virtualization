@@ -17,13 +17,13 @@ limitations under the License.
 package logger
 
 import (
-	"log/slog"
-
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-func NewConstructor(log *slog.Logger) func(req *reconcile.Request) logr.Logger {
+func NewConstructor(log *log.Logger) func(req *reconcile.Request) logr.Logger {
 	return func(req *reconcile.Request) logr.Logger {
 		log := log
 		if req != nil {

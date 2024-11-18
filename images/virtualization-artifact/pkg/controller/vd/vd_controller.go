@@ -18,7 +18,6 @@ package vd
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
@@ -51,7 +51,7 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *slog.Logger,
+	lg *log.Logger,
 	importerImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,

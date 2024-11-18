@@ -16,12 +16,12 @@ package vmclass
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -33,10 +33,10 @@ type VirtualMachineClassValidator interface {
 
 type Validator struct {
 	validators []VirtualMachineClassValidator
-	log        *slog.Logger
+	log        *log.Logger
 }
 
-func NewValidator(client client.Client, log *slog.Logger) *Validator {
+func NewValidator(client client.Client, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineClassValidator{
 			validators.NewSizingPoliciesValidator(client),

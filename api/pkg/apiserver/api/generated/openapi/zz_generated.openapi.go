@@ -674,17 +674,16 @@ func schema_virtualization_api_core_v1alpha2_AttachedVirtualMachine(ref common.R
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "A list of `VirtualMachines` that use the disk",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"name"},
 			},
 		},
 	}
@@ -1390,8 +1389,9 @@ func schema_virtualization_api_core_v1alpha2_DiskTarget(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"persistentVolumeClaimName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Created PersistentVolumeClaim name for Kubernetes storage.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -2094,7 +2094,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDisk(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualDisk is a disk ready to be bound by a VM",
+				Description: "The `VirtualDisk` resource describes the desired virtual machine disk configuration. A `VirtualDisk` can be mounted statically in the virtual machine by specifying it in the `.spec.blockDeviceRefs` disk list, or mounted on-the-fly using the `VirtualMachineBlockDeviceAttachments` resource.\n\nOnce `VirtualDisk` is created, only the disk size `.spec.persistentVolumeClaim.size` can be changed, all other fields are immutable.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -2263,21 +2263,27 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot` to create a disk.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDiskSnapshot`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"kind", "name"},
 			},
 		},
 	}
@@ -2287,17 +2293,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Settings for creating PVCs to store the disk.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1\n\nWhen creating disks, the user can specify the required StorageClass to create the disk, or not explicitly, in which case the default StorageClass will be used.\n\nThe disk features and virtual machine behavior depend on the selected StorageClass.\n\nThe `VolumeBindingMode` parameter in the StorageClass affects the disk creation process: - `Immediate` - The disk will be created and available for use immediately after creation. - `WaitForFirstConsumer` - The disk will be created only when it is used in a virtual machine. In this case, the disk will be created on the host where the virtual machine will be started.\n\nStorageClass can support different storage settings: - Creating a block device (`Block`) or file system (`FileSystem`). - Multiple Access (`ReadWriteMany`) or Single Access (`ReadWriteOnce`). `ReadWriteMany` disks support multiple access, which enables live migration of virtual machines. In contrast, `ReadWriteOnce` disks, which are limited to access from only one host, cannot provide this capability.\n\nFor known storage types, the platform will independently determine the most effective settings when creating disks (in descending order of priority): 1. `Block` + `ReadWriteMany` 2. `FileSystem` + `ReadWriteMany` 3. `Block` + `ReadWriteOnce` 4. `FileSystem` + `ReadWriteOnce`",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Description: "Desired size for PVC to store the disk. If the disk is created from an image, the size must be at least as large as the original unpacked image.\n\nThis parameter can be omitted if the `.spec.dataSource` block is specified, in which case the controller will determine the disk size automatically, based on the size of the extracted image from the source specified in `.spec.dataSource`.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 				},
@@ -2510,7 +2519,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"persistentVolumeClaim"},
 			},
 		},
 		Dependencies: []string{
@@ -2522,16 +2530,17 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStats(ref common.Referen
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "VirtualDisk statistics",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"creationDuration": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration"),
+							Description: "The waiting time for the virtual disk creation.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration"),
 						},
 					},
 				},
-				Required: []string{"creationDuration"},
 			},
 		},
 		Dependencies: []string{
@@ -2547,17 +2556,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(re
 				Properties: map[string]spec.Schema{
 					"waitingForDependencies": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "The waiting time for dependent resources.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"dvcrProvisioning": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "Duration of the loading into DVCR.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"totalProvisioning": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+							Description: "The duration of resource creation from the moment dependencies are ready until the resource transitions to the Ready state.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 				},
@@ -2581,8 +2593,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Requested capacity of the PVC in human-readable format.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"target": {
@@ -2593,8 +2606,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"progress": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Progress of copying an image from source to PVC. Appears only during the `Provisioning' phase.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"uploadCommand": {
@@ -2611,14 +2625,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"attachedToVirtualMachines": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "A list of `VirtualMachines` that use the disk",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2643,7 +2657,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "The latest available observations of an object's current state.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2656,18 +2671,19 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
+							Description: "The generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"target", "phase", "stats"},
 			},
 		},
 		Dependencies: []string{

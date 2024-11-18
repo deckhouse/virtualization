@@ -19,19 +19,19 @@ package vdsnapshot
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
-	logger *slog.Logger
+	logger *log.Logger
 }
 
-func NewValidator(logger *slog.Logger) *Validator {
+func NewValidator(logger *log.Logger) *Validator {
 	return &Validator{
 		logger: logger.With("webhook", "validator"),
 	}

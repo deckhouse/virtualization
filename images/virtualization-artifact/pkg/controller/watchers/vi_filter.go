@@ -18,20 +18,20 @@ package watchers
 
 import (
 	"fmt"
-	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualImageFilter struct {
-	logger *slog.Logger
+	logger *log.Logger
 }
 
 func NewVirtualImageFilter() *VirtualImageFilter {
 	return &VirtualImageFilter{
-		logger: slog.Default().With("filter", "vi"),
+		logger: log.Default().With("filter", "vi"),
 	}
 }
 

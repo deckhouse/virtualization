@@ -18,7 +18,6 @@ package gc
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -77,7 +77,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, log *slog.Logger) error {
+func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, log *log.Logger) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(controllerName).
 		For(r.newObject(), builder.WithPredicates(predicate.Funcs{

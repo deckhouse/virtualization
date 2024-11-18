@@ -19,10 +19,10 @@ package validators
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -30,10 +30,10 @@ import (
 
 type VMConnectLimiterValidator struct {
 	service *service.BlockDeviceService
-	log     *slog.Logger
+	log     *log.Logger
 }
 
-func NewVMConnectLimiterValidator(service *service.BlockDeviceService, log *slog.Logger) *VMConnectLimiterValidator {
+func NewVMConnectLimiterValidator(service *service.BlockDeviceService, log *log.Logger) *VMConnectLimiterValidator {
 	return &VMConnectLimiterValidator{
 		service: service,
 		log:     log,

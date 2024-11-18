@@ -19,13 +19,14 @@ package helper
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type Object[T, ST any] interface {
@@ -47,12 +48,12 @@ type Resource[T Object[T, ST], ST any] struct {
 
 	objFactory      ObjectFactory[T]
 	objStatusGetter ObjectStatusGetter[T, ST]
-	log             *slog.Logger
+	log             *log.Logger
 	client          client.Client
 	cache           cache.Cache
 }
 
-func NewResource[T Object[T, ST], ST any](name types.NamespacedName, logger *slog.Logger, client client.Client, cache cache.Cache, objFactory ObjectFactory[T], objStatusGetter ObjectStatusGetter[T, ST]) *Resource[T, ST] {
+func NewResource[T Object[T, ST], ST any](name types.NamespacedName, logger *log.Logger, client client.Client, cache cache.Cache, objFactory ObjectFactory[T], objStatusGetter ObjectStatusGetter[T, ST]) *Resource[T, ST] {
 	return &Resource[T, ST]{
 		name:            name,
 		log:             logger,
