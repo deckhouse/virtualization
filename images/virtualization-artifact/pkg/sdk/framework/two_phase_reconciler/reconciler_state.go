@@ -18,15 +18,16 @@ package two_phase_reconciler
 
 import (
 	"context"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type ReconcilerStateFactory[T ReconcilerState] func(name types.NamespacedName, logger *slog.Logger, client client.Client, cache cache.Cache) T
+type ReconcilerStateFactory[T ReconcilerState] func(name types.NamespacedName, logger *log.Logger, client client.Client, cache cache.Cache) T
 
 type ReconcilerState interface {
 	ReconcilerStateApplier
@@ -34,11 +35,11 @@ type ReconcilerState interface {
 	SetReconcilerResult(result *reconcile.Result)
 	GetReconcilerResult() *reconcile.Result
 
-	Reload(ctx context.Context, req reconcile.Request, logger *slog.Logger, client client.Client) error
-	ShouldReconcile(log *slog.Logger) bool
+	Reload(ctx context.Context, req reconcile.Request, logger *log.Logger, client client.Client) error
+	ShouldReconcile(log *log.Logger) bool
 }
 
 type ReconcilerStateApplier interface {
-	ApplySync(ctx context.Context, log *slog.Logger) error
-	ApplyUpdateStatus(ctx context.Context, log *slog.Logger) error
+	ApplySync(ctx context.Context, log *log.Logger) error
+	ApplyUpdateStatus(ctx context.Context, log *log.Logger) error
 }

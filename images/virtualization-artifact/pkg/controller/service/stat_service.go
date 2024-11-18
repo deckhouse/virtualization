@@ -19,7 +19,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
@@ -37,10 +37,10 @@ import (
 )
 
 type StatService struct {
-	logger *slog.Logger
+	logger *log.Logger
 }
 
-func NewStatService(logger *slog.Logger) *StatService {
+func NewStatService(logger *log.Logger) *StatService {
 	return &StatService{
 		logger: logger.With("svc", "stat"),
 	}

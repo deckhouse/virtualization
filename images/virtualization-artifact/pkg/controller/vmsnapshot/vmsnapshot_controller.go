@@ -18,7 +18,6 @@ package vmsnapshot
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot/internal"
@@ -39,7 +39,7 @@ const ControllerName = "vmsnapshot-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	virtClient kubeclient.Client,
 ) error {
 	log = log.With(logger.SlogController(ControllerName))

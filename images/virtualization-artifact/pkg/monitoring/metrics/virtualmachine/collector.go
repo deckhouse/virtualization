@@ -18,12 +18,12 @@ package virtualmachine
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -31,7 +31,7 @@ const collectorName = "virtualmachine-collector"
 
 func SetupCollector(reader client.Reader,
 	registerer prometheus.Registerer,
-	log *slog.Logger,
+	log *log.Logger,
 ) {
 	c := NewCollector(reader, log)
 	c.Register(registerer)
@@ -43,7 +43,7 @@ type Iterator interface {
 	Iter(ctx context.Context, h handler) error
 }
 
-func NewCollector(reader client.Reader, log *slog.Logger) *Collector {
+func NewCollector(reader client.Reader, log *log.Logger) *Collector {
 	return &Collector{
 		iterator: newUnsafeIterator(reader),
 		log:      log.With(logger.SlogCollector(collectorName)),
@@ -52,7 +52,7 @@ func NewCollector(reader client.Reader, log *slog.Logger) *Collector {
 
 type Collector struct {
 	iterator Iterator
-	log      *slog.Logger
+	log      *log.Logger
 }
 
 func (c Collector) Register(reg prometheus.Registerer) {

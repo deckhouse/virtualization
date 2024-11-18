@@ -19,22 +19,22 @@ package vmop
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(log *slog.Logger) *Validator {
+func NewValidator(log *log.Logger) *Validator {
 	return &Validator{
 		log: log.With("controller", controllerName).With("webhook", "validation"),
 	}
 }
 
 type Validator struct {
-	log *slog.Logger
+	log *log.Logger
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {

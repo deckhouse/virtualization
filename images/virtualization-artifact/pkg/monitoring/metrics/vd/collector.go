@@ -18,12 +18,12 @@ package vd
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -31,7 +31,7 @@ const collectorName = "virtualdisk-collector"
 
 func SetupCollector(reader client.Reader,
 	registerer prometheus.Registerer,
-	log *slog.Logger,
+	log *log.Logger,
 ) *Collector {
 	c := &Collector{
 		iterator: newUnsafeIterator(reader),
@@ -49,7 +49,7 @@ type Iterator interface {
 
 type Collector struct {
 	iterator Iterator
-	log      *slog.Logger
+	log      *log.Logger
 }
 
 func (c Collector) Describe(ch chan<- *prometheus.Desc) {

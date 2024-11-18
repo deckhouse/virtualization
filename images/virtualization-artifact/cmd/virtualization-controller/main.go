@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
@@ -81,9 +82,6 @@ func main() {
 	var logDebugVerbosity int
 	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
 
-	var logFormat string
-	flag.StringVar(&logFormat, "log-format", os.Getenv(logFormatEnv), "log format")
-
 	var logOutput string
 	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
 
@@ -92,13 +90,7 @@ func main() {
 
 	flag.Parse()
 
-	log := logger.New(logger.Options{
-		Level:          logLevel,
-		DebugVerbosity: logDebugVerbosity,
-		Format:         logFormat,
-		Output:         logOutput,
-	})
-
+	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
 
 	printVersion(log)
@@ -291,7 +283,7 @@ func main() {
 	}
 }
 
-func printVersion(log *slog.Logger) {
+func printVersion(log *log.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }

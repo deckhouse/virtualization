@@ -18,7 +18,6 @@ package vmrestore
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -37,7 +37,7 @@ const ControllerName = "vmrestore-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 ) error {
 	log = log.With(logger.SlogController(ControllerName))
 
