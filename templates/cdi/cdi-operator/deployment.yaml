@@ -125,7 +125,3 @@ spec:
       volumes:
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
       {{- include "kube_rbac_proxy.cert_volume" . | nindent 6 }}
-      - name: kube-rbac-proxy-ca
-        configMap:
-          defaultMode: 420
-          name: kube-rbac-proxy-ca.crt
