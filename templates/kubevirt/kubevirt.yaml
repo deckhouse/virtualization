@@ -103,7 +103,7 @@ spec:
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:8443/metrics" "path" "/metrics" "resource" "daemonset" "name" "virt-handler") 
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonset" "name" "kube-api-rewriter") 
-    ) -}}
+    ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
@@ -111,7 +111,7 @@ spec:
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:8443/metrics" "path" "/metrics" "name" "virt-api") 
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-    ) -}}
+    ) }}
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     - resourceName: virt-api
       resourceType: Deployment

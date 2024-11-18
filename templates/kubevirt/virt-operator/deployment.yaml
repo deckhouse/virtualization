@@ -149,7 +149,7 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:8443/metrics" "path" "/metrics" "name" "virt-operator") 
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-      ) -}}
+      ) }}
       {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}

@@ -99,7 +99,7 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment") 
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-      ) -}}
+      ) }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       - resourceName: cdi-deployment
         resourceType: Deployment
