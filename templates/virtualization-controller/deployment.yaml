@@ -108,6 +108,5 @@ spec:
         - name: admission-webhook-secret
           secret:
             secretName: virtualization-controller-tls
-        {{- include "kube_rbac_proxy.cert_volume" . | nindent 8 }}
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
 
