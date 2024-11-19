@@ -41,7 +41,7 @@
               namespace: {{ .namespace | default "d8-virtualization" }}
               apiGroup: {{ .apiGroup | default "apps" }}
               apiVersion: {{ .apiVersion | default "v1" }}
-              resource: {{ .resource | default "deployment" }}
+              resource: {{ .resource | default "deployments" }}
               subresource: {{ .subresource | default "prometheus-metrics" }}
               name: {{ .name }}
         {{- end }}
