@@ -98,6 +98,27 @@ spec:
       patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-handler") }}
       type: strategic
 
+    # Add kube-api-rewriter sidecar containers to virt-controller, virt-api, virt-handler.
+    {{- $kubeRbacProxySettings := dict }}
+    {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+    ) }}
+    - resourceName: virt-controller
+      resourceType: Deployment
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
+    - resourceName: virt-api
+      resourceType: Deployment
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
     # Add rewriter proxy container port to Services used by webhook configurations.
     # First need to set name for existing port to make strategic patch works later.
     - resourceName: virt-api

@@ -88,6 +88,22 @@ spec:
         patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (tuple . "cdi-deployment") }}
         type: strategic
 
+      # Add kube-rbac-proxy as a sidecar container to cdi-apiserver and cdi-deployment.
+      {{- $kubeRbacProxySettings := dict }}
+      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+      ) }}
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+        type: strategic
+
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+        type: strategic
+
       # Add rewriter proxy container port to the Service used by webhook configurations.
       # First need to set name for existing port to make strategic patch works later.
       - resourceName: cdi-api
