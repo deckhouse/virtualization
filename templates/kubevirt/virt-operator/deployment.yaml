@@ -144,13 +144,6 @@ spec:
         - mountPath: /profile-data
           name: profile-data
         {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 8 }}
-      {{- $kubeRbacProxySettings := dict }}
-      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
-      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:8443/metrics" "path" "/metrics" "name" "virt-operator") 
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-      ) }}
-      {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "master") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
@@ -163,6 +156,5 @@ spec:
           secretName: kubevirt-operator-certs
       - emptyDir: {}
         name: profile-data
-      {{- include "kube_rbac_proxy.cert_volume" . | nindent 6 }}
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
 

@@ -110,13 +110,6 @@ spec:
             {{- end }}
         volumeMounts:
         {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 8 }}
-      {{- $kubeRbacProxySettings := dict }}
-      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
-      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator") 
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-      ) }}
-      {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "system") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "system") | nindent 6 }}
@@ -124,4 +117,3 @@ spec:
       serviceAccountName: cdi-operator
       volumes:
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
-      {{- include "kube_rbac_proxy.cert_volume" . | nindent 6 }}
