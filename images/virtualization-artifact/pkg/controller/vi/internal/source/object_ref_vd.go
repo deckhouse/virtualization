@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -45,22 +44,29 @@ import (
 )
 
 type ObjectRefVirtualDisk struct {
-	importerService    Importer
-	diskService        *service.DiskService
-	statService        Stat
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	storageClassForPVC string
+	importerService     Importer
+	diskService         *service.DiskService
+	statService         Stat
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	storageClassService *service.VirtualImageStorageClassService
 }
 
-func NewObjectRefVirtualDisk(importerService Importer, client client.Client, diskService *service.DiskService, dvcrSettings *dvcr.Settings, statService Stat, storageClassForPVC string) *ObjectRefVirtualDisk {
+func NewObjectRefVirtualDisk(
+	importerService Importer,
+	client client.Client,
+	diskService *service.DiskService,
+	dvcrSettings *dvcr.Settings,
+	statService Stat,
+	storageClassService *service.VirtualImageStorageClassService,
+) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
-		importerService:    importerService,
-		client:             client,
-		diskService:        diskService,
-		statService:        statService,
-		dvcrSettings:       dvcrSettings,
-		storageClassForPVC: storageClassForPVC,
+		importerService:     importerService,
+		client:              client,
+		diskService:         diskService,
+		statService:         statService,
+		dvcrSettings:        dvcrSettings,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -209,6 +215,12 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		return reconcile.Result{}, err
 	}
 
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(cb.Condition()):
 		log.Info("Disk provisioning finished: clean up")
@@ -247,7 +259,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, size, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

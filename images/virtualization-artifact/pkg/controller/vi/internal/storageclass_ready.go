@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,18 +33,16 @@ import (
 )
 
 type StorageClassReadyHandler struct {
-	service                      DiskService
-	storageClassFromModuleConfig string
+	service DiskService
 }
 
 func (h StorageClassReadyHandler) Name() string {
 	return "StorageClassReadyHandler"
 }
 
-func NewStorageClassReadyHandler(diskService DiskService, storageClassFromModuleConfig string) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service:                      diskService,
-		storageClassFromModuleConfig: storageClassFromModuleConfig,
+		service: diskService,
 	}
 }
 
@@ -77,7 +74,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 
 	hasNoStorageClassInSpec := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
 	hasStorageClassInStatus := vi.Status.StorageClassName != ""
-	storageClassName := h.ActualStorageClass(vi, pvc)
+	var storageClassName *string
 
 	sc, err := h.service.GetStorageClass(ctx, storageClassName)
 	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
@@ -112,29 +109,4 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (h StorageClassReadyHandler) ActualStorageClass(vi *virtv2.VirtualImage, pvc *corev1.PersistentVolumeClaim) *string {
-	if vi == nil {
-		return nil
-	}
-
-	hasNoStorageClassInSpec := vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == ""
-	useStorageClassFromModuleConfig := hasNoStorageClassInSpec && h.storageClassFromModuleConfig != ""
-	hasStorageClassInStatus := vi.Status.StorageClassName != ""
-
-	var storageClassName *string
-
-	switch {
-	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
-		storageClassName = pvc.Spec.StorageClassName
-	case hasStorageClassInStatus && hasNoStorageClassInSpec:
-		storageClassName = &vi.Status.StorageClassName
-	case useStorageClassFromModuleConfig:
-		storageClassName = &h.storageClassFromModuleConfig
-	default:
-		storageClassName = vi.Spec.PersistentVolumeClaim.StorageClass
-	}
-
-	return storageClassName
 }

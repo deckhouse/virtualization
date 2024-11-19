@@ -38,12 +38,14 @@ import (
 )
 
 type ObjectRefVirtualImagePVC struct {
-	diskService *service.DiskService
+	diskService         *service.DiskService
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
-func NewObjectRefVirtualImagePVC(diskService *service.DiskService) *ObjectRefVirtualImagePVC {
+func NewObjectRefVirtualImagePVC(diskService *service.DiskService, storageClassService *service.VirtualDiskStorageClassService) *ObjectRefVirtualImagePVC {
 	return &ObjectRefVirtualImagePVC{
-		diskService: diskService,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -73,6 +75,12 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 	}
 	if vi == nil {
 		return reconcile.Result{}, errors.New("the source virtual image not found")
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -125,7 +133,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			},
 		}
 
-		err = ds.diskService.Start(ctx, size, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, size, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
