@@ -11,8 +11,10 @@ spec:
       key: token
       name: prometheus-token
     path: /metrics
-    port: metrics
-    scheme: http
+    port: https-metrics
+    scheme: https
+    tlsConfig:
+      insecureSkipVerify: true
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}
