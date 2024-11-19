@@ -31,7 +31,7 @@ on:
         required: false
         type: number
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
     branches:
       - main
@@ -68,6 +68,17 @@ jobs:
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+          labels="${{ github.event.pull_request.labels.*.name }}"
+
+          if [[ "$labels" == *"edition/ce"* ]]; then
+            echo "CE edition selected"
+            echo "EDITION=CE" >> $GITHUB_ENV
+          else
+            echo "EE edition selected"
+            echo "EDITION=EE" >> "$GITHUB_OUTPUT"
+            echo "EDITION=EE" >> "$GITHUB_ENV"
+            fi
 
   show_dev_manifest:
     runs-on: ubuntu-latest
@@ -197,6 +208,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo EDITION=$EDITION
 
       - uses: actions/checkout@v4
         with:

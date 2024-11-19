@@ -42,6 +42,7 @@ configVersion: 1
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+{{- $_ := set . "EDITION" (env "EDITION") }}
 
 # Modules_images
 {{- define "module_image_template" }}
@@ -75,6 +76,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "ImageBuildData" $content }}
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+  {{- $_ := set $ctx "EDITION" $Root.EDITION }}
 
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}

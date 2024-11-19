@@ -1,7 +1,11 @@
 giterminismConfigVersion: 1
 config:
   goTemplateRendering:	# The rules for the Go-template functions
-    allowEnvVariables: [ /CI_.+/, MODULES_MODULE_TAG, SOURCE_REPO ]
+    allowEnvVariables: 
+    - /CI_.+/
+    - MODULES_MODULE_TAG
+    - SOURCE_REPO
+    - EDITION
   stapel:
     mount:
       allowBuildDir: true
