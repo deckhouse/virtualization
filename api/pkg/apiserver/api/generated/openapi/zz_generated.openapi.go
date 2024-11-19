@@ -2895,12 +2895,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualImagePersistentVolumeClaim(r
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "Settings for creating PVCs to store the image with storage type 'PersistentVolumeClaim'.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"storageClass": {
+					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1\n\nWhen creating image with storage type 'PersistentVolumeClaim', the user can specify the required StorageClass to create the image, or not explicitly, in which case the default StorageClass will be used.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -3066,7 +3068,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatusTarget(ref common
 					},
 					"persistentVolumeClaimName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Created PersistentVolumeClaim name for Kubernetes storage.",
+							Description: "Created PersistentVolumeClaim name for PersistentVolumeClaim storage.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

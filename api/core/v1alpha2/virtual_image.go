@@ -112,7 +112,7 @@ type VirtualImageStatusTarget struct {
 	// Created image in DVCR.
 	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
-	// Created PersistentVolumeClaim name for Kubernetes storage.
+	// Created PersistentVolumeClaim name for PersistentVolumeClaim storage.
 	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }
 
@@ -158,15 +158,23 @@ const (
 // Storage type to store the image for current virtualization setup.
 //
 // * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-// * `Kubernetes` - use a Persistent Volume Claim (PVC).
-// +kubebuilder:validation:Enum:={ContainerRegistry,Kubernetes}
+// * `PersistentVolumeClaim` - use a Persistent Volume Claim (PVC).
+// * `Kubernetes` - Deprecated: Use of this value is discouraged and may be removed in future versions. Use PersistentVolumeClaim instead.
+// +kubebuilder:validation:Enum:={ContainerRegistry,Kubernetes,PersistentVolumeClaim}
 type StorageType string
 
 const (
-	StorageContainerRegistry StorageType = "ContainerRegistry"
-	StorageKubernetes        StorageType = "Kubernetes"
+	StorageContainerRegistry     StorageType = "ContainerRegistry"
+	StoragePersistentVolumeClaim StorageType = "PersistentVolumeClaim"
+
+	// TODO: remove storage type Kubernetes in 2025
+	StorageKubernetes StorageType = "Kubernetes"
 )
 
+// Settings for creating PVCs to store the image with storage type 'PersistentVolumeClaim'.
 type VirtualImagePersistentVolumeClaim struct {
-	StorageClass *string `json:"storageClass,omitempty"`
+	// The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+	//
+	// When creating image with storage type 'PersistentVolumeClaim', the user can specify the required StorageClass to create the image, or not explicitly, in which case the default StorageClass will be used.
+	StorageClass *string `json:"storageClassName,omitempty"`
 }

@@ -40,20 +40,23 @@ import (
 )
 
 type ObjectRefClusterVirtualImage struct {
-	statService *service.StatService
-	diskService *service.DiskService
-	client      client.Client
+	statService         *service.StatService
+	diskService         *service.DiskService
+	storageClassService *service.VirtualDiskStorageClassService
+	client              client.Client
 }
 
 func NewObjectRefClusterVirtualImage(
 	statService *service.StatService,
 	diskService *service.DiskService,
+	storageClassService *service.VirtualDiskStorageClassService,
 	client client.Client,
 ) *ObjectRefClusterVirtualImage {
 	return &ObjectRefClusterVirtualImage{
-		statService: statService,
-		diskService: diskService,
-		client:      client,
+		statService:         statService,
+		diskService:         diskService,
+		storageClassService: storageClassService,
+		client:              client,
 	}
 }
 
@@ -84,6 +87,12 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	}
 	if cvi == nil {
 		return reconcile.Result{}, errors.New("the source cluster virtual image not found")
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -131,7 +140,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 
 		source := ds.getSource(supgen, cvi)
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

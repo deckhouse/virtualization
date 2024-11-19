@@ -126,7 +126,8 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateVMIDiskName(bd.Name)
 			switch vi.Spec.Storage {
-			case virtv2.StorageKubernetes:
+			case virtv2.StorageKubernetes,
+				virtv2.StoragePersistentVolumeClaim:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: util.GetPointer(vi.Status.Target.PersistentVolumeClaim),
