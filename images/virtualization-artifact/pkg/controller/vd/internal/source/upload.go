@@ -44,10 +44,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService     *service.StatService
-	uploaderService *service.UploaderService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
+	statService         *service.StatService
+	uploaderService     *service.UploaderService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewUploadDataSource(
@@ -55,12 +56,14 @@ func NewUploadDataSource(
 	uploaderService *service.UploaderService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:     statService,
-		uploaderService: uploaderService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
+		statService:         statService,
+		uploaderService:     uploaderService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -90,6 +93,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}
 
@@ -248,7 +257,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, &vd.Status.StorageClassName, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

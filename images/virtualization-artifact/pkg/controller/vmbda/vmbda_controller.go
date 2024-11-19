@@ -18,7 +18,6 @@ package vmbda
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -39,7 +39,7 @@ const ControllerName = "vmbda-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *slog.Logger,
+	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
 	log := lg.With(logger.SlogController(ControllerName))

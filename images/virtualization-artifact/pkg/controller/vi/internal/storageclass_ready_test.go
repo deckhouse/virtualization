@@ -33,98 +33,9 @@ import (
 )
 
 var _ = Describe("StorageClassHandler Run", func() {
-	DescribeTable("Checking ActualStorageClass",
-		func(args actualScNameTestArgs) {
-			h := NewStorageClassReadyHandler(nil, args.StorageClassFromModuleConfig)
-
-			Expect(h.ActualStorageClass(args.VI, args.PVC)).To(Equal(args.ExpectedStatus))
-		},
-		Entry(
-			"Should be nil if no VI",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "",
-				VI:                           nil,
-				PVC:                          nil,
-				ExpectedStatus:               nil,
-			},
-		),
-		Entry(
-			"Should be nil because no data",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "",
-				VI:                           newVI(nil, "", ""),
-				PVC:                          nil,
-				ExpectedStatus:               nil,
-			},
-		),
-		Entry(
-			"Should be from status if have in status, but not in spec",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "",
-				VI:                           newVI(nil, "statusSC", ""),
-				PVC:                          nil,
-				ExpectedStatus:               ptr.To("statusSC"),
-			},
-		),
-		Entry(
-			"Should be from status if have in status and in mc",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(nil, "statusSC", ""),
-				PVC:                          nil,
-				ExpectedStatus:               ptr.To("statusSC"),
-			},
-		),
-		Entry(
-			"Should be from mc if only in mc",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(nil, "", ""),
-				PVC:                          nil,
-				ExpectedStatus:               ptr.To("fromMC"),
-			},
-		),
-		Entry(
-			"Should be from spec if pvc does not exists",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
-				PVC:                          nil,
-				ExpectedStatus:               ptr.To("specSC"),
-			},
-		),
-		Entry(
-			"Should be from spec if pvc exists, but his storage class is nil",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
-				PVC:                          newPVC(nil),
-				ExpectedStatus:               ptr.To("specSC"),
-			},
-		),
-		Entry(
-			"Should be from spec if pvc exists, but his storage class is empty",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
-				PVC:                          newPVC(ptr.To("")),
-				ExpectedStatus:               ptr.To("specSC"),
-			},
-		),
-		Entry(
-			"Should be from pvc if pvc exists",
-			actualScNameTestArgs{
-				StorageClassFromModuleConfig: "fromMC",
-				VI:                           newVI(ptr.To("specSC"), "statusSC", ""),
-				PVC:                          newPVC(ptr.To("pvcSC")),
-				ExpectedStatus:               ptr.To("pvcSC"),
-			},
-		),
-	)
-
 	DescribeTable("Checking returning conditions",
 		func(args handlerTestArgs) {
-			handler := NewStorageClassReadyHandler(args.DiskServiceMock, "")
+			handler := NewStorageClassReadyHandler(args.DiskServiceMock)
 			_, err := handler.Handle(context.TODO(), args.VI)
 
 			Expect(err).To(BeNil())
@@ -137,7 +48,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be false because used DVCR storage type",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(nil),
-				VI:              newVI(nil, "", virtv2.StorageContainerRegistry),
+				VI:              newVI(nil, virtv2.StorageContainerRegistry),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionUnknown,
 					Reason: vicondition.DVCRTypeUsed.String(),
@@ -148,7 +59,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(nil),
-				VI:              newVI(nil, "", virtv2.StorageKubernetes),
+				VI:              newVI(nil, virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vicondition.StorageClassNotFound.String(),
@@ -159,7 +70,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because storage class from spec found",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
+				VI:              newVI(ptr.To("sc"), virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -170,7 +81,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because default storage class found",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), "", virtv2.StorageKubernetes),
+				VI:              newVI(ptr.To("sc"), virtv2.StorageKubernetes),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -179,13 +90,6 @@ var _ = Describe("StorageClassHandler Run", func() {
 		),
 	)
 })
-
-type actualScNameTestArgs struct {
-	StorageClassFromModuleConfig string
-	VI                           *virtv2.VirtualImage
-	PVC                          *corev1.PersistentVolumeClaim
-	ExpectedStatus               *string
-}
 
 type handlerTestArgs struct {
 	DiskServiceMock   DiskService
@@ -224,7 +128,7 @@ func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
 	return &diskServiceMock
 }
 
-func newVI(specSC *string, statusSC string, storageType virtv2.StorageType) *virtv2.VirtualImage {
+func newVI(specSC *string, storageType virtv2.StorageType) *virtv2.VirtualImage {
 	return &virtv2.VirtualImage{
 		Spec: virtv2.VirtualImageSpec{
 			PersistentVolumeClaim: virtv2.VirtualImagePersistentVolumeClaim{
@@ -233,15 +137,7 @@ func newVI(specSC *string, statusSC string, storageType virtv2.StorageType) *vir
 			Storage: storageType,
 		},
 		Status: virtv2.VirtualImageStatus{
-			StorageClassName: statusSC,
-		},
-	}
-}
-
-func newPVC(sc *string) *corev1.PersistentVolumeClaim {
-	return &corev1.PersistentVolumeClaim{
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: sc,
+			StorageClassName: "",
 		},
 	}
 }

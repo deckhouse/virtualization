@@ -19,13 +19,13 @@ package watchers
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -35,7 +35,7 @@ type VirtualImageRequestEnqueuer struct {
 	enqueueFromObj  client.Object
 	enqueueFromKind virtv2.VirtualImageObjectRefKind
 	client          client.Client
-	logger          *slog.Logger
+	logger          *log.Logger
 }
 
 func NewVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.VirtualImageObjectRefKind) *VirtualImageRequestEnqueuer {
@@ -43,7 +43,7 @@ func NewVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
 		client:          client,
-		logger:          slog.Default().With("enqueuer", "vi"),
+		logger:          log.Default().With("enqueuer", "vi"),
 	}
 }
 

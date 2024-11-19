@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,13 +28,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
-func NewValidator(log *slog.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
+func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
 	return &Validator{
 		log:       log.With("webhook", "validation"),
 		client:    client,
@@ -44,7 +44,7 @@ func NewValidator(log *slog.Logger, client client.Client, ipAddressService *serv
 }
 
 type Validator struct {
-	log       *slog.Logger
+	log       *log.Logger
 	client    client.Client
 	ipService *service.IpAddressService
 }

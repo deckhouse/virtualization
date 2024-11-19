@@ -19,12 +19,12 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/netip"
 
 	k8snet "k8s.io/utils/net"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 )
 
@@ -33,7 +33,7 @@ type IpAddressService struct {
 }
 
 func NewIpAddressService(
-	logger *slog.Logger,
+	logger *log.Logger,
 	virtualMachineCIDRs []string,
 ) *IpAddressService {
 	parsedCIDRs := make([]netip.Prefix, len(virtualMachineCIDRs))

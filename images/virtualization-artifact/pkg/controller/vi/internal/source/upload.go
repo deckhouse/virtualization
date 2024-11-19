@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -44,11 +43,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService        Stat
-	uploaderService    Uploader
-	dvcrSettings       *dvcr.Settings
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	uploaderService     Uploader
+	dvcrSettings        *dvcr.Settings
+	diskService         *service.DiskService
+	storageClassService *service.VirtualImageStorageClassService
 }
 
 func NewUploadDataSource(
@@ -56,14 +55,14 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:        statService,
-		uploaderService:    uploaderService,
-		dvcrSettings:       dvcrSettings,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
+		statService:         statService,
+		uploaderService:     uploaderService,
+		dvcrSettings:        dvcrSettings,
+		diskService:         diskService,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -93,6 +92,12 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}
 
@@ -230,7 +235,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

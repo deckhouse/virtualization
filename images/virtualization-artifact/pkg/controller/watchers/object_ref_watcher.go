@@ -18,7 +18,6 @@ package watchers
 
 import (
 	"context"
-	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -28,12 +27,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type ObjectRefWatcher struct {
 	filter   UpdateEventsFilter
 	enqueuer RequestEnqueuer
-	logger   *slog.Logger
+	logger   *log.Logger
 }
 
 type RequestEnqueuer interface {
@@ -52,7 +53,7 @@ func NewObjectRefWatcher(
 	return &ObjectRefWatcher{
 		filter:   filter,
 		enqueuer: enqueuer,
-		logger:   slog.Default().With("watcher", "cvi"),
+		logger:   log.Default().With("watcher", "cvi"),
 	}
 }
 

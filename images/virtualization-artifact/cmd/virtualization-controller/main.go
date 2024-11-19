@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
@@ -81,9 +82,6 @@ func main() {
 	var logDebugVerbosity int
 	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
 
-	var logFormat string
-	flag.StringVar(&logFormat, "log-format", os.Getenv(logFormatEnv), "log format")
-
 	var logOutput string
 	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
 
@@ -92,13 +90,7 @@ func main() {
 
 	flag.Parse()
 
-	log := logger.New(logger.Options{
-		Level:          logLevel,
-		DebugVerbosity: logDebugVerbosity,
-		Format:         logFormat,
-		Output:         logOutput,
-	})
-
+	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
 
 	printVersion(log)
@@ -126,6 +118,9 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
+	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -186,11 +181,6 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
-	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
-	if storageClassForVirtualImageOnPVC == "" {
-		log.Info("virtualImages.storageClassName not found in ModuleConfig, default storage class will be used for images on PVCs.")
-	}
-
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
@@ -219,12 +209,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
+	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC); err != nil {
+	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -291,7 +281,7 @@ func main() {
 	}
 }
 
-func printVersion(log *slog.Logger) {
+func printVersion(log *log.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }

@@ -47,11 +47,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService     *service.StatService
-	importerService *service.ImporterService
-	diskService     *service.DiskService
-	dvcrSettings    *dvcr.Settings
-	client          client.Client
+	statService         *service.StatService
+	importerService     *service.ImporterService
+	diskService         *service.DiskService
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	storageClassService *service.VirtualDiskStorageClassService
 }
 
 func NewRegistryDataSource(
@@ -60,13 +61,15 @@ func NewRegistryDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
+	storageClassService *service.VirtualDiskStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:     statService,
-		importerService: importerService,
-		diskService:     diskService,
-		dvcrSettings:    dvcrSettings,
-		client:          client,
+		statService:         statService,
+		importerService:     importerService,
+		diskService:         diskService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		storageClassService: storageClassService,
 	}
 }
 
@@ -88,6 +91,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}
 
@@ -218,7 +227,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, &vd.Status.StorageClassName, source, vd, supgen)
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

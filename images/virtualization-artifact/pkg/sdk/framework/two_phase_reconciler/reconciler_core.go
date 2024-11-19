@@ -19,13 +19,14 @@ package two_phase_reconciler
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type ReconcilerOptions struct {
@@ -33,7 +34,7 @@ type ReconcilerOptions struct {
 	Cache    cache.Cache
 	Recorder record.EventRecorder
 	Scheme   *runtime.Scheme
-	Log      *slog.Logger
+	Log      *log.Logger
 }
 
 type ReconcilerCore[T ReconcilerState] struct {

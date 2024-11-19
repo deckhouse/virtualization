@@ -18,7 +18,6 @@ package vmop
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/client-go/util/workqueue"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -44,7 +44,7 @@ func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	virtClient kubeclient.Client,
-	lg *slog.Logger,
+	lg *log.Logger,
 ) error {
 	log := lg.With(logger.SlogController(controllerName))
 

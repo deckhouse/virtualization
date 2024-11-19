@@ -212,6 +212,27 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *virtv2.V
 	}
 }
 
+func setConditionFromStorageClassError(err error, cb *conditions.ConditionBuilder) (bool, error) {
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, service.ErrStorageClassNotFound):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Provided StorageClass not found in the cluster.")
+		return true, nil
+	case errors.Is(err, service.ErrStorageClassNotAllowed):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message("Specified StorageClass is not allowed: please change provided StorageClass name or check the module settings.")
+		return true, nil
+	default:
+		return false, err
+	}
+}
+
 func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:

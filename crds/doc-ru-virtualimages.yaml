@@ -12,6 +12,15 @@ spec:
           properties:
             spec:
               properties:
+                persistentVolumeClaim:
+                  description: |
+                    Настройки для создания PVC для хранения образа с хранилищем типа 'PersistentVolumeClaim'.
+                  properties:
+                    storageClassName:
+                      description: |
+                        Имя StorageClass, требуемого для PersistentVolumeClaim. Дополнительная информация — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+
+                        При создании образа с хранилищем типа 'PersistentVolumeClaim' пользователь может указать требуемый StorageClass для создания диска, либо не указывать явно и в этом случае будет использован StorageClass доступный по умолчанию.
                 dataSource:
                   description: |
                     Тип источника, из которого будет создан образ.
@@ -86,7 +95,8 @@ spec:
                     Тип хранилища для хранения образа:
 
                     * `ContainerRegistry` — использовать container registry (DVCR). В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации).
-                    * `Kubernetes` - использовать Persistent Volume Claim (PVC).
+                    * `Kubernetes` - Устарело: использование этого значения не рекомендуется и может быть удалено в будущих версиях. Используйте тип PersistentVolumeClaim.
+                    * `PersistentVolumeClaim` - использовать Persistent Volume Claim (PVC).
             status:
               properties:
                 conditions:

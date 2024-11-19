@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -48,12 +47,12 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService        Stat
-	importerService    Importer
-	dvcrSettings       *dvcr.Settings
-	client             client.Client
-	diskService        *service.DiskService
-	storageClassForPVC string
+	statService         Stat
+	importerService     Importer
+	dvcrSettings        *dvcr.Settings
+	client              client.Client
+	diskService         *service.DiskService
+	storageClassService *service.VirtualImageStorageClassService
 
 	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
 	vdSyncer         *ObjectRefVirtualDisk
@@ -65,17 +64,17 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassForPVC string,
+	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
-		statService:        statService,
-		importerService:    importerService,
-		dvcrSettings:       dvcrSettings,
-		client:             client,
-		diskService:        diskService,
-		storageClassForPVC: storageClassForPVC,
-		viObjectRefOnPvc:   NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassForPVC),
-		vdSyncer:           NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassForPVC),
+		statService:         statService,
+		importerService:     importerService,
+		dvcrSettings:        dvcrSettings,
+		client:              client,
+		diskService:         diskService,
+		storageClassService: storageClassService,
+		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(statService, importerService, dvcrSettings, client, diskService, storageClassService),
+		vdSyncer:            NewObjectRefVirtualDisk(importerService, client, diskService, dvcrSettings, statService, storageClassService),
 	}
 }
 
@@ -85,6 +84,12 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
+
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
+		return reconcile.Result{}, err
+	}
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
@@ -98,7 +103,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return reconcile.Result{}, fmt.Errorf("VI object ref %s is nil", viKey)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef, cb)
 		}
 	case virtv2.VirtualDiskKind:
@@ -182,7 +187,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.StartImmediate(ctx, diskSize, ptr.To(vi.Status.StorageClassName), source, vi, supgen)
+		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -262,7 +267,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			return ds.viObjectRefOnPvc.StoreToDVCR(ctx, vi, viRef, cb)
 		}
 	case virtv2.VirtualDiskKind:
@@ -439,7 +444,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 			return fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if viRef.Spec.Storage == virtv2.StorageKubernetes {
+		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			if viRef.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
