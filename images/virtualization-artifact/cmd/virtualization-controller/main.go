@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -57,6 +58,7 @@ import (
 )
 
 const (
+	metricsBindAddrEnv   = "METRICS_BIND_ADDRESS"
 	pprofBindAddrEnv     = "PPROF_BIND_ADDRESS"
 	logLevelEnv          = "LOG_LEVEL"
 	logDebugVerbosityEnv = "LOG_DEBUG_VERBOSITY"
@@ -87,6 +89,9 @@ func main() {
 
 	var pprofBindAddr string
 	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
+
+	var metricsBindAddr string
+	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
 
 	flag.Parse()
 
@@ -163,6 +168,9 @@ func main() {
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
 		Scheme:                     scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsBindAddr,
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -284,4 +292,11 @@ func main() {
 func printVersion(log *log.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+}
+
+func getEnv(env, defaultEnv string) string {
+	if e, found := os.LookupEnv(env); found {
+		return e
+	}
+	return defaultEnv
 }
