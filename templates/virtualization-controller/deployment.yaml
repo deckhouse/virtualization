@@ -92,7 +92,13 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
-
+        {{- $kubeRbacProxySettings := dict }}
+        {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
+        {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+            (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virtualization-controller") 
+            (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+        ) }}
+        {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
       dnsPolicy: ClusterFirst
       serviceAccountName: virtualization-controller
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
