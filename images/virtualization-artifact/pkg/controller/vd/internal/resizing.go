@@ -116,7 +116,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	storageClassReadyCondition, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 
 	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
-	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == common.CmpGreater && storageClassReadyCondition.Status == metav1.ConditionTrue {
+	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == common.CmpGreater {
 		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status == metav1.ConditionTrue {
 			cb.
@@ -126,16 +126,29 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, nil
 		}
 
-		err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
-		if err != nil {
-			if k8serrors.IsForbidden(err) {
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ResizingNotAvailable).
-					Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
-				return reconcile.Result{}, nil
+		switch storageClassReadyCondition.Status {
+		case metav1.ConditionTrue:
+			err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
+			if err != nil {
+				if k8serrors.IsForbidden(err) {
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vdcondition.ResizingNotAvailable).
+						Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
+					return reconcile.Result{}, nil
+				}
+				return reconcile.Result{}, err
 			}
-			return reconcile.Result{}, err
+		case metav1.ConditionFalse:
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ResizingNotRequested).
+				Message("Disk resizing is not allowed: Storage class is not ready")
+		case metav1.ConditionUnknown:
+			cb.
+				Status(metav1.ConditionUnknown).
+				Reason(conditions.ReasonUnknown).
+				Message("")
 		}
 
 		log.Info("The virtual disk resizing has started")
