@@ -235,7 +235,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 func (s VMOperationService) isAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
-	signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
+	signalSendCond, found := conditions.GetCondition(vmopcondition.SignalSentType, vmop.Status.Conditions)
 	if found && signalSendCond.Status == metav1.ConditionTrue && signalSendCond.LastTransitionTime.After(signalSentTime) {
 		signalSentTime = signalSendCond.LastTransitionTime.Time
 	}

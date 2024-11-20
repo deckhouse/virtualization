@@ -154,6 +154,8 @@ spec:
     - name: WEBHOOK_KEY_FILE
       value: "{{ $settings.WEBHOOK_KEY_FILE }}"
     {{- end }}
+    - name: MONITORING_BIND_ADDRESS
+      value: "127.0.0.1:9090"
     {{- include "kube_api_rewriter.env" $ctx | nindent 4 }}
   resources:
     requests:

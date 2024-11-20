@@ -68,7 +68,8 @@
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 * * * *"
-
+- name: METRICS_BIND_ADDRESS
+  value: "127.0.0.1:8080"
 {{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"

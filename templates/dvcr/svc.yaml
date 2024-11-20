@@ -11,10 +11,10 @@ spec:
       protocol: TCP
       name: https
       targetPort: https
-    - port: 5001
+    - port: 8002
       protocol: TCP
-      name: metrics
-      targetPort: metrics
+      name: https-metrics
+      targetPort: https-metrics
   selector:
     app: dvcr
   

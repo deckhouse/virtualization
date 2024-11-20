@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -117,8 +117,8 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), oldKVVMI.Status.Conditions)
-	newFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), newKVVMI.Status.Conditions)
+	oldFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, oldKVVMI.Status.Conditions)
+	newFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, newKVVMI.Status.Conditions)
 
 	return oldFSReady.Status != newFSReady.Status
 }
