@@ -100,7 +100,7 @@ index 0368a0762b..c7369d73e6 100644
  
  func (service *ServiceLibvirt) AddLibvirtFlags() {
 diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
-index da6e00c783..c841393941 100644
+index da6e00c783..f2484ebe2d 100644
 --- a/pkg/virt-operator/resource/generate/components/daemonsets.go
 +++ b/pkg/virt-operator/resource/generate/components/daemonsets.go
 @@ -175,6 +175,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
@@ -123,3 +123,21 @@ index da6e00c783..c841393941 100644
  		},
  	}
  	container.SecurityContext = &corev1.SecurityContext{
+@@ -226,7 +230,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 		FailureThreshold: 3,
+ 		ProbeHandler: corev1.ProbeHandler{
+ 			HTTPGet: &corev1.HTTPGetAction{
+-				Scheme: corev1.URISchemeHTTPS,
++				Scheme: corev1.URISchemeHTTP,
+ 				Port: intstr.IntOrString{
+ 					Type:   intstr.Int,
+ 					IntVal: 8443,
+@@ -241,7 +245,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 	container.ReadinessProbe = &corev1.Probe{
+ 		ProbeHandler: corev1.ProbeHandler{
+ 			HTTPGet: &corev1.HTTPGetAction{
+-				Scheme: corev1.URISchemeHTTPS,
++				Scheme: corev1.URISchemeHTTP,
+ 				Port: intstr.IntOrString{
+ 					Type:   intstr.Int,
+ 					IntVal: 8443,
