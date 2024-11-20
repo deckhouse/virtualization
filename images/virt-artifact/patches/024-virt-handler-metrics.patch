@@ -1,0 +1,84 @@
+diff --git a/cmd/virt-handler/virt-handler.go b/cmd/virt-handler/virt-handler.go
+index 09b2b53904..30a1634fe6 100644
+--- a/cmd/virt-handler/virt-handler.go
++++ b/cmd/virt-handler/virt-handler.go
+@@ -94,9 +94,11 @@ const (
+ 
+ 	// Default port that virt-handler listens on.
+ 	defaultPort = 8185
++	defaultMetricsPort = defaultPort
+ 
+ 	// Default address that virt-handler listens on.
+ 	defaultHost = "0.0.0.0"
++	defaultMetricsHost = defaultHost
+ 
+ 	hostOverride = ""
+ 
+@@ -546,7 +548,7 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
+ 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+ 	mux.Handle("/metrics", metricshandler.Handler(app.MaxRequestsInFlight))
+ 	server := http.Server{
+-		Addr:      app.ServiceListen.Address(),
++		Addr:      app.ServiceListen.MetricsAddress(),
+ 		Handler:   mux,
+ 		TLSConfig: app.promTLSConfig,
+ 		// Disable HTTP/2
+@@ -588,7 +590,9 @@ func (app *virtHandlerApp) AddFlags() {
+ 	app.InitFlags()
+ 
+ 	app.BindAddress = defaultHost
++	app.MetricsBindAddress = defaultMetricsHost
+ 	app.Port = defaultPort
++	app.MetricsPort = defaultMetricsPort
+ 
+ 	app.AddCommonFlags()
+ 
+diff --git a/pkg/service/service.go b/pkg/service/service.go
+index 0368a0762b..c7369d73e6 100644
+--- a/pkg/service/service.go
++++ b/pkg/service/service.go
+@@ -42,6 +42,8 @@ type ServiceListen struct {
+ 	Name        string
+ 	BindAddress string
+ 	Port        int
++	MetricsBindAddress string
++	MetricsPort        int
+ }
+ 
+ type ServiceLibvirt struct {
+@@ -52,6 +54,10 @@ func (service *ServiceListen) Address() string {
+ 	return fmt.Sprintf("%s:%s", service.BindAddress, strconv.Itoa(service.Port))
+ }
+ 
++func (service *ServiceListen) MetricsAddress() string {
++	return fmt.Sprintf("%s:%s", service.MetricsBindAddress, strconv.Itoa(service.MetricsPort))
++}
++
+ func (service *ServiceListen) InitFlags() {
+ 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+ 	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("kubeconfig"))
+@@ -61,6 +67,9 @@ func (service *ServiceListen) InitFlags() {
+ func (service *ServiceListen) AddCommonFlags() {
+ 	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
+ 	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
++	// default values are taken from the common server counterparts
++	flag.StringVar(&service.MetricsBindAddress, "metrics-listen", service.BindAddress, "Address for metrics to listen on")
++	flag.IntVar(&service.MetricsPort, "metrics-port", service.Port, "Port for metrics to listen on")
+ }
+ 
+ func (service *ServiceLibvirt) AddLibvirtFlags() {
+diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
+index da6e00c783..fd1be04aa8 100644
+--- a/pkg/virt-operator/resource/generate/components/daemonsets.go
++++ b/pkg/virt-operator/resource/generate/components/daemonsets.go
+@@ -175,6 +175,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 	container.Args = []string{
+ 		"--port",
+ 		"8443",
++		"--metrics-listen",
++		"127.0.0.1",
++		"--metrics-port",
++		"8080",
+ 		"--hostname-override",
+ 		"$(NODE_NAME)",
+ 		"--pod-ip-address",
