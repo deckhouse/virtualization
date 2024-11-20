@@ -150,11 +150,6 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		}
 	}
 
-	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, newVD.Status.Conditions)
-	if storageClassReady.Status != metav1.ConditionTrue && newSize.Cmp(oldSize) == common.CmpGreater {
-		return nil, errors.New("can not expand Virtual Disk because its StorageClass is not ready")
-	}
-
 	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
 		return nil, nil
 	}
