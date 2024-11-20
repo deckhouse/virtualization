@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -97,8 +97,8 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldRunningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), oldVM.Status.Conditions)
-	newRunningCondition, _ := service.GetCondition(vmcondition.TypeRunning.String(), newVM.Status.Conditions)
+	oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, oldVM.Status.Conditions)
+	newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, newVM.Status.Conditions)
 
 	return newRunningCondition.Status != oldRunningCondition.Status
 }

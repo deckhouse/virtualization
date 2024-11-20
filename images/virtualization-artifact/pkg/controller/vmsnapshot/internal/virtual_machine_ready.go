@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
@@ -85,7 +84,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 
 	switch vm.Status.Phase {
 	case virtv2.MachineRunning, virtv2.MachineStopped:
-		snapshotting, _ := service.GetCondition(vmcondition.TypeSnapshotting.String(), vm.Status.Conditions)
+		snapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue {
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualMachineNotReadyForSnapshotting)
 			if snapshotting.Message == "" {

@@ -25,9 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -87,7 +87,7 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		}
 
 		for i, lease := range leases.Items {
-			boundCondition, exist := service.GetCondition(vmiplcondition.BoundType.String(), lease.Status.Conditions)
+			boundCondition, exist := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
 			if exist && boundCondition.Status == metav1.ConditionTrue {
 				s.lease = &leases.Items[i]
 				break
