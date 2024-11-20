@@ -22,8 +22,13 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+const (
+	GcVmopTtlVar              = "GC_VMOP_TTL"
+	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
+	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL"
+	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
 )
 
 type GCSettings struct {
@@ -38,13 +43,13 @@ type BaseGcSettings struct {
 
 func LoadGcSettings() (GCSettings, error) {
 	var gcSettings GCSettings
-	base, err := GetBaseGCSettingsFromEnv(common.GcVmopScheduleVar, common.GcVmopTtlVar)
+	base, err := GetBaseGCSettingsFromEnv(GcVmopScheduleVar, GcVmopTtlVar)
 	if err != nil {
 		return gcSettings, err
 	}
 	gcSettings.VMOP = base
 
-	base, err = GetBaseGCSettingsFromEnv(common.GcVMIMigrationScheduleVar, common.GcVMIMigrationTtlVar)
+	base, err = GetBaseGCSettingsFromEnv(GcVMIMigrationScheduleVar, GcVMIMigrationTtlVar)
 	if err != nil {
 		return gcSettings, err
 	}

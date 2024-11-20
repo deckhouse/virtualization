@@ -37,7 +37,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/common"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -58,13 +57,17 @@ import (
 )
 
 const (
-	metricsBindAddrEnv        = "METRICS_BIND_ADDRESS"
-	pprofBindAddrEnv          = "PPROF_BIND_ADDRESS"
-	logLevelEnv               = "LOG_LEVEL"
-	logDebugVerbosityEnv      = "LOG_DEBUG_VERBOSITY"
 	logDebugControllerListEnv = "LOG_DEBUG_CONTROLLER_LIST"
+	logDebugVerbosityEnv      = "LOG_DEBUG_VERBOSITY"
 	logFormatEnv              = "LOG_FORMAT"
+	logLevelEnv               = "LOG_LEVEL"
 	logOutputEnv              = "LOG_OUTPUT"
+
+	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	podNamespaceEnv                            = "POD_NAMESPACE"
+	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
+	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
+	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 )
 
 func main() {
@@ -109,7 +112,7 @@ func main() {
 
 	printVersion(log)
 
-	controllerNamespace, err := appconfig.GetRequiredEnvVar(common.PodNamespaceVar)
+	controllerNamespace, err := appconfig.GetRequiredEnvVar(podNamespaceEnv)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -147,7 +150,7 @@ func main() {
 	cfg.ContentType = apiruntime.ContentTypeJSON
 	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
 
-	leaderElectionNS := os.Getenv(common.PodNamespaceVar)
+	leaderElectionNS := os.Getenv(podNamespaceEnv)
 	if leaderElectionNS == "" {
 		leaderElectionNS = "default"
 	}
@@ -185,14 +188,14 @@ func main() {
 		managerOpts.PprofBindAddress = pprofBindAddr
 	}
 
-	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)
+	vmCIDRsRaw := os.Getenv(virtualMachineCIDRsEnv)
 	if vmCIDRsRaw == "" {
 		log.Error("Failed to get virtualMachineCIDRs: virtualMachineCIDRs not found, but required")
 		os.Exit(1)
 	}
 	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
 
-	virtualMachineIPLeasesRetentionDuration := os.Getenv(common.VirtualMachineIPLeasesRetentionDuration)
+	virtualMachineIPLeasesRetentionDuration := os.Getenv(virtualMachineIPLeasesRetentionDurationEnv)
 	if virtualMachineIPLeasesRetentionDuration == "" {
 		log.Info("virtualMachineIPLeasesRetentionDuration not found -> set default value '10m'")
 		virtualMachineIPLeasesRetentionDuration = "10m"

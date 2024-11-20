@@ -57,6 +57,12 @@ const (
 
 	// sourceRegistryAuthVol is the name of the volume containing source registry docker auth config.
 	sourceRegistryAuthVol = "source-registry-secret-vol"
+
+	// KeyAccess provides a constant to the accessKeyId label using in controller pkg and transport_test.go
+	KeyAccess = "accessKeyId"
+
+	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
+	KeySecret = "secretKey"
 )
 
 type Importer struct {
@@ -298,7 +304,7 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: imp.EnvSettings.SecretName,
 					},
-					Key: common.KeyAccess,
+					Key: KeyAccess,
 				},
 			},
 		}, corev1.EnvVar{
@@ -308,7 +314,7 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: imp.EnvSettings.SecretName,
 					},
-					Key: common.KeySecret,
+					Key: KeySecret,
 				},
 			},
 		})

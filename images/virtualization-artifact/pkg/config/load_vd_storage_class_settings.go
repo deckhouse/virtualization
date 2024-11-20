@@ -19,8 +19,13 @@ package config
 import (
 	"os"
 	"strings"
+)
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+const (
+	// VirtualDiskDefaultStorageClass specifies the default storage class for virtual disks when none is specified.
+	VirtualDiskDefaultStorageClass = "VIRTUAL_DISK_DEFAULT_STORAGE_CLASS"
+	// VirtualDiskAllowedStorageClasses is a parameter that lists all allowed storage classes for virtual disks.
+	VirtualDiskAllowedStorageClasses = "VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES"
 )
 
 type VirtualDiskStorageClassSettings struct {
@@ -30,13 +35,13 @@ type VirtualDiskStorageClassSettings struct {
 
 func LoadVirtualDiskStorageClassSettings() VirtualDiskStorageClassSettings {
 	var allowedStorageClassNames []string
-	allowedStorageClassNamesRaw := os.Getenv(common.VirtualDiskAllowedStorageClasses)
+	allowedStorageClassNamesRaw := os.Getenv(VirtualDiskAllowedStorageClasses)
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}
 
 	return VirtualDiskStorageClassSettings{
 		AllowedStorageClassNames: allowedStorageClassNames,
-		DefaultStorageClassName:  os.Getenv(common.VirtualDiskDefaultStorageClass),
+		DefaultStorageClassName:  os.Getenv(VirtualDiskDefaultStorageClass),
 	}
 }

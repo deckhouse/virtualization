@@ -20,37 +20,60 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+)
+
+const (
+	// DVCRAddressVar is an env variable holds address to DVCR registry.
+	DVCRRegistryURLVar = "DVCR_REGISTRY_URL"
+	// DVCRAuthSecretVar is an env variable holds the name of the Secret with DVCR auth credentials.
+	DVCRAuthSecretVar = "DVCR_AUTH_SECRET"
+	// DVCRAuthSecretNSVar is an env variable holds the namespace for the Secret with DVCR auth credentials.
+	DVCRAuthSecretNSVar = "DVCR_AUTH_SECRET_NAMESPACE"
+	// DVCRCertsSecretVar is an env variable holds the name of the Secret with DVCR certificates.
+	DVCRCertsSecretVar = "DVCR_CERTS_SECRET"
+	// DVCRCertsSecretNSVar is an env variable holds the namespace for the Secret with DVCR certificates.
+	DVCRCertsSecretNSVar = "DVCR_CERTS_SECRET_NAMESPACE"
+	// DVCRInsecureTLSVar is an env variable holds the flag whether DVCR is insecure.
+	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
+
+	// UploaderIngressHostVar is a env variable
+	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
+	// UploaderIngressTLSSecretVar is a env variable
+	UploaderIngressTLSSecretVar = "UPLOADER_INGRESS_TLS_SECRET"
+	// UploaderIngressClassVar is a env variable
+	UploaderIngressClassVar = "UPLOADER_INGRESS_CLASS"
+	// UploaderIngressTLSSecretNS is a env variable
+	UploaderIngressTLSSecretNS = "UPLOADER_INGRESS_TLS_SECRET_NAMESPACE"
 )
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
 	dvcrSettings := &dvcr.Settings{
-		AuthSecret:           os.Getenv(common.DVCRAuthSecretVar),
-		AuthSecretNamespace:  os.Getenv(common.DVCRAuthSecretNSVar),
-		CertsSecret:          os.Getenv(common.DVCRCertsSecretVar),
-		CertsSecretNamespace: os.Getenv(common.DVCRCertsSecretNSVar),
-		RegistryURL:          os.Getenv(common.DVCRRegistryURLVar),
-		InsecureTLS:          os.Getenv(common.DVCRInsecureTLSVar),
+		AuthSecret:           os.Getenv(DVCRAuthSecretVar),
+		AuthSecretNamespace:  os.Getenv(DVCRAuthSecretNSVar),
+		CertsSecret:          os.Getenv(DVCRCertsSecretVar),
+		CertsSecretNamespace: os.Getenv(DVCRCertsSecretNSVar),
+		RegistryURL:          os.Getenv(DVCRRegistryURLVar),
+		InsecureTLS:          os.Getenv(DVCRInsecureTLSVar),
 		UploaderIngressSettings: dvcr.UploaderIngressSettings{
-			Host:               os.Getenv(common.UploaderIngressHostVar),
-			TLSSecret:          os.Getenv(common.UploaderIngressTLSSecretVar),
-			TLSSecretNamespace: os.Getenv(common.UploaderIngressTLSSecretNS),
-			Class:              os.Getenv(common.UploaderIngressClassVar),
+			Host:               os.Getenv(UploaderIngressHostVar),
+			TLSSecret:          os.Getenv(UploaderIngressTLSSecretVar),
+			TLSSecretNamespace: os.Getenv(UploaderIngressTLSSecretNS),
+			Class:              os.Getenv(UploaderIngressClassVar),
 		},
 	}
 
 	if dvcrSettings.RegistryURL == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", common.DVCRRegistryURLVar)
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRRegistryURLVar)
 	}
 	if dvcrSettings.UploaderIngressSettings.Host == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", common.UploaderIngressHostVar)
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressHostVar)
 	}
 	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", common.UploaderIngressTLSSecretVar)
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressTLSSecretVar)
 	}
 	if dvcrSettings.UploaderIngressSettings.Class == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", common.UploaderIngressClassVar)
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressClassVar)
 	}
 
 	if dvcrSettings.AuthSecret != "" && dvcrSettings.AuthSecretNamespace == "" {
