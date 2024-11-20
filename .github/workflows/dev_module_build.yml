@@ -32,10 +32,14 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - "chore/ci/editions-build"
   push:
     branches:
       - main
       - pre-alpha
+      - "chore/ci/editions-build"
 
 defaults:
   run:
