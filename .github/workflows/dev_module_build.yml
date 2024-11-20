@@ -39,7 +39,7 @@ on:
     branches:
       - main
       - pre-alpha
-      - "chore/ci/editions-build"
+      # - "chore/ci/editions-build"
 
 defaults:
   run:
@@ -55,6 +55,7 @@ jobs:
     name: Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+      edition: ${{ steps.modules_module_tag.outputs.EDITION }}
     steps:
       - name: Set vars
         id: modules_module_tag
@@ -77,12 +78,13 @@ jobs:
 
           if [[ "$labels" == *"edition/ce"* ]]; then
             echo "CE edition selected"
+            echo "EDITION=CE" >> $GITHUB_OUTPUT
             echo "EDITION=CE" >> $GITHUB_ENV
           else
             echo "EE edition selected"
             echo "EDITION=EE" >> "$GITHUB_OUTPUT"
             echo "EDITION=EE" >> "$GITHUB_ENV"
-            fi
+          fi
 
   show_dev_manifest:
     runs-on: ubuntu-latest
@@ -203,6 +205,7 @@ jobs:
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      EDITION: ${{needs.set_vars.outputs.edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
