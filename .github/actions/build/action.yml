@@ -1,0 +1,43 @@
+name: 'Build Module'
+description: 'Build Deckhouse module'
+runs:
+  using: "composite"
+  steps:
+      - run: |
+              echo "Build with --secondary-repo as cache RO"
+              source "$(werf ci-env github --as-file)"
+              werf build \
+                --secondary-repo=dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization \
+                --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} \
+                --save-build-report \
+                --build-report-path images_tags_werf.json
+              
+        shell: bash
+        name: Build images
+
+      - run: |
+              IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
+              echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+              crane copy ${IMAGE_SRC} ${IMAGE_DST}
+              
+        shell: bash
+        name: Bundle image
+        
+      - run: |
+              IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+              IMAGE_DST="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)/release:${MODULES_MODULE_TAG}"
+              echo "✨ Release-channel image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+              crane copy ${IMAGE_SRC} ${IMAGE_DST}
+              
+        shell: bash
+        name: Release-channel image
+
+      - run: |
+              echo "✨ Register the module ${MODULES_MODULE_NAME}"
+              crane append \
+                --oci-empty-base \
+                --new_layer "" \
+                --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+        name: Module registration
