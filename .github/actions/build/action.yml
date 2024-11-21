@@ -6,12 +6,12 @@ runs:
     - run: |
         SECONDARY_REPO="--secondary-repo=dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization"
 
-        if [[ -n "${CI_COMMIT_REF_NAME}" && ! "${CI_COMMIT_REF_NAME}" =~ ^(main|pre-alpha|release-.+)$ ]]; then
-          echo "SECONDARY_REPO will be empty"
+        # Using a secondary repo as a cache when building a release
+        if [[ -n "${CI_COMMIT_REF_NAME}" && ! "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|release-.+)$ ]]; then
           SECONDARY_REPO=
         fi
 
-        echo "Build with $SECONDARY_REPO as RO"
+        echo "Build with $SECONDARY_REPO as RO | debug only"
         source "$(werf ci-env github --as-file)"
         werf build ${SECONDARY_REPO} \
           --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} \
