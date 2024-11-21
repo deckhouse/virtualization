@@ -55,17 +55,33 @@ jobs:
     needs: check_label
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+      edition: ${{ steps.modules_module_tag.outputs.EDITION }}
     steps:
       - name: Set vars
         id: modules_module_tag
         run: |
           if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
-          else
+          elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+            MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
+          else
+            echo "Cannot set MODULES_MODULE_TAG variable"
+            echo "Exit"
+            exit 1
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+          # Slect edition for build, default EE
+          labels="${{ github.event.pull_request.labels.*.name }}"
+
+          if [[ "$labels" == *"edition/ce"* ]]; then
+            echo "EDITION=CE" >> $GITHUB_OUTPUT
+          else
+            echo "EDITION=EE" >> "$GITHUB_OUTPUT"
+          fi
 
   show_dev_manifest:
     name: Show manifest
@@ -202,6 +218,7 @@ jobs:
     runs-on: [self-hosted, ci-testing]
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      EDITION: ${{needs.set_vars.outputs.edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -211,6 +228,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo EDITION=$EDITION
 
       - uses: actions/checkout@v4
         with:

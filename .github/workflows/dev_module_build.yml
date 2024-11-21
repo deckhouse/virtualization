@@ -74,16 +74,13 @@ jobs:
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
+          # Slect edition for build, default EE
           labels="${{ github.event.pull_request.labels.*.name }}"
 
           if [[ "$labels" == *"edition/ce"* ]]; then
-            echo "CE edition selected"
             echo "EDITION=CE" >> $GITHUB_OUTPUT
-            echo "EDITION=CE" >> $GITHUB_ENV
           else
-            echo "EE edition selected"
             echo "EDITION=EE" >> "$GITHUB_OUTPUT"
-            echo "EDITION=EE" >> "$GITHUB_ENV"
           fi
 
   show_dev_manifest:

@@ -32,6 +32,5 @@ shell:
   - export GOOS=linux
   - export CGO_ENABLED=0
   - export GOARCH=amd64
-  - echo "Only for TEST {{ .EDITION }}<-EDITION"
   - go build -v -a -o virtualization-controller ./cmd/virtualization-controller
   - go build -v -a -o virtualization-api ./cmd/virtualization-api

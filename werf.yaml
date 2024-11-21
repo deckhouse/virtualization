@@ -42,6 +42,8 @@ configVersion: 1
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+
+# Edition module settings
 {{- $_ := set . "EDITION" (env "EDITION") }}
 
 # Modules_images
