@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-index 35b9f98808..a70ce0a34c 100644
+index 35b9f98808..ab672d112f 100644
 --- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 +++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 @@ -218,7 +218,7 @@ func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
@@ -7,7 +7,7 @@ index 35b9f98808..a70ce0a34c 100644
  		for {
  			exitChan := make(chan struct{})
 -			args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
-+			args := []string{"-serial", "mon:stdio", "-f", "/var/run/libvirt/virtqemud.conf"}
++			args := []string{"-serial", "file:\"/var/log/serial.log\"", "-f", "/var/run/libvirt/virtqemud.conf"}
  			cmd := exec.Command("/usr/sbin/virtqemud", args...)
  			if l.user != 0 {
  				cmd.SysProcAttr = &syscall.SysProcAttr{
