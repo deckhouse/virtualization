@@ -3,24 +3,24 @@ index 6860766acd..c11f92a6dd 100644
 --- a/pkg/instancetype/instancetype.go
 +++ b/pkg/instancetype/instancetype.go
 @@ -1598,7 +1598,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
-        }
+ 	}
 
-        if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
--               vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
-+               vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(true)
-        }
+ 	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
+-		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
++		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(true)
+ 	}
 
-        if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
+ 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
 diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 index 35b9f98808..52b76e27f0 100644
 --- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 +++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 @@ -218,7 +218,7 @@ func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
-        go func() {
-                for {
-                        exitChan := make(chan struct{})
--                       args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
-+                       args := []string{"-f", "/var/run/libvirt/virtqemud.conf", "-serial", "mon:stdio"}
-                        cmd := exec.Command("/usr/sbin/virtqemud", args...)
-                        if l.user != 0 {
-                                cmd.SysProcAttr = &syscall.SysProcAttr{
+ 	go func() {
+ 		for {
+ 			exitChan := make(chan struct{})
+-			args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
++			args := []string{"-f", "/var/run/libvirt/virtqemud.conf", "-serial", "mon:stdio"}
+ 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
+ 			if l.user != 0 {
+ 				cmd.SysProcAttr = &syscall.SysProcAttr{
