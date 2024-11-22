@@ -24,6 +24,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  WERF_SECONDARY_REPO_1: ${{vars.DEV_MODULE_SOURCE}}/${{vars.MODULE_NAME}}
 
 on:
   workflow_dispatch:
@@ -45,9 +46,6 @@ on:
       ee:
         type: boolean
         description: EE
-      fe:
-        type: boolean
-        description: FE
 
       tag:
         description: "Tag of the module, example v1.21.1"
@@ -141,8 +139,8 @@ jobs:
 
   job-FE:
     name: Edition FE
+    needs: job-EE
     runs-on: ubuntu-latest
-    if: github.event.inputs.fe == 'true'
     steps:
       - run: echo "FE"
       - name: SET VAR
