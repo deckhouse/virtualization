@@ -1,5 +1,5 @@
 diff --git a/cmd/virt-handler/virt-handler.go b/cmd/virt-handler/virt-handler.go
-index 09b2b53904..c46122539c 100644
+index 09b2b53904..aaeafc76f3 100644
 --- a/cmd/virt-handler/virt-handler.go
 +++ b/cmd/virt-handler/virt-handler.go
 @@ -93,10 +93,12 @@ const (
@@ -75,7 +75,7 @@ index 09b2b53904..c46122539c 100644
  	app.AddCommonFlags()
  
 diff --git a/pkg/service/service.go b/pkg/service/service.go
-index 0368a0762b..c7369d73e6 100644
+index 0368a0762b..473328fb4b 100644
 --- a/pkg/service/service.go
 +++ b/pkg/service/service.go
 @@ -42,6 +42,8 @@ type ServiceListen struct {
@@ -109,21 +109,10 @@ index 0368a0762b..c7369d73e6 100644
  
  func (service *ServiceLibvirt) AddLibvirtFlags() {
 diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
-index da6e00c783..f2484ebe2d 100644
+index da6e00c783..9bfd336b70 100644
 --- a/pkg/virt-operator/resource/generate/components/daemonsets.go
 +++ b/pkg/virt-operator/resource/generate/components/daemonsets.go
-@@ -175,6 +175,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
- 	container.Args = []string{
- 		"--port",
- 		"8443",
-+		"--metrics-listen",
-+		"127.0.0.1",
-+		"--metrics-port",
-+		"8080",
- 		"--hostname-override",
- 		"$(NODE_NAME)",
- 		"--pod-ip-address",
-@@ -192,7 +196,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+@@ -192,7 +192,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  		{
  			Name:          "metrics",
  			Protocol:      corev1.ProtocolTCP,
@@ -132,7 +121,7 @@ index da6e00c783..f2484ebe2d 100644
  		},
  	}
  	container.SecurityContext = &corev1.SecurityContext{
-@@ -226,7 +230,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+@@ -226,7 +226,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  		FailureThreshold: 3,
  		ProbeHandler: corev1.ProbeHandler{
  			HTTPGet: &corev1.HTTPGetAction{
@@ -141,7 +130,7 @@ index da6e00c783..f2484ebe2d 100644
  				Port: intstr.IntOrString{
  					Type:   intstr.Int,
  					IntVal: 8443,
-@@ -241,7 +245,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+@@ -241,7 +241,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  	container.ReadinessProbe = &corev1.Probe{
  		ProbeHandler: corev1.ProbeHandler{
  			HTTPGet: &corev1.HTTPGetAction{

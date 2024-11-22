@@ -44,6 +44,9 @@ spec:
     flags:
       api: {}
       controller: {}
+      handler:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
     patches:
     - resourceType: Deployment
       resourceName: virt-api
