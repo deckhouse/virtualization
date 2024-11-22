@@ -37,17 +37,16 @@ import (
 )
 
 const (
-	controllerName = "vm-controller"
+	ControllerName = "vm-controller"
 )
 
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *log.Logger,
+	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	log := lg.With(logger.SlogController(controllerName))
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
@@ -70,7 +69,7 @@ func SetupController(
 	}
 	r := NewReconciler(client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
@@ -91,7 +90,7 @@ func SetupController(
 		return err
 	}
 
-	vmmetrics.SetupCollector(mgrCache, metrics.Registry, lg)
+	vmmetrics.SetupCollector(mgrCache, metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachine controller")
 	return nil

@@ -42,8 +42,6 @@ func NewController(
 	log *log.Logger,
 	virtClient kubeclient.Client,
 ) error {
-	log = log.With(logger.SlogController(ControllerName))
-
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVMSnapshotProtection)
 	snapshotter := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 

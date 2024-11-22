@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	controllerName = "vmclass-controller"
+	ControllerName = "vmclass-controller"
 )
 
 func NewController(
@@ -41,9 +41,7 @@ func NewController(
 	controllerNamespace string,
 	log *log.Logger,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
-
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	client := mgr.GetClient()
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, recorder, log),
@@ -52,7 +50,7 @@ func NewController(
 	}
 	r := NewReconciler(controllerNamespace, client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
