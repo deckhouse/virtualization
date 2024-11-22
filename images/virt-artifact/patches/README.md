@@ -86,7 +86,7 @@ This is necessary because of the kube-api-rewriter that changes the labels.
 
 #### `024-cover-kubevirt-metrics.patch`
 
-Make kubevirt's components metrics webservers listen on localhost. 
+Configure kubevirt's components metrics web servers to listen on localhost. 
 This is necessary for ensuring that the metrics can be accessed only by Prometheus via kube-rbac-proxy sidecar.
 
 Currently covered metrics:
