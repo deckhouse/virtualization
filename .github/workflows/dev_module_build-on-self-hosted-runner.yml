@@ -55,7 +55,7 @@ jobs:
     needs: check_label
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
-      edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
+      module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
     steps:
       - name: Set vars
         id: modules_module_tag

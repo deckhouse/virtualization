@@ -55,7 +55,7 @@ jobs:
     name: Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
-      edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
+      module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       secondary_repo: ${{ steps.modules_module_tag.outputs.WERF_SECONDARY_REPO_1 }}
     steps:
       - name: Set vars
@@ -68,8 +68,7 @@ jobs:
           elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
           else
-            echo "Cannot set MODULES_MODULE_TAG variable"
-            echo "Exit"
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for pre-alpha and main branches, and PR number for builds from pull requests. Check workflow for correctness."
             exit 1
           fi
 
@@ -210,9 +209,13 @@ jobs:
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
-      WERF_SECONDARY_REPO_1: ${{needs.set_vars.outputs.secondary_repo}}
       WERF_VIRTUAL_MERGE: 0
     steps:
+      - name: Add second repo env if not empty
+        if: needs.set_vars.outputs.secondary_repo != ''
+        run: |
+          echo "WERF_SECONDARY_REPO_1=${{needs.set_vars.outputs.secondary_repo}}" >> "$GITHUB_ENV"
+      
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
