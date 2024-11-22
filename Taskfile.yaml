@@ -163,7 +163,7 @@ tasks:
       - task: dlv:virt-controller:print
 
   dlv:virt-controller:print:
-    desc: "Print subcommands for debug"
+    desc: "Print commands for debug"
     env:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
