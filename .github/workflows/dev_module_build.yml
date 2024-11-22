@@ -84,7 +84,7 @@ jobs:
           fi
 
           # Using a secondary repo as a cache when building a release
-          if [[ -n "${CI_COMMIT_REF_NAME}" && "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|release-.+)$ ]]; then
+          if [[ -n "${CI_COMMIT_REF_NAME}" && "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|529/merge|release-.+)$ ]]; then
             SECONDARY_REPO_1="dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization"
             echo "WERF_SECONDARY_REPO_1=$SECONDARY_REPO_1" >> "$GITHUB_OUTPUT"
           fi
