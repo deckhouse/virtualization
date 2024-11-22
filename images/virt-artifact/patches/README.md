@@ -83,3 +83,8 @@ Unsuccessful migrations may leave a lot of Pods. These huge lists reduce perform
 
 Replace the expressions for the ValidatingAdmissionPolicy kubevirt-node-restriction-policy.
 This is necessary because of the kube-api-rewriter that changes the labels.
+
+#### `024-cover-kubevirt-metrics.patch`
+
+Make kubevirt's components metrics webservers listen on localhost. 
+This is necessary for ensuring that the metrics can be accessed only by Prometheus via kube-rbac-proxy sidecar.
