@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -35,14 +35,14 @@ import (
 )
 
 type UploaderService struct {
-	dvcrSettings   *dvcr.Settings
 	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
 	image          string
-	requirements   corev1.ResourceRequirements
 	pullPolicy     string
 	verbose        string
 	controllerName string
-	protection     *ProtectionService
+	requirements   corev1.ResourceRequirements
 }
 
 func NewUploaderService(
@@ -192,7 +192,7 @@ func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Genera
 }
 
 func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
-	url := ing.Annotations[cc.AnnUploadURL]
+	url := ing.Annotations[annotations.AnnUploadURL]
 	if url == "" {
 		logger.FromContext(ctx).Error("unexpected empty upload url, please report a bug")
 		return ""

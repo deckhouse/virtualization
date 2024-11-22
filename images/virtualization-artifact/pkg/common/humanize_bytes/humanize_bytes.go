@@ -14,35 +14,36 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package humanize_bytes
 
 import (
 	"fmt"
 	"math"
-	"regexp"
-	"strconv"
 )
 
-func ScalePercentage(percent string, low, high float64) string {
-	pctVal := ExtractPercentageFloat(percent)
-	if math.IsNaN(pctVal) {
-		return percent
-	}
-
-	scaled := pctVal*((high-low)/100) + low
-	return fmt.Sprintf("%.1f%%", scaled)
+func HumanizeIBytes(s uint64) string {
+	sizes := []string{"B", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+	return humanateBytes(s, 1024, sizes)
 }
 
-var possibleFloatRe = regexp.MustCompile(`[0-9eE\-+.]+`)
+func humanateBytes(s uint64, base float64, sizes []string) string {
+	if s < 10 {
+		return fmt.Sprintf("%dB", s)
+	}
+	e := math.Floor(logn(float64(s), base))
 
-func ExtractPercentageFloat(in string) float64 {
-	parts := possibleFloatRe.FindStringSubmatch(in)
-	if len(parts) == 0 {
-		return math.NaN()
+	suffix := sizes[int(e)]
+	val := math.Floor(float64(s)/math.Pow(base, e)*10+0.5) / 10
+	_, frac := math.Modf(val)
+	f := "%.0f%s"
+
+	if frac > 0 {
+		f = "%.1f%s"
 	}
-	v, err := strconv.ParseFloat(parts[0], 32)
-	if err != nil {
-		return math.NaN()
-	}
-	return v
+
+	return fmt.Sprintf(f, val, suffix)
+}
+
+func logn(n, b float64) float64 {
+	return math.Log(n) / math.Log(b)
 }

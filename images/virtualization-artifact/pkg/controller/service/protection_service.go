@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 )
 
 type ProtectionService struct {
@@ -52,7 +52,7 @@ func (s ProtectionService) AddOwnerRef(ctx context.Context, owner client.Object,
 			continue
 		}
 
-		if helper.SetOwnerRef(obj, ownerRef) {
+		if resource_builder.SetOwnerRef(obj, ownerRef) {
 			patch, err := GetPatchOwnerReferences(obj.GetOwnerReferences())
 			if err != nil {
 				return err

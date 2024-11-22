@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -58,7 +58,7 @@ func (v VirtualDiskOverrideValidator) Override(rules []virtv2.NameReplacement) {
 
 func (v VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	existed, err := helper.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
 	if err != nil {
 		return err
 	}

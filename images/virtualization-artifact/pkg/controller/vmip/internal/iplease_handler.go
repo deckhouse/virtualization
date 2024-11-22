@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
@@ -106,7 +106,7 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 			return reconcile.Result{}, err
 		}
 
-		vmipStatus.Address = common.LeaseNameToIP(lease.Name)
+		vmipStatus.Address = ip.LeaseNameToIP(lease.Name)
 		return reconcile.Result{}, nil
 	}
 }
@@ -150,14 +150,14 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress",
-					common.IpToLeaseName(vmipStatus.Address)))
+					ip.IpToLeaseName(vmipStatus.Address)))
 			h.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String(), msg)
 		}
 		conditions.SetCondition(conditionBound, &vmipStatus.Conditions)
 		return reconcile.Result{}, nil
 	}
 
-	leaseName := common.IpToLeaseName(vmipStatus.Address)
+	leaseName := ip.IpToLeaseName(vmipStatus.Address)
 
 	log.Info("Create lease",
 		"leaseName", leaseName,

@@ -29,7 +29,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 )
 
 const (
@@ -214,7 +214,7 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, 
 	}
 
 	// Merge existing labels with static labels and add installer dynamic labels as well (/version, /part-of).
-	mergedLabels := common.MergeLabels(obj.GetLabels(), staticLabels, installerLabels)
+	mergedLabels := merger.MergeLabels(obj.GetLabels(), staticLabels, installerLabels)
 
 	obj.SetLabels(mergedLabels)
 }

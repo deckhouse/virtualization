@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -60,7 +60,7 @@ func (v *VirtualMachineIPAddressOverrideValidator) Override(rules []virtv2.NameR
 
 func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
-	existed, err := helper.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err
 	}

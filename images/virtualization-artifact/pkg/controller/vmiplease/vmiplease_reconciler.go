@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -85,7 +85,7 @@ func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Objec
 	return []reconcile.Request{
 		{
 			NamespacedName: types.NamespacedName{
-				Name: common.IpToLeaseName(vmip.Status.Address),
+				Name: ip.IpToLeaseName(vmip.Status.Address),
 			},
 		},
 	}

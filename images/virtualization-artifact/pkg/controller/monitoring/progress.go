@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common/humanize_bytes"
 )
 
 var httpClient *http.Client
@@ -116,7 +116,7 @@ func (p *ImportProgress) ProgressRaw() float64 {
 
 // CurSpeed is a current speed in human-readable format with SI size.
 func (p *ImportProgress) CurSpeed() string {
-	return util.HumanizeIBytes(p.curSpeed) + "/s"
+	return humanize_bytes.HumanizeIBytes(p.curSpeed) + "/s"
 }
 
 // CurSpeedRaw is a current in bytes per second.
@@ -126,7 +126,7 @@ func (p *ImportProgress) CurSpeedRaw() uint64 {
 
 // AvgSpeed is an average speed in human-readable format with SI size.
 func (p *ImportProgress) AvgSpeed() string {
-	return util.HumanizeIBytes(p.avgSpeed) + "/s"
+	return humanize_bytes.HumanizeIBytes(p.avgSpeed) + "/s"
 }
 
 // AvgSpeedRaw is an average speed in bytes per second.

@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -64,8 +64,8 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 				if !oldOk || !newOk {
 					return false
 				}
-				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[common.AnnDefaultStorageClass]
-				newIsDefault, newIsDefaultOk := newSC.Annotations[common.AnnDefaultStorageClass]
+				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[annotations.AnnDefaultStorageClass]
+				newIsDefault, newIsDefaultOk := newSC.Annotations[annotations.AnnDefaultStorageClass]
 				switch {
 				case oldIsDefaultOk && newIsDefaultOk:
 					return oldIsDefault != newIsDefault
@@ -102,7 +102,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.
 
 	vds.Items = []virtv2.VirtualDisk{}
 
-	isDefault, ok := sc.Annotations[common.AnnDefaultStorageClass]
+	isDefault, ok := sc.Annotations[annotations.AnnDefaultStorageClass]
 	if ok && isDefault == "true" {
 		err := w.client.List(ctx, &vds, &client.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, indexer.DefaultStorageClass),

@@ -24,8 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -50,7 +50,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 		vmiName := ds.ObjectRef.Name
 		vmiNS := ds.ObjectRef.Namespace
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -67,7 +67,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -98,7 +98,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 		vmiName := ds.ObjectRef.Name
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -119,7 +119,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -150,7 +150,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 		vmiName := ds.ObjectRef.Name
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -167,7 +167,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := helper.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}

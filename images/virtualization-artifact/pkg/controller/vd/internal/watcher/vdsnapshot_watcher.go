@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -70,7 +70,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, obj cli
 	}
 
 	// 1. Need to reconcile the virtual disk from which the snapshot was taken.
-	vd, err := helper.FetchObject(ctx, types.NamespacedName{
+	vd, err := object.FetchObject(ctx, types.NamespacedName{
 		Name:      vdSnapshot.Spec.VirtualDiskName,
 		Namespace: vdSnapshot.Namespace,
 	}, w.client, &virtv2.VirtualDisk{})

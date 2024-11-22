@@ -25,7 +25,7 @@ import (
 	k8snet "k8s.io/utils/net"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 )
 
 type IpAddressService struct {
@@ -52,7 +52,7 @@ func NewIpAddressService(
 	}
 }
 
-func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common.AllocatedIPs) error {
+func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs ip.AllocatedIPs) error {
 	ip, err := netip.ParseAddr(address)
 	if err != nil || !ip.IsValid() {
 		return errors.New("invalid IP address format")
@@ -80,7 +80,7 @@ func (s IpAddressService) IsAvailableAddress(address string, allocatedIPs common
 	return ErrIPAddressOutOfRange
 }
 
-func (s IpAddressService) AllocateNewIP(allocatedIPs common.AllocatedIPs) (string, error) {
+func (s IpAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, error) {
 	for _, cidr := range s.parsedCIDRs {
 		for ip := cidr.Addr(); cidr.Contains(ip); ip = ip.Next() {
 			if k8snet.RangeSize(toIPNet(cidr)) != 1 {

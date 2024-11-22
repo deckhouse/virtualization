@@ -33,7 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -67,8 +68,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Node{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			node, ok := object.(*corev1.Node)
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			node, ok := obj.(*corev1.Node)
 			if !ok {
 				return nil
 			}
@@ -83,11 +84,11 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			for _, class := range classList.Items {
 				if slices.Contains(class.Status.AvailableNodes, node.GetName()) {
 					result = append(result, reconcile.Request{
-						NamespacedName: common.NamespacedName(&class),
+						NamespacedName: object.NamespacedName(&class),
 					})
 					continue
 				}
-				if !common.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
+				if !annotations.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
 					continue
 				}
 				ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
@@ -97,7 +98,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					continue
 				}
 				result = append(result, reconcile.Request{
-					NamespacedName: common.NamespacedName(&class),
+					NamespacedName: object.NamespacedName(&class),
 				})
 			}
 			return result

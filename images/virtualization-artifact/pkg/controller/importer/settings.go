@@ -18,7 +18,7 @@ package importer
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	datasource2 "github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -100,14 +100,14 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSource
 }
 
 // ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
-func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.ContainerRegistry, supGen *supplements.Generator) {
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource2.ContainerRegistry, supGen *supplements.Generator) {
 	podEnvVars.Source = SourceRegistry
 	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
 
 	// Optional auth secret from imagePullSecret.
 	if secretName := ctrImg.ImagePullSecret.Name; secretName != "" {
 		// Copy imagePullSecret if resides in a different namespace.
-		if datasource.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace) {
+		if datasource2.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace) {
 			imgPull := supGen.ImagePullSecret()
 			podEnvVars.AuthSecret = imgPull.Name
 		} else {

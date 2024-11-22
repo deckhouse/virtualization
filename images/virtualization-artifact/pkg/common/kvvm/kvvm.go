@@ -26,7 +26,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 // PatchRunStrategy returns JSON merge patch to set 'runStrategy' field to the desired value
@@ -96,5 +96,5 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 	if pod == nil {
 		return nil
 	}
-	return helper.DeleteObject(ctx, cli, pod, opts)
+	return object.DeleteObject(ctx, cli, pod, opts)
 }

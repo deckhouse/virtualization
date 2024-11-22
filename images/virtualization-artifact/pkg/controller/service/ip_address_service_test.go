@@ -23,21 +23,21 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("IpAddressService", func() {
 	var (
 		ipService    *IpAddressService
-		allocatedIPs common.AllocatedIPs
+		allocatedIPs ip.AllocatedIPs
 		logger       *log.Logger
 	)
 
 	BeforeEach(func() {
 		virtualMachineCIDRs := []string{"192.168.1.0/24"}
 		ipService = NewIpAddressService(logger, virtualMachineCIDRs)
-		allocatedIPs = make(common.AllocatedIPs)
+		allocatedIPs = make(ip.AllocatedIPs)
 	})
 
 	Describe("IsAvailableAddress", func() {

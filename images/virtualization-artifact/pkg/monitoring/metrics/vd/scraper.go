@@ -22,8 +22,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -64,7 +64,7 @@ func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
 
 	for _, p := range phases {
 		s.defaultUpdate(MetricDiskStatusPhase,
-			util.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(p.value), m, p.name)
 	}
 }
 
