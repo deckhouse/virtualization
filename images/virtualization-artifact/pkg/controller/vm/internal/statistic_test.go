@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -36,13 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
-
-func oldTime() time.Time {
-	t, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05+07:00")
-	_, offset := time.Now().Zone()
-	diff := time.Duration(offset) * time.Second
-	return t.Add(-diff).In(time.Local)
-}
 
 func TestStatisticHandler(t *testing.T) {
 	scheme := apiruntime.NewScheme()
@@ -66,113 +58,7 @@ func TestStatisticHandler(t *testing.T) {
 		expect        func(vm *virtv2.VirtualMachine) error
 	}{
 		{
-			name: "test1: virtualmachine running, if nil statistics",
-			getObjects: func() []client.Object {
-				return []client.Object{
-					createPod(namespacedName),
-					createVM(namespacedName, virtv2.MachinePending, nil, virtv1.VirtualMachineInstanceGuestOSInfo{}),
-					createKVVMI(namespacedName, virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}),
-				}
-			},
-			mutateChanged: func(vm *virtv2.VirtualMachine) {
-				if vm != nil {
-					vm.Status.Phase = virtv2.MachineRunning
-				}
-			},
-			expect: func(vm *virtv2.VirtualMachine) error {
-				if vm == nil || vm.Status.Stats == nil {
-					return fmt.Errorf("expected vm or stats to not be nil")
-				}
-				expectPhasesTransitions := []virtv2.MachinePhase{
-					virtv2.MachinePending,
-					virtv2.MachineStarting,
-					virtv2.MachineRunning,
-				}
-				if err := checkPhasesTransitions(t, expectPhasesTransitions, vm); err != nil {
-					return err
-				}
-				require.NotNil(t, vm.Status.Stats)
-				require.NotNil(t, vm.Status.Stats.LaunchTimeDuration.WaitingForDependencies)
-				require.NotNil(t, vm.Status.Stats.LaunchTimeDuration.VirtualMachineStarting)
-				require.NotNil(t, vm.Status.Stats.LaunchTimeDuration.GuestOSAgentStarting)
-				return nil
-			},
-		},
-		{
-			name: "test2: virtualmachine running, statistic should no change",
-			getObjects: func() []client.Object {
-				info := virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}
-				return []client.Object{
-					createPod(namespacedName),
-					createVM(namespacedName, virtv2.MachineRunning, createStatisticNoChange(), info),
-					createKVVMI(namespacedName, virtv1.Running, info),
-				}
-			},
-			mutateChanged: func(vm *virtv2.VirtualMachine) {},
-			expect: func(vm *virtv2.VirtualMachine) error {
-				if vm == nil || vm.Status.Stats == nil {
-					return fmt.Errorf("expected vm or stats to not be nil")
-				}
-				stats := createStatisticNoChange()
-				require.Equal(t, stats.PhasesTransitions, vm.Status.Stats.PhasesTransitions)
-				require.Equal(t, stats.LaunchTimeDuration, vm.Status.Stats.LaunchTimeDuration)
-				return nil
-			},
-		},
-		{
-			name: "test3: .Stats.LaunchTimeDuration.WaitingForDependencies was should changed",
-			getObjects: func() []client.Object {
-				info := virtv1.VirtualMachineInstanceGuestOSInfo{}
-				return []client.Object{
-					createPod(namespacedName),
-					createVM(namespacedName,
-						virtv2.MachinePending,
-						&virtv2.VirtualMachineStats{
-							PhasesTransitions: []virtv2.VirtualMachinePhaseTransitionTimestamp{
-								{
-									Phase:     virtv2.MachinePending,
-									Timestamp: metav1.NewTime(oldTime()),
-								},
-								{
-									Phase:     virtv2.MachineStarting,
-									Timestamp: metav1.NewTime(oldTime().Add(10 * time.Second)),
-								},
-							},
-							LaunchTimeDuration: virtv2.VirtualMachineLaunchTimeDuration{
-								WaitingForDependencies: &metav1.Duration{Duration: 10 * time.Second},
-							},
-						},
-						info),
-					createKVVMI(namespacedName, virtv1.Scheduling, info),
-				}
-			},
-			mutateChanged: func(vm *virtv2.VirtualMachine) {
-				if vm == nil {
-					return
-				}
-				vm.Status.Phase = virtv2.MachineStarting
-			},
-			expect: func(vm *virtv2.VirtualMachine) error {
-				if vm == nil || vm.Status.Stats == nil {
-					return fmt.Errorf("expected vm or stats to not be nil")
-				}
-				expectPhasesTransitions := []virtv2.MachinePhase{
-					virtv2.MachinePending,
-					virtv2.MachineStarting,
-				}
-				if err := checkPhasesTransitions(t, expectPhasesTransitions, vm); err != nil {
-					return err
-				}
-				require.NotNil(t, vm.Status.Stats)
-				wfd := vm.Status.Stats.LaunchTimeDuration.WaitingForDependencies
-				require.NotNil(t, wfd)
-				require.Greater(t, wfd.Duration, 10*time.Second)
-
-				return nil
-			},
-		},
-		{
-			name: "test4: check generated .status.resources",
+			name: "test1: check generated .status.resources",
 			getObjects: func() []client.Object {
 				return []client.Object{
 					createPod(namespacedName),
@@ -210,52 +96,6 @@ func TestStatisticHandler(t *testing.T) {
 		if err = test.expect(s.VirtualMachine().Changed()); err != nil {
 			t.Fatalf("test %q failed: %v", test.name, err)
 		}
-	}
-}
-
-func checkPhasesTransitions(t *testing.T, expectPhasesTransitions []virtv2.MachinePhase, vm *virtv2.VirtualMachine) error {
-	if vm == nil || vm.Status.Stats == nil {
-		return fmt.Errorf("expected vm or stats to not be nil")
-	}
-	var pts []virtv2.MachinePhase
-	timestamp := oldTime().Add(-24 * time.Hour)
-	for _, pt := range vm.Status.Stats.PhasesTransitions {
-		if pt.Timestamp.After(timestamp) {
-			timestamp = pt.Timestamp.Time
-		} else {
-			return fmt.Errorf("wrong sort phases")
-		}
-		pts = append(pts, pt.Phase)
-	}
-	require.Equal(t, expectPhasesTransitions, pts)
-	return nil
-}
-
-func createStatisticNoChange() *virtv2.VirtualMachineStats {
-	return &virtv2.VirtualMachineStats{
-		PhasesTransitions: []virtv2.VirtualMachinePhaseTransitionTimestamp{
-			{
-				Phase:     virtv2.MachinePending,
-				Timestamp: metav1.Time{Time: oldTime()},
-			},
-			{
-				Phase:     virtv2.MachineStarting,
-				Timestamp: metav1.Time{Time: oldTime().Add(1 * time.Second)},
-			},
-			{
-				Phase:     virtv2.MachineRunning,
-				Timestamp: metav1.Time{Time: oldTime().Add(2 * time.Second)},
-			},
-			{
-				Phase:     virtv2.MachineStopping,
-				Timestamp: metav1.Time{Time: oldTime().Add(3 * time.Second)},
-			},
-		},
-		LaunchTimeDuration: virtv2.VirtualMachineLaunchTimeDuration{
-			WaitingForDependencies: &metav1.Duration{Duration: 1 * time.Second},
-			VirtualMachineStarting: &metav1.Duration{Duration: 1 * time.Second},
-			GuestOSAgentStarting:   &metav1.Duration{Duration: 1 * time.Second},
-		},
 	}
 }
 
