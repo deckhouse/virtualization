@@ -67,8 +67,7 @@ jobs:
           elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
           else
-            echo "Cannot set MODULES_MODULE_TAG variable"
-            echo "Exit"
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for pre-alpha and main branches, and PR number for builds from pull requests. Check workflow for correctness."
             exit 1
           fi
 
