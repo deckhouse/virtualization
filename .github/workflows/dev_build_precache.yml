@@ -51,7 +51,7 @@ jobs:
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
           fi
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-          echo "EDITION=EE" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software

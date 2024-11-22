@@ -55,7 +55,7 @@ jobs:
     name: Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
-      edition: ${{ steps.modules_module_tag.outputs.EDITION }}
+      edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
     steps:
       - name: Set vars
         id: modules_module_tag
@@ -78,10 +78,22 @@ jobs:
           labels="${{ github.event.pull_request.labels.*.name }}"
 
           if [[ "$labels" == *"edition/ce"* ]]; then
-            echo "EDITION=CE" >> $GITHUB_OUTPUT
+            echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
-            echo "EDITION=EE" >> "$GITHUB_OUTPUT"
+            echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
           fi
+
+          # Using a secondary repo as a cache when building a release
+          if [[ -n "${CI_COMMIT_REF_NAME}" && "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|release-.+)$ ]]; then
+            $WERF_SECONDARY_REPO_1="--secondary-repo=dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization"
+          fi
+
+          # # Using a secondary repo as a cache when building a release
+          # if [[ -n "${CI_COMMIT_REF_NAME}" && ! "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|release-.+)$ ]]; then
+          #   SECONDARY_REPO=
+          # else
+          #   $WERF_SECONDARY_REPO_1="--secondary-repo=dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization"
+          # fi
 
   show_dev_manifest:
     runs-on: ubuntu-latest
@@ -202,7 +214,7 @@ jobs:
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
-      EDITION: ${{needs.set_vars.outputs.edition}}
+      MODULE_EDITION: ${{needs.set_vars.outputs.edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -212,7 +224,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-          echo EDITION=$EDITION
+          echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
         with:

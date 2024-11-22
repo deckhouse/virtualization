@@ -5,7 +5,7 @@ config:
     - /CI_.+/
     - MODULES_MODULE_TAG
     - SOURCE_REPO
-    - EDITION
+    - MODULE_EDITION
   stapel:
     mount:
       allowBuildDir: true

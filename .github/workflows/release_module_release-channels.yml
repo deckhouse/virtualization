@@ -83,7 +83,7 @@ jobs:
       - name: SET VAR
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
-          echo "EDITION=CE" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=CE" >> "$GITHUB_ENV"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE

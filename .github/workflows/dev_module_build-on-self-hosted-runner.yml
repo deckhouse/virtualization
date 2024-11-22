@@ -55,7 +55,7 @@ jobs:
     needs: check_label
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
-      edition: ${{ steps.modules_module_tag.outputs.EDITION }}
+      edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
     steps:
       - name: Set vars
         id: modules_module_tag
@@ -78,9 +78,9 @@ jobs:
           labels="${{ github.event.pull_request.labels.*.name }}"
 
           if [[ "$labels" == *"edition/ce"* ]]; then
-            echo "EDITION=CE" >> $GITHUB_OUTPUT
+            echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
-            echo "EDITION=EE" >> "$GITHUB_OUTPUT"
+            echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -218,7 +218,7 @@ jobs:
     runs-on: [self-hosted, ci-testing]
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
-      EDITION: ${{needs.set_vars.outputs.edition}}
+      MODULE_EDITION: ${{needs.set_vars.outputs.edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -228,7 +228,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
-          echo EDITION=$EDITION
+          echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
         with:
