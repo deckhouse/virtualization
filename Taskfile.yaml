@@ -181,6 +181,7 @@ tasks:
           }
         }
       }'
+      kubectl -n d8-virtualization port-forward deploy/virt-controller 2345:2345
       EOF
       echo 'kubectl -n d8-virtualization port-forward $(kubectl -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-controller -oname | head -1) 2345:2345'
 
