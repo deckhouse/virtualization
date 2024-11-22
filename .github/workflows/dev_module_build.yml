@@ -215,7 +215,7 @@ jobs:
         if: needs.set_vars.outputs.secondary_repo != ''
         run: |
           echo "WERF_SECONDARY_REPO_1=${{needs.set_vars.outputs.secondary_repo}}" >> "$GITHUB_ENV"
-      
+
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
