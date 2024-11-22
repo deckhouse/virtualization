@@ -32,14 +32,10 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
-    branches:
-      - main
-      - "chore/ci/editions-build"
   push:
     branches:
       - main
       - pre-alpha
-      # - "chore/ci/editions-build"
 
 defaults:
   run:
@@ -56,7 +52,6 @@ jobs:
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
-      secondary_repo: ${{ steps.modules_module_tag.outputs.WERF_SECONDARY_REPO_1 }}
     steps:
       - name: Set vars
         id: modules_module_tag
@@ -81,12 +76,6 @@ jobs:
             echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
             echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Using a secondary repo as a cache when building a release
-          if [[ -n "${CI_COMMIT_REF_NAME}" && "${CI_COMMIT_REF_NAME}" =~ ^(v[0-9]+.[0-9]+.[0-9]+|529/merge|release-.+)$ ]]; then
-            SECONDARY_REPO_1="${{vars.DEV_MODULE_SOURCE}}/${{vars.MODULE_NAME}}"
-            echo "WERF_SECONDARY_REPO_1=$SECONDARY_REPO_1" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -211,11 +200,6 @@ jobs:
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
-      - name: Add second repo env if not empty
-        if: needs.set_vars.outputs.secondary_repo != ''
-        run: |
-          echo "WERF_SECONDARY_REPO_1=${{needs.set_vars.outputs.secondary_repo}}" >> "$GITHUB_ENV"
-
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -224,7 +208,6 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
-          echo WERF_SECONDARY_REPO_1=$WERF_SECONDARY_REPO_1
 
       - uses: actions/checkout@v4
         with:
