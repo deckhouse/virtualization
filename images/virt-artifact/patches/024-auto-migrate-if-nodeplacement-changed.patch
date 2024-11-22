@@ -288,10 +288,10 @@ index 0000000000..eeadaa6a99
 +}
 diff --git a/pkg/util/affinity/podaffinity.go b/pkg/util/affinity/podaffinity.go
 new file mode 100644
-index 0000000000..0186bf257b
+index 0000000000..b16c2f365f
 --- /dev/null
 +++ b/pkg/util/affinity/podaffinity.go
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,125 @@
 +/*
 +Copyright 2015 The Kubernetes Authors.
 +
@@ -397,7 +397,19 @@ index 0000000000..0186bf257b
 +	return terms
 +}
 +
-+func MatchAffinityTerms(terms []AffinityTerm, pod *v1.Pod, namespaceLabels labels.Set) bool {
++func MatchPodAffinityTerms(terms []AffinityTerm, pod *v1.Pod, namespaceLabels labels.Set) bool {
++	if len(terms) == 0 {
++		return true
++	}
++	for _, term := range terms {
++		if term.Matches(pod, namespaceLabels) {
++			return true
++		}
++	}
++	return false
++}
++
++func MatchPodAntiAffinityTerms(terms []AffinityTerm, pod *v1.Pod, namespaceLabels labels.Set) bool {
 +	for _, term := range terms {
 +		if term.Matches(pod, namespaceLabels) {
 +			return true
@@ -406,7 +418,7 @@ index 0000000000..0186bf257b
 +	return false
 +}
 diff --git a/pkg/virt-controller/watch/vmi.go b/pkg/virt-controller/watch/vmi.go
-index 0c4bfca389..0987ffb1af 100644
+index 0c4bfca389..b798743c61 100644
 --- a/pkg/virt-controller/watch/vmi.go
 +++ b/pkg/virt-controller/watch/vmi.go
 @@ -30,16 +30,20 @@ import (
@@ -598,11 +610,11 @@ index 0c4bfca389..0987ffb1af 100644
 +		nsLabels := namespaceLabels[p.GetNamespace()]
 +
 +		// If at least one matches the podAffinity, then node placement is suitable.
-+		if !podMatchedByPodAffinityFound && affinity.MatchAffinityTerms(podAffinityTerms, p, nsLabels) {
++		if !podMatchedByPodAffinityFound && affinity.MatchPodAffinityTerms(podAffinityTerms, p, nsLabels) {
 +			podMatchedByPodAffinityFound = true
 +		}
 +		// If at least one matches the podAntiAffinity, then node placement is not suitable. return false
-+		if affinity.MatchAffinityTerms(podAntiAffinityTerms, p, nsLabels) {
++		if affinity.MatchPodAntiAffinityTerms(podAntiAffinityTerms, p, nsLabels) {
 +			return false, nil
 +		}
 +	}
