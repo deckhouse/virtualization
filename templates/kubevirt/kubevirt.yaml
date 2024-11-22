@@ -116,7 +116,7 @@ spec:
 
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter") 
-        (dict "upstream" "https://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler") 
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler") 
     ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
