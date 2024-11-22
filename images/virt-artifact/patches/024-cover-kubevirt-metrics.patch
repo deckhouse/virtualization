@@ -8,7 +8,7 @@ index 09b2b53904..c46122539c 100644
  	// Default port that virt-handler listens on.
 -	defaultPort = 8185
 +	defaultPort        = 8185
-+	defaultMetricsPort = defaultPort
++	defaultMetricsPort = 8080
  
  	// Default address that virt-handler listens on.
 -	defaultHost = "0.0.0.0"
@@ -103,8 +103,8 @@ index 0368a0762b..c7369d73e6 100644
  	flag.StringVar(&service.BindAddress, "listen", service.BindAddress, "Address where to listen on")
  	flag.IntVar(&service.Port, "port", service.Port, "Port to listen on")
 +	// default values are taken from the common server counterparts
-+	flag.StringVar(&service.MetricsBindAddress, "metrics-listen", service.BindAddress, "Address for metrics to listen on")
-+	flag.IntVar(&service.MetricsPort, "metrics-port", service.Port, "Port for metrics to listen on")
++	flag.StringVar(&service.MetricsBindAddress, "metrics-listen", service.MetricsBindAddress, "Address for metrics to listen on")
++	flag.IntVar(&service.MetricsPort, "metrics-port", service.MetricsPort, "Port for metrics to listen on")
  }
  
  func (service *ServiceLibvirt) AddLibvirtFlags() {
