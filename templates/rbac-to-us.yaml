@@ -8,7 +8,7 @@ metadata:
 rules:
 - apiGroups: ["apps"]
   resources: ["daemonsets/prometheus-metrics", "deployments/prometheus-metrics"]
-  resourceNames: ["dvcr", "virtualization-controller", "kube-api-rewriter", "virt-handler"]
+  resourceNames: ["dvcr", "virtualization-controller", "kube-api-rewriter", "virt-handler", "virt-api"]
   verbs: ["get"]
 
 {{- if (.Values.global.enabledModules | has "prometheus") }}
