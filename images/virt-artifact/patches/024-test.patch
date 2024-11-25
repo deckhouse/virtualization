@@ -1,13 +1,27 @@
-diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-index 35b9f98808..ab672d112f 100644
---- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-+++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-@@ -218,7 +218,7 @@ func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
- 	go func() {
- 		for {
- 			exitChan := make(chan struct{})
--			args := []string{"-f", "/var/run/libvirt/virtqemud.conf"}
-+			args := []string{"-serial", "file:\"/var/log/serial.log\"", "-f", "/var/run/libvirt/virtqemud.conf"}
- 			cmd := exec.Command("/usr/sbin/virtqemud", args...)
- 			if l.user != 0 {
- 				cmd.SysProcAttr = &syscall.SysProcAttr{
+diff --git a/pkg/instancetype/instancetype.go b/pkg/instancetype/instancetype.go
+index 6860766acd..f522702f33 100644
+--- a/pkg/instancetype/instancetype.go
++++ b/pkg/instancetype/instancetype.go
+@@ -1600,6 +1600,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
+ 	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
+ 		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
+ 	}
++	vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(true)
+ 
+ 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
+ 		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
+diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
+index 0565ceb5dd..fae3f33aca 100644
+--- a/pkg/virt-launcher/virtwrap/converter/converter.go
++++ b/pkg/virt-launcher/virtwrap/converter/converter.go
+@@ -1230,6 +1230,10 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain
+ 				UseSerial: "yes",
+ 			}
+ 		}
++
++		domain.Spec.OS.BIOS = &api.BIOS{
++			UseSerial: "yes",
++		}
+ 	}
+ 
+ 	if len(firmware.Serial) > 0 {
