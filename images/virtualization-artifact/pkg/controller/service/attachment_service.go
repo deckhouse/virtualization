@@ -48,14 +48,14 @@ func NewAttachmentService(client Client, controllerNamespace string) *Attachment
 
 var (
 	ErrVolumeStatusNotReady                  = errors.New("hotplug is not ready")
-	ErrDiskIsSpecAttached                    = errors.New("virtual disk is already attached to the virtual machine spec")
+	ErrBlockDeviceIsSpecAttached             = errors.New("block device is already attached to the virtual machine spec")
 	ErrHotPlugRequestAlreadySent             = errors.New("attachment request is already sent")
 	ErrVirtualMachineWaitsForRestartApproval = errors.New("virtual machine waits for restart approval")
 )
 
-func (s AttachmentService) IsHotPlugged(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	if vd == nil {
-		return false, errors.New("cannot check if a nil VirtualDisk is hot plugged")
+func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if ad == nil {
+		return false, errors.New("cannot check if a empty AttachmentDisk is hot plugged")
 	}
 
 	if vm == nil {
@@ -67,7 +67,7 @@ func (s AttachmentService) IsHotPlugged(vd *virtv2.VirtualDisk, vm *virtv2.Virtu
 	}
 
 	for _, vs := range kvvmi.Status.VolumeStatus {
-		if vs.HotplugVolume != nil && vs.Name == kvbuilder.GenerateVMDDiskName(vd.Name) {
+		if vs.HotplugVolume != nil && vs.Name == ad.GenerateName {
 			if vs.Phase == virtv1.VolumeReady {
 				return true, nil
 			}
@@ -79,9 +79,9 @@ func (s AttachmentService) IsHotPlugged(vd *virtv2.VirtualDisk, vm *virtv2.Virtu
 	return false, nil
 }
 
-func (s AttachmentService) CanHotPlug(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
-	if vd == nil {
-		return false, errors.New("cannot hot plug a nil VirtualDisk")
+func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+	if ad == nil {
+		return false, errors.New("cannot hot plug a nil AttachmentDisk")
 	}
 
 	if vm == nil {
@@ -93,12 +93,12 @@ func (s AttachmentService) CanHotPlug(vd *virtv2.VirtualDisk, vm *virtv2.Virtual
 	}
 
 	for _, bdr := range vm.Spec.BlockDeviceRefs {
-		if bdr.Kind == virtv2.DiskDevice && bdr.Name == vd.Name {
-			return false, fmt.Errorf("%w: virtual machine has a virtual disk reference, but it is not a hot-plugged volume", ErrDiskIsSpecAttached)
+		if bdr.Kind == ad.Kind && bdr.Name == ad.Name {
+			return false, fmt.Errorf("%w: virtual machine has a block device reference, but it is not a hot-plugged volume", ErrBlockDeviceIsSpecAttached)
 		}
 	}
 
-	name := kvbuilder.GenerateVMDDiskName(vd.Name)
+	name := ad.GenerateName
 
 	if kvvm.Spec.Template != nil {
 		for _, vs := range kvvm.Spec.Template.Spec.Volumes {
@@ -108,7 +108,7 @@ func (s AttachmentService) CanHotPlug(vd *virtv2.VirtualDisk, vm *virtv2.Virtual
 				}
 
 				if !vs.PersistentVolumeClaim.Hotpluggable {
-					return false, fmt.Errorf("%w: virtual machine has a virtual disk reference, but it is not a hot-plugged volume", ErrDiskIsSpecAttached)
+					return false, fmt.Errorf("%w: virtual machine has a block device reference, but it is not a hot-plugged volume", ErrBlockDeviceIsSpecAttached)
 				}
 
 				return false, ErrHotPlugRequestAlreadySent
@@ -129,9 +129,9 @@ func (s AttachmentService) CanHotPlug(vd *virtv2.VirtualDisk, vm *virtv2.Virtual
 	return true, nil
 }
 
-func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
-	if vd == nil {
-		return errors.New("cannot hot plug a nil VirtualDisk")
+func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+	if ad == nil {
+		return errors.New("cannot hot plug a nil AttachmentDisk")
 	}
 
 	if vm == nil {
@@ -142,23 +142,21 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 		return errors.New("cannot hot plug a disk into a nil KVVM")
 	}
 
-	name := kvbuilder.GenerateVMDDiskName(vd.Name)
-
 	hotplugRequest := virtv1.AddVolumeOptions{
-		Name: name,
+		Name: ad.GenerateName,
 		Disk: &virtv1.Disk{
-			Name: name,
+			Name: ad.GenerateName,
 			DiskDevice: virtv1.DiskDevice{
 				Disk: &virtv1.DiskTarget{
 					Bus: "scsi",
 				},
 			},
-			Serial: vd.Name,
+			Serial: ad.Name,
 		},
 		VolumeSource: &virtv1.HotplugVolumeSource{
 			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 				PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: vd.Status.Target.PersistentVolumeClaim,
+					ClaimName: ad.PVCName,
 				},
 				Hotpluggable: true,
 			},
@@ -178,13 +176,13 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, vd *virtv2.VirtualDi
 	return nil
 }
 
-func (s AttachmentService) CanUnplug(vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) bool {
-	if vd == nil || kvvm == nil || kvvm.Spec.Template == nil {
+func (s AttachmentService) CanUnplug(ad *AttachmentDisk, kvvm *virtv1.VirtualMachine) bool {
+	if ad == nil || kvvm == nil || kvvm.Spec.Template == nil {
 		return false
 	}
 
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
-		if kvapi.VolumeExists(volume, kvbuilder.GenerateVMDDiskName(vd.Name)) {
+		if kvapi.VolumeExists(volume, ad.GenerateName) {
 			return true
 		}
 	}
@@ -192,13 +190,13 @@ func (s AttachmentService) CanUnplug(vd *virtv2.VirtualDisk, kvvm *virtv1.Virtua
 	return false
 }
 
-func (s AttachmentService) UnplugDisk(ctx context.Context, vd *virtv2.VirtualDisk, kvvm *virtv1.VirtualMachine) error {
-	if vd == nil || kvvm == nil {
+func (s AttachmentService) UnplugDisk(ctx context.Context, ad *AttachmentDisk, kvvm *virtv1.VirtualMachine) error {
+	if ad == nil || kvvm == nil {
 		return nil
 	}
 
 	unplugRequest := virtv1.RemoveVolumeOptions{
-		Name: kvbuilder.GenerateVMDDiskName(vd.Name),
+		Name: ad.GenerateName,
 	}
 
 	kv, err := kubevirt.New(ctx, s.client, s.controllerNamespace)
@@ -272,8 +270,12 @@ func (s AttachmentService) GetVirtualDisk(ctx context.Context, name, namespace s
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
 }
 
-func (s AttachmentService) GetPersistentVolumeClaim(ctx context.Context, vd *virtv2.VirtualDisk) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Status.Target.PersistentVolumeClaim}, s.client, &corev1.PersistentVolumeClaim{})
+func (s AttachmentService) GetVirtualImage(ctx context.Context, name, namespace string) (*virtv2.VirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualImage{})
+}
+
+func (s AttachmentService) GetPersistentVolumeClaim(ctx context.Context, ad *AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: ad.Namespace, Name: ad.PVCName}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
 func (s AttachmentService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
@@ -290,4 +292,32 @@ func (s AttachmentService) GetKVVMI(ctx context.Context, vm *virtv2.VirtualMachi
 
 func isSameBlockDeviceRefs(a, b virtv2.VMBDAObjectRef) bool {
 	return a.Kind == b.Kind && a.Name == b.Name
+}
+
+type AttachmentDisk struct {
+	Kind         virtv2.BlockDeviceKind
+	Name         string
+	Namespace    string
+	GenerateName string
+	PVCName      string
+}
+
+func NewAttachmentDiskFromVirtualDisk(vd *virtv2.VirtualDisk) *AttachmentDisk {
+	return &AttachmentDisk{
+		Kind:         virtv2.DiskDevice,
+		Name:         vd.GetName(),
+		Namespace:    vd.GetNamespace(),
+		GenerateName: kvbuilder.GenerateVMDDiskName(vd.GetName()),
+		PVCName:      vd.Status.Target.PersistentVolumeClaim,
+	}
+}
+
+func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk {
+	return &AttachmentDisk{
+		Kind:         virtv2.ImageDevice,
+		Name:         vi.GetName(),
+		Namespace:    vi.GetNamespace(),
+		GenerateName: kvbuilder.GenerateVMIDiskName(vi.GetName()),
+		PVCName:      vi.Status.Target.PersistentVolumeClaim,
+	}
 }
