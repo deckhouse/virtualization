@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"math"
-	"sort"
 	"strconv"
 	"time"
 
@@ -200,44 +199,55 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 	if current == nil || changed == nil {
 		return
 	}
+	phaseChanged := current.Status.Phase != changed.Status.Phase
+
 	var stats virtv2.VirtualMachineStats
+
 	if current.Status.Stats != nil {
 		stats = *current.Status.Stats.DeepCopy()
 	}
 	pts := NewPhaseTransitions(stats.PhasesTransitions, current.Status.Phase, changed.Status.Phase)
-	pts.Sort()
-	stats.PhasesTransitions = pts.Items
+
+	stats.PhasesTransitions = pts
 
 	launchTimeDuration := stats.LaunchTimeDuration
 
-	var emptyOSInfo virtv1.VirtualMachineInstanceGuestOSInfo
-
 	switch changed.Status.Phase {
-	case virtv2.MachinePending:
+	case virtv2.MachinePending, virtv2.MachineStopped:
 		launchTimeDuration.WaitingForDependencies = nil
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
 	case virtv2.MachineStarting:
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
+
+		if phaseChanged {
+			for i := len(pts) - 1; i > 0; i-- {
+				pt := pts[i]
+				ptPrev := pts[i-1]
+				if pt.Phase == virtv2.MachineStarting && ptPrev.Phase == virtv2.MachinePending {
+					launchTimeDuration.WaitingForDependencies = &metav1.Duration{Duration: pt.Timestamp.Sub(pts[i-1].Timestamp.Time)}
+					break
+				}
+			}
+		}
 	case virtv2.MachineRunning:
-		if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo {
+		if kvvmi != nil && osInfoIsEmpty(kvvmi.Status.GuestOSInfo) {
 			launchTimeDuration.GuestOSAgentStarting = nil
 		}
-	}
 
-	for i, pt := range pts.Items {
-		switch pt.Phase {
-		case virtv2.MachineStarting:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] {
-				launchTimeDuration.WaitingForDependencies = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
-			}
-		case virtv2.MachineRunning:
-			if i > 0 && pts.Items[i-1].Phase == phasePreviousPhase[pt.Phase] {
-				launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts.Items[i-1].Timestamp.Time)}
-			}
-			if kvvmi != nil && emptyOSInfo == current.Status.GuestOSInfo && emptyOSInfo != kvvmi.Status.GuestOSInfo && !pt.Timestamp.IsZero() {
-				launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
+		for i := len(pts) - 1; i > 0; i-- {
+			pt := pts[i]
+			ptPrev := pts[i-1]
+
+			if pt.Phase == virtv2.MachineRunning {
+				if phaseChanged && ptPrev.Phase == virtv2.MachineStarting {
+					launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts[i-1].Timestamp.Time)}
+				}
+				if kvvmi != nil && osInfoIsEmpty(current.Status.GuestOSInfo) && !osInfoIsEmpty(kvvmi.Status.GuestOSInfo) && !pt.Timestamp.IsZero() {
+					launchTimeDuration.GuestOSAgentStarting = &metav1.Duration{Duration: time.Now().Truncate(time.Second).Sub(pt.Timestamp.Time)}
+				}
+				break
 			}
 		}
 	}
@@ -246,69 +256,22 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 	changed.Status.Stats = &stats
 }
 
-var phasePreviousPhase = map[virtv2.MachinePhase]virtv2.MachinePhase{
-	virtv2.MachineRunning:  virtv2.MachineStarting,
-	virtv2.MachineStarting: virtv2.MachinePending,
-	virtv2.MachineStopped:  virtv2.MachineStopping,
+func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
+	var emptyOSInfo virtv1.VirtualMachineInstanceGuestOSInfo
+	return emptyOSInfo == info
 }
 
-type PhaseTransitions struct {
-	Items []virtv2.VirtualMachinePhaseTransitionTimestamp
-}
-
-func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase virtv2.MachinePhase) PhaseTransitions {
+func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase virtv2.MachinePhase) []virtv2.VirtualMachinePhaseTransitionTimestamp {
 	now := metav1.NewTime(time.Now().Truncate(time.Second))
 
-	phasesTransitionsMap := make(map[virtv2.MachinePhase]virtv2.VirtualMachinePhaseTransitionTimestamp, len(phaseTransitions))
-	for _, pt := range phaseTransitions {
-		phasesTransitionsMap[pt.Phase] = pt
-	}
-	if _, found := phasesTransitionsMap[newPhase]; !found || oldPhase != newPhase {
-		phasesTransitionsMap[newPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
+	if oldPhase != newPhase {
+		phaseTransitions = append(phaseTransitions, virtv2.VirtualMachinePhaseTransitionTimestamp{
 			Phase:     newPhase,
 			Timestamp: now,
-		}
+		})
 	}
-	p := newPhase
-	t := now.Add(-1 * time.Second)
-	// Since we are setting up phases based on kvvm, we may skip some of them.
-	// But we need to know some timestamps to generate statistics.
-	// Add the missing phases.
-	for {
-		if previousPhase, found := phasePreviousPhase[p]; found {
-			if _, found = phasesTransitionsMap[previousPhase]; !found {
-				phasesTransitionsMap[previousPhase] = virtv2.VirtualMachinePhaseTransitionTimestamp{
-					Phase:     previousPhase,
-					Timestamp: metav1.NewTime(t),
-				}
-				t = t.Add(-1 * time.Second)
-			}
-			p = previousPhase
-			continue
-		}
-		break
+	if len(phaseTransitions) > 5 {
+		return phaseTransitions[len(phaseTransitions)-5:]
 	}
-	phasesTransitionsSlice := make([]virtv2.VirtualMachinePhaseTransitionTimestamp, len(phasesTransitionsMap))
-	i := 0
-	for _, p := range phasesTransitionsMap {
-		phasesTransitionsSlice[i] = p
-		i++
-	}
-	return PhaseTransitions{Items: phasesTransitionsSlice}
-}
-
-func (pt *PhaseTransitions) Sort() {
-	sort.Sort(pt)
-}
-
-func (pt *PhaseTransitions) Len() int {
-	return len(pt.Items)
-}
-
-func (pt *PhaseTransitions) Less(i, j int) bool {
-	return pt.Items[j].Timestamp.After(pt.Items[i].Timestamp.Time)
-}
-
-func (pt *PhaseTransitions) Swap(i, j int) {
-	pt.Items[i], pt.Items[j] = pt.Items[j], pt.Items[i]
+	return phaseTransitions
 }
