@@ -70,7 +70,6 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	// Initialize new VMOP resource: set label with vm name, set phase to Pending and all conditions to Unknown.
 	if changed.Status.Phase == "" {
-		cc.AddLabel(changed, cc.LabelVirtualMachineUID, string(changed.GetUID()))
 		changed.Status.Phase = virtv2.VMOPPhasePending
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
@@ -107,6 +106,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
+	cc.AddLabel(changed, cc.LabelVirtualMachineUID, string(vm.GetUID()))
 
 	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)
