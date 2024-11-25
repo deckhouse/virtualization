@@ -109,10 +109,31 @@ index 0368a0762b..473328fb4b 100644
  
  func (service *ServiceLibvirt) AddLibvirtFlags() {
 diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
-index a7ea3f44d6..257f6e8415 100644
+index a7ea3f44d6..4b08fbaa24 100644
 --- a/pkg/virt-api/api.go
 +++ b/pkg/virt-api/api.go
-@@ -968,6 +968,19 @@ func (app *virtAPIApp) setupTLS(k8sCAManager, kubevirtCAManager, virtualizationC
+@@ -82,9 +82,11 @@ import (
+ const (
+ 	// Default port that virt-api listens on.
+ 	defaultPort = 443
++	defaultMetricsPort = 8080
+ 
+ 	// Default address that virt-api listens on.
+ 	defaultHost = "0.0.0.0"
++	defaultMetricsHost = defaultHost
+ 
+ 	DefaultConsoleServerPort = 8186
+ 
+@@ -156,6 +158,8 @@ func NewVirtApi() VirtApi {
+ 	app := &virtAPIApp{}
+ 	app.BindAddress = defaultHost
+ 	app.Port = defaultPort
++	app.MetricsBindAddress = defaultHost
++	app.MetricsPort = defaultPort
+ 
+ 	return app
+ }
+@@ -968,6 +972,19 @@ func (app *virtAPIApp) setupTLS(k8sCAManager, kubevirtCAManager, virtualizationC
  	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
  }
  
@@ -132,7 +153,7 @@ index a7ea3f44d6..257f6e8415 100644
  func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) error {
  
  	errors := make(chan error)
-@@ -991,7 +1004,6 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory)
+@@ -991,7 +1008,6 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory)
  
  	app.Compose()
  
@@ -140,7 +161,7 @@ index a7ea3f44d6..257f6e8415 100644
  	server := &http.Server{
  		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
  		TLSConfig: app.tlsConfig,
-@@ -1127,6 +1139,8 @@ func (app *virtAPIApp) Run() {
+@@ -1127,6 +1143,8 @@ func (app *virtAPIApp) Run() {
  	go app.certmanager.Start()
  	go app.handlerCertManager.Start()
  
