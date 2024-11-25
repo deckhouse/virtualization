@@ -170,6 +170,65 @@ index a7ea3f44d6..4b08fbaa24 100644
  	// start TLS server
  	// tls server will only accept connections when fetching a certificate and internal configuration passed once
  	err = app.startTLS(kubeInformerFactory)
+diff --git a/pkg/virt-controller/watch/application.go b/pkg/virt-controller/watch/application.go
+index f80a0653ad..4a8d20d7be 100644
+--- a/pkg/virt-controller/watch/application.go
++++ b/pkg/virt-controller/watch/application.go
+@@ -92,8 +92,10 @@ import (
+ 
+ const (
+ 	defaultPort = 8182
++	defaultMetricsPort = 8080
+ 
+ 	defaultHost = "0.0.0.0"
++	defaultMetricsHost = defaultHost
+ 
+ 	launcherImage       = "virt-launcher"
+ 	exporterImage       = "virt-exportserver"
+@@ -492,10 +494,12 @@ func (vca *VirtControllerApp) Run() {
+ 	go promCertManager.Start()
+ 	promTLSConfig := kvtls.SetupPromTLS(promCertManager, vca.clusterConfig)
+ 
++	promErrCh := make(chan error)
++	go vca.startPrometheusServer(promErrCh)
++
+ 	go func() {
+ 		httpLogger := logger.With("service", "http")
+ 		_ = httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+-		http.Handle("/metrics", promhttp.Handler())
+ 		server := http.Server{
+ 			Addr:      vca.Address(),
+ 			Handler:   http.DefaultServeMux,
+@@ -519,6 +523,20 @@ func (vca *VirtControllerApp) Run() {
+ 	panic("unreachable")
+ }
+ 
++func (app *VirtControllerApp) startPrometheusServer(errCh chan error) {
++	mux := restful.NewContainer()
++	webService := new(restful.WebService)
++	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
++	mux.Add(webService)
++	mux.Handle("/metrics", promhttp.Handler())
++	server := http.Server{
++		Addr:    app.ServiceListen.MetricsAddress(),
++		Handler: mux,
++	}
++	errCh <- server.ListenAndServe()
++
++}
++
+ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
+ 	return func(ctx context.Context) {
+ 		stop := ctx.Done()
+@@ -896,6 +914,8 @@ func (vca *VirtControllerApp) AddFlags() {
+ 
+ 	vca.BindAddress = defaultHost
+ 	vca.Port = defaultPort
++	vca.MetricsBindAddress = defaultMetricsHost
++	vca.MetricsPort = defaultMetricsPort
+ 
+ 	vca.AddCommonFlags()
+ 
 diff --git a/pkg/virt-operator/application.go b/pkg/virt-operator/application.go
 index 47b4880c38..7eb20f19b0 100644
 --- a/pkg/virt-operator/application.go

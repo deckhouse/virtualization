@@ -45,7 +45,9 @@ spec:
       api:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
-      controller: {}
+      controller:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
       handler:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
@@ -108,6 +110,7 @@ spec:
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller") 
     ) }}
     - resourceName: virt-controller
       resourceType: Deployment
