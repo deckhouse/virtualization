@@ -72,6 +72,7 @@ type VirtualMachineBlockDeviceAttachmentStatus struct {
 type VMBDAObjectRef struct {
 	// The type of the block device. Options are:
 	// * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+	// * `VirtualImage` — use `VirtualImage` as the disk. Only for type PersistentVolumeClaim.
 	Kind VMBDAObjectRefKind `json:"kind,omitempty"`
 	// The name of block device to attach.
 	Name string `json:"name,omitempty"`
@@ -79,11 +80,12 @@ type VMBDAObjectRef struct {
 
 // VMBDAObjectRefKind defines the type of the block device.
 //
-// +kubebuilder:validation:Enum={VirtualDisk}
+// +kubebuilder:validation:Enum={VirtualDisk,VirtualImage}
 type VMBDAObjectRefKind string
 
 const (
-	VMBDAObjectRefKindVirtualDisk VMBDAObjectRefKind = "VirtualDisk"
+	VMBDAObjectRefKindVirtualDisk  VMBDAObjectRefKind = "VirtualDisk"
+	VMBDAObjectRefKindVirtualImage VMBDAObjectRefKind = "VirtualImage"
 )
 
 // BlockDeviceAttachmentPhase defines current status of resource:

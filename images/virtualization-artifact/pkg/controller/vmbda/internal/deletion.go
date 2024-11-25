@@ -34,14 +34,14 @@ func NewDeletionHandler() *DeletionHandler {
 	return &DeletionHandler{}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
-	if vd.DeletionTimestamp != nil {
+	if vmbda.DeletionTimestamp != nil {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
-		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVMBDACleanup)
+		controllerutil.RemoveFinalizer(vmbda, virtv2.FinalizerVMBDACleanup)
 		return reconcile.Result{}, nil
 	}
 
-	controllerutil.AddFinalizer(vd, virtv2.FinalizerVMBDACleanup)
+	controllerutil.AddFinalizer(vmbda, virtv2.FinalizerVMBDACleanup)
 	return reconcile.Result{}, nil
 }

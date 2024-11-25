@@ -2072,7 +2072,7 @@ func schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The type of the block device. Options are: * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.",
+							Description: "The type of the block device. Options are: * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode. * `VirtualImage` — use `VirtualImage` as the disk. Only for type PersistentVolumeClaim.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
