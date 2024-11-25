@@ -24,13 +24,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
-
-const (
-	lesser  = -1
-	equal   = 0
-	greater = 1
 )
 
 type SizePolicyService struct{}
@@ -107,7 +102,7 @@ func validateMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsA
 		return
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == lesser {
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == common.CmpLesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -116,7 +111,7 @@ func validateMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsA
 		))
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == greater {
+	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == common.CmpGreater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -146,7 +141,7 @@ func validatePerCoreMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (
 	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
 	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == lesser {
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == common.CmpLesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -155,7 +150,7 @@ func validatePerCoreMemory(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (
 		))
 	}
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == greater {
+	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == common.CmpGreater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -181,9 +176,9 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 		cmpLeftResult := value.Cmp(grid[i])
 		cmpRightResult := value.Cmp(grid[i+1])
 
-		if cmpLeftResult == equal || cmpRightResult == equal {
+		if cmpLeftResult == common.CmpEqual || cmpRightResult == common.CmpEqual {
 			return
-		} else if cmpLeftResult == greater && cmpRightResult == lesser {
+		} else if cmpLeftResult == common.CmpGreater && cmpRightResult == common.CmpLesser {
 			err = fmt.Errorf(
 				"requested %s does not match any available values, nearest valid values are [%s, %s]",
 				source,
@@ -200,7 +195,7 @@ func validateIsQuantized(value, min, max, step resource.Quantity, source string)
 func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
 	var grid []resource.Quantity
 
-	for val := min; val.Cmp(max) == lesser; val.Add(step) {
+	for val := min; val.Cmp(max) == common.CmpLesser; val.Add(step) {
 		grid = append(grid, val)
 	}
 
