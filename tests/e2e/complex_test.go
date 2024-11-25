@@ -230,21 +230,16 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		Context("When test is complited:", func() {
-			It("tries to delete used resources", func() {
-				kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
-				err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-				Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
-				res := kubectl.Delete(kc.DeleteOptions{
-					Filename:       []string{conf.TestData.ComplexTest},
-					FilenameOption: kc.Kustomize,
+			It("deletes test case resources", func() {
+				DeleteTestCaseResources(ResourcesToDelete{
+					KustomizationDir: conf.TestData.ComplexTest,
+					AdditionalResources: []AdditionalResource{
+						{
+							kc.ResourceKubevirtVMIM,
+							testCaseLabel,
+						},
+					},
 				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-				res = kubectl.Delete(kc.DeleteOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Resource:  kc.ResourceKubevirtVMIM,
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 			})
 		})
 	})

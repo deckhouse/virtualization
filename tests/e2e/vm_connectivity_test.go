@@ -47,7 +47,7 @@ type PodEntrypoint struct {
 
 func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executor.CMDResult {
 	GinkgoHelper()
-	cmd := fmt.Sprintf("run %s --namespace %s --image=%s", podName, namespace, image)
+	cmd := fmt.Sprintf("run %s --namespace %s --image=%s --labels='name=%s'", podName, namespace, image, podName)
 	if entrypoint.Command != "" {
 		cmd = fmt.Sprintf("%s --command %s", cmd, entrypoint.Command)
 	}
@@ -254,21 +254,16 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	})
 
 	Context("When test is complited:", func() {
-		It("tries to delete used resources", func() {
-			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
-			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
-			res := kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{conf.TestData.Connectivity},
-				FilenameOption: kc.Kustomize,
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.Connectivity,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourcePod,
+						Labels:   map[string]string{"name": CurlPod},
+					},
+				},
 			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-			res = kubectl.Delete(kc.DeleteOptions{
-				Filename:  []string{CurlPod},
-				Namespace: conf.Namespace,
-				Resource:  kc.ResourcePod,
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })

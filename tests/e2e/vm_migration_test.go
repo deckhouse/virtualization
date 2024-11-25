@@ -164,21 +164,16 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 	})
 
 	Context("When test is complited:", func() {
-		It("tries to delete used resources", func() {
-			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")
-			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
-			res := kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{conf.TestData.VmMigration},
-				FilenameOption: kc.Kustomize,
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmMigration,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourceKubevirtVMIM,
+						Labels:   testCaseLabel,
+					},
+				},
 			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-			res = kubectl.Delete(kc.DeleteOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Resource:  kc.ResourceKubevirtVMIM,
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })

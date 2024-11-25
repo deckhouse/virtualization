@@ -254,15 +254,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Context("When test is complited:", func() {
-		It("tries to delete used resources", func() {
-			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
-			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
-			res := kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{conf.TestData.VmConfiguration},
-				FilenameOption: kc.Kustomize,
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmConfiguration,
 			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		})
 	})
 })
