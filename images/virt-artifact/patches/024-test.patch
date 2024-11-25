@@ -1,12 +1,13 @@
 diff --git a/pkg/instancetype/instancetype.go b/pkg/instancetype/instancetype.go
-index 6860766acd..f522702f33 100644
+index 6860766acd..dd572b5ca2 100644
 --- a/pkg/instancetype/instancetype.go
 +++ b/pkg/instancetype/instancetype.go
-@@ -1600,6 +1600,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
+@@ -1600,6 +1600,8 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
  	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
  		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
  	}
-+	vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(true)
++	t := true
++	vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(t)
  
  	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
  		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
