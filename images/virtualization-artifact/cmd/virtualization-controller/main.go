@@ -257,7 +257,7 @@ func main() {
 	}
 
 	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vmbda.NewController(ctx, mgr, vmbdaLogger, controllerNamespace); err != nil {
+	if _, err = vmbda.NewController(ctx, mgr, virtClient, vmbdaLogger, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

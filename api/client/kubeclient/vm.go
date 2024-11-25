@@ -149,3 +149,29 @@ func (v vm) Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachi
 	}
 	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
 }
+
+func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addvolume")
+
+	return v.restClient.
+		Put().
+		AbsPath(path).
+		Param("name", opts.Name).
+		Param("volumeKind", opts.VolumeKind).
+		Param("pvcName", opts.PVCName).
+		Param("image", opts.Image).
+		Param("isCdrom", strconv.FormatBool(opts.IsCdrom)).
+		Do(ctx).
+		Error()
+}
+
+func (v vm) RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "removevolume")
+
+	return v.restClient.
+		Put().
+		AbsPath(path).
+		Param("name", opts.Name).
+		Do(ctx).
+		Error()
+}

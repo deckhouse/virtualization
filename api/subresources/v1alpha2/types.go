@@ -55,6 +55,11 @@ type VirtualMachinePortForward struct {
 
 type VirtualMachineAddVolume struct {
 	metav1.TypeMeta `json:",inline"`
+	Name            string `json:"name"`
+	VolumeKind      string `json:"volumeKind"`
+	PVCName         string `json:"pvcName"`
+	Image           string `json:"image"`
+	IsCdrom         bool   `json:"isCdrom"`
 }
 
 // +genclient
@@ -64,6 +69,7 @@ type VirtualMachineAddVolume struct {
 
 type VirtualMachineRemoveVolume struct {
 	metav1.TypeMeta `json:",inline"`
+	Name            string `json:"name"`
 }
 
 // +genclient
