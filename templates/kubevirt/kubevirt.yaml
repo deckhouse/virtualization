@@ -42,7 +42,9 @@ spec:
       disableSerialConsoleLog: {}
   customizeComponents:
     flags:
-      api: {}
+      api:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
       controller: {}
       handler:
         metrics-listen: 127.0.0.1
