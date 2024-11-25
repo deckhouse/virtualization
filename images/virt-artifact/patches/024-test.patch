@@ -1,3 +1,15 @@
+diff --git a/pkg/instancetype/instancetype.go b/pkg/instancetype/instancetype.go
+index 6860766acd..f522702f33 100644
+--- a/pkg/instancetype/instancetype.go
++++ b/pkg/instancetype/instancetype.go
+@@ -1600,6 +1600,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
+ 	if firmware.PreferredUseBiosSerial != nil && vmiFirmware.Bootloader.BIOS != nil && vmiFirmware.Bootloader.BIOS.UseSerial == nil {
+ 		vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(*firmware.PreferredUseBiosSerial)
+ 	}
++	vmiFirmware.Bootloader.BIOS.UseSerial = pointer.P(true)
+ 
+ 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
+ 		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
 index 0565ceb5dd..fae3f33aca 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
