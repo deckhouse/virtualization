@@ -147,3 +147,36 @@ tasks:
     cmds:
       - task: cve:bin
       - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}}
+
+  dlv:virt-handler:build:
+    desc: "Build image virt-handler with dlv"
+    cmd: docker build -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .
+
+  dlv:virt-handler:build-push:
+    desc: "Build and Push image virt-handler with dlv"
+    cmds:
+      - task: dlv:virt-handler:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:virt-handler:print
+
+  dlv:virt-handler:print:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch ds virt-handler --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "virt-handler",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward pod/<virt-handler-pod> 2345:2345
+      EOF
