@@ -42,8 +42,6 @@ func NewController(
 	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	log := lg.With(logger.SlogController(ControllerName))
-
 	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
 	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
@@ -59,7 +57,7 @@ func NewController(
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       reconciler,
 		RecoverPanic:     ptr.To(true),
-		LogConstructor:   logger.NewConstructor(log),
+		LogConstructor:   logger.NewConstructor(lg),
 		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
@@ -73,7 +71,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, blockDeviceService, log)).
+		WithValidator(NewValidator(attacher, blockDeviceService, lg)).
 		Complete(); err != nil {
 		return nil, err
 	}

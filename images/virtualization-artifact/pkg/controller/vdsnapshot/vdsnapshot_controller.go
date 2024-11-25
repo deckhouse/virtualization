@@ -41,8 +41,6 @@ func NewController(
 	log *log.Logger,
 	virtClient kubeclient.Client,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(ControllerName))
-
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDSnapshotProtection)
 	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 

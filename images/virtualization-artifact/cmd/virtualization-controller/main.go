@@ -58,12 +58,13 @@ import (
 )
 
 const (
-	metricsBindAddrEnv   = "METRICS_BIND_ADDRESS"
-	pprofBindAddrEnv     = "PPROF_BIND_ADDRESS"
-	logLevelEnv          = "LOG_LEVEL"
-	logDebugVerbosityEnv = "LOG_DEBUG_VERBOSITY"
-	logFormatEnv         = "LOG_FORMAT"
-	logOutputEnv         = "LOG_OUTPUT"
+	metricsBindAddrEnv        = "METRICS_BIND_ADDRESS"
+	pprofBindAddrEnv          = "PPROF_BIND_ADDRESS"
+	logLevelEnv               = "LOG_LEVEL"
+	logDebugVerbosityEnv      = "LOG_DEBUG_VERBOSITY"
+	logDebugControllerListEnv = "LOG_DEBUG_CONTROLLER_LIST"
+	logFormatEnv              = "LOG_FORMAT"
+	logOutputEnv              = "LOG_OUTPUT"
 )
 
 func main() {
@@ -79,6 +80,14 @@ func main() {
 			slog.Default().Error(err.Error())
 			os.Exit(1)
 		}
+	}
+
+	var logDebugControllerList []string
+	fmt.Print(len(logDebugControllerList))
+	logDebugControllerListRaw := os.Getenv(logDebugControllerListEnv)
+	if logDebugControllerListRaw != "" {
+		logDebugControllerListRaw = strings.ReplaceAll(logDebugControllerListRaw, " ", "")
+		logDebugControllerList = strings.Split(logDebugControllerListRaw, ",")
 	}
 
 	var logDebugVerbosity int
@@ -212,70 +221,82 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = cvi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
+	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vm.SetupController(ctx, mgr, log, dvcrSettings); err != nil {
+	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if err = vm.SetupGC(mgr, log, gcSettings.VMIMigration); err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	if _, err = vmbda.NewController(ctx, mgr, log, controllerNamespace); err != nil {
+	if err = vm.SetupGC(mgr, vmLogger, gcSettings.VMIMigration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
+	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmbda.NewController(ctx, mgr, vmbdaLogger, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
+	vmipLogger := logger.NewControllerLogger(vmip.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmip.NewController(ctx, mgr, vmipLogger, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, log); err != nil {
+	vmipleaseLogger := logger.NewControllerLogger(vmiplease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmiplease.NewController(ctx, mgr, vmipleaseLogger, virtualMachineIPLeasesRetentionDuration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vdsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+	vmclassLogger := logger.NewControllerLogger(vmclass.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, vmclassLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+	vdsnapshotLogger := logger.NewControllerLogger(vdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmrestore.NewController(ctx, mgr, log); err != nil {
+	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmop.SetupController(ctx, mgr, virtClient, log); err != nil {
+	vmrestoreLogger := logger.NewControllerLogger(vmrestore.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmrestore.NewController(ctx, mgr, vmrestoreLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
+
+	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmop.SetupController(ctx, mgr, virtClient, vmopLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

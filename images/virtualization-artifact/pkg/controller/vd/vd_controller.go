@@ -52,15 +52,13 @@ type Condition interface {
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *log.Logger,
+	log *log.Logger,
 	importerImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualDiskStorageClassSettings,
 ) (controller.Controller, error) {
-	log := lg.With(logger.SlogController(ControllerName))
-
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
@@ -110,7 +108,7 @@ func NewController(
 		return nil, err
 	}
 
-	vdcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, lg)
+	vdcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualDisk controller", "image", importerImage)
 

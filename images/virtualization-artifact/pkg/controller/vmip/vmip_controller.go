@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	controllerName = "vmip-controller"
+	ControllerName = "vmip-controller"
 )
 
 func NewController(
@@ -42,9 +42,7 @@ func NewController(
 	log *log.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
-
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
 
 	handlers := []Handler{
@@ -58,7 +56,7 @@ func NewController(
 		return nil, err
 	}
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),

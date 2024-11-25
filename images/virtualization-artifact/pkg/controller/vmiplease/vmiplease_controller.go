@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	controllerName = "vmiplease-controller"
+	ControllerName = "vmiplease-controller"
 )
 
 func NewController(
@@ -41,7 +41,6 @@ func NewController(
 	log *log.Logger,
 	retentionDurationStr string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
 		log.Error("Failed to parse retention duration", "err", err)
@@ -56,7 +55,7 @@ func NewController(
 
 	r := NewReconciler(mgr.GetClient(), handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
