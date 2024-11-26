@@ -47,7 +47,7 @@ type PodEntrypoint struct {
 
 func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executor.CMDResult {
 	GinkgoHelper()
-	cmd := fmt.Sprintf("run %s --namespace %s --image=%s", podName, namespace, image)
+	cmd := fmt.Sprintf("run %s --namespace %s --image=%s --labels='name=%s'", podName, namespace, image, podName)
 	if entrypoint.Command != "" {
 		cmd = fmt.Sprintf("%s --command %s", cmd, entrypoint.Command)
 	}
@@ -104,7 +104,10 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.Connectivity, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.Connectivity},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -247,6 +250,20 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 				}
 				return strings.TrimSpace(res.StdOut()), nil
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.Connectivity,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourcePod,
+						Labels:   map[string]string{"name": CurlPod},
+					},
+				},
+			})
 		})
 	})
 })

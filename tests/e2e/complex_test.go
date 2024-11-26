@@ -67,7 +67,10 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.ComplexTest, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.ComplexTest},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
 	})
@@ -223,6 +226,20 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			})
+		})
+
+		Context("When test is complited:", func() {
+			It("deletes test case resources", func() {
+				DeleteTestCaseResources(ResourcesToDelete{
+					KustomizationDir: conf.TestData.ComplexTest,
+					AdditionalResources: []AdditionalResource{
+						{
+							kc.ResourceKubevirtVMIM,
+							testCaseLabel,
+						},
+					},
+				})
 			})
 		})
 	})

@@ -159,12 +159,26 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 }
 
 var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
-	diskResizingLabel := map[string]string{"testcase": "disk-resizing"}
+	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.DiskResizing, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.DiskResizing},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied:", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
+			})
 		})
 	})
 
@@ -172,7 +186,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    diskResizingLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
@@ -183,7 +197,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
-				Labels:    diskResizingLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
@@ -194,7 +208,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
-				Labels:    diskResizingLabel,
+				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
@@ -208,14 +222,14 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 				vmDisksAfter  VirtualMachineDisks
 				err           error
 			)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, diskResizingLabel["testcase"])
+			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, testCaseLabel["testcase"])
 			It("get disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmName, conf)
 				Expect(err).NotTo(HaveOccurred(), err)
 			})
 			It("resizes disks", func() {
 				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-					Labels:    diskResizingLabel,
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -233,28 +247,28 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 			It("checks VDs, VMs and VMBDA phases", func() {
 				By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-					Labels:    diskResizingLabel,
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 
 				By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
-					Labels:    diskResizingLabel,
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 
 				By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
-					Labels:    diskResizingLabel,
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 
 				By("BlockDeviceRefsStatus: disks should be attached")
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    diskResizingLabel,
+					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
@@ -275,6 +289,14 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 					compareSizeByLsblk := sizeByLsblkBefore < sizeByLsblkAfter
 					Expect(compareSizeByLsblk).To(BeTrue(), "size by lsblk before must be lower than size after: before: %d, after: %d", sizeByLsblkBefore, sizeByLsblkAfter)
 				}
+			})
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.DiskResizing,
 			})
 		})
 	})

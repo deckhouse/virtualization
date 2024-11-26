@@ -42,8 +42,10 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
 		err := CreateMigrationManifest(vm, migrationFilePath, label)
 		Expect(err).NotTo(HaveOccurred(), err)
-		res := kubectl.Apply(migrationFilePath, kc.ApplyOptions{
-			Namespace: conf.Namespace,
+		res := kubectl.Apply(kc.ApplyOptions{
+			Filename:       []string{migrationFilePath},
+			FilenameOption: kc.Filename,
+			Namespace:      conf.Namespace,
 		})
 		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 	}
@@ -77,7 +79,10 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmMigration, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmMigration},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -155,6 +160,20 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 
 			vms := strings.Split(res.StdOut(), " ")
 			CheckExternalConnection(externalHost, httpStatusOk, vms...)
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmMigration,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourceKubevirtVMIM,
+						Labels:   testCaseLabel,
+					},
+				},
+			})
 		})
 	})
 })

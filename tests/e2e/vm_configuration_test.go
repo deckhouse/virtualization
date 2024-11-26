@@ -92,7 +92,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmConfiguration, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmConfiguration},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -246,6 +249,14 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
+			})
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmConfiguration,
 			})
 		})
 	})
