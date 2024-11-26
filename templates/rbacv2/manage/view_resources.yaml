@@ -9,7 +9,7 @@ metadata:
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-virtualization
-  name: d8:manage:capability:virtualization:viewer
+  name: d8:manage:permission:virtualization:view_resources
 rules:
 - apiGroups:
   - virtualization.deckhouse.io
