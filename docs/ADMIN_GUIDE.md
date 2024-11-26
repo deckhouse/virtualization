@@ -528,11 +528,3 @@ Priorities for setting `PersistentVolumeClaim` parameters when creating a disk t
 - RWO + FileSystem
 
 If the storage is unknown and it is not possible to automatically characterize it, then RWO + FileSystem is used.
-
-The following annotations can be used to modify the standard `PersistentVolumeClaim` parameter determination process for `StorageClass`:
-
-| Annotation                                           | Valid values                     |
-| ---------------------------------------------------- | -------------------------------- |
-| virtualdisk.virtualization.deckhouse.io/volume-mode  | `Block`, `Filesystem`            |
-| virtualdisk.virtualization.deckhouse.io/access-mode  | `ReadWriteOnce`, `ReadWriteMany` |
-| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate`                      |
