@@ -126,11 +126,13 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 	for _, c := range kvvmi.Status.Conditions {
 		if c.Type == virtv1.VirtualMachineInstanceUnsupportedAgent {
 			status := conditionStatus(string(c.Status))
-			//nolint:staticcheck
-			cb.Status(status).Reason(conditions.DeprecatedWrappedString(c.Reason))
-			if status != metav1.ConditionTrue {
-				cb.Message(c.Message)
+			switch status {
+			case metav1.ConditionTrue:
+				cb.Status(status).Reason(vmcondition.ReasonAgentSupported).Message(c.Reason)
+			case metav1.ConditionFalse:
+				cb.Status(status).Reason(vmcondition.ReasonAgentNotSupported).Message(c.Reason)
 			}
+
 			return
 		}
 	}
