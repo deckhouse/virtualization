@@ -7,5 +7,5 @@ metadata:
     module: virtualization
     rbac.deckhouse.io/aggregate-to-role: user
     rbac.deckhouse.io/kind: use
-  name: d8:use:capability:module:virtualization:user
+  name: d8:use:capability:virtualization:user
 rules: []

@@ -7,5 +7,5 @@ metadata:
     module: virtualization
     rbac.deckhouse.io/aggregate-to-role: manager
     rbac.deckhouse.io/kind: use
-  name: d8:use:capability:module:virtualization:manager
+  name: d8:use:capability:virtualization:manager
 rules: []
