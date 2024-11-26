@@ -1,0 +1,33 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/aggregate-to-virtualization-as: viewer
+    rbac.deckhouse.io/kind: manage
+    rbac.deckhouse.io/level: module
+    rbac.deckhouse.io/namespace: d8-virtualization
+  name: d8:manage:capability:module:virtualization:viewer
+rules:
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - clustervirtualimages
+  - virtualmachineclasses
+  - virtualmachineipaddressleases
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - deckhouse.io
+  resourceNames:
+  - virtualization
+  resources:
+  - moduleconfigs
+  verbs:
+  - get
+  - list
+  - watch

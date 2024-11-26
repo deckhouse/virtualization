@@ -1,0 +1,51 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/aggregate-to-virtualization-as: disaster_admin
+    rbac.deckhouse.io/kind: manage
+    rbac.deckhouse.io/level: module
+    rbac.deckhouse.io/namespace: d8-virtualization
+  name: d8:manage:capability:module:virtualization:disaster_admin
+rules:
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationcdiconfigs
+  - internalvirtualizationcdis
+  - internalvirtualizationstorageprofiles
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+  - get
+  - list
+  - watch
+- apiGroups:
+  - internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationkubevirts
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+  - get
+  - list
+  - watch
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachineipaddressleases
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
