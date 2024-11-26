@@ -28,7 +28,7 @@ shell:
     acl \
     seabios \
     edk2-ovmf \
-    libvirt-daemon-driver-qemu==10.2.0-alt1 \
+    libvirt-daemon-driver-qemu==10.7.0-alt1 \
     qemu-kvm-core==9.0.2-alt2 \
     libguestfs==1.52.0-alt2 \
     guestfs-tools==1.52.0-alt1
