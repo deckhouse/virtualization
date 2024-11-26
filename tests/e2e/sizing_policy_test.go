@@ -72,6 +72,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		vmNotValidSizingPolicyCreating string
 		vmClassDiscovery               string
 		vmClassDiscoveryCopy           string
+		newVmClassFilePath             string
 		notExistingVmClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
 		notExistingVmClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
 		existingVmClass                = map[string]string{"vm": "existing-vmclass"}
@@ -83,11 +84,15 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
+		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 	})
 
 	Context("When resources are applied:", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.SizingPolicy, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.SizingPolicy},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
@@ -194,12 +199,14 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				vmClass := virtv2.VirtualMachineClass{}
 				err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 				Expect(err).NotTo(HaveOccurred(), err)
-				filePath := fmt.Sprintf("%s/vmc.yaml", conf.TestData.SizingPolicy)
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
-				writeErr := WriteYamlObject(filePath, &vmClass)
+				writeErr := WriteYamlObject(newVmClassFilePath, &vmClass)
 				Expect(writeErr).NotTo(HaveOccurred(), writeErr)
-				res := kubectl.Apply(filePath, kc.ApplyOptions{})
+				res := kubectl.Apply(kc.ApplyOptions{
+					Filename:       []string{newVmClassFilePath},
+					FilenameOption: kc.Filename,
+				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
 
@@ -237,6 +244,15 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(err).NotTo(HaveOccurred(), err)
 				ValidateVirtualMachineByClass(&vmClass, &vmObj)
 			}
+		})
+	})
+
+	Context("When test is complited:", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.SizingPolicy,
+				Files:            []string{newVmClassFilePath},
+			})
 		})
 	})
 })

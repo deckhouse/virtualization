@@ -104,7 +104,10 @@ func init() {
 			log.Fatal(err)
 		}
 	}
-	Cleanup()
+	err = Cleanup()
+	if err != nil {
+		log.Fatal(err)
+	}
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
 		log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
@@ -120,12 +123,28 @@ func TestTests(t *testing.T) {
 	}
 }
 
-func Cleanup() {
-	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
-	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
-		Labels: map[string]string{"id": namePrefix},
+func Cleanup() error {
+	res := kubectl.Delete(kc.DeleteOptions{
+		Filename:       []string{conf.Namespace},
+		IgnoreNotFound: true,
+		Resource:       kc.ResourceNamespace,
 	})
-	kubectl.DeleteResource(kc.ResourceVMClass, "", kc.DeleteOptions{
-		Labels: map[string]string{"id": namePrefix},
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	res = kubectl.Delete(kc.DeleteOptions{
+		Labels:   map[string]string{"id": namePrefix},
+		Resource: kc.ResourceCVI,
 	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	res = kubectl.Delete(kc.DeleteOptions{
+		Labels:   map[string]string{"id": namePrefix},
+		Resource: kc.ResourceVMClass,
+	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
 }

@@ -263,6 +263,39 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	return nil
 }
 
+func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
+	var kustomizeFile Kustomize
+
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return readErr
+	}
+
+	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	if unmarshalErr != nil {
+		return unmarshalErr
+	}
+	newResourceList := make([]string, 0, len(kustomizeFile.Resources))
+	for _, v := range kustomizeFile.Resources {
+		if v != resourceName {
+			newResourceList = append(newResourceList, v)
+		}
+	}
+
+	kustomizeFile.Resources = newResourceList
+	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0o644)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return nil
+}
+
 func GetModuleConfig() (*ModuleConfig, error) {
 	res := kubectl.GetResource(kc.ResourceModuleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
 	if !res.WasSuccess() {

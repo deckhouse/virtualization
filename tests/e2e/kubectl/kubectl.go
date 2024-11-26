@@ -29,24 +29,27 @@ import (
 )
 
 const (
-	Cmd              = "kubectl"
-	ShortTimeout     = 10 * time.Second
-	MediumTimeout    = 30 * time.Second
-	LongTimeout      = 60 * time.Second
-	ExecExtraTimeout = 20 * time.Second
+	Cmd                             = "kubectl"
+	ShortTimeout                    = 10 * time.Second
+	MediumTimeout                   = 30 * time.Second
+	LongTimeout                     = 60 * time.Second
+	ExecExtraTimeout                = 20 * time.Second
+	Filename         FilenameOption = "--filename"
+	Kustomize        FilenameOption = "--kustomize"
 )
 
-type Resource string
+type (
+	Resource       string
+	FilenameOption string
+)
 
 type Kubectl interface {
-	Apply(filepath string, opts ApplyOptions) *executor.CMDResult
+	Apply(opts ApplyOptions) *executor.CMDResult
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
 	Get(filepath string, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
-	Delete(filepath string, opts DeleteOptions) *executor.CMDResult
-	DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult
-	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
+	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
 	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
@@ -56,10 +59,17 @@ type Kubectl interface {
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
 }
 
+// FilenameOption:
+//
+//	kubectl.Filename  // --filename
+//	kubectl.Kustomize // --kustomize
 type ApplyOptions struct {
-	Namespace string
-	Output    string
-	Force     bool
+	Filename       []string
+	FilenameOption FilenameOption
+	Force          bool
+	Namespace      string
+	Output         string
+	Recursive      bool
 }
 
 type CreateOptions struct {
@@ -69,8 +79,13 @@ type CreateOptions struct {
 
 type DeleteOptions struct {
 	ExcludedLabels []string
+	Filename       []string
+	FilenameOption FilenameOption
+	IgnoreNotFound bool
 	Labels         map[string]string
 	Namespace      string
+	Recursive      bool
+	Resource       Resource
 }
 
 type GetOptions struct {
@@ -79,12 +94,6 @@ type GetOptions struct {
 	Labels         map[string]string
 	Namespace      string
 	Output         string
-}
-
-type KustomizeOptions struct {
-	Namespace string
-	Output    string
-	Force     bool
 }
 
 type WaitOptions struct {
@@ -154,10 +163,10 @@ type KubectlCMD struct {
 	cmd string
 }
 
-func (k KubectlCMD) Apply(filepath string, opts ApplyOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s apply -f %s", k.cmd, filepath)
+func (k KubectlCMD) Apply(opts ApplyOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s apply", k.cmd)
 	cmd = k.applyOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
@@ -194,24 +203,10 @@ func (k KubectlCMD) GetResource(resource Resource, name string, opts GetOptions)
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Delete(filepath string, opts DeleteOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s delete -f %s", k.cmd, filepath)
+func (k KubectlCMD) Delete(opts DeleteOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s delete", k.cmd)
 	cmd = k.deleteOptions(cmd, opts)
 	return k.Exec(cmd)
-}
-
-func (k KubectlCMD) DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s delete %s %s", k.cmd, resource, name)
-	cmd = k.deleteOptions(cmd, opts)
-	return k.Exec(cmd)
-}
-
-func (k KubectlCMD) Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s apply --kustomize %s", k.cmd, directory)
-	cmd = k.kustomizeOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
-	defer cancel()
-	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
@@ -283,6 +278,23 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
+func (k KubectlCMD) addFilenameOptions(cmd string, resource Resource, filenameOpt FilenameOption, recursive bool, filenames ...string) string {
+	if resource != "" {
+		cmd = fmt.Sprintf("%s %s", cmd, resource)
+	}
+	if filenameOpt != "" {
+		cmd = fmt.Sprintf("%s %s", cmd, filenameOpt)
+	}
+	if len(filenames) != 0 {
+		files := strings.Join(filenames, " ")
+		cmd = fmt.Sprintf("%s %s", cmd, files)
+	}
+	if recursive {
+		cmd = fmt.Sprintf("%s --recoursive=%t", cmd, recursive)
+	}
+	return cmd
+}
+
 func (k KubectlCMD) addLabels(cmd string, labels map[string]string, excludedLabels []string) string {
 	if len(labels) != 0 || len(excludedLabels) != 0 {
 		rawLabels := make([]string, 0, len(labels)+len(excludedLabels))
@@ -316,12 +328,8 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 }
 
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
-	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addOutput(cmd, opts.Output)
-	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
-}
-
-func (k KubectlCMD) kustomizeOptions(cmd string, opts KustomizeOptions) string {
+	var resourceEmptyValue Resource = ""
+	cmd = k.addFilenameOptions(cmd, resourceEmptyValue, opts.FilenameOption, opts.Recursive, opts.Filename...)
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
@@ -342,8 +350,10 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
+	cmd = k.addFilenameOptions(cmd, opts.Resource, opts.FilenameOption, opts.Recursive, opts.Filename...)
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
+	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	return cmd
 }
 
