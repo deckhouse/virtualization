@@ -26,6 +26,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 )
 
+const (
+	ProvisioningPodLimitsVar   = "PROVISIONING_POD_LIMITS"
+	ProvisioningPodRequestsVar = "PROVISIONING_POD_REQUESTS"
+)
+
 type ImportSettings struct {
 	ImporterImage string
 	UploaderImage string
@@ -45,14 +50,14 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 		return ImportSettings{}, err
 	}
 
-	limits := os.Getenv(common.ProvisioningPodLimitsVar)
+	limits := os.Getenv(ProvisioningPodLimitsVar)
 	if limits != "" {
 		err = json.Unmarshal([]byte(limits), &settings.Requirements.Limits)
 		if err != nil {
 			return ImportSettings{}, err
 		}
 	}
-	requests := os.Getenv(common.ProvisioningPodRequestsVar)
+	requests := os.Getenv(ProvisioningPodRequestsVar)
 	if requests != "" {
 		err = json.Unmarshal([]byte(requests), &settings.Requirements.Requests)
 		if err != nil {

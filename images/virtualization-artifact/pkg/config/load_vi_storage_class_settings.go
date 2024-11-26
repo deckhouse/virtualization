@@ -19,8 +19,15 @@ package config
 import (
 	"os"
 	"strings"
+)
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+const (
+	// VirtualImageStorageClass is a parameter for configuring the storage class for Virtual Image on PVC.
+	VirtualImageStorageClass = "VIRTUAL_IMAGE_STORAGE_CLASS"
+	// VirtualImageDefaultStorageClass specifies the default storage class for virtual images on PVC when none is specified.
+	VirtualImageDefaultStorageClass = "VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS"
+	// VirtualImageAllowedStorageClasses is a parameter that lists all allowed storage classes for virtual images on PVC.
+	VirtualImageAllowedStorageClasses = "VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES"
 )
 
 type VirtualImageStorageClassSettings struct {
@@ -31,14 +38,14 @@ type VirtualImageStorageClassSettings struct {
 
 func LoadVirtualImageStorageClassSettings() VirtualImageStorageClassSettings {
 	var allowedStorageClassNames []string
-	allowedStorageClassNamesRaw := os.Getenv(common.VirtualImageAllowedStorageClasses)
+	allowedStorageClassNamesRaw := os.Getenv(VirtualImageAllowedStorageClasses)
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}
 
 	return VirtualImageStorageClassSettings{
 		AllowedStorageClassNames: allowedStorageClassNames,
-		DefaultStorageClassName:  os.Getenv(common.VirtualImageDefaultStorageClass),
-		StorageClassName:         os.Getenv(common.VirtualImageStorageClass),
+		DefaultStorageClassName:  os.Getenv(VirtualImageDefaultStorageClass),
+		StorageClassName:         os.Getenv(VirtualImageStorageClass),
 	}
 }
