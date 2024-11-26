@@ -1,0 +1,10 @@
+module: virtualization
+namespace: d8-virtualization
+scopes:
+  - virtualization
+crds:
+  - crds/*.yaml
+allowedResources:
+  - group: virtualization.deckhouse.io
+    resources:
+      - all

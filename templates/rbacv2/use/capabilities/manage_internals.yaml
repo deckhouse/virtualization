@@ -1,0 +1,39 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/aggregate-to-role: super_admin # TODO ???
+    rbac.deckhouse.io/kind: use
+  name: d8:use:capability:module:virtualization:manage_internals
+rules:
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationdatavolumes
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+  - get
+  - list
+  - watch
+- apiGroups:
+  - internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationvirtualmachineinstancemigrations
+  - internalvirtualizationvirtualmachineinstances
+  - internalvirtualizationvirtualmachines
+  verbs:
+  - create
+  - update
+  - patch
+  - delete
+  - deletecollection
+  - get
+  - list
+  - watch

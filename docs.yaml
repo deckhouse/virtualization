@@ -1,0 +1,99 @@
+modules:
+  virtualization:
+    capabilities:
+      manage:
+      - name: d8:manage:capability:module:virtualization:view
+        rules:
+        - apiGroups:
+          - virtualization.deckhouse.io
+          resources:
+          - clustervirtualimages
+          - virtualmachineclasses
+          - virtualmachineipaddressleases
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - deckhouse.io
+          resourceNames:
+          - virtualization
+          resources:
+          - moduleconfigs
+          verbs:
+          - get
+          - list
+          - watch
+      - name: d8:manage:capability:module:virtualization:edit
+        rules:
+        - apiGroups:
+          - virtualization.deckhouse.io
+          resources:
+          - clustervirtualimages
+          - virtualmachineclasses
+          - virtualmachineipaddressleases
+          verbs:
+          - create
+          - update
+          - patch
+          - delete
+          - deletecollection
+        - apiGroups:
+          - deckhouse.io
+          resourceNames:
+          - virtualization
+          resources:
+          - moduleconfigs
+          verbs:
+          - create
+          - update
+          - patch
+          - delete
+      use:
+      - name: d8:use:capability:module:virtualization:view
+        rules:
+        - apiGroups:
+          - virtualization.deckhouse.io
+          resources:
+          - virtualdisks
+          - virtualdisksnapshots
+          - virtualimages
+          - virtualmachineblockdeviceattachments
+          - virtualmachineipaddresses
+          - virtualmachineoperations
+          - virtualmachinerestores
+          - virtualmachines
+          - virtualmachinesnapshots
+          verbs:
+          - get
+          - list
+          - watch
+      - name: d8:use:capability:module:virtualization:edit
+        rules:
+        - apiGroups:
+          - virtualization.deckhouse.io
+          resources:
+          - virtualdisks
+          - virtualdisksnapshots
+          - virtualimages
+          - virtualmachineblockdeviceattachments
+          - virtualmachineipaddresses
+          - virtualmachineoperations
+          - virtualmachinerestores
+          - virtualmachines
+          - virtualmachinesnapshots
+          verbs:
+          - create
+          - update
+          - patch
+          - delete
+          - deletecollection
+    namespace: d8-virtualization
+    scopes:
+    - virtualization
+scopes:
+  virtualization:
+    modules:
+    - virtualization
+    namespaces:
+    - d8-virtualization
