@@ -5,11 +5,11 @@ metadata:
   labels:
     heritage: deckhouse
     module: virtualization
-    rbac.deckhouse.io/aggregate-to-virtualization-as: disaster_admin
+    rbac.deckhouse.io/aggregate-to-virtualization-as: disaster-admin
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-virtualization
-  name: d8:manage:capability:virtualization:disaster_admin
+  name: d8:manage:capability:virtualization:disaster-admin
 rules:
 - apiGroups:
   - cdi.internal.virtualization.deckhouse.io
