@@ -48,10 +48,11 @@ func (r Reason) String() string {
 }
 
 const (
+	ReasonAgentReady    Reason = "AgentReady"
 	ReasonAgentNotReady Reason = "AgentNotReady"
 
-	ReasonAgentSupported    Reason = "AgentSupported"
-	ReasonAgentNotSupported Reason = "AgentNotSupported"
+	ReasonAgentSupported    Reason = "AgentVersionSupported"
+	ReasonAgentNotSupported Reason = "AgentVersionNotSupported"
 
 	ReasonClassReady    Reason = "VirtualMachineClassReady"
 	ReasonClassNotReady Reason = "VirtualMachineClassNotReady"

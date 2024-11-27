@@ -90,14 +90,16 @@ func (h *AgentHandler) syncAgentReady(vm *virtv2.VirtualMachine, kvvmi *virtv1.V
 	}
 
 	for _, c := range kvvmi.Status.Conditions {
-		// TODO: wrap kvvmi reasons
 		if c.Type == virtv1.VirtualMachineInstanceAgentConnected {
 			status := conditionStatus(string(c.Status))
-			//nolint:staticcheck
-			cb.Status(status).Reason(conditions.DeprecatedWrappedString(c.Reason))
-			if status != metav1.ConditionTrue {
-				cb.Message(c.Message)
+
+			switch status {
+			case metav1.ConditionTrue:
+				cb.Status(status).Reason(vmcondition.ReasonAgentReady).Message(c.Message)
+			case metav1.ConditionFalse:
+				cb.Status(status).Reason(vmcondition.ReasonAgentNotReady).Message(c.Message)
 			}
+
 			return
 		}
 	}
@@ -124,20 +126,12 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 	}
 
 	for _, c := range kvvmi.Status.Conditions {
-		if c.Type == virtv1.VirtualMachineInstanceUnsupportedAgent {
-			status := conditionStatus(string(c.Status))
-			switch status {
-			case metav1.ConditionTrue:
-				cb.Status(status).Reason(vmcondition.ReasonAgentSupported).Message(c.Reason)
-			case metav1.ConditionFalse:
-				cb.Status(status).Reason(vmcondition.ReasonAgentNotSupported).Message(c.Reason)
-			}
-
+		status := conditionStatus(string(c.Status))
+		if c.Type == virtv1.VirtualMachineInstanceUnsupportedAgent && status == metav1.ConditionTrue {
+			cb.Status(status).Reason(vmcondition.ReasonAgentNotSupported).Message(c.Reason)
 			return
 		}
 	}
 
-	cb.Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonAgentNotReady).
-		Message("Failed to connect to VM Agent.")
+	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonAgentSupported)
 }
