@@ -352,7 +352,7 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 		}
 
 		//nolint:staticcheck
-		vdSnapshotReady, _ := conditions.GetCondition(conditions.DeprecatedWrappedString(vdscondition.VirtualDiskSnapshotReadyType), vdSnapshot.Status.Conditions)
+		vdSnapshotReady, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 		if vdSnapshotReady.Reason == vdscondition.VirtualDiskSnapshotFailed.String() || vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseFailed {
 			return nil, fmt.Errorf("the virtual disk snapshot %q is failed: %w. %s", vdSnapshot.Name, ErrCannotTakeSnapshot, vdSnapshotReady.Message)
 		}
@@ -450,13 +450,13 @@ func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *
 		}
 
 		//nolint:staticcheck
-		ready, _ := conditions.GetCondition(conditions.DeprecatedWrappedString(vdcondition.ReadyType), vd.Status.Conditions)
+		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		if ready.Status != metav1.ConditionTrue {
 			return fmt.Errorf("%w: waiting for the Ready condition of the virtual disk %q to be True", ErrVirtualDiskResizing, vd.Name)
 		}
 
 		//nolint:staticcheck
-		resizingReady, _ := conditions.GetCondition(conditions.DeprecatedWrappedString(vdcondition.ResizedType), vd.Status.Conditions)
+		resizingReady, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		if resizingReady.Reason == vdcondition.InProgress.String() {
 			return fmt.Errorf("%w: waiting for the virtual disk %q to be resized", ErrVirtualDiskResizing, vd.Name)
 		}
